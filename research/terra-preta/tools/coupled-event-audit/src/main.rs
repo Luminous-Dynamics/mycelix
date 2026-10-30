@@ -14,7 +14,10 @@ const MG_PER_KG_TO_KG: f64 = 1_000_000.0;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Interval { start: String, end: String }
+struct Interval {
+    start: String,
+    end: String,
+}
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -27,15 +30,28 @@ struct ControlVolume {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum MeasurementStatus { Measured, Estimated, Modelled }
+enum MeasurementStatus {
+    Measured,
+    Estimated,
+    Modelled,
+}
 
 impl MeasurementStatus {
-    fn measured(self) -> bool { matches!(self, Self::Measured) }
+    fn measured(self) -> bool {
+        matches!(self, Self::Measured)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum InputCategory { Precipitation, Irrigation, Runon, LateralInflow, CapillaryRise, OtherDeclared }
+enum InputCategory {
+    Precipitation,
+    Irrigation,
+    Runon,
+    LateralInflow,
+    CapillaryRise,
+    OtherDeclared,
+}
 
 impl InputCategory {
     fn as_str(self) -> &'static str {
@@ -52,7 +68,13 @@ impl InputCategory {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum OutputCategory { Evapotranspiration, Runoff, LowerBoundaryDrainage, LateralOutflow, OtherDeclared }
+enum OutputCategory {
+    Evapotranspiration,
+    Runoff,
+    LowerBoundaryDrainage,
+    LateralOutflow,
+    OtherDeclared,
+}
 
 impl OutputCategory {
     fn as_str(self) -> &'static str {
@@ -68,22 +90,42 @@ impl OutputCategory {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum WaterDepthStatus { Measured, Estimated, Modelled, Missing }
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum SamplingDesign { FlowWeightedComposite, EventIntegratedTimeSeries, GrabSample, SpotSample }
-
-impl SamplingDesign {
-    fn integrated(self) -> bool {
-        matches!(self, Self::FlowWeightedComposite | Self::EventIntegratedTimeSeries)
-    }
-    fn spot(self) -> bool { matches!(self, Self::GrabSample | Self::SpotSample) }
+enum WaterDepthStatus {
+    Measured,
+    Estimated,
+    Modelled,
+    Missing,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum FluxStatus { MeasuredQualified, Estimated, ConcentrationOnly, Unqualified }
+enum SamplingDesign {
+    FlowWeightedComposite,
+    EventIntegratedTimeSeries,
+    GrabSample,
+    SpotSample,
+}
+
+impl SamplingDesign {
+    fn integrated(self) -> bool {
+        matches!(
+            self,
+            Self::FlowWeightedComposite | Self::EventIntegratedTimeSeries
+        )
+    }
+    fn spot(self) -> bool {
+        matches!(self, Self::GrabSample | Self::SpotSample)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum FluxStatus {
+    MeasuredQualified,
+    Estimated,
+    ConcentrationOnly,
+    Unqualified,
+}
 
 impl FluxStatus {
     fn as_str(self) -> &'static str {
@@ -98,23 +140,41 @@ impl FluxStatus {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum ParticulateFluxStatus { MeasuredQualified, Estimated, Unqualified }
+enum ParticulateFluxStatus {
+    MeasuredQualified,
+    Estimated,
+    Unqualified,
+}
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum Element { N, P, K }
+enum Element {
+    N,
+    P,
+    K,
+}
 
 impl Element {
     fn as_str(self) -> &'static str {
-        match self { Self::N => "N", Self::P => "P", Self::K => "K" }
+        match self {
+            Self::N => "N",
+            Self::P => "P",
+            Self::K => "K",
+        }
     }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum DissolvedAnalyte {
-    NitrateN, AmmoniumN, DissolvedOrganicN, TotalDissolvedN,
-    DissolvedReactiveP, DissolvedOrganicP, DissolvedK, OtherDeclared,
+    NitrateN,
+    AmmoniumN,
+    DissolvedOrganicN,
+    TotalDissolvedN,
+    DissolvedReactiveP,
+    DissolvedOrganicP,
+    DissolvedK,
+    OtherDeclared,
 }
 
 impl DissolvedAnalyte {
@@ -132,7 +192,9 @@ impl DissolvedAnalyte {
     }
     fn matches_element(self, element: Element) -> bool {
         match self {
-            Self::NitrateN | Self::AmmoniumN | Self::DissolvedOrganicN | Self::TotalDissolvedN => matches!(element, Element::N),
+            Self::NitrateN | Self::AmmoniumN | Self::DissolvedOrganicN | Self::TotalDissolvedN => {
+                matches!(element, Element::N)
+            }
             Self::DissolvedReactiveP | Self::DissolvedOrganicP => matches!(element, Element::P),
             Self::DissolvedK => matches!(element, Element::K),
             Self::OtherDeclared => true,
@@ -142,7 +204,12 @@ impl DissolvedAnalyte {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum ParticulateAnalyte { ParticulateN, ParticulateP, ParticulateK, OtherDeclared }
+enum ParticulateAnalyte {
+    ParticulateN,
+    ParticulateP,
+    ParticulateK,
+    OtherDeclared,
+}
 
 impl ParticulateAnalyte {
     fn as_str(self) -> &'static str {
@@ -165,7 +232,11 @@ impl ParticulateAnalyte {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum CoverageStatus { ReviewedComplete, ReviewedIncomplete, Unknown }
+enum CoverageStatus {
+    ReviewedComplete,
+    ReviewedIncomplete,
+    Unknown,
+}
 
 impl CoverageStatus {
     fn as_str(self) -> &'static str {
@@ -175,173 +246,292 @@ impl CoverageStatus {
             Self::Unknown => "unknown",
         }
     }
-    fn complete(self) -> bool { matches!(self, Self::ReviewedComplete) }
+    fn complete(self) -> bool {
+        matches!(self, Self::ReviewedComplete)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum PreferentialFlowClass { Corroborated, SensorSignatureOnly, Indeterminate, NotDetected }
+enum PreferentialFlowClass {
+    Corroborated,
+    SensorSignatureOnly,
+    Indeterminate,
+    NotDetected,
+}
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum ReferenceMethod { DyeTracer, ConservativeSoluteTracer, StableIsotope, Geophysical, WaterTable, None, OtherDeclared }
+enum ReferenceMethod {
+    DyeTracer,
+    ConservativeSoluteTracer,
+    StableIsotope,
+    Geophysical,
+    WaterTable,
+    None,
+    OtherDeclared,
+}
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum SedimentStatus { Measured, Estimated, Missing }
+enum SedimentStatus {
+    Measured,
+    Estimated,
+    Missing,
+}
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct WaterInput {
-    flow_id: String, category: InputCategory, interval: Interval,
-    volume_depth_mm: f64, measurement_status: MeasurementStatus,
-    standard_uncertainty_mm: Option<f64>, method: String, evidence_ref: String,
+    flow_id: String,
+    category: InputCategory,
+    interval: Interval,
+    volume_depth_mm: f64,
+    measurement_status: MeasurementStatus,
+    standard_uncertainty_mm: Option<f64>,
+    method: String,
+    evidence_ref: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct WaterOutput {
-    flow_id: String, category: OutputCategory, interval: Interval,
-    volume_depth_mm: f64, measurement_status: MeasurementStatus,
-    standard_uncertainty_mm: Option<f64>, method: String, evidence_ref: String,
+    flow_id: String,
+    category: OutputCategory,
+    interval: Interval,
+    volume_depth_mm: f64,
+    measurement_status: MeasurementStatus,
+    standard_uncertainty_mm: Option<f64>,
+    method: String,
+    evidence_ref: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StorageChange {
-    change_mm: f64, measurement_status: MeasurementStatus,
-    standard_uncertainty_mm: Option<f64>, method: String, evidence_ref: String,
+    change_mm: f64,
+    measurement_status: MeasurementStatus,
+    standard_uncertainty_mm: Option<f64>,
+    method: String,
+    evidence_ref: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MoistureObservation {
-    sensor_id: String, location_id: String, timestamp: String, depth_cm: f64,
-    volumetric_water_content_m3_m3: f64, matric_potential_kpa: Option<f64>,
-    standard_uncertainty_m3_m3: Option<f64>, method: String, calibration_ref: String,
+    sensor_id: String,
+    location_id: String,
+    timestamp: String,
+    depth_cm: f64,
+    volumetric_water_content_m3_m3: f64,
+    matric_potential_kpa: Option<f64>,
+    standard_uncertainty_m3_m3: Option<f64>,
+    method: String,
+    calibration_ref: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DissolvedExport {
-    flux_id: String, pathway: String, element: Element, analyte: DissolvedAnalyte,
-    interval: Interval, concentration_mg_element_per_l: f64,
+    flux_id: String,
+    pathway: String,
+    element: Element,
+    analyte: DissolvedAnalyte,
+    interval: Interval,
+    concentration_mg_element_per_l: f64,
     concentration_standard_uncertainty_mg_element_per_l: Option<f64>,
-    concentration_sampling_design: SamplingDesign, water_depth_mm: Option<f64>,
-    water_depth_status: WaterDepthStatus, water_depth_standard_uncertainty_mm: Option<f64>,
-    collection_coverage_fraction: f64, mass_flux_status: FluxStatus,
-    method: String, evidence_ref: String,
+    concentration_sampling_design: SamplingDesign,
+    water_depth_mm: Option<f64>,
+    water_depth_status: WaterDepthStatus,
+    water_depth_standard_uncertainty_mm: Option<f64>,
+    collection_coverage_fraction: f64,
+    mass_flux_status: FluxStatus,
+    method: String,
+    evidence_ref: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ParticulateExport {
-    flux_id: String, pathway: String, element: Element, analyte: ParticulateAnalyte,
-    interval: Interval, sediment_export_kg_dry_per_ha: Option<f64>,
-    sediment_measurement_status: SedimentStatus, sediment_standard_uncertainty_kg_dry_per_ha: Option<f64>,
+    flux_id: String,
+    pathway: String,
+    element: Element,
+    analyte: ParticulateAnalyte,
+    interval: Interval,
+    sediment_export_kg_dry_per_ha: Option<f64>,
+    sediment_measurement_status: SedimentStatus,
+    sediment_standard_uncertainty_kg_dry_per_ha: Option<f64>,
     concentration_mg_element_per_kg_dry_sediment: Option<f64>,
     concentration_standard_uncertainty_mg_element_per_kg_dry_sediment: Option<f64>,
-    collection_coverage_fraction: f64, mass_flux_status: ParticulateFluxStatus,
-    method: String, evidence_ref: String,
+    collection_coverage_fraction: f64,
+    mass_flux_status: ParticulateFluxStatus,
+    method: String,
+    evidence_ref: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PreferentialFlowAssessment {
-    assessment_id: String, classification: PreferentialFlowClass,
-    sensor_signature: String, sensor_ids: Vec<String>, reference_method: ReferenceMethod,
-    reference_evidence_ref: Option<String>, method: String, evidence_ref: String,
+    assessment_id: String,
+    classification: PreferentialFlowClass,
+    sensor_signature: String,
+    sensor_ids: Vec<String>,
+    reference_method: ReferenceMethod,
+    reference_evidence_ref: Option<String>,
+    method: String,
+    evidence_ref: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct UnmeasuredPathway { pathway: String, reason: String }
+struct UnmeasuredPathway {
+    pathway: String,
+    reason: String,
+}
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CoverageReview {
-    coverage_status: CoverageStatus, review_ref: String, unmeasured_pathways: Vec<UnmeasuredPathway>,
+    coverage_status: CoverageStatus,
+    review_ref: String,
+    unmeasured_pathways: Vec<UnmeasuredPathway>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EventInput {
-    schema_version: String, event_id: String, study_id: String, site_id: String,
-    experimental_unit_id: String, treatment_arm_id: String, comparator_arm_id: String,
-    event_interval: Interval, control_volume: ControlVolume,
-    water_inputs: Vec<WaterInput>, water_outputs: Vec<WaterOutput>,
-    soil_water_storage_change: StorageChange, soil_moisture_observations: Vec<MoistureObservation>,
-    dissolved_exports: Vec<DissolvedExport>, particulate_exports: Vec<ParticulateExport>,
+    schema_version: String,
+    event_id: String,
+    study_id: String,
+    site_id: String,
+    experimental_unit_id: String,
+    treatment_arm_id: String,
+    comparator_arm_id: String,
+    event_interval: Interval,
+    control_volume: ControlVolume,
+    water_inputs: Vec<WaterInput>,
+    water_outputs: Vec<WaterOutput>,
+    soil_water_storage_change: StorageChange,
+    soil_moisture_observations: Vec<MoistureObservation>,
+    dissolved_exports: Vec<DissolvedExport>,
+    particulate_exports: Vec<ParticulateExport>,
     preferential_flow_assessments: Vec<PreferentialFlowAssessment>,
-    water_balance_review: CoverageReview, solute_flux_review: CoverageReview,
-    source_sha256: String, source_evidence_ref: Option<String>,
-    #[serde(default)] warnings: Vec<String>,
+    water_balance_review: CoverageReview,
+    solute_flux_review: CoverageReview,
+    source_sha256: String,
+    source_evidence_ref: Option<String>,
+    #[serde(default)]
+    warnings: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct PathwaySummary { category: String, count: usize, volume_depth_mm: f64 }
+struct PathwaySummary {
+    category: String,
+    count: usize,
+    volume_depth_mm: f64,
+}
 
 #[derive(Clone, Debug, Serialize)]
 struct ExportAudit {
-    flux_id: String, pathway: String, element: String, analyte: String, mass_status: String,
-    mass_kg_element_per_ha: Option<f64>, plot_mass_kg_element: Option<f64>,
-    first_order_linear_uncertainty_bound_kg_element_per_ha: Option<f64>, note: String,
+    flux_id: String,
+    pathway: String,
+    element: String,
+    analyte: String,
+    mass_status: String,
+    mass_kg_element_per_ha: Option<f64>,
+    plot_mass_kg_element: Option<f64>,
+    first_order_linear_uncertainty_bound_kg_element_per_ha: Option<f64>,
+    note: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
 struct WaterBalanceAudit {
-    status: String, input_total_mm: f64, output_total_mm: f64, storage_change_mm: f64,
-    residual_mm: f64, conservative_linear_standard_uncertainty_bound_mm: Option<f64>,
-    input_pathways: Vec<PathwaySummary>, output_pathways: Vec<PathwaySummary>,
+    status: String,
+    input_total_mm: f64,
+    output_total_mm: f64,
+    storage_change_mm: f64,
+    residual_mm: f64,
+    conservative_linear_standard_uncertainty_bound_mm: Option<f64>,
+    input_pathways: Vec<PathwaySummary>,
+    output_pathways: Vec<PathwaySummary>,
     unmeasured_pathways: Vec<UnmeasuredPathway>,
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct CoverageAudit { status: String, unmeasured_pathways: Vec<UnmeasuredPathway> }
+struct CoverageAudit {
+    status: String,
+    unmeasured_pathways: Vec<UnmeasuredPathway>,
+}
 
 #[derive(Clone, Debug, Serialize)]
 struct FlowCounts {
-    water_inputs: usize, water_outputs: usize, soil_moisture_observations: usize,
-    dissolved_exports: usize, particulate_exports: usize, preferential_flow_assessments: usize,
+    water_inputs: usize,
+    water_outputs: usize,
+    soil_moisture_observations: usize,
+    dissolved_exports: usize,
+    particulate_exports: usize,
+    preferential_flow_assessments: usize,
 }
 
 #[derive(Clone, Debug, Serialize)]
 struct EventAuditReport {
-    audit_version: &'static str, event_id: String, input_sha256: String, source_sha256: String,
-    control_volume_area_ha: f64, water_balance: WaterBalanceAudit, solute_coverage: CoverageAudit,
-    dissolved_export_audits: Vec<ExportAudit>, particulate_export_audits: Vec<ExportAudit>,
-    flow_counts: FlowCounts, warnings: Vec<String>, interpretation_boundary: &'static str,
+    audit_version: &'static str,
+    event_id: String,
+    input_sha256: String,
+    source_sha256: String,
+    control_volume_area_ha: f64,
+    water_balance: WaterBalanceAudit,
+    solute_coverage: CoverageAudit,
+    dissolved_export_audits: Vec<ExportAudit>,
+    particulate_export_audits: Vec<ExportAudit>,
+    flow_counts: FlowCounts,
+    warnings: Vec<String>,
+    interpretation_boundary: &'static str,
 }
 
 fn nonblank(value: &str, context: &str) -> Result<(), String> {
-    if value.trim().is_empty() { return Err(format!("{context} must not be blank")); }
+    if value.trim().is_empty() {
+        return Err(format!("{context} must not be blank"));
+    }
     Ok(())
 }
 
 fn finite_nonnegative(value: f64, context: &str) -> Result<(), String> {
-    if !value.is_finite() || value < 0.0 { return Err(format!("{context} must be finite and non-negative")); }
+    if !value.is_finite() || value < 0.0 {
+        return Err(format!("{context} must be finite and non-negative"));
+    }
     Ok(())
 }
 
 fn validate_optional(value: Option<f64>, context: &str) -> Result<(), String> {
-    if let Some(number) = value { finite_nonnegative(number, context)?; }
+    if let Some(number) = value {
+        finite_nonnegative(number, context)?;
+    }
     Ok(())
 }
 
 fn checked_product(a: f64, b: f64, context: &str) -> Result<f64, String> {
     let result = a * b;
-    if !result.is_finite() { return Err(format!("{context} overflowed or became non-finite")); }
+    if !result.is_finite() {
+        return Err(format!("{context} overflowed or became non-finite"));
+    }
     Ok(result)
 }
 
 fn parse_timestamp(value: &str, context: &str) -> Result<DateTime<FixedOffset>, String> {
-    DateTime::parse_from_rfc3339(value).map_err(|error| format!("{context} is not valid RFC3339: {error}"))
+    DateTime::parse_from_rfc3339(value)
+        .map_err(|error| format!("{context} is not valid RFC3339: {error}"))
 }
 
-fn parse_interval(interval: &Interval, context: &str) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffset>), String> {
+fn parse_interval(
+    interval: &Interval,
+    context: &str,
+) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffset>), String> {
     let start = parse_timestamp(&interval.start, &format!("{context} start"))?;
     let end = parse_timestamp(&interval.end, &format!("{context} end"))?;
-    if start >= end { return Err(format!("{context} end must be after start")); }
+    if start >= end {
+        return Err(format!("{context} end must be after start"));
+    }
     Ok((start, end))
 }
 
@@ -349,7 +539,9 @@ fn check_child(parent: &Interval, child: &Interval, context: &str) -> Result<(),
     let (parent_start, parent_end) = parse_interval(parent, "event interval")?;
     let (child_start, child_end) = parse_interval(child, context)?;
     if child_start < parent_start || child_end > parent_end {
-        return Err(format!("{context} must be contained within the event interval"));
+        return Err(format!(
+            "{context} must be contained within the event interval"
+        ));
     }
     Ok(())
 }
@@ -357,36 +549,74 @@ fn check_child(parent: &Interval, child: &Interval, context: &str) -> Result<(),
 fn check_review(review: &CoverageReview, context: &str) -> Result<(), String> {
     nonblank(&review.review_ref, &format!("{context} review_ref"))?;
     if review.coverage_status.complete() && !review.unmeasured_pathways.is_empty() {
-        return Err(format!("{context} declares complete coverage while listing unmeasured pathways"));
+        return Err(format!(
+            "{context} declares complete coverage while listing unmeasured pathways"
+        ));
     }
-    if matches!(review.coverage_status, CoverageStatus::ReviewedIncomplete) && review.unmeasured_pathways.is_empty() {
-        return Err(format!("{context} declares incomplete coverage without naming unmeasured pathways"));
+    if matches!(review.coverage_status, CoverageStatus::ReviewedIncomplete)
+        && review.unmeasured_pathways.is_empty()
+    {
+        return Err(format!(
+            "{context} declares incomplete coverage without naming unmeasured pathways"
+        ));
     }
     for pathway in &review.unmeasured_pathways {
         nonblank(&pathway.pathway, &format!("{context} unmeasured pathway"))?;
-        nonblank(&pathway.reason, &format!("{context} unmeasured pathway reason"))?;
+        nonblank(
+            &pathway.reason,
+            &format!("{context} unmeasured pathway reason"),
+        )?;
     }
     Ok(())
 }
 
 fn validate_input(input: &EventInput) -> Result<(), String> {
-    if input.schema_version != "0.1.0" { return Err(format!("unsupported schema version {:?}", input.schema_version)); }
+    if input.schema_version != "0.1.0" {
+        return Err(format!(
+            "unsupported schema version {:?}",
+            input.schema_version
+        ));
+    }
     for (value, label) in [
-        (&input.event_id, "event_id"), (&input.study_id, "study_id"), (&input.site_id, "site_id"),
-        (&input.experimental_unit_id, "experimental_unit_id"), (&input.treatment_arm_id, "treatment_arm_id"),
-        (&input.comparator_arm_id, "comparator_arm_id"), (&input.control_volume.boundary_description, "boundary_description"),
-    ] { nonblank(value, label)?; }
+        (&input.event_id, "event_id"),
+        (&input.study_id, "study_id"),
+        (&input.site_id, "site_id"),
+        (&input.experimental_unit_id, "experimental_unit_id"),
+        (&input.treatment_arm_id, "treatment_arm_id"),
+        (&input.comparator_arm_id, "comparator_arm_id"),
+        (
+            &input.control_volume.boundary_description,
+            "boundary_description",
+        ),
+    ] {
+        nonblank(value, label)?;
+    }
 
-    if input.source_sha256.len() != 64 || !input.source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+    if input.source_sha256.len() != 64
+        || !input
+            .source_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
         return Err("source_sha256 must contain exactly 64 hexadecimal characters".to_owned());
     }
-    if let Some(reference) = &input.source_evidence_ref { nonblank(reference, "source_evidence_ref")?; }
+    if let Some(reference) = &input.source_evidence_ref {
+        nonblank(reference, "source_evidence_ref")?;
+    }
 
     let (event_start, event_end) = parse_interval(&input.event_interval, "event interval")?;
     finite_nonnegative(input.control_volume.area_ha, "control-volume area")?;
-    if input.control_volume.area_ha <= 0.0 { return Err("control-volume area must be greater than zero".to_owned()); }
-    finite_nonnegative(input.control_volume.top_depth_cm, "control-volume top depth")?;
-    finite_nonnegative(input.control_volume.bottom_depth_cm, "control-volume bottom depth")?;
+    if input.control_volume.area_ha <= 0.0 {
+        return Err("control-volume area must be greater than zero".to_owned());
+    }
+    finite_nonnegative(
+        input.control_volume.top_depth_cm,
+        "control-volume top depth",
+    )?;
+    finite_nonnegative(
+        input.control_volume.bottom_depth_cm,
+        "control-volume bottom depth",
+    )?;
     if input.control_volume.bottom_depth_cm <= input.control_volume.top_depth_cm {
         return Err("control-volume bottom depth must exceed top depth".to_owned());
     }
@@ -394,8 +624,14 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
     let mut water_ids = HashSet::new();
     for flow in &input.water_inputs {
         nonblank(&flow.flow_id, "water input flow_id")?;
-        if !water_ids.insert(flow.flow_id.as_str()) { return Err(format!("duplicate water flow_id {:?}", flow.flow_id)); }
-        check_child(&input.event_interval, &flow.interval, "water input interval")?;
+        if !water_ids.insert(flow.flow_id.as_str()) {
+            return Err(format!("duplicate water flow_id {:?}", flow.flow_id));
+        }
+        check_child(
+            &input.event_interval,
+            &flow.interval,
+            "water input interval",
+        )?;
         finite_nonnegative(flow.volume_depth_mm, "water input depth")?;
         validate_optional(flow.standard_uncertainty_mm, "water input uncertainty")?;
         nonblank(&flow.method, "water input method")?;
@@ -404,8 +640,14 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
     }
     for flow in &input.water_outputs {
         nonblank(&flow.flow_id, "water output flow_id")?;
-        if !water_ids.insert(flow.flow_id.as_str()) { return Err(format!("duplicate water flow_id {:?}", flow.flow_id)); }
-        check_child(&input.event_interval, &flow.interval, "water output interval")?;
+        if !water_ids.insert(flow.flow_id.as_str()) {
+            return Err(format!("duplicate water flow_id {:?}", flow.flow_id));
+        }
+        check_child(
+            &input.event_interval,
+            &flow.interval,
+            "water output interval",
+        )?;
         finite_nonnegative(flow.volume_depth_mm, "water output depth")?;
         validate_optional(flow.standard_uncertainty_mm, "water output uncertainty")?;
         nonblank(&flow.method, "water output method")?;
@@ -413,10 +655,21 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
         let _ = flow.category.as_str();
     }
 
-    if !input.soil_water_storage_change.change_mm.is_finite() { return Err("storage change must be finite".to_owned()); }
-    validate_optional(input.soil_water_storage_change.standard_uncertainty_mm, "storage-change uncertainty")?;
-    nonblank(&input.soil_water_storage_change.method, "storage-change method")?;
-    nonblank(&input.soil_water_storage_change.evidence_ref, "storage-change evidence_ref")?;
+    if !input.soil_water_storage_change.change_mm.is_finite() {
+        return Err("storage change must be finite".to_owned());
+    }
+    validate_optional(
+        input.soil_water_storage_change.standard_uncertainty_mm,
+        "storage-change uncertainty",
+    )?;
+    nonblank(
+        &input.soil_water_storage_change.method,
+        "storage-change method",
+    )?;
+    nonblank(
+        &input.soil_water_storage_change.evidence_ref,
+        "storage-change evidence_ref",
+    )?;
 
     let mut sensors = BTreeMap::<&str, HashSet<u64>>::new();
     for observation in &input.soil_moisture_observations {
@@ -425,37 +678,72 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
         nonblank(&observation.method, "sensor method")?;
         nonblank(&observation.calibration_ref, "sensor calibration_ref")?;
         let timestamp = parse_timestamp(&observation.timestamp, "sensor timestamp")?;
-        if timestamp < event_start || timestamp > event_end { return Err("sensor timestamp lies outside event interval".to_owned()); }
+        if timestamp < event_start || timestamp > event_end {
+            return Err("sensor timestamp lies outside event interval".to_owned());
+        }
         finite_nonnegative(observation.depth_cm, "sensor depth")?;
-        if observation.depth_cm < input.control_volume.top_depth_cm || observation.depth_cm > input.control_volume.bottom_depth_cm {
+        if observation.depth_cm < input.control_volume.top_depth_cm
+            || observation.depth_cm > input.control_volume.bottom_depth_cm
+        {
             return Err("sensor depth lies outside the control volume".to_owned());
         }
         if !observation.volumetric_water_content_m3_m3.is_finite()
-            || !(0.0..=1.0).contains(&observation.volumetric_water_content_m3_m3) {
+            || !(0.0..=1.0).contains(&observation.volumetric_water_content_m3_m3)
+        {
             return Err("volumetric water content must lie in [0, 1]".to_owned());
         }
         validate_optional(observation.standard_uncertainty_m3_m3, "sensor uncertainty")?;
-        if observation.matric_potential_kpa.is_some_and(|value| !value.is_finite()) {
+        if observation
+            .matric_potential_kpa
+            .is_some_and(|value| !value.is_finite())
+        {
             return Err("matric potential must be finite".to_owned());
         }
-        sensors.entry(observation.sensor_id.as_str()).or_default().insert(observation.depth_cm.to_bits());
+        sensors
+            .entry(observation.sensor_id.as_str())
+            .or_default()
+            .insert(observation.depth_cm.to_bits());
     }
 
     let mut flux_ids = HashSet::new();
     for export in &input.dissolved_exports {
         nonblank(&export.flux_id, "dissolved flux_id")?;
-        if !flux_ids.insert(export.flux_id.as_str()) { return Err(format!("duplicate nutrient flux_id {:?}", export.flux_id)); }
-        check_child(&input.event_interval, &export.interval, "dissolved export interval")?;
+        if !flux_ids.insert(export.flux_id.as_str()) {
+            return Err(format!("duplicate nutrient flux_id {:?}", export.flux_id));
+        }
+        check_child(
+            &input.event_interval,
+            &export.interval,
+            "dissolved export interval",
+        )?;
         nonblank(&export.method, "dissolved export method")?;
         nonblank(&export.evidence_ref, "dissolved export evidence_ref")?;
-        finite_nonnegative(export.concentration_mg_element_per_l, "dissolved concentration")?;
-        validate_optional(export.concentration_standard_uncertainty_mg_element_per_l, "concentration uncertainty")?;
+        finite_nonnegative(
+            export.concentration_mg_element_per_l,
+            "dissolved concentration",
+        )?;
+        validate_optional(
+            export.concentration_standard_uncertainty_mg_element_per_l,
+            "concentration uncertainty",
+        )?;
         validate_optional(export.water_depth_mm, "dissolved water depth")?;
-        validate_optional(export.water_depth_standard_uncertainty_mm, "dissolved water-depth uncertainty")?;
-        finite_nonnegative(export.collection_coverage_fraction, "dissolved collection coverage")?;
-        if export.collection_coverage_fraction > 1.0 { return Err("dissolved collection coverage exceeds one".to_owned()); }
+        validate_optional(
+            export.water_depth_standard_uncertainty_mm,
+            "dissolved water-depth uncertainty",
+        )?;
+        finite_nonnegative(
+            export.collection_coverage_fraction,
+            "dissolved collection coverage",
+        )?;
+        if export.collection_coverage_fraction > 1.0 {
+            return Err("dissolved collection coverage exceeds one".to_owned());
+        }
         if !export.analyte.matches_element(export.element) {
-            return Err(format!("dissolved analyte {} conflicts with element {}", export.analyte.as_str(), export.element.as_str()));
+            return Err(format!(
+                "dissolved analyte {} conflicts with element {}",
+                export.analyte.as_str(),
+                export.element.as_str()
+            ));
         }
         match export.mass_flux_status {
             FluxStatus::MeasuredQualified => {
@@ -464,21 +752,36 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
                     || !export.concentration_sampling_design.integrated()
                     || export.collection_coverage_fraction != 1.0
                     || export.water_depth_standard_uncertainty_mm.is_none()
-                    || export.concentration_standard_uncertainty_mg_element_per_l.is_none() {
-                    return Err(format!("dissolved flux {:?} lacks measured integrated water/concentration evidence, complete coverage or uncertainty", export.flux_id));
+                    || export
+                        .concentration_standard_uncertainty_mg_element_per_l
+                        .is_none()
+                {
+                    return Err(format!(
+                        "dissolved flux {:?} lacks measured integrated water/concentration evidence, complete coverage or uncertainty",
+                        export.flux_id
+                    ));
                 }
             }
             FluxStatus::Estimated => {
                 if matches!(export.water_depth_status, WaterDepthStatus::Missing)
                     || export.water_depth_mm.unwrap_or(0.0) <= 0.0
-                    || !export.concentration_sampling_design.integrated() {
-                    return Err(format!("estimated dissolved flux {:?} lacks a non-missing water-volume basis or integrated concentration", export.flux_id));
+                    || !export.concentration_sampling_design.integrated()
+                {
+                    return Err(format!(
+                        "estimated dissolved flux {:?} lacks a non-missing water-volume basis or integrated concentration",
+                        export.flux_id
+                    ));
                 }
             }
             FluxStatus::ConcentrationOnly => {
-                if export.water_depth_mm.is_some() || !matches!(export.water_depth_status, WaterDepthStatus::Missing)
-                    || !export.concentration_sampling_design.spot() {
-                    return Err(format!("concentration-only flux {:?} must not claim integrated water volume", export.flux_id));
+                if export.water_depth_mm.is_some()
+                    || !matches!(export.water_depth_status, WaterDepthStatus::Missing)
+                    || !export.concentration_sampling_design.spot()
+                {
+                    return Err(format!(
+                        "concentration-only flux {:?} must not claim integrated water volume",
+                        export.flux_id
+                    ));
                 }
             }
             FluxStatus::Unqualified => {}
@@ -487,35 +790,73 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
 
     for export in &input.particulate_exports {
         nonblank(&export.flux_id, "particulate flux_id")?;
-        if !flux_ids.insert(export.flux_id.as_str()) { return Err(format!("duplicate nutrient flux_id {:?}", export.flux_id)); }
-        check_child(&input.event_interval, &export.interval, "particulate export interval")?;
+        if !flux_ids.insert(export.flux_id.as_str()) {
+            return Err(format!("duplicate nutrient flux_id {:?}", export.flux_id));
+        }
+        check_child(
+            &input.event_interval,
+            &export.interval,
+            "particulate export interval",
+        )?;
         nonblank(&export.method, "particulate method")?;
         nonblank(&export.evidence_ref, "particulate evidence_ref")?;
-        finite_nonnegative(export.collection_coverage_fraction, "particulate collection coverage")?;
-        if export.collection_coverage_fraction > 1.0 { return Err("particulate collection coverage exceeds one".to_owned()); }
+        finite_nonnegative(
+            export.collection_coverage_fraction,
+            "particulate collection coverage",
+        )?;
+        if export.collection_coverage_fraction > 1.0 {
+            return Err("particulate collection coverage exceeds one".to_owned());
+        }
         validate_optional(export.sediment_export_kg_dry_per_ha, "sediment export")?;
-        validate_optional(export.sediment_standard_uncertainty_kg_dry_per_ha, "sediment uncertainty")?;
-        validate_optional(export.concentration_mg_element_per_kg_dry_sediment, "sediment concentration")?;
-        validate_optional(export.concentration_standard_uncertainty_mg_element_per_kg_dry_sediment, "sediment concentration uncertainty")?;
+        validate_optional(
+            export.sediment_standard_uncertainty_kg_dry_per_ha,
+            "sediment uncertainty",
+        )?;
+        validate_optional(
+            export.concentration_mg_element_per_kg_dry_sediment,
+            "sediment concentration",
+        )?;
+        validate_optional(
+            export.concentration_standard_uncertainty_mg_element_per_kg_dry_sediment,
+            "sediment concentration uncertainty",
+        )?;
         if !export.analyte.matches_element(export.element) {
-            return Err(format!("particulate analyte {} conflicts with element {}", export.analyte.as_str(), export.element.as_str()));
+            return Err(format!(
+                "particulate analyte {} conflicts with element {}",
+                export.analyte.as_str(),
+                export.element.as_str()
+            ));
         }
         match export.mass_flux_status {
             ParticulateFluxStatus::MeasuredQualified => {
                 if !matches!(export.sediment_measurement_status, SedimentStatus::Measured)
                     || export.sediment_export_kg_dry_per_ha.is_none()
-                    || export.concentration_mg_element_per_kg_dry_sediment.is_none()
+                    || export
+                        .concentration_mg_element_per_kg_dry_sediment
+                        .is_none()
                     || export.sediment_standard_uncertainty_kg_dry_per_ha.is_none()
-                    || export.concentration_standard_uncertainty_mg_element_per_kg_dry_sediment.is_none()
-                    || export.collection_coverage_fraction != 1.0 {
-                    return Err(format!("particulate flux {:?} lacks complete measured sediment mass, concentration, coverage or uncertainty", export.flux_id));
+                    || export
+                        .concentration_standard_uncertainty_mg_element_per_kg_dry_sediment
+                        .is_none()
+                    || export.collection_coverage_fraction != 1.0
+                {
+                    return Err(format!(
+                        "particulate flux {:?} lacks complete measured sediment mass, concentration, coverage or uncertainty",
+                        export.flux_id
+                    ));
                 }
             }
             ParticulateFluxStatus::Estimated => {
                 if matches!(export.sediment_measurement_status, SedimentStatus::Missing)
                     || export.sediment_export_kg_dry_per_ha.is_none()
-                    || export.concentration_mg_element_per_kg_dry_sediment.is_none() {
-                    return Err(format!("estimated particulate flux {:?} lacks sediment mass or concentration", export.flux_id));
+                    || export
+                        .concentration_mg_element_per_kg_dry_sediment
+                        .is_none()
+                {
+                    return Err(format!(
+                        "estimated particulate flux {:?} lacks sediment mass or concentration",
+                        export.flux_id
+                    ));
                 }
             }
             ParticulateFluxStatus::Unqualified => {}
@@ -525,26 +866,52 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
     let mut assessment_ids = HashSet::new();
     for assessment in &input.preferential_flow_assessments {
         nonblank(&assessment.assessment_id, "preferential-flow assessment_id")?;
-        if !assessment_ids.insert(assessment.assessment_id.as_str()) { return Err("duplicate preferential-flow assessment_id".to_owned()); }
-        nonblank(&assessment.sensor_signature, "preferential-flow sensor signature")?;
+        if !assessment_ids.insert(assessment.assessment_id.as_str()) {
+            return Err("duplicate preferential-flow assessment_id".to_owned());
+        }
+        nonblank(
+            &assessment.sensor_signature,
+            "preferential-flow sensor signature",
+        )?;
         nonblank(&assessment.method, "preferential-flow method")?;
         nonblank(&assessment.evidence_ref, "preferential-flow evidence_ref")?;
-        if assessment.sensor_ids.len() < 2 { return Err("preferential-flow assessment needs at least two sensors".to_owned()); }
+        if assessment.sensor_ids.len() < 2 {
+            return Err("preferential-flow assessment needs at least two sensors".to_owned());
+        }
         let mut unique_ids = HashSet::new();
         let mut unique_depths = HashSet::new();
         for id in &assessment.sensor_ids {
             nonblank(id, "preferential-flow sensor ID")?;
-            if !unique_ids.insert(id.as_str()) { return Err("duplicate sensor in preferential-flow assessment".to_owned()); }
+            if !unique_ids.insert(id.as_str()) {
+                return Err("duplicate sensor in preferential-flow assessment".to_owned());
+            }
             let Some(depths) = sensors.get(id.as_str()) else {
-                return Err(format!("preferential-flow sensor {:?} is absent from event observations", id));
+                return Err(format!(
+                    "preferential-flow sensor {:?} is absent from event observations",
+                    id
+                ));
             };
             unique_depths.extend(depths.iter().copied());
         }
-        if unique_depths.len() < 2 { return Err("preferential-flow assessment must reference at least two distinct observed depths".to_owned()); }
-        if matches!(assessment.classification, PreferentialFlowClass::Corroborated)
-            && (matches!(assessment.reference_method, ReferenceMethod::None)
-                || assessment.reference_evidence_ref.as_deref().map_or(true, str::is_empty)) {
-            return Err("corroborated preferential flow requires independent reference method and evidence".to_owned());
+        if unique_depths.len() < 2 {
+            return Err(
+                "preferential-flow assessment must reference at least two distinct observed depths"
+                    .to_owned(),
+            );
+        }
+        if matches!(
+            assessment.classification,
+            PreferentialFlowClass::Corroborated
+        ) && (matches!(assessment.reference_method, ReferenceMethod::None)
+            || assessment
+                .reference_evidence_ref
+                .as_deref()
+                .map_or(true, str::is_empty))
+        {
+            return Err(
+                "corroborated preferential flow requires independent reference method and evidence"
+                    .to_owned(),
+            );
         }
     }
 
@@ -556,9 +923,13 @@ fn validate_input(input: &EventInput) -> Result<(), String> {
 fn sum_checked(values: impl Iterator<Item = f64>, context: &str) -> Result<f64, String> {
     let mut total = 0.0;
     for value in values {
-        if !value.is_finite() { return Err(format!("{context} contains non-finite value")); }
+        if !value.is_finite() {
+            return Err(format!("{context} contains non-finite value"));
+        }
         total += value;
-        if !total.is_finite() { return Err(format!("{context} sum overflowed")); }
+        if !total.is_finite() {
+            return Err(format!("{context} sum overflowed"));
+        }
     }
     Ok(total)
 }
@@ -566,10 +937,14 @@ fn sum_checked(values: impl Iterator<Item = f64>, context: &str) -> Result<f64, 
 fn uncertainty_bound(values: impl Iterator<Item = Option<f64>>) -> Result<Option<f64>, String> {
     let mut total = 0.0;
     for value in values {
-        let Some(value) = value else { return Ok(None); };
+        let Some(value) = value else {
+            return Ok(None);
+        };
         finite_nonnegative(value, "standard uncertainty")?;
         total += value;
-        if !total.is_finite() { return Err("linear uncertainty sum overflowed".to_owned()); }
+        if !total.is_finite() {
+            return Err("linear uncertainty sum overflowed".to_owned());
+        }
     }
     Ok(Some(total))
 }
@@ -580,10 +955,18 @@ fn summarize_inputs(flows: &[WaterInput]) -> Result<Vec<PathwaySummary>, String>
         let item = values.entry(flow.category.as_str()).or_insert((0, 0.0));
         item.0 += 1;
         item.1 += flow.volume_depth_mm;
-        if !item.1.is_finite() { return Err("water input category sum overflowed".to_owned()); }
+        if !item.1.is_finite() {
+            return Err("water input category sum overflowed".to_owned());
+        }
     }
-    Ok(values.into_iter().map(|(category, (count, volume_depth_mm))|
-        PathwaySummary { category: category.to_owned(), count, volume_depth_mm }).collect())
+    Ok(values
+        .into_iter()
+        .map(|(category, (count, volume_depth_mm))| PathwaySummary {
+            category: category.to_owned(),
+            count,
+            volume_depth_mm,
+        })
+        .collect())
 }
 
 fn summarize_outputs(flows: &[WaterOutput]) -> Result<Vec<PathwaySummary>, String> {
@@ -592,55 +975,108 @@ fn summarize_outputs(flows: &[WaterOutput]) -> Result<Vec<PathwaySummary>, Strin
         let item = values.entry(flow.category.as_str()).or_insert((0, 0.0));
         item.0 += 1;
         item.1 += flow.volume_depth_mm;
-        if !item.1.is_finite() { return Err("water output category sum overflowed".to_owned()); }
+        if !item.1.is_finite() {
+            return Err("water output category sum overflowed".to_owned());
+        }
     }
-    Ok(values.into_iter().map(|(category, (count, volume_depth_mm))|
-        PathwaySummary { category: category.to_owned(), count, volume_depth_mm }).collect())
+    Ok(values
+        .into_iter()
+        .map(|(category, (count, volume_depth_mm))| PathwaySummary {
+            category: category.to_owned(),
+            count,
+            volume_depth_mm,
+        })
+        .collect())
 }
 
 fn audit_dissolved(export: &DissolvedExport, area_ha: f64) -> Result<ExportAudit, String> {
     let partial = export.collection_coverage_fraction < 1.0;
     let mass = match export.mass_flux_status {
         FluxStatus::MeasuredQualified => {
-            let product = checked_product(export.concentration_mg_element_per_l, export.water_depth_mm.unwrap_or_default(), "concentration × water depth")?;
-            Some(checked_product(product, DISSOLVED_MM_L_TO_KG_HA, "dissolved mass conversion")?)
+            let product = checked_product(
+                export.concentration_mg_element_per_l,
+                export.water_depth_mm.unwrap_or_default(),
+                "concentration × water depth",
+            )?;
+            Some(checked_product(
+                product,
+                DISSOLVED_MM_L_TO_KG_HA,
+                "dissolved mass conversion",
+            )?)
         }
         FluxStatus::Estimated if !partial => {
-            let product = checked_product(export.concentration_mg_element_per_l, export.water_depth_mm.unwrap_or_default(), "estimated concentration × water depth")?;
-            Some(checked_product(product, DISSOLVED_MM_L_TO_KG_HA, "estimated dissolved mass conversion")?)
+            let product = checked_product(
+                export.concentration_mg_element_per_l,
+                export.water_depth_mm.unwrap_or_default(),
+                "estimated concentration × water depth",
+            )?;
+            Some(checked_product(
+                product,
+                DISSOLVED_MM_L_TO_KG_HA,
+                "estimated dissolved mass conversion",
+            )?)
         }
         FluxStatus::Estimated | FluxStatus::ConcentrationOnly | FluxStatus::Unqualified => None,
     };
     let mass_status = if matches!(export.mass_flux_status, FluxStatus::Estimated) && partial {
         "not_computed_partial_collection_coverage"
-    } else { export.mass_flux_status.as_str() };
+    } else {
+        export.mass_flux_status.as_str()
+    };
     let uncertainty = match (
         export.concentration_standard_uncertainty_mg_element_per_l,
         export.water_depth_standard_uncertainty_mm,
-        export.water_depth_mm, mass,
+        export.water_depth_mm,
+        mass,
     ) {
         (Some(cu), Some(wu), Some(water), Some(_)) => {
-            let first = checked_product(export.concentration_mg_element_per_l, wu, "dissolved uncertainty term")?;
+            let first = checked_product(
+                export.concentration_mg_element_per_l,
+                wu,
+                "dissolved uncertainty term",
+            )?;
             let second = checked_product(water, cu, "dissolved uncertainty term")?;
             let sum = first + second;
-            if !sum.is_finite() { return Err("dissolved uncertainty sum overflowed".to_owned()); }
-            Some(checked_product(sum, DISSOLVED_MM_L_TO_KG_HA, "dissolved uncertainty conversion")?)
+            if !sum.is_finite() {
+                return Err("dissolved uncertainty sum overflowed".to_owned());
+            }
+            Some(checked_product(
+                sum,
+                DISSOLVED_MM_L_TO_KG_HA,
+                "dissolved uncertainty conversion",
+            )?)
         }
         _ => None,
     };
-    let plot_mass = match mass { Some(x) => Some(checked_product(x, area_ha, "dissolved plot mass")?), None => None };
+    let plot_mass = match mass {
+        Some(x) => Some(checked_product(x, area_ha, "dissolved plot mass")?),
+        None => None,
+    };
     let note = match mass_status {
-        "measured_qualified" => "Measured integrated dissolved mass from elemental concentration × measured event water depth; uncertainty is a first-order linear bound, not a confidence interval.",
-        "estimated" => "Estimated integrated dissolved mass; not a measured export or field-validated prediction.",
-        "not_computed_partial_collection_coverage" => "Partial collection is not scaled to an event total.",
-        "concentration_only" => "Concentration retained; mass export is not computed without integrated water volume.",
+        "measured_qualified" => {
+            "Measured integrated dissolved mass from elemental concentration × measured event water depth; uncertainty is a first-order linear bound, not a confidence interval."
+        }
+        "estimated" => {
+            "Estimated integrated dissolved mass; not a measured export or field-validated prediction."
+        }
+        "not_computed_partial_collection_coverage" => {
+            "Partial collection is not scaled to an event total."
+        }
+        "concentration_only" => {
+            "Concentration retained; mass export is not computed without integrated water volume."
+        }
         _ => "Unqualified dissolved record; mass export is not computed.",
     };
     Ok(ExportAudit {
-        flux_id: export.flux_id.clone(), pathway: export.pathway.clone(),
-        element: export.element.as_str().to_owned(), analyte: export.analyte.as_str().to_owned(),
-        mass_status: mass_status.to_owned(), mass_kg_element_per_ha: mass, plot_mass_kg_element: plot_mass,
-        first_order_linear_uncertainty_bound_kg_element_per_ha: uncertainty, note: note.to_owned(),
+        flux_id: export.flux_id.clone(),
+        pathway: export.pathway.clone(),
+        element: export.element.as_str().to_owned(),
+        analyte: export.analyte.as_str().to_owned(),
+        mass_status: mass_status.to_owned(),
+        mass_kg_element_per_ha: mass,
+        plot_mass_kg_element: plot_mass,
+        first_order_linear_uncertainty_bound_kg_element_per_ha: uncertainty,
+        note: note.to_owned(),
     })
 }
 
@@ -648,73 +1084,128 @@ fn audit_particulate(export: &ParticulateExport, area_ha: f64) -> Result<ExportA
     let partial = export.collection_coverage_fraction < 1.0;
     let mass = match export.mass_flux_status {
         ParticulateFluxStatus::MeasuredQualified => {
-            let product = checked_product(export.sediment_export_kg_dry_per_ha.unwrap_or_default(),
-                export.concentration_mg_element_per_kg_dry_sediment.unwrap_or_default(), "sediment mass × concentration")?;
+            let product = checked_product(
+                export.sediment_export_kg_dry_per_ha.unwrap_or_default(),
+                export
+                    .concentration_mg_element_per_kg_dry_sediment
+                    .unwrap_or_default(),
+                "sediment mass × concentration",
+            )?;
             Some(product / MG_PER_KG_TO_KG)
         }
         ParticulateFluxStatus::Estimated if !partial => {
-            let product = checked_product(export.sediment_export_kg_dry_per_ha.unwrap_or_default(),
-                export.concentration_mg_element_per_kg_dry_sediment.unwrap_or_default(), "estimated sediment mass × concentration")?;
+            let product = checked_product(
+                export.sediment_export_kg_dry_per_ha.unwrap_or_default(),
+                export
+                    .concentration_mg_element_per_kg_dry_sediment
+                    .unwrap_or_default(),
+                "estimated sediment mass × concentration",
+            )?;
             Some(product / MG_PER_KG_TO_KG)
         }
         ParticulateFluxStatus::Estimated | ParticulateFluxStatus::Unqualified => None,
     };
-    let mass_status = if matches!(export.mass_flux_status, ParticulateFluxStatus::Estimated) && partial {
-        "not_computed_partial_collection_coverage"
-    } else {
-        match export.mass_flux_status {
-            ParticulateFluxStatus::MeasuredQualified => "measured_qualified",
-            ParticulateFluxStatus::Estimated => "estimated",
-            ParticulateFluxStatus::Unqualified => "unqualified",
-        }
-    };
+    let mass_status =
+        if matches!(export.mass_flux_status, ParticulateFluxStatus::Estimated) && partial {
+            "not_computed_partial_collection_coverage"
+        } else {
+            match export.mass_flux_status {
+                ParticulateFluxStatus::MeasuredQualified => "measured_qualified",
+                ParticulateFluxStatus::Estimated => "estimated",
+                ParticulateFluxStatus::Unqualified => "unqualified",
+            }
+        };
     let uncertainty = match (
         export.sediment_standard_uncertainty_kg_dry_per_ha,
         export.concentration_standard_uncertainty_mg_element_per_kg_dry_sediment,
         export.sediment_export_kg_dry_per_ha,
-        export.concentration_mg_element_per_kg_dry_sediment, mass,
+        export.concentration_mg_element_per_kg_dry_sediment,
+        mass,
     ) {
         (Some(su), Some(cu), Some(s), Some(c), Some(_)) => {
             let first = checked_product(c, su, "particulate uncertainty term")?;
             let second = checked_product(s, cu, "particulate uncertainty term")?;
             let sum = first + second;
-            if !sum.is_finite() { return Err("particulate uncertainty sum overflowed".to_owned()); }
+            if !sum.is_finite() {
+                return Err("particulate uncertainty sum overflowed".to_owned());
+            }
             Some(sum / MG_PER_KG_TO_KG)
         }
         _ => None,
     };
-    let plot_mass = match mass { Some(x) => Some(checked_product(x, area_ha, "particulate plot mass")?), None => None };
+    let plot_mass = match mass {
+        Some(x) => Some(checked_product(x, area_ha, "particulate plot mass")?),
+        None => None,
+    };
     let note = match mass_status {
-        "measured_qualified" => "Measured particulate elemental mass from dry sediment export × elemental concentration; uncertainty is a first-order linear bound, not a confidence interval.",
-        "estimated" => "Estimated particulate mass; not a measured export or field-validated prediction.",
-        "not_computed_partial_collection_coverage" => "Partial sediment collection is not scaled to an event total.",
+        "measured_qualified" => {
+            "Measured particulate elemental mass from dry sediment export × elemental concentration; uncertainty is a first-order linear bound, not a confidence interval."
+        }
+        "estimated" => {
+            "Estimated particulate mass; not a measured export or field-validated prediction."
+        }
+        "not_computed_partial_collection_coverage" => {
+            "Partial sediment collection is not scaled to an event total."
+        }
         _ => "Unqualified particulate record; mass export is not computed.",
     };
     Ok(ExportAudit {
-        flux_id: export.flux_id.clone(), pathway: export.pathway.clone(),
-        element: export.element.as_str().to_owned(), analyte: export.analyte.as_str().to_owned(),
-        mass_status: mass_status.to_owned(), mass_kg_element_per_ha: mass, plot_mass_kg_element: plot_mass,
-        first_order_linear_uncertainty_bound_kg_element_per_ha: uncertainty, note: note.to_owned(),
+        flux_id: export.flux_id.clone(),
+        pathway: export.pathway.clone(),
+        element: export.element.as_str().to_owned(),
+        analyte: export.analyte.as_str().to_owned(),
+        mass_status: mass_status.to_owned(),
+        mass_kg_element_per_ha: mass,
+        plot_mass_kg_element: plot_mass,
+        first_order_linear_uncertainty_bound_kg_element_per_ha: uncertainty,
+        note: note.to_owned(),
     })
 }
 
 fn audit(bytes: &[u8]) -> Result<EventAuditReport, String> {
-    let input: EventInput = serde_json::from_slice(bytes)
-        .map_err(|error| format!("invalid event JSON: {error}"))?;
+    let input: EventInput =
+        serde_json::from_slice(bytes).map_err(|error| format!("invalid event JSON: {error}"))?;
     validate_input(&input)?;
-    let input_total = sum_checked(input.water_inputs.iter().map(|flow| flow.volume_depth_mm), "water inputs")?;
-    let output_total = sum_checked(input.water_outputs.iter().map(|flow| flow.volume_depth_mm), "water outputs")?;
+    let input_total = sum_checked(
+        input.water_inputs.iter().map(|flow| flow.volume_depth_mm),
+        "water inputs",
+    )?;
+    let output_total = sum_checked(
+        input.water_outputs.iter().map(|flow| flow.volume_depth_mm),
+        "water outputs",
+    )?;
     let storage_change = input.soil_water_storage_change.change_mm;
     let residual = input_total - output_total - storage_change;
-    if !residual.is_finite() { return Err("water-balance residual is non-finite".to_owned()); }
+    if !residual.is_finite() {
+        return Err("water-balance residual is non-finite".to_owned());
+    }
     let uncertainty = uncertainty_bound(
-        input.water_inputs.iter().map(|flow| flow.standard_uncertainty_mm)
-            .chain(input.water_outputs.iter().map(|flow| flow.standard_uncertainty_mm))
-            .chain(std::iter::once(input.soil_water_storage_change.standard_uncertainty_mm)),
+        input
+            .water_inputs
+            .iter()
+            .map(|flow| flow.standard_uncertainty_mm)
+            .chain(
+                input
+                    .water_outputs
+                    .iter()
+                    .map(|flow| flow.standard_uncertainty_mm),
+            )
+            .chain(std::iter::once(
+                input.soil_water_storage_change.standard_uncertainty_mm,
+            )),
     )?;
-    let boundary_terms_measured = input.water_inputs.iter().all(|flow| flow.measurement_status.measured())
-        && input.water_outputs.iter().all(|flow| flow.measurement_status.measured())
-        && input.soil_water_storage_change.measurement_status.measured();
+    let boundary_terms_measured = input
+        .water_inputs
+        .iter()
+        .all(|flow| flow.measurement_status.measured())
+        && input
+            .water_outputs
+            .iter()
+            .all(|flow| flow.measurement_status.measured())
+        && input
+            .soil_water_storage_change
+            .measurement_status
+            .measured();
     let water_status = if !input.water_balance_review.coverage_status.complete() {
         "unqualified_incomplete_coverage"
     } else if !boundary_terms_measured {
@@ -727,38 +1218,63 @@ fn audit(bytes: &[u8]) -> Result<EventAuditReport, String> {
         "outside_conservative_linear_uncertainty_bound"
     };
 
-    let dissolved = input.dissolved_exports.iter()
+    let dissolved = input
+        .dissolved_exports
+        .iter()
         .map(|export| audit_dissolved(export, input.control_volume.area_ha))
         .collect::<Result<Vec<_>, _>>()?;
-    let particulate = input.particulate_exports.iter()
+    let particulate = input
+        .particulate_exports
+        .iter()
         .map(|export| audit_particulate(export, input.control_volume.area_ha))
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut warnings = input.warnings.clone();
     warnings.push("The conservative linear uncertainty sum is not a confidence interval and does not model covariance or systematic bias.".to_owned());
-    warnings.push("Dissolved mass: kg element/ha = concentration (mg/L) × water depth (mm) × 0.01.".to_owned());
+    warnings.push(
+        "Dissolved mass: kg element/ha = concentration (mg/L) × water depth (mm) × 0.01."
+            .to_owned(),
+    );
     warnings.push("Particulate mass: kg element/ha = dry sediment export (kg/ha) × concentration (mg/kg) ÷ 1,000,000.".to_owned());
     warnings.push("Audit success does not establish physical collection completeness, causal efficacy, material safety or regulatory approval.".to_owned());
     if !input.water_balance_review.coverage_status.complete() {
-        warnings.push("Water-balance coverage is incomplete or unknown; residual is not qualified.".to_owned());
+        warnings.push(
+            "Water-balance coverage is incomplete or unknown; residual is not qualified."
+                .to_owned(),
+        );
     }
     if !boundary_terms_measured {
         warnings.push("At least one water-boundary or storage-change term is estimated/modelled; closure is not classified as measured.".to_owned());
     }
     if uncertainty.is_none() {
-        warnings.push("At least one boundary-water/storage uncertainty is missing; closure is unqualified.".to_owned());
+        warnings.push(
+            "At least one boundary-water/storage uncertainty is missing; closure is unqualified."
+                .to_owned(),
+        );
     }
     if !input.solute_flux_review.coverage_status.complete() {
         warnings.push("Solute coverage is incomplete or unknown; individual flux records do not constitute complete event nutrient loss.".to_owned());
     }
-    if dissolved.iter().any(|x| x.mass_status == "concentration_only") {
-        warnings.push("Concentration-only observations were retained without conversion to mass export.".to_owned());
+    if dissolved
+        .iter()
+        .any(|x| x.mass_status == "concentration_only")
+    {
+        warnings.push(
+            "Concentration-only observations were retained without conversion to mass export."
+                .to_owned(),
+        );
     }
-    if dissolved.iter().chain(particulate.iter()).any(|x| x.mass_status == "estimated" || x.mass_status == "not_computed_partial_collection_coverage") {
+    if dissolved.iter().chain(particulate.iter()).any(|x| {
+        x.mass_status == "estimated" || x.mass_status == "not_computed_partial_collection_coverage"
+    }) {
         warnings.push("Estimated or partially collected exports remain distinct from complete measured-qualified export.".to_owned());
     }
-    if input.preferential_flow_assessments.iter().any(|x|
-        matches!(x.classification, PreferentialFlowClass::SensorSignatureOnly | PreferentialFlowClass::Indeterminate)) {
+    if input.preferential_flow_assessments.iter().any(|x| {
+        matches!(
+            x.classification,
+            PreferentialFlowClass::SensorSignatureOnly | PreferentialFlowClass::Indeterminate
+        )
+    }) {
         warnings.push("Sensor signatures or indeterminate preferential-flow assessments are not treated as corroborated detections.".to_owned());
     }
 
@@ -770,8 +1286,10 @@ fn audit(bytes: &[u8]) -> Result<EventAuditReport, String> {
         control_volume_area_ha: input.control_volume.area_ha,
         water_balance: WaterBalanceAudit {
             status: water_status.to_owned(),
-            input_total_mm: input_total, output_total_mm: output_total,
-            storage_change_mm: storage_change, residual_mm: residual,
+            input_total_mm: input_total,
+            output_total_mm: output_total,
+            storage_change_mm: storage_change,
+            residual_mm: residual,
             conservative_linear_standard_uncertainty_bound_mm: uncertainty,
             input_pathways: summarize_inputs(&input.water_inputs)?,
             output_pathways: summarize_outputs(&input.water_outputs)?,
@@ -799,20 +1317,39 @@ fn audit(bytes: &[u8]) -> Result<EventAuditReport, String> {
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
-        return Err(format!("usage: {} <event-record.json> <audit-report.json>", args.first().map(String::as_str).unwrap_or("terra-preta-coupled-event-audit")).into());
+        return Err(format!(
+            "usage: {} <event-record.json> <audit-report.json>",
+            args.first()
+                .map(String::as_str)
+                .unwrap_or("terra-preta-coupled-event-audit")
+        )
+        .into());
     }
     let input_path = Path::new(&args[1]);
     let output_path = Path::new(&args[2]);
-    if output_path.exists() { return Err("refusing to overwrite existing report".into()); }
+    if output_path.exists() {
+        return Err("refusing to overwrite existing report".into());
+    }
     let canonical_input = fs::canonicalize(input_path)?;
-    if output_path == canonical_input.as_path() { return Err("input and output paths must differ".into()); }
+    if output_path == canonical_input.as_path() {
+        return Err("input and output paths must differ".into());
+    }
     let bytes = fs::read(input_path)?;
-    let report = audit(&bytes).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let report =
+        audit(&bytes).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let payload = serde_json::to_vec_pretty(&report)?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     file.write_all(&payload)?;
-    println!("event={} water_balance={} residual_mm={} report={}",
-        report.event_id, report.water_balance.status, report.water_balance.residual_mm, output_path.display());
+    println!(
+        "event={} water_balance={} residual_mm={} report={}",
+        report.event_id,
+        report.water_balance.status,
+        report.water_balance.residual_mm,
+        output_path.display()
+    );
     Ok(())
 }
 
@@ -843,19 +1380,69 @@ mod tests {
         assert_eq!(report.water_balance.output_total_mm, 5.5);
         assert_eq!(report.water_balance.storage_change_mm, 12.5);
         assert!(report.water_balance.residual_mm.abs() < 1e-12);
-        assert_eq!(report.water_balance.conservative_linear_standard_uncertainty_bound_mm, Some(1.7));
-        assert_eq!(report.water_balance.status, "within_conservative_linear_uncertainty_bound");
-        assert!((report.dissolved_export_audits[0].mass_kg_element_per_ha.unwrap() - 0.4).abs() < 1e-12);
-        assert!((report.dissolved_export_audits[0].plot_mass_kg_element.unwrap() - 0.1).abs() < 1e-12);
-        assert!((report.dissolved_export_audits[0].first_order_linear_uncertainty_bound_kg_element_per_ha.unwrap() - 0.018).abs() < 1e-12);
+        assert_eq!(
+            report
+                .water_balance
+                .conservative_linear_standard_uncertainty_bound_mm,
+            Some(1.7)
+        );
+        assert_eq!(
+            report.water_balance.status,
+            "within_conservative_linear_uncertainty_bound"
+        );
+        assert!(
+            (report.dissolved_export_audits[0]
+                .mass_kg_element_per_ha
+                .unwrap()
+                - 0.4)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (report.dissolved_export_audits[0]
+                .plot_mass_kg_element
+                .unwrap()
+                - 0.1)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (report.dissolved_export_audits[0]
+                .first_order_linear_uncertainty_bound_kg_element_per_ha
+                .unwrap()
+                - 0.018)
+                .abs()
+                < 1e-12
+        );
     }
 
     #[test]
     fn computes_particulate_export_from_sediment_mass() {
         let report = audited(&fixture_bytes());
-        assert!((report.particulate_export_audits[0].mass_kg_element_per_ha.unwrap() - 0.04).abs() < 1e-12);
-        assert!((report.particulate_export_audits[0].plot_mass_kg_element.unwrap() - 0.01).abs() < 1e-12);
-        assert!((report.particulate_export_audits[0].first_order_linear_uncertainty_bound_kg_element_per_ha.unwrap() - 0.0036).abs() < 1e-12);
+        assert!(
+            (report.particulate_export_audits[0]
+                .mass_kg_element_per_ha
+                .unwrap()
+                - 0.04)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (report.particulate_export_audits[0]
+                .plot_mass_kg_element
+                .unwrap()
+                - 0.01)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (report.particulate_export_audits[0]
+                .first_order_linear_uncertainty_bound_kg_element_per_ha
+                .unwrap()
+                - 0.0036)
+                .abs()
+                < 1e-12
+        );
     }
 
     #[test]
@@ -868,8 +1455,14 @@ mod tests {
         value["dissolved_exports"][0]["concentration_sampling_design"] = json!("grab_sample");
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = audited(&bytes);
-        assert_eq!(report.dissolved_export_audits[0].mass_kg_element_per_ha, None);
-        assert_eq!(report.dissolved_export_audits[0].mass_status, "concentration_only");
+        assert_eq!(
+            report.dissolved_export_audits[0].mass_kg_element_per_ha,
+            None
+        );
+        assert_eq!(
+            report.dissolved_export_audits[0].mass_status,
+            "concentration_only"
+        );
     }
 
     #[test]
@@ -880,8 +1473,14 @@ mod tests {
         value["dissolved_exports"][0]["collection_coverage_fraction"] = json!(0.7);
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = audited(&bytes);
-        assert_eq!(report.dissolved_export_audits[0].mass_kg_element_per_ha, None);
-        assert_eq!(report.dissolved_export_audits[0].mass_status, "not_computed_partial_collection_coverage");
+        assert_eq!(
+            report.dissolved_export_audits[0].mass_kg_element_per_ha,
+            None
+        );
+        assert_eq!(
+            report.dissolved_export_audits[0].mass_status,
+            "not_computed_partial_collection_coverage"
+        );
     }
 
     #[test]
@@ -892,7 +1491,11 @@ mod tests {
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = audited(&bytes);
         assert_eq!(report.dissolved_export_audits[0].mass_status, "estimated");
-        assert!(report.dissolved_export_audits[0].mass_kg_element_per_ha.is_some());
+        assert!(
+            report.dissolved_export_audits[0]
+                .mass_kg_element_per_ha
+                .is_some()
+        );
     }
 
     #[test]
@@ -900,7 +1503,10 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["water_inputs"][0]["measurement_status"] = json!("estimated");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert_eq!(audited(&bytes).water_balance.status, "unqualified_estimated_or_modelled_terms");
+        assert_eq!(
+            audited(&bytes).water_balance.status,
+            "unqualified_estimated_or_modelled_terms"
+        );
     }
 
     #[test]
@@ -913,7 +1519,10 @@ mod tests {
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = audited(&bytes);
         assert!(report.water_balance.residual_mm.abs() < 1e-12);
-        assert_eq!(report.water_balance.status, "unqualified_incomplete_coverage");
+        assert_eq!(
+            report.water_balance.status,
+            "unqualified_incomplete_coverage"
+        );
     }
 
     #[test]
@@ -926,7 +1535,11 @@ mod tests {
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = audited(&bytes);
         assert_eq!(report.solute_coverage.status, "reviewed_incomplete");
-        assert!(report.dissolved_export_audits[0].mass_kg_element_per_ha.is_some());
+        assert!(
+            report.dissolved_export_audits[0]
+                .mass_kg_element_per_ha
+                .is_some()
+        );
     }
 
     #[test]
@@ -934,7 +1547,10 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["soil_water_storage_change"]["measurement_status"] = json!("modelled");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert_eq!(audited(&bytes).water_balance.status, "unqualified_estimated_or_modelled_terms");
+        assert_eq!(
+            audited(&bytes).water_balance.status,
+            "unqualified_estimated_or_modelled_terms"
+        );
     }
 
     #[test]
@@ -943,8 +1559,16 @@ mod tests {
         value["water_outputs"][0]["standard_uncertainty_mm"] = Value::Null;
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = audited(&bytes);
-        assert_eq!(report.water_balance.status, "unqualified_missing_uncertainty");
-        assert_eq!(report.water_balance.conservative_linear_standard_uncertainty_bound_mm, None);
+        assert_eq!(
+            report.water_balance.status,
+            "unqualified_missing_uncertainty"
+        );
+        assert_eq!(
+            report
+                .water_balance
+                .conservative_linear_standard_uncertainty_bound_mm,
+            None
+        );
     }
 
     #[test]
@@ -955,8 +1579,14 @@ mod tests {
         value["particulate_exports"][0]["collection_coverage_fraction"] = json!(0.6);
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = audited(&bytes);
-        assert_eq!(report.particulate_export_audits[0].mass_kg_element_per_ha, None);
-        assert_eq!(report.particulate_export_audits[0].mass_status, "not_computed_partial_collection_coverage");
+        assert_eq!(
+            report.particulate_export_audits[0].mass_kg_element_per_ha,
+            None
+        );
+        assert_eq!(
+            report.particulate_export_audits[0].mass_status,
+            "not_computed_partial_collection_coverage"
+        );
     }
 
     #[test]
@@ -964,7 +1594,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["preferential_flow_assessments"][0]["classification"] = json!("corroborated");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("requires independent reference"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("requires independent reference")
+        );
     }
 
     #[test]
@@ -972,7 +1606,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["dissolved_exports"][0]["interval"]["end"] = json!("2026-02-01T13:00:00Z");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("contained within the event interval"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("contained within the event interval")
+        );
     }
 
     #[test]
@@ -980,7 +1618,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["dissolved_exports"][0]["element"] = json!("P");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("conflicts with element"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("conflicts with element")
+        );
     }
 
     #[test]
@@ -988,7 +1630,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["preferential_flow_assessments"][0]["sensor_ids"][0] = json!("missing-sensor");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("absent from event observations"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("absent from event observations")
+        );
     }
 
     #[test]
@@ -997,7 +1643,11 @@ mod tests {
         value["soil_moisture_observations"][2]["depth_cm"] = json!(10.0);
         value["soil_moisture_observations"][3]["depth_cm"] = json!(10.0);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("two or more distinct observed depths"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("two or more distinct observed depths")
+        );
     }
 
     #[test]
@@ -1005,7 +1655,11 @@ mod tests {
         let mut value: Value = serde_json::from_slice(&fixture_bytes()).unwrap();
         value["event_interval"]["end"] = json!("2026-02-01T07:00:00Z");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("end must be after start"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("end must be after start")
+        );
     }
 
     #[test]
@@ -1014,7 +1668,11 @@ mod tests {
         value["dissolved_exports"][0]["concentration_mg_element_per_l"] = json!(1.0e308);
         value["dissolved_exports"][0]["water_depth_mm"] = json!(1.0e308);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(audit(&bytes).unwrap_err().contains("overflowed or became non-finite"));
+        assert!(
+            audit(&bytes)
+                .unwrap_err()
+                .contains("overflowed or became non-finite")
+        );
     }
 
     #[test]
@@ -1022,7 +1680,10 @@ mod tests {
         let bytes = fixture_bytes();
         let report = audited(&bytes);
         assert_eq!(report.input_sha256, format!("{:x}", Sha256::digest(&bytes)));
-        assert_eq!(report.source_sha256, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert_eq!(
+            report.source_sha256,
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
     }
 
     #[test]
