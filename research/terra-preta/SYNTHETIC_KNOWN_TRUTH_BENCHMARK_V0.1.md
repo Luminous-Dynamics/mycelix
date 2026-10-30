@@ -1,6 +1,6 @@
 # Synthetic Known-Truth and Identifiability Benchmark v0.1
 
-**Status:** executable challenge specification. The eventizer is a first preprocessing component; a coupled physical scenario generator has not yet been implemented. Scenarios and targets below are proposals, not simulated or measured results. No field application is authorized.
+**Status:** executable challenge specification. A deterministic lumped two-reservoir known-truth generator is now implemented; a spatially resolved Richards/dual-permeability physical scenario generator is not. Scenarios and targets below are proposals, not field results. No field application is authorized.
 
 **Implementation tracker:** [TERRA-SYNTH-001](https://github.com/Luminous-Dynamics/mycelix/issues/5536).
 
@@ -17,6 +17,13 @@ Maintain three truth layers:
 The model predicts observations and uncertainty about latent state. It cannot promote a sensor signature or proxy label to confirmed pathway status.
 
 ## 2. Synthetic challenge families
+
+### First executable generator: conservative two-reservoir truth
+
+[known-truth-generator](./tools/known-truth-generator/README.md) implements the first controlled truth layer. At each 10-minute step it partitions rainfall between matrix and macropore reservoirs, applies finite storage limits, advective inter-domain exchange, matrix drainage, optional connected macropore drainage and conservative tracer transport. It emits the true connection state, domain storages, boundary water/tracer fluxes and independent stepwise water/tracer balance residuals.
+
+The generator has matrix-only, connected macropore, disconnected macropore and dual-domain exchange families. It is intentionally a **lumped conceptual model**: no Richards pressure-gradient equation, spatial layering, capillarity, dispersion, hysteresis or biological structural evolution is solved. It is suitable for testing conservation, event labels, null controls and observation operators—not predicting soil behavior or ranking treatments. The next model tier must couple these tests to a separately validated spatial hydraulic solver.
+
 
 | Family | Known truth | Failure exposed |
 |---|---|---|
