@@ -106,7 +106,7 @@ permit (
 when {
     resource.exists &&
     (
-        principal.actorId == resource.creatorActorId ||
+        (resource has creatorActorId && principal.actorId == resource.creatorActorId) ||
         principal.roles.contains("editor") ||
         principal.roles.contains("institution")
     )
