@@ -396,9 +396,12 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
     let risk_coverage_curve: Vec<Value> = expected_confidence_thresholds
         .iter()
         .map(|threshold| {
-            let selected: Vec<&(String, f64, bool)> = issued
+            let selected: Vec<(f64, bool)> = issued
                 .iter()
-                .filter(|(_, probability, _)| (2.0 * *probability - 1.0).abs() >= *threshold)
+                .filter_map(|(_, probability, event)| {
+                    ((2.0 * *probability - 1.0).abs() >= *threshold)
+                        .then_some((*probability, *event))
+                })
                 .collect();
             let selected_brier = if selected.is_empty() {
                 None
@@ -406,8 +409,7 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
                 Some(
                     selected
                         .iter()
-                        .map(|(_, probability, event)| {
-                            let probability = *probability;
+                        .map(|(probability, event)| {
                             let outcome = if *event { 1.0 } else { 0.0 };
                             (probability - outcome).powi(2)
                         })
@@ -561,6 +563,25 @@ mod tests {
                     assert!((a - e).abs() <= tolerance);
                 }
             }
+        }
+        for (service_id, expected_service) in expected["per_service_metrics"].as_object().unwrap() {
+            let actual_service = report["per_service_metrics"].as_array().unwrap()
+                .iter().find(|item| item["service_id"] == service_id).unwrap();
+            for key in ["issued_forecasts", "breach_events"] {
+                assert_eq!(actual_service[key], expected_service[key]);
+            }
+            for key in ["brier_score", "log_loss"] {
+                assert!((actual_service[key].as_f64().unwrap() - expected_service[key].as_f64().unwrap()).abs() <= tolerance);
+            }
+        }
+        let actual_curve = report["risk_coverage_curve"].as_array().unwrap();
+        let expected_curve = expected["risk_coverage_curve"].as_array().unwrap();
+        assert_eq!(actual_curve.len(), expected_curve.len());
+        for (actual, expected) in actual_curve.iter().zip(expected_curve) {
+            for key in ["minimum_probability_confidence", "population_coverage", "qualified_case_coverage", "selective_brier_score"] {
+                assert!((actual[key].as_f64().unwrap() - expected[key].as_f64().unwrap()).abs() <= tolerance);
+            }
+            assert_eq!(actual["selected_forecasts"], expected["selected_forecasts"]);
         }
     }
 
