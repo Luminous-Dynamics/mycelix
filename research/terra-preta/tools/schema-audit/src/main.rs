@@ -323,8 +323,30 @@ mod tests {
         assert!(!validator.is_valid(&report));
     }
 
+    fn water_retention_input_schema() -> Value {
+        serde_json::from_str(SCHEMA_FIXTURES[8].1).unwrap()
+    }
+
     fn water_retention_report_schema() -> Value {
         serde_json::from_str(SCHEMA_FIXTURES[9].1).unwrap()
+    }
+
+    const WATER_RETENTION_INPUT_FIXTURE: &str =
+        include_str!("../../water-retention-audit/fixtures/synthetic-curve-input.json");
+
+    #[test]
+    fn accepts_synthetic_water_retention_curve_input() {
+        let validator = jsonschema::validator_for(&water_retention_input_schema()).unwrap();
+        let instance: Value = serde_json::from_str(WATER_RETENTION_INPUT_FIXTURE).unwrap();
+        assert!(validator.is_valid(&instance));
+    }
+
+    #[test]
+    fn rejects_gravimetric_curve_input_without_density_conversion_metadata() {
+        let validator = jsonschema::validator_for(&water_retention_input_schema()).unwrap();
+        let mut instance: Value = serde_json::from_str(WATER_RETENTION_INPUT_FIXTURE).unwrap();
+        instance["measurement_basis"] = json!("gravimetric_kg_per_kg_dry_soil");
+        assert!(!validator.is_valid(&instance));
     }
 
     fn valid_water_retention_report() -> Value {
