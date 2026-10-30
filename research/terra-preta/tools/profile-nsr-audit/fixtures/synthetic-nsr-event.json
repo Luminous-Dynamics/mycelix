@@ -36,5 +36,7 @@
     }
   ],
   "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "source_evidence_ref": "synthetic fixture only; not field observation"
+  "source_evidence_ref": "synthetic fixture only; not field observation",
+  "response_threshold_m3_m3": 0.01,
+  "response_onset_method": "first_10min_bin_delta_theta_ge_threshold"
 }
