@@ -99,6 +99,26 @@ downloaded file checksums in the acquisition manifest. Confirm current NEON
 data-use terms at acquisition and preserve attribution. 
 
 
+### NEON metadata inventory (preflight)
+
+Before downloading files, create a local text file containing one NEON site code per line (comments beginning with # are ignored). Use only the paper's reconciled site roster; do not infer it from the paper's aggregate site count.
+
+```sh
+cat > /path/to/neon-sites.txt <<'SITES'
+SRER
+# Add only site codes verified against the paper's supplement and NEON release inventory.
+SITES
+
+export NEON_API_TOKEN='…'  # retrieve locally; never commit or paste into chat
+bash research/terra-preta/tools/inventory-neon-data.sh \
+  --product DP1.00094.001 --sites-file /path/to/neon-sites.txt \
+  --start 2016-04 --end 2025-06 --release RELEASE-2026 \
+  --package basic --output /path/to/neon-metadata-inventory
+unset NEON_API_TOKEN
+```
+
+The metadata-only preflight makes one authenticated query per site and writes the exact response JSON under metadata/, a query manifest with a digest for each response, and a normalized file inventory containing site/month/package, filename, publisher byte size, MD5, optional CRC32C and query-response SHA-256. It downloads no raw product files and does not claim that an observation row is valid or that a site is part of the paper's analysed cohort. The supplied example site is illustrative, not an endorsed paper site. Empty site/month availability is retained in the query manifest. Output files are created with restrictive permissions; the directory should still be protected as local research metadata.
+
 ### NEON acquisition command
 
 The NEON-specific downloader is separate from the Figshare/Zenodo helper. It queries the authenticated NEON Data Query endpoint, stores its query response, verifies publisher byte size and MD5 for every file, computes local SHA-256, makes files read-only and refuses to overwrite existing artifacts:
