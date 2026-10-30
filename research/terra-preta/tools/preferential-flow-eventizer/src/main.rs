@@ -19,6 +19,7 @@ struct Input {
     sensor_id: String,
     sensor_depth_cm: f64,
     max_matrix_ksat_mm_h: Option<f64>,
+    max_matrix_ksat_evidence_ref: Option<String>,
     precipitation_product_code: String,
     precipitation_release: String,
     precipitation_gauge_kind: String,
@@ -103,6 +104,8 @@ struct Report {
     plot_id: String,
     sensor_id: String,
     sensor_depth_cm: f64,
+    max_matrix_ksat_mm_h: Option<f64>,
+    max_matrix_ksat_evidence_ref: Option<String>,
     precipitation_product_code: String,
     precipitation_release: String,
     precipitation_gauge_kind: String,
@@ -123,6 +126,9 @@ struct Report {
 fn parse_time(value: &str, label: &str) -> Result<DateTime<FixedOffset>, String> {
     let parsed = DateTime::parse_from_rfc3339(value)
         .map_err(|error| format!("{label}: invalid RFC3339 timestamp: {error}"))?;
+    if parsed.offset().local_minus_utc() != 0 {
+        return Err(format!("{label}: timestamp_utc must use a zero UTC offset"));
+    }
     if parsed.timestamp() % STEP_SECONDS != 0 || parsed.timestamp_subsec_nanos() != 0 {
         return Err(format!("{label}: timestamp is not aligned to a 10-minute UTC boundary"));
     }
@@ -167,6 +173,12 @@ fn validate(input: &Input) -> Result<(Vec<Rain>, Vec<Moisture>), String> {
         if !ksat.is_finite() || ksat <= 0.0 {
             return Err("max_matrix_ksat_mm_h must be finite and greater than zero".to_owned());
         }
+    }
+    match (input.max_matrix_ksat_mm_h, input.max_matrix_ksat_evidence_ref.as_deref()) {
+        (Some(_), Some(reference)) if !reference.trim().is_empty() => {}
+        (Some(_), _) => return Err("a supplied max_matrix_ksat_mm_h requires max_matrix_ksat_evidence_ref".to_owned()),
+        (None, Some(_)) => return Err("max_matrix_ksat_evidence_ref cannot be supplied without max_matrix_ksat_mm_h".to_owned()),
+        (None, None) => {}
     }
     if input.precipitation_product_code == "DP1.00046.001" {
         return Err("throughfall must not be relabelled as open precipitation".to_owned());
@@ -342,6 +354,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         plot_id: input.plot_id.clone(),
         sensor_id: input.sensor_id.clone(),
         sensor_depth_cm: input.sensor_depth_cm,
+        max_matrix_ksat_mm_h: input.max_matrix_ksat_mm_h,
+        max_matrix_ksat_evidence_ref: input.max_matrix_ksat_evidence_ref.clone(),
         precipitation_product_code: input.precipitation_product_code.clone(),
         precipitation_release: input.precipitation_release.clone(),
         precipitation_gauge_kind: input.precipitation_gauge_kind.clone(),
@@ -416,6 +430,7 @@ mod tests {
             schema_version: "0.1.0".to_owned(),
             site_id: "SYN1".to_owned(), plot_id: "P01".to_owned(), sensor_id: "D10".to_owned(),
             sensor_depth_cm: 10.0, max_matrix_ksat_mm_h: Some(250.0),
+            max_matrix_ksat_evidence_ref: Some("synthetic fixture only; no Rosetta3 claim".to_owned()),
             precipitation_product_code: "DP1.00045.001".to_owned(),
             precipitation_release: "RELEASE-2026".to_owned(),
             precipitation_gauge_kind: "tipping_bucket".to_owned(),
@@ -487,8 +502,22 @@ mod tests {
     #[test]
     fn rejects_irregular_time_bins() {
         let mut input = fixture(&[0], 0);
-        input.rainfall[2].timestamp_utc = stamp(15);
+        input.rainfall[2].timestamp_utc = stamp(20);
         assert!(validate(&input).unwrap_err().contains("gap-free at 10-minute cadence"));
+    }
+
+    #[test]
+    fn rejects_nonzero_utc_offset_in_timestamp_utc() {
+        let mut input = fixture(&[0], 0);
+        input.rainfall[0].timestamp_utc = "2026-01-01T00:00:00+01:00".to_owned();
+        assert!(validate(&input).unwrap_err().contains("zero UTC offset"));
+    }
+
+    #[test]
+    fn rejects_ksat_without_evidence_reference() {
+        let mut input = fixture(&[0], 0);
+        input.max_matrix_ksat_evidence_ref = None;
+        assert!(validate(&input).unwrap_err().contains("requires max_matrix_ksat_evidence_ref"));
     }
 
     #[test]
