@@ -107,12 +107,6 @@
       "expected_disposition": "reject-horizon-drift"
     },
     {
-      "case_id": "NEG-18",
-      "name": "Negative GPD support violation silently clipped",
-      "mutation": "Change shape to negative and make an observed excess exceed its finite endpoint",
-      "expected_disposition": "reject-invalid-tail-support"
-    },
-    {
       "case_id": "NEG-19",
       "name": "Optional abstention under unqualified state",
       "mutation": "Set qualification_state=missing_critical_input and abstention_reason=model_uncertainty",
@@ -122,6 +116,18 @@
       "case_id": "NEG-20",
       "name": "Proposal and target masses do not sum to one",
       "mutation": "Alter one stratum probability without updating the other design stratum",
+      "expected_disposition": "reject-sampling-design-normalization"
+    },
+    {
+      "case_id": "NEG-21",
+      "name": "Optional abstention reason on unqualified input",
+      "mutation": "Set qualification_state=missing_critical_input and abstention_reason=model_uncertainty",
+      "expected_disposition": "reject-abstention-reason-mismatch"
+    },
+    {
+      "case_id": "NEG-22",
+      "name": "Target stratum probabilities do not sum to one",
+      "mutation": "Set routine target_probability=0.5 without changing tail_enriched target_probability",
       "expected_disposition": "reject-sampling-design-normalization"
     }
   ],
@@ -625,7 +631,7 @@
         "brier_delta_vs_in_distribution": 0.0007053247867154361
       }
     ],
-    "negative_case_count": 20
+    "negative_case_count": 21
   },
   "round_trip_requirements": [
     "Preserve regime IDs, case IDs, forecast origin and horizon.",
@@ -633,7 +639,7 @@
     "Preserve proposal and target stratum probabilities without rounding.",
     "Preserve candidate exceedance probabilities and GPD scale/shape exactly.",
     "Preserve abstention action, null forecasts and abstention reason.",
-    "Preserve threshold, units, log-loss epsilon and calibration-reference numerator/denominator.",
+    "Preserve threshold, units, zero-probability log-loss disposition and calibration-reference numerator/denominator.",
     "Preserve synthetic/public-development-only status and unknown extension fields.",
     "Preserve weighted regime summaries, effective sample size and explicit zero-support dispositions."
   ],
@@ -661,6 +667,12 @@
       "name": "Forecast probability endpoint gives infinite loss",
       "mutation": "Set forecast probability to zero for an observed exceedance",
       "expected_disposition": "accept-but-report-zero-probability-exceedance"
+    },
+    {
+      "case_id": "BOUNDARY-02",
+      "name": "Observed GPD excess outside finite forecast support",
+      "mutation": "Set gpd_shape=-0.5 and choose an observed excess beyond -scale/shape",
+      "expected_disposition": "accept-and-report-zero-support-tail-excess-and-infinite-conditional-log-loss"
     }
   ]
 }
