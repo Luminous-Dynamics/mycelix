@@ -53,6 +53,22 @@
       "evidence_ref": "HydroShare v1.1 README field"
     },
     {
+      "threshold_id": "num_velocity_median",
+      "kind": "matrix_velocity_median",
+      "value": 0.6,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "num_velocity_50X_median",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
+      "threshold_id": "num_velocity_95th",
+      "kind": "matrix_velocity_95th",
+      "value": 1,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "num_velocity_50X_95th",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
       "threshold_id": "num_velocity_99th",
       "kind": "matrix_velocity_99th",
       "value": 1.2,
