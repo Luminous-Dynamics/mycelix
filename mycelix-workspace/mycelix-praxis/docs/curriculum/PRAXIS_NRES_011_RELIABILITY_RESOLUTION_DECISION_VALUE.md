@@ -88,6 +88,22 @@ Because within-bin forecast variation is discarded by coarsening, the evaluator 
 
 The forecast diagnostics always accompany issued-case count, raw and weighted coverage, importance-weight sum and effective sample size. NRES-011 additionally reports event-conditional and non-event-conditional forecast coverage, target-cohort event prevalence, event/non-event weight mass retained by the forecast, and the observed event rate among abstentions. These selection diagnostics make it harder for a model to look well calibrated merely by abstaining disproportionately on difficult event cases. The fixture reuses NRES-010's stress-enriched sample, so all decision costs are importance-weighted according to the frozen target/proposal stratum design.
 
+### Decision calibration: predicted cost versus realized cost
+
+For each issued forecast and decision profile, select the minimum-expected-cost action using the forecast probability. Then calculate:
+\[
+C_{\mathrm{exp},i}=\mathbb{E}_{Y\sim p_i}[c(a_i^*,Y)],
+\qquad
+C_{\mathrm{obs},i}=c(a_i^*,y_i),
+\]
+\[
+G_i=|C_{\mathrm{obs},i}-C_{\mathrm{exp},i}|.
+\]
+
+NRES-011 reports weighted mean expected and observed selected-action cost, signed cost gap, mean absolute cost gap, weighted median, weighted 90th percentile and maximum per-case gap. Per-case gaps are calculated *before* aggregation so positive and negative errors cannot cancel in a zero mean. These quantities complement relative economic value: value measures whether the policy beats reference actions, while decision calibration measures whether forecast-implied costs match realized costs for the chosen actions. Abstentions are excluded from forecast decision-calibration scores and remain represented in selection coverage and the separate review/deferral policy cost.
+
+This directly follows the decision-calibration formulation evaluated by Raeth and Ludwig (first published 19 October 2026), which found that forecast-level model rankings can change across apparently similar task thresholds/cost profiles, and which distinguishes observed cost from the cost gap between predicted and realized decisions: https://doi.org/10.1002/met.70260. The study also emphasizes computing gaps per forecast before aggregation, so this benchmark preserves the per-case gap distribution.
+
 ## 5. Public fixture and limits
 
 The 128 public synthetic cases span the same four NRES-010 regimes. Each case is evaluated under all three cost/loss profiles. The fixture carries an explicit four-regime catalog and a separate evaluator-owned review fallback action for the five abstentions (four mandatory, one optional). Its conformance corpus has 26 invalid-input negative controls and two valid-but-failing decision boundaries.
