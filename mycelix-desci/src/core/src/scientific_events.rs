@@ -2155,7 +2155,7 @@ mod tests {
             let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
             let genesis_envelope = ScientificEventEnvelope::genesis(
                 creator.clone(),
-                now,
+                now.clone(),
                 proposed_payload(claim_id, ResearchObjectId::new()),
             )
             .unwrap();
@@ -2183,7 +2183,7 @@ mod tests {
                     ScientificEventEnvelope::next(
                         &previous,
                         creator.clone(),
-                        now + Duration::seconds(1),
+                        now.clone() + Duration::seconds(1),
                         ScientificEventPayload::EvidenceAttached {
                             claim_id,
                             artifact: artifact(id),
@@ -2257,7 +2257,7 @@ mod tests {
                 let envelope = ScientificEventEnvelope::next(
                     &previous,
                     actor_id.clone(),
-                    now + Duration::seconds(2 + index as i64),
+                    now.clone() + Duration::seconds(2 + (index as i64 * 2)),
                     ScientificEventPayload::AttestationRecorded { attestation },
                 )
                 .unwrap();
@@ -2274,7 +2274,7 @@ mod tests {
                         ScientificEventEnvelope::next(
                             &previous,
                             actor_id,
-                            now + Duration::seconds(100 + index as i64),
+                            now.clone() + Duration::seconds(3 + (index as i64 * 2)),
                             ScientificEventPayload::AttestationWithdrawn {
                                 claim_id,
                                 attestation_id,
