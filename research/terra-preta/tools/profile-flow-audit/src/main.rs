@@ -170,17 +170,15 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let mut sequential_pair_count = 0usize;
     let mut tied_pair_count = 0usize;
 
-    for shallow_index in 0..sensors.len() {
-        for deep_index in (shallow_index + 1)..sensors.len() {
-            let shallow = &sensors[shallow_index];
-            let deep = &sensors[deep_index];
+    for (shallow_index, shallow) in sensors.iter().enumerate() {
+        for deep in sensors.iter().skip(shallow_index + 1) {
             if shallow.depth_cm == deep.depth_cm {
                 continue;
             }
             let (Some(shallow_onset), Some(deep_onset)) = (&shallow.onset, &deep.onset) else {
                 continue;
             };
-            let deep_advance_minutes = (*shallow_onset - *deep_onset).num_minutes();
+            let deep_advance_minutes = (shallow_onset.timestamp() - deep_onset.timestamp()) / 60;
             let ordering = if deep_advance_minutes > 0 {
                 nsr_pair_count += 1;
                 "nonsequential_response"
