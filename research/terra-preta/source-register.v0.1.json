@@ -135,6 +135,39 @@
           "source_uri": "https://zenodo.org/records/17699297/files/s4a_field_data.csv?download=1"
         }
       ]
+    },
+    {
+      "source_id": "western_highveld_soil_nir_mir_2026",
+      "title": "Western Highveld Soil fertility, NIR and MIR spectral data",
+      "source_uri": "https://doi.org/10.5281/zenodo.17510653",
+      "paper_uri": "https://doi.org/10.1016/j.dib.2026.113160",
+      "version": "Zenodo record 17510653; version and raw file metadata to be pinned on acquisition",
+      "source_class": "local_laboratory_measurement",
+      "license_status": "2026 Data in Brief article is CC BY 4.0; third-party catalog reports the Zenodo dataset as CC-BY-4.0; verify exact record/file license before redistribution.",
+      "permitted_research_use": "Regional South African soil-property baseline and NIR/MIR pedometric transfer evaluation after raw file, methods, sample identifiers and license are audited; not a biochar-effect-label source.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "limitations": [
+        "The data article reports 790 composite topsoil samples from commercial cultivated grain fields in the Western Highveld, collected in winter 2020; a third-party dataset catalog currently describes 803 samples. Do not choose an expected row count before auditing the exact Zenodo version and CSV.",
+        "This is a managed agricultural topsoil dataset, not natural soil profiles, archaeological ADE samples, or biochar-treated trials.",
+        "Reference chemistry includes pH (KCl), Bray-1 phosphorus and exchangeable K, Ca, Mg and Na; spectra include handheld NIR and benchtop MIR.",
+        "Coordinates are reported only for a subset of samples; evaluate geographic and source coverage before claiming independent site-held-out validation.",
+        "The dataset has no biochar treatment/comparator labels and cannot estimate a biochar treatment effect."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "western_highveld_nwu_nir_mir_csv",
+          "role": "paired_soil_reference_chemistry_and_spectra",
+          "filename": "NWU_NIR_MIR_Dataset.csv",
+          "expected_size_bytes": null,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "not_downloaded",
+          "license_status": "CC BY 4.0 reported for the article and by a third-party dataset catalogue; verify at the original Zenodo record.",
+          "source_uri": "https://doi.org/10.5281/zenodo.17510653"
+        }
+      ]
     }
   ]
 }
