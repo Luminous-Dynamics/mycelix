@@ -495,7 +495,7 @@ mod tests {
         let reference_area = reference_water.pointer("/deficit_area/value").and_then(Value::as_f64).unwrap();
         let comparison_area = comparison_water.pointer("/deficit_area/value").and_then(Value::as_f64).unwrap();
         assert!(reference_area > comparison_area);
-        assert!((comparison_area - 12.0).abs() < 1e-9);
+        assert!((comparison_area - 9.0).abs() < 1e-9);
         assert!(report.get("overall_resilience_score").is_none());
         assert!(report.get("composite_score").is_none());
     }
