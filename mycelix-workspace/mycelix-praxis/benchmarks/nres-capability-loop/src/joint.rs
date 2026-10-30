@@ -50,6 +50,41 @@ fn hamming_distance(left: usize, right: usize) -> usize {
     (left ^ right).count_ones() as usize
 }
 
+
+fn dependence_scores(probabilities: &[f64], observed_mask: usize, dimension: usize) -> (f64, f64) {
+    let pair_count = dimension * (dimension - 1) / 2;
+    let mut variogram_score = 0.0;
+    let mut pairwise_joint_brier = 0.0;
+    for left in 0..dimension {
+        for right in (left + 1)..dimension {
+            let mut predicted_discordance = 0.0;
+            let mut predicted_joint_breach = 0.0;
+            for (mask, probability) in probabilities.iter().enumerate() {
+                let left_bit = (mask >> left) & 1;
+                let right_bit = (mask >> right) & 1;
+                if left_bit != right_bit {
+                    predicted_discordance += *probability;
+                }
+                if left_bit == 1 && right_bit == 1 {
+                    predicted_joint_breach += *probability;
+                }
+            }
+            let observed_left = (observed_mask >> left) & 1;
+            let observed_right = (observed_mask >> right) & 1;
+            let observed_discordance = (observed_left != observed_right) as u64;
+            let observed_joint_breach = (observed_left == 1 && observed_right == 1) as u64;
+            variogram_score +=
+                (predicted_discordance - observed_discordance as f64).powi(2);
+            pairwise_joint_brier +=
+                (predicted_joint_breach - observed_joint_breach as f64).powi(2);
+        }
+    }
+    (
+        variogram_score / pair_count as f64,
+        pairwise_joint_brier / pair_count as f64,
+    )
+}
+
 fn joint_scores(probabilities: &[f64], observed_mask: usize) -> (f64, Option<f64>, f64) {
     let mut multiclass_brier = 0.0;
     for (mask, probability) in probabilities.iter().enumerate() {
@@ -182,6 +217,12 @@ pub fn evaluate_joint_service_forecasts(fixture: &Value) -> Result<Value, Vec<St
     let mut energy_sum = 0.0;
     let mut variogram_sum = 0.0;
     let mut pairwise_joint_brier_sum = 0.0;
+    let mut independent_brier_sum = 0.0;
+    let mut independent_log_loss_sum = 0.0;
+    let mut independent_zero_probability_cases = 0usize;
+    let mut independent_energy_sum = 0.0;
+    let mut independent_variogram_sum = 0.0;
+    let mut independent_pairwise_joint_brier_sum = 0.0;
     let pair_count = dimension * (dimension - 1) / 2;
 
     let mut marginal_accumulators: Vec<(usize, usize, f64, f64)> =
@@ -264,6 +305,7 @@ pub fn evaluate_joint_service_forecasts(fixture: &Value) -> Result<Value, Vec<St
         }
 
         let mut marginals = Vec::with_capacity(dimension);
+        let mut marginal_probabilities = Vec::with_capacity(dimension);
         for bit in 0..dimension {
             let probability = probabilities
                 .iter()
@@ -273,6 +315,7 @@ pub fn evaluate_joint_service_forecasts(fixture: &Value) -> Result<Value, Vec<St
                 .sum::<f64>();
             let observed = ((observed_mask >> bit) & 1) as u64;
             let brier = (probability - observed as f64).powi(2);
+            marginal_probabilities.push(probability);
             let accumulator = &mut marginal_accumulators[bit];
             accumulator.0 += 1;
             accumulator.1 += observed as usize;
@@ -284,6 +327,36 @@ pub fn evaluate_joint_service_forecasts(fixture: &Value) -> Result<Value, Vec<St
                 "observed_breach": observed,
                 "brier_score": brier
             }));
+        }
+
+        // This is a controlled dependence-only ablation: form the product of
+        // the candidate's own marginals, leaving marginal probabilities intact.
+        let independent_probabilities: Vec<f64> = (0..state_count)
+            .map(|mask| {
+                (0..dimension)
+                    .map(|bit| {
+                        let probability = marginal_probabilities[bit];
+                        if ((mask >> bit) & 1) == 1 {
+                            probability
+                        } else {
+                            1.0 - probability
+                        }
+                    })
+                    .product()
+            })
+            .collect();
+        let (independent_brier, independent_log_loss, independent_energy) =
+            joint_scores(&independent_probabilities, observed_mask);
+        let (independent_variogram, independent_pairwise_joint_brier) =
+            dependence_scores(&independent_probabilities, observed_mask, dimension);
+        independent_brier_sum += independent_brier;
+        independent_energy_sum += independent_energy;
+        independent_variogram_sum += independent_variogram;
+        independent_pairwise_joint_brier_sum += independent_pairwise_joint_brier;
+        if let Some(log_loss) = independent_log_loss {
+            independent_log_loss_sum += log_loss;
+        } else {
+            independent_zero_probability_cases += 1;
         }
 
         let mut variogram_score = 0.0;
@@ -346,6 +419,14 @@ pub fn evaluate_joint_service_forecasts(fixture: &Value) -> Result<Value, Vec<St
             "energy_score": energy_score,
             "variogram_score": variogram_score,
             "pairwise_joint_breach_brier": pairwise_joint_brier,
+            "independence_projection_baseline": {
+                "mean_marginal_probabilities": marginal_probabilities,
+                "multiclass_brier_score": independent_brier,
+                "joint_log_loss": independent_log_loss,
+                "energy_score": independent_energy,
+                "variogram_score": independent_variogram,
+                "pairwise_joint_breach_brier": independent_pairwise_joint_brier
+            },
             "marginal_metrics": marginals,
             "pairwise_metrics": pair_metrics
         }));
@@ -413,6 +494,21 @@ pub fn evaluate_joint_service_forecasts(fixture: &Value) -> Result<Value, Vec<St
         "mean_energy_score": energy_sum / case_count as f64,
         "mean_variogram_score": variogram_sum / case_count as f64,
         "mean_pairwise_joint_breach_brier": pairwise_joint_brier_sum / case_count as f64,
+        "independence_projection_baseline": {
+            "mean_multiclass_brier_score": independent_brier_sum / case_count as f64,
+            "mean_joint_log_loss": (independent_zero_probability_cases == 0).then_some(independent_log_loss_sum / case_count as f64),
+            "zero_probability_observed_cases": independent_zero_probability_cases,
+            "mean_energy_score": independent_energy_sum / case_count as f64,
+            "mean_variogram_score": independent_variogram_sum / case_count as f64,
+            "mean_pairwise_joint_breach_brier": independent_pairwise_joint_brier_sum / case_count as f64
+        },
+        "independence_baseline_minus_candidate": {
+            "positive_means_candidate_has_lower_loss": true,
+            "multiclass_brier_score": (independent_brier_sum / case_count as f64) - (joint_brier_sum / case_count as f64),
+            "energy_score": (independent_energy_sum / case_count as f64) - (energy_sum / case_count as f64),
+            "variogram_score": (independent_variogram_sum / case_count as f64) - (variogram_sum / case_count as f64),
+            "pairwise_joint_breach_brier": (independent_pairwise_joint_brier_sum / case_count as f64) - (pairwise_joint_brier_sum / case_count as f64)
+        },
         "per_case": per_case,
         "marginal_metrics": marginal_metrics,
         "pairwise_metrics": pairwise_metrics,
