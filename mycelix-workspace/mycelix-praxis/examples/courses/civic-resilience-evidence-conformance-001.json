@@ -64,6 +64,11 @@
       "id": "NEG-10",
       "mutation": "Replace a synthetic evidence status with observed-exercise without a source authority",
       "expected": "reject provenance/status escalation"
+    },
+    {
+      "id": "NEG-11",
+      "mutation": "Remove prov:wasDerivedFrom from an after-action finding",
+      "expected": "reject finding without a source observation"
     }
   ],
   "round_trip_cases": [
