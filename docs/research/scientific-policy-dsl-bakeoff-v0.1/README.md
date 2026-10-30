@@ -3,7 +3,7 @@
 **Status:** Research and conformance-corpus proposal  
 **Baseline:** \`DefaultScientificAuthorizationPolicy\` v1.0.0  
 **Baseline revision:** \`061e34f24d406f19f6de0e61867305b6989f455f\`  
-**Corpus:** \`cases.json\` (30 pure-policy cases + 11 outer security/commit gates)
+**Corpus:** `cases.json` (30 pure-policy cases, 10 projection cases, 11 outer security/commit gates)
 
 ## The paradigm shift: benchmark semantics before syntax
 
@@ -74,6 +74,11 @@ the authorization policy, while the evidence projection gives that review no
 reviewer credit. There is also a projection-effect expectations for the
 resulting evidence effect.
 
+The projection fixtures are now consumed by a Rust test in
+`scientific_events.rs` that rebuilds signed event streams and compares the
+resulting evidence-profile counters with the fixture expectations. The test
+source is committed but has not yet completed compilation or execution.
+
 This creates two separate equivalence targets: **authorization equivalence**
 (what events may be appended) and **epistemic qualification equivalence**
 (which accepted events count toward evidence maturity). Neither is a substitute
@@ -94,6 +99,29 @@ the governed event log:
 - Commit the event and authority receipt atomically where the store supports it, or use the existing prepare/append/finalize recovery protocol.
 
 Those eleven boundary cases are enumerated separately as \`prePolicyAndCommitGates\` in the JSON corpus. **They must not be rewritten as optional Cedar/OPA policy clauses.** An editable policy can add denials and narrower permissions, but it cannot disable the integrity kernel.
+
+## Projection conformance contract
+
+The JSON corpus now has ten projection cases, separate from the 30 allow/deny
+policy vectors. They cover creator reviews, same-creator-organization reviews,
+actor-identity fallback, reviewer de-duplication, organization-level source
+de-duplication, supporting and non-supporting reproduction/replication,
+inconclusive outcomes, and withdrawn attestations.
+
+The Rust projection adapter in
+`mycelix-desci/src/core/src/scientific_events.rs` builds actual signed event
+streams, including the evidence artifact required by reproduction/replication
+attestations, replays them through `ClaimProjection::rebuild`, then asserts
+the exact six profile counters recorded by each fixture. This is a test of
+the projection semantics, not a policy decision test and not a statement that
+the evidence artifact was independently verified.
+
+One explicit open governance decision remains: `PROJ-006` freezes the current
+behavior in which two distinct individuals with no acting organization count
+as two independent sources. That behavior may be suitable for person-level
+independence, but it is not equivalent to institutional independence. A future
+policy version should introduce an explicit source-independence standard and
+migration/versioning behavior rather than changing this silently.
 
 ## First candidate implementations
 
