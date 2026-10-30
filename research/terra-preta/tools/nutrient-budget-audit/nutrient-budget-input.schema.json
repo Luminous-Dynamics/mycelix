@@ -103,7 +103,7 @@
         { "$ref": "#/$defs/flow_common" },
         {
           "type": "object",
-          "additionalProperties": false,
+          "unevaluatedProperties": false,
           "required": ["category"],
           "properties": {
             "flow_id": { "type": "string", "minLength": 1 },
@@ -135,7 +135,7 @@
         { "$ref": "#/$defs/flow_common" },
         {
           "type": "object",
-          "additionalProperties": false,
+          "unevaluatedProperties": false,
           "required": ["category"],
           "properties": {
             "flow_id": { "type": "string", "minLength": 1 },
