@@ -611,11 +611,6 @@ pub fn enumerate_decision_space() -> Vec<DecisionCase> {
                         } else {
                             &[
                                 ActingOrganizationRelation::Absent,
-                                ActingOrganizationRelation::DifferentFromCreator,
-                            ]
-                        } else {
-                            &[
-                                ActingOrganizationRelation::Absent,
                                 ActingOrganizationRelation::PresentWithoutCreatorOrganization,
                             ]
                         };
