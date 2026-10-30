@@ -484,6 +484,25 @@ mod tests {
         assert!((r["worst_slice_brier_score"].as_f64().unwrap()-e["worst_slice_brier_score"].as_f64().unwrap()).abs()<=tol);
     }
 
+
+    #[test] fn rejects_abstention_without_reason() {
+        let mut v=fixture();
+        let row=v["evaluation_cases"].as_array_mut().unwrap().iter_mut()
+            .find(|row| row["candidate_output"]["action"]=="abstain").unwrap();
+        row["candidate_output"].as_object_mut().unwrap().remove("abstention_reason");
+        assert!(evaluate_tail_shift_robustness(&v).is_err());
+    }
+
+    #[test] fn threshold_equality_is_not_an_exceedance() {
+        let mut v=fixture();
+        let row=v["evaluation_cases"].as_array_mut().unwrap().iter_mut()
+            .find(|row| row["evaluator"]["observed_normalized_service_deficit_hours"].as_f64().unwrap()>48.0
+                && row["candidate_output"]["action"]=="forecast").unwrap();
+        row["evaluator"]["observed_normalized_service_deficit_hours"]=json!(48.0);
+        let report=evaluate_tail_shift_robustness(&v).expect("threshold equality remains a valid non-exceedance");
+        assert_eq!(report["overall"]["observed_tail_events"].as_u64().unwrap(),24);
+    }
+
     #[test] fn rejects_probability_above_one() { let mut v=fixture(); first_forecast(&mut v)["candidate_output"]["predicted_exceedance_probability"]=json!(1.01); assert!(evaluate_tail_shift_robustness(&v).is_err()); }
     #[test] fn rejects_negative_probability() { let mut v=fixture(); first_forecast(&mut v)["candidate_output"]["predicted_exceedance_probability"]=json!(-0.01); assert!(evaluate_tail_shift_robustness(&v).is_err()); }
     #[test] fn rejects_missing_forecast_probability() { let mut v=fixture(); first_forecast(&mut v)["candidate_output"]["predicted_exceedance_probability"]=Value::Null; assert!(evaluate_tail_shift_robustness(&v).is_err()); }
