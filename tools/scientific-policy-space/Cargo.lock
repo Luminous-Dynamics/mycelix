@@ -99,6 +99,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "scientific-policy-space"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -139,17 +150,6 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
-]
-
-[[package]]
-name = "scientific-policy-space"
-version = "0.1.0"
-dependencies = [
- "hex",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
 ]
 
 [[package]]
