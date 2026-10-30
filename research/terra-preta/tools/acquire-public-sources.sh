@@ -3,7 +3,7 @@
 # Raw datasets are deliberately not committed to Git.
 set -Eeuo pipefail
 
-RAW_DIR="${1:-data/raw/terra-preta}"
+RAW_DIR="${1:-${XDG_DATA_HOME:-$HOME/.local/share}/mycelix/terra-preta/raw}"
 FIGSHARE_API_BASE="${FIGSHARE_API_BASE:-https://api.figshare.com/v2}"
 ZENODO_API_BASE="${ZENODO_API_BASE:-https://zenodo.org/api/records}"
 mkdir -p "$RAW_DIR"
