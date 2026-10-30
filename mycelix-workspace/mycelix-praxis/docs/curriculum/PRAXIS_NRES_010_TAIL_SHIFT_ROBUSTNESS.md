@@ -75,7 +75,7 @@ For forecasts that are issued, report:
 - reliability bins by forecast probability;
 - case coverage, importance-weighted coverage, forecast ESS, observed tail count and tail-event ESS.
 
-A zero assigned to an observed exceedance yields infinite log loss and is reported explicitly, not epsilon-clipped for the tail-support audit. The log score is evaluated without clipping. A zero probability assigned to an observed exceedance is recorded as infinite log loss and reported with an explicit count.
+A zero assigned to an observed exceedance yields infinite log loss and is reported explicitly, not clipped. Zero-probability events are counted separately. Proper scores are calculated on the issued-forecast subset; because abstention can be informative, forecast coverage and importance-weighted coverage are always reported and must not be hidden behind the selective scores. Do not infer unconditional target-population event risk from the issued subset without a defensible missingness model.
 
 ### Conditional tail severity
 
@@ -139,4 +139,4 @@ cargo test --manifest-path benchmarks/nres-capability-loop/Cargo.toml
 cargo run --manifest-path benchmarks/nres-capability-loop/Cargo.toml -- --tail-shift
 ```
 
-The public 128-case fixture exists to validate formulas, weighting, GPD support and abstention accounting. Its tail samples are too few for statistical conclusions. A successful local evaluator run would prove implementation consistency only—not real-world tail calibration, shift invariance, causal understanding, operational safety or SOTA superiority.
+The public 128-case fixture exists to validate formulas, weighting, GPD support and abstention accounting. Its tail samples are too few for statistical conclusions. A successful local evaluator run would prove implementation consistency only—not real-world tail calibration, shift invariance, causal understanding, operational safety or SOTA superiority. The public fixture's regime tail effective sample sizes are very low (roughly 1.8–4.1), so its PIT and tail-quantile outputs illustrate diagnostics but cannot support formal tail-calibration inference.
