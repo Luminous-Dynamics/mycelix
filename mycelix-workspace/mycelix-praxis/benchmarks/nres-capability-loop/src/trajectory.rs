@@ -84,6 +84,7 @@ fn sustained_recovery_hour(floor: f64, samples: &[(f64, f64)]) -> Option<f64> {
     })
 }
 
+#[cfg(test)]
 fn find_service_metric<'a>(
     report: &'a Value,
     scenario_id: &str,
@@ -446,7 +447,7 @@ pub fn evaluate_resilience_trajectories(fixture: &Value) -> Result<Value, Vec<St
                                 "service_id": service_id,
                                 "reference_deficit_area": reference,
                                 "comparison_deficit_area": comparison,
-                                "reference_minus_comparison_percentage_point_hours": reference - comparison,
+                                "reference_minus_comparison_percentage_point_hours": *reference - *comparison,
                                 "interpretation": "descriptive synthetic scenario contrast; not a causal effect"
                             }));
                         }
