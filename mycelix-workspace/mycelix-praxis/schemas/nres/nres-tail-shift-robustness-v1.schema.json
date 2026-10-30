@@ -208,7 +208,6 @@
         "exceedance_threshold",
         "probability_bins",
         "bin_convention",
-        "log_loss_epsilon",
         "gpd_parameterization",
         "gpd_support",
         "tail_quantile_levels",
@@ -245,11 +244,6 @@
         "bin_convention": {
           "type": "string",
           "minLength": 1
-        },
-        "log_loss_epsilon": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 0.01
         },
         "gpd_parameterization": {
           "type": "string",
