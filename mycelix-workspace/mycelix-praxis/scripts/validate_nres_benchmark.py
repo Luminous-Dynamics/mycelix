@@ -613,7 +613,7 @@ def main() -> int:
             print(f"FAIL: {error}", file=sys.stderr)
         return 1
 
-    print("PASS: course, fixture and workbook internal consistency only; no educational or policy-effect claim")
+    print("PASS: course, fixture, workbook and capability-loop structural consistency only; no educational or real-world capability-effect claim")
     if "--self-test" in sys.argv[1:]:
         base_status = self_test(fixture, course)
         if base_status != 0:
