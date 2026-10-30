@@ -8,12 +8,15 @@ A standalone Rust CLI that converts one measured desorption curve into an audita
 cargo test --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml
 cargo clippy --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml --all-targets -- -D warnings
 cargo run --release --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml -- \
-  curve-input.json audit-report.json
+  research/terra-preta/tools/water-retention-audit/fixtures/synthetic-curve-input.json \
+  /tmp/water-retention-audit.json
 ```
 
 Validate the input and report with the committed Draft 2020-12 schemas:
 - [curve-input.schema.json](./curve-input.schema.json)
 - [water-retention-audit-report.schema.json](./water-retention-audit-report.schema.json)
+
+The committed fixture is synthetic software-test input only; it is not measured soil data and must not be cited as a research observation.
 
 ## Measurement contract
 
