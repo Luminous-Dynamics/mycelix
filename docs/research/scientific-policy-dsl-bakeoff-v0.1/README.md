@@ -22,7 +22,7 @@ The experiment is therefore not "is our DSL nicer than Cedar or Rego?" It is:
 
 The first conformance corpus was extracted from the current implementation.
 It is intentionally marked as research data, not as a test suite already
-executed against all engines.
+executed against all engines. The corpus is stored in `cases.json` with a Draft 2020-12 contract in `cases.schema.json`; the schema constrains each case's action, actor roles, claim/attestation context, expected decision, and outer gate shape.
 
 ## Existing implementation: semantic baseline
 
