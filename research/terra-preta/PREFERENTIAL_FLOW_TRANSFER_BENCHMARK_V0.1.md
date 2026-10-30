@@ -217,6 +217,12 @@ A credible model should widen uncertainty or abstain when the data are insuffici
 6. **From rainfall totals to event-shape counterfactuals:** test how duration, peak intensity, pulse spacing and antecedent state alter pathway probabilities and upper-tail velocity.
 7. **From hydrology-only to coupled mass transport:** only after independently measured discharge and solute/sediment samples exist, predict event-integrated nutrient export. NEON soil moisture and rainfall alone do not provide biochar effects or nutrient-flux labels.
 
+## 8A. Derived-database bridge track
+
+The 2025 HydroShare [NEON Soil Preferential Flow Database v1.1](https://doi.org/10.4211/hs.847b15cd15524b78acd58a2a8be242c1) is a practical bridge dataset: its readme includes event-level precipitation/soil-moisture response, smBeforePrecip, smOnsetTime, apparent velocity and multiple Rosetta Ksat variants. It is derived from NEON RELEASE-2023 and provisional observations plus soil/site metadata, and its resource page declares CC BY 4.0. The reported package is approximately 1.0 GB and its contents are externally hosted.
+
+Use it to bootstrap data-dictionary and eventizer crosswalk work, test Ksat-threshold sensitivity and inspect missingness before rebuilding the raw 2026 cohort. It is not independent of NEON, not necessarily identical to the 2026 article's model matrix, and not a substitute for exact-release raw reconstruction. The source-specific caveat that BONA, DEJU, HEAL, TOOL and BARR are not recommended, while KONA is excluded, must be retained as dataset metadata rather than converted into a guessed 2026 site roster.
+
 ## 9. Data provenance, overlap and stop rules
 
 - Freeze release tag, site roster, file inventory, publisher checksum, local SHA-256, query/API response, product code, sensor metadata and preprocessing commit before modelling.
