@@ -191,18 +191,23 @@
         "weighted_forecast_coverage": 0.9769791666666665,
         "importance_weight_sum": 128.00000000000028,
         "effective_sample_size": 101.73802458668973,
-        "weighted_event_rate": 0.08854166666666641,
+        "forecast_effective_sample_size": 99.1950123760287,
+        "weighted_event_rate": 0.0896684081458575,
         "mean_candidate_probability": 0.058798272736965446,
         "original_brier_score": 0.07849683436400443,
         "log_loss": 0.2922853324790153,
         "zero_probability_events": 0,
+        "climatology_brier_score": 0.08409493549418887,
+        "brier_skill_score": 0.0665688260212921,
         "reliability_resolution_uncertainty": {
           "reliability": 0.0046140695688202185,
-          "resolution": 0.008449827186274562,
-          "uncertainty": 0.08070203993055534,
-          "binned_brier_score": 0.076866282313101,
+          "resolution": 0.008448557639913631,
+          "uncertainty": 0.08162798472644542,
+          "binned_brier_score": 0.07779349665535207,
+          "murphy_reconstructed_brier_score": 0.07779349665535201,
+          "decomposition_identity_residual": 5.551115123125783e-17,
           "original_brier_score": 0.07849683436400443,
-          "binned_minus_original_residual": -0.0016305520509034277,
+          "binned_minus_original_residual": -0.0007033377086523573,
           "bins": [
             {
               "bin_id": "BIN-0",
@@ -249,11 +254,11 @@
           ]
         },
         "policy_costs": {
-          "candidate": 1.5423697916666632,
-          "no_action": 2.1249999999999947,
+          "candidate_forecast_and_review": 1.5423697916666632,
+          "always_no_action": 2.1249999999999947,
           "always_prepare": 1.5312499999999956,
-          "climatology": 2.1249999999999947,
-          "oracle": 0.6197916666666656
+          "training_climatology": 2.1249999999999947,
+          "perfect_information_oracle_lower_bound": 0.6197916666666656
         },
         "decision_metrics": {
           "relative_economic_value": 0.3870761245674739,
@@ -275,18 +280,23 @@
         "weighted_forecast_coverage": 0.9769791666666665,
         "importance_weight_sum": 128.00000000000028,
         "effective_sample_size": 101.73802458668973,
-        "weighted_event_rate": 0.08854166666666641,
+        "forecast_effective_sample_size": 99.1950123760287,
+        "weighted_event_rate": 0.0896684081458575,
         "mean_candidate_probability": 0.058798272736965446,
         "original_brier_score": 0.07849683436400443,
         "log_loss": 0.2922853324790153,
         "zero_probability_events": 0,
+        "climatology_brier_score": 0.08409493549418887,
+        "brier_skill_score": 0.0665688260212921,
         "reliability_resolution_uncertainty": {
           "reliability": 0.0046140695688202185,
-          "resolution": 0.008449827186274562,
-          "uncertainty": 0.08070203993055534,
-          "binned_brier_score": 0.076866282313101,
+          "resolution": 0.008448557639913631,
+          "uncertainty": 0.08162798472644542,
+          "binned_brier_score": 0.07779349665535207,
+          "murphy_reconstructed_brier_score": 0.07779349665535201,
+          "decomposition_identity_residual": 5.551115123125783e-17,
           "original_brier_score": 0.07849683436400443,
-          "binned_minus_original_residual": -0.0016305520509034277,
+          "binned_minus_original_residual": -0.0007033377086523573,
           "bins": [
             {
               "bin_id": "BIN-0",
@@ -333,11 +343,11 @@
           ]
         },
         "policy_costs": {
-          "candidate": 2.544583333333327,
-          "no_action": 2.833333333333325,
+          "candidate_forecast_and_review": 2.544583333333327,
+          "always_no_action": 2.833333333333325,
           "always_prepare": 3.2083333333333273,
-          "climatology": 2.833333333333325,
-          "oracle": 0.9296874999999982
+          "training_climatology": 2.833333333333325,
+          "perfect_information_oracle_lower_bound": 0.9296874999999982
         },
         "decision_metrics": {
           "relative_economic_value": 0.1516826265389872,
@@ -359,18 +369,23 @@
         "weighted_forecast_coverage": 0.9769791666666665,
         "importance_weight_sum": 128.00000000000028,
         "effective_sample_size": 101.73802458668973,
-        "weighted_event_rate": 0.08854166666666641,
+        "forecast_effective_sample_size": 99.1950123760287,
+        "weighted_event_rate": 0.0896684081458575,
         "mean_candidate_probability": 0.058798272736965446,
         "original_brier_score": 0.07849683436400443,
         "log_loss": 0.2922853324790153,
         "zero_probability_events": 0,
+        "climatology_brier_score": 0.08409493549418887,
+        "brier_skill_score": 0.0665688260212921,
         "reliability_resolution_uncertainty": {
           "reliability": 0.0046140695688202185,
-          "resolution": 0.008449827186274562,
-          "uncertainty": 0.08070203993055534,
-          "binned_brier_score": 0.076866282313101,
+          "resolution": 0.008448557639913631,
+          "uncertainty": 0.08162798472644542,
+          "binned_brier_score": 0.07779349665535207,
+          "murphy_reconstructed_brier_score": 0.07779349665535201,
+          "decomposition_identity_residual": 5.551115123125783e-17,
           "original_brier_score": 0.07849683436400443,
-          "binned_minus_original_residual": -0.0016305520509034277,
+          "binned_minus_original_residual": -0.0007033377086523573,
           "bins": [
             {
               "bin_id": "BIN-0",
@@ -417,11 +432,11 @@
           ]
         },
         "policy_costs": {
-          "candidate": 3.314531249999993,
-          "no_action": 3.54166666666666,
+          "candidate_forecast_and_review": 3.314531249999993,
+          "always_no_action": 3.54166666666666,
           "always_prepare": 5.70833333333332,
-          "climatology": 3.54166666666666,
-          "oracle": 1.1510416666666643
+          "training_climatology": 3.54166666666666,
+          "perfect_information_oracle_lower_bound": 1.1510416666666643
         },
         "decision_metrics": {
           "relative_economic_value": 0.0950108932461877,
@@ -446,16 +461,21 @@
           "weighted_forecast_coverage": 1,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
           "weighted_event_rate": 0.05541666666666667,
           "mean_candidate_probability": 0.04025,
           "original_brier_score": 0.05098481666666663,
           "log_loss": 0.21694616973651012,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.05258333333333329,
+          "brier_skill_score": 0.030399683042789172,
           "reliability_resolution_uncertainty": {
             "reliability": 0.0034118499999999997,
             "resolution": 0.006449826388888889,
             "uncertainty": 0.05234565972222222,
             "binned_brier_score": 0.04930768333333333,
+            "murphy_reconstructed_brier_score": 0.04930768333333333,
+            "decomposition_identity_residual": 0,
             "original_brier_score": 0.05098481666666663,
             "binned_minus_original_residual": -0.0016771333333332958,
             "bins": [
@@ -504,11 +524,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 1.09,
-            "no_action": 1.3300000000000003,
+            "candidate_forecast_and_review": 1.09,
+            "always_no_action": 1.3300000000000003,
             "always_prepare": 1.3325000000000005,
-            "climatology": 1.3300000000000003,
-            "oracle": 0.38791666666666663
+            "training_climatology": 1.3300000000000003,
+            "perfect_information_oracle_lower_bound": 0.38791666666666663
           },
           "decision_metrics": {
             "relative_economic_value": 0.2547545333923044,
@@ -530,16 +550,21 @@
           "weighted_forecast_coverage": 1,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
           "weighted_event_rate": 0.05541666666666667,
           "mean_candidate_probability": 0.04025,
           "original_brier_score": 0.05098481666666663,
           "log_loss": 0.21694616973651012,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.05258333333333329,
+          "brier_skill_score": 0.030399683042789172,
           "reliability_resolution_uncertainty": {
             "reliability": 0.0034118499999999997,
             "resolution": 0.006449826388888889,
             "uncertainty": 0.05234565972222222,
             "binned_brier_score": 0.04930768333333333,
+            "murphy_reconstructed_brier_score": 0.04930768333333333,
+            "decomposition_identity_residual": 0,
             "original_brier_score": 0.05098481666666663,
             "binned_minus_original_residual": -0.0016771333333332958,
             "bins": [
@@ -588,11 +613,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 1.4883333333333326,
-            "no_action": 1.7733333333333334,
+            "candidate_forecast_and_review": 1.4883333333333326,
+            "always_no_action": 1.7733333333333334,
             "always_prepare": 2.943333333333334,
-            "climatology": 1.7733333333333334,
-            "oracle": 0.581875
+            "training_climatology": 1.7733333333333334,
+            "perfect_information_oracle_lower_bound": 0.581875
           },
           "decision_metrics": {
             "relative_economic_value": 0.23920265780730965,
@@ -614,16 +639,21 @@
           "weighted_forecast_coverage": 1,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
           "weighted_event_rate": 0.05541666666666667,
           "mean_candidate_probability": 0.04025,
           "original_brier_score": 0.05098481666666663,
           "log_loss": 0.21694616973651012,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.05258333333333329,
+          "brier_skill_score": 0.030399683042789172,
           "reliability_resolution_uncertainty": {
             "reliability": 0.0034118499999999997,
             "resolution": 0.006449826388888889,
             "uncertainty": 0.05234565972222222,
             "binned_brier_score": 0.04930768333333333,
+            "murphy_reconstructed_brier_score": 0.04930768333333333,
+            "decomposition_identity_residual": 0,
             "original_brier_score": 0.05098481666666663,
             "binned_minus_original_residual": -0.0016771333333332958,
             "bins": [
@@ -672,11 +702,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 2.0891666666666664,
-            "no_action": 2.2166666666666663,
+            "candidate_forecast_and_review": 2.0891666666666664,
+            "always_no_action": 2.2166666666666663,
             "always_prepare": 5.443333333333333,
-            "climatology": 2.2166666666666663,
-            "oracle": 0.7204166666666665
+            "training_climatology": 2.2166666666666663,
+            "perfect_information_oracle_lower_bound": 0.7204166666666665
           },
           "decision_metrics": {
             "relative_economic_value": 0.0852130325814536,
@@ -700,18 +730,23 @@
           "weighted_forecast_coverage": 0.9962500000000001,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
-          "weighted_event_rate": 0.09958333333333334,
+          "forecast_effective_sample_size": 25.253137382223937,
+          "weighted_event_rate": 0.09619406106231702,
           "mean_candidate_probability": 0.059535759096612274,
           "original_brier_score": 0.08572976160602262,
           "log_loss": 0.3226298959249164,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.0900985361773317,
+          "brier_skill_score": 0.048488851835622127,
           "reliability_resolution_uncertainty": {
             "reliability": 0.005524075282308656,
-            "resolution": 0.007022305215739578,
-            "uncertainty": 0.08966649305555556,
-            "binned_brier_score": 0.08816826312212464,
+            "resolution": 0.007010818049212499,
+            "uncertainty": 0.08694076367865625,
+            "binned_brier_score": 0.0854540209117524,
+            "murphy_reconstructed_brier_score": 0.0854540209117524,
+            "decomposition_identity_residual": 0,
             "original_brier_score": 0.08572976160602262,
-            "binned_minus_original_residual": 0.002438501516102018,
+            "binned_minus_original_residual": -0.0002757406942702212,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -758,11 +793,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 1.9065625000000006,
-            "no_action": 2.3899999999999992,
+            "candidate_forecast_and_review": 1.9065625000000006,
+            "always_no_action": 2.3899999999999992,
             "always_prepare": 1.5975000000000013,
-            "climatology": 2.3899999999999992,
-            "oracle": 0.6970833333333333
+            "training_climatology": 2.3899999999999992,
+            "perfect_information_oracle_lower_bound": 0.6970833333333333
           },
           "decision_metrics": {
             "relative_economic_value": 0.28556485355648464,
@@ -784,18 +819,23 @@
           "weighted_forecast_coverage": 0.9962500000000001,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
-          "weighted_event_rate": 0.09958333333333334,
+          "forecast_effective_sample_size": 25.253137382223937,
+          "weighted_event_rate": 0.09619406106231702,
           "mean_candidate_probability": 0.059535759096612274,
           "original_brier_score": 0.08572976160602262,
           "log_loss": 0.3226298959249164,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.0900985361773317,
+          "brier_skill_score": 0.048488851835622127,
           "reliability_resolution_uncertainty": {
             "reliability": 0.005524075282308656,
-            "resolution": 0.007022305215739578,
-            "uncertainty": 0.08966649305555556,
-            "binned_brier_score": 0.08816826312212464,
+            "resolution": 0.007010818049212499,
+            "uncertainty": 0.08694076367865625,
+            "binned_brier_score": 0.0854540209117524,
+            "murphy_reconstructed_brier_score": 0.0854540209117524,
+            "decomposition_identity_residual": 0,
             "original_brier_score": 0.08572976160602262,
-            "binned_minus_original_residual": 0.002438501516102018,
+            "binned_minus_original_residual": -0.0002757406942702212,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -842,11 +882,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 2.8960416666666666,
-            "no_action": 3.186666666666667,
+            "candidate_forecast_and_review": 2.8960416666666666,
+            "always_no_action": 3.186666666666667,
             "always_prepare": 3.2966666666666673,
-            "climatology": 3.186666666666667,
-            "oracle": 1.045625
+            "training_climatology": 3.186666666666667,
+            "perfect_information_oracle_lower_bound": 1.045625
           },
           "decision_metrics": {
             "relative_economic_value": 0.13574000194609334,
@@ -868,18 +908,23 @@
           "weighted_forecast_coverage": 0.9962500000000001,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
-          "weighted_event_rate": 0.09958333333333334,
+          "forecast_effective_sample_size": 25.253137382223937,
+          "weighted_event_rate": 0.09619406106231702,
           "mean_candidate_probability": 0.059535759096612274,
           "original_brier_score": 0.08572976160602262,
           "log_loss": 0.3226298959249164,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.0900985361773317,
+          "brier_skill_score": 0.048488851835622127,
           "reliability_resolution_uncertainty": {
             "reliability": 0.005524075282308656,
-            "resolution": 0.007022305215739578,
-            "uncertainty": 0.08966649305555556,
-            "binned_brier_score": 0.08816826312212464,
+            "resolution": 0.007010818049212499,
+            "uncertainty": 0.08694076367865625,
+            "binned_brier_score": 0.0854540209117524,
+            "murphy_reconstructed_brier_score": 0.0854540209117524,
+            "decomposition_identity_residual": 0,
             "original_brier_score": 0.08572976160602262,
-            "binned_minus_original_residual": 0.002438501516102018,
+            "binned_minus_original_residual": -0.0002757406942702212,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -926,11 +971,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 3.722708333333333,
-            "no_action": 3.9833333333333325,
+            "candidate_forecast_and_review": 3.722708333333333,
+            "always_no_action": 3.9833333333333325,
             "always_prepare": 5.796666666666667,
-            "climatology": 3.9833333333333325,
-            "oracle": 1.2945833333333336
+            "training_climatology": 3.9833333333333325,
+            "perfect_information_oracle_lower_bound": 1.2945833333333336
           },
           "decision_metrics": {
             "relative_economic_value": 0.09693165969316589,
@@ -954,18 +999,23 @@
           "weighted_forecast_coverage": 1,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
           "weighted_event_rate": 0.14375000000000002,
           "mean_candidate_probability": 0.08084999999999998,
           "original_brier_score": 0.12324181666666663,
           "log_loss": 0.42411674299515056,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.13385000000000002,
+          "brier_skill_score": 0.07925426472419417,
           "reliability_resolution_uncertainty": {
             "reliability": 0.010493000000000002,
             "resolution": 0.011992187499999998,
             "uncertainty": 0.1230859375,
-            "binned_brier_score": 0.12158675000000001,
+            "binned_brier_score": 0.12158675000000002,
+            "murphy_reconstructed_brier_score": 0.12158675000000001,
+            "decomposition_identity_residual": 1.3877787807814457e-17,
             "original_brier_score": 0.12324181666666663,
-            "binned_minus_original_residual": -0.0016550666666666214,
+            "binned_minus_original_residual": -0.0016550666666666075,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -1012,11 +1062,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 2.428333333333335,
-            "no_action": 3.4499999999999993,
+            "candidate_forecast_and_review": 2.428333333333335,
+            "always_no_action": 3.4499999999999993,
             "always_prepare": 1.8625000000000016,
-            "climatology": 3.4499999999999993,
-            "oracle": 1.0062499999999999
+            "training_climatology": 3.4499999999999993,
+            "perfect_information_oracle_lower_bound": 1.0062499999999999
           },
           "decision_metrics": {
             "relative_economic_value": 0.418073316283034,
@@ -1038,18 +1088,23 @@
           "weighted_forecast_coverage": 1,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
           "weighted_event_rate": 0.14375000000000002,
           "mean_candidate_probability": 0.08084999999999998,
           "original_brier_score": 0.12324181666666663,
           "log_loss": 0.42411674299515056,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.13385000000000002,
+          "brier_skill_score": 0.07925426472419417,
           "reliability_resolution_uncertainty": {
             "reliability": 0.010493000000000002,
             "resolution": 0.011992187499999998,
             "uncertainty": 0.1230859375,
-            "binned_brier_score": 0.12158675000000001,
+            "binned_brier_score": 0.12158675000000002,
+            "murphy_reconstructed_brier_score": 0.12158675000000001,
+            "decomposition_identity_residual": 1.3877787807814457e-17,
             "original_brier_score": 0.12324181666666663,
-            "binned_minus_original_residual": -0.0016550666666666214,
+            "binned_minus_original_residual": -0.0016550666666666075,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -1096,11 +1151,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 4.135,
-            "no_action": 4.6000000000000005,
+            "candidate_forecast_and_review": 4.135,
+            "always_no_action": 4.6000000000000005,
             "always_prepare": 3.650000000000001,
-            "climatology": 4.6000000000000005,
-            "oracle": 1.5093749999999995
+            "training_climatology": 4.6000000000000005,
+            "perfect_information_oracle_lower_bound": 1.5093749999999995
           },
           "decision_metrics": {
             "relative_economic_value": 0.1504550050556119,
@@ -1122,18 +1177,23 @@
           "weighted_forecast_coverage": 1,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
+          "forecast_effective_sample_size": 25.43450614667232,
           "weighted_event_rate": 0.14375000000000002,
           "mean_candidate_probability": 0.08084999999999998,
           "original_brier_score": 0.12324181666666663,
           "log_loss": 0.42411674299515056,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.13385000000000002,
+          "brier_skill_score": 0.07925426472419417,
           "reliability_resolution_uncertainty": {
             "reliability": 0.010493000000000002,
             "resolution": 0.011992187499999998,
             "uncertainty": 0.1230859375,
-            "binned_brier_score": 0.12158675000000001,
+            "binned_brier_score": 0.12158675000000002,
+            "murphy_reconstructed_brier_score": 0.12158675000000001,
+            "decomposition_identity_residual": 1.3877787807814457e-17,
             "original_brier_score": 0.12324181666666663,
-            "binned_minus_original_residual": -0.0016550666666666214,
+            "binned_minus_original_residual": -0.0016550666666666075,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -1180,11 +1240,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 5.18,
-            "no_action": 5.750000000000002,
+            "candidate_forecast_and_review": 5.18,
+            "always_no_action": 5.750000000000002,
             "always_prepare": 6.15,
-            "climatology": 5.750000000000002,
-            "oracle": 1.8687500000000004
+            "training_climatology": 5.750000000000002,
+            "perfect_information_oracle_lower_bound": 1.8687500000000004
           },
           "decision_metrics": {
             "relative_economic_value": 0.14685990338164298,
@@ -1208,18 +1268,23 @@
           "weighted_forecast_coverage": 0.9116666666666667,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
-          "weighted_event_rate": 0.05541666666666667,
+          "forecast_effective_sample_size": 23.073316496693728,
+          "weighted_event_rate": 0.06078610603290676,
           "mean_candidate_probability": 0.054149451553930514,
           "original_brier_score": 0.05169014145338206,
           "log_loss": 0.19715953455586302,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.057523217550274196,
+          "brier_skill_score": 0.10140385648271732,
           "reliability_resolution_uncertainty": {
             "reliability": 0.005857242500415489,
-            "resolution": 0.011675828006989455,
-            "uncertainty": 0.05234565972222222,
-            "binned_brier_score": 0.04652707421564826,
+            "resolution": 0.011646997127881725,
+            "uncertainty": 0.057091155346262974,
+            "binned_brier_score": 0.05130140071879672,
+            "murphy_reconstructed_brier_score": 0.05130140071879674,
+            "decomposition_identity_residual": -2.0816681711721685e-17,
             "original_brier_score": 0.05169014145338206,
-            "binned_minus_original_residual": -0.005163067237733805,
+            "binned_minus_original_residual": -0.0003887407345853425,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -1266,11 +1331,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 0.7445833333333333,
-            "no_action": 1.3300000000000003,
+            "candidate_forecast_and_review": 0.7445833333333333,
+            "always_no_action": 1.3300000000000003,
             "always_prepare": 1.3325000000000005,
-            "climatology": 1.3300000000000003,
-            "oracle": 0.38791666666666663
+            "training_climatology": 1.3300000000000003,
+            "perfect_information_oracle_lower_bound": 0.38791666666666663
           },
           "decision_metrics": {
             "relative_economic_value": 0.6214064573197702,
@@ -1292,18 +1357,23 @@
           "weighted_forecast_coverage": 0.9116666666666667,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
-          "weighted_event_rate": 0.05541666666666667,
+          "forecast_effective_sample_size": 23.073316496693728,
+          "weighted_event_rate": 0.06078610603290676,
           "mean_candidate_probability": 0.054149451553930514,
           "original_brier_score": 0.05169014145338206,
           "log_loss": 0.19715953455586302,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.057523217550274196,
+          "brier_skill_score": 0.10140385648271732,
           "reliability_resolution_uncertainty": {
             "reliability": 0.005857242500415489,
-            "resolution": 0.011675828006989455,
-            "uncertainty": 0.05234565972222222,
-            "binned_brier_score": 0.04652707421564826,
+            "resolution": 0.011646997127881725,
+            "uncertainty": 0.057091155346262974,
+            "binned_brier_score": 0.05130140071879672,
+            "murphy_reconstructed_brier_score": 0.05130140071879674,
+            "decomposition_identity_residual": -2.0816681711721685e-17,
             "original_brier_score": 0.05169014145338206,
-            "binned_minus_original_residual": -0.005163067237733805,
+            "binned_minus_original_residual": -0.0003887407345853425,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -1350,11 +1420,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 1.6589583333333326,
-            "no_action": 1.7733333333333334,
+            "candidate_forecast_and_review": 1.6589583333333326,
+            "always_no_action": 1.7733333333333334,
             "always_prepare": 2.943333333333334,
-            "climatology": 1.7733333333333334,
-            "oracle": 0.581875
+            "training_climatology": 1.7733333333333334,
+            "perfect_information_oracle_lower_bound": 0.581875
           },
           "decision_metrics": {
             "relative_economic_value": 0.0959958034621444,
@@ -1376,18 +1446,23 @@
           "weighted_forecast_coverage": 0.9116666666666667,
           "importance_weight_sum": 32,
           "effective_sample_size": 25.43450614667232,
-          "weighted_event_rate": 0.05541666666666667,
+          "forecast_effective_sample_size": 23.073316496693728,
+          "weighted_event_rate": 0.06078610603290676,
           "mean_candidate_probability": 0.054149451553930514,
           "original_brier_score": 0.05169014145338206,
           "log_loss": 0.19715953455586302,
           "zero_probability_events": 0,
+          "climatology_brier_score": 0.057523217550274196,
+          "brier_skill_score": 0.10140385648271732,
           "reliability_resolution_uncertainty": {
             "reliability": 0.005857242500415489,
-            "resolution": 0.011675828006989455,
-            "uncertainty": 0.05234565972222222,
-            "binned_brier_score": 0.04652707421564826,
+            "resolution": 0.011646997127881725,
+            "uncertainty": 0.057091155346262974,
+            "binned_brier_score": 0.05130140071879672,
+            "murphy_reconstructed_brier_score": 0.05130140071879674,
+            "decomposition_identity_residual": -2.0816681711721685e-17,
             "original_brier_score": 0.05169014145338206,
-            "binned_minus_original_residual": -0.005163067237733805,
+            "binned_minus_original_residual": -0.0003887407345853425,
             "bins": [
               {
                 "bin_id": "BIN-0",
@@ -1434,11 +1509,11 @@
             ]
           },
           "policy_costs": {
-            "candidate": 2.2662500000000003,
-            "no_action": 2.2166666666666663,
+            "candidate_forecast_and_review": 2.2662500000000003,
+            "always_no_action": 2.2166666666666663,
             "always_prepare": 5.443333333333333,
-            "climatology": 2.2166666666666663,
-            "oracle": 0.7204166666666665
+            "training_climatology": 2.2166666666666663,
+            "perfect_information_oracle_lower_bound": 0.7204166666666665
           },
           "decision_metrics": {
             "relative_economic_value": -0.033138401559454626,
