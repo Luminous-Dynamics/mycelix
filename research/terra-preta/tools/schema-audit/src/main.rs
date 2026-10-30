@@ -638,7 +638,6 @@ mod tests {
         assert!(!validator.is_valid(&report));
     }
 
-
     fn coupled_event_schema() -> Value {
         serde_json::from_str(SCHEMA_FIXTURES[12].1).unwrap()
     }
