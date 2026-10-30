@@ -1,4 +1,4 @@
-use praxis_nres_capability_loop::evaluate;
+use praxis_nres_capability_loop::{evaluate, export_evidence_envelope};
 use serde_json::Value;
 use std::process::ExitCode;
 
@@ -21,19 +21,24 @@ fn main() -> ExitCode {
         }
     };
 
-    match evaluate(&nres002, &nres005) {
-        Ok(report) => {
-            match serde_json::to_string_pretty(&report) {
-                Ok(encoded) => {
-                    println!("{encoded}");
-                    ExitCode::SUCCESS
-                }
-                Err(error) => {
-                    eprintln!("could not encode benchmark report: {error}");
-                    ExitCode::from(2)
-                }
+    let envelope_mode = std::env::args().skip(1).any(|arg| arg == "--envelope");
+    let result = if envelope_mode {
+        export_evidence_envelope(&nres002, &nres005)
+    } else {
+        evaluate(&nres002, &nres005)
+    };
+
+    match result {
+        Ok(output) => match serde_json::to_string_pretty(&output) {
+            Ok(encoded) => {
+                println!("{encoded}");
+                ExitCode::SUCCESS
             }
-        }
+            Err(error) => {
+                eprintln!("could not encode benchmark output: {error}");
+                ExitCode::from(2)
+            }
+        },
         Err(errors) => {
             for error in errors {
                 eprintln!("FAIL: {error}");
