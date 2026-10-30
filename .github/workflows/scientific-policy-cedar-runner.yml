@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: scientific-policy-cedar-runner-\${{ github.workflow }}-\${{ github.event.pull_request.number || github.ref }}
+  group: scientific-policy-cedar-runner-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -64,7 +64,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scientific-policy-cedar-results-\${{ github.sha }}
+          name: scientific-policy-cedar-results-${{ github.sha }}
           path: |
             target/scientific-policy-space/
             target/cedar-results/
