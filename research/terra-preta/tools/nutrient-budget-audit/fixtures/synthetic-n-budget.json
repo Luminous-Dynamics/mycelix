@@ -68,7 +68,7 @@
       "pool_id": "soil-n",
       "compartment": "soil",
       "stock_kg_element_per_ha": 80,
-      "standard_uncertainty_kg_element_per_ha": 1.0,
+      "standard_uncertainty_kg_element_per_ha": 1,
       "method": "synthetic known-stock fixture",
       "evidence_ref": "synthetic-fixture"
     },
@@ -110,5 +110,15 @@
       "method": "synthetic extraction fixture; method is illustrative only",
       "evidence_ref": "synthetic-fixture"
     }
-  ]
+  ],
+  "stock_pool_partition_review": {
+    "mutually_exclusive": true,
+    "boundary_stocks_covered": true,
+    "review_ref": "synthetic-stock-partition-review"
+  },
+  "boundary_flux_review": {
+    "all_relevant_fluxes_accounted_for": true,
+    "review_ref": "synthetic-boundary-flux-review",
+    "unmeasured_pathways": []
+  }
 }
