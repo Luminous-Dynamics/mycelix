@@ -170,7 +170,14 @@
             "type": "string"
           },
           "result": {
-            "type": "object"
+            "oneOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "array"
+              }
+            ]
           },
           "evidence_ids": {
             "type": "array",
