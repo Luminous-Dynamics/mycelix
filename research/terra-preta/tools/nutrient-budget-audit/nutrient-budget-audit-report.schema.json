@@ -18,6 +18,9 @@
     "period_start_date",
     "period_end_date",
     "control_volume",
+    "stock_pool_partition_review_ref",
+    "boundary_flux_review_ref",
+    "boundary_coverage_status",
     "input_total_kg_element_per_ha",
     "output_total_kg_element_per_ha",
     "storage_start_total_kg_element_per_ha",
@@ -32,43 +35,115 @@
     "interpretation_boundary"
   ],
   "properties": {
-    "audit_version": { "const": "0.1.0" },
+    "audit_version": {
+      "const": "0.1.0"
+    },
     "status": {
       "enum": [
         "within_conservative_uncertainty_bound",
         "outside_conservative_uncertainty_bound",
-        "unqualified_missing_uncertainty"
+        "unqualified_missing_uncertainty",
+        "unqualified_incomplete_boundary_coverage"
       ]
     },
-    "record_id": { "type": "string", "minLength": 1 },
-    "element": { "enum": ["N", "P", "K"] },
-    "input_sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
-    "study_id": { "type": "string", "minLength": 1 },
-    "site_id": { "type": "string", "minLength": 1 },
-    "experimental_unit_id": { "type": "string", "minLength": 1 },
-    "treatment_arm_id": { "type": "string", "minLength": 1 },
-    "comparator_arm_id": { "type": "string", "minLength": 1 },
-    "period_start_date": { "type": "string", "format": "date" },
-    "period_end_date": { "type": "string", "format": "date" },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "element": {
+      "enum": [
+        "N",
+        "P",
+        "K"
+      ]
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experimental_unit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "treatment_arm_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "comparator_arm_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "period_start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_end_date": {
+      "type": "string",
+      "format": "date"
+    },
     "control_volume": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["area_ha", "top_depth_cm", "bottom_depth_cm", "boundary_description"],
+      "required": [
+        "area_ha",
+        "top_depth_cm",
+        "bottom_depth_cm",
+        "boundary_description"
+      ],
       "properties": {
-        "area_ha": { "type": "number", "exclusiveMinimum": 0 },
-        "top_depth_cm": { "type": "number", "minimum": 0 },
-        "bottom_depth_cm": { "type": "number", "exclusiveMinimum": 0 },
-        "boundary_description": { "type": "string", "minLength": 1 }
+        "area_ha": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "top_depth_cm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom_depth_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "boundary_description": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-    "input_total_kg_element_per_ha": { "type": "number", "minimum": 0 },
-    "output_total_kg_element_per_ha": { "type": "number", "minimum": 0 },
-    "storage_start_total_kg_element_per_ha": { "type": "number", "minimum": 0 },
-    "storage_end_total_kg_element_per_ha": { "type": "number", "minimum": 0 },
-    "storage_change_kg_element_per_ha": { "type": "number" },
-    "residual_kg_element_per_ha": { "type": "number" },
+    "input_total_kg_element_per_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "output_total_kg_element_per_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "storage_start_total_kg_element_per_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "storage_end_total_kg_element_per_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "storage_change_kg_element_per_ha": {
+      "type": "number"
+    },
+    "residual_kg_element_per_ha": {
+      "type": "number"
+    },
     "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": {
-      "type": ["number", "null"],
+      "type": [
+        "number",
+        "null"
+      ],
       "minimum": 0
     },
     "plot_scaled": {
@@ -82,22 +157,55 @@
         "uncertainty_bound_kg_element"
       ],
       "properties": {
-        "input_kg_element": { "type": "number", "minimum": 0 },
-        "output_kg_element": { "type": "number", "minimum": 0 },
-        "storage_change_kg_element": { "type": "number" },
-        "residual_kg_element": { "type": "number" },
-        "uncertainty_bound_kg_element": { "type": ["number", "null"], "minimum": 0 }
+        "input_kg_element": {
+          "type": "number",
+          "minimum": 0
+        },
+        "output_kg_element": {
+          "type": "number",
+          "minimum": 0
+        },
+        "storage_change_kg_element": {
+          "type": "number"
+        },
+        "residual_kg_element": {
+          "type": "number"
+        },
+        "uncertainty_bound_kg_element": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
       }
     },
     "flow_counts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["inputs", "outputs", "storage_pools", "availability_indicators"],
+      "required": [
+        "inputs",
+        "outputs",
+        "storage_pools",
+        "availability_indicators"
+      ],
       "properties": {
-        "inputs": { "type": "integer", "minimum": 0 },
-        "outputs": { "type": "integer", "minimum": 0 },
-        "storage_pools": { "type": "integer", "minimum": 1 },
-        "availability_indicators": { "type": "integer", "minimum": 0 }
+        "inputs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "storage_pools": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "availability_indicators": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "availability_indicators": {
@@ -116,18 +224,64 @@
           "evidence_ref"
         ],
         "properties": {
-          "indicator_id": { "type": "string", "minLength": 1 },
-          "name": { "type": "string", "minLength": 1 },
-          "value": { "type": "number", "minimum": 0 },
-          "unit": { "type": "string", "minLength": 1 },
-          "depth_top_cm": { "type": "number", "minimum": 0 },
-          "depth_bottom_cm": { "type": "number", "exclusiveMinimum": 0 },
-          "method": { "type": "string", "minLength": 1 },
-          "evidence_ref": { "type": "string", "minLength": 1 }
+          "indicator_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth_top_cm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "depth_bottom_cm": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
-    "warnings": { "type": "array", "items": { "type": "string" } },
-    "interpretation_boundary": { "type": "string", "minLength": 1 }
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stock_pool_partition_review_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "boundary_flux_review_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "boundary_coverage_status": {
+      "enum": [
+        "declared_complete",
+        "declared_incomplete"
+      ]
+    }
   }
 }
