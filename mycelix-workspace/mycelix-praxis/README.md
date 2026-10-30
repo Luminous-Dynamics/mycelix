@@ -120,6 +120,7 @@ mycelix-praxis/
 - **[Privacy Model](docs/privacy.md)**: Data handling, DP, selective disclosure
 - **[Curriculum and content contract](docs/content-contract.md)**: Graph and lesson integrity rules
 - **[NRES policy-learning benchmark](docs/curriculum/PRAXIS_NRES_002_BENCHMARK.md)**: Synthetic, rubric-based civic-resilience and service-policy assessment
+- **[NRES exercise-to-improvement benchmark](docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md)**: Evidence-linked exercises, corrective actions and independent retests
 - **[Learning client contract](docs/learning-contract.md)**: Versioned browser/coordinator DTOs and privacy boundary
 - **[Live data lifecycle](docs/live-data-lifecycle.md)**: Reactive readiness, reconnect, and honest resource states
 - **[Governance](GOVERNANCE.md)**: Decision-making processes, roles, DAO alignment
@@ -147,7 +148,7 @@ See [`docs/adr/`](docs/adr/) for all ADRs.
 
 A draft, nonpartisan course about civic preparedness, lawful democratic defence, critical-service continuity, and evidence-based comparison of public-service models is under community review in [PR #5521](https://github.com/Luminous-Dynamics/mycelix/pull/5521). The course and its synthetic assessment fixture are not activated in the production curriculum graph.
 
-The draft now includes a learner-facing [capstone workbook](examples/courses/civic-resilience-capstone-workbook-001.json), [anchored rubric](docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md), and [study preregistration/split protocol](docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md). The public variants are development cases, not held-out evidence. These additions remain draft-only and are not activated in the curriculum graph.
+The draft now includes a learner-facing [capstone workbook](examples/courses/civic-resilience-capstone-workbook-001.json), [anchored rubric](docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md), [study preregistration/split protocol](docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md), and [exercise-to-improvement benchmark](docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md). The paired-cycle fixture is synthetic, development-only, and does not establish real-world readiness. All additions remain draft-only and are not activated in the curriculum graph.
 
 For the proposal's offline fixture-structure check, use:
 
