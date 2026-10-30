@@ -65,6 +65,26 @@ No model should be presented as evidence of South African efficacy, carbon perma
 
 ## 6. NEON event-scale preferential-flow benchmark sources
 
+A new derived benchmark should be acquired before or alongside the raw NEON reconstruction:
+
+### Published NEON preferential-flow event database (HydroShare v1.1)
+
+[NEON Soil Preferential Flow Database, v1.1](https://hydroshare.cuahsi.org/resource/847b15cd15524b78acd58a2a8be242c1/) — DOI [10.4211/hs.847b15cd15524b78acd58a2a8be242c1](https://doi.org/10.4211/hs.847b15cd15524b78acd58a2a8be242c1), published 30 September 2025. HydroShare reports a 1,015.6 MB resource and CC BY 4.0. Its page indicates that content is externally hosted rather than stored by HydroShare, so identify the live file host, individual filenames, checksums and file-level notices before declaring acquisition.
+
+This is a **fast-start derived-event benchmark**, not raw observations and not an independent validation network. Its declared lineage includes NEON soil-water RELEASE-2023 plus provisional observations, soil physical/chemical products, and NEON site metadata. The readme documents event start/end and rainfall, soil-moisture before precipitation/onset/peak, depth-specific apparent velocity, event flow classifications, and multiple Rosetta Ksat estimates. Version 1.1 adds Ksat point/range/standard-deviation variants.
+
+The dataset readme says BONA, DEJU, HEAL, TOOL and BARR are not recommended, and KONA is excluded because it is closer to KONZ. These are source-specific notes; they must not be silently applied to the 2026 paper cohort or used to infer its exact site roster.
+
+Use this derived source to:
+1. inspect the event/sensor schema and distributions;
+2. crosswalk event definitions, apparent velocity and Ksat columns to the 2026 paper;
+3. test our eventizer on supplied smBeforePrecip and smOnsetTime summaries where comparable;
+4. compare labels under alternative Ksat point/range definitions;
+5. identify site/sensor mapping and missingness before attempting raw reconstruction.
+
+Do not score the HydroShare dataset as an external holdout from the 2026 model without reconciling shared NEON site/sensor/event provenance. Do not treat its Ksat-derived flag as tracer truth. The source is tracked in neon-preferential-flow-source-plan.v0.1.json with acquisition status still marked not acquired.
+
+
 A second research source set is now tracked in
 [`neon-preferential-flow-source-plan.v0.1.json`](./neon-preferential-flow-source-plan.v0.1.json).
 It is **metadata-reviewed only**; it contains no local file digest, downloaded
