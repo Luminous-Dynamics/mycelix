@@ -410,6 +410,7 @@ pub fn evaluate_probability_forecasts(fixture: &Value) -> Result<Value, Vec<Stri
                     selected
                         .iter()
                         .map(|(probability, event)| {
+                            let probability = *probability;
                             let outcome = if *event { 1.0 } else { 0.0 };
                             (probability - outcome).powi(2)
                         })
@@ -566,7 +567,7 @@ mod tests {
         }
         for (service_id, expected_service) in expected["per_service_metrics"].as_object().unwrap() {
             let actual_service = report["per_service_metrics"].as_array().unwrap()
-                .iter().find(|item| item["service_id"] == service_id).unwrap();
+                .iter().find(|item| item["service_id"].as_str() == Some(service_id.as_str())).unwrap();
             for key in ["issued_forecasts", "breach_events"] {
                 assert_eq!(actual_service[key], expected_service[key]);
             }
