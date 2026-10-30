@@ -8,6 +8,15 @@ The 2026 NEON event model predicts the Ksat-threshold PF proxy well (F1 0.91, ac
 
 Hirmas et al. (2025; Water Resources Research, DOI 10.1029/2024WR039836) demonstrate a physically based route: use high-resolution laser-scanned intact profile cross-sections to measure interpedal macropore geometry, couple it to soil-moisture time series, estimate dynamic macropore widths, partition matrix/macropore water and calculate moisture-dependent hydraulic conductivity. This establishes a useful method family, not a universal calibrated solution.
 
+### Executable reference dataset and morphology audit
+
+The authors publish the supporting case as [Dryad DOI 10.5061/dryad.zs7h44jkn](https://doi.org/10.5061/dryad.zs7h44jkn), under CC0 1.0. Its README describes a 4.60 MB archive containing a 10/40/120 cm moisture series, ImageJ geometry exports for the Ap1, Bt and Btkss2 horizons at 0.18 mm resolution, soil shrink-swell/COLE data, bulk density and retention parameters, daily weather, R source scripts, functions and model outputs. This is a single Konza APT profile case; some supporting COLE measurements include other Kansas pedons, but that is not a multi-site validation of the primary hydraulic model.
+
+The file endpoint returned HTTP 403 during this pass. The source metadata and file list are recorded in `neon-preferential-flow-source-plan.v0.1.json`; the archive has **not** been acquired or hashed locally. The archive is still valuable for a reproducible model crosswalk once access is resolved.
+
+The new [morphology-audit CLI](./tools/morphology-audit/README.md) accepts already segmented ImageJ object tables with explicit column mappings. It computes distributions of projected area, perimeter, minimum/maximum Feret diameter, a 10-degree Feret-angle histogram, and optionally a projected 2D area fraction when the exact ROI area is supplied. It does not segment raw images, infer 3D connectivity or predict hydraulic conductivity.
+
+
 The Hirmas model has material assumptions: uniform cube-like structural units, isotropic shrinkage, and smooth/straight planar-slit macropores. The authors note that real geometry is more complex and that conductivity may be overestimated; they also state that image-measurement error needs further evaluation. The benchmark below makes these assumptions explicit and stress-tests them.
 
 ## 2. Paradigm shift: soil structure is a dynamic latent state, not a static covariate
