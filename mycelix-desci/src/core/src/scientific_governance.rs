@@ -753,11 +753,14 @@ mod tests {
     use super::*;
     use crate::scientific_authority_audit::MemoryScientificAuthorityAuditStore;
     use crate::scientific_events::{
-        AtomicClaim, ClaimId, MemoryScientificEventLog, ResearchObject, ResearchObjectId,
-        ResearchObjectType, ScientificEventEnvelope,
+        ArtifactAvailability, ArtifactId, AtomicClaim, Attestation, AttestationId,
+        AttestationStatus, ClaimId, ClaimLifecycle, ClaimOrigin, EvidenceArtifact, EvidenceOutcome,
+        EvidenceProfile, LegacyImportMetadata, MemoryScientificEventLog, RecordedAttestation,
+        ResearchObject, ResearchObjectId, ResearchObjectType, ScientificEventEnvelope,
     };
     use chrono::{Duration, TimeZone};
     use ed25519_dalek::SigningKey;
+    use serde_json::{Value, json};
     use std::sync::Arc;
 
     fn actor(value: &str) -> ActorId {
@@ -823,6 +826,561 @@ mod tests {
             organizations: BTreeSet::new(),
             roles: BTreeSet::from([role]),
             authority_revision: None,
+        }
+    }
+
+    fn corpus_role(value: &str) -> ScientificRole {
+        match value {
+            "contributor" => ScientificRole::Contributor,
+            "reviewer" => ScientificRole::Reviewer,
+            "editor" => ScientificRole::Editor,
+            "institution" => ScientificRole::Institution,
+            "service" => ScientificRole::Service,
+            "migration_service" => ScientificRole::MigrationService,
+            "registry_admin" => ScientificRole::RegistryAdmin,
+            other => panic!("unknown corpus role: {other}"),
+        }
+    }
+
+    fn corpus_attestation(
+        id: AttestationId,
+        claim_id: ClaimId,
+        kind: AttestationKind,
+    ) -> Attestation {
+        let requires_protocol = matches!(
+            &kind,
+            AttestationKind::ComputationalReproduction { .. }
+                | AttestationKind::IndependentReplication { .. }
+        );
+        Attestation {
+            id,
+            claim_id,
+            kind,
+            evidence_ids: if requires_protocol {
+                vec![ArtifactId::new()]
+            } else {
+                Vec::new()
+            },
+            statement: Some("Synthetic policy conformance input".to_string()),
+            protocol_reference: requires_protocol.then(|| "protocol:v1".to_string()),
+        }
+    }
+
+    fn corpus_case_inputs(
+        case: &Value,
+    ) -> (
+        ResolvedScientificActor,
+        SignedScientificEvent,
+        Option<ClaimProjection>,
+    ) {
+        let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        let actor_obj = case.get("actor").expect("case actor");
+        let actor_id = actor(
+            actor_obj
+                .get("id")
+                .and_then(Value::as_str)
+                .expect("actor id"),
+        );
+        let signing_key = key(31);
+        let roles = actor_obj
+            .get("roles")
+            .and_then(Value::as_array)
+            .expect("actor roles")
+            .iter()
+            .map(|role| corpus_role(role.as_str().expect("role string")))
+            .collect::<BTreeSet<_>>();
+        let organizations = actor_obj
+            .get("organizations")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(|organization| {
+                OrganizationId::new(organization.as_str().expect("organization string")).unwrap()
+            })
+            .collect::<BTreeSet<_>>();
+        let resolved = ResolvedScientificActor {
+            actor: actor_id.clone(),
+            authorized_keys: vec![AuthorizedActorKey {
+                public_key: signing_key.verifying_key().to_bytes(),
+                valid_from: now.clone() - Duration::days(1),
+                valid_until: None,
+                revoked_at: None,
+            }],
+            organizations,
+            roles,
+            authority_revision: None,
+        };
+
+        let claim_obj = case.get("claim").expect("case claim");
+        let claim_id = ClaimId::new();
+        let creator = actor(
+            claim_obj
+                .get("creatorActorId")
+                .and_then(Value::as_str)
+                .unwrap_or("actor:claim-owner"),
+        );
+        let creator_organization = claim_obj
+            .get("creatorOrganizationId")
+            .and_then(Value::as_str)
+            .map(OrganizationId::new)
+            .transpose()
+            .unwrap();
+        let research_object_id = ResearchObjectId::new();
+        let research_object = ResearchObject {
+            id: research_object_id,
+            title: "Synthetic policy conformance object".to_string(),
+            object_type: ResearchObjectType::Manuscript,
+            persistent_identifier: None,
+        };
+        let atomic_claim = AtomicClaim {
+            id: claim_id,
+            research_object_id,
+            statement: "Synthetic claim used only to test authorization semantics.".to_string(),
+            scope: None,
+        };
+
+        let target_attestation = case.get("targetAttestation");
+        let mut recorded_attestations = Vec::new();
+        let target_attestation_id = if target_attestation
+            .and_then(|target| target.get("exists"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            let attestation_id = AttestationId::new();
+            let author = actor(
+                target_attestation
+                    .and_then(|target| target.get("authorActorId"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("actor:attestation-author"),
+            );
+            recorded_attestations.push(RecordedAttestation {
+                attestation: corpus_attestation(attestation_id, claim_id, AttestationKind::Review),
+                actor: author,
+                acting_organization: None,
+                status: AttestationStatus::Active,
+                revision_count: 0,
+                last_reason: None,
+            });
+            Some(attestation_id)
+        } else {
+            None
+        };
+
+        let current = claim_obj
+            .get("exists")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+            .then(|| ClaimProjection {
+                origin: ClaimOrigin::Native,
+                research_object: research_object.clone(),
+                claim: atomic_claim.clone(),
+                creator: creator.clone(),
+                creator_organization: creator_organization.clone(),
+                created_at: now.clone(),
+                updated_at: now.clone(),
+                lifecycle: ClaimLifecycle::Active,
+                evidence_profile: EvidenceProfile::default(),
+                evidence: Vec::new(),
+                attestations: recorded_attestations,
+                event_count: 1,
+                last_event_hash: ContentHash::digest(b"synthetic-policy-case"),
+            });
+
+        let action = case
+            .get("action")
+            .and_then(Value::as_str)
+            .expect("case action");
+        let attestation_kind = match case
+            .get("attestation")
+            .and_then(|attestation| attestation.get("kind"))
+            .and_then(Value::as_str)
+            .unwrap_or("ordinary")
+        {
+            "independent_replication" => AttestationKind::IndependentReplication {
+                outcome: EvidenceOutcome::Supports,
+            },
+            "ordinary" | "ordinary_review" => AttestationKind::Review,
+            other => panic!("unknown attestation kind: {other}"),
+        };
+        let payload = match action {
+            "claim_proposed" => proposed(claim_id),
+            "legacy_claim_imported" => ScientificEventPayload::LegacyClaimImported {
+                research_object,
+                claim: atomic_claim,
+                import: LegacyImportMetadata {
+                    source_system: "synthetic-policy-corpus".to_string(),
+                    source_record_hash: ContentHash::digest(b"legacy-policy-corpus"),
+                    source_locator: None,
+                    legacy_creator: None,
+                    legacy_tier: "unassessed".to_string(),
+                    legacy_verification_count: 0,
+                    legacy_provenance_count: 0,
+                    omitted_fields: Vec::new(),
+                },
+            },
+            "evidence_attached" => ScientificEventPayload::EvidenceAttached {
+                claim_id,
+                artifact: EvidenceArtifact {
+                    id: ArtifactId::new(),
+                    content_hash: ContentHash::digest(b"synthetic-evidence"),
+                    media_type: "application/octet-stream".to_string(),
+                    locator: "fixture://policy-corpus/evidence".to_string(),
+                    license: None,
+                    availability: ArtifactAvailability::Public,
+                },
+            },
+            "attestation_recorded" => ScientificEventPayload::AttestationRecorded {
+                attestation: corpus_attestation(AttestationId::new(), claim_id, attestation_kind),
+            },
+            "attestation_corrected" => {
+                let attestation_id = target_attestation_id.unwrap_or_else(AttestationId::new);
+                ScientificEventPayload::AttestationCorrected {
+                    claim_id,
+                    attestation_id,
+                    replacement: corpus_attestation(
+                        attestation_id,
+                        claim_id,
+                        AttestationKind::Review,
+                    ),
+                    reason: "Synthetic policy correction".to_string(),
+                }
+            }
+            "attestation_withdrawn" => ScientificEventPayload::AttestationWithdrawn {
+                claim_id,
+                attestation_id: target_attestation_id.unwrap_or_else(AttestationId::new),
+                reason: "Synthetic policy withdrawal".to_string(),
+            },
+            "claim_superseded" => ScientificEventPayload::ClaimSuperseded {
+                claim_id,
+                replacement_claim_id: ClaimId::new(),
+                reason: "Synthetic policy supersession".to_string(),
+            },
+            "claim_retracted" => ScientificEventPayload::ClaimRetracted {
+                claim_id,
+                reason: "Synthetic policy retraction".to_string(),
+            },
+            other => panic!("unknown corpus action: {other}"),
+        };
+
+        let envelope = if matches!(action, "claim_proposed" | "legacy_claim_imported") {
+            ScientificEventEnvelope::genesis(actor_id.clone(), now, payload).unwrap()
+        } else {
+            let previous = SignedScientificEvent::sign(
+                ScientificEventEnvelope::genesis(creator, now.clone(), proposed(claim_id)).unwrap(),
+                &key(32),
+            )
+            .unwrap();
+            ScientificEventEnvelope::next(
+                &previous,
+                actor_id.clone(),
+                now + Duration::seconds(1),
+                payload,
+            )
+            .unwrap()
+        };
+        let envelope = match case.get("actingOrganizationId").and_then(Value::as_str) {
+            Some(organization) => {
+                envelope.with_acting_organization(OrganizationId::new(organization).unwrap())
+            }
+            None => envelope,
+        };
+        let event = SignedScientificEvent::sign(envelope, &signing_key).unwrap();
+        (resolved, event, current)
+    }
+
+    #[test]
+    fn normalized_authorization_corpus_matches_reference_rust_policy() {
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cases.json"
+        ))
+        .expect("committed authorization corpus must be valid JSON");
+        let cases = corpus
+            .get("policyCases")
+            .and_then(Value::as_array)
+            .expect("corpus must contain policyCases");
+        assert_eq!(cases.len(), 30, "update the frozen case count deliberately");
+
+        let policy = DefaultScientificAuthorizationPolicy;
+        for case in cases {
+            let (actor, event, current) = corpus_case_inputs(case);
+            let decision = policy.authorize(&actor, &event, current.as_ref());
+            let expected = case
+                .get("expected")
+                .and_then(Value::as_str)
+                .expect("case expected decision");
+            let expected_allowed = match expected {
+                "allow" => true,
+                "deny" => false,
+                other => panic!("{}: unknown expected decision {other}", case["id"]),
+            };
+            assert_eq!(
+                decision.allowed,
+                expected_allowed,
+                "{} ({}): expected {}, got {} ({})",
+                case["id"],
+                case["name"],
+                expected,
+                if decision.allowed { "allow" } else { "deny" },
+                decision.reason
+            );
+        }
+    }
+
+    #[test]
+    fn authorization_is_invariant_to_role_order_duplicates_and_irrelevant_attributes() {
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cases.json"
+        ))
+        .expect("committed authorization corpus must be valid JSON");
+        let cases = corpus["policyCases"].as_array().expect("policyCases");
+        let policy = DefaultScientificAuthorizationPolicy;
+
+        for case in cases {
+            let (base_actor, base_event, base_claim) = corpus_case_inputs(case);
+            let baseline = policy.authorize(&base_actor, &base_event, base_claim.as_ref());
+
+            let mut reordered = case.clone();
+            if let Some(roles) = reordered
+                .pointer_mut("/actor/roles")
+                .and_then(Value::as_array_mut)
+            {
+                roles.reverse();
+                if let Some(first) = roles.first().cloned() {
+                    roles.push(first);
+                }
+                roles.push(json!("service"));
+                roles.push(json!("registry_admin"));
+            }
+            if let Some(organizations) = reordered
+                .pointer_mut("/actor/organizations")
+                .and_then(Value::as_array_mut)
+            {
+                organizations.reverse();
+                organizations.push(json!("org:irrelevant-fixture"));
+            } else {
+                reordered["actor"]["organizations"] = json!(["org:irrelevant-fixture"]);
+            }
+
+            let (mutated_actor, mutated_event, mutated_claim) = corpus_case_inputs(&reordered);
+            let mutated = policy.authorize(&mutated_actor, &mutated_event, mutated_claim.as_ref());
+            assert_eq!(
+                baseline.allowed, mutated.allowed,
+                "{}: irrelevant roles, duplicate roles, role order or unrelated actor organizations changed the decision",
+                case["id"]
+            );
+            assert_eq!(
+                baseline.reason, mutated.reason,
+                "{}: decision explanation changed",
+                case["id"]
+            );
+        }
+    }
+
+    #[test]
+    fn cedar_and_rego_adapters_match_every_frozen_corpus_row() {
+        fn entity<'a>(entities: &'a [Value], entity_type: &str) -> &'a Value {
+            entities
+                .iter()
+                .find(|entry| {
+                    entry.pointer("/uid/type").and_then(Value::as_str) == Some(entity_type)
+                })
+                .unwrap_or_else(|| panic!("missing Cedar entity type {entity_type}"))
+        }
+
+        fn extract_json_object(source: &str, start: usize) -> &str {
+            let bytes = source.as_bytes();
+            let mut depth = 0usize;
+            let mut in_string = false;
+            let mut escaped = false;
+            let mut object_start = None;
+            for index in start..bytes.len() {
+                let byte = bytes[index];
+                if in_string {
+                    if escaped {
+                        escaped = false;
+                    } else if byte == b'\\' {
+                        escaped = true;
+                    } else if byte == b'"' {
+                        in_string = false;
+                    }
+                    continue;
+                }
+                match byte {
+                    b'"' => in_string = true,
+                    b'{' => {
+                        if object_start.is_none() {
+                            object_start = Some(index);
+                        }
+                        depth += 1;
+                    }
+                    b'}' => {
+                        depth = depth.saturating_sub(1);
+                        if depth == 0 {
+                            let begin = object_start.expect("JSON object opening brace");
+                            return &source[begin..=index];
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            panic!("unterminated JSON object in Rego conformance test")
+        }
+
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cases.json"
+        ))
+        .expect("corpus JSON");
+        let cases = corpus["policyCases"].as_array().expect("policyCases");
+        let cedar_tests: Vec<Value> = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-tests.json"
+        ))
+        .expect("Cedar CLI test cases JSON");
+        let rego_tests = include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy_test.rego"
+        );
+
+        assert_eq!(cases.len(), 30);
+        assert_eq!(cedar_tests.len(), cases.len());
+
+        for case in cases {
+            let id = case["id"].as_str().expect("case id");
+            let expected = case["expected"].as_str().expect("expected effect");
+            let action = case["action"].as_str().expect("action");
+            let actor_case = &case["actor"];
+            let claim_case = &case["claim"];
+            let null_value = Value::Null;
+            let attestation = case.get("attestation").unwrap_or(&null_value);
+            let target_attestation = case.get("targetAttestation").unwrap_or(&null_value);
+            let actor_id = actor_case["id"].as_str().expect("actor id");
+            let empty_organizations = json!([]);
+            let actor_organizations = actor_case
+                .get("organizations")
+                .unwrap_or(&empty_organizations);
+            let resource_id = format!("claim-{id}");
+            let attestation_kind = attestation["kind"].as_str().unwrap_or("ordinary");
+            let target_exists = target_attestation["exists"].as_bool().unwrap_or(false);
+
+            let cedar_case = cedar_tests
+                .iter()
+                .find(|test| {
+                    test["name"]
+                        .as_str()
+                        .is_some_and(|name| name.starts_with(&format!("{id} ")))
+                })
+                .unwrap_or_else(|| panic!("{id}: missing Cedar request"));
+            assert_eq!(
+                cedar_case["decision"], expected,
+                "{id}: Cedar expected decision"
+            );
+            assert_eq!(
+                cedar_case["request"]["principal"],
+                format!("Mycelix::Actor::{actor_id:?}"),
+                "{id}: Cedar principal"
+            );
+            assert_eq!(
+                cedar_case["request"]["action"],
+                format!("Mycelix::Action::{action:?}"),
+                "{id}: Cedar action"
+            );
+            assert_eq!(
+                cedar_case["request"]["resource"],
+                format!("Mycelix::Claim::{resource_id:?}"),
+                "{id}: Cedar resource"
+            );
+            assert_eq!(
+                cedar_case["request"]["context"]["attestationKind"], attestation_kind,
+                "{id}: Cedar attestation context"
+            );
+            assert_eq!(
+                cedar_case["request"]["context"]["targetAttestationExists"], target_exists,
+                "{id}: Cedar target context"
+            );
+            if let Some(organization) = case.get("actingOrganizationId") {
+                assert_eq!(
+                    cedar_case["request"]["context"]["actingOrganizationId"], *organization,
+                    "{id}: Cedar acting organization"
+                );
+            }
+            let cedar_entities = cedar_case["entities"].as_array().expect("Cedar entities");
+            let cedar_actor = entity(cedar_entities, "Mycelix::Actor");
+            assert_eq!(cedar_actor["uid"]["id"], actor_id, "{id}: Cedar actor UID");
+            assert_eq!(
+                cedar_actor["attrs"]["roles"], actor_case["roles"],
+                "{id}: Cedar roles"
+            );
+            assert_eq!(
+                &cedar_actor["attrs"]["organizations"], actor_organizations,
+                "{id}: Cedar organizations"
+            );
+            let cedar_claim = entity(cedar_entities, "Mycelix::Claim");
+            assert_eq!(
+                cedar_claim["uid"]["id"], resource_id,
+                "{id}: Cedar claim UID"
+            );
+            assert_eq!(
+                cedar_claim["attrs"]["exists"], claim_case["exists"],
+                "{id}: Cedar claim state"
+            );
+            for field in ["creatorActorId", "creatorOrganizationId"] {
+                if let Some(value) = claim_case.get(field) {
+                    assert_eq!(
+                        cedar_claim["attrs"][field], *value,
+                        "{id}: Cedar claim {field}"
+                    );
+                }
+            }
+            let cedar_action = entity(cedar_entities, "Mycelix::Action");
+            assert_eq!(
+                cedar_action["uid"]["id"], action,
+                "{id}: Cedar action entity"
+            );
+
+            let function_name = format!("test_auth_{}", id.to_lowercase().replace('-', "_"));
+            let test_start = rego_tests
+                .find(&function_name)
+                .unwrap_or_else(|| panic!("{id}: missing Rego test {function_name}"));
+            let test_source = &rego_tests[test_start..];
+            let test_end = test_source
+                .find("\n}\n")
+                .unwrap_or_else(|| panic!("{id}: unterminated Rego test"));
+            let test_source = &test_source[..=test_end + 1];
+            assert!(
+                test_source.contains(&format!("decision.effect == \"{expected}\"")),
+                "{id}: Rego expected decision missing"
+            );
+            let input_marker = test_source
+                .find("with input as")
+                .unwrap_or_else(|| panic!("{id}: Rego test has no input"));
+            let input_json = extract_json_object(test_source, input_marker);
+            let actual_input: Value = serde_json::from_str(input_json)
+                .unwrap_or_else(|error| panic!("{id}: invalid Rego test input JSON: {error}"));
+
+            let mut expected_input = json!({
+                "action": action,
+                "actor": {
+                    "id": actor_id,
+                    "roles": actor_case["roles"],
+                    "organizations": actor_organizations
+                },
+                "claim": { "exists": claim_case["exists"] },
+                "attestation": { "kind": attestation_kind },
+                "targetAttestation": { "exists": target_exists }
+            });
+            for field in ["creatorActorId", "creatorOrganizationId"] {
+                if let Some(value) = claim_case.get(field) {
+                    expected_input["claim"][field] = value.clone();
+                }
+            }
+            if let Some(author) = target_attestation.get("authorActorId") {
+                expected_input["targetAttestation"]["authorActorId"] = author.clone();
+            }
+            if let Some(organization) = case.get("actingOrganizationId") {
+                expected_input["actingOrganizationId"] = organization.clone();
+            }
+            assert_eq!(
+                actual_input, expected_input,
+                "{id}: Rego input differs from corpus"
+            );
         }
     }
 
