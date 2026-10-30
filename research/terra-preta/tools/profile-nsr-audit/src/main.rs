@@ -292,7 +292,7 @@ fn evaluate(input: &EventInput, input_sha256: String) -> Result<EventReport, Str
             };
             let shallow_onset = shallower.response_onset.as_ref().expect("responded sensor has onset");
             let deep_onset = deeper.response_onset.as_ref().expect("responded sensor has onset");
-            let difference = (*deep_onset - *shallow_onset).num_seconds();
+            let difference = deep_onset.timestamp() - shallow_onset.timestamp();
 
             let ordering = if difference < 0 {
                 nonsequential_count += 1;
