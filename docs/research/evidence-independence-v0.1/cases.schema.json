@@ -1,0 +1,390 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix/evidence-independence-cases-v0.1.schema.json",
+  "title": "Mycelix evidence independence test corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "title",
+    "status",
+    "semanticBoundary",
+    "profileDefinitions",
+    "dimensionStatuses",
+    "qualificationStatuses",
+    "cases"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "research_fixture_contract_not_runtime_evidence"
+    },
+    "semanticBoundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profileDefinitions": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "dimensionStatuses": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "established",
+          "not_established",
+          "unknown",
+          "conflicted"
+        ]
+      }
+    },
+    "qualificationStatuses": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "qualified",
+          "not_qualified",
+          "indeterminate"
+        ]
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requiredDimensions",
+        "requiredPresence",
+        "minimumDistinctSources"
+      ],
+      "properties": {
+        "requiredDimensions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "actor",
+              "organization",
+              "lab",
+              "dataset_lineage",
+              "protocol",
+              "preregistration",
+              "method_family",
+              "execution_provenance",
+              "instrument",
+              "site",
+              "funding_source"
+            ]
+          }
+        },
+        "requiredPresence": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "actor",
+              "organization",
+              "lab",
+              "dataset_lineage",
+              "protocol",
+              "preregistration",
+              "method_family",
+              "execution_provenance",
+              "instrument",
+              "site",
+              "funding_source"
+            ]
+          }
+        },
+        "minimumDistinctSources": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "sharedProtocolAllowed": {
+          "type": "boolean"
+        },
+        "sameDatasetAllowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "actorSubjectId",
+        "actorIdentityBasis",
+        "organizationId",
+        "organizationIdentityBasis",
+        "labId",
+        "datasetLineageId",
+        "datasetProvenanceStatus",
+        "datasetArtifactDigest",
+        "protocolFamilyId",
+        "preregistrationId",
+        "methodFamilyId",
+        "executionProvenanceDigest",
+        "instrumentId",
+        "siteId",
+        "fundingSourceId",
+        "status",
+        "attemptId"
+      ],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorSubjectId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorIdentityBasis": {
+          "enum": [
+            "credential_registry_subject",
+            "unverified_alias",
+            "missing"
+          ]
+        },
+        "organizationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "organizationIdentityBasis": {
+          "enum": [
+            "registry_id",
+            "unverified_alias",
+            "missing"
+          ]
+        },
+        "labId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "datasetLineageId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "datasetProvenanceStatus": {
+          "enum": [
+            "resolved",
+            "missing",
+            "conflicted"
+          ]
+        },
+        "datasetArtifactDigest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(sha256:[0-9a-f]{64})?$"
+        },
+        "protocolFamilyId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "preregistrationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "methodFamilyId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "executionProvenanceDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "siteId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fundingSourceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "active",
+            "withdrawn"
+          ]
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "relation",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "enum": [
+            "derived_from",
+            "mirror_of",
+            "same_origin_as",
+            "generated_by",
+            "used",
+            "has_conflicting_lineage_assertion"
+          ]
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "kind",
+        "sources",
+        "expected"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^EIP-[0-9]{3}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "review",
+            "empirical_replication",
+            "computational_reproduction",
+            "execution_repetition"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relation"
+          }
+        },
+        "provenanceResolution": {
+          "enum": [
+            "resolved",
+            "missing",
+            "conflicted"
+          ]
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dimensions",
+            "profiles",
+            "activeSourceCount",
+            "withdrawnSourceCount"
+          ],
+          "properties": {
+            "dimensions": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "established",
+                  "not_established",
+                  "unknown",
+                  "conflicted"
+                ]
+              }
+            },
+            "profiles": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "qualified",
+                  "not_qualified",
+                  "indeterminate"
+                ]
+              }
+            },
+            "activeSourceCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "withdrawnSourceCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}
