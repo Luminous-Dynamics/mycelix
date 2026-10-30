@@ -478,6 +478,7 @@ mod tests {
     use serde_json::{json, Value};
 
     const FIXTURE: &str = include_str!("../../../examples/courses/civic-resilience-cascade-recovery-fixture-001.json");
+    const CONFORMANCE: &str = include_str!("../../../examples/courses/civic-resilience-cascade-recovery-conformance-001.json");
 
     fn fixture() -> Value {
         serde_json::from_str(FIXTURE).expect("NRES-007 fixture must be valid JSON")
@@ -558,6 +559,54 @@ mod tests {
     fn rejects_resource_pool_overrun() {
         let mut value = fixture();
         value["scenarios"][1]["resource_use"]["responder_hours_committed"] = json!(241);
+        assert!(evaluate_resilience_trajectories(&value).is_err());
+    }
+
+
+    #[test]
+    fn matches_all_published_golden_metric_vectors() {
+        let report = evaluate_resilience_trajectories(&fixture()).expect("fixture should validate");
+        let corpus: Value = serde_json::from_str(CONFORMANCE).expect("conformance corpus must be valid JSON");
+        let tolerance = corpus["expected_numerical_outputs"]["absolute_tolerance"]
+            .as_f64()
+            .expect("absolute tolerance must be numeric");
+        let expected_scenarios = corpus["expected_numerical_outputs"]["scenario_metrics"]
+            .as_object()
+            .expect("golden scenario metrics must be an object");
+
+        for (scenario_id, services) in expected_scenarios {
+            let expected_services = services.as_object().expect("service expectations must be an object");
+            for (service_id, expected) in expected_services {
+                let actual = super::find_service_metric(&report, scenario_id, service_id);
+                let actual_area = actual.pointer("/deficit_area/value").and_then(Value::as_f64).unwrap();
+                let expected_area = expected["deficit_area_percentage_point_hours"].as_f64().unwrap();
+                assert!(
+                    (actual_area - expected_area).abs() <= tolerance,
+                    "{scenario_id}/{service_id}: deficit area differs"
+                );
+                let actual_shortfall = actual["max_shortfall_percentage_points"].as_f64().unwrap();
+                let expected_shortfall = expected["max_shortfall_percentage_points"].as_f64().unwrap();
+                assert!((actual_shortfall - expected_shortfall).abs() <= tolerance);
+                assert_eq!(
+                    actual["breach_sample_count"].as_u64(),
+                    expected["breach_sample_count"].as_u64()
+                );
+                assert_eq!(
+                    actual["sustained_recovery_observed_hour"].as_f64(),
+                    expected["sustained_recovery_observed_hour"].as_f64()
+                );
+                assert_eq!(
+                    actual["horizon_floor_pass"].as_bool(),
+                    expected["horizon_floor_pass"].as_bool()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_trajectory_with_missing_sample() {
+        let mut value = fixture();
+        value["scenarios"][0]["trajectories"][0]["points"].as_array_mut().unwrap().pop();
         assert!(evaluate_resilience_trajectories(&value).is_err());
     }
 
