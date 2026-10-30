@@ -40,6 +40,14 @@ Predict only properties that have reliable paired inputs and measured labels. Re
 
 ### Track C — soil-water behavior
 
+For event-scale preferential-flow reproduction and site transfer, use the
+[prefential-flow transfer benchmark](./PREFERENTIAL_FLOW_TRANSFER_BENCHMARK_V0.1.md)
+and its [NEON source plan](./neon-preferential-flow-source-plan.v0.1.json).
+This is a distinct evidence track from amendment-response estimation: NEON
+hydrology data do not supply biochar treatment labels or nutrient-export labels.
+
+
+
 For event-scale water and nutrient transport, use the companion
 [coupled hydrology–nutrient benchmark](./COUPLED_HYDROLOGY_NUTRIENT_TRANSPORT_BENCHMARK_V0.1.md)
 and its [event-record schema](./tools/coupled-event-audit/README.md). A

@@ -467,6 +467,7 @@ jobs:
           jq empty research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event.json
           jq empty research/terra-preta/tools/coupled-event-audit/event-audit-report.schema.json
           jq empty research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event-report.json
+          jq empty research/terra-preta/neon-preferential-flow-source-plan.v0.1.json
           bash -n research/terra-preta/tools/acquire-public-sources.sh
       - name: Format standalone audit tools
         run: |

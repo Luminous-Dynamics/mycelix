@@ -1,0 +1,152 @@
+{
+  "manifest_version": "0.1.0",
+  "reviewed_on": "2026-10-30",
+  "purpose": "Candidate source plan for reproducing and extending the Li et al. (2026) event-scale preferential-flow benchmark. Metadata review only; no raw data are declared acquired.",
+  "interpretation_boundary": "A product landing page or release citation does not prove that a site-month file was downloaded, that its QA flags match the paper, or that a product is suitable for confirmatory validation. No local SHA-256, file count, site roster or row count is asserted.",
+  "reference_study": {
+    "study_id": "li_et_al_2026_earths_future",
+    "title": "Dominant Controls on Preferential Flow and Their Implications for Future Soil Water Fluxes",
+    "doi": "10.1029/2026EF008296",
+    "uri": "https://doi.org/10.1029/2026EF008296",
+    "reported_sites": 33,
+    "reported_ecoregions": 16,
+    "reported_sensors": 586,
+    "reported_event_sensor_samples": 15554,
+    "reported_temporal_split": {
+      "train": 11498,
+      "validation": 1837,
+      "test": 2219
+    },
+    "reported_test_metrics": {
+      "pf_f1": 0.91,
+      "pf_accuracy": 0.85,
+      "apparent_velocity_r2": 0.31
+    },
+    "split_semantics": "Chronological within each sensor location; sensors with fewer than 20 samples were assigned to training. This is not a leave-site-out split.",
+    "label_semantics": "PF proxy is derived from sensor response velocity exceeding a Rosetta3-derived maximum matrix-flow Ksat threshold; it is not independent tracer ground truth.",
+    "data_availability_statement_legacy_products": [
+      "DP1.00094.001",
+      "DP1.00006.001"
+    ],
+    "acquisition_status": "paper_metadata_reviewed_dataset_not_acquired"
+  },
+  "products": [
+    {
+      "source_id": "neon_soil_water_content_release_2026",
+      "product_code": "DP1.00094.001",
+      "product_name": "Soil water content and water salinity",
+      "release": "RELEASE-2026",
+      "uri": "https://data.neonscience.org/data-products/DP1.00094.001/RELEASE-2026",
+      "doi": "10.48443/h349-2y77",
+      "reported_date_range": {
+        "start": "2016-04",
+        "end": "2025-06"
+      },
+      "reported_resolution": [
+        "1-minute",
+        "30-minute"
+      ],
+      "metadata_reviewed": {
+        "plots_per_terrestrial_site": 5,
+        "maximum_sensor_depths_per_plot": 8,
+        "approximate_shallow_depths_cm": [
+          6,
+          16,
+          26
+        ]
+      },
+      "role": "Primary soil-moisture time series for historical replication and site-transfer extensions.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    },
+    {
+      "source_id": "neon_precipitation_legacy",
+      "product_code": "DP1.00006.001",
+      "product_name": "Precipitation (retired legacy product)",
+      "release": "historical release required; pin exact release used by the paper",
+      "uri": "https://data.neonscience.org/data-products/DP1.00006.001",
+      "role": "Faithful reproduction of the precipitation input cited by Li et al. (2026), using a prior release where the product remains available.",
+      "lifecycle_status": "deprecated; no new data published after product split",
+      "acquisition_status": "metadata_reviewed_historical_release_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    },
+    {
+      "source_id": "neon_precipitation_weighing_gauge",
+      "product_code": "DP1.00044.001",
+      "product_name": "Precipitation - weighing gauge",
+      "uri": "https://data.neonscience.org/data-products/DP1.00044.001",
+      "reported_resolution": [
+        "hourly",
+        "daily"
+      ],
+      "role": "Independent precipitation-volume cross-check where coverage permits; not a substitute for minute-scale rainfall intensity.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    },
+    {
+      "source_id": "neon_precipitation_tipping_bucket",
+      "product_code": "DP1.00045.001",
+      "product_name": "Precipitation - tipping bucket",
+      "uri": "https://data.neonscience.org/data-products/DP1.00045.001",
+      "reported_resolution": [
+        "1-minute",
+        "30-minute"
+      ],
+      "role": "Candidate high-frequency rainfall event/intensity input for current-product extension. Must be crosswalked against the legacy product over overlapping sites and periods.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    },
+    {
+      "source_id": "neon_precipitation_throughfall",
+      "product_code": "DP1.00046.001",
+      "product_name": "Precipitation - throughfall",
+      "uri": "https://data.neonscience.org/data-products/DP1.00046.001",
+      "reported_resolution": [
+        "1-minute",
+        "30-minute"
+      ],
+      "role": "Separate under-canopy water-input pathway only; never pool with open precipitation as if the measurements were interchangeable.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    }
+  ],
+  "acquisition_gates": [
+    "Fetch product availability by site and month and save exact API responses.",
+    "Pin the NEON release tag and retrieve every selected file's publisher checksum, byte size and filename before download.",
+    "Acquire raw files outside Git, recompute SHA-256 locally and preserve a read-only raw copy.",
+    "Reconcile soil-water sensor IDs, plots, depths, calibration/QA flags and precipitation gauge type to the paper's 33-site/586-sensor source crosswalk.",
+    "Keep DP1.00044.001, DP1.00045.001 and DP1.00046.001 as separate inputs with explicit measurement semantics.",
+    "Reproduce the legacy eventizer and historical split before making any new-model comparison.",
+    "Do not treat the 2025 17-ecoregion NEON paper as an independent external dataset; reconcile overlapping sites/sensors/events."
+  ]
+}

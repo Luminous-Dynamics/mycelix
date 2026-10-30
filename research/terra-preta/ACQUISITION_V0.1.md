@@ -61,3 +61,39 @@ A public URL is not, by itself, evidence that every artifact can be redistribute
 BiocharDS can support study-grouped synthesis of published treatment responses once its source/arm structure is reconciled. Soils4Africa and Western Highveld can help characterize the distribution of African/South African soil and management contexts, but neither supplies biochar treatment effects. Neither one substitutes for fresh laboratory characterization or prospective local pot/field trials.
 
 No model should be presented as evidence of South African efficacy, carbon permanence, product safety, or regulatory acceptance until those claims have their own appropriate evidence and approvals.
+
+
+## 6. NEON event-scale preferential-flow benchmark sources
+
+A second research source set is now tracked in
+[`neon-preferential-flow-source-plan.v0.1.json`](./neon-preferential-flow-source-plan.v0.1.json).
+It is **metadata-reviewed only**; it contains no local file digest, downloaded
+raw data, frozen site roster or verified row count.
+
+| NEON product | Role | Temporal-resolution constraint |
+|---|---|---|
+| [DP1.00094.001 — soil water content and water salinity](https://data.neonscience.org/data-products/DP1.00094.001/RELEASE-2026) | Multi-depth soil-moisture series | Release-2026 landing page reports April 2016–June 2025; 1-minute and 30-minute time indices |
+| [DP1.00006.001 — legacy precipitation](https://data.neonscience.org/data-products/DP1.00006.001) | Historical reproduction of the 2026 paper's cited precipitation input | Deprecated in October 2025; historical releases remain the reproduction candidate |
+| [DP1.00044.001 — weighing gauge](https://data.neonscience.org/data-products/DP1.00044.001) | Gauge-volume cross-check | NEON's product-split notice describes hourly and daily aggregations; not a substitute for minute-scale rainfall intensity |
+| [DP1.00045.001 — tipping bucket](https://data.neonscience.org/data-products/DP1.00045.001) | Current high-frequency event/intensity extension | 1-minute and 30-minute aggregations; crosswalk to the legacy series before comparison |
+| [DP1.00046.001 — throughfall](https://data.neonscience.org/data-products/DP1.00046.001) | Under-canopy water input | Keep distinct from open precipitation; do not pool gauge types |
+
+NEON's 6 October 2025 notification states that the legacy precipitation
+product was split into DP1.00044.001, DP1.00045.001 and DP1.00046.001. Its
+21 October 2025 notice says DP1.00006.001 is deprecated and no longer publishes
+new data. Historical releases remain available. The 2026 paper still cites
+the legacy code; do not silently replace its input with a new product.
+
+The paper's data statement points to DP1.00094.001 and DP1.00006.001. Its
+reported 33-site/586-sensor/15,554 event-sensor benchmark is a paper-level
+count, not an audited count of the raw NEON files now available. Pin exact
+releases, site-month availability, checksums, sensor/plot mappings and QA
+filters before claiming a faithful reproduction. Use the historical product
+for replication; evaluate current-product tipping-bucket inputs as a separate
+extension. Throughfall is not open rainfall.
+
+NEON's public Data Products endpoint provides product/site/month availability;
+its Data Query endpoint is used to query files by product, site and date range
+and requires API token authentication. Store the exact API responses and
+downloaded file checksums in the acquisition manifest. Confirm current NEON
+data-use terms at acquisition and preserve attribution. 
