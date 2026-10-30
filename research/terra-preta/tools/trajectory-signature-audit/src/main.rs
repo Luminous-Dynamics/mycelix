@@ -229,7 +229,7 @@ fn validate(input: &Input) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffse
     }
 
     let mut parsed = Vec::with_capacity(input.observations.len());
-    let mut previous: Option<DateTime<FixedOffset>> = None;
+    let mut previous_timestamp: Option<i64> = None;
     let mut times_seen = HashSet::new();
 
     for (index, observation) in input.observations.iter().enumerate() {
@@ -244,8 +244,8 @@ fn validate(input: &Input) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffse
         if !times_seen.insert(time.timestamp()) {
             return Err(format!("duplicate observation timestamp at index {index}"));
         }
-        if let Some(prior) = previous {
-            if (time - prior).num_seconds() != i64::from(input.time_resolution_seconds) {
+        if let Some(prior_timestamp) = previous_timestamp {
+            if time.timestamp() - prior_timestamp != i64::from(input.time_resolution_seconds) {
                 return Err("observation series must be strictly increasing and gap-free on the declared sampling grid".to_owned());
             }
         }
@@ -259,7 +259,7 @@ fn validate(input: &Input) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffse
             theta: observation.volumetric_water_content_m3_m3,
             status: observation.status,
         });
-        previous = Some(time);
+        previous_timestamp = Some(time.timestamp());
     }
     Ok((start, end, baseline_time, parsed))
 }
