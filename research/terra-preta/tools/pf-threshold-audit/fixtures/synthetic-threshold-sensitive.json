@@ -8,7 +8,7 @@
   "sensor_depth_cm": 30,
   "velocity": {
     "value": 0.9,
-    "value_scale": "log10_cm_per_day",
+    "value_scale": "stored_log_scale_cm_per_day",
     "source_column": "velocity_computed_50X"
   },
   "thresholds": [
@@ -16,7 +16,7 @@
       "threshold_id": "ksat_low",
       "kind": "rosetta_ksat_low",
       "value": 0.7,
-      "value_scale": "log10_cm_per_day",
+      "value_scale": "stored_log_scale_cm_per_day",
       "source_column": "ksat_low_50X",
       "evidence_ref": "HydroShare v1.1 README field"
     },
@@ -24,7 +24,7 @@
       "threshold_id": "ksat_max",
       "kind": "rosetta_ksat_max",
       "value": 1,
-      "value_scale": "log10_cm_per_day",
+      "value_scale": "stored_log_scale_cm_per_day",
       "source_column": "ksat_50X",
       "evidence_ref": "HydroShare v1.1 README field"
     },
@@ -32,7 +32,7 @@
       "threshold_id": "ksat_high",
       "kind": "rosetta_ksat_high",
       "value": 1.3,
-      "value_scale": "log10_cm_per_day",
+      "value_scale": "stored_log_scale_cm_per_day",
       "source_column": "ksat_high_50X",
       "evidence_ref": "HydroShare v1.1 README field"
     },
@@ -40,7 +40,7 @@
       "threshold_id": "ksat_std_median",
       "kind": "rosetta_ksat_std_median",
       "value": 0.8,
-      "value_scale": "log10_cm_per_day",
+      "value_scale": "stored_log_scale_cm_per_day",
       "source_column": "ksat_std_median_50X",
       "evidence_ref": "HydroShare v1.1 README field"
     },
@@ -48,7 +48,7 @@
       "threshold_id": "ksat_std_upper",
       "kind": "rosetta_ksat_std_upper",
       "value": 1.1,
-      "value_scale": "log10_cm_per_day",
+      "value_scale": "stored_log_scale_cm_per_day",
       "source_column": "ksat_std_upper_50X",
       "evidence_ref": "HydroShare v1.1 README field"
     },
@@ -56,7 +56,7 @@
       "threshold_id": "num_velocity_99th",
       "kind": "matrix_velocity_99th",
       "value": 1.2,
-      "value_scale": "log10_cm_per_day",
+      "value_scale": "stored_log_scale_cm_per_day",
       "source_column": "num_velocity_50X_99th",
       "evidence_ref": "HydroShare v1.1 README field"
     }
