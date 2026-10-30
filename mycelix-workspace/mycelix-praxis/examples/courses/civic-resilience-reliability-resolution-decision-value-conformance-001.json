@@ -283,6 +283,16 @@
           "reviewed_cases": 5,
           "false_negative_cases": 4,
           "false_prepare_cases": 47
+        },
+        "decision_calibration": {
+          "issued_forecasts": 123,
+          "mean_expected_selected_action_cost": 1.1953805309734489,
+          "mean_observed_selected_action_cost": 1.527668194903505,
+          "mean_signed_cost_gap_observed_minus_expected": 0.33228766393005554,
+          "mean_absolute_cost_gap": 1.722345452606884,
+          "median_absolute_cost_gap": 0.744,
+          "p90_absolute_cost_gap": 1.32,
+          "max_absolute_cost_gap": 23.448
         }
       },
       "moderate_cost_preparedness": {
@@ -385,6 +395,16 @@
           "reviewed_cases": 5,
           "false_negative_cases": 8,
           "false_prepare_cases": 12
+        },
+        "decision_calibration": {
+          "issued_forecasts": 123,
+          "mean_expected_selected_action_cost": 1.7939341081138678,
+          "mean_observed_selected_action_cost": 2.5244162490670585,
+          "mean_signed_cost_gap_observed_minus_expected": 0.7304821409531922,
+          "mean_absolute_cost_gap": 3.8522665529374054,
+          "median_absolute_cost_gap": 1.76,
+          "p90_absolute_cost_gap": 3.04,
+          "max_absolute_cost_gap": 31.264
         }
       },
       "high_cost_preparedness": {
@@ -487,6 +507,16 @@
           "reviewed_cases": 5,
           "false_negative_cases": 12,
           "false_prepare_cases": 10
+        },
+        "decision_calibration": {
+          "issued_forecasts": 123,
+          "mean_expected_selected_action_cost": 2.2780424352276314,
+          "mean_observed_selected_action_cost": 3.267192664463156,
+          "mean_signed_cost_gap_observed_minus_expected": 0.9891502292355245,
+          "mean_absolute_cost_gap": 4.898692824394914,
+          "median_absolute_cost_gap": 2.2,
+          "p90_absolute_cost_gap": 3.8,
+          "max_absolute_cost_gap": 39.08
         }
       }
     },
@@ -592,6 +622,16 @@
             "reviewed_cases": 0,
             "false_negative_cases": 1,
             "false_prepare_cases": 4
+          },
+          "decision_calibration": {
+            "issued_forecasts": 32,
+            "mean_expected_selected_action_cost": 0.8825999999999999,
+            "mean_observed_selected_action_cost": 1.09,
+            "mean_signed_cost_gap_observed_minus_expected": 0.20739999999999986,
+            "mean_absolute_cost_gap": 1.8355800000000007,
+            "median_absolute_cost_gap": 0.9359999999999999,
+            "p90_absolute_cost_gap": 1.32,
+            "max_absolute_cost_gap": 23.448
           }
         },
         "moderate_cost_preparedness": {
@@ -694,6 +734,16 @@
             "reviewed_cases": 0,
             "false_negative_cases": 1,
             "false_prepare_cases": 4
+          },
+          "decision_calibration": {
+            "issued_forecasts": 32,
+            "mean_expected_selected_action_cost": 1.2118,
+            "mean_observed_selected_action_cost": 1.4883333333333326,
+            "mean_signed_cost_gap_observed_minus_expected": 0.27653333333333335,
+            "mean_absolute_cost_gap": 2.4474400000000007,
+            "median_absolute_cost_gap": 1.248,
+            "p90_absolute_cost_gap": 1.76,
+            "max_absolute_cost_gap": 31.264
           }
         },
         "high_cost_preparedness": {
@@ -796,6 +846,16 @@
             "reviewed_cases": 0,
             "false_negative_cases": 3,
             "false_prepare_cases": 4
+          },
+          "decision_calibration": {
+            "issued_forecasts": 32,
+            "mean_expected_selected_action_cost": 1.5496999999999996,
+            "mean_observed_selected_action_cost": 2.0891666666666664,
+            "mean_signed_cost_gap_observed_minus_expected": 0.5394666666666668,
+            "mean_absolute_cost_gap": 3.238699999999999,
+            "median_absolute_cost_gap": 1.56,
+            "p90_absolute_cost_gap": 2.2,
+            "max_absolute_cost_gap": 39.08
           }
         }
       },
@@ -900,6 +960,16 @@
             "reviewed_cases": 1,
             "false_negative_cases": 2,
             "false_prepare_cases": 14
+          },
+          "decision_calibration": {
+            "issued_forecasts": 31,
+            "mean_expected_selected_action_cost": 1.2471919698870764,
+            "mean_observed_selected_action_cost": 1.8205771643663744,
+            "mean_signed_cost_gap_observed_minus_expected": 0.5733851944792968,
+            "mean_absolute_cost_gap": 1.8999949811794221,
+            "median_absolute_cost_gap": 0.8400000000000001,
+            "p90_absolute_cost_gap": 1.62,
+            "max_absolute_cost_gap": 23.16
           }
         },
         "moderate_cost_preparedness": {
@@ -1002,6 +1072,16 @@
             "reviewed_cases": 1,
             "false_negative_cases": 3,
             "false_prepare_cases": 3
+          },
+          "decision_calibration": {
+            "issued_forecasts": 31,
+            "mean_expected_selected_action_cost": 1.8273776662484311,
+            "mean_observed_selected_action_cost": 2.7827268925135926,
+            "mean_signed_cost_gap_observed_minus_expected": 0.955349226265161,
+            "mean_absolute_cost_gap": 4.159324132162274,
+            "median_absolute_cost_gap": 1.888,
+            "p90_absolute_cost_gap": 2.4,
+            "max_absolute_cost_gap": 30.88
           }
         },
         "high_cost_preparedness": {
@@ -1104,6 +1184,16 @@
             "reviewed_cases": 1,
             "false_negative_cases": 4,
             "false_prepare_cases": 2
+          },
+          "decision_calibration": {
+            "issued_forecasts": 31,
+            "mean_expected_selected_action_cost": 2.320150564617314,
+            "mean_observed_selected_action_cost": 3.5805102467586774,
+            "mean_signed_cost_gap_observed_minus_expected": 1.2603596821413632,
+            "mean_absolute_cost_gap": 5.291074864073608,
+            "median_absolute_cost_gap": 2.36,
+            "p90_absolute_cost_gap": 3,
+            "max_absolute_cost_gap": 38.6
           }
         }
       },
@@ -1208,6 +1298,16 @@
             "reviewed_cases": 0,
             "false_negative_cases": 1,
             "false_prepare_cases": 20
+          },
+          "decision_calibration": {
+            "issued_forecasts": 32,
+            "mean_expected_selected_action_cost": 1.483483333333333,
+            "mean_observed_selected_action_cost": 2.428333333333335,
+            "mean_signed_cost_gap_observed_minus_expected": 0.9448499999999997,
+            "mean_absolute_cost_gap": 1.98432,
+            "median_absolute_cost_gap": 0.522,
+            "p90_absolute_cost_gap": 5.526,
+            "max_absolute_cost_gap": 22.68
           }
         },
         "moderate_cost_preparedness": {
@@ -1310,6 +1410,16 @@
             "reviewed_cases": 0,
             "false_negative_cases": 3,
             "false_prepare_cases": 2
+          },
+          "decision_calibration": {
+            "issued_forecasts": 32,
+            "mean_expected_selected_action_cost": 2.4677999999999995,
+            "mean_observed_selected_action_cost": 4.135,
+            "mean_signed_cost_gap_observed_minus_expected": 1.6671999999999998,
+            "mean_absolute_cost_gap": 5.81184,
+            "median_absolute_cost_gap": 2.528,
+            "p90_absolute_cost_gap": 29.472,
+            "max_absolute_cost_gap": 30.24
           }
         },
         "high_cost_preparedness": {
@@ -1412,6 +1522,16 @@
             "reviewed_cases": 0,
             "false_negative_cases": 3,
             "false_prepare_cases": 2
+          },
+          "decision_calibration": {
+            "issued_forecasts": 32,
+            "mean_expected_selected_action_cost": 3.1247999999999996,
+            "mean_observed_selected_action_cost": 5.18,
+            "mean_signed_cost_gap_observed_minus_expected": 2.0552000000000006,
+            "mean_absolute_cost_gap": 7.2261,
+            "median_absolute_cost_gap": 3.16,
+            "p90_absolute_cost_gap": 36.84,
+            "max_absolute_cost_gap": 37.8
           }
         }
       },
@@ -1516,6 +1636,16 @@
             "reviewed_cases": 4,
             "false_negative_cases": 0,
             "false_prepare_cases": 9
+          },
+          "decision_calibration": {
+            "issued_forecasts": 28,
+            "mean_expected_selected_action_cost": 1.1658308957952466,
+            "mean_observed_selected_action_cost": 0.6997257769652651,
+            "mean_signed_cost_gap_observed_minus_expected": -0.46610511882998185,
+            "mean_absolute_cost_gap": 1.1166499085923216,
+            "median_absolute_cost_gap": 0.9119999999999999,
+            "p90_absolute_cost_gap": 1.296,
+            "max_absolute_cost_gap": 5.628
           }
         },
         "moderate_cost_preparedness": {
@@ -1618,6 +1748,16 @@
             "reviewed_cases": 4,
             "false_negative_cases": 1,
             "false_prepare_cases": 3
+          },
+          "decision_calibration": {
+            "issued_forecasts": 28,
+            "mean_expected_selected_action_cost": 1.6567678244972572,
+            "mean_observed_selected_action_cost": 1.6119744058500907,
+            "mean_signed_cost_gap_observed_minus_expected": -0.04479341864716626,
+            "mean_absolute_cost_gap": 2.908223034734917,
+            "median_absolute_cost_gap": 1.728,
+            "p90_absolute_cost_gap": 2.24,
+            "max_absolute_cost_gap": 30.016
           }
         },
         "high_cost_preparedness": {
@@ -1720,6 +1860,16 @@
             "reviewed_cases": 4,
             "false_negative_cases": 2,
             "false_prepare_cases": 2
+          },
+          "decision_calibration": {
+            "issued_forecasts": 28,
+            "mean_expected_selected_action_cost": 2.102138939670932,
+            "mean_observed_selected_action_cost": 2.118829981718464,
+            "mean_signed_cost_gap_observed_minus_expected": 0.016691042047532075,
+            "mean_absolute_cost_gap": 3.7378244972577703,
+            "median_absolute_cost_gap": 2.16,
+            "p90_absolute_cost_gap": 2.8000000000000003,
+            "max_absolute_cost_gap": 37.52
           }
         }
       }
