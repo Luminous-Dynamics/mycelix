@@ -821,11 +821,32 @@ mod tests {
 
         let compare_profile = |actual: &Value, expected: &Value| {
             for key in [
-                "original_brier_score", "log_loss", "climatology_brier_score",
-                "brier_skill_score", "weighted_event_rate", "mean_candidate_probability",
-                "weighted_forecast_coverage", "effective_sample_size", "forecast_effective_sample_size"
+                "cases", "issued_forecasts", "reviewed_abstentions",
+                "raw_forecast_coverage", "weighted_forecast_coverage", "importance_weight_sum",
+                "effective_sample_size", "forecast_effective_sample_size",
+                "weighted_event_rate", "mean_candidate_probability", "original_brier_score",
+                "log_loss", "climatology_brier_score", "brier_skill_score"
             ] {
-                assert!((actual[key].as_f64().unwrap() - expected[key].as_f64().unwrap()).abs() <= tolerance, "{key}");
+                if expected[key].is_null() {
+                    assert!(actual[key].is_null(), "{key}");
+                } else if expected[key].is_number() {
+                    assert!((actual[key].as_f64().unwrap() - expected[key].as_f64().unwrap()).abs() <= tolerance, "{key}");
+                } else {
+                    assert_eq!(actual[key], expected[key], "{key}");
+                }
+            }
+            for key in [
+                "target_population_event_rate", "event_forecast_coverage", "non_event_forecast_coverage",
+                "target_event_weight", "target_non_event_weight", "forecast_event_weight",
+                "forecast_non_event_weight", "abstained_event_weight", "abstained_non_event_weight",
+                "abstained_weight", "abstained_event_rate"
+            ] {
+                if expected["selection_diagnostics"][key].is_null() {
+                    assert!(actual["selection_diagnostics"][key].is_null(), "{key}");
+                } else {
+                    assert!((actual["selection_diagnostics"][key].as_f64().unwrap()
+                        - expected["selection_diagnostics"][key].as_f64().unwrap()).abs() <= tolerance, "{key}");
+                }
             }
             for key in ["reliability", "resolution", "uncertainty", "binned_brier_score",
                 "murphy_reconstructed_brier_score", "decomposition_identity_residual",
@@ -893,6 +914,28 @@ mod tests {
         let mut value = fixture();
         value.as_object_mut().unwrap().remove("regimes");
         assert!(evaluate_reliability_resolution_decision_value(&value).is_err());
+    }
+
+
+    #[test]
+    fn reports_event_conditional_coverage_and_abstention_selection() {
+        let baseline = evaluate_reliability_resolution_decision_value(&fixture()).unwrap();
+        let mut value = fixture();
+        let row = value["evaluation_cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| case["evaluator"]["qualification_state"] == "qualified"
+                && case["evaluator"]["observed_normalized_service_deficit_hours"].as_f64().unwrap() > 48.0
+                && case["candidate_output"]["action"] == "forecast").unwrap();
+        row["candidate_output"]["action"] = json!("abstain");
+        row["candidate_output"]["predicted_exceedance_probability"] = Value::Null;
+        row["candidate_output"]["abstention_reason"] = json!("model_uncertainty");
+        row["evaluator"]["review_fallback_action"] = json!("no_action");
+        let selected = evaluate_reliability_resolution_decision_value(&value).unwrap();
+        let baseline_profile = &baseline["overall_by_profile"][0]["selection_diagnostics"];
+        let selected_profile = &selected["overall_by_profile"][0]["selection_diagnostics"];
+        assert!(selected_profile["event_forecast_coverage"].as_f64().unwrap()
+            < baseline_profile["event_forecast_coverage"].as_f64().unwrap());
+        assert_eq!(selected_profile["target_population_event_rate"], baseline_profile["target_population_event_rate"]);
+        assert!(selected_profile["abstained_event_rate"].as_f64().unwrap() > 0.0);
     }
 
     #[test]
