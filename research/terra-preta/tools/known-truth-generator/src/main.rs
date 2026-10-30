@@ -59,7 +59,7 @@ struct ForcingStep {
     rainfall_tracer_concentration_mg_l: f64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ParsedForcing {
     timestamp: DateTime<FixedOffset>,
     rainfall_mm: f64,
