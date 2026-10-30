@@ -113,6 +113,8 @@ The value-of-information policy must be evaluated prospectively: compare adaptiv
 
 Implementation tracker: [PF-TRIANG-001](https://github.com/Luminous-Dynamics/mycelix/issues/5538).
 
+**Executable first diagnostic:** [profile-flow-audit](./tools/profile-flow-audit/README.md) implements pairwise multi-depth NSR response ordering; [preferential-flow-eventizer](./tools/preferential-flow-eventizer/README.md) supplies the single-sensor event response/VT proxy. Neither independently certifies a physical pathway.
+
 ## References
 
 - Nimmo, J. R., Wiekenkamp, I., Araki, R., et al. (2025). Identifying preferential flow from soil moisture time series: Review of methodologies. Vadose Zone Journal, 24(2), e70017. https://doi.org/10.1002/vzj2.70017
