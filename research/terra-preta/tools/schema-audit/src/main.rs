@@ -455,7 +455,10 @@ mod tests {
     fn rejects_nutrient_input_missing_internal_transfer_endpoint() {
         let validator = jsonschema::validator_for(&nutrient_budget_input_schema()).unwrap();
         let mut instance: Value = serde_json::from_str(NUTRIENT_BUDGET_INPUT_FIXTURE).unwrap();
-        instance["internal_transfers"][0].as_object_mut().unwrap().remove("destination_pool_id");
+        instance["internal_transfers"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("destination_pool_id");
         assert!(!validator.is_valid(&instance));
     }
 
@@ -601,7 +604,10 @@ mod tests {
     fn rejects_nutrient_report_without_unmeasured_pathway_disclosure() {
         let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
         let mut report = valid_nutrient_budget_report();
-        report.as_object_mut().unwrap().remove("unmeasured_pathways");
+        report
+            .as_object_mut()
+            .unwrap()
+            .remove("unmeasured_pathways");
         assert!(!validator.is_valid(&report));
     }
 
@@ -625,7 +631,10 @@ mod tests {
     fn rejects_nutrient_budget_report_missing_boundary_review_reference() {
         let validator = jsonschema::validator_for(&nutrient_budget_report_schema()).unwrap();
         let mut report = valid_nutrient_budget_report();
-        report.as_object_mut().unwrap().remove("boundary_flux_review_ref");
+        report
+            .as_object_mut()
+            .unwrap()
+            .remove("boundary_flux_review_ref");
         assert!(!validator.is_valid(&report));
     }
 
@@ -695,7 +704,6 @@ mod tests {
         instance["soil_moisture_observations"][0]["volumetric_water_content_m3_m3"] = json!(1.2);
         assert!(!validator.is_valid(&instance));
     }
-
 
     fn coupled_event_report_schema() -> Value {
         serde_json::from_str(SCHEMA_FIXTURES[13].1).unwrap()
