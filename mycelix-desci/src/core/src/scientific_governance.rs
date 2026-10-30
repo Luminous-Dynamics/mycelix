@@ -974,8 +974,8 @@ mod tests {
                 claim: atomic_claim.clone(),
                 creator: creator.clone(),
                 creator_organization: creator_organization.clone(),
-                created_at: now,
-                updated_at: now,
+                created_at: now.clone(),
+                updated_at: now.clone(),
                 lifecycle: ClaimLifecycle::Active,
                 evidence_profile: EvidenceProfile::default(),
                 evidence: Vec::new(),
@@ -1070,7 +1070,7 @@ mod tests {
             let previous = SignedScientificEvent::sign(
                 ScientificEventEnvelope::genesis(
                     creator,
-                    now,
+                    now.clone(),
                     proposed(claim_id),
                 )
                 .unwrap(),
@@ -1085,13 +1085,15 @@ mod tests {
             )
             .unwrap()
         };
-        let envelope = case
+        let envelope = match case
             .get("actingOrganizationId")
             .and_then(Value::as_str)
-            .map(|organization| {
+        {
+            Some(organization) => {
                 envelope.with_acting_organization(OrganizationId::new(organization).unwrap())
-            })
-            .unwrap_or(envelope);
+            }
+            None => envelope,
+        };
         let event = SignedScientificEvent::sign(envelope, &signing_key).unwrap();
         (resolved, event, current)
     }
