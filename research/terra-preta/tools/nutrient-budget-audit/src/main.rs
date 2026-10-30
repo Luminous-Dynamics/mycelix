@@ -114,6 +114,29 @@ struct AvailabilityIndicator {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct StockPoolPartitionReview {
+    mutually_exclusive: bool,
+    boundary_stocks_covered: bool,
+    review_ref: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UnmeasuredPathway {
+    pathway: String,
+    reason: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BoundaryFluxReview {
+    all_relevant_fluxes_accounted_for: bool,
+    review_ref: String,
+    unmeasured_pathways: Vec<UnmeasuredPathway>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct BudgetInput {
     schema_version: String,
     record_id: String,
@@ -127,6 +150,8 @@ struct BudgetInput {
     source_sha256: String,
     period: Period,
     control_volume: ControlVolume,
+    stock_pool_partition_review: StockPoolPartitionReview,
+    boundary_flux_review: BoundaryFluxReview,
     inputs: Vec<InputFlow>,
     outputs: Vec<OutputFlow>,
     storage_start: Vec<StoragePool>,
@@ -166,6 +191,9 @@ struct AuditReport {
     period_start_date: String,
     period_end_date: String,
     control_volume: ControlVolume,
+    stock_pool_partition_review_ref: String,
+    boundary_flux_review_ref: String,
+    boundary_coverage_status: &'static str,
     input_total_kg_element_per_ha: f64,
     output_total_kg_element_per_ha: f64,
     storage_start_total_kg_element_per_ha: f64,
@@ -324,6 +352,32 @@ fn validate_input(input: &BudgetInput) -> Result<(), String> {
     }
     nonblank(&volume.boundary_description, "control_volume.boundary_description")?;
 
+    nonblank(
+        &input.stock_pool_partition_review.review_ref,
+        "stock_pool_partition_review.review_ref",
+    )?;
+    if !input.stock_pool_partition_review.mutually_exclusive {
+        return Err("stock-pool partition must be explicitly reviewed as mutually exclusive; overlapping pools cannot be summed".to_owned());
+    }
+    nonblank(
+        &input.boundary_flux_review.review_ref,
+        "boundary_flux_review.review_ref",
+    )?;
+    for pathway in &input.boundary_flux_review.unmeasured_pathways {
+        nonblank(&pathway.pathway, "unmeasured pathway name")?;
+        nonblank(&pathway.reason, "unmeasured pathway reason")?;
+    }
+    if input.boundary_flux_review.all_relevant_fluxes_accounted_for
+        && !input.boundary_flux_review.unmeasured_pathways.is_empty()
+    {
+        return Err("boundary flux review cannot declare complete coverage while listing unmeasured pathways".to_owned());
+    }
+    if !input.boundary_flux_review.all_relevant_fluxes_accounted_for
+        && input.boundary_flux_review.unmeasured_pathways.is_empty()
+    {
+        return Err("incomplete boundary flux review must list at least one unmeasured pathway and reason".to_owned());
+    }
+
     let mut flow_ids = HashSet::new();
     for flow in &input.inputs {
         validate_flow(flow, &mut flow_ids)?;
@@ -457,7 +511,12 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
     }
 
     let uncertainty_option = all_uncertainties_present.then_some(uncertainty_bound);
-    let status = match uncertainty_option {
+    let boundary_coverage_complete = input.stock_pool_partition_review.boundary_stocks_covered
+        && input.boundary_flux_review.all_relevant_fluxes_accounted_for;
+    let status = if !boundary_coverage_complete {
+        "unqualified_incomplete_boundary_coverage"
+    } else {
+        match uncertainty_option {
         None => "unqualified_missing_uncertainty",
         Some(bound) => {
             let scale = input_total + output_total + storage_start_total + storage_end_total;
@@ -467,6 +526,7 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
             } else {
                 "outside_conservative_uncertainty_bound"
             }
+        }
         }
     };
 
@@ -488,7 +548,11 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
         "Internal transfers are not boundary inputs/outputs when both pools are inside the declared control volume; do not double-count root uptake, mineralization, immobilization, sorption/desorption or residue return.".to_owned(),
         "Availability indicators are method-dependent measurements and are reported separately; they are never added to the disjoint stock pools.".to_owned(),
         "The linear sum of standard uncertainties is a conservative bound under unspecified covariance, not a confidence interval and not a model of systematic bias.".to_owned(),
+        "Stock-pool and boundary-flux completeness are reviewed declarations; the auditor cannot independently prove that physical pools are disjoint or that every real-world pathway was measured.".to_owned(),
     ];
+    if !boundary_coverage_complete {
+        warnings.push("Stock or boundary-flux coverage is declared incomplete; no mass-balance closure qualification is issued regardless of residual size.".to_owned());
+    }
     if uncertainty_option.is_none() {
         warnings.push("At least one input, output or stock pool lacks standard uncertainty; the computed residual is unqualified.".to_owned());
     }
@@ -510,6 +574,13 @@ fn audit(bytes: &[u8]) -> Result<AuditReport, String> {
         period_start_date: input.period.start_date,
         period_end_date: input.period.end_date,
         control_volume: input.control_volume,
+        stock_pool_partition_review_ref: input.stock_pool_partition_review.review_ref,
+        boundary_flux_review_ref: input.boundary_flux_review.review_ref,
+        boundary_coverage_status: if boundary_coverage_complete {
+            "declared_complete"
+        } else {
+            "declared_incomplete"
+        },
         input_total_kg_element_per_ha: input_total,
         output_total_kg_element_per_ha: output_total,
         storage_start_total_kg_element_per_ha: storage_start_total,
