@@ -1136,6 +1136,191 @@ mod tests {
         }
     }
 
+
+    #[test]
+    fn cedar_and_rego_adapters_match_every_frozen_corpus_row() {
+        fn entity<'a>(entities: &'a [Value], entity_type: &str) -> &'a Value {
+            entities
+                .iter()
+                .find(|entry| entry.pointer("/uid/type").and_then(Value::as_str) == Some(entity_type))
+                .unwrap_or_else(|| panic!("missing Cedar entity type {entity_type}"))
+        }
+
+        fn extract_json_object(source: &str, start: usize) -> &str {
+            let bytes = source.as_bytes();
+            let mut depth = 0usize;
+            let mut in_string = false;
+            let mut escaped = false;
+            let mut object_start = None;
+            for index in start..bytes.len() {
+                let byte = bytes[index];
+                if in_string {
+                    if escaped {
+                        escaped = false;
+                    } else if byte == b'\\' {
+                        escaped = true;
+                    } else if byte == b'"' {
+                        in_string = false;
+                    }
+                    continue;
+                }
+                match byte {
+                    b'"' => in_string = true,
+                    b'{' => {
+                        if object_start.is_none() {
+                            object_start = Some(index);
+                        }
+                        depth += 1;
+                    }
+                    b'}' => {
+                        depth = depth.saturating_sub(1);
+                        if depth == 0 {
+                            let begin = object_start.expect("JSON object opening brace");
+                            return &source[begin..=index];
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            panic!("unterminated JSON object in Rego conformance test")
+        }
+
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cases.json"
+        ))
+        .expect("corpus JSON");
+        let cases = corpus["policyCases"].as_array().expect("policyCases");
+        let cedar_tests: Vec<Value> = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-tests.json"
+        ))
+        .expect("Cedar CLI test cases JSON");
+        let rego_tests = include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy_test.rego"
+        );
+
+        assert_eq!(cases.len(), 30);
+        assert_eq!(cedar_tests.len(), cases.len());
+
+        for case in cases {
+            let id = case["id"].as_str().expect("case id");
+            let expected = case["expected"].as_str().expect("expected effect");
+            let action = case["action"].as_str().expect("action");
+            let actor_case = &case["actor"];
+            let claim_case = &case["claim"];
+            let attestation = case.get("attestation").unwrap_or(&Value::Null);
+            let target_attestation = case.get("targetAttestation").unwrap_or(&Value::Null);
+            let actor_id = actor_case["id"].as_str().expect("actor id");
+            let resource_id = format!("claim-{id}");
+            let attestation_kind = attestation["kind"].as_str().unwrap_or("ordinary");
+            let target_exists = target_attestation["exists"].as_bool().unwrap_or(false);
+
+            let cedar_case = cedar_tests
+                .iter()
+                .find(|test| {
+                    test["name"]
+                        .as_str()
+                        .is_some_and(|name| name.starts_with(&format!("{id} ")))
+                })
+                .unwrap_or_else(|| panic!("{id}: missing Cedar request"));
+            assert_eq!(cedar_case["decision"], expected, "{id}: Cedar expected decision");
+            assert_eq!(
+                cedar_case["request"]["principal"],
+                format!("Mycelix::Actor::{actor_id:?}"),
+                "{id}: Cedar principal"
+            );
+            assert_eq!(
+                cedar_case["request"]["action"],
+                format!("Mycelix::Action::{action:?}"),
+                "{id}: Cedar action"
+            );
+            assert_eq!(
+                cedar_case["request"]["resource"],
+                format!("Mycelix::Claim::{resource_id:?}"),
+                "{id}: Cedar resource"
+            );
+            assert_eq!(
+                cedar_case["request"]["context"]["attestationKind"],
+                attestation_kind,
+                "{id}: Cedar attestation context"
+            );
+            assert_eq!(
+                cedar_case["request"]["context"]["targetAttestationExists"],
+                target_exists,
+                "{id}: Cedar target context"
+            );
+            if let Some(organization) = case.get("actingOrganizationId") {
+                assert_eq!(
+                    cedar_case["request"]["context"]["actingOrganizationId"],
+                    *organization,
+                    "{id}: Cedar acting organization"
+                );
+            }
+            let cedar_entities = cedar_case["entities"].as_array().expect("Cedar entities");
+            let cedar_actor = entity(cedar_entities, "Mycelix::Actor");
+            assert_eq!(cedar_actor["uid"]["id"], actor_id, "{id}: Cedar actor UID");
+            assert_eq!(cedar_actor["attrs"]["roles"], actor_case["roles"], "{id}: Cedar roles");
+            assert_eq!(
+                cedar_actor["attrs"]["organizations"],
+                actor_case.get("organizations").unwrap_or(&json!([])),
+                "{id}: Cedar organizations"
+            );
+            let cedar_claim = entity(cedar_entities, "Mycelix::Claim");
+            assert_eq!(cedar_claim["uid"]["id"], resource_id, "{id}: Cedar claim UID");
+            assert_eq!(cedar_claim["attrs"]["exists"], claim_case["exists"], "{id}: Cedar claim state");
+            for field in ["creatorActorId", "creatorOrganizationId"] {
+                if let Some(value) = claim_case.get(field) {
+                    assert_eq!(cedar_claim["attrs"][field], *value, "{id}: Cedar claim {field}");
+                }
+            }
+            let cedar_action = entity(cedar_entities, "Mycelix::Action");
+            assert_eq!(cedar_action["uid"]["id"], action, "{id}: Cedar action entity");
+
+            let function_name = format!("test_auth_{}", id.to_lowercase().replace('-', "_"));
+            let test_start = rego_tests
+                .find(&function_name)
+                .unwrap_or_else(|| panic!("{id}: missing Rego test {function_name}"));
+            let test_source = &rego_tests[test_start..];
+            let test_end = test_source
+                .find("\n}\n")
+                .unwrap_or_else(|| panic!("{id}: unterminated Rego test"));
+            let test_source = &test_source[..=test_end + 1];
+            assert!(
+                test_source.contains(&format!("decision.effect == \"{expected}\"")),
+                "{id}: Rego expected decision missing"
+            );
+            let input_marker = test_source
+                .find("with input as")
+                .unwrap_or_else(|| panic!("{id}: Rego test has no input"));
+            let input_json = extract_json_object(test_source, input_marker);
+            let actual_input: Value = serde_json::from_str(input_json)
+                .unwrap_or_else(|error| panic!("{id}: invalid Rego test input JSON: {error}"));
+
+            let mut expected_input = json!({
+                "action": action,
+                "actor": {
+                    "id": actor_id,
+                    "roles": actor_case["roles"],
+                    "organizations": actor_case.get("organizations").unwrap_or(&json!([]))
+                },
+                "claim": { "exists": claim_case["exists"] },
+                "attestation": { "kind": attestation_kind },
+                "targetAttestation": { "exists": target_exists }
+            });
+            for field in ["creatorActorId", "creatorOrganizationId"] {
+                if let Some(value) = claim_case.get(field) {
+                    expected_input["claim"][field] = value.clone();
+                }
+            }
+            if let Some(author) = target_attestation.get("authorActorId") {
+                expected_input["targetAttestation"]["authorActorId"] = author.clone();
+            }
+            if let Some(organization) = case.get("actingOrganizationId") {
+                expected_input["actingOrganizationId"] = organization.clone();
+            }
+            assert_eq!(actual_input, expected_input, "{id}: Rego input differs from corpus");
+        }
+    }
+
     #[tokio::test]
     async fn valid_signature_with_unbound_key_is_rejected() {
         let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
