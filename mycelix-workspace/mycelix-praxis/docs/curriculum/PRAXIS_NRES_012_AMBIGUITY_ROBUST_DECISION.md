@@ -57,7 +57,9 @@ All profiles and regimes remain separate. No scalar robustness or resilience sco
 
 ## 4. Public fixture and observed demonstration
 
-NRES-012 reuses 128 public synthetic NRES-011 cases, preserving the source fixture blob SHA and source case IDs. It assigns four declared ambiguity radii to the in-distribution, temporal-shift, structural-dependency-shift and evidence-degradation regimes. Five abstentions remain abstentions; no interval is emitted for them.
+NRES-012 reuses 128 public synthetic NRES-011 cases, preserving the source fixture blob SHA and source case IDs. It assigns four declared ambiguity radii to the in-distribution, temporal-shift, structural-dependency-shift and evidence-degradation regimes. Five abstentions remain abstentions (four mandatory, one optional); no interval is emitted for them. The fixture is pinned to NRES-011's source blob SHA `a9f10ae28fe3c5031ed9ce0f88761e94ad6f4e51`, and the Rust evaluator checks all 128 copied source-case identities and copied forecast/evaluator fields.
+
+The public conformance corpus contains **28 invalid-input negative controls** and **two policy-boundary cases**. The Rust reference evaluator contains **37 authored unit tests** covering the golden profile/regime vectors, exact policy tie-breaking, interval/radius consistency, source lineage, mandatory abstention, sampling design and prohibited aggregate scores.
 
 On this illustrative sample, minimax regret lowers policy cost under the low-cost preparedness profile, is neutral under the moderate and high profiles, and worst-case expected-loss lowers cost for some profiles but increases it substantially for the high-cost profile. This is not paradoxical: worst-case expected cost is intentionally conservative, and the outcome observed in one synthetic sample need not coincide with the distributional worst case. The benchmark reports both quantities to expose that trade-off rather than hiding it behind one metric.
 
@@ -73,7 +75,7 @@ The next challenge set should use:
 5. decision-regret confidence intervals from repeated, independently generated scenario families;
 6. paired comparisons of decision cost, worst-case regret, false negatives, unnecessary preparation and deferral cost.
 
-The 2026 UAI work of Yamao et al. and ICML work of Ohnemus et al. are the relevant method-level comparison points. Praxis's opportunity is not to claim a better optimizer from a small fixture; it is to provide a deterministic, provenance-pinned, cross-regime conformance benchmark that makes the decision and ambiguity assumptions inspectable.
+The 2026 UAI work of Yamao et al. and ICML work of Ohnemus et al. are the relevant method-level comparison points. On the current 128-case public fixture, independent arithmetic reproduces **720 numeric golden fields** across 3 profiles × (1 overall + 4 regimes) with zero mismatches at 1e-12 tolerance. This is an arithmetic/source verification of the fixture, not a Rust build or execution. Praxis's opportunity is not to claim a better optimizer from a small fixture; it is to provide a deterministic, provenance-pinned, cross-regime conformance benchmark that makes the decision and ambiguity assumptions inspectable.
 
 ## 6. Boundaries and limitations
 
