@@ -280,6 +280,15 @@ fn validate(input: &Input) -> Result<(), String> {
             return Err("Rosetta median Ksat threshold must not exceed its upper estimate".to_owned());
         }
     }
+    if let (Some(median), Some(p95), Some(p99)) = (
+        kinds.get(&ThresholdKind::MatrixVelocityMedian),
+        kinds.get(&ThresholdKind::MatrixVelocity95th),
+        kinds.get(&ThresholdKind::MatrixVelocity99th),
+    ) {
+        if median > p95 || p95 > p99 {
+            return Err("matrix model velocity thresholds must satisfy median <= 95th <= 99th".to_owned());
+        }
+    }
     Ok(())
 }
 
@@ -519,6 +528,35 @@ mod tests {
             "single_reference_not_robustness_tested"
         );
         assert_eq!(report.rosetta_ksat_proxy_stability, "threshold_sensitive");
+    }
+
+    #[test]
+    fn aggregates_model_median_95th_and_99th_separately_from_rosetta() {
+        let mut thresholds = rosetta_thresholds();
+        thresholds.extend([
+            threshold("num_velocity_median", ThresholdKind::MatrixVelocityMedian, 0.60),
+            threshold("num_velocity_95th", ThresholdKind::MatrixVelocity95th, 1.00),
+            threshold("num_velocity_99th", ThresholdKind::MatrixVelocity99th, 1.20),
+        ]);
+        let report = evaluate(&input(0.90, thresholds), "e".repeat(64)).unwrap();
+        assert_eq!(report.matrix_model_velocity_threshold_count, 3);
+        assert_eq!(report.matrix_model_velocity_positive_count, 1);
+        assert_eq!(report.matrix_model_velocity_negative_count, 2);
+        assert_eq!(report.matrix_model_velocity_proxy_stability, "threshold_sensitive");
+        assert_eq!(report.matrix_velocity_99th_proxy_stability, "single_reference_not_robustness_tested");
+        assert_eq!(report.rosetta_ksat_proxy_stability, "threshold_sensitive");
+    }
+
+    #[test]
+    fn rejects_inverted_matrix_model_velocity_quantiles() {
+        let thresholds = vec![
+            threshold("num_velocity_median", ThresholdKind::MatrixVelocityMedian, 0.9),
+            threshold("num_velocity_95th", ThresholdKind::MatrixVelocity95th, 0.8),
+            threshold("num_velocity_99th", ThresholdKind::MatrixVelocity99th, 1.2),
+        ];
+        assert!(validate(&input(1.0, thresholds))
+            .unwrap_err()
+            .contains("median <= 95th <= 99th"));
     }
 
     #[test]
