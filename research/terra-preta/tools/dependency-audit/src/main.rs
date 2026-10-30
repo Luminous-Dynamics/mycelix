@@ -47,6 +47,12 @@ struct ParsedManifest {
     dependency_key_stats: BTreeMap<String, DependencyKeyStats>,
 }
 
+#[derive(Debug)]
+struct ParsedManifest {
+    rows: Vec<ManifestRow>,
+    dependency_key_stats: BTreeMap<String, DependencyKeyStats>,
+}
+
 #[derive(Debug, Serialize)]
 struct AuditReport {
     audit_version: &'static str,
