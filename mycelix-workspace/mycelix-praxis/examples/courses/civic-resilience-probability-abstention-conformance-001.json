@@ -75,6 +75,24 @@
       "name": "Composite score injection",
       "mutation": "Add overall_resilience_score to root object",
       "expected_disposition": "reject-composite-score"
+    },
+    {
+      "case_id": "NEG-13",
+      "name": "Non-string abstention reason on forecast",
+      "mutation": "Set candidate_output.abstention_reason to a number while action=forecast",
+      "expected_disposition": "reject-invalid-explicit-null-reason"
+    },
+    {
+      "case_id": "NEG-14",
+      "name": "Missing explicit null reason on forecast",
+      "mutation": "Remove candidate_output.abstention_reason from a forecast output",
+      "expected_disposition": "reject-missing-null-reason"
+    },
+    {
+      "case_id": "NEG-15",
+      "name": "Empty service unit",
+      "mutation": "Set service_catalog[0].unit to empty string",
+      "expected_disposition": "reject-empty-service-unit"
     }
   ],
   "expected_metrics": {
@@ -297,7 +315,8 @@
     "expected_metric_tolerance_absolute": 1e-12,
     "null_probability_preservation": "exact",
     "mandatory_abstention_violations_accepted": 0,
-    "composite_or_personal_scores_accepted": 0
+    "composite_or_personal_scores_accepted": 0,
+    "invalid_abstention_reason_accepted": 0
   },
   "limitations": [
     "This is a public development fixture, not a hidden test set.",
