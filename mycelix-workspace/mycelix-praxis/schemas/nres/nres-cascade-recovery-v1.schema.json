@@ -16,7 +16,8 @@
     "services",
     "dependency_edges",
     "scenarios",
-    "interpretation_guardrails"
+    "interpretation_guardrails",
+    "dependency_graph_policy"
   ],
   "properties": {
     "benchmark_id": {
@@ -226,7 +227,8 @@
         "required": [
           "prerequisite_service_id",
           "dependent_service_id",
-          "relationship"
+          "relationship",
+          "assertion_status"
         ],
         "properties": {
           "prerequisite_service_id": {
@@ -239,6 +241,13 @@
           },
           "relationship": {
             "const": "required-input"
+          },
+          "assertion_status": {
+            "enum": [
+              "assumed",
+              "observed",
+              "evaluator-only"
+            ]
           }
         },
         "additionalProperties": true
@@ -351,6 +360,39 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "dependency_graph_policy": {
+      "type": "object",
+      "required": [
+        "direction",
+        "propagation_applied",
+        "allowed_assertion_statuses",
+        "semantics_note"
+      ],
+      "properties": {
+        "direction": {
+          "const": "prerequisite-to-dependent"
+        },
+        "propagation_applied": {
+          "const": false
+        },
+        "allowed_assertion_statuses": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "assumed",
+              "observed",
+              "evaluator-only"
+            ]
+          },
+          "minItems": 1
+        },
+        "semantics_note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": true,
