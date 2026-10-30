@@ -1371,7 +1371,7 @@
       "forecast_origin_hour": 0,
       "forecast_horizon_hours": 72,
       "evaluator": {
-        "qualification_state": "model_uncertainty",
+        "qualification_state": "qualified",
         "observed_normalized_service_deficit_hours": 143
       },
       "candidate_output": {
