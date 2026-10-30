@@ -372,7 +372,11 @@ pub fn evaluate_tail_shift_robustness(fixture: &Value) -> Result<Value, Vec<Stri
         }
     }
 
-    let expected_weight = number(design, "expected_total_weight_per_regime").unwrap_or(32.0);
+    let expected_weight = number(design, "expected_total_weight_per_regime");
+    if expected_weight.is_none_or(|value| !value.is_finite() || value <= 0.0) {
+        errors.push("expected_total_weight_per_regime must be finite and positive".to_owned());
+    }
+    let expected_weight = expected_weight.unwrap_or(32.0);
     for regime in &regime_order {
         let counts = stratum_counts.get(regime);
         let n: usize = counts.map(|v| v.values().sum()).unwrap_or(0);
@@ -510,6 +514,25 @@ mod tests {
             c["candidate_output"]["abstention_reason"]=json!(reason);
         } assert!(evaluate_tail_shift_robustness(&v).is_err());
     }
+
+    #[test] fn rejects_sampling_target_mass_not_normalized() {
+        let mut v=fixture();
+        v["sampling_design"]["strata"][0]["target_probability"]=json!(0.5);
+        assert!(evaluate_tail_shift_robustness(&v).is_err());
+    }
+
+    #[test] fn reports_negative_shape_support_violation_without_clipping() {
+        let mut v=fixture();
+        let row=v["evaluation_cases"].as_array_mut().unwrap().iter_mut()
+            .find(|row| row["evaluator"]["observed_normalized_service_deficit_hours"].as_f64().unwrap()-48.0>40.0
+                && row["candidate_output"]["action"]=="forecast").unwrap();
+        row["candidate_output"]["gpd_shape"]=json!(-0.5);
+        row["candidate_output"]["gpd_scale"]=json!(20.0);
+        let report=evaluate_tail_shift_robustness(&v).expect("a zero-support forecast is scored, not schema-rejected");
+        assert!(report["overall"]["zero_support_tail_excesses"].as_u64().unwrap()>0);
+        assert!(report["overall"]["weighted_tail_excess_log_loss"].is_null());
+    }
+
     #[test] fn preserves_zero_probability_exceedance_as_infinite_log_loss() {
         let mut v=fixture(); let c=v["evaluation_cases"].as_array_mut().unwrap().iter_mut().find(|c|c["evaluator"]["observed_normalized_service_deficit_hours"].as_f64().unwrap()>48.0 && c["candidate_output"]["action"]=="forecast").unwrap();
         c["candidate_output"]["predicted_exceedance_probability"]=json!(0.0);
