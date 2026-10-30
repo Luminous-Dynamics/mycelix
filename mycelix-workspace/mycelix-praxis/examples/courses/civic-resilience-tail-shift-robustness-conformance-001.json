@@ -55,7 +55,7 @@
     {
       "case_id": "NEG-09",
       "name": "Invalid GPD shape",
-      "mutation": "Set gpd_shape to NaN or infinity",
+      "mutation": "Set gpd_shape to a non-finite value through a direct evaluator test",
       "expected_disposition": "reject-gpd-shape"
     },
     {
@@ -111,6 +111,24 @@
       "name": "Negative GPD support violation silently clipped",
       "mutation": "Change shape to negative and make an observed excess exceed its finite endpoint",
       "expected_disposition": "reject-invalid-tail-support"
+    },
+    {
+      "case_id": "NEG-19",
+      "name": "Optional abstention under unqualified state",
+      "mutation": "Set qualification_state=missing_critical_input and abstention_reason=model_uncertainty",
+      "expected_disposition": "reject-abstention-reason-mismatch"
+    },
+    {
+      "case_id": "NEG-20",
+      "name": "Proposal and target masses do not sum to one",
+      "mutation": "Alter one stratum probability without updating the other design stratum",
+      "expected_disposition": "reject-sampling-design-normalization"
+    },
+    {
+      "case_id": "NEG-21",
+      "name": "Forecast probability endpoint gives infinite loss",
+      "mutation": "Set forecast probability to zero for an observed exceedance",
+      "expected_disposition": "accept-but-report-zero-probability-exceedance"
     }
   ],
   "expected_metrics": {
@@ -118,6 +136,10 @@
     "forecast_cases": 123,
     "mandatory_abstentions": 4,
     "optional_abstentions": 1,
+    "mandatory_abstention_by_reason": {
+      "missing_critical_input": 2,
+      "conflicting_sources": 2
+    },
     "overall": {
       "total_cases": 128,
       "issued_forecasts": 123,
@@ -134,49 +156,50 @@
       "tail_occurrence_calibration_ratio": 1.5250177253843809,
       "brier_score": 0.07849683436400443,
       "log_loss": 0.2922853324790153,
+      "zero_probability_exceedances": 0,
       "climatology_brier_score": 0.08409493549418887,
       "brier_skill_score": 0.0665688260212921,
       "reliability_bins": [
         {
           "bin_id": "BIN-0",
           "lower": 0,
-          "upper": 0.16666666666666666,
-          "count": 100,
-          "weight": 122.29333333333355,
-          "mean_forecast_probability": 0.05423778892280845,
-          "observed_event_rate": 0.0779546445704316
+          "upper": 0.05,
+          "count": 39,
+          "weight": 50.44000000000004,
+          "mean_forecast_probability": 0.034615384615384576,
+          "observed_event_rate": 0.05128205128205124
         },
         {
           "bin_id": "BIN-1",
-          "lower": 0.16666666666666666,
-          "upper": 0.3333333333333333,
-          "count": 21,
-          "weight": 2.5200000000000014,
-          "mean_forecast_probability": 0.2514285714285712,
-          "observed_event_rate": 0.619047619047619
+          "lower": 0.05,
+          "upper": 0.1,
+          "count": 55,
+          "weight": 71.13333333333343,
+          "mean_forecast_probability": 0.06730909090909083,
+          "observed_event_rate": 0.09090909090909079
         },
         {
           "bin_id": "BIN-2",
-          "lower": 0.3333333333333333,
-          "upper": 0.5,
-          "count": 2,
-          "weight": 0.24,
-          "mean_forecast_probability": 0.36,
-          "observed_event_rate": 0.5
+          "lower": 0.1,
+          "upper": 0.2,
+          "count": 10,
+          "weight": 1.2000000000000002,
+          "mean_forecast_probability": 0.1545,
+          "observed_event_rate": 0.5999999999999999
         },
         {
           "bin_id": "BIN-3",
-          "lower": 0.5,
-          "upper": 0.6666666666666666,
-          "count": 0,
-          "weight": 0,
-          "mean_forecast_probability": null,
-          "observed_event_rate": null
+          "lower": 0.2,
+          "upper": 0.4,
+          "count": 19,
+          "weight": 2.280000000000001,
+          "mean_forecast_probability": 0.27789473684210503,
+          "observed_event_rate": 0.6315789473684209
         },
         {
           "bin_id": "BIN-4",
-          "lower": 0.6666666666666666,
-          "upper": 0.8333333333333334,
+          "lower": 0.4,
+          "upper": 0.7,
           "count": 0,
           "weight": 0,
           "mean_forecast_probability": null,
@@ -184,7 +207,7 @@
         },
         {
           "bin_id": "BIN-5",
-          "lower": 0.8333333333333334,
+          "lower": 0.7,
           "upper": 1,
           "count": 0,
           "weight": 0,
@@ -193,7 +216,7 @@
         }
       ],
       "tail_excess_observations": 25,
-      "weighted_tail_excess_pit_ks_distance": 0.42905500300339816,
+      "weighted_tail_excess_pit_ks_distance": 0.5041045259197009,
       "weighted_tail_excess_log_loss": 4.9249334709252635,
       "zero_support_tail_excesses": 0,
       "conditional_tail_quantile_coverage": [
@@ -229,49 +252,50 @@
         "tail_occurrence_calibration_ratio": 1.3768115942028987,
         "brier_score": 0.05098481666666663,
         "log_loss": 0.21694616973651012,
+        "zero_probability_exceedances": 0,
         "climatology_brier_score": 0.05258333333333329,
         "brier_skill_score": 0.030399683042789172,
         "reliability_bins": [
           {
             "bin_id": "BIN-0",
             "lower": 0,
-            "upper": 0.16666666666666666,
-            "count": 26,
-            "weight": 31.279999999999998,
-            "mean_forecast_probability": 0.03565217391304348,
-            "observed_event_rate": 0.049019607843137254
+            "upper": 0.05,
+            "count": 20,
+            "weight": 25.866666666666664,
+            "mean_forecast_probability": 0.030999999999999996,
+            "observed_event_rate": 0.05
           },
           {
             "bin_id": "BIN-1",
-            "lower": 0.16666666666666666,
-            "upper": 0.3333333333333333,
-            "count": 6,
-            "weight": 0.72,
-            "mean_forecast_probability": 0.24000000000000002,
-            "observed_event_rate": 0.3333333333333333
+            "lower": 0.05,
+            "upper": 0.1,
+            "count": 4,
+            "weight": 5.173333333333333,
+            "mean_forecast_probability": 0.055,
+            "observed_event_rate": 0
           },
           {
             "bin_id": "BIN-2",
-            "lower": 0.3333333333333333,
-            "upper": 0.5,
-            "count": 0,
-            "weight": 0,
-            "mean_forecast_probability": null,
-            "observed_event_rate": null
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 4,
+            "weight": 0.48,
+            "mean_forecast_probability": 0.15,
+            "observed_event_rate": 0.5
           },
           {
             "bin_id": "BIN-3",
-            "lower": 0.5,
-            "upper": 0.6666666666666666,
-            "count": 0,
-            "weight": 0,
-            "mean_forecast_probability": null,
-            "observed_event_rate": null
+            "lower": 0.2,
+            "upper": 0.4,
+            "count": 4,
+            "weight": 0.48,
+            "mean_forecast_probability": 0.27,
+            "observed_event_rate": 0.5
           },
           {
             "bin_id": "BIN-4",
-            "lower": 0.6666666666666666,
-            "upper": 0.8333333333333334,
+            "lower": 0.4,
+            "upper": 0.7,
             "count": 0,
             "weight": 0,
             "mean_forecast_probability": null,
@@ -279,7 +303,7 @@
           },
           {
             "bin_id": "BIN-5",
-            "lower": 0.8333333333333334,
+            "lower": 0.7,
             "upper": 1,
             "count": 0,
             "weight": 0,
@@ -288,7 +312,7 @@
           }
         ],
         "tail_excess_observations": 5,
-        "weighted_tail_excess_pit_ks_distance": 0.3720873758499021,
+        "weighted_tail_excess_pit_ks_distance": 0.5068937560226692,
         "weighted_tail_excess_log_loss": 4.1089746324967935,
         "zero_support_tail_excesses": 0,
         "conditional_tail_quantile_coverage": [
@@ -323,49 +347,50 @@
         "tail_occurrence_calibration_ratio": 1.6157358623112055,
         "brier_score": 0.08572976160602262,
         "log_loss": 0.3226298959249164,
+        "zero_probability_exceedances": 0,
         "climatology_brier_score": 0.0900985361773317,
         "brier_skill_score": 0.048488851835622127,
         "reliability_bins": [
           {
             "bin_id": "BIN-0",
             "lower": 0,
-            "upper": 0.16666666666666666,
-            "count": 26,
-            "weight": 31.279999999999998,
-            "mean_forecast_probability": 0.05572890025575447,
-            "observed_event_rate": 0.0865302642796249
+            "upper": 0.05,
+            "count": 8,
+            "weight": 10.346666666666666,
+            "mean_forecast_probability": 0.03900000000000001,
+            "observed_event_rate": 0.125
           },
           {
             "bin_id": "BIN-1",
-            "lower": 0.16666666666666666,
-            "upper": 0.3333333333333333,
+            "lower": 0.05,
+            "upper": 0.1,
+            "count": 16,
+            "weight": 20.69333333333333,
+            "mean_forecast_probability": 0.063,
+            "observed_event_rate": 0.0625
+          },
+          {
+            "bin_id": "BIN-2",
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 2,
+            "weight": 0.24,
+            "mean_forecast_probability": 0.15,
+            "observed_event_rate": 0.5
+          },
+          {
+            "bin_id": "BIN-3",
+            "lower": 0.2,
+            "upper": 0.4,
             "count": 5,
             "weight": 0.6,
             "mean_forecast_probability": 0.258,
             "observed_event_rate": 0.6
           },
           {
-            "bin_id": "BIN-2",
-            "lower": 0.3333333333333333,
-            "upper": 0.5,
-            "count": 0,
-            "weight": 0,
-            "mean_forecast_probability": null,
-            "observed_event_rate": null
-          },
-          {
-            "bin_id": "BIN-3",
-            "lower": 0.5,
-            "upper": 0.6666666666666666,
-            "count": 0,
-            "weight": 0,
-            "mean_forecast_probability": null,
-            "observed_event_rate": null
-          },
-          {
             "bin_id": "BIN-4",
-            "lower": 0.6666666666666666,
-            "upper": 0.8333333333333334,
+            "lower": 0.4,
+            "upper": 0.7,
             "count": 0,
             "weight": 0,
             "mean_forecast_probability": null,
@@ -373,7 +398,7 @@
           },
           {
             "bin_id": "BIN-5",
-            "lower": 0.8333333333333334,
+            "lower": 0.7,
             "upper": 1,
             "count": 0,
             "weight": 0,
@@ -382,7 +407,7 @@
           }
         ],
         "tail_excess_observations": 6,
-        "weighted_tail_excess_pit_ks_distance": 0.5839800823443909,
+        "weighted_tail_excess_pit_ks_distance": 0.6858107753290549,
         "weighted_tail_excess_log_loss": 4.833850520484199,
         "zero_support_tail_excesses": 0,
         "conditional_tail_quantile_coverage": [
@@ -417,49 +442,50 @@
         "tail_occurrence_calibration_ratio": 1.7779839208410644,
         "brier_score": 0.12324181666666663,
         "log_loss": 0.42411674299515056,
+        "zero_probability_exceedances": 0,
         "climatology_brier_score": 0.13385000000000002,
         "brier_skill_score": 0.07925426472419417,
         "reliability_bins": [
           {
             "bin_id": "BIN-0",
             "lower": 0,
-            "upper": 0.16666666666666666,
-            "count": 24,
-            "weight": 31.039999999999996,
-            "mean_forecast_probability": 0.075,
-            "observed_event_rate": 0.12500000000000003
-          },
-          {
-            "bin_id": "BIN-1",
-            "lower": 0.16666666666666666,
-            "upper": 0.3333333333333333,
-            "count": 6,
-            "weight": 0.72,
-            "mean_forecast_probability": 0.24000000000000002,
-            "observed_event_rate": 0.8333333333333334
-          },
-          {
-            "bin_id": "BIN-2",
-            "lower": 0.3333333333333333,
-            "upper": 0.5,
-            "count": 2,
-            "weight": 0.24,
-            "mean_forecast_probability": 0.36,
-            "observed_event_rate": 0.5
-          },
-          {
-            "bin_id": "BIN-3",
-            "lower": 0.5,
-            "upper": 0.6666666666666666,
+            "upper": 0.05,
             "count": 0,
             "weight": 0,
             "mean_forecast_probability": null,
             "observed_event_rate": null
           },
           {
+            "bin_id": "BIN-1",
+            "lower": 0.05,
+            "upper": 0.1,
+            "count": 24,
+            "weight": 31.039999999999996,
+            "mean_forecast_probability": 0.075,
+            "observed_event_rate": 0.12500000000000003
+          },
+          {
+            "bin_id": "BIN-2",
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 2,
+            "weight": 0.24,
+            "mean_forecast_probability": 0.18,
+            "observed_event_rate": 1
+          },
+          {
+            "bin_id": "BIN-3",
+            "lower": 0.2,
+            "upper": 0.4,
+            "count": 6,
+            "weight": 0.72,
+            "mean_forecast_probability": 0.3,
+            "observed_event_rate": 0.6666666666666666
+          },
+          {
             "bin_id": "BIN-4",
-            "lower": 0.6666666666666666,
-            "upper": 0.8333333333333334,
+            "lower": 0.4,
+            "upper": 0.7,
             "count": 0,
             "weight": 0,
             "mean_forecast_probability": null,
@@ -467,7 +493,7 @@
           },
           {
             "bin_id": "BIN-5",
-            "lower": 0.8333333333333334,
+            "lower": 0.7,
             "upper": 1,
             "count": 0,
             "weight": 0,
@@ -476,7 +502,7 @@
           }
         ],
         "tail_excess_observations": 9,
-        "weighted_tail_excess_pit_ks_distance": 0.67631791574908,
+        "weighted_tail_excess_pit_ks_distance": 0.702404872270819,
         "weighted_tail_excess_log_loss": 5.5483152131291735,
         "zero_support_tail_excesses": 0,
         "conditional_tail_quantile_coverage": [
@@ -511,49 +537,50 @@
         "tail_occurrence_calibration_ratio": 1.1225618042015888,
         "brier_score": 0.05169014145338206,
         "log_loss": 0.19715953455586302,
+        "zero_probability_exceedances": 0,
         "climatology_brier_score": 0.057523217550274196,
         "brier_skill_score": 0.10140385648271732,
         "reliability_bins": [
           {
             "bin_id": "BIN-0",
             "lower": 0,
-            "upper": 0.16666666666666666,
-            "count": 24,
-            "weight": 28.69333333333333,
-            "mean_forecast_probability": 0.05041310408921932,
-            "observed_event_rate": 0.04925650557620817
+            "upper": 0.05,
+            "count": 11,
+            "weight": 14.226666666666665,
+            "mean_forecast_probability": 0.038,
+            "observed_event_rate": 0
           },
           {
             "bin_id": "BIN-1",
-            "lower": 0.16666666666666666,
-            "upper": 0.3333333333333333,
+            "lower": 0.05,
+            "upper": 0.1,
+            "count": 11,
+            "weight": 14.226666666666665,
+            "mean_forecast_probability": 0.06127272727272728,
+            "observed_event_rate": 0.09090909090909091
+          },
+          {
+            "bin_id": "BIN-2",
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 2,
+            "weight": 0.24,
+            "mean_forecast_probability": 0.1425,
+            "observed_event_rate": 0.5
+          },
+          {
+            "bin_id": "BIN-3",
+            "lower": 0.2,
+            "upper": 0.4,
             "count": 4,
             "weight": 0.48,
             "mean_forecast_probability": 0.27749999999999997,
             "observed_event_rate": 0.75
           },
           {
-            "bin_id": "BIN-2",
-            "lower": 0.3333333333333333,
-            "upper": 0.5,
-            "count": 0,
-            "weight": 0,
-            "mean_forecast_probability": null,
-            "observed_event_rate": null
-          },
-          {
-            "bin_id": "BIN-3",
-            "lower": 0.5,
-            "upper": 0.6666666666666666,
-            "count": 0,
-            "weight": 0,
-            "mean_forecast_probability": null,
-            "observed_event_rate": null
-          },
-          {
             "bin_id": "BIN-4",
-            "lower": 0.6666666666666666,
-            "upper": 0.8333333333333334,
+            "lower": 0.4,
+            "upper": 0.7,
             "count": 0,
             "weight": 0,
             "mean_forecast_probability": null,
@@ -561,7 +588,7 @@
           },
           {
             "bin_id": "BIN-5",
-            "lower": 0.8333333333333334,
+            "lower": 0.7,
             "upper": 1,
             "count": 0,
             "weight": 0,
@@ -570,7 +597,7 @@
           }
         ],
         "tail_excess_observations": 5,
-        "weighted_tail_excess_pit_ks_distance": 0.21451723657214095,
+        "weighted_tail_excess_pit_ks_distance": 0.5148060716985356,
         "weighted_tail_excess_log_loss": 4.281361313422093,
         "zero_support_tail_excesses": 0,
         "conditional_tail_quantile_coverage": [
@@ -612,7 +639,8 @@
     "Preserve candidate exceedance probabilities and GPD scale/shape exactly.",
     "Preserve abstention action, null forecasts and abstention reason.",
     "Preserve threshold, units, log-loss epsilon and calibration-reference numerator/denominator.",
-    "Preserve synthetic/public-development-only status and unknown extension fields."
+    "Preserve synthetic/public-development-only status and unknown extension fields.",
+    "Preserve weighted regime summaries, effective sample size and explicit zero-support dispositions."
   ],
   "conformance_targets": {
     "valid_fixture_acceptance": "100 percent",
