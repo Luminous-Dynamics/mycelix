@@ -300,7 +300,7 @@ mod tests {
                 sensor_id: format!("D{}", index + 1),
                 depth_cm: *depth,
                 response_status: *status,
-                response_onset_utc: onset.map(stamp),
+                response_onset_utc: (*onset).map(stamp),
             }).collect(),
         }
     }
