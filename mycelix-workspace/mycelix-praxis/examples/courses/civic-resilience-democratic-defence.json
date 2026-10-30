@@ -152,6 +152,7 @@
     "scoring_specification": "docs/curriculum/PRAXIS_NRES_003_SCORING_ANCHORS.md",
     "study_protocol": "docs/curriculum/PRAXIS_NRES_004_PREREGISTRATION.md",
     "capability_loop_benchmark": "examples/courses/civic-resilience-capability-loop-fixture-001.json",
-    "capability_loop_spec": "docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md"
+    "capability_loop_spec": "docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md",
+    "capability_loop_evaluator": "benchmarks/nres-capability-loop"
   }
 }
