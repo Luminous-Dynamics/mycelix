@@ -166,7 +166,7 @@ fn audit_curve(
                 finite_positive("water_density_kg_m3", water)?;
             }
             (curve.bulk_density_kg_m3, curve.water_density_kg_m3)
-        },
+        }
         MeasurementBasis::GravimetricKgPerKgDrySoil => {
             let bulk = curve.bulk_density_kg_m3.ok_or(
                 "gravimetric input requires bulk_density_kg_m3 (dry soil mass per bulk volume)",
@@ -194,7 +194,11 @@ fn audit_curve(
             .into());
         }
         if !point.water_content.is_finite() || point.water_content < 0.0 {
-            return Err(format!("water_content must be finite and >= 0 at point {}", index + 1).into());
+            return Err(format!(
+                "water_content must be finite and >= 0 at point {}",
+                index + 1
+            )
+            .into());
         }
 
         let theta = match curve.measurement_basis {
@@ -269,9 +273,7 @@ fn audit_curve(
 
     Ok(AuditReport {
         audit_version: AUDIT_VERSION,
-        status: if warnings.len() == 1
-            && warnings[0].starts_with("desorption-curve monotonicity")
-        {
+        status: if warnings.len() == 1 && warnings[0].starts_with("desorption-curve monotonicity") {
             "passed"
         } else {
             "passed_with_warnings"
@@ -357,7 +359,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     if args.len() != 3 {
         return Err(format!(
             "usage: {} <curve-input.json> <audit-report.json>",
-            args.first().map(String::as_str).unwrap_or("terra-preta-water-retention-audit")
+            args.first()
+                .map(String::as_str)
+                .unwrap_or("terra-preta-water-retention-audit")
         )
         .into());
     }
@@ -433,9 +437,22 @@ mod tests {
         let expected_fraction = 33.0_f64.log10() - 1.0;
         let expected_fc = 0.30 + expected_fraction * (0.22 - 0.30);
         assert!((report.field_capacity.water_content_m3_m3 - expected_fc).abs() < 1e-12);
-        assert_eq!(report.field_capacity.estimate_method, "log10_suction_linear_interpolation");
-        assert_eq!(report.field_capacity.less_suction_bracket_matric_potential_kpa, Some(-10.0));
-        assert_eq!(report.field_capacity.greater_suction_bracket_matric_potential_kpa, Some(-100.0));
+        assert_eq!(
+            report.field_capacity.estimate_method,
+            "log10_suction_linear_interpolation"
+        );
+        assert_eq!(
+            report
+                .field_capacity
+                .less_suction_bracket_matric_potential_kpa,
+            Some(-10.0)
+        );
+        assert_eq!(
+            report
+                .field_capacity
+                .greater_suction_bracket_matric_potential_kpa,
+            Some(-100.0)
+        );
         assert_eq!(report.permanent_wilting_point.estimate_method, "observed");
     }
 
@@ -477,7 +494,12 @@ mod tests {
         let mut curve = fixture();
         curve.measurement_basis = MeasurementBasis::GravimetricKgPerKgDrySoil;
         curve.water_density_kg_m3 = Some(1000.0);
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("bulk_density"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("bulk_density")
+        );
     }
 
     #[test]
@@ -485,21 +507,36 @@ mod tests {
         let mut curve = fixture();
         curve.measurement_basis = MeasurementBasis::GravimetricKgPerKgDrySoil;
         curve.bulk_density_kg_m3 = Some(1300.0);
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("water_density"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("water_density")
+        );
     }
 
     #[test]
     fn rejects_duplicate_suction_measurements() {
         let mut curve = fixture();
         curve.points.push(point(-100.0, 0.20));
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("duplicate"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate")
+        );
     }
 
     #[test]
     fn rejects_non_monotonic_curve_beyond_declared_tolerance() {
         let mut curve = fixture();
         curve.points[1].water_content = 0.31;
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("non-monotonic"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("non-monotonic")
+        );
     }
 
     #[test]
@@ -510,35 +547,60 @@ mod tests {
         let report = run_fixture(&curve).unwrap();
         assert_eq!(report.status, "passed_with_warnings");
         assert_eq!(report.normalized_points[1].water_content_m3_m3, 0.301);
-        assert!(report.warnings.iter().any(|warning| warning.contains("retained without smoothing")));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("retained without smoothing"))
+        );
     }
 
     #[test]
     fn rejects_extrapolation_beyond_observed_curve_support() {
         let mut curve = fixture();
         curve.target.field_capacity_matric_potential_kpa = -5.0;
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("extrapolation is prohibited"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("extrapolation is prohibited")
+        );
     }
 
     #[test]
     fn rejects_invalid_target_order() {
         let mut curve = fixture();
         curve.target.permanent_wilting_point_matric_potential_kpa = -5.0;
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("targets must be negative"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("targets must be negative")
+        );
     }
 
     #[test]
     fn rejects_positive_matric_potential() {
         let mut curve = fixture();
         curve.points[0].matric_potential_kpa = 5.0;
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("matric_potential_kpa"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("matric_potential_kpa")
+        );
     }
 
     #[test]
     fn rejects_volumetric_water_content_above_one() {
         let mut curve = fixture();
         curve.points[0].water_content = 1.01;
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("within [0, 1]"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("within [0, 1]")
+        );
     }
 
     #[test]
@@ -546,14 +608,24 @@ mod tests {
         let mut curve = fixture();
         curve.points = vec![point(0.0, 0.40), point(-100.0, 0.22), point(-1500.0, 0.12)];
         curve.target.field_capacity_matric_potential_kpa = -10.0;
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("zero suction"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("zero suction")
+        );
     }
 
     #[test]
     fn rejects_non_finite_or_negative_layer_depth() {
         let mut curve = fixture();
         curve.layer_depth_mm = Some(0.0);
-        assert!(run_fixture(&curve).unwrap_err().to_string().contains("layer_depth_mm"));
+        assert!(
+            run_fixture(&curve)
+                .unwrap_err()
+                .to_string()
+                .contains("layer_depth_mm")
+        );
     }
 
     #[test]
