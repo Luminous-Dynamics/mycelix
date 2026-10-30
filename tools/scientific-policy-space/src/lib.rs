@@ -746,6 +746,10 @@ mod tests {
         assert_eq!(projection.rego.input.acting_organization_id.as_deref(), Some("org:creator"));
         assert_eq!(projection.rego.input.claim.creator_organization_id.as_deref(), Some("org:creator"));
         assert_eq!(projection.cedar.entities.len(), 3);
+        let cedar_entities = serde_json::to_value(&projection.cedar.entities)
+            .expect("Cedar entity list serializes");
+        assert_eq!(cedar_entities[0]["uid"]["type"], "Mycelix::Actor");
+        assert!(cedar_entities[0]["uid"].get("entity_type").is_none());
         assert_eq!(
             projection.cedar.entities[0].attrs["organizations"],
             serde_json::json!([]),
