@@ -15,6 +15,9 @@ pub use trajectory::evaluate_resilience_trajectories;
 pub mod probability;
 pub use probability::evaluate_probability_forecasts;
 
+pub mod joint;
+pub use joint::evaluate_joint_service_forecasts;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
