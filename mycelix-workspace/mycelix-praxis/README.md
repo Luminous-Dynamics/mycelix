@@ -125,6 +125,7 @@ mycelix-praxis/
 - **[NRES cascading recovery benchmark](docs/curriculum/PRAXIS_NRES_007_CASCADE_RECOVERY.md)**: matched-shock service trajectories, dependency checks, deficit area and sustained recovery
 - **[NRES probability and abstention benchmark](docs/curriculum/PRAXIS_NRES_008_PROBABILITY_ABSTENTION.md)**: calibrated breach probabilities, proper scoring rules and evidence-qualified abstention
 - **[NRES joint service forecast benchmark](docs/curriculum/PRAXIS_NRES_009_JOINT_SERVICE_FORECAST.md)**: joint breach distributions, dependence-sensitive proper scores and simultaneous service-risk verification
+- **[NRES rare-event tail and shift benchmark](docs/curriculum/PRAXIS_NRES_010_TAIL_SHIFT_ROBUSTNESS.md)**: tail calibration, importance-weighted stress sampling, GPD excess forecasts and shift-regime diagnostics
 - **[NRES joint service forecast benchmark](docs/curriculum/PRAXIS_NRES_009_JOINT_SERVICE_FORECAST.md)**: joint breach distributions, dependence-sensitive proper scores and simultaneous service-risk verification
 - **[NRES-007 JSON Schema](schemas/nres/nres-cascade-recovery-v1.schema.json)**: structural profile for portable trajectory fixtures
 - **[NRES-008 JSON Schema](schemas/nres/nres-probability-abstention-v1.schema.json)**: structural profile separating evaluator truth and candidate forecast outputs
