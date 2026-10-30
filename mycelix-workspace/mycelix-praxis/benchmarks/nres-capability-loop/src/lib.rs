@@ -249,15 +249,23 @@ pub fn evaluate(nres002: &Value, loop_fixture: &Value) -> Result<Value, Vec<Stri
         let authority = cycle.get("authority_evidence").cloned().unwrap_or(Value::Null);
         let authority_numerator = count_field(&authority, "decisions_with_role_basis_and_review_path").unwrap_or(0) as usize;
         let authority_denominator = count_field(&authority, "decisions_sampled").unwrap_or(0) as usize;
-        if authority_numerator > authority_denominator {
-            errors.push(format!("{cycle_id}: authority evidence numerator exceeds denominator"));
+        if count_field(&authority, "decisions_with_role_basis_and_review_path").is_none()
+            || count_field(&authority, "decisions_sampled").is_none()
+            || authority_numerator > authority_denominator
+        {
+            errors.push(format!("{cycle_id}: authority evidence numerator/denominator is missing or invalid"));
         }
         let accessibility = cycle.get("accessibility").cloned().unwrap_or(Value::Null);
         let accessibility_specified = count_field(&accessibility, "requirements_specified").unwrap_or(0) as usize;
         let accessibility_tested = count_field(&accessibility, "requirements_tested").unwrap_or(0) as usize;
         let accessibility_passing = count_field(&accessibility, "requirements_passing").unwrap_or(0) as usize;
-        if accessibility_passing > accessibility_tested || accessibility_tested > accessibility_specified {
-            errors.push(format!("{cycle_id}: accessibility counts are inconsistent"));
+        if count_field(&accessibility, "requirements_specified").is_none()
+            || count_field(&accessibility, "requirements_tested").is_none()
+            || count_field(&accessibility, "requirements_passing").is_none()
+            || accessibility_passing > accessibility_tested
+            || accessibility_tested > accessibility_specified
+        {
+            errors.push(format!("{cycle_id}: accessibility counts are missing or inconsistent"));
         }
 
         cycle_metrics.push(json!({
@@ -301,6 +309,10 @@ pub fn evaluate(nres002: &Value, loop_fixture: &Value) -> Result<Value, Vec<Stri
         if !["open", "closed-verified", "blocked", "late", "not-tested", "reopened"].contains(&status) {
             errors.push(format!("{action_id}: unsupported corrective-action status"));
         }
+        let opened_cycle_id = str_field(action, "opened_cycle_id").unwrap_or("");
+        if !cycle_values.contains_key(opened_cycle_id) {
+            errors.push(format!("{action_id}: opened cycle does not exist"));
+        }
         let due_cycle_id = str_field(action, "due_by_cycle_id").unwrap_or("");
         if !cycle_values.contains_key(due_cycle_id) {
             errors.push(format!("{action_id}: due cycle does not exist"));
@@ -323,6 +335,16 @@ pub fn evaluate(nres002: &Value, loop_fixture: &Value) -> Result<Value, Vec<Stri
             let retest_evidence = evidence_ids(retest);
             if !retest_evidence.contains(completion_id.unwrap()) {
                 errors.push(format!("{action_id}: completion evidence is absent from the retest cycle"));
+            }
+            let independently_reviewed = array_field(retest, "evidence_records")
+                .into_iter()
+                .flatten()
+                .any(|record| {
+                    str_field(record, "id") == completion_id
+                        && record.get("independently_reviewed").and_then(Value::as_bool) == Some(true)
+                });
+            if !independently_reviewed {
+                errors.push(format!("{action_id}: completion evidence must be independently reviewed"));
             }
             let objective_id = str_field(action, "retest_objective_id").unwrap_or("");
             let expected_service = objective_services.get(objective_id);
@@ -443,7 +465,6 @@ pub fn evaluate(nres002: &Value, loop_fixture: &Value) -> Result<Value, Vec<Stri
             "retested_failure_recurrence": ratio(repeated_failures, prior_retested.len()),
             "all_critical_service_floors_pass_at_retest": all_floors_pass
         },
-        "composite_score": null
     }))
 }
 
