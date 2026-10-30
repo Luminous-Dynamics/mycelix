@@ -56,6 +56,8 @@ struct EventInput {
     precipitation_start_utc: String,
     observation_window_end_utc: String,
     time_resolution_seconds: u32,
+    response_threshold_m3_m3: f64,
+    response_onset_method: String,
     sensors: Vec<SensorObservation>,
     source_sha256: String,
     source_evidence_ref: String,
@@ -91,6 +93,8 @@ struct EventReport {
     precipitation_start_utc: String,
     observation_window_end_utc: String,
     time_resolution_seconds: u32,
+    response_threshold_m3_m3: f64,
+    response_onset_method: String,
     installed_sensor_count: usize,
     responding_sensor_count: usize,
     valid_no_response_sensor_count: usize,
@@ -164,9 +168,16 @@ fn validate_input(input: &EventInput) -> Result<Vec<ParsedSensor<'_>>, String> {
             MIN_RESOLUTION_SECONDS, MAX_RESOLUTION_SECONDS
         ));
     }
-    if input.sensors.len() < 2 {
-        return Err("at least two installed sensor records are required".to_owned());
+    if input.sensors.is_empty() {
+        return Err("at least one sensor record is required".to_owned());
     }
+    if !input.response_threshold_m3_m3.is_finite()
+        || input.response_threshold_m3_m3 <= 0.0
+        || input.response_threshold_m3_m3 > 1.0
+    {
+        return Err("response_threshold_m3_m3 must be finite and in (0, 1]".to_owned());
+    }
+    nonblank(&input.response_onset_method, "response_onset_method")?;
 
     let event_start = parse_timestamp(
         &input.precipitation_start_utc,
@@ -351,6 +362,8 @@ fn evaluate(input: &EventInput, input_sha256: String) -> Result<EventReport, Str
         precipitation_start_utc: input.precipitation_start_utc.clone(),
         observation_window_end_utc: input.observation_window_end_utc.clone(),
         time_resolution_seconds: input.time_resolution_seconds,
+        response_threshold_m3_m3: input.response_threshold_m3_m3,
+        response_onset_method: input.response_onset_method.clone(),
         installed_sensor_count: sensors.len(),
         responding_sensor_count: responding.len(),
         valid_no_response_sensor_count: no_response_count,
@@ -456,6 +469,8 @@ mod tests {
             precipitation_start_utc: stamp(0),
             observation_window_end_utc: stamp(180),
             time_resolution_seconds: 600,
+            response_threshold_m3_m3: 0.01,
+            response_onset_method: "first_10min_bin_delta_theta_ge_threshold".to_owned(),
             sensors: vec![
                 sensor("S10", 10.0, SensorStatus::Responded, Some(30)),
                 sensor("S30", 30.0, SensorStatus::Responded, Some(10)),
@@ -508,6 +523,15 @@ mod tests {
         assert_eq!(report.response_signature, "nonsequential_response_signature");
         assert_eq!(report.profile_coverage_status, "incomplete");
         assert_eq!(report.indeterminate_sensor_count, 1);
+    }
+
+    #[test]
+    fn a_single_sensor_profile_is_not_applicable_not_invalid() {
+        let mut input = fixture();
+        input.sensors.truncate(1);
+        let report = evaluate(&input, "f".repeat(64)).unwrap();
+        assert_eq!(report.response_signature, "not_applicable_insufficient_responders");
+        assert_eq!(report.installed_sensor_count, 1);
     }
 
     #[test]
