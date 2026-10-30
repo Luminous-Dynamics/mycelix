@@ -541,6 +541,8 @@ def validate_evidence_envelope(envelope: dict[str, Any]) -> list[str]:
             errors.append(f"provenance node {node_id} requires @type and nres:recordKind")
 
     for node_id, node in ids.items():
+        if node.get("nres:recordKind") == "after-action-finding" and not node.get("prov:wasDerivedFrom"):
+            errors.append(f"{node_id}: after-action finding must derive from a source observation")
         for relation in ("prov:used", "prov:wasGeneratedBy", "prov:wasDerivedFrom", "prov:wasAssociatedWith"):
             value = node.get(relation)
             if value is None:
@@ -626,6 +628,11 @@ def self_test_evidence_envelope(envelope: dict[str, Any]) -> int:
     missing_reference = copy.deepcopy(envelope)
     missing_reference["@graph"][0]["prov:wasDerivedFrom"] = [{"@id": "urn:missing:evidence"}]
     cases.append(("missing provenance reference", missing_reference, "unresolved provenance relation"))
+
+    missing_finding_source = copy.deepcopy(envelope)
+    finding = next(item for item in missing_finding_source["@graph"] if item.get("nres:recordKind") == "after-action-finding")
+    finding.pop("prov:wasDerivedFrom", None)
+    cases.append(("after-action finding without source observation", missing_finding_source, "must derive from a source observation"))
 
     relabeled = copy.deepcopy(envelope)
     relabeled["bundle_metadata"]["evaluation_split"] = "confirmatory-held-out"
