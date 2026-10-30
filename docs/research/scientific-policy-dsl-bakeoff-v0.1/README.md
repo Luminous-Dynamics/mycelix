@@ -42,7 +42,7 @@ Two details are easy to accidentally change in a rewrite:
 1. **Editor is not a general reviewer role.** The current policy lets Editor/Institution manage some lifecycle and evidence actions, but an Editor-only actor does not satisfy the \`attestation_recorded\` role check.
 2. **Independent replication is stricter than an ordinary attestation.** The claim creator cannot attest their own independent replication, and an acting organization equal to the creator organization cannot count as independent.
 
-The corpus represents these distinctions explicitly. Its 28 cases include 16 allows and 12 denies. They are one-fault decision vectors; they do not yet cover the full cross-product of every actor, role, organization, and event shape.
+The corpus represents these distinctions explicitly. Its 30 cases include 16 allows and 12 denies. They are one-fault decision vectors; they do not yet cover the full cross-product of every actor, role, organization, and event shape.
 
 ## Separate permission from evidence qualification
 
@@ -160,7 +160,7 @@ protocol revision can consider a cryptographic policy artifact digest.
 
 | Measurement | P0 target | Evidence |
 |---|---:|---|
-| Agreement with current Rust policy on the 28 frozen cases | 100% | Exact per-case decisions and diffs |
+| Agreement with current Rust policy on the 30 frozen cases | 100% | Exact per-case decisions and diffs |
 | False allows on a negative-control corpus | 0 | Per-case negative results |
 | Fail-closed behavior for unknown/missing fields | 100% | Mutation vectors |
 | Outer signature/identity/key/org/replay/receipt gates | 100% preserved | Guard tests remain in Rust and cannot be overridden by policy |
