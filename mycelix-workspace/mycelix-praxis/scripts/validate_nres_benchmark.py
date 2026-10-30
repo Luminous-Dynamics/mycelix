@@ -115,6 +115,10 @@ def validate(fixture: dict[str, Any], course: dict[str, Any]) -> list[str]:
         errors.append("course must reference the exact assessment fixture path")
     if course.get("metadata", {}).get("benchmark_spec") != "docs/curriculum/PRAXIS_NRES_002_BENCHMARK.md":
         errors.append("course must reference the benchmark specification")
+    if course.get("metadata", {}).get("capability_loop_benchmark") != CAPABILITY_LOOP_PATH.relative_to(ROOT).as_posix():
+        errors.append("course must reference the exact capability-loop fixture path")
+    if course.get("metadata", {}).get("capability_loop_spec") != "docs/curriculum/PRAXIS_NRES_005_CAPABILITY_LOOP.md":
+        errors.append("course must reference the capability-loop specification")
 
     if not fixture.get("evaluation_protocol", {}).get("non_claims"):
         errors.append("evaluation protocol must state non-claims")
