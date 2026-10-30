@@ -3,6 +3,7 @@
 **Status:** synthetic benchmark proposal and Rust reference evaluator for review. No real municipal, infrastructure, learner or emergency-response performance has been measured.  
 **Fixture:** `examples/courses/civic-resilience-cascade-recovery-fixture-001.json`.  
 **Conformance corpus:** `examples/courses/civic-resilience-cascade-recovery-conformance-001.json`.  
+**Schema:** `schemas/nres/nres-cascade-recovery-v1.schema.json`.  
 **Implementation:** `benchmarks/nres-capability-loop/src/trajectory.rs`.
 
 ## 1. Research shift
@@ -37,7 +38,7 @@ The fixture includes electricity, communications, water, public information, wel
 
 The public fixture contains two fictional profiles under exactly the same frozen 72-hour shock sequence: a reference profile and a comparison profile with illustrative continuity measures. Both have the same service catalog, time grid, dependency graph, shock IDs and resource limits.
 
-The calculated profile contrast is **descriptive only**. Different resource commitments and scenario assumptions mean the comparison is not a causal treatment effect, procurement recommendation or proof that a real intervention works. Future confirmatory comparisons require preregistration, independently controlled scenarios, blinded evaluation where feasible, repeated seeds and independent data custody under NRES-004.
+A machine-readable expected-output vector (with an absolute numeric tolerance) is published in the conformance corpus so independent implementations can check exact metrics. The calculated profile contrast is **descriptive only**. Different resource commitments and scenario assumptions mean the comparison is not a causal treatment effect, procurement recommendation or proof that a real intervention works. Future confirmatory comparisons require preregistration, independently controlled scenarios, blinded evaluation where feasible, repeated seeds and independent data custody under NRES-004.
 
 ## 5. Comparison with existing practice
 
