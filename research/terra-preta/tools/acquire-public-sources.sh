@@ -3,9 +3,9 @@
 # Raw datasets are deliberately not committed to Git.
 set -Eeuo pipefail
 
-RAW_DIR="\${1:-data/raw/terra-preta}"
-FIGSHARE_API_BASE="\${FIGSHARE_API_BASE:-https://api.figshare.com/v2}"
-ZENODO_API_BASE="\${ZENODO_API_BASE:-https://zenodo.org/api/records}"
+RAW_DIR="${1:-data/raw/terra-preta}"
+FIGSHARE_API_BASE="${FIGSHARE_API_BASE:-https://api.figshare.com/v2}"
+ZENODO_API_BASE="${ZENODO_API_BASE:-https://zenodo.org/api/records}"
 mkdir -p "$RAW_DIR"
 
 for tool in curl jq md5sum sha256sum stat; do
@@ -17,7 +17,7 @@ done
 
 download() {
   local url="$1" destination="$2"
-  curl --fail --location --retry 4 --retry-all-errors \
+  curl --fail --show-error --location --retry 4 --retry-all-errors \
     --connect-timeout 30 --max-time 0 \
     --output "$destination" "$url"
   test -s "$destination"
@@ -34,8 +34,12 @@ verify_file() {
     printf 'size mismatch for %s: expected %s, got %s\n' "$label" "$expected_size" "$actual_size" >&2
     return 1
   fi
-  if [[ -n "$expected_md5" && "\${actual_md5,,}" != "\${expected_md5,,}" ]]; then
+  if [[ -n "$expected_md5" && "${actual_md5,,}" != "${expected_md5,,}" ]]; then
     printf 'publisher MD5 mismatch for %s: expected %s, got %s\n' "$label" "$expected_md5" "$actual_md5" >&2
+    return 1
+  fi
+  if [[ -n "$expected_sha256" && "${actual_sha,,}" != "${expected_sha256,,}" ]]; then
+    printf 'publisher SHA-256 mismatch for %s: expected %s, got %s\n' "$label" "$expected_sha256" "$actual_sha" >&2
     return 1
   fi
 
@@ -48,11 +52,11 @@ verify_file() {
 
 fetch_figshare_file() {
   local article_id="$1" filename="$2" label="$3"
-  local metadata="$RAW_DIR/.figshare-\${article_id}-files.json"
+  local metadata="$RAW_DIR/.figshare-${article_id}-files.json"
   local info url expected_md5 expected_size destination
 
   if [[ ! -s "$metadata" ]]; then
-    download "$FIGSHARE_API_BASE/articles/\${article_id}/files" "$metadata"
+    download "$FIGSHARE_API_BASE/articles/${article_id}/files" "$metadata"
   fi
   info="$(jq -ce --arg name "$filename" '
     [.[] | select(.name == $name)] |
@@ -75,11 +79,11 @@ fetch_figshare_file() {
 
 fetch_zenodo_file() {
   local record_id="$1" filename="$2" label="$3"
-  local metadata="$RAW_DIR/.zenodo-\${record_id}.json"
+  local metadata="$RAW_DIR/.zenodo-${record_id}.json"
   local info url checksum expected_md5 expected_sha256 expected_size destination
 
   if [[ ! -s "$metadata" ]]; then
-    download "$ZENODO_API_BASE/\${record_id}" "$metadata"
+    download "$ZENODO_API_BASE/${record_id}" "$metadata"
   fi
   info="$(jq -ce --arg name "$filename" '
     [.files[] | select((.key // .filename) == $name)] |
@@ -89,10 +93,14 @@ fetch_zenodo_file() {
   ' "$metadata")"
   url="$(jq -r '.links.download // .links.self // empty' <<<"$info")"
   checksum="$(jq -r '.checksum // empty' <<<"$info")"
-  expected_md5="\${checksum#md5:}"
-  if [[ "$checksum" == "$expected_md5" ]]; then
-    expected_md5=""
-  fi
+  expected_md5=""
+  expected_sha256=""
+  case "$checksum" in
+    md5:*) expected_md5="${checksum#md5:}" ;;
+    sha256:*) expected_sha256="${checksum#sha256:}" ;;
+    "") printf 'warning: no publisher checksum for %s; local SHA-256 will still be recorded\n' "$filename" >&2 ;;
+    *) printf 'warning: unsupported publisher checksum for %s: %s\n' "$filename" "$checksum" >&2 ;;
+  esac
   expected_size="$(jq -r '.size // empty' <<<"$info")"
   destination="$RAW_DIR/$filename"
 
