@@ -16,11 +16,17 @@ for tool in curl jq md5sum sha256sum stat; do
 done
 
 download() {
-  local url="$1" destination="$2"
-  curl --fail --show-error --location --retry 4 --retry-all-errors \
+  local url="$1" destination="$2" temporary
+  temporary="${destination}.part"
+  rm -f "$temporary"
+  if curl --fail --show-error --location --retry 4 --retry-all-errors \
     --connect-timeout 30 --max-time 0 \
-    --output "$destination" "$url"
-  test -s "$destination"
+    --output "$temporary" "$url" && test -s "$temporary"; then
+    mv -f "$temporary" "$destination"
+  else
+    rm -f "$temporary"
+    return 1
+  fi
 }
 
 verify_file() {
@@ -43,11 +49,18 @@ verify_file() {
     return 1
   fi
 
+  local publisher_checksum="not_published"
+  if [[ -n "$expected_md5" ]]; then
+    publisher_checksum="md5:$expected_md5"
+  elif [[ -n "$expected_sha256" ]]; then
+    publisher_checksum="sha256:$expected_sha256"
+  fi
+
   printf '%s\t%s\t%s\t%s\t%s\n' \
-    "$label" "$actual_size" "$actual_md5" "$actual_sha" "$file" \
+    "$label" "$actual_size" "$publisher_checksum" "$actual_sha" "$file" \
     >> "$RAW_DIR/acquisition-manifest.tsv"
-  printf 'verified %-38s size=%s md5=%s sha256=%s\n' \
-    "$label" "$actual_size" "$actual_md5" "$actual_sha"
+  printf 'verified %-38s size=%s publisher=%s local_sha256=%s\n' \
+    "$label" "$actual_size" "$publisher_checksum" "$actual_sha"
 }
 
 fetch_figshare_file() {
@@ -113,7 +126,7 @@ fetch_zenodo_file() {
 }
 
 : > "$RAW_DIR/acquisition-manifest.tsv"
-printf 'source_artifact\tsize_bytes\tpublisher_md5\tlocal_sha256\tlocal_path\n' \
+printf 'source_artifact\tsize_bytes\tpublisher_checksum\tlocal_sha256\tlocal_path\n' \
   > "$RAW_DIR/acquisition-manifest.tsv"
 
 printf '\n== BiocharDS V1.0: CSV and full workbook ==\n'
