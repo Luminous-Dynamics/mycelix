@@ -12,7 +12,8 @@
     "corrective-action-closure-has-evidence-independent-review-and-successful-retest",
     "no-natural-person-or-prohibited-inference-fields",
     "unsigned-demo-status-preserved",
-    "unknown-namespaced-extensions-preserved"
+    "unknown-namespaced-extensions-preserved",
+    "after-action-findings-derive-from-source-service-observations"
   ],
   "negative_cases": [
     {
