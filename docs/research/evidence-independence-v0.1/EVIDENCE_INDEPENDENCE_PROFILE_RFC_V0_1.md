@@ -185,12 +185,12 @@ A zero-false-qualification target on designed adversarial fixtures is a release 
 
 This RFC composes with established standards instead of replacing them:
 
-- [W3C PROV-O](https://www.w3.org/TR/prov-o/) supplies a general provenance model built around entities, activities and agents, with relations for use and generation.
-- [RO-Crate 1.3](https://www.researchobject.org/ro-crate/specification.html) packages research data and contextual metadata, including people, organizations, software, equipment and workflows, using JSON-LD.
-- [DataCite Metadata Schema 4.7](https://schema.datacite.org/) provides interoperable resource identification and related-identifier relations; its 2026 release adds RAiD and SWHID as related identifier types.
-- [FAIR principles](https://www.go-fair.org/fair-principles/) establish findability, accessibility, interoperability and reusability, including rich metadata and provenance.
+- [W3C PROV-O](https://www.w3.org/TR/prov-o/) defines a provenance ontology around `Entity`, `Activity`, and `Agent`, with relations such as `prov:used` and `prov:wasGeneratedBy` that support transitive provenance chains. It is the graph vocabulary baseline, not an independence policy. <https://www.w3.org/TR/prov-o/>
+- [RO-Crate 1.3](https://w3id.org/ro/crate/1.3) is the current long-term release (published 22 June 2026). Its JSON-LD crate can describe the research object and linked people, organizations, software, equipment, and the workflows that created data. Pin the 1.3 context/specification for fixtures rather than assuming the rolling landing page remains fixed. 
+- [DataCite Metadata Schema 4.7](https://schema.datacite.org/versions/4.7/) was released 3 March 2026. It adds RAiD and SWHID to related identifier types and provides typed relations between resources. Use DataCite IDs where available; add domain-specific provenance edges only where the standard doesn't express the required semantics.
+- [FAIR principles](https://www.go-fair.org/fair-principles/) provide the broader findability, accessibility, interoperability, and reusability objective, including rich metadata and provenance.
 
-These standards make research objects and their provenance more interoperable. Mycelix's proposed additional layer is the explicit, versioned **independence decision**: which dimensions are required for this scientific activity, how source correlations are resolved, what remains unknown, and exactly which signed inputs produced the result. It must reuse external identifiers and provenance vocabularies wherever possible.
+These standards already make research objects and their provenance interoperable. Mycelix's proposed additional layer is the explicit, versioned **independence decision**: which dimensions are required for this scientific activity, how source correlations are resolved, what remains unknown, and exactly which signed inputs produced the result. It must reuse external identifiers and provenance vocabularies wherever possible.
 
 ## 8. Known implementation blocker
 
