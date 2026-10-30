@@ -1,0 +1,63 @@
+# Terra Preta research data acquisition v0.1
+
+**Purpose:** reproducibly acquire public source artifacts for research and independent audit. Raw datasets stay outside the Git repository.
+
+## 1. Acquisition command
+
+From the Mycelix repository root, use:
+
+```sh
+bash research/terra-preta/tools/acquire-public-sources.sh
+```
+
+By default, files are stored in `$XDG_DATA_HOME/mycelix/terra-preta/raw`, or `$HOME/.local/share/mycelix/terra-preta/raw` when `XDG_DATA_HOME` is unset. To choose another storage location:
+
+```sh
+bash research/terra-preta/tools/acquire-public-sources.sh /path/to/immutable/raw-data
+```
+
+Requirements: Bash, curl, jq, GNU coreutils (`stat`, `md5sum`, `sha256sum`). Figshare and Zenodo API bases can be overridden with `FIGSHARE_API_BASE` and `ZENODO_API_BASE` for an approved mirror.
+
+The script fetches item/record metadata, downloads the named artifacts, checks publisher file size and any MD5/SHA-256 checksum exposed by the publisher, and writes local SHA-256 digests to `acquisition-manifest.tsv`. Downloading is not data validation, license approval, or permission to redistribute. Preserve the raw directory read-only after acquisition; perform transformations on copies.
+
+## 2. Artifacts and scientific role
+
+| Source | Artifacts | Intended role | Important limitation |
+|---|---|---|---|
+| [BiocharDS CSV](https://doi.org/10.6084/m9.figshare.24781764.v1) | `BiocharDS_V1.0.csv` | Global literature-extracted treatment/comparator outcomes | Study-level and arm-level crosswalk must be reviewed; not raw local soil time series |
+| [BiocharDS full workbook](https://doi.org/10.6084/m9.figshare.24781737) | `BiocharDS_V1.0.xlsx` | References, variable definitions, units, and source-study reconciliation | Workbook inventory and CSV crosswalk are mandatory before confirmatory modeling |
+| [Soils4Africa field survey](https://doi.org/10.5281/zenodo.17699297) | README, tableschema, field CSV | African site, land use, crop, management, erosion, and sampling context | No biochar treatment labels; publisher reports ongoing QC and disclaims completeness/accuracy guarantees |
+| [Western Highveld soil NIR/MIR](https://doi.org/10.5281/zenodo.17510653) | `NWU_NIR_MIR_Dataset.csv` | South African cultivated-topsoil reference chemistry and spectral modelling | Not natural ADE soils or biochar treatment data; coordinates are incomplete |
+
+The Soils4Africa field survey is a context dataset, not an amendment-response dataset. Its publisher reports field observations from over 15,000 locations across 33 African countries and explicitly says quality control is ongoing. The released 55-column tableschema documents plot/location, slope and erosion, land use, crop, crop residues, manure, inorganic inputs, water supply, irrigation and grazing fields. It is valuable for stratification and selecting future sampling regions, but it cannot establish a biochar effect.
+
+The Western Highveld paper reports 790 retained composite topsoil samples. Its methods state that 13 samples with flat/blank MIR spectra were excluded; a third-party catalogue lists 803. This is consistent with a pre-exclusion count of 803 and a retained count of 790, but the exact Zenodo file must be inspected to determine which rows are actually present. Do not force an expected row count before that audit.
+
+## 3. License and redistribution gate
+
+- BiocharDS CSV has been reported as CC0 1.0 by the NLM dataset catalogue. The full workbook's official Figshare item has been listed as CC0 1.0. Recheck the exact version/item terms at acquisition.
+- Soils4Africa's retrieved Zenodo record did not expose an explicit license value in the rights section. Treat it as `review_required`; do not redistribute until terms are confirmed with the data steward.
+- The Western Highveld Data in Brief article is CC BY 4.0, while the exact Zenodo record/file terms must still be verified at acquisition. Preserve attribution and any file-level notices.
+
+A public URL is not, by itself, evidence that every artifact can be redistributed. Keep source-specific license evidence in the manifest or source register.
+
+## 4. Post-acquisition gates
+
+1. Verify the generated manifest and independently recompute hashes before analysis.
+2. Run the BiocharDS CSV structural audit:
+   ```sh
+   cargo test --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml
+   cargo run --release --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml -- \
+     /path/to/raw/BiocharDS_V1.0.csv /path/to/audits/biochards-audit.json
+   ``
+3. Inventory the full workbook's sheets, row counts, key columns, `Reference` sheet, and `Explanation and unit` sheet. Reconcile every CSV row to a source study and treatment/control arm; retain a reviewed crosswalk and unresolved cases. Do not use row index as an experiment identifier.
+4. Audit Soils4Africa identifiers, country coverage, coordinate validity, missingness, duplicate plots/TSUs, categorical encodings, and quality flags. Keep observations and MIR-estimated properties in separate data classes.
+5. Audit Western Highveld's exact row count, excluded spectra, sample-ID correspondence, spectral shape, units and reference chemistry. Keep the spectra and wet-chemistry labels paired by the publisher's sample identifier; split by defensible site/provider/sample dependencies.
+6. Freeze reviewed dependency keys and confirmatory grouped splits before model fitting. Overlapping studies or locations must not cross training and confirmatory partitions.
+7. Publish the data audit and all failed checks before reporting model performance.
+
+## 5. What these sources can and cannot answer
+
+BiocharDS can support study-grouped synthesis of published treatment responses once its source/arm structure is reconciled. Soils4Africa and Western Highveld can help characterize the distribution of African/South African soil and management contexts, but neither supplies biochar treatment effects. Neither one substitutes for fresh laboratory characterization or prospective local pot/field trials.
+
+No model should be presented as evidence of South African efficacy, carbon permanence, product safety, or regulatory acceptance until those claims have their own appropriate evidence and approvals.
