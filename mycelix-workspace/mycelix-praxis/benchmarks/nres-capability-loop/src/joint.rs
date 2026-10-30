@@ -155,6 +155,9 @@ pub fn evaluate_joint_service_forecasts(fixture: &Value) -> Result<Value, Vec<St
     if service_by_bit.iter().any(Option::is_none) {
         errors.push("service bit indexes must cover every index from zero through dimension minus one".to_owned());
     }
+    if !errors.is_empty() {
+        return Err(errors);
+    }
     let service_order: Vec<String> = service_by_bit
         .iter()
         .filter_map(|service| service.clone())
@@ -466,6 +469,9 @@ mod tests {
             assert!((report[key].as_f64().unwrap() - expected[key].as_f64().unwrap()).abs() <= tolerance, "{key} differs");
         }
         assert_eq!(report["zero_probability_observed_cases"], expected["zero_probability_observed_states"]);
+        assert_eq!(report["per_case"].as_array().unwrap().len(), expected["per_case"].as_array().unwrap().len());
+        assert_eq!(report["marginal_metrics"].as_array().unwrap().len(), expected["marginal_metrics"].as_array().unwrap().len());
+        assert_eq!(report["pairwise_metrics"].as_array().unwrap().len(), expected["pairwise_metrics"].as_array().unwrap().len());
         for (actual, expected) in report["per_case"].as_array().unwrap().iter().zip(expected["per_case"].as_array().unwrap()) {
             for key in ["multiclass_brier_score", "joint_log_loss", "energy_score", "variogram_score", "pairwise_joint_breach_brier"] {
                 assert!((actual[key].as_f64().unwrap() - expected[key].as_f64().unwrap()).abs() <= tolerance);
