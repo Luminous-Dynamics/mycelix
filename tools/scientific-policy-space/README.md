@@ -23,7 +23,7 @@ Dimensions not inspected by a given action are intentionally retained for existi
 
 Every generated row has `expected_decision: null` and `expected_decision_status: pending_authentic_rust_oracle`. This tool deliberately does not reimplement the authorization result and must not become its own oracle.
 
-The pinned source is `scientific_governance.rs` at revision `061e34f24d406f19f6de0e61867305b6989f455f`, blob `488c69fd4b5540371f2714e9d5668aecc12e294d`. The credential-registry source module required by the DeSci crate is absent, so the authentic Rust adapter remains blocked. Cedar/Rego/CEL may consume the same generated abstract inputs, but their agreement before Rust oracle execution is engine-to-engine agreement only.
+The pinned source is `scientific_governance.rs` at base revision `f89b4bcdcfb901961e2ca11a577775acbf53a74d`, blob `dd9ea9267cdae2e2c67244e8a90821defaacefb3`. The authorization function body was compared against the earlier `061e34f...` snapshot and found byte-identical, but the generator pins the exact source file present in its PR base. A test recomputes the Git blob ID from the checked-out source file and fails on drift. The credential-registry source module required by the DeSci crate is absent, so the authentic Rust adapter remains blocked. Cedar/Rego/CEL may consume the same generated abstract inputs, but their agreement before Rust oracle execution is engine-to-engine agreement only.
 
 ## Claim ceiling
 
