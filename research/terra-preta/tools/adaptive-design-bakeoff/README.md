@@ -23,7 +23,7 @@ cargo run --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Car
 
 ## Leakage boundary
 
-The selector receives PolicyAction records. This type intentionally excludes the evaluator-only synthetic truth field. The exact feasible oracle and utility evaluator read synthetic truth only after policy selection. The runner rejects every data class other than synthetic-known-truth and caps exact oracle enumeration at 20 candidates.
+The selector receives only PolicyAction records and a separate PolicyContext containing the budget, seed and target-coverage constraints. Both types exclude evaluator-only synthetic truth, and the selector receives no Scenario reference. The exact feasible oracle and utility evaluator read synthetic truth only after policy selection. The runner rejects every data class other than synthetic-known-truth and caps exact oracle enumeration at 20 candidates.
 
 The fixture contains an attractive but ineligible action, high-information/misspecified actions, three target strata, different model disagreement and a fixed budget. The 13 authored tests check oracle utility, exclusion, cost limits, deterministic replay, coverage and regret ordering, empirical data-class rejection, model-metadata consistency, infeasible quotas, budget reservation for unmet target strata, EIG attraction to misspecified actions, expert-priority coverage failure, selector isolation from evaluator-only truth, a 32-seed invariant sweep, and target-distribution sensitivity.
 
