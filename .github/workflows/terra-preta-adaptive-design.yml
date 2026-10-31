@@ -1,0 +1,62 @@
+name: Terra Preta adaptive design bake-off
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "research/terra-preta/**"
+      - ".github/workflows/terra-preta-adaptive-design.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-preta-adaptive-design-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  adaptive-design-bakeoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Parse scenario and report schemas
+        run: |
+          jq empty research/terra-preta/tools/adaptive-design-bakeoff/scenario.schema.json
+          jq empty research/terra-preta/tools/adaptive-design-bakeoff/benchmark-report.schema.json
+          jq empty research/terra-preta/tools/adaptive-design-bakeoff/fixtures/synthetic-adaptive-scenario.json
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml -- --check
+      - name: Run policy and leakage tests
+        run: cargo test --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml
+      - name: Execute deterministic synthetic bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml -- \
+            research/terra-preta/tools/adaptive-design-bakeoff/fixtures/synthetic-adaptive-scenario.json \
+            "$RUNNER_TEMP/adaptive-design-report.json"
+          jq -e '
+            .status == "synthetic_benchmark_only" and
+            .oracle.weighted_synthetic_decision_utility >= 1.359999 and
+            (.policy_results | length == 7) and
+            all(.policy_results[]; .total_cost_units <= .budget_cost_units and
+              all(.selected_actions[]; .action_id != "X_INELIGIBLE"))
+          ' "$RUNNER_TEMP/adaptive-design-report.json"
+          jq -e '
+            (.policy_results[] | select(.policy_id == "robust_decision_focused")) as $robust |
+            (.policy_results[] | select(.policy_id == "bayesian_eig_proxy")) as $eig |
+            (.policy_results[] | select(.policy_id == "expert_fixed")) as $expert |
+            $robust.minimum_coverage_met and
+            ($robust.normalized_oracle_regret < $eig.normalized_oracle_regret) and
+            ($robust.normalized_oracle_regret < $expert.normalized_oracle_regret)
+          ' "$RUNNER_TEMP/adaptive-design-report.json"
+      - name: Validate report schema
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/adaptive-design-bakeoff/benchmark-report.schema.json \
+            "$RUNNER_TEMP/adaptive-design-report.json"
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml --all-targets -- -D warnings
