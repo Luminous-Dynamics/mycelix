@@ -71,6 +71,7 @@ struct SensorAnalysis {
     maximum_rise_end: Option<DateTime<FixedOffset>>,
     valid_rise_intervals: usize,
     missing_event_bins: usize,
+    interpolated_event_bins: usize,
 }
 
 #[derive(Serialize)]
@@ -87,6 +88,7 @@ struct SensorResult {
     maximum_rise_interval_end_utc: Option<String>,
     valid_rise_intervals: usize,
     missing_event_bins: usize,
+    interpolated_event_bins: usize,
 }
 
 #[derive(Serialize)]
@@ -304,6 +306,7 @@ fn analyse_sensor(
     let mut response_onset = None;
     let mut response_lag_minutes = None;
     let mut missing_event_bins = 0usize;
+    let mut interpolated_event_bins = 0usize;
     let mut maximum_event_theta: Option<f64> = None;
 
     let event_samples: Vec<_> = observations
@@ -313,9 +316,14 @@ fn analyse_sensor(
     for sample in &event_samples {
         if matches!(sample.status, ObservationStatus::Missing) {
             missing_event_bins += 1;
-        } else if let Some(theta) = sample.theta {
-            maximum_event_theta =
-                Some(maximum_event_theta.map(|value| value.max(theta)).unwrap_or(theta));
+        } else {
+            if matches!(sample.status, ObservationStatus::InterpolatedGapLt6h) {
+                interpolated_event_bins += 1;
+            }
+            if let Some(theta) = sample.theta {
+                maximum_event_theta =
+                    Some(maximum_event_theta.map(|value| value.max(theta)).unwrap_or(theta));
+            }
         }
     }
 
@@ -392,6 +400,7 @@ fn analyse_sensor(
         maximum_rise_end,
         valid_rise_intervals,
         missing_event_bins,
+        interpolated_event_bins,
     }
 }
 
@@ -482,6 +491,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             maximum_rise_interval_end_utc: sensor.maximum_rise_end.as_ref().map(|timestamp| timestamp.to_rfc3339()),
             valid_rise_intervals: sensor.valid_rise_intervals,
             missing_event_bins: sensor.missing_event_bins,
+            interpolated_event_bins: sensor.interpolated_event_bins,
         })
         .collect();
 
@@ -677,8 +687,14 @@ mod tests {
     fn computes_maximum_rise_rate_without_turning_it_into_a_pfet_label() {
         let report = evaluate(&fixture(Some(20), Some(10)), "f".repeat(64)).unwrap();
         let shallow = report.sensors.iter().find(|sensor| sensor.sensor_id == "SHALLOW").unwrap();
-        assert_eq!(shallow.maximum_rise_rate_m3_m3_per_h, Some(0.12));
-        assert_eq!(shallow.maximum_event_increase_m3_m3, Some(0.02));
+        assert!((shallow.maximum_rise_rate_m3_m3_per_h.unwrap() - 0.12).abs() < 1e-9);
+        assert!((shallow.maximum_event_increase_m3_m3.unwrap() - 0.02).abs() < 1e-9);
+    }
+
+    #[test]
+    fn no_positive_rise_produces_no_rate_estimate() {
+        let report = evaluate(&fixture(None, None), "9".repeat(64)).unwrap();
+        assert!(report.sensors.iter().all(|sensor| sensor.maximum_rise_rate_m3_m3_per_h.is_none()));
     }
 
     #[test]
