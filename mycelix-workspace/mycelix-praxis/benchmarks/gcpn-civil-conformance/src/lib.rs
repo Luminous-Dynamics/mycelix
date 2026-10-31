@@ -76,7 +76,7 @@ pub struct Case {
     pub source_record_count: u32,
     pub unauthorized_remote_change_attempted: bool,
     pub unauthorized_remote_change_accepted: bool,
-    pub authority_assertion_bound: bool,
+    pub authority_assertion_id: String,
     pub uncertainty_disclosed: bool,
     pub sensitive_provenance_in_public_payload: bool,
 }
@@ -143,7 +143,7 @@ fn parse_u32(s: &str, name: &str) -> Result<u32, String> {
 /// Parse the fixed v0.1.1 CSV contract. Quoted fields are deliberately unsupported;
 /// fixture cells are restricted to enumerations, integers, booleans and IDs.
 pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
-    const HEADER: &str = "profile_id,scenario_id,record_authenticity,measurement_state,reported_measurement_state,source_reports,source_families,reported_independence,authority_authorized,alert_issued,wan_available,local_fallback_available,local_authority_available,local_issue_expected,local_alert_issued,recipients,receipts,accessible_receivers,traceable,source_record_count,unauthorized_remote_change_attempted,unauthorized_remote_change_accepted,authority_assertion_bound,uncertainty_disclosed,sensitive_provenance_in_public_payload";
+    const HEADER: &str = "profile_id,scenario_id,record_authenticity,measurement_state,reported_measurement_state,source_reports,source_families,reported_independence,authority_authorized,alert_issued,wan_available,local_fallback_available,local_authority_available,local_issue_expected,local_alert_issued,recipients,receipts,accessible_receivers,traceable,source_record_count,unauthorized_remote_change_attempted,unauthorized_remote_change_accepted,authority_assertion_id,uncertainty_disclosed,sensitive_provenance_in_public_payload";
     let mut lines = input.lines();
     if lines.next() != Some(HEADER) {
         return Err("fixture header does not match frozen v0.1.1 contract".into());
@@ -180,7 +180,7 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
             source_record_count: parse_u32(f[19], "source_record_count")?,
             unauthorized_remote_change_attempted: parse_bool(f[20], "unauthorized_remote_change_attempted")?,
             unauthorized_remote_change_accepted: parse_bool(f[21], "unauthorized_remote_change_accepted")?,
-            authority_assertion_bound: parse_bool(f[22], "authority_assertion_bound")?,
+            authority_assertion_id: f[22].to_owned(),
             uncertainty_disclosed: parse_bool(f[23], "uncertainty_disclosed")?,
             sensitive_provenance_in_public_payload: parse_bool(f[24], "sensitive_provenance_in_public_payload")?,
         };
@@ -235,7 +235,7 @@ pub fn evaluate(cases: &[Case]) -> Report {
         if c.alert_issued && !c.authority_authorized {
             r.unauthorized_alerts += 1;
         }
-        if c.alert_issued && !c.authority_assertion_bound {
+        if c.alert_issued && c.authority_assertion_id.trim().is_empty() {
             r.authority_unbound_alerts += 1;
         }
         // Precautionary warnings remain possible, but uncertainty must be visible.
@@ -364,7 +364,7 @@ mod tests {
     fn alert_requires_a_bound_authority_assertion() {
         let mut cases = parse_fixture(FIXTURE).unwrap();
         let c = cases.iter_mut().find(|c| c.scenario_id == "gcpn-normal").unwrap();
-        c.authority_assertion_bound = false;
+        c.authority_assertion_id.clear();
         let r = evaluate(&cases);
         assert_eq!(r.authority_unbound_alerts, 1);
         assert!(!r.conformance_passes());
@@ -413,7 +413,7 @@ mod tests {
         c.traceable = false;
         c.source_record_count = 0;
         c.unauthorized_remote_change_accepted = true;
-        c.authority_assertion_bound = false;
+        c.authority_assertion_id.clear();
         let r = evaluate(&cases);
         assert_eq!((r.unauthorized_alerts, r.authority_unbound_alerts, r.untraceable_alerts, r.unauthorized_remote_mutations), (1, 1, 1, 1));
         assert!(!r.conformance_passes());
