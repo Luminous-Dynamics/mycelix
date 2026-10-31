@@ -224,3 +224,22 @@ This work does not recommend biochar percentage, root density, application rates
 - Jiang, Z., Huang, S. and Meng, Z. (2025), *Long-term effects of biochar on the hydraulic properties of soil: A meta-analysis based on 1–10 years field experiments*, DOI 10.1016/j.geoderma.2025.117318.
 - Shahmansouri et al. (2026), *Stability of physical and hydraulic characteristics of biochar- and rockwool-based growing media under wetting and drying processes*, DOI 10.1016/j.jhydrol.2026.136082.
 - Pires et al. (2020), *X-ray microtomography analysis of soil pore structure dynamics under wetting and drying cycles*, DOI 10.1016/j.geoderma.2019.114103.
+
+### 2.5 Crack-response meta-analysis reinforces the service-envelope requirement
+
+Zhou et al. (2026), *Effect of Biochar on Soil Shrinkage and Cracks and Its Evolution Under Dry and Wet Cycles: A Meta-Analysis*, Agriculture 16(16), 1722, DOI 10.3390/agriculture16161722, synthesizes 278 paired observations from 44 peer-reviewed articles with article-clustered robust variance estimation.
+
+The authors report average reductions in crack intensity factor and mean crack width, but the article-clustered prediction intervals for all three crack indices cross zero and heterogeneity exceeds 98%. The crack-length-density pooled effect is not statistically significant under the main article-clustered analysis. Application-rate subgroups differ, but rate explains only about 12.6–15.8% of observed variation. Evidence beyond six wetting–drying cycles is sparse, and the article explicitly treats long-cycle persistence as unresolved.
+
+This evidence sharpens several benchmark requirements:
+
+- Crack intensity, width and length density are separate outcomes; none substitutes for hydraulic connectivity or transport.
+- Every crack-morphology observation should be paired, where feasible, with infiltration, water redistribution, drainage, tracer recovery or nutrient export measurements under matched forcing.
+- Preserve article/study clustering and paired-observation lineage; 278 paired observations are not 278 independent articles or randomized experiments.
+- Report article-clustered uncertainty, prediction intervals and subgroup support; a significant pooled mean is not evidence of uniform effect in a new soil domain.
+- Extend cycle-history tests beyond six cycles only where there is adequate independent support; do not extrapolate a fitted persistence curve into an evidence gap.
+- Treat particle-interface and pore-network mechanisms as hypotheses until supported by direct imaging or other independent observations.
+
+The study's mechanistic interpretation is inferred from crack-response patterns and supporting literature, not direct micro-CT or transport observation by the meta-analysis. Its high-rate subgroups must not become application-rate recommendations.
+
+Article: https://doi.org/10.3390/agriculture16161722
