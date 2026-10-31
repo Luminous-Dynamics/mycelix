@@ -1,0 +1,57 @@
+{
+  "benchmark_id": "NRVDEF-EXECUTABLE-CUSTODY-STATE-MACHINE-001",
+  "version": "0.1.0",
+  "status": "synthetic-conformance-only",
+  "event_kinds": [
+    "declaration",
+    "evidence_received",
+    "inspection_attestation",
+    "treaty_determination",
+    "dispute_opened",
+    "dispute_resolved"
+  ],
+  "derived_state_order": [
+    "unregistered",
+    "declared",
+    "evidence_received",
+    "custody_complete",
+    "inspection_attested",
+    "treaty_determined"
+  ],
+  "state_precedence": [
+    "unresolved_dispute_overrides_other_summary_states"
+  ],
+  "authority_rules": {
+    "declaration": "declarant_with_valid_authority",
+    "evidence_received": "custodian_with_valid_authority",
+    "inspection_attestation": "authorized_inspector_with_valid_authority_and_external_reference",
+    "treaty_determination": "treaty_institution_with_valid_authority_and_external_reference",
+    "dispute_opened": "claimant_with_valid_authority_and_external_reference",
+    "dispute_resolved": "treaty_institution_with_valid_authority_and_external_reference"
+  },
+  "negative_controls": [
+    "claimant_forges_inspection_attestation",
+    "software_forges_treaty_determination",
+    "revoked_inspector_authority",
+    "wrong_predecessor_digest",
+    "replayed_event_id",
+    "claim_binding_mismatch",
+    "unresolved_dispute_suppressed",
+    "unauthorized_protected_disclosure",
+    "declaration_mislabeled_as_inspection_attested"
+  ],
+  "positive_controls": [
+    "valid_custody_complete_history",
+    "authorized_external_inspection_attestation",
+    "authorized_external_treaty_institution_determination"
+  ],
+  "non_claims": [
+    "no_cryptographic_signature_validation",
+    "no_real_credential_or_revocation_validation",
+    "no_physical_inspection",
+    "no_physical_dismantlement_certification",
+    "no_treaty_compliance_determination",
+    "no_weapon_or_facility_data",
+    "no_operational_military_command_data"
+  ]
+}
