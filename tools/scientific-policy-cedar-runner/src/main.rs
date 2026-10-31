@@ -649,6 +649,8 @@ mod tests {
 struct CandidateEngineOutcome {
     sequence: usize,
     candidate_sha256: String,
+    candidate_status: String,
+    input_rejection: Option<String>,
     cedar_decision: Option<String>,
     cedar_determining_policy_ids: Vec<String>,
     opa_decision: Option<String>,
@@ -966,22 +968,51 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                 &opa_binary,
                 &rego_policy_path,
             ) {
+                Ok((cedar, opa, cedar_policy_ids, opa_rule, cedar_ns, opa_ns))
+                    if cedar == "invalid" && opa == "invalid" =>
+                {
+                    // Candidate did not satisfy the paired input/schema boundary;
+                    // neither authorization engine produced a decision.
+                    candidate_engine_outcomes.push(CandidateEngineOutcome {
+                        sequence,
+                        candidate_sha256: candidate_digest,
+                        candidate_status: "input_rejected_before_engines".to_owned(),
+                        input_rejection: Some(
+                            "paired-case, entity, context or Cedar request preflight rejected the candidate; neither engine was evaluated"
+                                .to_owned(),
+                        ),
+                        cedar_decision: None,
+                        cedar_determining_policy_ids: Vec::new(),
+                        opa_decision: None,
+                        opa_rule_id: None,
+                        predicate_preserved: Some(false),
+                        evaluation_error: None,
+                    });
+                    Ok(false)
+                }
                 Ok((cedar, opa, cedar_policy_ids, opa_rule, cedar_ns, opa_ns)) => {
+                    if !matches!(cedar.as_str(), "allow" | "deny")
+                        || !matches!(opa.as_str(), "allow" | "deny")
+                    {
+                        return Err(format!(
+                            "unexpected non-decision candidate result: Cedar={cedar}, OPA={opa}"
+                        ));
+                    }
                     let preserved = cedar == initial_cedar
                         && opa == initial_opa
                         && cedar != opa
                         && cedar_policy_ids == initial_cedar_policy_ids
                         && opa_rule == initial_opa_rule;
-                    if matches!(cedar.as_str(), "allow" | "deny") {
-                        cedar_candidate_times.push(cedar_ns);
-                        opa_cli_candidate_times.push(opa_ns);
-                        opa_candidate_process_evaluations.set(
-                            opa_candidate_process_evaluations.get() + 1
-                        );
-                    }
+                    cedar_candidate_times.push(cedar_ns);
+                    opa_cli_candidate_times.push(opa_ns);
+                    opa_candidate_process_evaluations.set(
+                        opa_candidate_process_evaluations.get() + 1
+                    );
                     candidate_engine_outcomes.push(CandidateEngineOutcome {
                         sequence,
                         candidate_sha256: candidate_digest,
+                        candidate_status: "evaluated".to_owned(),
+                        input_rejection: None,
                         cedar_decision: Some(cedar),
                         cedar_determining_policy_ids: cedar_policy_ids,
                         opa_decision: Some(opa),
@@ -995,6 +1026,8 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                     candidate_engine_outcomes.push(CandidateEngineOutcome {
                         sequence,
                         candidate_sha256: candidate_digest,
+                        candidate_status: "engine_evaluation_error".to_owned(),
+                        input_rejection: None,
                         cedar_decision: None,
                         cedar_determining_policy_ids: Vec::new(),
                         opa_decision: None,
