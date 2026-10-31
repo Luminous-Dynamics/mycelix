@@ -17,7 +17,7 @@ The input contains 2D image summaries (cross-section area, total macropore area/
 - Eqs. 9–11: matrix-water-conditioned bulk density, saturated bulk density and dynamic COLE.
 - Eqs. 13–16: structural-width correction and dynamic interpedal pore width (d(\theta_m)).
 - Eqs. 20–23: slit-pore saturated conductivity (K_{sp}), whole-soil transient saturated conductivity (K_s), macropore volume fraction (f_p), and cross-section-to-volume conversion (R_p).
-- Eq. 37: optional empirical width-ratio relationship for structural-domain (alpha_2), (\alpha_2/\alpha_{ds}=\beta_0+\beta_1(d/d_{ds})). The positive sign is consistent with the paper's Figure 6 and Table 1.
+- Figure 6/Table 1 plotted relationship for structural-domain alpha_2: alpha_2/alpha_ds = beta_0 + beta_1(d/d_ds). The paper body's printed Eq. 37 instead has a minus sign; it conflicts with Figure 6's positive near-1:1 line and Table 1's positive beta_1 values. v0.1 follows the figure/table relationship provisionally; author R-script parity is needed to resolve the publication inconsistency.
 
 ## Required interpretation boundaries
 
@@ -30,7 +30,7 @@ The input contains 2D image summaries (cross-section area, total macropore area/
 
 ## Tests
 
-Synthetic unit tests cover Eq. 8 geometry, dry-state pore width, moisture-induced pore contraction, saturated conductivity units, the positive Eq. 37 alpha relation, out-of-range moisture, duplicate timestamps and impossible image geometry. These are equation/software tests, not a replication of the Dryad dataset or independent validation.
+Synthetic unit tests cover Eq. 8 geometry, dry-state pore width, moisture-induced pore contraction, saturated conductivity units, the positive Figure 6/Table 1 alpha relationship (with the printed Eq. 37 sign discrepancy retained), out-of-range moisture, duplicate timestamps and impossible image geometry. These are equation/software tests, not a replication of the Dryad dataset or independent validation.
 
 
 Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545).
