@@ -2,7 +2,7 @@
   "benchmark_id": "PRAXIS-NRES-015-BT1-BOUNDED-BULK-TAIL-CONFORMANCE-001",
   "schema_version": "1.0.0",
   "evaluation_split": "public-development-only",
-  "authored_rust_unit_tests": 14,
+  "authored_rust_unit_tests": 15,
   "invalid_input_controls": [
     "wrong benchmark ID or schema version",
     "non-synthetic status or non-public-development split",
@@ -14,7 +14,7 @@
     "probability outside [0,1] or non-unit probability mass",
     "negative or non-finite loss",
     "bulk TV radius outside [0,1]",
-    "tail mass interval outside 0 <= lower <= upper <= 1",
+    "tail mass interval outside 0 <= lower <= upper <= 0.5",
     "missing tail_loss_upper_bound field",
     "negative or non-finite finite tail cap",
     "missing tail-bound basis statement",
