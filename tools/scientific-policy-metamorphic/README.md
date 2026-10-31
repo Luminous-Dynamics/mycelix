@@ -135,6 +135,31 @@ preconditions. The added Actor is intended to be irrelevant because it is not
 referenced by the request or policies; the actual Cedar evaluation must verify
 that expectation rather than assuming it.
 
+## Indexed Rego role representation benchmark
+
+The role-index experiment is intentionally separate from the canonical paired
+Cedar/OPA corpus and the five metamorphic transformations. Its Rust
+`role_index_projection` CLI consumes the exact source engine-input JSONL plus
+the source SHA-256 from the generator manifest. It emits a versioned
+`mycelix-rego-role-index-v0.1` projection with 62,464 rows and one indexed
+representative for each of the eight actions.
+
+The transform maps unique role arrays to boolean-keyed objects, rejects
+duplicate or malformed role lists and pre-existing role-index fields, and
+preserves all unrelated input fields. It uses duplicate-aware source JSON
+parsing. Its manifest binds the original and transformed JSONL hashes and
+records per-action case IDs, byte lengths and SHA-256 digests.
+
+A separate `opa-policy-indexed.rego` uses object-key lookups. The workflow
+runs all 62,464 projected cases through OPA 1.22.0 and requires exact case-ID,
+decision and determining-rule equality against the unchanged array-policy
+baseline. Only after that functional check does it benchmark both forms with
+OPA's native `opa bench --benchmem --metrics --count=5` on matched
+source-derived representatives for all eight actions. Projection-generation
+cost, input bytes, full-batch time and native query measurements remain
+separate. The benchmark is not a Cedar or Rust comparison, and no speedup is
+claimed until the pinned workflow produces measurements.
+
 ## Claim ceiling
 
 The generator proves deterministic transformation and byte-level provenance;
