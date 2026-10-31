@@ -135,6 +135,12 @@ Forecast calibration and ambiguity coverage are distinct:
 
 For clustered or dependent observations, rows within a source family are not iid calibration units. The confirmatory protocol must compare ordinary block split conformal with a declared dependence-aware method or reject the coverage claim. Do not use the NRES-014 conditional-iid correction unless its within-block assumption is defensible.
 
+### 7.1 Implemented public dependence baseline: NRES-015-DC1
+
+A separate stacked child adds cluster-maximum split conformal over NRES-014 block W1 scores. A dependence cluster is frozen before score inspection; its maximum block score is one calibration observation. The calibrated threshold is therefore based on the number of independent clusters, never the number of member blocks. Under exchangeability of fixed-design cluster maxima, coverage of a future cluster maximum implies simultaneous coverage of all member blocks in that same-design cluster. The evaluator rejects duplicate cluster/family/block identifiers and unequal cluster sizes; if the conformal rank exceeds the number of calibration clusters, it returns an unbounded null radius.
+
+DC1 is an intentionally conservative first baseline, not a dependence-general solution and not a reproduction of Ramos et al. (PMLR 2026). It allows arbitrary dependence inside a cluster only if clusters remain exchangeable. It does not handle arbitrary drift or dependence between clusters, unseen cluster sizes, calibration-conditional guarantees or population-law error within each source block. See PRAXIS-NRES-015-DC1-CLUSTER-MAX-CONFORMAL.md for the formula, synthetic fixture diagnostics and limits.
+
 Report:
 - calibration block count and unique source-family count;
 - conformal order-statistic rank, finite/unbounded-radius events and score distribution;
@@ -208,4 +214,4 @@ NRES-015's proposed contribution is a reproducible quantitative layer for compar
 
 ## 13. Reproducibility and status
 
-The NRES-015 protocol PR (#5560) establishes the preregistration and custody contract. A separate stacked child implementation adds the BT1 bounded bulk-tail reference comparator, but does not yet contain a learned metric, calibrated credal optimizer, hidden challenge data, trained model or SOTA result. Public NRES fixtures remain synthetic, public-development-only and inactive in the live curriculum.
+The NRES-015 protocol PR (#5560) establishes the preregistration and custody contract. Separate stacked children add BT1, a bounded bulk-tail reference comparator, and DC1, a dependence-cluster maximum calibration baseline. They do not yet contain a learned metric, calibrated credal optimizer, hidden challenge data, trained model or SOTA result. Public NRES fixtures remain synthetic, public-development-only and inactive in the live curriculum.
