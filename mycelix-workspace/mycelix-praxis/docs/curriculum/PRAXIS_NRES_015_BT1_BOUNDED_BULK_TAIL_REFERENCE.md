@@ -52,7 +52,7 @@ These numbers are arithmetic checks of an invented fixture only. They are not ob
 
 ## Tests and controls
 
-The module authors 14 Rust unit tests covering:
+The module authors 15 Rust unit tests covering:
 - hand-solvable two-state and multi-state TV transfers;
 - monotonicity in the TV radius and the radius-one maximum;
 - both tail-mass endpoint choices;
