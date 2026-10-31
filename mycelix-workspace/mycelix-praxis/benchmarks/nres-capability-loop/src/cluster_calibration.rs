@@ -120,6 +120,10 @@ pub fn evaluate_cluster_max_conformal(fixture: &Value) -> Result<Value, Vec<Stri
     if fixture.get("active_in_curriculum").and_then(Value::as_bool) != Some(false) {
         errors.push("DC1 fixture must remain inactive in the curriculum".to_owned());
     }
+    if string(fixture, "dependence_cluster_definition").is_none_or(|definition| definition.trim().is_empty()) {
+        errors.push("dependence_cluster_definition must predeclare the cluster construction".to_owned());
+    }
+
     if string(fixture, "score_definition")
         != Some("NRES-014-block-W1-nonconformity-score")
     {
