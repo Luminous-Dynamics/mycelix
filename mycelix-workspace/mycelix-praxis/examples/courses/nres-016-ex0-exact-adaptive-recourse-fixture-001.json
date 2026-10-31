@@ -15,7 +15,6 @@
   "information_states": [
     {
       "information_state_id": "ROOT",
-      "observable_history_key": "history-root",
       "stage": 0,
       "resource_units_available": 2,
       "service_levels": {
@@ -65,11 +64,21 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          }
+        ],
+        "prior_actions": []
+      }
     },
     {
       "information_state_id": "P-QUIET",
-      "observable_history_key": "history-p-quiet",
       "stage": 1,
       "resource_units_available": 1,
       "service_levels": {
@@ -105,11 +114,29 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "quiet"
+            }
+          }
+        ],
+        "prior_actions": [
+          "PREVENT"
+        ]
+      }
     },
     {
       "information_state_id": "P-STORM",
-      "observable_history_key": "history-p-storm",
       "stage": 1,
       "resource_units_available": 1,
       "service_levels": {
@@ -145,11 +172,29 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "storm"
+            }
+          }
+        ],
+        "prior_actions": [
+          "PREVENT"
+        ]
+      }
     },
     {
       "information_state_id": "D-QUIET",
-      "observable_history_key": "history-d-quiet",
       "stage": 1,
       "resource_units_available": 2,
       "service_levels": {
@@ -185,11 +230,29 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "quiet"
+            }
+          }
+        ],
+        "prior_actions": [
+          "DEFER"
+        ]
+      }
     },
     {
       "information_state_id": "D-STORM",
-      "observable_history_key": "history-d-storm",
       "stage": 1,
       "resource_units_available": 2,
       "service_levels": {
@@ -211,11 +274,29 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "storm"
+            }
+          }
+        ],
+        "prior_actions": [
+          "DEFER"
+        ]
+      }
     },
     {
       "information_state_id": "PQ-END-USE",
-      "observable_history_key": "history-PQ-END-USE",
       "stage": 2,
       "resource_units_available": 0,
       "service_levels": {
@@ -237,11 +318,36 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "quiet"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "safe"
+            }
+          }
+        ],
+        "prior_actions": [
+          "PREVENT",
+          "USE-SPARE"
+        ]
+      }
     },
     {
       "information_state_id": "PQ-END-HOLD",
-      "observable_history_key": "history-PQ-END-HOLD",
       "stage": 2,
       "resource_units_available": 1,
       "service_levels": {
@@ -263,11 +369,36 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "quiet"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "held"
+            }
+          }
+        ],
+        "prior_actions": [
+          "PREVENT",
+          "HOLD"
+        ]
+      }
     },
     {
       "information_state_id": "PS-END-REPAIR",
-      "observable_history_key": "history-PS-END-REPAIR",
       "stage": 2,
       "resource_units_available": 0,
       "service_levels": {
@@ -289,11 +420,36 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "storm"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "repaired"
+            }
+          }
+        ],
+        "prior_actions": [
+          "PREVENT",
+          "REPAIR"
+        ]
+      }
     },
     {
       "information_state_id": "PS-END-HOLD",
-      "observable_history_key": "history-PS-END-HOLD",
       "stage": 2,
       "resource_units_available": 1,
       "service_levels": {
@@ -315,11 +471,36 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "storm"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "held"
+            }
+          }
+        ],
+        "prior_actions": [
+          "PREVENT",
+          "HOLD"
+        ]
+      }
     },
     {
       "information_state_id": "DQ-END-USE",
-      "observable_history_key": "history-DQ-END-USE",
       "stage": 2,
       "resource_units_available": 1,
       "service_levels": {
@@ -341,11 +522,36 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "quiet"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "safe"
+            }
+          }
+        ],
+        "prior_actions": [
+          "DEFER",
+          "USE-SPARE"
+        ]
+      }
     },
     {
       "information_state_id": "DQ-END-HOLD",
-      "observable_history_key": "history-DQ-END-HOLD",
       "stage": 2,
       "resource_units_available": 2,
       "service_levels": {
@@ -367,11 +573,36 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "quiet"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "held"
+            }
+          }
+        ],
+        "prior_actions": [
+          "DEFER",
+          "HOLD"
+        ]
+      }
     },
     {
       "information_state_id": "DS-END-RECOVER",
-      "observable_history_key": "history-DS-END-RECOVER",
       "stage": 2,
       "resource_units_available": 1,
       "service_levels": {
@@ -393,7 +624,33 @@
             }
           ]
         }
-      ]
+      ],
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "storm"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "recovery-failed"
+            }
+          }
+        ],
+        "prior_actions": [
+          "DEFER",
+          "RECOVER"
+        ]
+      }
     }
   ],
   "guardrails": [
