@@ -199,7 +199,7 @@ jobs:
 
       - name: Build engine metamorphic qualification summary
         run: |
-          jq -s '{transform_count:length,transforms:map({transform,cedar_decision_divergences:.cedar.decision_divergence_count,cedar_rule_divergences:.cedar.rule_divergence_count,opa_decision_divergences:.opa.decision_divergence_count,opa_rule_divergences:.opa.rule_divergence_count}),all_engine_invariances_hold:all(.[];.cedar.same_case_ids and .opa.same_case_ids and .cedar.decision_divergence_count == 0 and .cedar.determining_policy_divergence_count == 0 and .opa.decision_divergence_count == 0 and .opa.determining_policy_divergence_count == 0),claim_ceiling:"Cedar/OPA invariance over four defined transformations only; no authentic Rust oracle parity"}' \
+          jq -s '{transform_count:length,transforms:map({transform,cedar_decision_divergences:.cedar.decision_divergence_count,cedar_determining_policy_divergences:.cedar.determining_policy_divergence_count,opa_decision_divergences:.opa.decision_divergence_count,opa_determining_policy_divergences:.opa.determining_policy_divergence_count}),all_engine_invariances_hold:all(.[];.cedar.same_case_ids and .opa.same_case_ids and .cedar.decision_divergence_count == 0 and .cedar.determining_policy_divergence_count == 0 and .opa.decision_divergence_count == 0 and .opa.determining_policy_divergence_count == 0),claim_ceiling:"Cedar/OPA invariance over four defined transformations only; no authentic Rust oracle parity"}' \
             target/metamorphic-engine-results/*/metamorphic-result.json \
             > target/metamorphic-engine-results/qualification-summary.json
           jq -e '.transform_count == 4 and .all_engine_invariances_hold == true' \
