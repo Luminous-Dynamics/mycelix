@@ -89,6 +89,8 @@ The 2025 *Geophysical Research Letters* study, “Ubiquity and Causes of Soil Wa
 
 This is a **site-held-out site-probability benchmark**, not an event-level classification benchmark. Do not compare its site probability fit to the 2026 ResNet's event-sensor F1 as if the metrics, target unit or evaluation task were equivalent. Its strength is that complete sites are held out; its limitation is that both targets remain soil-moisture-derived proxy methods, not tracer-confirmed pathway labels. The published paper's figure reports training/test fitted versus observed site PF probabilities for VT and NSR; do not manufacture an F1/AUCPR value that the paper does not report.
 
+The paper also reports a cross-method event contingency: VT identified PF about four times as often as NSR; both methods were positive in about 5% of rainfall events and both agreed on no PF in about 80% of events. Reproduce these as pooled descriptive checks with the exact event/site denominators, not per-site targets or ground-truth accuracy. Our site-prevalence auditor now reports event-level VT–NSR 3×3 positive/negative/indeterminate contingency tables for each VT Ksat variant, plus method-evaluable agreement and denominator fractions.
+
 ### 2.5 Required dual-paper bake-off
 
 The transfer programme must now reproduce both published protocols independently:
