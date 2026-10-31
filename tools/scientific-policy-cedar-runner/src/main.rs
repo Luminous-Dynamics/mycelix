@@ -930,6 +930,10 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         "opa_query": "data.mycelix.authz.decision",
         "opa_flags": ["eval", "--strict", "--timeout=5s", "--format=json", "--stdin-input"],
         "predicate": "preserve_initial_cedar_opa_decision_and_reason_divergence",
+        "source_case_id": initial_case.case_id,
+        "source_input_sha256": sha256(&source_bytes),
+        "source_corpus_baseline_revision": EXPECTED_BASELINE_REVISION,
+        "source_corpus_baseline_source_blob_sha256": EXPECTED_BASELINE_SOURCE_BLOB_SHA,
         "max_candidate_evaluations": max_candidates,
         "protected_paths": protected_paths
     }))
