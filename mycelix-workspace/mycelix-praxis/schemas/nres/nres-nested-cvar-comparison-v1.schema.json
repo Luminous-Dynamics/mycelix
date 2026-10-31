@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:mycelix:praxis:nres:016:ex1:nested-cvar:v1",
-  "title": "Praxis NRES-016 EX1 Nested Conditional CVaR Comparison",
+  "$id": "urn:mycelix:praxis:nres:016:ex1:nested-mean-cvar:v1",
+  "title": "Praxis NRES-016 EX1 Nested Mean-CVaR Risk Comparison",
   "type": "object",
   "required": [
     "schema_version",
@@ -15,7 +15,8 @@
     "information_states",
     "guardrails",
     "benchmark_id",
-    "risk_confidence_level"
+    "risk_confidence_level",
+    "risk_aversion_lambda"
   ],
   "properties": {
     "benchmark_id": {
@@ -76,6 +77,12 @@
       "type": "number",
       "minimum": 0,
       "exclusiveMaximum": 1
+    },
+    "risk_aversion_lambda": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 1,
+      "description": "Strict-monotonicity mixture weight; lambda=1 (pure AVaR/CVaR) is intentionally rejected."
     }
   },
   "$defs": {
@@ -316,5 +323,5 @@
       }
     ]
   },
-  "description": "Synthetic finite-horizon fixture comparing recursive conditional upper-CVaR and precommitment terminal path-CVaR with an expected-cost tie-break. CVaR confidence level must be in [0,1)."
+  "description": "Synthetic finite-horizon fixture comparing recursively nested conditional rho_hat=(1-lambda)E+lambda*AVaR_alpha with precommitment terminal rho_hat. Lambda is in [0,1) to retain strict monotonicity."
 }
