@@ -413,9 +413,9 @@ mod tests {
             cedar: CedarCase {
                 case_id: "case-1".to_owned(),
                 request: CedarRequest {
-                    principal: "Mycelix::Actor::\\"actor:candidate\\"".to_owned(),
-                    action: "Mycelix::Action::\\"evidence_attached\\"".to_owned(),
-                    resource: "Mycelix::Claim::\\"claim:1\\"".to_owned(),
+                    principal: "Mycelix::Actor::\"actor:candidate\"".to_owned(),
+                    action: "Mycelix::Action::\"evidence_attached\"".to_owned(),
+                    resource: "Mycelix::Claim::\"claim:1\"".to_owned(),
                     context: serde_json::json!({"attestationKind":"ordinary"}),
                 },
                 entities: vec![
@@ -456,9 +456,9 @@ mod tests {
             cedar: CedarCase {
                 case_id: "case-2".to_owned(),
                 request: CedarRequest {
-                    principal: "Mycelix::Actor::\\"actor:missing\\"".to_owned(),
+                    principal: "Mycelix::Actor::\"actor:missing\"".to_owned(),
                     action: "Mycelix::Action::\\"evidence_attached\\"".to_owned(),
-                    resource: "Mycelix::Claim::\\"claim:2\\"".to_owned(),
+                    resource: "Mycelix::Claim::\"claim:2\"".to_owned(),
                     context: serde_json::json!({}),
                 },
                 entities: vec![serde_json::json!({
