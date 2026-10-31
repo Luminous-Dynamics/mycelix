@@ -161,6 +161,10 @@ pub fn evaluate_bulk_tail_credal(fixture: &Value) -> Result<Value, Vec<String>> 
         return Err(errors);
     };
 
+    if string(fixture, "bulk_selection_basis").is_none_or(|basis| basis.trim().is_empty()) {
+        errors.push("bulk_selection_basis must explain the frozen bulk definition".to_owned());
+    }
+
     let raw_bulk_ids = fixture.get("bulk_state_ids").and_then(Value::as_array);
     let Some(raw_bulk_ids) = raw_bulk_ids else {
         errors.push("bulk_state_ids must be an array".to_owned());
@@ -202,7 +206,7 @@ pub fn evaluate_bulk_tail_credal(fixture: &Value) -> Result<Value, Vec<String>> 
 
     for profile in raw_profiles {
         let profile_id = string(profile, "profile_id").unwrap_or("UNKNOWN");
-        if profile_id == "UNKNOWN" {
+        if profile_id.trim().is_empty() || profile_id == "UNKNOWN" {
             errors.push("each profile requires a non-empty profile_id".to_owned());
         }
         if !seen_profile_ids.insert(profile_id.to_owned()) {
@@ -250,7 +254,7 @@ pub fn evaluate_bulk_tail_credal(fixture: &Value) -> Result<Value, Vec<String>> 
         if !tail_lower.is_finite()
             || !tail_upper.is_finite()
             || tail_lower < 0.0
-            || tail_upper > 1.0
+            || tail_upper > 0.5
             || tail_lower > tail_upper
         {
             errors.push(format!("{profile_id}: tail mass interval must satisfy 0 <= lower <= upper <= 1"));
@@ -439,6 +443,11 @@ mod tests {
         let result = evaluate_bulk_tail_credal(&tiny_fixture(profile(0.2, 0.0, 0.0, Value::Null))).unwrap();
         assert_eq!(result["profiles"][0]["risk_status"], json!("finite-no-tail-mass"));
         assert!(result["profiles"][0]["worst_case_upper_expectation"].is_number());
+    }
+
+    #[test]
+    fn tv_radius_outside_unit_interval_is_rejected() {
+        assert!(tv_upper_expectation(&[0.5, 0.5], &[1.0, 2.0], 1.01).is_err());
     }
 
     #[test]
