@@ -2,7 +2,7 @@
   "benchmark_id": "PRAXIS-NRES-016-EX0-CONFORMANCE-001",
   "schema_version": "1.0.0",
   "evaluation_split": "public-development-only",
-  "authored_rust_unit_tests": 10,
+  "authored_rust_unit_tests": 12,
   "invalid_input_controls": [
     "wrong benchmark ID, schema version or synthetic status",
     "non-public-development split or curriculum activation",
@@ -10,8 +10,10 @@
     "horizon outside [3,12]",
     "missing initial information-state ID",
     "missing, empty, negative or non-finite service floor",
-    "missing state, duplicate state ID or missing observable-history key",
-    "duplicate observable-history key across information states",
+    "missing state, duplicate state ID or malformed observable-history event sequence",
+    "duplicate canonical observation/prior-action histories across information states",
+    "latent or future scenario fields embedded in observable observations",
+    "child history does not append the selected prior action and exactly one new observation",
     "stage outside the declared horizon",
     "missing, extra or invalid service-level value",
     "missing actions or duplicate action IDs within an information state",
@@ -37,7 +39,7 @@
     "all root actions infeasible returns explicit infeasibility, not silent relaxation"
   ],
   "round_trip_requirements": [
-    "information-state IDs and observable-history keys remain stable",
+    "information-state IDs and canonical observation/prior-action histories remain stable",
     "action IDs remain stable within each information state",
     "outcome IDs and probabilities remain attached to their action",
     "stage indices remain strictly increasing along transitions",
