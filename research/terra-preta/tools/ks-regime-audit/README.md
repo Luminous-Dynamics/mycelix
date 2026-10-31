@@ -15,13 +15,13 @@ The report binds to the exact input JSON bytes and records the independent sourc
 
 - Exact source SHA-256 and a reviewed held-out split-manifest SHA-256.
 - Evaluation track is either `uniform_method` or `multi_method`; the uniform track requires one declared Ks measurement method and one water-retention method.
-- Each observation has a unique sample ID, independently reviewed group ID, Ks measurement method/protocol, water-retention method/protocol, RAC fraction and derivation evidence, total porosity, measured Ks, and one positive prediction per declared model.
+- Each observation has a unique sample ID, independently reviewed group ID, exact Ks measurement method and protocol ID, exact water-retention method and protocol ID, RAC fraction and derivation evidence, total porosity, measured Ks, and one positive prediction per declared model.
 - Every model declaration carries family, version, configuration SHA-256 and implementation evidence reference.
 - All measured and predicted Ks values are in m/s. Convert upstream with a separately verified unit crosswalk; no implicit conversion occurs.
 
 ## Regime and method strata
 
-The tool creates separate descriptive results for: all samples; RAC < 5% and RAC >= 5%; total porosity <= 40% and > 40%; each Ks measurement method; each water-retention method; and RAC x Ks measurement method.
+The tool creates separate descriptive results for: all samples; RAC < 5% and RAC >= 5%; total porosity <= 40% and > 40%; each Ks measurement method; each water-retention method; each exact Ks measurement protocol; each exact water-retention protocol; RAC x Ks measurement method; RAC x exact Ks protocol; and RAC x exact water-retention protocol.
 
 RAC is the fraction of total porosity that is air-filled at -10 kPa. It is supplied, not calculated. The 5% RAC boundary and approximately 40% porosity diagnostic reflect patterns reported by Qin et al. (2026); they are literature-informed strata, not universal phase transitions or physical laws.
 
