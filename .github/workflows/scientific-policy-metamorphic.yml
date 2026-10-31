@@ -271,7 +271,13 @@ jobs:
             .source_case_count == 62464 and
             .indexed_case_count == 62464 and
             .action_count == 8 and
-            (.action_inputs | length) == 8
+            (.action_inputs | length) == 8 and
+            (.action_input_digests | length) == 8 and
+            all(.action_input_digests[];
+              (.sha256 | length == 64) and
+              (.byte_length > 0) and
+              (.case_id | length > 0)
+            )
           ' "$indexed_manifest"
           indexed_sha="$(sha256sum "$indexed_file" | cut -d ' ' -f 1)"
           test "$indexed_sha" = "$(jq -r '.indexed_engine_inputs_sha256' "$indexed_manifest")"
@@ -337,6 +343,12 @@ jobs:
             test -s "$indexed_input"
             jq -e --arg action "$action" '.action == $action' "$baseline_input"
             jq -e --arg action "$action" '.action == $action and (.actor.role_index | type == "object") and (.actor.roles == null)' "$indexed_input"
+            expected_indexed_sha="$(jq -r --arg action "$action" '.action_input_digests[] | select(.action == $action) | .sha256' "$indexed_manifest")"
+            actual_indexed_sha="$(sha256sum "$indexed_input" | cut -d ' ' -f 1)"
+            test "$actual_indexed_sha" = "$expected_indexed_sha"
+            indexed_case_id="$(jq -r --arg action "$action" '.action_input_digests[] | select(.action == $action) | .case_id' "$indexed_manifest")"
+            baseline_case_id="$(jq -r --arg action "$action" '.action_benchmarks[] | select(.action == $action) | .case_id' target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json)"
+            test "$indexed_case_id" = "$baseline_case_id"
             /tmp/opa bench --format=json --metrics --benchmem --count=5 \
               --input "$baseline_input" \
               --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
