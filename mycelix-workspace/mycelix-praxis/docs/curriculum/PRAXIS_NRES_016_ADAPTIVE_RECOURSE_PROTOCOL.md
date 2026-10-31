@@ -26,7 +26,7 @@ Uncertainty is attached to transition kernels, not only to an initial joint fail
 
 ### 2.3 From static tail penalties to time-consistent dynamic risk
 
-A one-time CVaR of total path cost and a nested conditional risk recursion are different objectives. Candidate policies must state which is used. The primary dynamic baseline should use nested conditional risk (for example, recursively applied conditional CVaR) or an explicitly declared rectangular ambiguity recursion. Do not call a static terminal CVaR time-consistent.
+A one-time CVaR of total path cost and a nested conditional risk recursion are different objectives. Candidate policies must state which is used. Pure AVaR/CVaR is not strictly monotone, so merely nesting it does not establish every strong time-consistency result. The primary dynamic benchmark should include the strictly monotone mean-CVaR map rho_hat=(1-lambda)E+lambda*CVaR_alpha with lambda in [0,1), or an explicitly declared rectangular ambiguity recursion. Do not call a static terminal CVaR time-consistent.
 
 ### 2.4 From resource snapshots to conserved resource ledgers
 
@@ -219,11 +219,15 @@ The appropriate industry success test is **complementary operational value**: ca
 8. Scale with decomposition only after exact micro-instance conformance is stable.
 9. Integrate shift alarms (fixed-reference conformal test martingales / adaptive conformal methods) as monitoring inputs, not as a substitute for valid control.
 
-## 11.1 Exact public micro-oracle: NRES-016-EX0
+## 11.1 Exact public micro-oracles: EX0 and EX1
 
-A stacked child implementation adds EX0, an exact expected-cost dynamic-programming oracle over a finite DAG of unique observable information states. EX0 supports action-conditioned finite transition probabilities, one conserved resource ledger and pathwise service floors. On its tiny three-stage fixture the exact hand solution is expected cost 2.3; the lower-cost DEFER action is infeasible because one positive-probability successor violates the water floor.
+A stacked child implementation adds EX0, an exact expected-cost dynamic-programming oracle over a finite DAG of unique observable information states. EX0 supports action-conditioned finite transition probabilities, one conserved resource ledger and pathwise service floors. Its three-stage synthetic fixture has an exact hand solution of expected cost 2.3; the lower-cost DEFER action is infeasible because one positive-probability successor violates the water floor.
 
-EX0 proves only the expected-cost recursion on that finite micro-instance. It does not implement DRO, nested CVaR, partial-observation belief updates, vector resources or scale methods. See PRAXIS-NRES-016-EX0-EXACT-ADAPTIVE-RECOURSE.md. The Rust tests are authored and remain unexecuted until a real toolchain/CI run.
+A second child adds EX1, which compares the same strictly monotone one-period map rho_hat=(1-lambda)E+lambda*CVaR_alpha in two different multiperiod constructions: recursively nested conditional risk and precommitment terminal-path risk. It uses alpha=0.90 and lambda=0.90. The synthetic fixture selects SAFE at a locally observed branch under nested risk, but GAMBLE under static terminal risk because a different branch already dominates the global tail. Both exact objectives and the terminal cost distribution are reported.
+
+This distinction matters theoretically. Füllner and Rebennack's SDDP review (SIAM Review, 2025, DOI 10.1137/23M1575093, Sections 12.1.1–12.1.3) explains that AVaR is not strictly monotone, that nested AVaR alone does not ensure the relevant strong time-consistency result, and that the mean/AVaR mixture is strictly monotone for lambda in [0,1). EX1 adopts that mixture and explicitly rejects lambda=1. The dynamic-programming conclusion remains scoped to the assumptions and definition used in that work; it is not a universal statement about every meaning of time consistency.
+
+EX0 and EX1 prove only exact arithmetic/optimization for their small finite synthetic fixtures. They do not implement distributional ambiguity over transition kernels, partial-observation filtering, vector resource pipelines or scale methods. See PRAXIS-NRES-016-EX0-EXACT-ADAPTIVE-RECOURSE.md and PRAXIS-NRES-016-EX1-NESTED-MEAN-CVAR.md. Rust tests are authored and remain unexecuted until a real toolchain/CI run.
 
 ## 12. Safety and status
 
