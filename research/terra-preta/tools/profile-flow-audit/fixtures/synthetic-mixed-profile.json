@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "study_id": "SYNTHETIC",
   "site_id": "SYN1",
   "plot_id": "P01",
@@ -29,7 +29,7 @@
       "sensor_id": "D60",
       "depth_cm": 60,
       "response_status": "detected",
-      "response_onset_utc": "2026-01-01T00:20:00Z"
+      "response_onset_utc": "2026-01-01T00:50:00Z"
     },
     {
       "sensor_id": "D90",
