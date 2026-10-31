@@ -134,7 +134,9 @@ struct Report {
     observation_count: usize,
     independent_group_count: usize,
     ks_measurement_methods: Vec<String>,
+    ks_measurement_protocols: Vec<String>,
     water_retention_methods: Vec<String>,
+    water_retention_protocols: Vec<String>,
     model_declarations: Vec<ModelDeclaration>,
     strata: Vec<StratumResult>,
     warnings: Vec<String>,
@@ -158,7 +160,9 @@ fn valid_sha256(value: &str, label: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate(input: &Input) -> Result<(Vec<String>, Vec<String>, Vec<f64>), String> {
+fn validate(
+    input: &Input,
+) -> Result<(Vec<String>, Vec<String>, Vec<String>, Vec<String>, Vec<f64>), String> {
     if input.schema_version != "0.1.0" {
         return Err(format!("unsupported schema_version {:?}", input.schema_version));
     }
@@ -202,6 +206,8 @@ fn validate(input: &Input) -> Result<(Vec<String>, Vec<String>, Vec<f64>), Strin
     let mut groups = BTreeSet::new();
     let mut ks_methods = BTreeSet::new();
     let mut retention_methods = BTreeSet::new();
+    let mut ks_protocols = BTreeSet::new();
+    let mut retention_protocols = BTreeSet::new();
     let mut observed_log_ks = Vec::with_capacity(input.observations.len());
 
     for (index, row) in input.observations.iter().enumerate() {
@@ -223,6 +229,14 @@ fn validate(input: &Input) -> Result<(Vec<String>, Vec<String>, Vec<f64>), Strin
         groups.insert(row.group_id.as_str());
         ks_methods.insert(row.ks_measurement_method.clone());
         retention_methods.insert(row.water_retention_method.clone());
+        ks_protocols.insert(format!(
+            "{}::{}",
+            row.ks_measurement_method, row.ks_measurement_protocol_id
+        ));
+        retention_protocols.insert(format!(
+            "{}::{}",
+            row.water_retention_method, row.water_retention_protocol_id
+        ));
 
         if !row.rac_fraction.is_finite() || !(0.0..=1.0).contains(&row.rac_fraction) {
             return Err(format!("observations[{index}].rac_fraction must be finite and within [0, 1]"));
@@ -252,20 +266,26 @@ fn validate(input: &Input) -> Result<(Vec<String>, Vec<String>, Vec<f64>), Strin
         return Err("at least two independently reviewed group_id values are required".to_owned());
     }
     if input.evaluation_track == EvaluationTrack::UniformMethod {
-        if ks_methods.len() != 1 || retention_methods.len() != 1 {
-            return Err("uniform_method track requires exactly one Ks measurement method and one water-retention method".to_owned());
+        if ks_methods.len() != 1
+            || retention_methods.len() != 1
+            || ks_protocols.len() != 1
+            || retention_protocols.len() != 1
+        {
+            return Err("uniform_method track requires exactly one Ks measurement method/protocol and one water-retention method/protocol".to_owned());
         }
     }
     if input.evaluation_track == EvaluationTrack::MultiMethod
-        && ks_methods.len() < 2
-        && retention_methods.len() < 2
+        && ks_protocols.len() < 2
+        && retention_protocols.len() < 2
     {
-        return Err("multi_method track requires at least two distinct Ks or water-retention methods".to_owned());
+        return Err("multi_method track requires at least two distinct Ks or water-retention method/protocol pairs".to_owned());
     }
 
     Ok((
         ks_methods.into_iter().collect(),
+        ks_protocols.into_iter().collect(),
         retention_methods.into_iter().collect(),
+        retention_protocols.into_iter().collect(),
         observed_log_ks,
     ))
 }
@@ -305,9 +325,13 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
 
     let mut ks_methods = BTreeSet::new();
     let mut retention_methods = BTreeSet::new();
+    let mut ks_protocols = BTreeSet::new();
+    let mut retention_protocols = BTreeSet::new();
     for row in &input.observations {
         ks_methods.insert(row.ks_measurement_method.clone());
         retention_methods.insert(row.water_retention_method.clone());
+        ks_protocols.insert((row.ks_measurement_method.clone(), row.ks_measurement_protocol_id.clone()));
+        retention_protocols.insert((row.water_retention_method.clone(), row.water_retention_protocol_id.clone()));
     }
     for method in ks_methods {
         let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
@@ -330,7 +354,32 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
         ));
     }
 
+    for (method, protocol) in ks_protocols {
+        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
+            (row.ks_measurement_method == method && row.ks_measurement_protocol_id == protocol)
+                .then_some(index)
+        }).collect();
+        output.push((
+            format!("ks_protocol::{method}::{protocol}"),
+            format!("Ks measurement protocol: {method} / {protocol}"),
+            indices,
+        ));
+    }
+    for (method, protocol) in retention_protocols {
+        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
+            (row.water_retention_method == method && row.water_retention_protocol_id == protocol)
+                .then_some(index)
+        }).collect();
+        output.push((
+            format!("water_retention_protocol::{method}::{protocol}"),
+            format!("Water-retention protocol: {method} / {protocol}"),
+            indices,
+        ));
+    }
+
     let mut cross_methods = BTreeSet::new();
+    let mut cross_ks_protocols = BTreeSet::new();
+    let mut cross_wr_protocols = BTreeSet::new();
     for row in &input.observations {
         cross_methods.insert((
             row.rac_fraction < RAC_BOUNDARY,
@@ -339,6 +388,26 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
         cross_methods.insert((
             row.rac_fraction >= RAC_BOUNDARY,
             row.ks_measurement_method.clone(),
+        ));
+        cross_ks_protocols.insert((
+            row.rac_fraction < RAC_BOUNDARY,
+            row.ks_measurement_method.clone(),
+            row.ks_measurement_protocol_id.clone(),
+        ));
+        cross_ks_protocols.insert((
+            row.rac_fraction >= RAC_BOUNDARY,
+            row.ks_measurement_method.clone(),
+            row.ks_measurement_protocol_id.clone(),
+        ));
+        cross_wr_protocols.insert((
+            row.rac_fraction < RAC_BOUNDARY,
+            row.water_retention_method.clone(),
+            row.water_retention_protocol_id.clone(),
+        ));
+        cross_wr_protocols.insert((
+            row.rac_fraction >= RAC_BOUNDARY,
+            row.water_retention_method.clone(),
+            row.water_retention_protocol_id.clone(),
         ));
     }
     for (rac_low, method) in cross_methods {
@@ -350,6 +419,34 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
         output.push((
             format!("{}::ks_method::{method}", if rac_low { "rac_lt_5pct" } else { "rac_ge_5pct" }),
             format!("{rac}; Ks measurement method: {method}"),
+            indices,
+        ));
+    }
+    for (rac_low, method, protocol) in cross_ks_protocols {
+        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
+            ((row.rac_fraction < RAC_BOUNDARY) == rac_low
+                && row.ks_measurement_method == method
+                && row.ks_measurement_protocol_id == protocol)
+                .then_some(index)
+        }).collect();
+        let rac = if rac_low { "RAC < 5%" } else { "RAC >= 5%" };
+        output.push((
+            format!("{}::ks_protocol::{method}::{protocol}", if rac_low { "rac_lt_5pct" } else { "rac_ge_5pct" }),
+            format!("{rac}; Ks protocol: {method} / {protocol}"),
+            indices,
+        ));
+    }
+    for (rac_low, method, protocol) in cross_wr_protocols {
+        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
+            ((row.rac_fraction < RAC_BOUNDARY) == rac_low
+                && row.water_retention_method == method
+                && row.water_retention_protocol_id == protocol)
+                .then_some(index)
+        }).collect();
+        let rac = if rac_low { "RAC < 5%" } else { "RAC >= 5%" };
+        output.push((
+            format!("{}::water_retention_protocol::{method}::{protocol}", if rac_low { "rac_lt_5pct" } else { "rac_ge_5pct" }),
+            format!("{rac}; water-retention protocol: {method} / {protocol}"),
             indices,
         ));
     }
@@ -418,7 +515,13 @@ fn model_metrics(
 }
 
 fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
-    let (ks_methods, retention_methods, observed_log_ks) = validate(input)?;
+    let (
+        ks_methods,
+        ks_protocols,
+        retention_methods,
+        retention_protocols,
+        observed_log_ks,
+    ) = validate(input)?;
     let sigma_y = sample_std(&observed_log_ks);
     let half_sigma_y = sigma_y * 0.5;
     let mut results = Vec::new();
@@ -480,7 +583,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         observation_count: input.observations.len(),
         independent_group_count: input.observations.iter().map(|row| row.group_id.as_str()).collect::<BTreeSet<_>>().len(),
         ks_measurement_methods: ks_methods,
+        ks_measurement_protocols: ks_protocols,
         water_retention_methods: retention_methods,
+        water_retention_protocols: retention_protocols,
         model_declarations: input.models.clone(),
         strata: results,
         warnings,
@@ -660,7 +765,7 @@ mod tests {
     fn uniform_method_track_requires_one_protocol_family_per_method() {
         let mut input = fixture();
         input.evaluation_track = EvaluationTrack::UniformMethod;
-        assert!(validate(&input).unwrap_err().contains("exactly one Ks measurement method"));
+        assert!(validate(&input).unwrap_err().contains("one Ks measurement method/protocol"));
     }
 
     #[test]
@@ -668,7 +773,9 @@ mod tests {
         let mut input = fixture();
         for row in &mut input.observations {
             row.ks_measurement_method = "falling_head".to_owned();
+            row.ks_measurement_protocol_id = "KS-FH-v1".to_owned();
             row.water_retention_method = "pressure_plate".to_owned();
+            row.water_retention_protocol_id = "WR-PP-v1".to_owned();
         }
         assert!(validate(&input).unwrap_err().contains("at least two distinct"));
     }
