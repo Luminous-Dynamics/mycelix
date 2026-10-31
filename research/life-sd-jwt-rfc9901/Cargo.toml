@@ -1,0 +1,10 @@
+[package]
+name = "life-sd-jwt-rfc9901"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+base64 = "=0.23.0"
+affinidi-sd-jwt = "=0.1.5"
+reallyme-sd-jwt = "=0.4.1"

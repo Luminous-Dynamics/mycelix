@@ -1,0 +1,83 @@
+name: LIFE RFC 9901 cross-implementation disclosure vectors
+
+on:
+  pull_request:
+    paths:
+      - "research/life-sd-jwt-rfc9901/**"
+      - ".github/workflows/life-sd-jwt-rfc9901.yml"
+  push:
+    paths:
+      - "research/life-sd-jwt-rfc9901/**"
+      - ".github/workflows/life-sd-jwt-rfc9901.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact benchmark subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Generate initial dependency lock
+        run: cargo +1.96.0 generate-lockfile --manifest-path research/life-sd-jwt-rfc9901/Cargo.toml
+
+      - name: Check formatting
+        run: cargo +1.96.0 fmt --manifest-path research/life-sd-jwt-rfc9901/Cargo.toml --all -- --check
+
+      - name: Run tests
+        run: cargo +1.96.0 test --locked --manifest-path research/life-sd-jwt-rfc9901/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo +1.96.0 clippy --locked --manifest-path research/life-sd-jwt-rfc9901/Cargo.toml --all-targets -- -D warnings
+
+      - name: Compare reports and emit receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p target/life-sd-jwt-rfc9901
+          cargo +1.96.0 run --release --locked --manifest-path research/life-sd-jwt-rfc9901/Cargo.toml > target/life-sd-jwt-rfc9901/report-a.csv
+          cargo +1.96.0 run --release --locked --manifest-path research/life-sd-jwt-rfc9901/Cargo.toml > target/life-sd-jwt-rfc9901/report-b.csv
+          cmp target/life-sd-jwt-rfc9901/report-a.csv target/life-sd-jwt-rfc9901/report-b.csv
+          mv target/life-sd-jwt-rfc9901/report-a.csv target/life-sd-jwt-rfc9901/report.csv
+          rm target/life-sd-jwt-rfc9901/report-b.csv
+          {
+            echo "status=published-example-digest-cross-check-passed"
+            echo "commit=$QUALIFIED_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "rust=$(rustc +1.96.0 --version)"
+            echo "manifest_sha256=$(sha256sum research/life-sd-jwt-rfc9901/manifest.json | cut -d' ' -f1)"
+            echo "lock_sha256=$(sha256sum research/life-sd-jwt-rfc9901/Cargo.lock | cut -d' ' -f1)"
+            echo "report_sha256=$(sha256sum target/life-sd-jwt-rfc9901/report.csv | cut -d' ' -f1)"
+            echo "claim_ceiling=RFC9901PublishedExampleDisclosureDigestCrossImplementationCompatibility"
+          } | tee target/life-sd-jwt-rfc9901/qualification.txt
+          sha256sum target/life-sd-jwt-rfc9901/report.csv target/life-sd-jwt-rfc9901/qualification.txt > target/life-sd-jwt-rfc9901/sha256sums.txt
+
+      - name: Upload benchmark evidence and generated lock
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: life-sd-jwt-rfc9901-${{ env.QUALIFIED_SHA }}
+          path: |
+            target/life-sd-jwt-rfc9901/
+            research/life-sd-jwt-rfc9901/Cargo.lock
+            research/life-sd-jwt-rfc9901/manifest.json
+          if-no-files-found: error
