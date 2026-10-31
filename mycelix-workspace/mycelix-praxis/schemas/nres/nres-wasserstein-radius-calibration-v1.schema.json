@@ -108,7 +108,8 @@
         "assumptions",
         "ground_metric",
         "numerical_method",
-        "population_correction_delta"
+        "population_correction_delta",
+        "population_correction_assumption"
       ],
       "properties": {
         "method": {
@@ -209,6 +210,10 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "exclusiveMaximum": 1
+        },
+        "population_correction_assumption": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": true

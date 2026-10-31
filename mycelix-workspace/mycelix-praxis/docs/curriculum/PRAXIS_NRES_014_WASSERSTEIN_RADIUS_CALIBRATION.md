@@ -74,7 +74,7 @@ The corrected radius exceeds the full support diameter. **The population-level a
 - Conformal rank: ceil((19+1)*0.90) = 18.
 - Calibrated synthetic radius: 0.9211372893629722 weighted-Hamming units.
 - Development diagnostic: 12/12 blocks fall within the radius (100% on this tiny fictional holdout).
-- Conformance: 36 invalid-input controls, 4 boundary cases and 12 round-trip requirements.
+- Conformance: 37 invalid-input controls, 4 boundary cases and 13 round-trip requirements.
 
 The development diagnostic is not a coverage guarantee, a real-world estimate or a reason to change alpha. The separate population-law correction is vacuous at this block size. The 19+12 synthetic family identifiers are fixture bookkeeping, not independently custodied scenarios.
 

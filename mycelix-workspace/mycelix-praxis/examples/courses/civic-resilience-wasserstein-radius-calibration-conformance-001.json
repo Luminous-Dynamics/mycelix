@@ -145,6 +145,10 @@
     {
       "id": "N014-NEG-036",
       "condition": "combined marginal population-coverage lower bound is altered"
+    },
+    {
+      "id": "N014-NEG-037",
+      "condition": "population sampling-error correction is enabled without an explicit within-block conditional-iid assumption"
     }
   ],
   "boundary_cases": [
@@ -181,7 +185,8 @@
     "Preserve separate calibration and development splits without moving any block.",
     "Preserve unknown namespaced extension fields losslessly.",
     "Preserve the within-block sampling assumption, delta, finite-state TV bound, W1 correction and combined confidence lower bound.",
-    "Preserve the explicit vacuity result when the corrected population radius reaches the support diameter."
+    "Preserve the explicit vacuity result when the corrected population radius reaches the support diameter.",
+    "Preserve the explicit within-block sampling assumption separately from the block-exchangeability assumption."
   ],
   "conformance_targets": {
     "valid_fixture_acceptance": "100 percent",
@@ -190,7 +195,8 @@
     "probability_mass_tolerance": 1e-12,
     "split_overlap_allowed": 0,
     "composite_scores_accepted": 0,
-    "population_correction": "finite-state TV concentration plus metric-diameter conversion; population-level correction must report vacuity at or above support diameter"
+    "population_correction": "finite-state TV concentration plus metric-diameter conversion; population-level correction must report vacuity at or above support diameter",
+    "within_block_sampling_assumption": "required explicitly for the optional population-law correction"
   },
   "limitations": [
     "Fixture values are synthetic, public-development-only and not independently custodied.",

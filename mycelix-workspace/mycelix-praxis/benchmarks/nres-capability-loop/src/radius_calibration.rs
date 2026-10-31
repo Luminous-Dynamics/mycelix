@@ -512,6 +512,7 @@ pub fn evaluate_wasserstein_radius_calibration(
         || target_coverage.zip(alpha).is_none_or(|(coverage, alpha)| !close(coverage, 1.0 - alpha, 1e-12))
         || block_size.is_none_or(|size| size == 0)
         || population_delta.is_none_or(|value| !value.is_finite() || value <= 0.0 || value >= 1.0)
+        || str_field(protocol, "population_correction_assumption").is_none_or(str::is_empty)
         || protocol.get("state_count").and_then(Value::as_u64) != Some(state_count as u64)
         || str_field(protocol.get("ground_metric").unwrap_or(&Value::Null), "name") != Some("weighted_hamming")
         || weights_value.len() != dimension
@@ -888,6 +889,15 @@ mod tests {
         for delta in [0.0, 1.0, -0.1, f64::NAN, f64::INFINITY] {
             assert!(empirical_tv_sampling_error_bound(16, 12, delta).is_err());
         }
+    }
+
+
+    #[test]
+    fn population_correction_requires_explicit_within_block_sampling_assumption() {
+        let source: Value = serde_json::from_str(SOURCE_FIXTURE).unwrap();
+        let mut fixture: Value = serde_json::from_str(NRES014_FIXTURE).unwrap();
+        fixture["protocol"]["population_correction_assumption"] = json!("");
+        assert!(evaluate_wasserstein_radius_calibration(&source, &fixture).is_err());
     }
 
 

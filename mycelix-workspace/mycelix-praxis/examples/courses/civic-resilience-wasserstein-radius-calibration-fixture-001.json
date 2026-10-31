@@ -52,7 +52,8 @@
       "Calibration source-family blocks and one future block are exchangeable at the block level.",
       "Each source family contributes exactly one block to the calibration split.",
       "Calibration and evaluation blocks use the same predeclared block size and forecast horizon.",
-      "No source family or observation is duplicated across calibration and evaluation splits."
+      "No source family or observation is duplicated across calibration and evaluation splits.",
+      "For the optional population-law sampling correction only, outcomes within each block are conditionally iid from a fixed block-specific joint-state distribution."
     ],
     "ground_metric": {
       "name": "weighted_hamming",
@@ -65,7 +66,8 @@
       "definition": "d(s,t)=sum_i w_i*1[s_i!=t_i], with finite strictly-positive weights."
     },
     "numerical_method": "Successive-shortest-augmenting-path min-cost flow on a finite bipartite transport graph with residual reverse arcs.",
-    "population_correction_delta": 0.05
+    "population_correction_delta": 0.05,
+    "population_correction_assumption": "For this optional correction only, observations inside each future block are conditionally iid from a fixed block-specific population distribution over the joint service-state support."
   },
   "calibration_blocks": [
     {
