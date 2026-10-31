@@ -1669,7 +1669,7 @@ fn solve_rectangular_regime_recursion(
                 let probability = *outcome.regime_probabilities.get(regime)
                     .ok_or_else(|| format!("missing regime {regime} probability at {state_id}/{}", action.action_id))?;
                 let child_risk = child_plans[index].as_ref().map(|plan| plan.robust_risk).unwrap_or(0.0);
-                let child_mean = child_plans[index].as_ref().map(|plan| plan.nominal_expected_cost).unwrap_or(0.0);
+                let child_mean = child_plans[index].as_ref().map(|plan| plan.worst_local_regime_expected_cost).unwrap_or(0.0);
                 distribution.push((outcome.stage_cost + child_risk, probability));
                 expected += probability * (outcome.stage_cost + child_mean);
             }
@@ -1712,10 +1712,10 @@ fn solve_rectangular_regime_recursion(
             Some(current) if candidate.robust_risk < current.robust_risk - TOLERANCE => true,
             Some(current)
                 if (candidate.robust_risk - current.robust_risk).abs() <= TOLERANCE
-                    && candidate.nominal_expected_cost < current.nominal_expected_cost - TOLERANCE => true,
+                    && candidate.worst_local_regime_expected_cost < current.worst_local_regime_expected_cost - TOLERANCE => true,
             Some(current)
                 if (candidate.robust_risk - current.robust_risk).abs() <= TOLERANCE
-                    && (candidate.nominal_expected_cost - current.nominal_expected_cost).abs() <= TOLERANCE =>
+                    && (candidate.worst_local_regime_expected_cost - current.worst_local_regime_expected_cost).abs() <= TOLERANCE =>
             {
                 candidate.policy.get(state_id).cmp(&current.policy.get(state_id)).is_lt()
             }
