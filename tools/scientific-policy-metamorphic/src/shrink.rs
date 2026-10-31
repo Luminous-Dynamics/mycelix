@@ -38,9 +38,46 @@ pub struct CandidateTrace {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PredicateProvenance {
+    pub engine_id: String,
+    pub engine_version: String,
+    pub engine_binary_sha256: String,
+    pub policy_sha256: String,
+    pub schema_sha256: String,
+    pub evaluation_config_sha256: String,
+}
+
+impl PredicateProvenance {
+    fn validate(&self) -> Result<(), ShrinkError> {
+        for (name, value) in [
+            ("engine_id", self.engine_id.as_str()),
+            ("engine_version", self.engine_version.as_str()),
+        ] {
+            if value.trim().is_empty() {
+                return Err(ShrinkError(format!("{name} must not be empty")));
+            }
+        }
+        for (name, value) in [
+            ("engine_binary_sha256", self.engine_binary_sha256.as_str()),
+            ("policy_sha256", self.policy_sha256.as_str()),
+            ("schema_sha256", self.schema_sha256.as_str()),
+            ("evaluation_config_sha256", self.evaluation_config_sha256.as_str()),
+        ] {
+            if value.len() != 64
+                || !value.bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
+                return Err(ShrinkError(format!("{name} must be a 64-character SHA-256 hex digest")));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ShrinkTrace {
     pub schema_version: String,
     pub predicate_id: String,
+    pub predicate_provenance: Option<PredicateProvenance>,
     pub source_input_sha256: String,
     pub original_value_sha256: String,
     pub minimized_value_sha256: String,
@@ -482,6 +519,54 @@ pub fn minimize_json<P>(
     predicate_id: &str,
     protected_paths: &BTreeSet<String>,
     max_candidate_evaluations: usize,
+    predicate: P,
+) -> Result<ShrinkResult, ShrinkError>
+where
+    P: FnMut(&Value) -> Result<bool, String>,
+{
+    minimize_json_internal(
+        input,
+        source_input_bytes,
+        predicate_id,
+        None,
+        protected_paths,
+        max_candidate_evaluations,
+        predicate,
+    )
+}
+
+/// Shrink with pinned authorization-engine and policy provenance.
+pub fn minimize_json_with_provenance<P>(
+    input: &Value,
+    source_input_bytes: &[u8],
+    predicate_id: &str,
+    provenance: PredicateProvenance,
+    protected_paths: &BTreeSet<String>,
+    max_candidate_evaluations: usize,
+    predicate: P,
+) -> Result<ShrinkResult, ShrinkError>
+where
+    P: FnMut(&Value) -> Result<bool, String>,
+{
+    provenance.validate()?;
+    minimize_json_internal(
+        input,
+        source_input_bytes,
+        predicate_id,
+        Some(provenance),
+        protected_paths,
+        max_candidate_evaluations,
+        predicate,
+    )
+}
+
+fn minimize_json_internal<P>(
+    input: &Value,
+    source_input_bytes: &[u8],
+    predicate_id: &str,
+    predicate_provenance: Option<PredicateProvenance>,
+    protected_paths: &BTreeSet<String>,
+    max_candidate_evaluations: usize,
     mut predicate: P,
 ) -> Result<ShrinkResult, ShrinkError>
 where
@@ -583,6 +668,7 @@ where
         trace: ShrinkTrace {
             schema_version: "mycelix-policy-counterexample-shrink-v0.1".to_owned(),
             predicate_id: predicate_id.to_owned(),
+            predicate_provenance,
             source_input_sha256,
             original_value_sha256,
             minimized_value_sha256,
@@ -827,6 +913,53 @@ mod tests {
             |_| Ok(true),
         )
         .is_err());
+    }
+
+    fn valid_predicate_provenance() -> PredicateProvenance {
+        PredicateProvenance {
+            engine_id: "cedar-policy".to_owned(),
+            engine_version: "4.14.0".to_owned(),
+            engine_binary_sha256: "a".repeat(64),
+            policy_sha256: "b".repeat(64),
+            schema_sha256: "c".repeat(64),
+            evaluation_config_sha256: "d".repeat(64),
+        }
+    }
+
+    #[test]
+    fn engine_provenance_is_bound_into_shrink_trace() {
+        let input = serde_json::json!({"principal":"actor:fixed","action":"act","resource":"claim:1"});
+        let source_bytes = serde_json::to_vec(&input).unwrap();
+        let protected = ["/principal", "/action", "/resource"]
+            .into_iter().map(str::to_owned).collect();
+        let provenance = valid_predicate_provenance();
+        let result = minimize_json_with_provenance(
+            &input,
+            &source_bytes,
+            "cedar-opa-decision-divergence",
+            provenance.clone(),
+            &protected,
+            100,
+            |_| Ok(true),
+        ).unwrap();
+        assert_eq!(result.trace.predicate_provenance, Some(provenance));
+    }
+
+    #[test]
+    fn rejects_malformed_engine_or_policy_provenance_digests() {
+        let input = serde_json::json!({"predicate":true});
+        let source_bytes = serde_json::to_vec(&input).unwrap();
+        let mut provenance = valid_predicate_provenance();
+        provenance.policy_sha256 = "not-a-digest".to_owned();
+        assert!(minimize_json_with_provenance(
+            &input,
+            &source_bytes,
+            "invalid-provenance-control",
+            provenance,
+            &BTreeSet::new(),
+            100,
+            |_| Ok(true),
+        ).is_err());
     }
 
     #[test]
