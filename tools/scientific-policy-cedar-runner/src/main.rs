@@ -136,6 +136,15 @@ fn sha256(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+fn length_prefixed_material(parts: &[&[u8]]) -> Vec<u8> {
+    let mut output = Vec::new();
+    for part in parts {
+        output.extend_from_slice(&(part.len() as u64).to_be_bytes());
+        output.extend_from_slice(part);
+    }
+    output
+}
+
 fn git_blob_oid(bytes: &[u8]) -> String {
     let mut hasher = Sha1::new();
     hasher.update(format!("blob {}\0", bytes.len()).as_bytes());
@@ -727,14 +736,15 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         "/rego/case_id",
         "/rego/input/action",
         "/rego/input/actor/roles",
+        "/rego/input/claim/exists",
     ] {
         protected_paths.insert(pointer.to_owned());
     }
 
-    let mut engine_material = runner_binary_bytes;
-    engine_material.extend_from_slice(&opa_binary_bytes);
-    let mut policy_material = cedar_policy_bytes;
-    policy_material.extend_from_slice(&rego_policy_bytes);
+    let engine_material =
+        length_prefixed_material(&[&runner_binary_bytes, &opa_binary_bytes]);
+    let policy_material =
+        length_prefixed_material(&[&cedar_policy_bytes, &rego_policy_bytes]);
     let evaluation_config = serde_json::to_vec(&serde_json::json!({
         "cedar_sdk": "4.14.0",
         "opa_version": opa_version_text.trim(),
