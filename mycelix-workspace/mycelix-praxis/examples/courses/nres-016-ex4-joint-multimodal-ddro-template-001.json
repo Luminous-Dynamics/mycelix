@@ -115,7 +115,7 @@
               },
               "joint_coupling_basis": "Joint empirical candidate family H-01: mode weights and within-mode kernels are retained as one indivisible resample.",
               "candidate_family_id": "HARDEN",
-              "freeze_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+              "freeze_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
             },
             {
               "candidate_id": "HARDEN-CANDIDATE-02",
@@ -179,7 +179,7 @@
               },
               "joint_coupling_basis": "Joint empirical candidate family H-02: mode weights and within-mode kernels co-occur in the same cluster bootstrap.",
               "candidate_family_id": "HARDEN",
-              "freeze_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+              "freeze_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
             }
           ]
         },
@@ -253,7 +253,7 @@
               },
               "joint_coupling_basis": "Joint empirical candidate family D-01: weights and conditional kernels from the same declared regime sample.",
               "candidate_family_id": "DEFER",
-              "freeze_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+              "freeze_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
             },
             {
               "candidate_id": "DEFER-CANDIDATE-02",
@@ -317,7 +317,7 @@
               },
               "joint_coupling_basis": "Joint empirical candidate family D-02: mode and kernel estimates remain paired.",
               "candidate_family_id": "DEFER",
-              "freeze_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+              "freeze_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
             }
           ]
         }
@@ -389,7 +389,7 @@
               },
               "joint_coupling_basis": "Terminal continuation contains no additional stochastic transition; mode distribution is carried for schema completeness only.",
               "candidate_family_id": "TERMINAL",
-              "freeze_sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+              "freeze_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
             }
           ]
         }
@@ -461,7 +461,7 @@
               },
               "joint_coupling_basis": "Terminal continuation contains no additional stochastic transition; mode distribution is carried for schema completeness only.",
               "candidate_family_id": "TERMINAL",
-              "freeze_sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+              "freeze_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
             }
           ]
         }
@@ -533,7 +533,7 @@
               },
               "joint_coupling_basis": "Terminal continuation contains no additional stochastic transition; mode distribution is carried for schema completeness only.",
               "candidate_family_id": "TERMINAL",
-              "freeze_sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+              "freeze_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
             }
           ]
         }
@@ -605,7 +605,7 @@
               },
               "joint_coupling_basis": "Terminal continuation contains no additional stochastic transition; mode distribution is carried for schema completeness only.",
               "candidate_family_id": "TERMINAL",
-              "freeze_sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+              "freeze_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
             }
           ]
         }
@@ -627,6 +627,7 @@
     "Latent mode IDs are never passed to the policy.",
     "Factorized and collapsed-mode comparators must be reported separately.",
     "No real-world intervention effect or causal claim is supplied.",
-    "No calibration, deployment, readiness, certification or SOTA claim is made."
+    "No calibration, deployment, readiness, certification or SOTA claim is made.",
+    "All freeze_sha256 values in this protocol template are syntactic placeholders; recompute canonical SHA-256 digests from the complete joint-candidate bytes before any actual benchmark freeze or evaluation."
   ]
 }
