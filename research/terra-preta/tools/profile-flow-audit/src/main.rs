@@ -12,7 +12,7 @@ use std::{
     io::{self, Write},
 };
 
-const AUDIT_VERSION: &str = "0.2.0";
+const AUDIT_VERSION: &str = "0.3.0";
 const MIN_RESOLUTION_SECONDS: u32 = 300;
 const MAX_RESOLUTION_SECONDS: u32 = 1800;
 
@@ -59,24 +59,32 @@ struct SensorResponse {
     sensor_id: String,
     depth_cm: f64,
     response_status: ResponseStatus,
+    /// First sample meeting the response threshold (inclusive upper bound).
     response_onset_utc: Option<String>,
+    /// Last sample below threshold (exclusive lower bound); omitted inputs derive one sampling step.
+    response_onset_lower_bound_utc: Option<String>,
 }
 
 #[derive(Clone, Debug)]
 struct ParsedSensor<'a> {
     source: &'a SensorResponse,
-    onset: Option<DateTime<FixedOffset>>,
+    onset_lower: Option<DateTime<FixedOffset>>,
+    onset_upper: Option<DateTime<FixedOffset>>,
 }
 
 #[derive(Serialize)]
 struct PairResult {
     shallow_sensor_id: String,
     shallow_depth_cm: f64,
-    shallow_response_onset_utc: String,
+    shallow_onset_lower_exclusive_utc: String,
+    shallow_onset_upper_inclusive_utc: String,
     deep_sensor_id: String,
     deep_depth_cm: f64,
-    deep_response_onset_utc: String,
-    deep_advance_seconds: i64,
+    deep_onset_lower_exclusive_utc: String,
+    deep_onset_upper_inclusive_utc: String,
+    deep_advance_min_seconds: i64,
+    deep_advance_max_seconds: i64,
+    observed_detection_bin_advance_seconds: i64,
     ordering: &'static str,
 }
 
@@ -104,6 +112,7 @@ struct Report {
     nsr_pair_count: usize,
     sequential_pair_count: usize,
     tied_pair_count: usize,
+    ambiguous_pair_count: usize,
     profile_coverage_status: &'static str,
     profile_classification: &'static str,
     pair_results: Vec<PairResult>,
@@ -139,9 +148,9 @@ fn parse_utc(
 }
 
 fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
-    if input.schema_version != "0.2.0" {
+    if input.schema_version != "0.3.0" {
         return Err(format!(
-            "unsupported schema_version {:?}; expected 0.2.0",
+            "unsupported schema_version {:?}; expected 0.3.0",
             input.schema_version
         ));
     }
@@ -209,29 +218,54 @@ fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
             ));
         }
 
-        let onset = match (sensor.response_status, sensor.response_onset_utc.as_deref()) {
-            (ResponseStatus::Detected, Some(value)) => {
-                let parsed = parse_utc(
-                    value,
+        let (onset_lower, onset_upper) = match (
+            sensor.response_status,
+            sensor.response_onset_utc.as_deref(),
+            sensor.response_onset_lower_bound_utc.as_deref(),
+        ) {
+            (ResponseStatus::Detected, Some(upper_value), lower_value) => {
+                let upper = parse_utc(
+                    upper_value,
                     &format!("sensors[{index}].response_onset_utc"),
                     input.time_resolution_seconds,
                 )?;
-                if parsed < event_start || parsed > observation_end {
+                if upper < event_start || upper > observation_end {
                     return Err(format!(
                         "sensors[{index}] response onset lies outside the declared event observation window"
                     ));
                 }
-                Some(parsed)
+                let lower = match lower_value {
+                    Some(value) => parse_utc(
+                        value,
+                        &format!("sensors[{index}].response_onset_lower_bound_utc"),
+                        input.time_resolution_seconds,
+                    )?,
+                    None => upper - chrono::Duration::seconds(i64::from(input.time_resolution_seconds)),
+                };
+                let interval_seconds = (upper - lower).num_seconds();
+                if interval_seconds < 0
+                    || interval_seconds > i64::from(input.time_resolution_seconds)
+                {
+                    return Err(format!(
+                        "sensors[{index}] response-onset interval must be ordered and no wider than one sampling interval"
+                    ));
+                }
+                if lower < event_start - chrono::Duration::seconds(i64::from(input.time_resolution_seconds)) {
+                    return Err(format!(
+                        "sensors[{index}] response-onset lower bound is more than one sampling interval before event start"
+                    ));
+                }
+                (Some(lower), Some(upper))
             }
-            (ResponseStatus::Detected, None) => {
+            (ResponseStatus::Detected, None, _) => {
                 return Err(format!(
                     "sensors[{index}] detected response requires response_onset_utc"
                 ));
             }
-            (ResponseStatus::NotDetected | ResponseStatus::Indeterminate, None) => None,
-            (ResponseStatus::NotDetected | ResponseStatus::Indeterminate, Some(_)) => {
+            (ResponseStatus::NotDetected | ResponseStatus::Indeterminate, None, None) => (None, None),
+            (ResponseStatus::NotDetected | ResponseStatus::Indeterminate, _, _) => {
                 return Err(format!(
-                    "sensors[{index}] status {} must not have an onset time",
+                    "sensors[{index}] status {} must not have response-onset bounds",
                     sensor.response_status.as_str()
                 ));
             }
@@ -239,7 +273,8 @@ fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
 
         sensors.push(ParsedSensor {
             source: sensor,
-            onset,
+            onset_lower,
+            onset_upper,
         });
     }
 
@@ -250,7 +285,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let sensors = validate(input)?;
     let detected: Vec<_> = sensors
         .iter()
-        .filter(|sensor| sensor.onset.is_some())
+        .filter(|sensor| sensor.onset_upper.is_some())
         .collect();
     let not_detected_count = sensors
         .iter()
@@ -272,6 +307,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let mut nsr_pair_count = 0usize;
     let mut sequential_pair_count = 0usize;
     let mut tied_pair_count = 0usize;
+    let mut ambiguous_pair_count = 0usize;
 
     for left_index in 0..detected.len() {
         for right_index in (left_index + 1)..detected.len() {
@@ -286,29 +322,43 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             } else {
                 (right, left)
             };
-            let shallow_onset = shallow.onset.as_ref().expect("detected sensor has onset");
-            let deep_onset = deep.onset.as_ref().expect("detected sensor has onset");
-            let deep_advance_seconds = shallow_onset.timestamp() - deep_onset.timestamp();
+            let shallow_lower = shallow.onset_lower.as_ref().expect("detected sensor has lower bound");
+            let shallow_upper = shallow.onset_upper.as_ref().expect("detected sensor has upper bound");
+            let deep_lower = deep.onset_lower.as_ref().expect("detected sensor has lower bound");
+            let deep_upper = deep.onset_upper.as_ref().expect("detected sensor has upper bound");
 
-            let ordering = if deep_advance_seconds > 0 {
+            // Positive means the deeper sensor definitely responds first. Overlap is ambiguous.
+            let deep_advance_min_seconds = shallow_lower.timestamp() - deep_upper.timestamp();
+            let deep_advance_max_seconds = shallow_upper.timestamp() - deep_lower.timestamp();
+            let observed_detection_bin_advance_seconds = shallow_upper.timestamp() - deep_upper.timestamp();
+            let both_exact = shallow_lower == shallow_upper && deep_lower == deep_upper;
+
+            let ordering = if deep_advance_min_seconds > 0 {
                 nsr_pair_count += 1;
-                "nonsequential_deeper_first"
-            } else if deep_advance_seconds < 0 {
+                "nonsequential_deeper_first_interval_separated"
+            } else if deep_advance_max_seconds < 0 {
                 sequential_pair_count += 1;
-                "sequential_shallower_first"
-            } else {
+                "sequential_shallower_first_interval_separated"
+            } else if both_exact && shallow_upper == deep_upper {
                 tied_pair_count += 1;
-                "simultaneous_at_recorded_resolution"
+                "simultaneous_exact_onset"
+            } else {
+                ambiguous_pair_count += 1;
+                "ambiguous_overlapping_response_intervals"
             };
 
             pair_results.push(PairResult {
                 shallow_sensor_id: shallow.source.sensor_id.clone(),
                 shallow_depth_cm: shallow.source.depth_cm,
-                shallow_response_onset_utc: shallow_onset.to_rfc3339(),
+                shallow_onset_lower_exclusive_utc: shallow_lower.to_rfc3339(),
+                shallow_onset_upper_inclusive_utc: shallow_upper.to_rfc3339(),
                 deep_sensor_id: deep.source.sensor_id.clone(),
                 deep_depth_cm: deep.source.depth_cm,
-                deep_response_onset_utc: deep_onset.to_rfc3339(),
-                deep_advance_seconds,
+                deep_onset_lower_exclusive_utc: deep_lower.to_rfc3339(),
+                deep_onset_upper_inclusive_utc: deep_upper.to_rfc3339(),
+                deep_advance_min_seconds,
+                deep_advance_max_seconds,
+                observed_detection_bin_advance_seconds,
                 ordering,
             });
         }
@@ -326,6 +376,10 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         "nonsequential_response_detected"
     } else if indeterminate_count > 0 {
         "indeterminate_incomplete_profile_without_nsr"
+    } else if ambiguous_pair_count > 0 && nsr_pair_count == 0 && sequential_pair_count == 0 {
+        "ambiguous_response_ordering_due_to_sampling_interval"
+    } else if sequential_pair_count > 0 && ambiguous_pair_count > 0 {
+        "sequential_response_with_ambiguous_pairs"
     } else if tied_pair_count > 0 && sequential_pair_count > 0 {
         "sequential_and_simultaneous_response"
     } else if tied_pair_count > 0 {
@@ -346,6 +400,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         "A nonsequential signature may reflect lateral routing, profile heterogeneity or measurement artefacts; depth ordering alone does not resolve the flow direction in 2D/3D.".to_owned(),
         "No-response sensors are distinct from indeterminate sensors. Indeterminate sensors reduce declared profile coverage.".to_owned(),
         "The response threshold and onset method are explicit inputs; studies with different onset definitions must not be pooled without a crosswalk.".to_owned(),
+        "Threshold-crossing times are interval-censored between the last below-threshold sample and first above-threshold sample. Pairwise NSR/sequential labels are emitted only when intervals are strictly separated; overlapping intervals remain ambiguous.".to_owned(),
         "The result is limited to the supplied sensor roster; point sensors may miss narrow or laterally displaced preferential pathways.".to_owned(),
     ];
     if profile_coverage_status == "incomplete" && nsr_pair_count > 0 {
@@ -377,6 +432,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         nsr_pair_count,
         sequential_pair_count,
         tied_pair_count,
+        ambiguous_pair_count,
         profile_coverage_status,
         profile_classification,
         pair_results,
@@ -452,12 +508,13 @@ mod tests {
             depth_cm: depth,
             response_status: status,
             response_onset_utc: response.map(stamp),
+            response_onset_lower_bound_utc: None,
         }
     }
 
     fn input(sensors: Vec<SensorResponse>) -> Input {
         Input {
-            schema_version: "0.2.0".to_owned(),
+            schema_version: "0.3.0".to_owned(),
             study_id: "SYNTHETIC".to_owned(),
             site_id: "SYN1".to_owned(),
             plot_id: "P01".to_owned(),
@@ -486,7 +543,8 @@ mod tests {
             "nonsequential_response_detected"
         );
         assert_eq!(report.nsr_pair_count, 1);
-        assert_eq!(report.pair_results[0].deep_advance_seconds, 1200);
+        assert_eq!(report.pair_results[0].deep_advance_min_seconds, 600);
+        assert_eq!(report.pair_results[0].deep_advance_max_seconds, 1800);
     }
 
     #[test]
@@ -504,9 +562,9 @@ mod tests {
     #[test]
     fn mixed_pair_orderings_are_preserved() {
         let data = input(vec![
-            sensor("D10", 10.0, ResponseStatus::Detected, Some(30)),
+            sensor("D10", 10.0, ResponseStatus::Detected, Some(50)),
             sensor("D30", 30.0, ResponseStatus::Detected, Some(10)),
-            sensor("D60", 60.0, ResponseStatus::Detected, Some(20)),
+            sensor("D60", 60.0, ResponseStatus::Detected, Some(30)),
         ]);
         let report = evaluate(&data, "d".repeat(64)).unwrap();
         assert_eq!(report.profile_classification, "mixed_response_ordering");
@@ -516,10 +574,12 @@ mod tests {
 
     #[test]
     fn tied_responses_are_ambiguous_not_forced_into_a_direction() {
-        let data = input(vec![
+        let mut data = input(vec![
             sensor("D10", 10.0, ResponseStatus::Detected, Some(10)),
             sensor("D30", 30.0, ResponseStatus::Detected, Some(10)),
         ]);
+        data.sensors[0].response_onset_lower_bound_utc = Some(stamp(10));
+        data.sensors[1].response_onset_lower_bound_utc = Some(stamp(10));
         let report = evaluate(&data, "e".repeat(64)).unwrap();
         assert_eq!(
             report.profile_classification,
@@ -527,6 +587,52 @@ mod tests {
         );
         assert_eq!(report.tied_pair_count, 1);
         assert_eq!(report.nsr_pair_count, 0);
+    }
+
+    #[test]
+    fn overlapping_onset_intervals_are_ambiguous_not_false_nsr() {
+        let mut data = input(vec![
+            sensor("D10", 10.0, ResponseStatus::Detected, Some(30)),
+            sensor("D30", 30.0, ResponseStatus::Detected, Some(20)),
+        ]);
+        data.sensors[0].response_onset_lower_bound_utc = Some(stamp(20));
+        data.sensors[1].response_onset_lower_bound_utc = Some(stamp(10));
+        let report = evaluate(&data, "9".repeat(64)).unwrap();
+        assert_eq!(report.nsr_pair_count, 0);
+        assert_eq!(report.sequential_pair_count, 0);
+        assert_eq!(report.ambiguous_pair_count, 1);
+        assert_eq!(
+            report.profile_classification,
+            "ambiguous_response_ordering_due_to_sampling_interval"
+        );
+    }
+
+    #[test]
+    fn rejects_response_interval_wider_than_one_sampling_step() {
+        let mut data = input(vec![sensor(
+            "D10",
+            10.0,
+            ResponseStatus::Detected,
+            Some(30),
+        )]);
+        data.sensors[0].response_onset_lower_bound_utc = Some(stamp(10));
+        assert!(validate(&data)
+            .unwrap_err()
+            .contains("no wider than one sampling interval"));
+    }
+
+    #[test]
+    fn rejects_lower_bound_after_upper_bound() {
+        let mut data = input(vec![sensor(
+            "D10",
+            10.0,
+            ResponseStatus::Detected,
+            Some(30),
+        )]);
+        data.sensors[0].response_onset_lower_bound_utc = Some(stamp(40));
+        assert!(validate(&data)
+            .unwrap_err()
+            .contains("must be ordered"));
     }
 
     #[test]
