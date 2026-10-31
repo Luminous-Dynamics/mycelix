@@ -32,7 +32,7 @@ Because the expression is affine in t, the exact maximum is at an interval endpo
 The fixture freezes the bulk state IDs and treats the complement of the finite support as the tail. Each profile declares:
 - a normalized conditional bulk probability vector and aligned state losses;
 - the bulk TV radius;
-- lower and upper bounds on tail mass;
+- lower and upper bounds on tail mass (the tail upper bound is at most 0.5, so the designated bulk remains the high-mass band);
 - either a finite tail loss upper bound or explicit JSON null;
 - a text statement identifying the basis of that tail bound or its absence.
 
@@ -52,7 +52,7 @@ These numbers are arithmetic checks of an invented fixture only. They are not ob
 
 ## Tests and controls
 
-The module authors 12 Rust unit tests covering:
+The module authors 14 Rust unit tests covering:
 - hand-solvable two-state and multi-state TV transfers;
 - monotonicity in the TV radius and the radius-one maximum;
 - both tail-mass endpoint choices;
