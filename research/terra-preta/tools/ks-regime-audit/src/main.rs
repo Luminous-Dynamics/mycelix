@@ -141,13 +141,6 @@ struct Report {
     interpretation_boundary: &'static str,
 }
 
-#[derive(Clone)]
-struct IndexedObservation {
-    index: usize,
-    rac_low: bool,
-    porosity_low: bool,
-}
-
 fn nonblank(value: &str, label: &str) -> Result<(), String> {
     if value.trim().is_empty() {
         return Err(format!("{label} must not be blank"));
@@ -350,7 +343,7 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
     }
     for (rac_low, method) in cross_methods {
         let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            (row.rac_fraction < RAC_BOUNDARY == rac_low && row.ks_measurement_method == method)
+            ((row.rac_fraction < RAC_BOUNDARY) == rac_low && row.ks_measurement_method == method)
                 .then_some(index)
         }).collect();
         let rac = if rac_low { "RAC < 5%" } else { "RAC >= 5%" };
