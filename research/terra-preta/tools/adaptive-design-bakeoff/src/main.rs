@@ -840,9 +840,12 @@ mod tests {
         let report = report();
         let robust = report.policy_results.iter().find(|p| p.policy_id == "robust_decision_focused").unwrap();
         let eig = report.policy_results.iter().find(|p| p.policy_id == "bayesian_eig_proxy").unwrap();
+        let ofat = report.policy_results.iter().find(|p| p.policy_id == "one_factor_at_a_time").unwrap();
         let expert = report.policy_results.iter().find(|p| p.policy_id == "expert_fixed").unwrap();
         assert!(robust.minimum_coverage_met);
-        assert!(robust.normalized_oracle_regret.unwrap() < eig.normalized_oracle_regret.unwrap());
+        assert!(robust.normalized_oracle_regret.unwrap() < ofat.normalized_oracle_regret.unwrap());
+        assert!(!eig.minimum_coverage_met);
+        assert!(eig.normalized_oracle_regret.is_none());
         assert!(!expert.minimum_coverage_met);
         assert!(expert.normalized_oracle_regret.is_none());
         assert!(robust.weighted_synthetic_decision_utility > expert.weighted_synthetic_decision_utility);
