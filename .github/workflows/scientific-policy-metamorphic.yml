@@ -298,8 +298,8 @@ jobs:
             def normalize:
               map({key:.case_id,value:{decision:.decision,determining_policy_ids:(.determining_policy_ids // [])}})
               | from_entries;
-            ($baseline[0] | normalize) as $b |
-            ($indexed[0] | normalize) as $i |
+            ($baseline | normalize) as $b |
+            ($indexed | normalize) as $i |
             ($b | keys) as $bk |
             ($i | keys) as $ik |
             {
