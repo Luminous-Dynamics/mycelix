@@ -50,11 +50,16 @@ Engine-integrated shrinking preserves:
 - the policy-relevant Actor identity/roles and claim existence fields.
 
 The runner emits a candidate-engine-outcomes JSONL sidecar. For each candidate it
-records the stable candidate digest, Cedar decision and determining-policy IDs,
-OPA decision and rule ID, predicate-preserved result, and any evaluation error.
-The qualification workflow reconciles candidate-sidecar row count and accepted
-predicate outcomes with the generic shrink trace, so the minimized result can
-be audited through every tested reduction.
+records the stable candidate digest, candidate status, Cedar decision and
+determining-policy IDs, OPA decision and rule ID, predicate-preserved result,
+and any engine error or input-rejection reason. Schema/identity-invalid
+candidates are marked `input_rejected_before_engines` with null decision fields;
+they are never represented as Cedar Deny or OPA Deny. Successful paired
+evaluations are marked `evaluated`. The summary separately counts total
+candidates, rejected inputs, valid engine evaluations and OPA process runs.
+The qualification workflow reconciles those counts, sidecar row count and
+accepted predicate outcomes with the generic shrink trace, so the minimized
+result can be audited through every tested reduction.
 
 The seeded control currently asserts Cedar Allow under its claim-proposal permit and OPA Deny under `DEFAULT_DENY`. Every accepted reduction must preserve the same reasons. A completed run claims only deterministic 1-minimality in the declared JSON reduction neighborhood, never global minimality.
 
