@@ -2,7 +2,7 @@
 
 **Status:** benchmark specification plus a first pore/throat graph auditor. No raw CT volume has been segmented by this work, no measured core network has been audited, and no dual-permeability exchange model has been compared. Numerical targets are proposed, not achieved.
 
-**Implementation tracker:** [TERRA-PORE3D-001](https://github.com/Luminous-Dynamics/mycelix/issues/5548).
+**Implementation trackers:** [TERRA-PORE3D-001](https://github.com/Luminous-Dynamics/mycelix/issues/5548) · [TERRA-EXCHANGE-001](https://github.com/Luminous-Dynamics/mycelix/issues/5550).
 
 ## 1. Paradigm shift: from pore volume to connected, wetted, exchanging structure
 
@@ -29,7 +29,7 @@ References: Chaif et al. (2025), https://doi.org/10.1016/j.jhydrol.2025.133791; 
 
 `tools/pore-network-audit/` accepts a provenance-bearing pore/throat graph exported by a declared CT segmentation/network-extraction pipeline. It does not segment CT or simulate flow.
 
-The v0.1 audit computes:
+The v0.1 pore-network audit computes:
 
 - connected components and largest-component pore-volume fraction;
 - top-to-bottom percolating components and percolating pore-volume fraction;
@@ -38,6 +38,8 @@ The v0.1 audit computes:
 - connectivity/percolation changes over a declared throat-radius threshold sweep.
 
 The input records source CT, segmentation output and network SHA-256 digests; image dimensions and anisotropic voxel spacing; segmentation method/threshold/software; network extractor/version/parameters; pore centroids/volumes/radii/boundary contacts; and throat endpoints/lengths/radii.
+
+The separate [interface-exchange auditor](./tools/interface-exchange-audit/README.md) now checks the dimensional product and trapezoidal time integral of declared wetted interface area × macropore-to-matrix flux density. It consumes the two input series; it does not derive either series.
 
 All outputs are geometric descriptors. A widest-path radius is not a capillary-entry pressure calculation; shortest-path tortuosity is not flow-weighted; percolation does not establish water saturation or hydraulic conductance. These are screening and provenance measures to connect imaging to later physical validation.
 
