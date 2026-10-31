@@ -1,0 +1,74 @@
+{
+  "schema_version": "0.1.0",
+  "site_id": "SYN1",
+  "plot_id": "P01",
+  "profile_id": "PROFILE-01",
+  "event_id": "EVENT-01",
+  "event_start_utc": "2026-01-01T00:00:00Z",
+  "event_end_utc": "2026-01-01T00:30:00Z",
+  "response_threshold_m3_m3": 0.01,
+  "sensors": [
+    {
+      "sensor_id": "SHALLOW",
+      "depth_cm": 10,
+      "observations": [
+        {
+          "timestamp_utc": "2025-12-31T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed_good"
+        },
+        {
+          "timestamp_utc": "2026-01-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed_good"
+        },
+        {
+          "timestamp_utc": "2026-01-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed_good"
+        },
+        {
+          "timestamp_utc": "2026-01-01T00:20:00Z",
+          "volumetric_water_content_m3_m3": 0.22,
+          "status": "observed_good"
+        },
+        {
+          "timestamp_utc": "2026-01-01T00:30:00Z",
+          "volumetric_water_content_m3_m3": 0.22,
+          "status": "observed_good"
+        }
+      ]
+    },
+    {
+      "sensor_id": "DEEP",
+      "depth_cm": 40,
+      "observations": [
+        {
+          "timestamp_utc": "2025-12-31T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed_good"
+        },
+        {
+          "timestamp_utc": "2026-01-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed_good"
+        },
+        {
+          "timestamp_utc": "2026-01-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.22,
+          "status": "observed_good"
+        },
+        {
+          "timestamp_utc": "2026-01-01T00:20:00Z",
+          "volumetric_water_content_m3_m3": 0.22,
+          "status": "observed_good"
+        },
+        {
+          "timestamp_utc": "2026-01-01T00:30:00Z",
+          "volumetric_water_content_m3_m3": 0.22,
+          "status": "observed_good"
+        }
+      ]
+    }
+  ]
+}
