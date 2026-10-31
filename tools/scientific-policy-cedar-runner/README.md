@@ -43,10 +43,12 @@ Cedar/Rego policy bytes, Cedar schema and evaluation configuration. Compound
 provenance components use length-prefixed framing. Protected paths preserve
 PARC identity, the request-referenced Cedar entities, action, and the specific
 Rego fields that define the seeded mismatch. Each OPA invocation has a
-five-second timeout. The summary reports candidate counts, original and
+five-second timeout. The summary reports total candidates, input-rejected candidates,
+valid paired engine evaluations, OPA process invocations, original and
 minimized determining reasons, Cedar in-process p50/p95/p99, OPA one-shot CLI
 p50/p95/p99, and total minimization wall time separately; the per-candidate
-distributions exclude initial/final confirmation.
+distributions exclude initial/final confirmation. CI reconciles the candidate
+counts against both the generic trace and the engine-outcome sidecar.
 
 This measures counterexample-minimization behavior, not comparative Cedar/OPA
 latency. Cedar evaluator time and OPA one-shot process wall time must remain
