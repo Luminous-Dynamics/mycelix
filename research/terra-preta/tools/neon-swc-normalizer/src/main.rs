@@ -725,6 +725,29 @@ mod tests {
     }
 
     #[test]
+    fn rejects_theta_above_maximum_profile_porosity_after_quality_filtering() {
+        let mut config = config();
+        config.maximum_profile_porosity_m3_m3 = 0.22;
+        let csv = csv_fixture();
+        let (normalized, report) =
+            evaluate(&config, csv.as_bytes(), "porosity-source".to_owned(), "porosity-config".to_owned()).unwrap();
+        assert_eq!(normalized.sensors[0].observations[1].status, "missing");
+        assert_eq!(report.bins[1].quality_pass_rows, 9);
+        assert_eq!(report.bins[1].porosity_rejected_rows, 9);
+        assert_eq!(report.bins[1].porosity_pass_rows, 0);
+        assert_eq!(report.bins[1].aggregation_status, "insufficient_qa_or_porosity_coverage");
+        assert_eq!(report.maximum_profile_porosity_m3_m3, 0.22);
+        assert_eq!(report.maximum_profile_porosity_evidence_ref, "synthetic whole-profile porosity fixture");
+    }
+
+    #[test]
+    fn rejects_invalid_maximum_profile_porosity() {
+        let mut config = config();
+        config.maximum_profile_porosity_m3_m3 = 1.1;
+        assert!(validate_config(&config).unwrap_err().contains("maximum_profile_porosity_m3_m3"));
+    }
+
+    #[test]
     fn bins_below_minimum_good_fraction_become_missing_not_zero() {
         let config = config();
         let mut rows: Vec<String> = csv_fixture().lines().map(str::to_owned).collect();
