@@ -14,10 +14,10 @@ This standalone Rust CLI validates the dimensional product and time integral for
 - Specific wetted interface area: m² interface / m³ bulk soil.
 - Macropore-to-matrix flux density: m³ water / (m² interface · s), equivalent to m/s.
 - Exchange rate: area × flux density = s⁻¹.
-- Time integration uses trapezoidal quadrature over actual elapsed UTC seconds; irregular intervals are preserved and not treated as equally spaced.
+- Time integration uses trapezoidal quadrature over actual elapsed UTC seconds; irregular intervals are preserved and not treated as equally spaced. Input must declare `maximum_allowed_interval_seconds`; a larger gap is rejected rather than bridged implicitly.
 - Integrated output is gross one-way exchange volume per m³ bulk soil. It is not clamped to [0,1], is not net exchange and can exceed one under cycling/repeated transfer.
 
-Input includes source digests and per-sample provenance/status for interface area and flux density. It requires at least two samples and exact start/end observations; it does not interpolate or fill missing measurements.
+Input includes source digests and per-sample provenance/status for interface area and flux density. It requires at least two samples, exact start/end observations and a declared maximum interval; it does not interpolate or fill missing measurements.
 
 ## Interpretation boundary
 
