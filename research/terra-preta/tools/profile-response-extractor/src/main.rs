@@ -12,6 +12,7 @@ use std::{
 
 const MIN_RESOLUTION_SECONDS: u32 = 300;
 const MAX_RESOLUTION_SECONDS: u32 = 1800;
+const MAX_OBSERVATION_WINDOW_SECONDS: i64 = 6 * 24 * 60 * 60;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -199,19 +200,24 @@ fn validate(
     if event_start >= observation_end {
         return Err("observation_window_end_utc must be after event_start_utc".to_owned());
     }
+    if (observation_end.clone() - event_start.clone()).num_seconds()
+        > MAX_OBSERVATION_WINDOW_SECONDS
+    {
+        return Err("observation window must not exceed six days in v0.1".to_owned());
+    }
     if input.sensors.is_empty() {
         return Err("sensors must not be empty".to_owned());
     }
 
     let step = i64::from(input.time_resolution_seconds);
-    let first_expected = event_start - Duration::seconds(step);
+    let first_expected = event_start.clone() - Duration::seconds(step);
     let expected_count = ((observation_end.timestamp() - first_expected.timestamp()) / step + 1)
         as usize;
     let mut ids = HashSet::new();
     let mut parsed_sensors = Vec::with_capacity(input.sensors.len());
     let mut expected_times = Vec::with_capacity(expected_count);
     for index in 0..expected_count {
-        expected_times.push(first_expected + Duration::seconds(step * index as i64));
+        expected_times.push(first_expected.clone() + Duration::seconds(step * index as i64));
     }
 
     for (sensor_index, sensor) in input.sensors.iter().enumerate() {
