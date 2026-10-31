@@ -81,7 +81,7 @@ All tracks share site/sensor identity and train/validation/test split manifests,
 - `tools/preferential-flow-eventizer/` implements event grouping and response calculation on normalized 10-minute data; it does not parse NEON packages or apply the source QA filters.
 - `tools/inventory-neon-data.sh` records per-site Data Query responses and file metadata without downloading data.
 - `tools/acquire-neon-data.sh` downloads selected NEON files and verifies file size/MD5 plus local SHA-256 after the user supplies a local API token.
-- `tools/profile-flow-audit/` implements NSR as a separate diagnostic; it must not be inserted into the 2026 ResNet reproduction target.
+- `tools/profile-flow-audit/` implements NSR as a separate diagnostic with interval-censored response timing; it must not be inserted into the 2026 ResNet reproduction target. Pair order is considered robust only when response intervals are strictly separated; overlap is reported as ambiguous.
 - `tools/pf-threshold-audit/` tests sensitivity across Rosetta Ksat and modelled matrix-velocity threshold families without assuming an undocumented log base.
 
 Implementation tracker: [TERRA-NEON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5537).
