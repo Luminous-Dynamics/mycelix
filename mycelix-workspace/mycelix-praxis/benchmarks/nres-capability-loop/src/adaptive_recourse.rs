@@ -906,10 +906,11 @@ fn enumerate_terminal_cvar_policies(
     Ok(all_plans)
 }
 
-fn solve_nested_cvar(
+fn solve_nested_rho_hat(
     state_id: &str,
     model: &Model,
     alpha: f64,
+    lambda: f64,
     memo: &mut HashMap<String, Option<NestedRiskPlan>>,
     visiting: &mut BTreeSet<String>,
 ) -> Result<Option<NestedRiskPlan>, String> {
@@ -920,9 +921,7 @@ fn solve_nested_cvar(
         return Err(format!("cycle detected at information state {state_id}"));
     }
 
-    let state = model
-        .states
-        .get(state_id)
+    let state = model.states.get(state_id)
         .ok_or_else(|| format!("unknown information state {state_id}"))?;
     let floor_ok = model.service_floors.iter().all(|(service, floor)| {
         state.service_levels.get(service).is_some_and(|level| *level + TOLERANCE >= *floor)
@@ -943,7 +942,7 @@ fn solve_nested_cvar(
 
         for outcome in &action.outcomes {
             let future = match &outcome.next_state_id {
-                Some(next_id) => match solve_nested_cvar(next_id, model, alpha, memo, visiting)? {
+                Some(next_id) => match solve_nested_rho_hat(next_id, model, alpha, lambda, memo, visiting)? {
                     Some(plan) => Some(plan),
                     None => {
                         feasible = false;
@@ -976,9 +975,16 @@ fn solve_nested_cvar(
             continue;
         }
 
-        let nested_cvar = action.fixed_cost + upper_cvar(&risk_outcomes, alpha)?;
+        let conditional_mean: f64 = risk_outcomes.iter()
+            .map(|(loss, probability)| loss * probability)
+            .sum();
+        let conditional_cvar = upper_cvar(&risk_outcomes, alpha)?;
+        let nested_risk = action.fixed_cost
+            + (1.0 - lambda) * conditional_mean
+            + lambda * conditional_cvar;
+
         let candidate = NestedRiskPlan {
-            nested_cvar,
+            nested_cvar: nested_risk,
             expected_cost,
             policy,
         };
@@ -1006,28 +1012,31 @@ fn solve_nested_cvar(
     Ok(best)
 }
 
-/// Compare nested conditional CVaR with a precommitment terminal-CVaR policy.
+/// Compare recursively nested, strictly monotone mean-CVaR risk with a
+/// precommitment terminal mean-CVaR objective on the same non-anticipative tree.
 ///
-/// Nested CVaR is optimized recursively at every information state. The
-/// terminal-CVaR comparator enumerates non-anticipative policies and minimizes
-/// terminal path CVaR, breaking exact CVaR ties by expected cost. The latter
-/// is intentionally a precommitment benchmark, not a time-consistent policy.
-pub fn evaluate_nested_cvar_comparison(fixture: &Value) -> Result<Value, Vec<String>> {
+/// The one-period map is rho_hat = (1-lambda) E + lambda CVaR_alpha.
+/// Lambda is constrained to [0,1), retaining a positive expectation component
+/// and the strict-monotonicity condition used by dynamic-programming results.
+pub fn evaluate_nested_risk_comparison(fixture: &Value) -> Result<Value, Vec<String>> {
     let model = parse_model(fixture)?;
     let alpha = number_field(fixture, "risk_confidence_level")
         .filter(|value| value.is_finite() && (0.0..1.0).contains(value))
         .ok_or_else(|| vec!["risk_confidence_level must be finite and in [0,1)".to_owned()])?;
+    let lambda = number_field(fixture, "risk_aversion_lambda")
+        .filter(|value| value.is_finite() && (0.0..1.0).contains(value))
+        .ok_or_else(|| vec!["risk_aversion_lambda must be finite and in [0,1) for strict monotonicity".to_owned()])?;
 
     let mut nested_memo = HashMap::new();
     let mut nested_visiting = BTreeSet::new();
-    let nested = solve_nested_cvar(
+    let nested = solve_nested_rho_hat(
         &model.initial_state_id,
         &model,
         alpha,
+        lambda,
         &mut nested_memo,
         &mut nested_visiting,
-    )
-    .map_err(|error| vec![error])?;
+    ).map_err(|error| vec![error])?;
 
     let mut static_memo = HashMap::new();
     let mut static_visiting = BTreeSet::new();
@@ -1036,40 +1045,41 @@ pub fn evaluate_nested_cvar_comparison(fixture: &Value) -> Result<Value, Vec<Str
         &model,
         &mut static_memo,
         &mut static_visiting,
-    )
-    .map_err(|error| vec![error])?;
+    ).map_err(|error| vec![error])?;
 
-    let mut static_best: Option<(f64, f64, PathDistributionPlan)> = None;
+    let mut static_best: Option<(f64, f64, f64, PathDistributionPlan)> = None;
     for plan in static_plans {
         let terminal_cvar = upper_cvar(&plan.outcomes, alpha).map_err(|error| vec![error])?;
         let expected = mean_cost(&plan.outcomes);
+        let static_objective = (1.0 - lambda) * expected + lambda * terminal_cvar;
         let replace = match &static_best {
             None => true,
-            Some((best_cvar, _, _))
-                if terminal_cvar < *best_cvar - TOLERANCE => true,
-            Some((best_cvar, best_mean, _))
-                if (terminal_cvar - *best_cvar).abs() <= TOLERANCE
-                    && expected < *best_mean - TOLERANCE => true,
-            Some((best_cvar, best_mean, best_plan))
-                if (terminal_cvar - *best_cvar).abs() <= TOLERANCE
-                    && (expected - *best_mean).abs() <= TOLERANCE =>
+            Some((best_objective, _, _, _))
+                if static_objective < *best_objective - TOLERANCE => true,
+            Some((best_objective, _, best_expected, _))
+                if (static_objective - *best_objective).abs() <= TOLERANCE
+                    && expected < *best_expected - TOLERANCE => true,
+            Some((best_objective, _, best_expected, best_plan))
+                if (static_objective - *best_objective).abs() <= TOLERANCE
+                    && (expected - *best_expected).abs() <= TOLERANCE =>
             {
                 plan.policy.get(&model.initial_state_id).cmp(&best_plan.policy.get(&model.initial_state_id)).is_lt()
             }
             _ => false,
         };
         if replace {
-            static_best = Some((terminal_cvar, expected, plan));
+            static_best = Some((static_objective, terminal_cvar, expected, plan));
         }
     }
 
     let nested_report = nested.map(|plan| json!({
-        "nested_conditional_cvar": plan.nested_cvar,
+        "nested_mean_cvar_objective": plan.nested_cvar,
         "policy_expected_cost": plan.expected_cost,
         "policy": plan.policy
     }));
-    let static_report = static_best.map(|(risk, expected, plan)| json!({
-        "static_terminal_cvar": risk,
+    let static_report = static_best.map(|(objective, terminal_cvar, expected, plan)| json!({
+        "static_terminal_mean_cvar_objective": objective,
+        "static_terminal_cvar": terminal_cvar,
         "policy_expected_cost": expected,
         "policy": plan.policy,
         "terminal_cost_distribution": plan.outcomes.iter().map(|(cost, probability)| json!({
@@ -1087,8 +1097,11 @@ pub fn evaluate_nested_cvar_comparison(fixture: &Value) -> Result<Value, Vec<Str
         "evaluation_split": "public-development-only",
         "active_in_curriculum": false,
         "risk_confidence_level": alpha,
-        "nested_method": "recursive conditional upper-CVaR at each observable information state",
-        "static_method": "precommitment CVaR of total terminal path cost; exact CVaR ties broken by lower expected cost",
+        "risk_aversion_lambda": lambda,
+        "one_period_risk_map": "rho_hat = (1-lambda)*Expectation + lambda*upper_CVaR_alpha",
+        "nested_method": "recursive conditional rho_hat at each observable information state",
+        "static_method": "precommitment rho_hat of total terminal path cost",
+        "strict_monotonicity_contract": "lambda in [0,1) leaves a positive expectation component; the nested dynamic-programming equivalence is scoped to the cited formulation and assumptions",
         "nested": nested_report,
         "static_terminal": static_report,
         "local_decision_reversal_at_A": {
@@ -1097,14 +1110,13 @@ pub fn evaluate_nested_cvar_comparison(fixture: &Value) -> Result<Value, Vec<Str
             "different": nested_a != static_a
         },
         "nonanticipativity_semantics": "both optimizers choose one action per explicit observable information state",
-        "risk_semantics": "fixed action cost is translated outside the conditional CVaR; stage cost plus continuation risk is inside each conditional risk operator",
+        "risk_semantics": "fixed action cost is translated outside the conditional risk map; stage cost plus continuation risk is inside each conditional map",
         "calibration_claim": "none",
         "distributional_robustness_claim": "none",
         "deployment_claim": "none",
-        "interpretation": "The terminal objective can be indifferent to a local action because another branch already dominates the global tail; its expected-cost tie-break may then choose an action that is locally inferior under conditional CVaR. The nested objective evaluates each information state under its own conditional tail."
+        "interpretation": "The static terminal map can be dominated by a different branch and choose a locally riskier action; the nested rho_hat evaluates conditional branch risk at each information state. This is a semantics counterexample, not a general performance ranking."
     }))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1377,19 +1389,20 @@ mod tests {
 
     #[test]
     fn nested_cvar_reverses_static_precommitment_local_action() {
-        let report = evaluate_nested_cvar_comparison(&risk_fixture(0.9)).unwrap();
+        let report = evaluate_nested_risk_comparison(&risk_fixture(0.9)).unwrap();
         assert_eq!(report["local_decision_reversal_at_A"]["nested_action"], json!("SAFE"));
         assert_eq!(report["local_decision_reversal_at_A"]["static_precommitment_action"], json!("GAMBLE"));
         assert_eq!(report["local_decision_reversal_at_A"]["different"], json!(true));
-        assert!((report["nested"]["nested_conditional_cvar"].as_f64().unwrap() - 10000.0).abs() < 1e-10);
+        assert!((report["nested"]["nested_mean_cvar_objective"].as_f64().unwrap() - 9507.5).abs() < 1e-10);
         assert!((report["static_terminal"]["static_terminal_cvar"].as_f64().unwrap() - 10000.0).abs() < 1e-10);
+        assert!((report["static_terminal"]["static_terminal_mean_cvar_objective"].as_f64().unwrap() - 9502.5).abs() < 1e-10);
         assert!((report["nested"]["policy_expected_cost"].as_f64().unwrap() - 5075.0).abs() < 1e-10);
         assert!((report["static_terminal"]["policy_expected_cost"].as_f64().unwrap() - 5025.0).abs() < 1e-10);
     }
 
     #[test]
     fn nested_cvar_keeps_one_action_per_observable_information_state() {
-        let report = evaluate_nested_cvar_comparison(&risk_fixture(0.9)).unwrap();
+        let report = evaluate_nested_risk_comparison(&risk_fixture(0.9)).unwrap();
         let policy = report["nested"]["policy"].as_object().unwrap();
         assert_eq!(policy.len(), 5);
         assert_eq!(report["nonanticipativity_semantics"], json!("both optimizers choose one action per explicit observable information state"));
@@ -1398,14 +1411,14 @@ mod tests {
     #[test]
     fn invalid_nested_cvar_confidence_is_rejected() {
         let fixture = risk_fixture(1.0);
-        assert!(evaluate_nested_cvar_comparison(&fixture).is_err());
+        assert!(evaluate_nested_risk_comparison(&fixture).is_err());
     }
 
     #[test]
     fn terminal_cvar_enumeration_respects_pathwise_service_floors() {
         let mut fixture = risk_fixture(0.9);
         fixture["information_states"][2]["service_levels"]["water"] = json!(40.0);
-        let report = evaluate_nested_cvar_comparison(&fixture).unwrap();
+        let report = evaluate_nested_risk_comparison(&fixture).unwrap();
         assert!(report["nested"].is_null());
         assert!(report["static_terminal"].is_null());
     }
