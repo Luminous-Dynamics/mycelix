@@ -8,14 +8,6 @@ on:
       - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar"
       - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json"
       - ".github/workflows/scientific-policy-cedar-runner.yml"
-  push:
-    branches: ["main"]
-    paths:
-      - "tools/scientific-policy-cedar-runner/**"
-      - "tools/scientific-policy-space/**"
-      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar"
-      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json"
-      - ".github/workflows/scientific-policy-cedar-runner.yml"
 
 permissions:
   contents: read
@@ -26,7 +18,7 @@ concurrency:
 
 jobs:
   cedar-runner:
-    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'research/scientific-policy-cedar-runner-v0-1'
+    if: github.event.pull_request.head.ref == 'research/scientific-policy-cedar-runner-v0-1'
     name: Cedar 4.14.0 shared-input evaluation (Rust 1.96.0)
     runs-on: ubuntu-latest
     timeout-minutes: 35
