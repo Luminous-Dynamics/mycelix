@@ -1,0 +1,86 @@
+name: Scientific Policy Metamorphic Corpus
+
+on:
+  pull_request:
+    paths:
+      - "tools/scientific-policy-metamorphic/**"
+      - "tools/scientific-policy-space/**"
+      - ".github/workflows/scientific-policy-metamorphic.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scientific-policy-metamorphic-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  metamorphic-corpus:
+    name: Deterministic policy metamorphic corpus (Rust 1.96.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: clippy, rustfmt
+
+      - name: Generate standalone dependency locks
+        run: |
+          cargo generate-lockfile --manifest-path tools/scientific-policy-space/Cargo.toml
+          cargo generate-lockfile --manifest-path tools/scientific-policy-metamorphic/Cargo.toml
+
+      - name: Format the metamorphic tool
+        run: cargo fmt --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --all
+
+      - name: Test and lint metamorphic transformations
+        run: |
+          cargo test --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked
+          cargo clippy --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Generate the exact source-pinned 62,464-case baseline
+        run: |
+          cargo run --manifest-path tools/scientific-policy-space/Cargo.toml --locked -- target/scientific-policy-space
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-decision-space-v0.1.jsonl)" -eq 62464
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
+
+      - name: Generate four source-bound metamorphic corpora
+        run: |
+          cargo run --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked -- \
+            target/scientific-policy-space/manifest.json \
+            target/scientific-policy-metamorphic
+          test "$(find target/scientific-policy-metamorphic -name transform-manifest.json | wc -l)" -eq 4
+          for transform in \
+            json-object-key-order-reversed \
+            json-whitespace-expanded \
+            cedar-entity-order-reversed \
+            cedar-irrelevant-actor-added; do
+            folder="target/scientific-policy-metamorphic/$transform"
+            test "$(wc -l < "$folder/scientific-policy-engine-inputs-v0.1.jsonl")" -eq 62464
+            jq -e '.source_case_count == 62464 and .transformed_case_count == 62464 and .source_engine_inputs_sha256 != .transformed_engine_inputs_sha256' \
+              "$folder/transform-manifest.json"
+            jq -e '.expected_decision_status == "pending_authentic_rust_oracle" and .engine_input_count == 62464' \
+              "$folder/manifest.json"
+            actual_sha="$(sha256sum "$folder/scientific-policy-engine-inputs-v0.1.jsonl" | cut -d ' ' -f 1)"
+            expected_sha="$(jq -r '.engine_inputs_sha256' "$folder/manifest.json")"
+            test "$actual_sha" = "$expected_sha"
+          done
+
+      - name: Publish source, transformations and provenance manifests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-policy-metamorphic-corpus-${{ github.sha }}
+          path: |
+            target/scientific-policy-space/
+            target/scientific-policy-metamorphic/
+            tools/scientific-policy-metamorphic/Cargo.toml
+            tools/scientific-policy-metamorphic/Cargo.lock
+            tools/scientific-policy-metamorphic/README.md
+            tools/scientific-policy-metamorphic/src/lib.rs
+            tools/scientific-policy-metamorphic/src/main.rs
+          if-no-files-found: error
+          retention-days: 14
