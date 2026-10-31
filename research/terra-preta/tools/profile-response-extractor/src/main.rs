@@ -291,7 +291,6 @@ fn extract_response(
             status: "indeterminate",
             onset: None,
             lower_bound: None,
-            reason: "missing_pre_event_baseline",
         };
     };
     if baseline.status != SampleStatus::Observed {
