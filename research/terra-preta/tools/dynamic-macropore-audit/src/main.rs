@@ -638,7 +638,7 @@ mod tests {
     }
 
     #[test]
-    fn alpha_two_uses_positive_empirical_width_ratio_relationship() {
+    fn alpha_two_follows_positive_figure_table_relationship_despite_printed_eq37_sign() {
         let report = evaluate(&base(), "e".repeat(64)).unwrap();
         assert!(report.time_points[0].structural_alpha_per_m.unwrap()
             > report.time_points[2].structural_alpha_per_m.unwrap());
