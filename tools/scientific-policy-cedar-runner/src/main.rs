@@ -11,7 +11,7 @@ use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::env;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 use std::str::FromStr;
@@ -824,8 +824,24 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         return Err("max-candidates must be between 1 and 2000".to_owned());
     }
 
-    let source_bytes = fs::read(&input_path)
-        .map_err(|error| format!("read original counterexample: {error}"))?;
+    let source_metadata = fs::metadata(&input_path)
+        .map_err(|error| format!("stat original counterexample: {error}"))?;
+    if source_metadata.len() > MAX_SOURCE_INPUT_BYTES as u64 {
+        return Err(format!(
+            "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
+        ));
+    }
+    let mut source_bytes = Vec::with_capacity(
+        usize::try_from(source_metadata.len().min(MAX_SOURCE_INPUT_BYTES as u64))
+            .map_err(|error| format!("counterexample size does not fit memory index: {error}"))?,
+    );
+    File::open(&input_path)
+        .map_err(|error| format!("open original counterexample: {error}"))?
+        .take(MAX_SOURCE_INPUT_BYTES as u64 + 1)
+        .read_to_end(&mut source_bytes)
+        .map_err(|error| format!("bounded-read original counterexample: {error}"))?;
+    // The metadata check is only an early rejection. The read is independently
+    // capped so a concurrent file replacement/growth cannot bypass the limit.
     if source_bytes.len() > MAX_SOURCE_INPUT_BYTES {
         return Err(format!(
             "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
