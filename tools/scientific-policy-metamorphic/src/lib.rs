@@ -44,14 +44,16 @@ pub enum TransformId {
     JsonWhitespaceExpanded,
     CedarEntityOrderReversed,
     CedarIrrelevantActorAdded,
+    ClaimProposedContributorRemoved,
 }
 
 impl TransformId {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::JsonObjectKeyOrderReversed,
         Self::JsonWhitespaceExpanded,
         Self::CedarEntityOrderReversed,
         Self::CedarIrrelevantActorAdded,
+        Self::ClaimProposedContributorRemoved,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -60,6 +62,7 @@ impl TransformId {
             Self::JsonWhitespaceExpanded => "json-whitespace-expanded",
             Self::CedarEntityOrderReversed => "cedar-entity-order-reversed",
             Self::CedarIrrelevantActorAdded => "cedar-irrelevant-actor-added",
+            Self::ClaimProposedContributorRemoved => "claim-proposed-contributor-removed",
         }
     }
 
@@ -70,6 +73,9 @@ impl TransformId {
             | Self::CedarEntityOrderReversed => "decision_invariant",
             Self::CedarIrrelevantActorAdded => {
                 "decision_invariant_when_new_entity_uid_is_unreferenced"
+            }
+            Self::ClaimProposedContributorRemoved => {
+                "one_targeted_claim_proposed_case_changes_from_allow_to_deny"
             }
         }
     }
@@ -88,6 +94,9 @@ impl TransformId {
             Self::CedarIrrelevantActorAdded => {
                 "the inserted Actor UID is absent from request principal/action/resource and existing entities; the new entity has only schema-defined attributes and no parents"
             }
+            Self::ClaimProposedContributorRemoved => {
+                "exactly one source case has action claim_proposed, absent claim, and exactly the contributor role; remove that role in Cedar and Rego while preserving all other fields and case identity"
+            }
         }
     }
 }
@@ -103,6 +112,9 @@ pub struct VariantManifest {
     pub transformed_engine_inputs_sha256: String,
     pub source_case_count: usize,
     pub transformed_case_count: usize,
+    pub expected_changed_case_count: usize,
+    pub changed_case_count: usize,
+    pub changed_case_ids: Vec<String>,
     pub baseline_revision: String,
     pub baseline_source_blob_sha: String,
     pub precondition: String,
@@ -327,6 +339,109 @@ fn append_irrelevant_actor(case: &mut Value) -> Result<(), MetamorphicError> {
     Ok(())
 }
 
+fn remove_contributor_from_claim_proposed(case: &mut Value) -> Result<(), MetamorphicError> {
+    let request = case
+        .get("cedar")
+        .and_then(|cedar| cedar.get("request"))
+        .and_then(Value::as_object)
+        .ok_or_else(|| error("Cedar request must be an object"))?;
+    let action = required_string_value(request, "action")?;
+    if action != "Mycelix::Action::\\"claim_proposed\\"" {
+        return Ok(());
+    }
+
+    let resource = required_string_value(request, "resource")?;
+    let rego_input = case
+        .get("rego")
+        .and_then(|rego| rego.get("input"))
+        .and_then(Value::as_object)
+        .ok_or_else(|| error("Rego input must be an object"))?;
+    if rego_input.get("action").and_then(Value::as_str) != Some("claim_proposed")
+        || rego_input
+            .get("claim")
+            .and_then(|claim| claim.get("exists"))
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        return Ok(());
+    }
+
+    let cedar = case
+        .get_mut("cedar")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| error("Cedar projection must be an object"))?;
+    let entities = cedar
+        .get_mut("entities")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| error("Cedar entities must be an array"))?;
+    let mut target_actor_index = None;
+    let mut absent_claim = false;
+    for (index, entity) in entities.iter().enumerate() {
+        let uid = entity
+            .get("uid")
+            .ok_or_else(|| error("Cedar entity is missing uid"))?;
+        let entity_type = uid.get("type").and_then(Value::as_str).unwrap_or_default();
+        let entity_id = uid.get("id").and_then(Value::as_str).unwrap_or_default();
+        if entity_type == "Mycelix::Actor" {
+            let roles = entity
+                .get("attrs")
+                .and_then(|attrs| attrs.get("roles"))
+                .and_then(Value::as_array)
+                .ok_or_else(|| error("Cedar Actor roles must be an array"))?;
+            if roles.as_slice() == [Value::String("contributor".to_owned())] {
+                target_actor_index = Some(index);
+            }
+        } else if entity_type == "Mycelix::Claim" && entity_id == resource {
+            absent_claim = entity
+                .get("attrs")
+                .and_then(|attrs| attrs.get("exists"))
+                .and_then(Value::as_bool)
+                == Some(false);
+        }
+    }
+
+    let Some(actor_index) = target_actor_index else {
+        return Ok(());
+    };
+    if !absent_claim {
+        return Ok(());
+    }
+
+    let rego = case
+        .get_mut("rego")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| error("Rego projection must be an object"))?;
+    let actor_roles = rego
+        .get_mut("input")
+        .and_then(Value::as_object_mut)
+        .and_then(|input| input.get_mut("actor"))
+        .and_then(Value::as_object_mut)
+        .and_then(|actor| actor.get_mut("roles"))
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| error("Rego actor roles must be an array"))?;
+    if actor_roles.as_slice() != [Value::String("contributor".to_owned())] {
+        return Err(error("target Cedar and Rego actor roles are not identical contributor-only sets"));
+    }
+
+    entities[actor_index]
+        .get_mut("attrs")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| error("target Cedar Actor attrs must be an object"))?
+        .insert("roles".to_owned(), Value::Array(Vec::new()));
+    *actor_roles = Vec::new();
+    Ok(())
+}
+
+fn expected_changed_case_count(transform: TransformId) -> usize {
+    match transform {
+        TransformId::JsonObjectKeyOrderReversed | TransformId::JsonWhitespaceExpanded => 0,
+        TransformId::CedarEntityOrderReversed | TransformId::CedarIrrelevantActorAdded => {
+            EXPECTED_CASE_COUNT
+        }
+        TransformId::ClaimProposedContributorRemoved => 1,
+    }
+}
+
 pub fn transform_case(
     source: &Value,
     transform: TransformId,
@@ -351,6 +466,9 @@ pub fn transform_case(
             entities.reverse();
         }
         TransformId::CedarIrrelevantActorAdded => append_irrelevant_actor(&mut transformed)?,
+        TransformId::ClaimProposedContributorRemoved => {
+            remove_contributor_from_claim_proposed(&mut transformed)?;
+        }
     }
 
     let bytes = match transform {
@@ -363,7 +481,9 @@ pub fn transform_case(
             .map_err(|serialize_error| error(format!("serialize expanded JSON: {serialize_error}")))?
             .replace('\n', " ")
             .into_bytes(),
-        TransformId::CedarEntityOrderReversed | TransformId::CedarIrrelevantActorAdded => {
+        TransformId::CedarEntityOrderReversed
+        | TransformId::CedarIrrelevantActorAdded
+        | TransformId::ClaimProposedContributorRemoved => {
             serde_json::to_vec(&transformed)
                 .map_err(|serialize_error| error(format!("serialize transformed case: {serialize_error}")))?
         }
@@ -414,6 +534,7 @@ fn write_variant(
     let mut output_hasher = Sha256::new();
     let reader = BufReader::new(source_inputs);
     let mut seen_case_ids = BTreeSet::new();
+    let mut changed_case_ids = Vec::new();
     let mut case_count = 0usize;
 
     for (line_index, line) in reader.lines().enumerate() {
@@ -427,7 +548,10 @@ fn write_variant(
         if !seen_case_ids.insert(case_id.clone()) {
             return Err(error(format!("duplicate source case ID at line {}", line_index + 1)));
         }
-        let (_, row) = transform_case(&source_case, transform)?;
+        let (transformed_case, row) = transform_case(&source_case, transform)?;
+        if transformed_case != source_case {
+            changed_case_ids.push(case_id.clone());
+        }
         let mut row = row;
         row.push(b'\n');
         writer
@@ -442,6 +566,15 @@ fn write_variant(
     if case_count != EXPECTED_CASE_COUNT {
         return Err(error(format!(
             "transformed case count {case_count} does not equal frozen count {EXPECTED_CASE_COUNT}"
+        )));
+    }
+    let expected_changed_count = expected_changed_case_count(transform);
+    if changed_case_ids.len() != expected_changed_count {
+        return Err(error(format!(
+            "transform {} changed {} semantic case values; expected exactly {}",
+            transform.as_str(),
+            changed_case_ids.len(),
+            expected_changed_count
         )));
     }
 
@@ -473,6 +606,9 @@ fn write_variant(
         transformed_engine_inputs_sha256: transformed_digest.clone(),
         source_case_count: required_usize(manifest, "engine_input_count")?,
         transformed_case_count: case_count,
+        expected_changed_case_count: expected_changed_count,
+        changed_case_count: changed_case_ids.len(),
+        changed_case_ids,
         baseline_revision,
         baseline_source_blob_sha,
         precondition: transform.precondition().to_owned(),
@@ -617,6 +753,42 @@ mod tests {
         assert_eq!(transformed["rego"], source["rego"]);
         assert_eq!(entities[2]["uid"]["type"], "Mycelix::Actor");
         assert_eq!(entities[2]["attrs"]["roles"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn claim_proposed_contributor_removal_is_a_single_meaning_changing_control() {
+        let mut source = sample_case();
+        source["cedar"]["request"]["action"] =
+            Value::String("Mycelix::Action::\\"claim_proposed\\"".to_owned());
+        source["cedar"]["request"]["resource"] =
+            Value::String("Mycelix::Claim::\\"new-claim\\"".to_owned());
+        source["cedar"]["entities"][1]["uid"]["id"] =
+            Value::String("new-claim".to_owned());
+        source["cedar"]["entities"][1]["attrs"]["exists"] = Value::Bool(false);
+        source["rego"]["input"]["action"] = Value::String("claim_proposed".to_owned());
+        source["rego"]["input"]["claim"]["exists"] = Value::Bool(false);
+
+        let (transformed, _) = transform_case(
+            &source,
+            TransformId::ClaimProposedContributorRemoved,
+        )
+        .unwrap();
+        assert_eq!(transformed["case_id"], source["case_id"]);
+        assert_eq!(transformed["rego"]["case_id"], source["rego"]["case_id"]);
+        assert_eq!(transformed["cedar"]["entities"][0]["attrs"]["roles"], serde_json::json!([]));
+        assert_eq!(transformed["rego"]["input"]["actor"]["roles"], serde_json::json!([]));
+        assert_eq!(source["cedar"]["entities"][0]["attrs"]["roles"], serde_json::json!(["contributor"]));
+    }
+
+    #[test]
+    fn claim_proposed_control_leaves_non_target_cases_unchanged() {
+        let source = sample_case();
+        let (transformed, _) = transform_case(
+            &source,
+            TransformId::ClaimProposedContributorRemoved,
+        )
+        .unwrap();
+        assert_eq!(transformed, source);
     }
 
     #[test]
