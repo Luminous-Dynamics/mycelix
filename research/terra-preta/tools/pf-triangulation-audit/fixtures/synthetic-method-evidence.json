@@ -42,7 +42,10 @@
       "evidence_ref": "synthetic tracer truth",
       "detection_limit_or_resolution": "arrival detected at lower boundary",
       "event_id": "E001",
-      "profile_id": "PROFILE-01"
+      "profile_id": "PROFILE-01",
+      "review_claim": "claims_independent_review_blinded",
+      "quality_status": "qualified",
+      "reviewer_evidence_ref_claimed": "synthetic self-declared review claim only; not a verified attestation"
     }
   ],
   "method_artifacts": [
