@@ -90,6 +90,7 @@ struct Event {
 struct Response {
     status: &'static str,
     onset: Option<String>,
+    onset_lower_bound: Option<String>,
     lag_minutes: Option<i64>,
 }
 
@@ -106,6 +107,7 @@ struct EventResult {
     nonzero_pulse_count: usize,
     response_status: String,
     response_onset_utc: Option<String>,
+    response_onset_lower_bound_utc: Option<String>,
     response_lag_minutes: Option<i64>,
     apparent_response_velocity_mm_h: Option<f64>,
     preferential_flow_proxy: Option<bool>,
@@ -330,6 +332,7 @@ fn detect_response(event: &Event, moisture: &[Moisture]) -> Response {
         return Response {
             status: "indeterminate_missing_baseline",
             onset: None,
+            onset_lower_bound: None,
             lag_minutes: None,
         };
     };
@@ -337,6 +340,7 @@ fn detect_response(event: &Event, moisture: &[Moisture]) -> Response {
         return Response {
             status: "indeterminate_missing_baseline",
             onset: None,
+            onset_lower_bound: None,
             lag_minutes: None,
         };
     };
@@ -344,6 +348,7 @@ fn detect_response(event: &Event, moisture: &[Moisture]) -> Response {
         return Response {
             status: "indeterminate_missing_baseline",
             onset: None,
+            onset_lower_bound: None,
             lag_minutes: None,
         };
     }
@@ -356,6 +361,7 @@ fn detect_response(event: &Event, moisture: &[Moisture]) -> Response {
         duration_close
     };
     let mut missing_before_detection = false;
+    let mut last_below_threshold_time = base.time.clone();
 
     for sample in moisture
         .iter()
@@ -369,14 +375,17 @@ fn detect_response(event: &Event, moisture: &[Moisture]) -> Response {
             return Response {
                 status: "detected",
                 onset: Some(sample.time.to_rfc3339()),
+                onset_lower_bound: Some(last_below_threshold_time.to_rfc3339()),
                 lag_minutes: Some((sample.time - event.start).num_minutes()),
             };
         }
+        last_below_threshold_time = sample.time.clone();
     }
     if missing_before_detection {
         Response {
             status: "indeterminate_data_gap",
             onset: None,
+            onset_lower_bound: None,
             lag_minutes: None,
         }
     } else if moisture
@@ -387,12 +396,14 @@ fn detect_response(event: &Event, moisture: &[Moisture]) -> Response {
         Response {
             status: "right_censored_insufficient_followup",
             onset: None,
+            onset_lower_bound: None,
             lag_minutes: None,
         }
     } else {
         Response {
             status: "not_detected",
             onset: None,
+            onset_lower_bound: None,
             lag_minutes: None,
         }
     }
@@ -455,6 +466,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             nonzero_pulse_count: event.pulse_count,
             response_status: response.status.to_owned(),
             response_onset_utc: response.onset,
+            response_onset_lower_bound_utc: response.onset_lower_bound,
             response_lag_minutes: response.lag_minutes,
             apparent_response_velocity_mm_h: velocity,
             preferential_flow_proxy: proxy,
@@ -488,6 +500,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         warnings: vec![
             "Input must be QA-filtered and median-aggregated to 10-minute cadence; raw NEON QA processing is not performed here.".to_owned(),
             "The immediately-preceding-bin response baseline is an operationalization; verify against author code/supplement before claiming exact reproduction.".to_owned(),
+            "For a detected crossing, response_onset_utc is the first above-threshold sample and response_onset_lower_bound_utc is the immediately preceding below-threshold sample; actual onset is interval-censored between them.".to_owned(),
             "Interpolated values are accepted only when explicitly marked as a gap shorter than six hours by upstream processing.".to_owned(),
             "A missing moisture bin before threshold crossing yields indeterminate; no response requires full follow-up through the event window.".to_owned(),
             "The supplied Ksat value is not calculated by this tool and is not independent pathway ground truth.".to_owned(),
@@ -619,6 +632,10 @@ mod tests {
         assert_eq!(
             report.events[0].apparent_response_velocity_mm_h,
             Some(300.0)
+        );
+        assert_eq!(
+            report.events[0].response_onset_lower_bound_utc.as_deref(),
+            Some("2026-01-01T00:10:00+00:00")
         );
         assert_eq!(report.events[0].preferential_flow_proxy, Some(true));
     }
