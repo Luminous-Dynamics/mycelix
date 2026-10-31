@@ -383,7 +383,7 @@ mod tests {
     fn greedy_tv_reallocation_uses_lowest_loss_donors_first() {
         let (upper, moved) =
             tv_upper_expectation(&[0.2, 0.3, 0.5], &[0.0, 4.0, 10.0], 0.3).unwrap();
-        assert!((upper - 7.2).abs() < 1e-12);
+        assert!((upper - 8.8).abs() < 1e-12);
         assert!((moved - 0.3).abs() < 1e-12);
     }
 
