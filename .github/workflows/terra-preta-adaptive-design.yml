@@ -55,11 +55,16 @@ jobs:
           ' "$RUNNER_TEMP/adaptive-design-report.json"
           jq -e '
             (.policy_results[] | select(.policy_id == "robust_decision_focused")) as $robust |
+            (.policy_results[] | select(.policy_id == "one_factor_at_a_time")) as $ofat |
             (.policy_results[] | select(.policy_id == "bayesian_eig_proxy")) as $eig |
             (.policy_results[] | select(.policy_id == "expert_fixed")) as $expert |
             $robust.minimum_coverage_met and
-            ($robust.normalized_oracle_regret < $eig.normalized_oracle_regret) and
-            ($robust.normalized_oracle_regret < $expert.normalized_oracle_regret)
+            ($robust.normalized_oracle_regret < $ofat.normalized_oracle_regret) and
+            ($robust.weighted_synthetic_decision_utility > $ofat.weighted_synthetic_decision_utility) and
+            ($robust.weighted_synthetic_decision_utility > $eig.weighted_synthetic_decision_utility) and
+            ($robust.weighted_synthetic_decision_utility > $expert.weighted_synthetic_decision_utility) and
+            ($eig.minimum_coverage_met == false) and ($eig.normalized_oracle_regret == null) and
+            ($expert.minimum_coverage_met == false) and ($expert.normalized_oracle_regret == null)
           ' "$RUNNER_TEMP/adaptive-design-report.json"
       - name: Validate report schema
         run: |
