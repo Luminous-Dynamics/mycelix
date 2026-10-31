@@ -21,6 +21,8 @@ Do not collapse these into one macropore fraction or one morphology score.
 
 Chaif et al. (2025), Journal of Hydrology 661, 133791, DOI [10.1016/j.jhydrol.2025.133791](https://doi.org/10.1016/j.jhydrol.2025.133791), describe a dual-permeability exchange formulation based on specific wetted matrix–macropore interfacial area multiplied by macropore water flux density. Their abstract reports improved agreement with experimental data versus a classical pressure-head-based exchange term. This suggests an important model comparison: CT-informed wetted-interface exchange versus conventional pressure-head exchange—not simply more detailed geometry versus less detailed geometry.
 
+**A caution from earlier CT-parameter substitution:** Lissy et al. (2020), Geoderma 380, 114643, DOI [10.1016/j.geoderma.2020.114643](https://doi.org/10.1016/j.geoderma.2020.114643), compared a classical dual-porosity model with an advanced version substituting CT-derived percolating macroporosity and mean inter-macropore distance for fitted structural parameters. Their abstract reports that the classical version gave the better overall fit, while its water exchange behavior was not properly simulated; the CT-parameterized version performed worse overall. This is not evidence that CT is unhelpful. It is a warning that **parameter substitution and mechanism improvement are different hypotheses**. Our bake-off therefore includes a CT-parameter-substitution baseline separately from a wetted-interface exchange mechanism.
+
 PoreSpy's SNOW2 and regions-to-network workflow can extract pore/throat networks from 3D segmented images, including region volumes, pore coordinates, inscribed diameters, throat connections and lengths. The extraction itself is a model step: segmentation thresholds, voxel spacing, object filtering and watershed choices can alter network topology. Preserve these choices and run sensitivity analysis.
 
 References: Chaif et al. (2025), https://doi.org/10.1016/j.jhydrol.2025.133791; PoreSpy SNOW2 documentation, https://porespy.org/ (see SNOW2 and regions-to-network).
@@ -71,9 +73,10 @@ Use the same imaged soil core, boundary conditions, initial matric state, rainfa
 |---|---|---|
 | M0: matrix-only Richards | No preferential domain | Multi-depth theta/pressure, infiltration, drainage and tracer breakthrough |
 | M1: classical dual-permeability | Conventional pressure-head-based matrix–macropore exchange | Same observables, domain fluxes and calibrated parameter burden |
-| M2: CT-informed geometry | CT-derived pore/throat network and geometric connectivity, with classical exchange | Pathway connectivity, breakthrough timing/tails and parameter identifiability |
-| M3: CT-informed wetted interface | Specific wetted interfacial area × macropore flux density exchange term, as in the Chaif et al. candidate formulation | Time-varying interface area, exchange flux, tracer breakthrough and mass closure |
-| M4: hybrid state-space candidate | M3 physical prior plus learned residual only where identifiable | Prediction/calibration/transfer plus evidence-specific attribution and abstention |
+| M2: CT-parameter substitution | Replace declared structural parameters (for example percolating macroporosity and mean inter-macropore distance) with CT-derived values, while retaining the classical exchange law | Reproduce the Lissy et al. 2020 caution case; test whether geometry substitution helps or harms each observable |
+| M3: CT geometry + classical exchange | CT-derived pore/throat network and geometric connectivity, with classical exchange | Pathway connectivity, breakthrough timing/tails and parameter identifiability |
+| M4: CT-informed wetted interface | Specific wetted interfacial area × macropore flux density exchange term, as in the Chaif et al. candidate formulation | Time-varying interface area, exchange flux, tracer breakthrough and mass closure |
+| M5: hybrid state-space candidate | M4 physical prior plus learned residual only where identifiable | Prediction/calibration/transfer plus evidence-specific attribution and abstention |
 
 Pin exact executable/version/module, dimensionality, parameters, solver and time-step controls. Calibrate only on training cores/events; score frozen held-out cores and storms. If a model lacks an observable, mark it unsupported rather than awarding a zero error.
 
@@ -102,6 +105,7 @@ Symtropy should own the physical kernels and matched dual-permeability simulatio
 
 ## 8. References and linked work
 
+- Lissy et al. (2020). Can structure data obtained from CT images substitute for parameters of a preferential flow model? Geoderma 380, 114643. https://doi.org/10.1016/j.geoderma.2020.114643
 - Chaif et al. (2025). CT-informed specific wetted interfacial area for matrix–macropore exchange. Journal of Hydrology 661, 133791. https://doi.org/10.1016/j.jhydrol.2025.133791
 - PoreSpy SNOW2 and regions-to-network documentation. https://porespy.org/
 - Dynamic macropore morphology–hydrology benchmark: [DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md](./DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md).
