@@ -32,7 +32,10 @@ summary. The trace binds exact source bytes, normalized JSON, runner/OPA binary
 bytes, Cedar/Rego policy bytes, Cedar schema and evaluation configuration.
 Compound provenance components use length-prefixed framing. Protected paths
 preserve PARC identity, the request-referenced Cedar entities, action, and the
-specific Rego fields that define the seeded mismatch.
+specific Rego fields that define the seeded mismatch. Each OPA invocation has
+a five-second timeout. The summary reports candidate counts, Cedar in-process
+p50/p95/p99, OPA one-shot CLI p50/p95/p99, and total minimization wall time
+separately; the per-candidate distributions exclude initial/final confirmation.
 
 This measures counterexample-minimization behavior, not comparative Cedar/OPA
 latency. Cedar evaluator time and OPA one-shot process wall time must remain
