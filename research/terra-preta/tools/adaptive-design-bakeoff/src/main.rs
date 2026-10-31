@@ -849,7 +849,7 @@ mod tests {
         let expert = report.policy_results.iter()
             .find(|policy| policy.policy_id == "expert_fixed").unwrap();
         assert!(!expert.minimum_coverage_met);
-        assert_eq!(expert.weighted_synthetic_decision_utility, 0.99);
+        assert!((expert.weighted_synthetic_decision_utility - 0.99).abs() < 1e-9);
     }
 
     #[test]
