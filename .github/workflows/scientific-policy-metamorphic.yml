@@ -176,7 +176,7 @@ jobs:
             claim_superseded
             claim_retracted
           )
-          for action in "\${actions[@]}"; do
+          for action in "${actions[@]}"; do
             input_file="target/opa-native-bench/$action-input.json"
             output_file="target/opa-native-bench/$action-bench.json"
             jq -sc --arg action "$action" \
