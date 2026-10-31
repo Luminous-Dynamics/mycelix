@@ -418,14 +418,10 @@ mod tests {
     }
 
     #[test]
-    fn scores_must_be_finite_and_non_negative() {
-        let calibration = vec![cluster("C1", [f64::NAN, 0.2, 0.3]), cluster("C2", [0.1, 0.2, 0.3])];
+    fn null_block_scores_are_rejected() {
+        let mut calibration = vec![cluster("C1", [0.1, 0.2, 0.3]), cluster("C2", [0.1, 0.2, 0.3])];
+        calibration[0]["blocks"][0]["w1_score"] = Value::Null;
         let development = vec![cluster("D1", [0.2, 0.3, 0.4])];
-        let serialized = serde_json::to_value(calibration).unwrap_or(Value::Null);
-        assert!(evaluate_cluster_max_conformal(&fixture(
-            serialized.as_array().cloned().unwrap_or_default(),
-            development,
-            0.2
-        )).is_err());
+        assert!(evaluate_cluster_max_conformal(&fixture(calibration, development, 0.2)).is_err());
     }
 }
