@@ -146,6 +146,52 @@ A 10% average MAE improvement is not sufficient if extreme-event errors, calibra
 - Rosetta3-derived (K_{sat}) is a prior/threshold input, not ground truth. Quantify its uncertainty and label sensitivity.
 - Regulatory use in a pesticide-leaching framework does not confer regulatory approval for biochar, fertilizer, N/P/K leaching, greenhouse-gas, contaminant or South African field claims.
 
+## 6A. Saturated-conductivity model bake-off: RAC and measurement-method regimes
+
+A relevant industry/SOTA benchmark was published in *Geoderma* 471 (July 2026), article 117866, DOI [10.1016/j.geoderma.2026.117866](https://doi.org/10.1016/j.geoderma.2026.117866). Qin et al. compared eight water-retention-derived saturated hydraulic conductivity (`Ks`) models: three semi-empirical models and five models integrating a water-retention-derived pore-size distribution, using both Brooks–Corey and van Genuchten retention forms. They evaluated a uniform-method set of 378 samples (HYP-UNI) and a mixed-institution/mixed-method set of 1,734 samples (HYPRES).
+
+The main result changes the benchmark design:
+
+- Relative air capacity (RAC) is the fraction of total porosity that is air-filled at -10 kPa. It was used as the structural regime descriptor.
+- In the uniform-method dataset, integral-based models, particularly Brooks–Corey variants, did better at RAC >= 5%, but often underpredicted Ks when RAC < 5%.
+- On the mixed-method dataset, prediction performance deteriorated and semi-empirical models were relatively more competitive; underprediction in RAC < 5% persisted.
+- Overprediction was associated with lower total porosity (around 40% or lower) in the uniform-method analysis, but that relationship did not generalize cleanly to the mixed-method dataset.
+- The paper cautions that water-retention curves with few points and measurements made on different samples can obscure structure–Ks relationships. It is not enough to pool model scores and call the top pooled model “best”.
+
+This becomes a separate **Ks regime track**, not another preferential-flow classifier. The new executable is [`tools/ks-regime-audit`](./tools/ks-regime-audit/README.md), tracked by [issue #5567](https://github.com/Luminous-Dynamics/mycelix/issues/5567).
+
+### Required matched comparison
+
+Evaluate the same frozen held-out samples and source identities with:
+
+1. Brooks–Corey pore-spectrum integration;
+2. van Genuchten pore-spectrum integration;
+3. Kozeny–Carman and other declared semi-empirical conductance baselines;
+4. Rosetta3 pedotransfer predictions;
+5. Symtropy's physics-based Ks candidate;
+6. any hybrid or learned-residual model.
+
+Every implementation must pin source/build/version, retention-curve model, hydraulic parameters, pore-size integration bounds, tortuosity/conductance assumptions, calibration folds, and model-configuration digest. If a model requires more water-retention points or independently measured parameters, that information burden must be reported and matched or scored in a separate track.
+
+### Mandatory strata and metrics
+
+Use the following separately and publish every model's count and independent-group count:
+
+- RAC < 5% and RAC >= 5%;
+- total porosity <= 40% and > 40%;
+- exact Ks measurement method and protocol;
+- exact water-retention measurement method and protocol;
+- RAC × Ks-measurement-method;
+- uniform-method and multi-method evaluation tracks, never pooled into a single headline number.
+
+Primary metrics should be MAE/RMSE/bias in log10(Ks), concordance correlation coefficient where supported, residual distribution, and the fractions underpredicting/overpredicting. Preserve the paper-style residual categorization using +/-0.5 times the pooled standard deviation of observed log10(Ks), while clearly stating its reference population. Report worst-regime error and the direction of bias, not just the pooled mean.
+
+### What would count as an advance
+
+The competitive goal is not simply lower mean error. A new model should improve the low-RAC (<5%) regime without sacrificing the high-RAC structured-soil regime, remain calibrated across measurement protocols, and show that a pore-structure term improves prediction on genuinely held-out groups. It must also survive a methodologically uniform dataset and a separate mixed-method dataset. A method-sensitive rank reversal is an important result, not noise to average away.
+
+**Important boundary:** the 378 and 1,734 sample counts are the 2026 paper's reported datasets; Terra Preta has not downloaded or reproduced them in this branch. The RAC and porosity boundaries are diagnostic strata suggested by that study, not universal physical transitions. The CLI accepts provenance-bound RAC values; it does not calculate RAC or validate the source lab measurement.
+
 ## 7. References
 
 - Larsbo et al., SLU MACRO 5.2 official description (reviewed 2026-07-06): https://www.slu.se/en/about-slu/organisation/collaborative-centres/slu-centre-for-pesticides-in-the-environment/areas-of-operation/macro-models/macro-5.2
