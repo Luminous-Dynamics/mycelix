@@ -478,6 +478,7 @@ jobs:
           jq empty research/terra-preta/tools/pf-triangulation-audit/fixtures/synthetic-method-evidence.json
           jq empty research/terra-preta/tools/pore-network-audit/fixtures/synthetic-connected-network.json
           jq empty research/terra-preta/tools/interface-exchange-audit/fixtures/synthetic-constant-exchange.json
+          jq empty research/terra-preta/tools/neon-precip-normalizer/fixtures/synthetic-config.json
           bash -n research/terra-preta/tools/acquire-public-sources.sh
           bash -n research/terra-preta/tools/acquire-neon-data.sh
           bash -n research/terra-preta/tools/inventory-neon-data.sh
@@ -529,6 +530,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/interface-exchange-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml -- --check
       - name: Test standalone audit tools and JSON Schema conformance
         run: |
           cargo test --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml
@@ -586,6 +588,9 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/interface-exchange-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/interface-exchange-audit/Cargo.toml -- research/terra-preta/tools/interface-exchange-audit/fixtures/synthetic-constant-exchange.json "$RUNNER_TEMP/terra-preta-interface-exchange-report.json"
           jq -e '.sample_count == 2 and (.peak_exchange_rate_per_s > 0.00000999 and .peak_exchange_rate_per_s < 0.00001001) and (.cumulative_gross_exchange_m3_per_m3_bulk > 0.035999 and .cumulative_gross_exchange_m3_per_m3_bulk < 0.036001) and (.cumulative_gross_exchange_depth_mm > 3.599 and .cumulative_gross_exchange_depth_mm < 3.601) and .measured_interface_area_sample_count == 2 and .modelled_flux_density_sample_count == 2' "$RUNNER_TEMP/terra-preta-interface-exchange-report.json"
+          cargo test --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml -- research/terra-preta/tools/neon-precip-normalizer/fixtures/synthetic-config.json research/terra-preta/tools/neon-precip-normalizer/fixtures/synthetic-primary.csv research/terra-preta/tools/neon-precip-normalizer/fixtures/synthetic-secondary.csv "$RUNNER_TEMP/terra-preta-neon-precip-report.json"
+          jq -e '.paper_reproduction.bin_count == 2 and .paper_reproduction.observed_bin_count == 0 and .paper_reproduction.zero_imputed_bin_count == 2 and .paper_reproduction.selected_primary_bin_count == 1 and .paper_reproduction.selected_secondary_bin_count == 1 and .coverage_aware_sensitivity.observed_bin_count == 1 and .coverage_aware_sensitivity.missing_bin_count == 1 and .coverage_aware_sensitivity.bins[1].precipitation_mm_per_10min == 1.5 and .coverage_aware_sensitivity.bins[0].status == "missing_below_coverage_threshold"' "$RUNNER_TEMP/terra-preta-neon-precip-report.json"
       - name: Test grouped split manifest fail-closed checks
         run: bash research/terra-preta/tools/test-split-manifest.sh
       - name: Lint standalone audit tools
@@ -611,6 +616,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/interface-exchange-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml --all-targets -- -D warnings
 
   # Summary gate
   ci-pass:
