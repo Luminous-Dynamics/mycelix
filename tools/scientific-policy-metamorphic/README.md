@@ -4,6 +4,65 @@ A standalone Rust tool that creates deterministic transformations of the frozen
 62,464-row Cedar/OPA input corpus. It does not calculate expected Allow/Deny
 decisions and does not depend on the missing Rust authorization oracle.
 
+
+## Deterministic counterexample shrinking
+
+The crate now exports `shrink::minimize_json`, a generic deterministic reducer
+that preserves a caller-supplied predicate. It explores a finite, documented
+neighborhood of JSON reductions: object-member removal, array-element removal,
+empty/shortened strings, numeric simplification and true-to-false changes.
+Callers can protect JSON Pointer paths such as `/principal`, `/action` and
+`/resource` so an authorization counterexample retains its request identity.
+
+Each candidate records its sequence, JSON Pointer, operation, before/candidate
+SHA-256, predicate outcome and any evaluation error. The trace also pins the
+reduction profile, sorted-object JSON digest-encoding profile and protected
+JSON Pointer set. It stores both the exact raw source-input SHA-256 and the
+normalized parsed-value SHA-256; the supplied source bytes must parse to the
+exact value being minimized. The reducer rejects duplicate object
+member names (including escaped-equivalent names), invalid UTF-8, unpaired
+surrogates and trailing JSON content. Callers remain responsible for
+schema-specific and engine-specific authorization validation. Thus
+whitespace/property-order changes alter the source digest but preserve the
+normalized-value digest. This local encoding is not an RFC 8785/JCS claim.
+
+Candidate descriptors are generated only up to the remaining evaluation
+budget, and the full JSON value is cloned only when a candidate is evaluated.
+The API caps source records at 4 MiB and candidate predicate evaluations at
+100,000; exhaustion remains explicitly incomplete rather than claiming
+1-minimality.
+
+For engine-backed use, `minimize_json_with_provenance` requires a pinned
+engine ID/version, engine-binary SHA-256, policy SHA-256, schema SHA-256 and
+evaluation-configuration SHA-256. The `PredicateProvenance::from_bytes`
+constructor derives those digests from the exact byte slices supplied by the
+adapter; the fields are validated and embedded in the trace. The base generic
+API leaves engine provenance absent; do not use that form to publish an
+engine-specific counterexample.
+
+A complete trace claims only 1-minimality in that exact reduction
+neighborhood. Candidate-budget exhaustion or an evaluation error returns an
+incomplete trace and never claims minimality. The original input must satisfy
+the predicate before shrinking begins. Object traversal and digest
+serialization sort member names explicitly.
+
+Initial tests cover deterministic output, protected identity fields and
+ancestors, nested resource protection, array-element reduction, exact
+source/value identity separation, mismatched source rejection,
+duplicate/escaped duplicate object keys, invalid UTF-8, unpaired surrogates,
+hard input/evaluation limits, budget exhaustion, predicate errors, numeric
+convergence and engine-provenance validation.
+
+The Cedar runner now consumes this reducer through `--shrink-pair`: a seeded
+Cedar/OPA decision mismatch is evaluated on each valid candidate using Cedar
+4.14.0 in-process and OPA 1.22.0 through a bounded one-shot CLI invocation.
+The qualification workflow publishes the minimized input, full reduction
+trace, binary/policy/schema/configuration digests and separate Cedar/OPA
+candidate timing distributions. This is a deliberately seeded candidate-policy
+counterexample, not an authentic Rust authorization mismatch or a result from
+all 62,464 corpus rows. It makes no Rust authorization parity or
+policy-correctness claim.
+
 ## Run
 
 ```sh

@@ -9,6 +9,40 @@ This standalone Rust binary evaluates the paired Cedar PARC requests generated b
 
 The generator manifest and paired engine input corpus must be produced by `tools/scientific-policy-space`.
 
+## Deterministic Cedar/OPA counterexample minimization
+
+The runner also supports a deliberately seeded, engine-specific mismatch:
+
+    cargo run --release --locked -- \
+      --shrink-pair candidate.json /path/to/opa \
+      opa-policy.rego cedar-policy.cedar cedar-schema.json \
+      output-directory 2000
+
+The command requires OPA 1.22.0 and a valid single paired engine-input case.
+It first confirms that Cedar and OPA return different decisions. It then
+preserves that exact decision direction while reducing the JSON case with the
+shared deterministic shrinker. Each candidate is schema-checked and evaluated
+by Cedar 4.14.0 in-process and OPA 1.22.0 through a one-shot
+`opa eval --stdin-input` process. Invalid candidate reductions are rejected;
+Cedar evaluation diagnostics or OPA process failures make the run
+indeterminate rather than being converted to Deny.
+
+The output directory receives the minimized case, complete candidate trace and
+summary. The trace binds exact source bytes, normalized JSON, runner/OPA binary
+bytes, Cedar/Rego policy bytes, Cedar schema and evaluation configuration.
+Compound provenance components use length-prefixed framing. Protected paths
+preserve PARC identity, the request-referenced Cedar entities, action, and the
+specific Rego fields that define the seeded mismatch. Each OPA invocation has
+a five-second timeout. The summary reports candidate counts, Cedar in-process
+p50/p95/p99, OPA one-shot CLI p50/p95/p99, and total minimization wall time
+separately; the per-candidate distributions exclude initial/final confirmation.
+
+This measures counterexample-minimization behavior, not comparative Cedar/OPA
+latency. Cedar evaluator time and OPA one-shot process wall time must remain
+separate. A completed trace claims 1-minimality only in the declared JSON
+reduction neighborhood; it is not global minimality, policy correctness or
+Rust authorization parity.
+
 ## Method
 
 - Parse Cedar policy and schema once.

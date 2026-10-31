@@ -3,12 +3,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
+use scientific_policy_metamorphic::shrink::{
+    minimize_json_with_provenance, PredicateProvenance, MAX_SOURCE_INPUT_BYTES,
+};
+use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::env;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode, Stdio};
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -131,6 +135,15 @@ struct RunManifest {
 
 fn sha256(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
+}
+
+fn length_prefixed_material(parts: &[&[u8]]) -> Vec<u8> {
+    let mut output = Vec::new();
+    for part in parts {
+        output.extend_from_slice(&(part.len() as u64).to_be_bytes());
+        output.extend_from_slice(part);
+    }
+    output
 }
 
 fn git_blob_oid(bytes: &[u8]) -> String {
@@ -515,6 +528,343 @@ mod tests {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct ShrinkPairSummary {
+    predicate: String,
+    evaluation_method: String,
+    initial_case_id: String,
+    initial_cedar_decision: String,
+    initial_opa_decision: String,
+    minimized_case_id: String,
+    minimized_cedar_decision: String,
+    minimized_opa_decision: String,
+    candidate_evaluations: usize,
+    opa_candidate_process_evaluations: usize,
+    cedar_candidate_latency: TimingSummary,
+    opa_cli_candidate_latency: TimingSummary,
+    minimization_wall_ns: u128,
+    accepted_reductions: usize,
+    complete: bool,
+    is_one_minimal: bool,
+    claim_ceiling: String,
+}
+
+fn opa_decision(
+    opa_binary: &Path,
+    rego_policy_path: &Path,
+    input: &Value,
+) -> Result<(String, String, u128), String> {
+    let started = Instant::now();
+    let input_bytes = serde_json::to_vec(input)
+        .map_err(|error| format!("serialize OPA candidate input: {error}"))?;
+    let mut child = Command::new(opa_binary)
+        .arg("eval")
+        .arg("--strict")
+        .arg("--timeout=5s")
+        .arg("--format=json")
+        .arg("--stdin-input")
+        .arg("--data")
+        .arg(rego_policy_path)
+        .arg("data.mycelix.authz.decision")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("start OPA candidate evaluation: {error}"))?;
+    child
+        .stdin
+        .take()
+        .ok_or_else(|| "OPA stdin pipe was unavailable".to_owned())?
+        .write_all(&input_bytes)
+        .map_err(|error| format!("write OPA candidate input: {error}"))?;
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("wait for OPA candidate evaluation: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "OPA candidate evaluation exited {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    let response: Value = serde_json::from_slice(&output.stdout)
+        .map_err(|error| format!("parse OPA candidate response: {error}"))?;
+    let value = response
+        .pointer("/result/0/expressions/0/value")
+        .ok_or_else(|| "OPA response omitted the decision value".to_owned())?;
+    let effect = value
+        .get("effect")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "OPA decision omitted effect".to_owned())?;
+    let rule = value
+        .get("rule")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "OPA decision omitted rule identifier".to_owned())?;
+    if !matches!(effect, "allow" | "deny") {
+        return Err(format!("OPA returned unsupported decision effect: {effect}"));
+    }
+    Ok((effect.to_owned(), rule.to_owned(), started.elapsed().as_nanos()))
+}
+
+fn evaluate_policy_pair(
+    candidate: &Value,
+    authorizer: &Authorizer,
+    policy_set: &PolicySet,
+    schema: &Schema,
+    opa_binary: &Path,
+    rego_policy_path: &Path,
+) -> Result<(String, String, Vec<String>, u128, u128), String> {
+    let case: EngineInputCase = match serde_json::from_value(candidate.clone()) {
+        Ok(case) => case,
+        Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0)),
+    };
+    if case.case_id != case.cedar.case_id || case.case_id != case.rego.case_id {
+        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0));
+    }
+    if validate_explicit_entities(&case, 0).is_err()
+        || !case.cedar.request.context.is_object()
+        || !case.rego.input.is_object()
+    {
+        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0));
+    }
+    let (cedar_decision, cedar_policy_ids, construction_ns, authorization_ns) =
+        match evaluate_case(authorizer, policy_set, schema, &case) {
+            Ok(result) => result,
+            Err(message) if message.starts_with("Cedar evaluation diagnostic") => {
+                return Err(message);
+            }
+            Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0)),
+        };
+    let (opa_effect, _opa_rule, opa_elapsed_ns) =
+        opa_decision(opa_binary, rego_policy_path, &case.rego.input)?;
+    Ok((
+        cedar_decision.to_owned(),
+        opa_effect,
+        cedar_policy_ids,
+        construction_ns + authorization_ns,
+        opa_elapsed_ns,
+    ))
+}
+
+fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
+    if args.len() != 7 {
+        return Err(
+            "usage: --shrink-pair <candidate.json> <opa-binary> <rego-policy.rego> <cedar-policy.cedar> <cedar-schema.json> <output-dir> <max-candidates>"
+                .to_owned(),
+        );
+    }
+    let input_path = PathBuf::from(&args[0]);
+    let opa_binary = PathBuf::from(&args[1]);
+    let rego_policy_path = PathBuf::from(&args[2]);
+    let cedar_policy_path = PathBuf::from(&args[3]);
+    let cedar_schema_path = PathBuf::from(&args[4]);
+    let output_directory = PathBuf::from(&args[5]);
+    let max_candidates = args[6]
+        .to_str()
+        .ok_or_else(|| "max-candidates must be UTF-8".to_owned())?
+        .parse::<usize>()
+        .map_err(|error| format!("invalid max-candidates: {error}"))?;
+    if max_candidates == 0 || max_candidates > 2_000 {
+        return Err("max-candidates must be between 1 and 2000".to_owned());
+    }
+
+    let source_bytes = fs::read(&input_path)
+        .map_err(|error| format!("read original counterexample: {error}"))?;
+    if source_bytes.len() > MAX_SOURCE_INPUT_BYTES {
+        return Err(format!(
+            "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
+        ));
+    }
+    let initial_value: Value = serde_json::from_slice(&source_bytes)
+        .map_err(|error| format!("parse original counterexample: {error}"))?;
+    let initial_case: EngineInputCase = serde_json::from_value(initial_value.clone())
+        .map_err(|error| format!("parse original engine case: {error}"))?;
+
+    let opa_version = Command::new(&opa_binary)
+        .arg("version")
+        .output()
+        .map_err(|error| format!("read OPA version: {error}"))?;
+    if !opa_version.status.success() {
+        return Err(format!(
+            "OPA version command failed: {}",
+            String::from_utf8_lossy(&opa_version.stderr)
+        ));
+    }
+    let opa_version_text = String::from_utf8_lossy(&opa_version.stdout).into_owned();
+    if !opa_version_text.contains("1.22.0") {
+        return Err(format!("expected OPA 1.22.0, got {opa_version_text:?}"));
+    }
+
+    let cedar_policy_bytes = fs::read(&cedar_policy_path)
+        .map_err(|error| format!("read Cedar policy: {error}"))?;
+    let cedar_schema_bytes = fs::read(&cedar_schema_path)
+        .map_err(|error| format!("read Cedar schema: {error}"))?;
+    let rego_policy_bytes = fs::read(&rego_policy_path)
+        .map_err(|error| format!("read Rego policy: {error}"))?;
+    let opa_binary_bytes = fs::read(&opa_binary)
+        .map_err(|error| format!("read OPA binary for provenance: {error}"))?;
+    let runner_binary_path = env::current_exe()
+        .map_err(|error| format!("resolve Cedar runner binary: {error}"))?;
+    let runner_binary_bytes = fs::read(&runner_binary_path)
+        .map_err(|error| format!("read Cedar runner binary for provenance: {error}"))?;
+
+    let cedar_policy_source = std::str::from_utf8(&cedar_policy_bytes)
+        .map_err(|error| format!("Cedar policy is not UTF-8: {error}"))?;
+    let cedar_schema_source = std::str::from_utf8(&cedar_schema_bytes)
+        .map_err(|error| format!("Cedar schema is not UTF-8: {error}"))?;
+    let policy_set: PolicySet = cedar_policy_source
+        .parse()
+        .map_err(|error| format!("parse Cedar policy: {error:?}"))?;
+    let schema = Schema::from_json_str(cedar_schema_source)
+        .map_err(|error| format!("parse Cedar schema: {error:?}"))?;
+    let validation = Validator::new(schema.clone()).validate(&policy_set, ValidationMode::Strict);
+    if !validation.validation_passed() {
+        return Err(format!("Cedar policy failed strict schema validation: {validation:?}"));
+    }
+    let authorizer = Authorizer::new();
+
+    let (initial_cedar, initial_opa, _, _, _) = evaluate_policy_pair(
+        &initial_value,
+        &authorizer,
+        &policy_set,
+        &schema,
+        &opa_binary,
+        &rego_policy_path,
+    )?;
+    if !matches!(initial_cedar.as_str(), "allow" | "deny")
+        || !matches!(initial_opa.as_str(), "allow" | "deny")
+        || initial_cedar == initial_opa
+    {
+        return Err(format!(
+            "input is not a valid Cedar/OPA decision counterexample: Cedar={initial_cedar}, OPA={initial_opa}"
+        ));
+    }
+
+    let mut protected_paths = BTreeSet::new();
+    for pointer in [
+        "/case_id",
+        "/cedar/case_id",
+        "/cedar/request/principal",
+        "/cedar/request/action",
+        "/cedar/request/resource",
+        "/cedar/entities",
+        "/rego/case_id",
+        "/rego/input/action",
+        "/rego/input/actor/roles",
+        "/rego/input/claim/exists",
+    ] {
+        protected_paths.insert(pointer.to_owned());
+    }
+
+    let engine_material =
+        length_prefixed_material(&[&runner_binary_bytes, &opa_binary_bytes]);
+    let policy_material =
+        length_prefixed_material(&[&cedar_policy_bytes, &rego_policy_bytes]);
+    let evaluation_config = serde_json::to_vec(&serde_json::json!({
+        "cedar_sdk": "4.14.0",
+        "opa_version": opa_version_text.trim(),
+        "opa_query": "data.mycelix.authz.decision",
+        "opa_flags": ["eval", "--strict", "--timeout=5s", "--format=json", "--stdin-input"],
+        "predicate": "preserve_initial_cedar_opa_decision_divergence",
+        "max_candidate_evaluations": max_candidates,
+        "protected_paths": protected_paths
+    }))
+    .map_err(|error| format!("serialize evaluation configuration: {error}"))?;
+    let provenance = PredicateProvenance::from_bytes(
+        "cedar-policy+opa",
+        "cedar-sdk=4.14.0;opa=1.22.0",
+        &engine_material,
+        &policy_material,
+        &cedar_schema_bytes,
+        &evaluation_config,
+    );
+
+    let mut cedar_candidate_times = Vec::new();
+    let mut opa_cli_candidate_times = Vec::new();
+    let opa_candidate_process_evaluations = Cell::new(0usize);
+    let minimization_started = Instant::now();
+    let result = minimize_json_with_provenance(
+        &initial_value,
+        &source_bytes,
+        "cedar-opa-decision-divergence",
+        provenance,
+        &protected_paths,
+        max_candidates,
+        |candidate| {
+            let (cedar, opa, _, cedar_ns, opa_ns) = evaluate_policy_pair(
+                candidate,
+                &authorizer,
+                &policy_set,
+                &schema,
+                &opa_binary,
+                &rego_policy_path,
+            )?;
+            if matches!(cedar.as_str(), "allow" | "deny") {
+                cedar_candidate_times.push(cedar_ns);
+                opa_cli_candidate_times.push(opa_ns);
+                opa_candidate_process_evaluations.set(
+                    opa_candidate_process_evaluations.get() + 1
+                );
+            }
+            Ok(cedar == initial_cedar && opa == initial_opa && cedar != opa)
+        },
+    )
+    .map_err(|error| format!("counterexample minimization incomplete: {error}"))?;
+    let minimization_wall_ns = minimization_started.elapsed().as_nanos();
+
+    let (minimized_cedar, minimized_opa, _, _, _) = evaluate_policy_pair(
+        &result.minimized_value,
+        &authorizer,
+        &policy_set,
+        &schema,
+        &opa_binary,
+        &rego_policy_path,
+    )?;
+    fs::create_dir_all(&output_directory)
+        .map_err(|error| format!("create shrink output directory: {error}"))?;
+    let minimized_bytes = serde_json::to_vec_pretty(&result.minimized_value)
+        .map_err(|error| format!("serialize minimized counterexample: {error}"))?;
+    fs::write(output_directory.join("minimized-counterexample.json"), &minimized_bytes)
+        .map_err(|error| format!("write minimized counterexample: {error}"))?;
+    let trace_bytes = serde_json::to_vec_pretty(&result.trace)
+        .map_err(|error| format!("serialize shrink trace: {error}"))?;
+    fs::write(output_directory.join("shrink-trace.json"), &trace_bytes)
+        .map_err(|error| format!("write shrink trace: {error}"))?;
+    let summary = ShrinkPairSummary {
+        predicate: "cedar-opa-decision-divergence".to_owned(),
+        evaluation_method: "Cedar in-process request construction+authorization; OPA one-shot CLI per candidate including startup/policy loading/input parsing".to_owned(),
+        initial_case_id: initial_case.case_id,
+        initial_cedar_decision: initial_cedar,
+        initial_opa_decision: initial_opa,
+        minimized_case_id: result.minimized_value["case_id"]
+            .as_str()
+            .ok_or_else(|| "minimized case ID is missing".to_owned())?
+            .to_owned(),
+        minimized_cedar_decision: minimized_cedar,
+        minimized_opa_decision: minimized_opa,
+        candidate_evaluations: result.trace.candidate_evaluations,
+        opa_candidate_process_evaluations: opa_candidate_process_evaluations.get(),
+        cedar_candidate_latency: timing_summary(&cedar_candidate_times),
+        opa_cli_candidate_latency: timing_summary(&opa_cli_candidate_times),
+        minimization_wall_ns,
+        accepted_reductions: result.trace.accepted_reductions,
+        complete: result.trace.complete,
+        is_one_minimal: result.trace.is_one_minimal,
+        claim_ceiling: result.trace.claim_ceiling.clone(),
+    };
+    let summary_bytes = serde_json::to_vec_pretty(&summary)
+        .map_err(|error| format!("serialize shrink summary: {error}"))?;
+    fs::write(output_directory.join("shrink-summary.json"), &summary_bytes)
+        .map_err(|error| format!("write shrink summary: {error}"))?;
+    println!("initial_cedar_decision={}", summary.initial_cedar_decision);
+    println!("initial_opa_decision={}", summary.initial_opa_decision);
+    println!("candidate_evaluations={}", summary.candidate_evaluations);
+    println!("accepted_reductions={}", summary.accepted_reductions);
+    println!("complete={}", summary.complete);
+    println!("is_one_minimal={}", summary.is_one_minimal);
+    Ok(())
+}
+
 fn run() -> Result<(), String> {
     let mut args = env::args_os();
     let program = args.next().unwrap_or_default();
@@ -704,6 +1054,16 @@ fn run() -> Result<(), String> {
 }
 
 fn main() -> ExitCode {
+    let args = env::args_os().skip(1).collect::<Vec<_>>();
+    if args.first().and_then(|value| value.to_str()) == Some("--shrink-pair") {
+        return match run_shrink_pair(&args[1..]) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("indeterminate: {error}");
+                ExitCode::from(2)
+            }
+        };
+    }
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
