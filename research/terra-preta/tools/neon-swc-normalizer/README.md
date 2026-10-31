@@ -21,11 +21,11 @@ Then feed the normalized profile directly into the existing extractor and profil
 - Declare the exact timestamp, sensor-key, theta and QA-filter column names after checking the pinned NEON variables table.
 - Supply sensor roster keys plus metadata evidence, corrected depth, x/y metres, condition and the sensor position validity start/end. For DP1.00094.001, obtain depth from corrected `swc_depthsV3.csv`, not the ordinary `sensor_positions` zOffset; join sensor positions using time-valid intervals.
 - Declare one or more quality filters and accepted values. The tool will not default to finalQF==0 or assume any release-specific QA semantics.
-- Configure 1-minute raw resolution, target 5–30 minute resolution, minimum good fraction, and response threshold.
+- Configure 1-minute raw resolution, target 5–30 minute resolution, minimum good fraction, response threshold, and the maximum whole-profile porosity across the site's soil pits plus an evidence reference for the soil-property source/crosswalk.
 
 ## Aggregation
 
-Target bins are left-closed/right-open. Each target median is calculated from directly accepted 1-minute values in the bin. A bin is `observed` only when good rows meet `ceil(minimum_good_fraction × expected_rows)`; otherwise it is `missing` with null theta. Missing rows and QA rejects are separately counted. No zero-fill, linear interpolation, or silent removal is performed.
+Target bins are left-closed/right-open. Each target median is calculated from directly accepted 1-minute values in the bin. A bin is `observed` only when good rows meet `ceil(minimum_good_fraction × expected_rows)`; otherwise it is `missing` with null theta. Missing rows, QA rejects, and values above the configured maximum whole-profile porosity are counted separately. Porosity is applied after source QA filtering and before aggregation. `quality_pass_rows` means passed the configured QA filters; `porosity_pass_rows` are the values actually used in the median. No zero-fill, linear interpolation, or silent removal is performed.
 
 The report records exact config/source SHA-256, source column mapping, all QA filters, sensor coordinate/depth provenance, expected raw rows, present rows, accepted/rejected rows, absent raw rows, valid fraction, median and bin status for each sensor/time bin. The normalized series JSON is shaped to the strict input schema of `profile-response-extractor`.
 
