@@ -104,8 +104,8 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
         .get("horizon_stages")
         .and_then(Value::as_u64)
         .and_then(|value| usize::try_from(value).ok());
-    let Some(horizon_stages) = horizon.filter(|count| (2..=12).contains(count)) else {
-        errors.push("horizon_stages must be an integer in [2,12]".to_owned());
+    let Some(horizon_stages) = horizon.filter(|count| (3..=12).contains(count)) else {
+        errors.push("horizon_stages must be an integer in [3,12]".to_owned());
         return Err(errors);
     };
     let initial_state_id = string_field(fixture, "initial_information_state_id")
