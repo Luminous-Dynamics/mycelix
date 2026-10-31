@@ -746,7 +746,11 @@ mod tests {
         assert_eq!(cedar_entities[0]["uid"]["type"], "Mycelix::Actor");
         assert!(cedar_entities[0]["uid"].get("entity_type").is_none());
         assert_eq!(cedar_entities[1]["uid"]["type"], "Mycelix::Claim");
-        assert_eq!(cedar_entities.len(), 2, "action entities are supplied canonically from the Cedar schema");
+        assert_eq!(
+            cedar_entities.as_array().expect("Cedar entities serialize as an array").len(),
+            2,
+            "action entities are supplied canonically from the Cedar schema"
+        );
         assert_eq!(
             projection.cedar.entities[0].attrs["organizations"],
             serde_json::json!([]),
