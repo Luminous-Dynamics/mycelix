@@ -6,6 +6,6 @@ radio-tv-down,true,false,true,true
 community-relay-down,true,true,true,false
 cell-broadcast-mobile-data-down,false,true,false,true
 radio-tv-cell-broadcast-down,false,false,true,true
-grid-mobile-network-loss-radio-backup,true?false,false,true,false,true
+grid-mobile-network-loss-radio-backup,false,true,false,true
 only-community-relay,false,false,false,true
 no-channels,false,false,false,false
