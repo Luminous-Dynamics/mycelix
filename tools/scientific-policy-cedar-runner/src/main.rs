@@ -177,6 +177,92 @@ fn peak_rss_kib() -> Option<u64> {
     })
 }
 
+fn parse_entity_uid_text(value: &str, label: &str) -> Result<(String, String), String> {
+    let (entity_type, id_json) = value
+        .rsplit_once("::")
+        .ok_or_else(|| format!("{label} is not a qualified Cedar entity UID"))?;
+    if entity_type.is_empty() {
+        return Err(format!("{label} has an empty entity type"));
+    }
+    let entity_id: String = serde_json::from_str(id_json)
+        .map_err(|error| format!("{label} entity ID is not a JSON string: {error}"))?;
+    if entity_id.is_empty() {
+        return Err(format!("{label} entity ID is empty"));
+    }
+    Ok((entity_type.to_owned(), entity_id))
+}
+
+fn validate_explicit_entities(case: &EngineInputCase, line_index: usize) -> Result<(), String> {
+    let principal = parse_entity_uid_text(
+        &case.cedar.request.principal,
+        &format!("Cedar principal at line {}", line_index + 1),
+    )?;
+    let resource = parse_entity_uid_text(
+        &case.cedar.request.resource,
+        &format!("Cedar resource at line {}", line_index + 1),
+    )?;
+    if principal.0 != "Mycelix::Actor" || resource.0 != "Mycelix::Claim" {
+        return Err(format!(
+            "Cedar request at line {} must reference Mycelix::Actor principal and Mycelix::Claim resource",
+            line_index + 1
+        ));
+    }
+
+    let mut uids = BTreeSet::new();
+    let mut actor_count = 0usize;
+    let mut claim_count = 0usize;
+    let mut contains_principal = false;
+    let mut contains_resource = false;
+    for entity in &case.cedar.entities {
+        let uid = entity
+            .get("uid")
+            .and_then(Value::as_object)
+            .ok_or_else(|| format!("Cedar entity uid must be an object at line {}", line_index + 1))?;
+        let entity_type = uid
+            .get("type")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("Cedar entity type is missing at line {}", line_index + 1))?;
+        let entity_id = uid
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("Cedar entity ID is missing at line {}", line_index + 1))?;
+        if !matches!(entity_type, "Mycelix::Actor" | "Mycelix::Claim") {
+            return Err(format!(
+                "unexpected explicit Cedar entity type {entity_type} at line {}",
+                line_index + 1
+            ));
+        }
+        let key = (entity_type.to_owned(), entity_id.to_owned());
+        if !uids.insert(key.clone()) {
+            return Err(format!("duplicate Cedar entity UID at line {}", line_index + 1));
+        }
+        contains_principal |= key == principal;
+        contains_resource |= key == resource;
+        match entity_type {
+            "Mycelix::Actor" => actor_count += 1,
+            "Mycelix::Claim" => claim_count += 1,
+            _ => unreachable!(),
+        }
+        if !entity.get("attrs").is_some_and(Value::is_object)
+            || !entity.get("parents").is_some_and(Value::is_array)
+        {
+            return Err(format!(
+                "Cedar entity requires object attrs and array parents at line {}",
+                line_index + 1
+            ));
+        }
+    }
+    if actor_count == 0 || claim_count != 1 || !contains_principal || !contains_resource {
+        return Err(format!(
+            "Cedar explicit entity set at line {} must include the referenced principal Actor and exactly one referenced Claim; extra unique Actor entities are permitted",
+            line_index + 1
+        ));
+    }
+    Ok(())
+}
+
 fn validate_manifest(manifest: &InputManifest) -> Result<(), String> {
     if manifest.generator_id != "mycelix-scientific-policy-space"
         || manifest.generator_version != "0.1.0"
@@ -243,17 +329,7 @@ fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>
         {
             return Err(format!("Rego input is missing a required source-policy field at line {}", line_index + 1));
         }
-        if case.cedar.entities.len() != 2 {
-            return Err(format!("Cedar input must contain actor and claim only; action entities come from the pinned schema (line {})", line_index + 1));
-        }
-        for entity in &case.cedar.entities {
-            if entity["uid"]["type"].as_str().is_none()
-                || entity["uid"]["id"].as_str().is_none()
-                || entity.get("uid").and_then(|uid| uid.get("entity_type")).is_some()
-            {
-                return Err(format!("Cedar entity UID must use the native type/id shape at line {}", line_index + 1));
-            }
-        }
+        validate_explicit_entities(&case, line_index)?;
         if !case.cedar.request.context.is_object() {
             return Err(format!("Cedar request context must be a JSON record at line {}", line_index + 1));
         }
@@ -328,6 +404,75 @@ mod tests {
         assert_eq!(percentile(&values, 50), 30);
         assert_eq!(percentile(&values, 95), 50);
         assert_eq!(percentile(&values, 99), 50);
+    }
+
+    #[test]
+    fn explicit_entity_set_allows_unique_unreferenced_actor_but_preserves_request_bindings() {
+        let mut case = EngineInputCase {
+            case_id: "case-1".to_owned(),
+            cedar: CedarCase {
+                case_id: "case-1".to_owned(),
+                request: CedarRequest {
+                    principal: "Mycelix::Actor::\\"actor:candidate\\"".to_owned(),
+                    action: "Mycelix::Action::\\"evidence_attached\\"".to_owned(),
+                    resource: "Mycelix::Claim::\\"claim:1\\"".to_owned(),
+                    context: serde_json::json!({"attestationKind":"ordinary"}),
+                },
+                entities: vec![
+                    serde_json::json!({
+                        "uid":{"type":"Mycelix::Actor","id":"actor:candidate"},
+                        "attrs":{"actorId":"actor:candidate","roles":["contributor"],"organizations":[]},
+                        "parents":[]
+                    }),
+                    serde_json::json!({
+                        "uid":{"type":"Mycelix::Claim","id":"claim:1"},
+                        "attrs":{"exists":true},
+                        "parents":[]
+                    }),
+                ],
+            },
+            rego: RegoCase {
+                case_id: "case-1".to_owned(),
+                input: serde_json::json!({"action":"evidence_attached"}),
+            },
+        };
+        assert!(validate_explicit_entities(&case, 0).is_ok());
+
+        case.cedar.entities.push(serde_json::json!({
+            "uid":{"type":"Mycelix::Actor","id":"actor:metamorphic-irrelevant"},
+            "attrs":{"actorId":"actor:metamorphic-irrelevant","roles":[],"organizations":[]},
+            "parents":[]
+        }));
+        assert!(validate_explicit_entities(&case, 0).is_ok());
+
+        case.cedar.entities.push(case.cedar.entities[2].clone());
+        assert!(validate_explicit_entities(&case, 0).is_err());
+    }
+
+    #[test]
+    fn explicit_entity_set_rejects_missing_referenced_principal_or_resource() {
+        let case = EngineInputCase {
+            case_id: "case-2".to_owned(),
+            cedar: CedarCase {
+                case_id: "case-2".to_owned(),
+                request: CedarRequest {
+                    principal: "Mycelix::Actor::\\"actor:missing\\"".to_owned(),
+                    action: "Mycelix::Action::\\"evidence_attached\\"".to_owned(),
+                    resource: "Mycelix::Claim::\\"claim:2\\"".to_owned(),
+                    context: serde_json::json!({}),
+                },
+                entities: vec![serde_json::json!({
+                    "uid":{"type":"Mycelix::Claim","id":"claim:2"},
+                    "attrs":{"exists":true},
+                    "parents":[]
+                })],
+            },
+            rego: RegoCase {
+                case_id: "case-2".to_owned(),
+                input: serde_json::json!({"action":"evidence_attached"}),
+            },
+        };
+        assert!(validate_explicit_entities(&case, 0).is_err());
     }
 
     #[test]
