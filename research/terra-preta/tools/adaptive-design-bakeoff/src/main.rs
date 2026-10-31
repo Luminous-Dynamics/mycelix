@@ -875,6 +875,44 @@ mod tests {
     }
 
     #[test]
+    fn budget_and_eligibility_invariants_hold_across_seed_sweep() {
+        for seed in 1..=32 {
+            let mut scenario: Scenario = serde_json::from_str(FIXTURE).unwrap();
+            scenario.seed = seed;
+            let bytes = serde_json::to_vec(&scenario).unwrap();
+            let report = run_benchmark(&bytes).unwrap();
+            assert_eq!(report.policy_results.len(), 7);
+            for policy in &report.policy_results {
+                assert!(policy.total_cost_units <= scenario.budget_cost_units);
+                assert!(policy.selected_actions.iter().all(|action| action.action_id != "X_INELIGIBLE"));
+            }
+            let robust = report.policy_results.iter()
+                .find(|policy| policy.policy_id == "robust_decision_focused").unwrap();
+            assert!(robust.minimum_coverage_met);
+        }
+    }
+
+    #[test]
+    fn policy_runner_recomputes_oracle_for_shifted_target_distribution() {
+        let mut scenario: Scenario = serde_json::from_str(FIXTURE).unwrap();
+        scenario.strata[0].target_weight = 0.2;
+        scenario.strata[1].target_weight = 0.3;
+        scenario.strata[2].target_weight = 0.5;
+        validate_scenario(&scenario).unwrap();
+        let bytes = serde_json::to_vec(&scenario).unwrap();
+        let report = run_benchmark(&bytes).unwrap();
+        assert_eq!(report.oracle.selected_action_ids.len(), 4);
+        assert!(report.policy_results.iter().all(|policy|
+            policy.total_cost_units <= scenario.budget_cost_units
+        ));
+        let robust = report.policy_results.iter()
+            .find(|policy| policy.policy_id == "robust_decision_focused").unwrap();
+        assert!(robust.minimum_coverage_met);
+        assert!(robust.stratum_coverage.iter()
+            .find(|s| s.stratum_id == "shallow_weathered").unwrap().minimum_met);
+    }
+
+    #[test]
     fn random_policy_is_reproducible_for_fixed_seed() {
         let a = report();
         let b = report();
