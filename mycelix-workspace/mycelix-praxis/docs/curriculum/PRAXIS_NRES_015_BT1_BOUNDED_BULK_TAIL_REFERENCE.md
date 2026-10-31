@@ -45,7 +45,7 @@ The public fixture uses a 16-state support, eight frozen bulk state IDs and the 
 | Profile | Nominal bulk loss | Worst bulk loss | TV mass moved | Tail interval | Tail cap | Overall upper risk |
 |---|---:|---:|---:|---:|---:|---:|
 | Low-cost | 5.32 | 6.42 | 0.10 | [0.05, 0.12] | 40 | 10.4496 |
-| Moderate-cost | 8.74 | 11.44 | 0.18 | [0.10, 0.22] | 30 | 15.5232 |
+| Moderate-cost | 9.10 | 11.80 | 0.18 | [0.10, 0.22] | 30 | 15.8040 |
 | High-cost | 16.44 | 23.46 | 0.25 | [0.15, 0.35] | unbounded | infinite |
 
 These numbers are arithmetic checks of an invented fixture only. They are not observed preparedness data, calibrated risks, forecast accuracy, realized regret, or evidence of comparative performance.
