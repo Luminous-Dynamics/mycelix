@@ -23,7 +23,7 @@ impl fmt::Display for RoleIndexError {
 
 impl std::error::Error for RoleIndexError {}
 
-fn error(message: impl Into<String>) -> RoleIndexError {
+fn role_index_error(message: impl Into<String>) -> RoleIndexError {
     RoleIndexError(message.into())
 }
 
@@ -38,17 +38,17 @@ pub fn index_role_projection(input: &Value) -> Result<Value, RoleIndexError> {
     let actor = output
         .get_mut("actor")
         .and_then(Value::as_object_mut)
-        .ok_or_else(|| error("Rego input.actor must be an object"))?;
+        .ok_or_else(|| role_index_error("Rego input.actor must be an object"))?;
 
     if actor.contains_key("role_index") {
-        return Err(error("Rego input.actor already contains role_index"));
+        return Err(role_index_error("Rego input.actor already contains role_index"));
     }
     let roles = actor
         .remove("roles")
-        .ok_or_else(|| error("Rego input.actor.roles is required"))?;
+        .ok_or_else(|| role_index_error("Rego input.actor.roles is required"))?;
     let roles = roles
         .as_array()
-        .ok_or_else(|| error("Rego input.actor.roles must be an array"))?;
+        .ok_or_else(|| role_index_error("Rego input.actor.roles must be an array"))?;
 
     let mut seen = BTreeSet::new();
     let mut role_index = Map::new();
@@ -56,9 +56,9 @@ pub fn index_role_projection(input: &Value) -> Result<Value, RoleIndexError> {
         let role = role
             .as_str()
             .filter(|role| !role.is_empty())
-            .ok_or_else(|| error("each actor role must be a non-empty string"))?;
+            .ok_or_else(|| role_index_error("each actor role must be a non-empty string"))?;
         if !seen.insert(role.to_owned()) {
-            return Err(error(format!("duplicate actor role {role:?}")));
+            return Err(role_index_error(format!("duplicate actor role {role:?}")));
         }
         role_index.insert(role.to_owned(), Value::Bool(true));
     }
@@ -88,26 +88,26 @@ pub fn generate_indexed_role_corpus(
     output_directory: &Path,
 ) -> Result<RoleIndexManifest, RoleIndexError> {
     let metadata = fs::metadata(source_jsonl_path)
-        .map_err(|error| error(format!("stat source engine inputs: {error}")))?;
+        .map_err(|error| role_index_error(format!("stat source engine inputs: {error}")))?;
     if metadata.len() > MAX_SOURCE_BYTES {
-        return Err(error(format!("source engine inputs exceed {MAX_SOURCE_BYTES} bytes")));
+        return Err(role_index_error(format!("source engine inputs exceed {MAX_SOURCE_BYTES} bytes")));
     }
     let source_bytes = fs::read(source_jsonl_path)
-        .map_err(|error| error(format!("read source engine inputs: {error}")))?;
+        .map_err(|error| role_index_error(format!("read source engine inputs: {error}")))?;
     let source_sha256 = sha256(&source_bytes);
     if source_sha256 != expected_source_sha256 {
-        return Err(error("source engine input SHA-256 differs from its pinned manifest"));
+        return Err(role_index_error("source engine input SHA-256 differs from its pinned manifest"));
     }
 
     fs::create_dir_all(output_directory)
-        .map_err(|error| error(format!("create indexed-role output directory: {error}")))?;
+        .map_err(|error| role_index_error(format!("create indexed-role output directory: {error}")))?;
     let action_directory = output_directory.join("action-inputs");
     fs::create_dir_all(&action_directory)
-        .map_err(|error| error(format!("create action-input directory: {error}")))?;
+        .map_err(|error| role_index_error(format!("create action-input directory: {error}")))?;
 
     let output_path = output_directory.join("indexed-engine-inputs-v0.1.jsonl");
     let file = File::create(&output_path)
-        .map_err(|error| error(format!("create indexed engine input JSONL: {error}")))?;
+        .map_err(|error| role_index_error(format!("create indexed engine input JSONL: {error}")))?;
     let mut writer = BufWriter::new(file);
     let mut output_hasher = Sha256::new();
     let mut case_ids = BTreeSet::new();
@@ -127,35 +127,35 @@ pub fn generate_indexed_role_corpus(
 
     for (line_index, line) in BufReader::new(source_bytes.as_slice()).lines().enumerate() {
         let line = line
-            .map_err(|error| error(format!("read source JSONL line {}: {error}", line_index + 1)))?;
+            .map_err(|error| role_index_error(format!("read source JSONL line {}: {error}", line_index + 1)))?;
         if line.trim().is_empty() {
-            return Err(error(format!("blank source JSONL record at line {}", line_index + 1)));
+            return Err(role_index_error(format!("blank source JSONL record at line {}", line_index + 1)));
         }
         let row: Value = serde_json::from_str(&line)
-            .map_err(|error| error(format!("parse source JSONL line {}: {error}", line_index + 1)))?;
+            .map_err(|error| role_index_error(format!("parse source JSONL line {}: {error}", line_index + 1)))?;
         let case_id = row
             .get("case_id")
             .and_then(Value::as_str)
             .filter(|value| !value.is_empty())
-            .ok_or_else(|| error(format!("source line {} has no case_id", line_index + 1)))?;
+            .ok_or_else(|| role_index_error(format!("source line {} has no case_id", line_index + 1)))?;
         if !case_ids.insert(case_id.to_owned()) {
-            return Err(error(format!("duplicate source case ID {case_id:?}")));
+            return Err(role_index_error(format!("duplicate source case ID {case_id:?}")));
         }
         let input = row
             .pointer("/rego/input")
-            .ok_or_else(|| error(format!("source case {case_id} has no rego.input")))?;
+            .ok_or_else(|| role_index_error(format!("source case {case_id} has no rego.input")))?;
         let indexed = index_role_projection(input)?;
         let action = input
             .get("action")
             .and_then(Value::as_str)
-            .ok_or_else(|| error(format!("source case {case_id} has no action")))?;
+            .ok_or_else(|| role_index_error(format!("source case {case_id} has no action")))?;
 
         if expected_actions.contains(&action) && action_inputs.insert(action.to_owned()) {
             let action_path = action_directory.join(format!("{action}.json"));
             let bytes = serde_json::to_vec_pretty(&indexed)
-                .map_err(|error| error(format!("serialize indexed action input: {error}")))?;
+                .map_err(|error| role_index_error(format!("serialize indexed action input: {error}")))?;
             fs::write(&action_path, &bytes)
-                .map_err(|error| error(format!("write indexed action input: {error}")))?;
+                .map_err(|error| role_index_error(format!("write indexed action input: {error}")))?;
             action_count += 1;
         }
 
@@ -163,23 +163,23 @@ pub fn generate_indexed_role_corpus(
             "case_id": case_id,
             "input": indexed
         }))
-        .map_err(|error| error(format!("serialize indexed case row: {error}")))?;
+        .map_err(|error| role_index_error(format!("serialize indexed case row: {error}")))?;
         output_row.push(b'\n');
         writer
             .write_all(&output_row)
-            .map_err(|error| error(format!("write indexed case row: {error}")))?;
+            .map_err(|error| role_index_error(format!("write indexed case row: {error}")))?;
         output_hasher.update(&output_row);
         case_count += 1;
     }
     writer
         .flush()
-        .map_err(|error| error(format!("flush indexed case rows: {error}")))?;
+        .map_err(|error| role_index_error(format!("flush indexed case rows: {error}")))?;
 
     if case_count != 62_464 {
-        return Err(error(format!("expected 62464 indexed cases, got {case_count}")));
+        return Err(role_index_error(format!("expected 62464 indexed cases, got {case_count}")));
     }
     if action_count != expected_actions.len() {
-        return Err(error(format!(
+        return Err(role_index_error(format!(
             "expected one indexed representative for all eight actions, got {action_count}"
         )));
     }
@@ -199,9 +199,9 @@ pub fn generate_indexed_role_corpus(
         ).to_owned(),
     };
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)
-        .map_err(|error| error(format!("serialize indexed-role manifest: {error}")))?;
+        .map_err(|error| role_index_error(format!("serialize indexed-role manifest: {error}")))?;
     fs::write(output_directory.join("manifest.json"), manifest_bytes)
-        .map_err(|error| error(format!("write indexed-role manifest: {error}")))?;
+        .map_err(|error| role_index_error(format!("write indexed-role manifest: {error}")))?;
     Ok(manifest)
 }
 
