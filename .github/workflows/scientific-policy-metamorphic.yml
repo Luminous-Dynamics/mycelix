@@ -127,7 +127,7 @@ jobs:
           jq -e '
             .predicate_provenance.engine_id == "cedar-policy+opa" and
             .predicate_provenance.engine_version == "cedar-sdk=4.14.0;opa=1.22.0" and
-            .source_input_sha256 | length == 64
+            (.source_input_sha256 | length == 64)
           ' target/policy-counterexample-shrink/shrink-trace.json
 
       - name: Evaluate baseline corpus through Cedar
