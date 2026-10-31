@@ -91,10 +91,11 @@ All tracks share site/sensor identity and train/validation/test split manifests,
 - `tools/acquire-neon-data.sh` downloads selected NEON files and verifies file size/MD5 plus local SHA-256 after the user supplies a local API token.
 - `tools/profile-flow-audit/` implements NSR as a separate diagnostic with interval-censored response timing; it must not be inserted into the 2026 ResNet reproduction target. Pair order is considered robust only when response intervals are strictly separated; overlap is reported as ambiguous.
 - `tools/pf-threshold-audit/` tests sensitivity across Rosetta Ksat and modelled matrix-velocity threshold families without assuming an undocumented log base.
+- `tools/site-prevalence-audit/` computes the 2025 site-level probability estimands from one row per site-level rainfall event. It separates VT maximum/median/median+SD and NSR, preserves indeterminate event evidence, and reports method coverage plus identification bounds. It does not train the paper's Random Forest.
 
 The soil-water and precipitation normalizers together still do not constitute a full raw NEON package parser. Product-specific variable names, detailed QA semantics, maximum-profile-porosity provenance, source release, aggregation alignment and sensor mapping must be configured from each pinned release's variables/ATBD and independently reviewed.
 
-Implementation tracker: [TERRA-NEON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5537).
+Implementation trackers: [TERRA-NEON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5537) · [TERRA-PF-SITE-001](https://github.com/Luminous-Dynamics/mycelix/issues/5561).
 
 ## References
 
