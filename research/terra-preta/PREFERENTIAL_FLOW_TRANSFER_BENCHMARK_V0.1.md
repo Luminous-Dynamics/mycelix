@@ -300,3 +300,8 @@ is present in the local acquisition manifest.
 - NEON (6 October 2025). “Precipitation (DP1.00006.001) has been split into three data products.” https://www.neonscience.org/impact/observatory-blog/precipitation-dp100006001-has-been-split-three-data-products
 - NEON (21 October 2025). “Data Product DP1.00006.001 (Precipitation) has been Deprecated.” https://www.neonscience.org/impact/observatory-blog/data-product-dp100006001-precipitation-has-been-deprecated
 - NEON Data API. “Data Products Endpoint” and “Data Query Endpoint.” https://data.neonscience.org/data-api/endpoints/products/ and https://data.neonscience.org/data-api/endpoints/data-query/
+
+
+## 12. Sampling design and sensor placement
+
+The response/transfer benchmark should be read with the [profile sampling-design robustness benchmark](./PROFILE_SAMPLING_DESIGN_ROBUSTNESS_BENCHMARK_V0.1.md) and the separate [PF-specific sensor placement and adaptive measurement benchmark](./PREFERENTIAL_FLOW_SENSOR_PLACEMENT_BENCHMARK_V0.1.md). The former tests cadence and current-layout sensitivity; the latter defines the new-depth/location optimizer and cost-matched fixed-layout comparators. Implementation is tracked in [#5579](https://github.com/Luminous-Dynamics/mycelix/issues/5579).
