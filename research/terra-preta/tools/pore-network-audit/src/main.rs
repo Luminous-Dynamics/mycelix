@@ -150,6 +150,7 @@ struct Report {
     top_bottom_percolating_component_count_at_zero_threshold: usize,
     top_bottom_percolates_at_zero_threshold: bool,
     percolating_pore_volume_fraction_at_zero_threshold: f64,
+    direct_spanning_pore_count: usize,
     widest_top_bottom_path_bottleneck_radius_um: Option<f64>,
     shortest_top_bottom_path_length_um: Option<f64>,
     straight_sample_height_um: f64,
@@ -474,6 +475,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let straight_height_um = (input.image.dimensions_voxels_xyz[2] - 1) as f64
         * input.image.voxel_spacing_um_xyz[2];
     let tortuosity = shortest_path.map(|length| length / straight_height_um);
+    let direct_spanning_pore_count = input.network.pores.iter()
+        .filter(|pore| pore.touches_top_boundary && pore.touches_bottom_boundary)
+        .count();
 
     let mut thresholds = input.threshold_sweep_um.clone();
     thresholds.sort_by(f64::total_cmp);
@@ -501,6 +505,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     } else {
         warnings.push("no top-to-bottom path exists in the unfiltered graph".to_owned());
     }
+    if direct_spanning_pore_count > 0 {
+        warnings.push("one or more single pore regions touch both top and bottom faces; geometric percolation is recorded, but no finite throat bottleneck radius is defined for that direct-pore path".to_owned());
+    }
 
     Ok(Report {
         audit_version: AUDIT_VERSION,
@@ -525,6 +532,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         top_bottom_percolating_component_count_at_zero_threshold: baseline_components.top_bottom_percolating_component_count,
         top_bottom_percolates_at_zero_threshold: baseline_components.top_bottom_percolates,
         percolating_pore_volume_fraction_at_zero_threshold: baseline_components.percolating_pore_volume_fraction,
+        direct_spanning_pore_count,
         widest_top_bottom_path_bottleneck_radius_um: widest_path,
         shortest_top_bottom_path_length_um: shortest_path,
         straight_sample_height_um: straight_height_um,
@@ -746,7 +754,8 @@ mod tests {
         let report = evaluate(&input, "9".repeat(64)).unwrap();
         assert!(report.top_bottom_percolates_at_zero_threshold);
         assert_eq!(report.widest_top_bottom_path_bottleneck_radius_um, None);
-        assert_eq!(report.shortest_top_bottom_path_length_um, Some(0.0));
+        assert_eq!(report.shortest_top_bottom_path_length_um, Some(9900.0));
+        assert_eq!(report.direct_spanning_pore_count, 1);
     }
 
     #[test]
