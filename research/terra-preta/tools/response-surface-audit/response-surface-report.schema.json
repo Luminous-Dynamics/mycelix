@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/response-surface-audit/response-surface-report.schema.json",
+  "title": "Terra Preta descriptive response-surface audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "input_label",
+    "input_sha256",
+    "observation_row_count",
+    "assignment_unit_count",
+    "minimum_independent_units_per_dose",
+    "absolute_flat_tolerance_in_endpoint_units",
+    "series_count",
+    "non_monotonic_series_count",
+    "interaction_contrast_count",
+    "series",
+    "interaction_contrasts",
+    "warnings",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "descriptive_only"
+    },
+    "input_label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "observation_row_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "assignment_unit_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "minimum_independent_units_per_dose": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "absolute_flat_tolerance_in_endpoint_units": {
+      "type": "number",
+      "minimum": 0
+    },
+    "series_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "non_monotonic_series_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "interaction_contrast_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "series": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/series"
+      }
+    },
+    "interaction_contrasts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/interaction"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "study_id",
+        "site_id",
+        "soil_source_id",
+        "amendment_family_id",
+        "treatment_id",
+        "dose_unit",
+        "root_regime",
+        "wet_dry_cycles",
+        "antecedent_state",
+        "forcing_id",
+        "endpoint_id",
+        "timepoint_id",
+        "allocation_method"
+      ],
+      "properties": {
+        "study_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "site_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "soil_source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amendment_family_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "treatment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dose_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_regime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wet_dry_cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "antecedent_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "forcing_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timepoint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allocation_method": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "dosePoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dose",
+        "assignment_unit_count",
+        "observation_row_count",
+        "mean_value",
+        "sd_across_assignment_unit_means",
+        "block_ids",
+        "material_batch_ids"
+      ],
+      "properties": {
+        "dose": {
+          "type": "number",
+          "minimum": 0
+        },
+        "assignment_unit_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "observation_row_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mean_value": {
+          "type": "number"
+        },
+        "sd_across_assignment_unit_means": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "block_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "material_batch_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "series": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "series_id",
+        "context",
+        "dose_points",
+        "common_block_ids_across_all_doses",
+        "common_block_count",
+        "minimum_independent_units_per_dose",
+        "shape_status",
+        "reversal_detected"
+      ],
+      "properties": {
+        "series_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "dose_points": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/dosePoint"
+          }
+        },
+        "common_block_ids_across_all_doses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "common_block_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimum_independent_units_per_dose": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "shape_status": {
+          "enum": [
+            "insufficient_independent_replication",
+            "not_evaluable_two_or_fewer_dose_levels",
+            "non_monotonic_reversal",
+            "monotonic_increasing_or_plateau",
+            "monotonic_decreasing_or_plateau",
+            "flat_within_tolerance"
+          ]
+        },
+        "reversal_detected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "interactionContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "study_id",
+        "site_id",
+        "soil_source_id",
+        "amendment_family_id",
+        "treatment_id",
+        "dose_unit",
+        "antecedent_state",
+        "forcing_id",
+        "endpoint_id",
+        "timepoint_id",
+        "allocation_method"
+      ],
+      "properties": {
+        "study_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "site_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "soil_source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amendment_family_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "treatment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dose_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "antecedent_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "forcing_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timepoint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allocation_method": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "factor_compared",
+        "factor_level_a",
+        "factor_level_b",
+        "root_regime_a",
+        "wet_dry_cycles_a",
+        "root_regime_b",
+        "wet_dry_cycles_b",
+        "common_dose_values",
+        "assignment_units_a",
+        "assignment_units_b",
+        "dose_slope_a_per_dose_unit",
+        "dose_slope_b_per_dose_unit",
+        "slope_difference_a_minus_b",
+        "status"
+      ],
+      "properties": {
+        "context": {
+          "$ref": "#/$defs/interactionContext"
+        },
+        "factor_compared": {
+          "enum": [
+            "root_regime",
+            "wet_dry_cycles"
+          ]
+        },
+        "factor_level_a": {
+          "type": "string",
+          "minLength": 1
+        },
+        "factor_level_b": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_regime_a": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wet_dry_cycles_a": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "root_regime_b": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wet_dry_cycles_b": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "common_dose_values": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "assignment_units_a": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "assignment_units_b": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "dose_slope_a_per_dose_unit": {
+          "type": "number"
+        },
+        "dose_slope_b_per_dose_unit": {
+          "type": "number"
+        },
+        "slope_difference_a_minus_b": {
+          "type": "number"
+        },
+        "status": {
+          "const": "descriptive_only_no_inference"
+        }
+      }
+    }
+  }
+}
