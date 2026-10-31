@@ -145,6 +145,7 @@ struct Outcome {
     outcome_id: String,
     observation: Option<Value>,
     probability: f64,
+    regime_probabilities: BTreeMap<String, f64>,
     next_state_id: Option<String>,
     stage_cost: f64,
     resources_replenished: f64,
@@ -184,6 +185,7 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
     if fixture_id != Some(BENCHMARK_ID)
         && fixture_id != Some("PRAXIS-NRES-016-EX1-NESTED-CVAR-COMPARISON-001")
         && fixture_id != Some("PRAXIS-NRES-016-EX2-RECTANGULAR-TV-ROBUST-RECOURSE-001")
+        && fixture_id != Some("PRAXIS-NRES-016-EX3-SHARED-REGIME-NONRECTANGULAR-001")
     {
         errors.push("unexpected NRES-016 adaptive-recourse benchmark_id".to_owned());
     }
@@ -358,6 +360,22 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
                     errors.push(format!("{state_id}/{action_id}/{outcome_id}: probability must be finite and in (0,1]"));
                     continue;
                 };
+                let mut regime_probabilities = BTreeMap::new();
+                if let Some(raw_regimes) = raw_outcome.get("regime_probabilities") {
+                    match raw_regimes.as_object() {
+                        Some(object) => {
+                            for (regime_id, raw_probability) in object {
+                                match raw_probability.as_f64() {
+                                    Some(value) if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                                        regime_probabilities.insert(regime_id.clone(), value);
+                                    }
+                                    _ => errors.push(format!("{state_id}/{action_id}/{outcome_id}: invalid regime probability for {regime_id}")),
+                                }
+                            }
+                        }
+                        None => errors.push(format!("{state_id}/{action_id}/{outcome_id}: regime_probabilities must be an object")),
+                    }
+                }
                 let stage_cost = number_field(raw_outcome, "stage_cost");
                 let Some(stage_cost) =
                     stage_cost.filter(|number| number.is_finite() && *number >= 0.0)
@@ -420,6 +438,7 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
                     outcome_id,
                     observation,
                     probability,
+                    regime_probabilities,
                     next_state_id,
                     stage_cost,
                     resources_replenished,
