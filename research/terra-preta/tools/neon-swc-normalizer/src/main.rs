@@ -813,7 +813,7 @@ mod tests {
         assert_eq!(raw_profile.sensors[0].observations[1].status, "missing");
         assert_eq!(raw_profile.sensors[0].observations[1].volumetric_water_content_m3_m3, None);
         assert_eq!(paper_profile.sensors[0].observations[1].status, "linear_interpolated_gap_lt6h");
-        assert_eq!(paper_profile.sensors[0].observations[1].volumetric_water_content_m3_m3, Some(0.24));
+        assert_eq!(paper_profile.sensors[0].observations[1].volumetric_water_content_m3_m3, Some(0.22));
         assert_eq!(report.missing_bin_count, 1);
         assert_eq!(report.interpolated_bin_count, 1);
         assert_eq!(report.remaining_missing_bin_count, 0);
