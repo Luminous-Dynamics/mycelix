@@ -10,6 +10,9 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fmt;
 
+pub const MAX_SOURCE_INPUT_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_CANDIDATE_EVALUATIONS: usize = 100_000;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShrinkError(pub String);
 
@@ -357,6 +360,16 @@ pub fn minimize_json<P>(
 where
     P: FnMut(&Value) -> Result<bool, String>,
 {
+    if source_input_bytes.len() > MAX_SOURCE_INPUT_BYTES {
+        return Err(ShrinkError(format!(
+            "source input exceeds {MAX_SOURCE_INPUT_BYTES} byte limit"
+        )));
+    }
+    if max_candidate_evaluations > MAX_CANDIDATE_EVALUATIONS {
+        return Err(ShrinkError(format!(
+            "candidate evaluation budget exceeds {MAX_CANDIDATE_EVALUATIONS}"
+        )));
+    }
     let decoded_source: Value = serde_json::from_slice(source_input_bytes)
         .map_err(|error| ShrinkError(format!("parse exact source input bytes: {error}")))?;
     if decoded_source != *input {
@@ -685,6 +698,31 @@ mod tests {
         assert_eq!(result.minimized_value, serde_json::json!({"value": 0}));
         assert!(result.trace.complete);
         assert!(result.trace.is_one_minimal);
+    }
+
+    #[test]
+    fn rejects_source_and_candidate_budgets_above_hard_limits() {
+        let input = serde_json::json!({"a": true});
+        let source_bytes = serde_json::to_vec(&input).unwrap();
+        assert!(minimize_json(
+            &input,
+            &source_bytes,
+            "source-limit-control",
+            &BTreeSet::new(),
+            100_001,
+            |_| Ok(true)
+        )
+        .is_err());
+        let oversized = vec![b' '; MAX_SOURCE_INPUT_BYTES + 1];
+        assert!(minimize_json(
+            &input,
+            &oversized,
+            "input-size-control",
+            &BTreeSet::new(),
+            1,
+            |_| Ok(true)
+        )
+        .is_err());
     }
 
     #[test]
