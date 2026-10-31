@@ -75,3 +75,28 @@ The benchmark's small synthetic scenario demonstrates logic, not general perform
 Tang, R., Sloman, S. J., and Kaski, S. (2026). *Representative, Informative, and De-Amplifying: Requirements for Robust Bayesian Active Learning under Model Misspecification*. AISTATS 2026, PMLR 300, 3016–3024. https://proceedings.mlr.press/v300/tang26d.html
 
 The published paper motivates the risk and the reference comparator; the current benchmark's transparent R-IDeA-inspired score is not a reproduction of their method.
+
+## 8. v0.1 implementation contract and transparent score definitions
+
+The Rust implementation uses a fixed scenario target distribution and deterministic greedy selection. Scores are divided by action cost.
+
+- **EIG proxy:** arithmetic mean of candidate-model information-gain scores.
+- **Representative-only:** target stratum weight divided by one plus the number of actions already selected from that stratum.
+- **R-IDeA-inspired comparator:** 0.30 × representativeness + 0.40 × mean information gain + 0.30 × (1 − mean error-amplification risk). This is explicitly a local transparent comparator, not the published R-IDeA objective.
+- **Robust decision-focused:** 0.25 × minimum model decision value + 0.15 × mean information gain + 0.15 × representativeness + 0.35 × (1 − mean error-amplification risk) − 0.25 × range of model decision values. This score is used only after a hard target-stratum coverage reservation.
+- **Expert fixed:** expert priority.
+- **OFAT:** ascending predeclared order.
+- **Random:** deterministic xorshift64* shuffle, seeded from the scenario.
+
+Representativeness for stratum s at selection step t is target_weight(s) / (1 + selected_count(s)). The robust selector filters candidate actions to still-deficient strata and rejects any selection that would make the cheapest remaining coverage-completing subset exceed the remaining budget. Ineligible actions are removed before scoring and the robust policy cannot trade a governance/eligibility failure for higher utility.
+
+Synthetic oracle utility is:
+
+\[
+U(A) = \sum_{a \in A} w_{s(a)}\,v_a^{truth}
+\]
+
+where w is the declared target-stratum weight and v is the evaluator-only synthetic decision value. The exact oracle enumerates eligible subsets within budget that meet all minimum coverage constraints. The selector uses a distinct PolicyAction type which has no truth field. A dedicated regression test mutates all evaluator-only truth values and verifies that selections remain unchanged for all seven policies.
+
+The v0.1 fixture's expected values (one deliberately adversarial scenario, not general evidence) are: oracle 1.36; robust decision-focused 1.35; OFAT 1.12; representative-only 1.12; R-IDeA-inspired comparator 1.23; EIG-only 0.77; expert-fixed 0.99. These values are fixture regression targets, not policy-level statistical conclusions. Future evaluation must use many independently versioned scenario families and seeds, including policy-weight sensitivity.
+
