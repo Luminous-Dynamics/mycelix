@@ -33,6 +33,17 @@ The report provides three distinct summaries per method: probability among evalu
 
 VT variants are never pooled. They correspond to maximum depth-weighted Rosetta Ksat, median depth-weighted Rosetta Ksat, and median plus one standard deviation. NSR is a separate method and is not part of the 2026 ResNet binary target.
 
+## VT–NSR paired-event agreement
+
+The report also provides a 3×3 positive/negative/indeterminate cross-method contingency for each VT threshold variant versus NSR. It records:
+- both-positive and both-negative event counts;
+- VT-positive/NSR-negative and VT-negative/NSR-positive discordances;
+- positive-vs-indeterminate and negative-vs-indeterminate combinations;
+- fully evaluable pairs and the agreement fraction among those pairs;
+- both-positive and both-negative fractions of the full site-probability denominator.
+
+This separation is important for interpreting the 2025 paper. Li et al. report that VT occurrence was roughly four times as common as NSR, that both methods identified PF in about 5% of rainfall events, and that both agreed on no PF in about 80% of events. Those are published pooled, method-dependent patterns—not independent physical truth and not per-site targets to force every site to match. The cross-tab helps test reproduction of these patterns while preserving indeterminate pairs.
+
 ## Scientific boundaries
 
 - The input must have one row per unique site rainfall event. Do not duplicate a site-event by profile, plot, sensor or depth.
