@@ -320,7 +320,7 @@ fn seeded_rank(seed: u64, action_id: &str) -> u64 {
 fn coverage_met(context: &PolicyContext, actions: &[PolicyAction], selected: &[String]) -> bool {
     context.strata.iter().all(|stratum| {
         let count = selected.iter().filter(|id| {
-            actions.iter().any(|a| a.action_id == **id && a.stratum_id == stratum.stratum_id)
+            actions.iter().any(|a| a.action_id.as_str() == id.as_str() && a.stratum_id == stratum.stratum_id)
         }).count();
         count >= stratum.minimum_selected_actions
     })
@@ -344,7 +344,6 @@ fn selector_utility(selected: &[String], actions: &[PolicyAction], pairs: &[Sele
 fn marginal_gain(
     additions: &[&PolicyAction],
     selected: &[String],
-    actions: &[PolicyAction],
     pairs: &[SelectorPair],
 ) -> f64 {
     let mut gain: f64 = additions.iter().map(|a| a.predicted_standalone_value).sum();
@@ -356,7 +355,6 @@ fn marginal_gain(
             gain += pair_value(&additions[i].action_id, existing, pairs);
         }
     }
-    let _ = actions; // Keeps the score interface explicit about its candidate domain.
     gain
 }
 
@@ -408,7 +406,7 @@ fn select(
 
         if matches!(policy, Policy::SeededRandomFeasible) {
             let candidate = unselected.iter()
-                .min_by_key(|a| seeded_rank(context.seed, &a.action_id))
+                .min_by_key(|a| seeded_rank(context.seed, a.action_id.as_str()))
                 .expect("non-empty candidates");
             spent += candidate.cost_units;
             selected.push(candidate.action_id.clone());
@@ -419,7 +417,7 @@ fn select(
         for action in &unselected {
             let add = [*action];
             let cost = action.cost_units;
-            let gain = marginal_gain(&add, &selected, actions, pairs);
+            let gain = marginal_gain(&add, &selected, pairs);
             consider_candidate(&mut best, gain, cost, vec![action.action_id.clone()]);
         }
 
@@ -432,7 +430,7 @@ fn select(
                     if cost > remaining {
                         continue;
                     }
-                    let gain = marginal_gain(&[a, b], &selected, actions, pairs);
+                    let gain = marginal_gain(&[a, b], &selected, pairs);
                     let mut ids = vec![a.action_id.clone(), b.action_id.clone()];
                     ids.sort();
                     consider_candidate(&mut best, gain, cost, ids);
