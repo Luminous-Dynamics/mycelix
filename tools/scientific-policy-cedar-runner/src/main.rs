@@ -80,6 +80,7 @@ struct DecisionRecord<'a> {
     case_id: &'a str,
     engine: &'static str,
     decision: &'static str,
+    determining_policy_ids: &'a [String],
 }
 
 #[derive(Debug, Serialize)]
@@ -349,7 +350,7 @@ fn evaluate_case(
     policy_set: &PolicySet,
     schema: &Schema,
     case: &EngineInputCase,
-) -> Result<(&'static str, u128, u128), String> {
+) -> Result<(&'static str, Vec<String>, u128, u128), String> {
     let construction_start = Instant::now();
     let principal = EntityUid::from_str(&case.cedar.request.principal)
         .map_err(|error| format!("invalid Cedar principal for {}: {error:?}", case.case_id))?;
@@ -383,7 +384,13 @@ fn evaluate_case(
         Decision::Allow => "allow",
         Decision::Deny => "deny",
     };
-    Ok((decision, construction_ns, authorization_ns))
+    let mut determining_policy_ids = response
+        .diagnostics()
+        .reason()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    determining_policy_ids.sort();
+    Ok((decision, determining_policy_ids, construction_ns, authorization_ns))
 }
 
 #[cfg(test)]
@@ -596,7 +603,7 @@ fn run() -> Result<(), String> {
     let wall_start = Instant::now();
     for (case_index, case) in cases.iter().enumerate() {
         let start = Instant::now();
-        let (decision, construction_ns, authorization_ns) =
+        let (decision, determining_policy_ids, construction_ns, authorization_ns) =
             evaluate_case(&authorizer, &policy_set, &schema, case)?;
         let total_ns = start.elapsed().as_nanos();
         if decision == "allow" {
@@ -614,6 +621,7 @@ fn run() -> Result<(), String> {
             case_id: &case.case_id,
             engine: "cedar-policy-4.14.0",
             decision,
+            determining_policy_ids: &determining_policy_ids,
         };
         let mut row = serde_json::to_vec(&record)
             .map_err(|error| format!("serialize Cedar decision row: {error}"))?;
