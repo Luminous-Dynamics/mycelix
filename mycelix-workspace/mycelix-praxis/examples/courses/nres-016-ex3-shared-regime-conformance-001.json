@@ -2,7 +2,7 @@
   "benchmark_id": "PRAXIS-NRES-016-EX3-SHARED-REGIME-CONFORMANCE-001",
   "schema_version": "1.0.0",
   "evaluation_split": "public-development-only",
-  "authored_rust_unit_tests": 35,
+  "authored_rust_unit_tests": 36,
   "invalid_input_controls": [
     "wrong benchmark ID or unsupported schema version",
     "fewer than two persistent regimes",
@@ -25,7 +25,8 @@
     "rectangularity price is negative despite the claimed set containment",
     "shared and rectangular evaluators use different risk alpha/lambda parameters",
     "regime probabilities are normalized across regimes rather than within each action/regime conditional distribution",
-    "terminal outcome is missing explicit null next state or null observation"
+    "terminal outcome is missing explicit null next state or null observation",
+    "latent or persistent regime identifier appears in an observable history field"
   ],
   "boundary_cases": [
     "two persistent regimes produce identical transition kernels and zero price of rectangularity",
