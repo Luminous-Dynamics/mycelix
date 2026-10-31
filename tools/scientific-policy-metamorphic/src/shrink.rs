@@ -510,6 +510,60 @@ mod tests {
     }
 
     #[test]
+    fn exact_source_bytes_and_normalized_value_have_distinct_identities() {
+        let first_bytes = br#"{"a":1,"b":2}"#;
+        let second_bytes = br#"{ "b": 2, "a": 1 }"#;
+        let first_value: Value = serde_json::from_slice(first_bytes).unwrap();
+        let second_value: Value = serde_json::from_slice(second_bytes).unwrap();
+        let protected = ["/a", "/b"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>();
+
+        let first = minimize_json(
+            &first_value,
+            first_bytes,
+            "source-identity-control",
+            &protected,
+            100,
+            |_| Ok(true),
+        )
+        .unwrap();
+        let second = minimize_json(
+            &second_value,
+            second_bytes,
+            "source-identity-control",
+            &protected,
+            100,
+            |_| Ok(true),
+        )
+        .unwrap();
+
+        assert_ne!(
+            first.trace.source_input_sha256,
+            second.trace.source_input_sha256
+        );
+        assert_eq!(
+            first.trace.original_value_sha256,
+            second.trace.original_value_sha256
+        );
+    }
+
+    #[test]
+    fn rejects_source_bytes_that_do_not_match_the_supplied_value() {
+        let input = serde_json::json!({"a": 1});
+        assert!(minimize_json(
+            &input,
+            br#"{"a":2}"#,
+            "source-mismatch-control",
+            &BTreeSet::new(),
+            100,
+            |_| Ok(true),
+        )
+        .is_err());
+    }
+
+    #[test]
     fn stable_digest_ignores_object_member_insertion_order() {
         let first: Value = serde_json::from_str(r#"{"b":2,"a":{"y":4,"x":3}}"#).unwrap();
         let second: Value = serde_json::from_str(r#"{"a":{"x":3,"y":4},"b":2}"#).unwrap();
