@@ -39,6 +39,9 @@ pub use bulk_tail::evaluate_bulk_tail_credal;
 pub mod cluster_calibration;
 pub use cluster_calibration::evaluate_cluster_max_conformal;
 
+pub mod adaptive_recourse;
+pub use adaptive_recourse::evaluate_exact_adaptive_recourse;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {

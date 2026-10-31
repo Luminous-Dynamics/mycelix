@@ -1,0 +1,62 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX0-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "authored_rust_unit_tests": 14,
+  "invalid_input_controls": [
+    "wrong benchmark ID, schema version or synthetic status",
+    "non-public-development split or curriculum activation",
+    "unsupported objective semantics",
+    "horizon outside [3,12]",
+    "missing initial information-state ID",
+    "missing, empty, negative or non-finite service floor",
+    "missing state, duplicate state ID or malformed observable-history event sequence",
+    "duplicate canonical observation/prior-action histories across information states",
+    "latent or future scenario fields embedded in observable observations",
+    "child history does not append the selected prior action and exactly one new observation",
+    "stage outside the declared horizon",
+    "missing, extra or invalid service-level value",
+    "missing actions or duplicate action IDs within an information state",
+    "negative/non-finite fixed cost or resource use",
+    "action resource use exceeds available resources",
+    "missing or empty action outcomes",
+    "duplicate outcome IDs within an action",
+    "outcome probability outside (0,1] or conditional probabilities do not sum to one",
+    "negative/non-finite stage cost or resource replenishment",
+    "missing next-state field",
+    "non-terminal outcome points to null",
+    "terminal outcome points to a next state",
+    "next information state is undeclared or has the wrong stage",
+    "resource conservation equation does not hold",
+    "declared information state is unreachable from the initial state",
+    "non-terminal transition omits an observation object or terminal transition supplies a non-null observation",
+    "transition-emitted observation differs from the final observation appended to the successor history",
+    "reserved hidden/future scenario identifier appears in a transition observation"
+  ],
+  "boundary_cases": [
+    "resource balance reaches exactly zero",
+    "a future state is exactly at every service floor",
+    "a future state falls below one service floor and makes its predecessor action infeasible",
+    "action-conditioned probabilities differ between actions",
+    "terminal-stage outcomes use explicit null next-state IDs",
+    "all root actions infeasible returns explicit infeasibility, not silent relaxation",
+    "successor's final observation must exactly equal the observation emitted by the selected transition"
+  ],
+  "round_trip_requirements": [
+    "information-state IDs and canonical observation/prior-action histories remain stable",
+    "action IDs remain stable within each information state",
+    "outcome IDs and probabilities remain attached to their action",
+    "stage indices remain strictly increasing along transitions",
+    "resource balances are conserved after action use and replenishment",
+    "service levels remain keyed to the same service-floor IDs",
+    "selected policy contains one action per observable information state",
+    "expected cost remains in the declared cost units",
+    "every successor observation remains bound to its incoming transition outcome"
+  ],
+  "non_claims": [
+    "The solver is exact only for the supplied finite information-state DAG and expected-cost objective.",
+    "No distributionally robust ambiguity set or nested conditional CVaR is implemented.",
+    "No independent real-world transition or causal action-effect evidence is supplied.",
+    "No confirmatory, deployment, readiness or SOTA claim."
+  ]
+}

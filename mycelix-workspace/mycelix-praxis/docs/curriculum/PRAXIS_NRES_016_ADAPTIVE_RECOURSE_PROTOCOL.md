@@ -219,6 +219,12 @@ The appropriate industry success test is **complementary operational value**: ca
 8. Scale with decomposition only after exact micro-instance conformance is stable.
 9. Integrate shift alarms (fixed-reference conformal test martingales / adaptive conformal methods) as monitoring inputs, not as a substitute for valid control.
 
+## 11.1 Exact public micro-oracle: NRES-016-EX0
+
+A stacked child implementation adds EX0, an exact expected-cost dynamic-programming oracle over a finite DAG of unique observable information states. EX0 supports action-conditioned finite transition probabilities, one conserved resource ledger and pathwise service floors. On its tiny three-stage fixture the exact hand solution is expected cost 2.3; the lower-cost DEFER action is infeasible because one positive-probability successor violates the water floor.
+
+EX0 proves only the expected-cost recursion on that finite micro-instance. It does not implement DRO, nested CVaR, partial-observation belief updates, vector resources or scale methods. See PRAXIS-NRES-016-EX0-EXACT-ADAPTIVE-RECOURSE.md. The Rust tests are authored and remain unexecuted until a real toolchain/CI run.
+
 ## 12. Safety and status
 
 All NRES-016 examples remain synthetic, public-development-only and inactive. This protocol does not authorize real-world resource dispatch, public-health response, legal determinations, emergency command or autonomous infrastructure control. Human override, role authority, evidence provenance and hard constraints remain first-class. No personal-suitability or composite-resilience score is permitted.
