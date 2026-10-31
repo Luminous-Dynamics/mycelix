@@ -2267,6 +2267,62 @@ mod tests {
         assert!(report["static_terminal"].is_null());
     }
 
+    fn ex3_fixture() -> Value {
+        serde_json::from_str(include_str!("../../../examples/courses/nres-016-ex3-shared-regime-fixture-001.json")).unwrap()
+    }
+
+    #[test]
+    fn shared_persistent_regime_risk_is_lower_than_rectangular_relaxation() {
+        let report = evaluate_shared_regime_nonrectangular(&ex3_fixture()).unwrap();
+        let shared = report["shared_regime"]["shared_regime_minimax_nested_mean_cvar"].as_f64().unwrap();
+        let rectangular = report["rectangular_relaxation"]["rectangular_regime_relaxation_nested_mean_cvar"].as_f64().unwrap();
+        assert!((shared - 504.595).abs() < 1e-9);
+        assert!((rectangular - 702.975).abs() < 1e-9);
+        assert!((report["price_of_rectangularity"]["absolute"].as_f64().unwrap() - 198.38).abs() < 1e-9);
+        assert!(rectangular >= shared);
+    }
+
+    #[test]
+    fn one_persistent_regime_cannot_produce_both_local_worst_kernels() {
+        let report = evaluate_shared_regime_nonrectangular(&ex3_fixture()).unwrap();
+        let shared = &report["shared_regime"]["nested_risk_by_persistent_regime"];
+        assert!((shared["NORMAL"].as_f64().unwrap() - 504.595).abs() < 1e-9);
+        assert!((shared["STRESS"].as_f64().unwrap() - 504.595).abs() < 1e-9);
+        let local = &report["rectangular_relaxation"]["worst_local_regime_by_state_action"];
+        assert_eq!(local["ROOT/FIRST"], json!("NORMAL"));
+        assert_eq!(local["S1/SECOND"], json!("STRESS"));
+    }
+
+    #[test]
+    fn shared_regime_policy_does_not_receive_hidden_regime_identifier() {
+        let report = evaluate_shared_regime_nonrectangular(&ex3_fixture()).unwrap();
+        let policy = report["shared_regime"]["policy"].as_object().unwrap();
+        assert_eq!(policy.len(), 6);
+        assert!(!policy.contains_key("NORMAL"));
+        assert!(!policy.contains_key("STRESS"));
+    }
+
+    #[test]
+    fn regime_probabilities_must_sum_to_one_per_action_and_regime() {
+        let mut fixture = ex3_fixture();
+        fixture["information_states"][0]["actions"][0]["outcomes"][0]["regime_probabilities"]["NORMAL"] = json!(0.20);
+        assert!(evaluate_shared_regime_nonrectangular(&fixture).is_err());
+    }
+
+    #[test]
+    fn regime_probability_maps_must_contain_all_declared_regimes() {
+        let mut fixture = ex3_fixture();
+        fixture["information_states"][0]["actions"][0]["outcomes"][0]["regime_probabilities"].as_object_mut().unwrap().remove("STRESS");
+        assert!(evaluate_shared_regime_nonrectangular(&fixture).is_err());
+    }
+
+    #[test]
+    fn nominal_probability_must_equal_regime_average() {
+        let mut fixture = ex3_fixture();
+        fixture["information_states"][0]["actions"][0]["outcomes"][0]["probability"] = json!(0.04);
+        assert!(evaluate_shared_regime_nonrectangular(&fixture).is_err());
+    }
+
     #[test]
     fn exact_oracle_matches_hand_solved_expected_cost() {
         let report = evaluate_exact_adaptive_recourse(&small_fixture()).unwrap();
