@@ -473,6 +473,7 @@ jobs:
           jq empty research/terra-preta/tools/pf-threshold-audit/fixtures/synthetic-threshold-sensitive.json
           jq empty research/terra-preta/tools/trajectory-signature-audit/fixtures/synthetic-multi-peak.json
           jq empty research/terra-preta/tools/pf-triangulation-audit/fixtures/synthetic-method-evidence.json
+          jq empty research/terra-preta/tools/pore-network-audit/fixtures/synthetic-connected-network.json
           bash -n research/terra-preta/tools/acquire-public-sources.sh
           bash -n research/terra-preta/tools/acquire-neon-data.sh
           bash -n research/terra-preta/tools/inventory-neon-data.sh
@@ -519,6 +520,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml -- --check
       - name: Test standalone audit tools and JSON Schema conformance
         run: |
           cargo test --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml
@@ -554,6 +556,9 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml -- research/terra-preta/tools/dynamic-macropore-audit/fixtures/synthetic-konza-like-input.json "$RUNNER_TEMP/terra-preta-dynamic-macropore-report.json"
           jq -e '.time_point_count == 3 and (.derived_geometry.dry_structural_unit_width_mm == 18) and (.time_points[0].macropore_width_mm == 2) and (.time_points[2].macropore_width_mm < .time_points[0].macropore_width_mm) and (.time_points[2].macropore_volume_fraction < .time_points[0].macropore_volume_fraction) and (.time_points | all(.[]; .whole_soil_transient_saturated_conductivity_m_s > 0)) and (.unsaturated_conductivity_status == "not_implemented_v0.1; no unsaturated conductivity claim")' "$RUNNER_TEMP/terra-preta-dynamic-macropore-report.json"
+          cargo test --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml -- research/terra-preta/tools/pore-network-audit/fixtures/synthetic-connected-network.json "$RUNNER_TEMP/terra-preta-pore-network-report.json"
+          jq -e '.top_bottom_percolates_at_zero_threshold == true and .widest_top_bottom_path_bottleneck_radius_um == 50 and .shortest_top_bottom_path_length_um == 9900 and .shortest_path_tortuosity == 1 and .threshold_analysis[0].top_bottom_percolates == true and .threshold_analysis[1].top_bottom_percolates == true and .threshold_analysis[2].top_bottom_percolates == false' "$RUNNER_TEMP/terra-preta-pore-network-report.json"
       - name: Test grouped split manifest fail-closed checks
         run: bash research/terra-preta/tools/test-split-manifest.sh
       - name: Lint standalone audit tools
@@ -574,6 +579,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml --all-targets -- -D warnings
 
   # Summary gate
   ci-pass:
