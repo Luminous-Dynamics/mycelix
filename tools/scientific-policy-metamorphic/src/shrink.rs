@@ -349,6 +349,12 @@ fn apply_reduction(
 /// Deterministically shrink an input while preserving a caller-provided
 /// predicate. A complete result is 1-minimal in the finite neighborhood
 /// defined by collect_reductions, not a claim of global minimum.
+///
+/// The caller must validate the original source bytes against its strict
+/// parsing/schema boundary before calling this function. This function verifies
+/// that the bytes decode to the supplied Value, hashes the exact bytes, and
+/// keeps that digest separate from the normalized Value digest; it is not a
+/// duplicate-key or authorization-input validator.
 pub fn minimize_json<P>(
     input: &Value,
     source_input_bytes: &[u8],
@@ -738,6 +744,38 @@ mod tests {
             |_| Ok(false)
         )
         .is_err());
+    }
+
+    #[test]
+    fn array_element_removal_uses_stable_json_pointer_paths() {
+        let input = serde_json::json!({
+            "principal": "actor:fixed",
+            "action": "claim_proposed",
+            "resource": "claim:fixed",
+            "array": [1, 2, 3]
+        });
+        let source_bytes = serde_json::to_vec(&input).unwrap();
+        let protected = ["/principal", "/action", "/resource"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>();
+        let predicate = |value: &Value| {
+            Ok(value["principal"] == "actor:fixed"
+                && value["action"] == "claim_proposed"
+                && value["resource"] == "claim:fixed"
+                && value["array"].as_array().is_some_and(|items| items.contains(&Value::from(1))))
+        };
+        let result = minimize_json(
+            &input,
+            &source_bytes,
+            "array-reduction",
+            &protected,
+            100,
+            predicate,
+        )
+        .unwrap();
+        assert_eq!(result.minimized_value["array"], serde_json::json!([1]));
+        assert!(result.trace.is_one_minimal);
     }
 
     #[test]
