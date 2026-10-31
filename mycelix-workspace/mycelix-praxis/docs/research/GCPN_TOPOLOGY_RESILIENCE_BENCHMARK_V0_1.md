@@ -41,7 +41,7 @@ This model preserves local continuity when cross-border links fail, while making
 
 ## 3. Frozen fault matrix
 
-The 10 synthetic rows in `fixtures/topology-fault-matrix-v0.1.csv` use identical receiver groups:
+The 11 synthetic rows in `fixtures/topology-fault-matrix-v0.1.csv` use identical receiver groups:
 - origin/local cohort: 1,000 synthetic receivers;
 - remote region A: 600;
 - remote region B: 400;
@@ -51,13 +51,14 @@ The fault cases are:
 1. all services available;
 2. central hub outage;
 3. origin-to-central uplink loss;
-4. interregional federation partition;
-5. origin regional service outage;
-6. local-first local path outage;
-7. origin last-mile outage;
-8. remote last-mile outage;
-9. origin authority unavailable;
-10. remote regional services outage.
+4. central remote distribution path outage;
+5. interregional federation partition;
+6. origin regional service outage;
+7. local-first local path outage;
+8. origin last-mile outage;
+9. remote last-mile outage;
+10. origin authority unavailable;
+11. remote regional services outage.
 
 All booleans are explicit. No fault probability is assumed.
 
@@ -81,6 +82,7 @@ Every scenario has 2,000 intended receivers. The table reports local + remote de
 | All available | 1,000 + 1,000 | 1,000 + 1,000 | 1,000 + 1,000 |
 | Central hub outage | 0 + 0 | 1,000 + 1,000 | 1,000 + 1,000 |
 | Origin central uplink loss | 0 + 0 | 1,000 + 1,000 | 1,000 + 1,000 |
+| Central remote path outage | 1,000 + 0 | 1,000 + 1,000 | 1,000 + 1,000 |
 | Interregional partition | 1,000 + 1,000 | 1,000 + 0 | 1,000 + 0 |
 | Origin regional service outage | 1,000 + 1,000 | 0 + 0 | 1,000 + 0 |
 | Local-first path outage | 1,000 + 1,000 | 1,000 + 1,000 | 0 + 1,000 |
