@@ -19,6 +19,12 @@ The input contains 2D image summaries (cross-section area, total macropore area/
 - Eqs. 20–23: slit-pore saturated conductivity (K_{sp}), whole-soil transient saturated conductivity (K_s), macropore volume fraction (f_p), and cross-section-to-volume conversion (R_p).
 - Figure 6/Table 1 plotted relationship for structural-domain alpha_2: alpha_2/alpha_ds = beta_0 + beta_1(d/d_ds). The paper body's printed Eq. 37 instead has a minus sign; it conflicts with Figure 6's positive near-1:1 line and Table 1's positive beta_1 values. v0.1 follows the figure/table relationship provisionally; author R-script parity is needed to resolve the publication inconsistency.
 
+## Per-pore follow-on stage
+
+For the object-resolved Hirmas pathway, use [hirmas-pore-resolved-audit](../hirmas-pore-resolved-audit/README.md) after running this CLI. It cross-checks the dynamic report against the retained ImageJ pore objects, computes the per-pore Eq. 35–36 fractions, Eq. 33 matric heads and Eq. 46 cumulative retention curve. It reports its per-pore fraction sum alongside the aggregate Eq. 22 fraction and does not force them to agree.
+
+The end-to-end replication acceptance criteria are in [HIRMAS_DYNAMIC_MORPHOLOGY_REPRODUCTION_BENCHMARK_V0.1](../../HIRMAS_DYNAMIC_MORPHOLOGY_REPRODUCTION_BENCHMARK_V0.1.md). The archive has not yet been acquired or reproduced; CI uses synthetic inputs only.
+
 ## Required interpretation boundaries
 
 - Matrix water content `theta_m` must be independently measured or produced by a separately audited partition model. Do not feed total sensor water content and label it matrix content.
