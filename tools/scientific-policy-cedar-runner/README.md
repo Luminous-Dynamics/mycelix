@@ -13,14 +13,14 @@ The generator manifest and paired engine input corpus must be produced by `tools
 
 - Parse Cedar policy and schema once.
 - Verify generator manifest, baseline source pin, corpus digest, row count, unique case IDs and cross-engine case identity.
-- Construct actor and claim entities plus the context and Request with schema validation enabled. The pinned schema supplies Cedar action entities; the generator does not duplicate them.
+- Construct the referenced principal Actor and resource Claim plus the context and Request with schema validation enabled. The pinned schema supplies Cedar action entities; the generator does not duplicate them. The frozen baseline contains one explicit Actor and one Claim. Metamorphic evaluation also permits additional unique Actor entities, but requires the referenced principal and exactly one referenced Claim to remain present; Cedar's schema parser validates every entity's attributes.
 - Warm the authorizer with the first 256 requests, then re-evaluate all 62,464 input rows. Warmup latencies are excluded from p50/p95/p99.
 - Emit deterministic JSONL decisions and a run manifest containing exact policy/schema/input/output digests, allow/deny counts, p50/p95/p99, throughput, platform and peak RSS (Linux VmHWM when available).
 - Any input, parse, schema, entity, context, request or evaluation error fails the run as indeterminate. It is never converted into a deny or an allow.
 
 - A paired OPA/Rego v1 wrapper in `opa-batch.rego` evaluates the same case IDs and input objects using OPA 1.22.0 pinned by its static-binary SHA-256. CI records a Cedar-vs-OPA divergence report.
 - OPA is measured as a single batch CLI invocation including process startup and OPA input/result file I/O. This is not directly latency-comparable to Cedar's in-process per-request measurements.
-- Cedar receives actor and claim entities only. The pinned schema supplies action entities when the entity set is parsed with that schema; the generator deliberately does not duplicate action entities.
+- Action entities remain schema-supplied and must not be duplicated in the explicit entity list. Extra actors are permitted only for metamorphic controls, with unique UIDs and schema-valid attributes; duplicate UIDs, missing request bindings and unsupported explicit entity types fail closed.
 
 Cedar output is a candidate engine result, not an expected decision. The authentic compiled Rust policy crate remains unavailable due to #5189, so Cedar results do not establish Rust/Cedar parity. The outer Rust kernel still owns signatures, actor/key binding, revocation, membership, replay, receipt integrity and atomic commit.
 

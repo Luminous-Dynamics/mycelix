@@ -1,0 +1,264 @@
+name: Scientific Policy Metamorphic and Engine Invariance
+
+on:
+  pull_request:
+    paths:
+      - "tools/scientific-policy-metamorphic/**"
+      - "tools/scientific-policy-space/**"
+      - "tools/scientific-policy-cedar-runner/**"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego"
+      - ".github/workflows/scientific-policy-metamorphic.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scientific-policy-metamorphic-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  metamorphic-engine-invariance:
+    name: Cedar/OPA metamorphic invariance (Rust 1.96.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: clippy, rustfmt
+
+      - name: Generate standalone dependency locks
+        run: |
+          cargo generate-lockfile --manifest-path tools/scientific-policy-space/Cargo.toml
+          cargo generate-lockfile --manifest-path tools/scientific-policy-metamorphic/Cargo.toml
+          cargo generate-lockfile --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml
+
+      - name: Format the metamorphic tool and Cedar runner
+        run: |
+          cargo fmt --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --all
+          cargo fmt --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --all
+
+      - name: Test and lint metamorphic tool and Cedar runner
+        run: |
+          cargo test --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked
+          cargo clippy --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --all-targets --locked -- -D warnings
+          cargo test --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked
+          cargo clippy --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Generate exact source-pinned 62,464-case baseline
+        run: |
+          cargo run --manifest-path tools/scientific-policy-space/Cargo.toml --locked -- target/scientific-policy-space
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-decision-space-v0.1.jsonl)" -eq 62464
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
+          jq -e '.case_count == 62464 and .expected_decision_status == "pending_authentic_rust_oracle" and .engine_input_count == 62464' target/scientific-policy-space/manifest.json
+
+      - name: Generate four deterministic source-bound metamorphic corpora
+        run: |
+          cargo run --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked -- \
+            target/scientific-policy-space/manifest.json \
+            target/scientific-policy-metamorphic
+          test "$(find target/scientific-policy-metamorphic -name transform-manifest.json | wc -l)" -eq 5
+          for transform in \
+            json-object-key-order-reversed \
+            json-whitespace-expanded \
+            cedar-entity-order-reversed \
+            cedar-irrelevant-actor-added \
+            claim-proposed-contributor-removed; do
+            folder="target/scientific-policy-metamorphic/$transform"
+            test "$(wc -l < "$folder/scientific-policy-engine-inputs-v0.1.jsonl")" -eq 62464
+            jq -e '.source_case_count == 62464 and .transformed_case_count == 62464 and .source_engine_inputs_sha256 != .transformed_engine_inputs_sha256 and .expected_changed_case_count == .changed_case_count' \
+              "$folder/transform-manifest.json"
+            if [ "$transform" = "claim-proposed-contributor-removed" ]; then
+              jq -e '.expected_relation == "one_targeted_claim_proposed_case_changes_from_allow_to_deny" and .changed_case_count == 1 and (.changed_case_ids|length) == 1' "$folder/transform-manifest.json"
+            else
+              jq -e '.changed_case_count == .expected_changed_case_count' "$folder/transform-manifest.json"
+            fi
+            jq -e '.expected_decision_status == "pending_authentic_rust_oracle" and .engine_input_count == 62464' \
+              "$folder/manifest.json"
+            actual_sha="$(sha256sum "$folder/scientific-policy-engine-inputs-v0.1.jsonl" | cut -d ' ' -f 1)"
+            expected_sha="$(jq -r '.engine_inputs_sha256' "$folder/manifest.json")"
+            test "$actual_sha" = "$expected_sha"
+          done
+
+      - name: Download and verify OPA 1.22.0 static binary
+        run: |
+          curl -fsSL \
+            https://github.com/open-policy-agent/opa/releases/download/v1.22.0/opa_linux_amd64_static \
+            -o /tmp/opa
+          echo "791790254c598a942eb140959bcec9a47f844535a632fd01d11d870ba2a47047  /tmp/opa" | sha256sum -c -
+          chmod +x /tmp/opa
+          /tmp/opa version | tee target/opa-version.txt
+
+      - name: Evaluate baseline corpus through Cedar
+        run: |
+          cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- \
+            target/scientific-policy-space/manifest.json target/metamorphic-engine-results/baseline-cedar
+          test "$(wc -l < target/metamorphic-engine-results/baseline-cedar/cedar-decisions-v0.1.jsonl)" -eq 62464
+          jq -e '.case_count == 62464 and .indeterminate_count == 0 and .measured_cases == 62208' \
+            target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json
+
+      - name: Evaluate baseline corpus through OPA/Rego v1
+        run: |
+          mkdir -p target/metamorphic-engine-results/baseline-opa
+          jq -s '{cases: map({case_id, input: .rego.input})}' \
+            target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl \
+            > target/metamorphic-engine-results/baseline-opa/opa-input.json
+          started="$(date +%s%N)"
+          /tmp/opa eval --strict --format=json \
+            --input target/metamorphic-engine-results/baseline-opa/opa-input.json \
+            --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+            --data tools/scientific-policy-cedar-runner/opa-batch.rego \
+            'data.mycelix.authz.batch.decisions' \
+            > target/metamorphic-engine-results/baseline-opa/opa-eval.json
+          elapsed_ns="$(( $(date +%s%N) - started ))"
+          jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0", decision:.decision.effect, determining_policy_ids:[.decision.rule]}' \
+            target/metamorphic-engine-results/baseline-opa/opa-eval.json \
+            > target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl
+          test "$(wc -l < target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl)" -eq 62464
+          output_sha="$(sha256sum target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl | cut -d ' ' -f 1)"
+          input_sha="$(sha256sum target/metamorphic-engine-results/baseline-opa/opa-input.json | cut -d ' ' -f 1)"
+          jq -n --arg input_sha256 "$input_sha" --arg output_sha256 "$output_sha" --argjson elapsed_ns "$elapsed_ns" \
+            '{engine:"opa",engine_version:"1.22.0",evaluation_method:"one-shot-cli-batch-including-process-startup-and-file-io",case_count:62464,input_sha256:$input_sha256,output_sha256:$output_sha256,elapsed_ns:$elapsed_ns,claim_ceiling:"OPA result over frozen abstract input corpus; not Rust authorization parity"}' \
+            > target/metamorphic-engine-results/baseline-opa/opa-run-manifest.json
+
+      - name: Evaluate each metamorphic corpus through Cedar and OPA
+        run: |
+          set -euo pipefail
+
+          compare_engine() {
+            local engine="$1"
+            local baseline_file="$2"
+            local candidate_file="$3"
+            local output_file="$4"
+            local expected_mode="$5"
+            local target_case_id="$6"
+            jq -n --arg engine "$engine" --arg target_case_id "$target_case_id" --arg expected_mode "$expected_mode" --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
+              def by_id: map({key:.case_id,value:{decision:.decision,determining_policy_ids:(.determining_policy_ids // [])}}) | from_entries;
+              ($baseline | by_id) as $b |
+              ($candidate | by_id) as $c |
+              ($b | keys) as $bk |
+              ($c | keys) as $ck |
+              {
+                engine:$engine,
+                baseline_case_count:($bk|length),
+                candidate_case_count:($ck|length),
+                same_case_ids:($bk == $ck),
+                target_case_id:$target_case_id,
+                target_baseline_decision:(if $target_case_id == "" then null else $b[$target_case_id].decision end),
+                target_candidate_decision:(if $target_case_id == "" then null else $c[$target_case_id].decision end),
+                decision_divergence_count:([$bk[] | select($b[.].decision != $c[.].decision)] | length),
+                determining_policy_divergence_count:([$bk[] | select($b[.].determining_policy_ids != $c[.].determining_policy_ids)] | length),
+                divergence_samples:([$bk[] | select($b[.].decision != $c[.].decision or $b[.].determining_policy_ids != $c[.].determining_policy_ids) | {case_id:.,baseline:$b[.],candidate:$c[.]}] | .[0:20]),
+                expected_mode:$expected_mode,
+                claim_ceiling:"pinned-engine metamorphic behavior only; not Rust parity or policy correctness"
+              }
+            ' > "$output_file"
+
+            jq -e '.baseline_case_count == 62464 and .candidate_case_count == 62464 and .same_case_ids == true' "$output_file"
+            if [ "$expected_mode" = "single_allow_to_deny" ]; then
+              jq -e --arg target_case_id "$target_case_id" '
+                .decision_divergence_count == 1 and
+                .determining_policy_divergence_count == 1 and
+                .target_case_id == $target_case_id and
+                .target_baseline_decision == "allow" and
+                .target_candidate_decision == "deny" and
+                (.divergence_samples | length) == 1 and
+                .divergence_samples[0].case_id == $target_case_id
+              ' "$output_file"
+            else
+              jq -e '.decision_divergence_count == 0 and .determining_policy_divergence_count == 0' "$output_file"
+            fi
+          }
+
+          for transform in \
+            json-object-key-order-reversed \
+            json-whitespace-expanded \
+            cedar-entity-order-reversed \
+            cedar-irrelevant-actor-added \
+            claim-proposed-contributor-removed; do
+            folder="target/scientific-policy-metamorphic/$transform"
+            result_dir="target/metamorphic-engine-results/$transform"
+            mkdir -p "$result_dir"
+
+            cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- \
+              "$folder/manifest.json" "$result_dir/cedar"
+            test "$(wc -l < "$result_dir/cedar/cedar-decisions-v0.1.jsonl")" -eq 62464
+            jq -e '.case_count == 62464 and .indeterminate_count == 0 and .measured_cases == 62208' \
+              "$result_dir/cedar/cedar-run-manifest-v0.1.json"
+
+            jq -s '{cases: map({case_id, input: .rego.input})}' \
+              "$folder/scientific-policy-engine-inputs-v0.1.jsonl" \
+              > "$result_dir/opa-input.json"
+            started="$(date +%s%N)"
+            /tmp/opa eval --strict --format=json --input "$result_dir/opa-input.json" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+              --data tools/scientific-policy-cedar-runner/opa-batch.rego \
+              'data.mycelix.authz.batch.decisions' > "$result_dir/opa-eval.json"
+            elapsed_ns="$(( $(date +%s%N) - started ))"
+            jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0", decision:.decision.effect, determining_policy_ids:[.decision.rule]}' \
+              "$result_dir/opa-eval.json" > "$result_dir/opa-decisions-v0.1.jsonl"
+            test "$(wc -l < "$result_dir/opa-decisions-v0.1.jsonl")" -eq 62464
+            output_sha="$(sha256sum "$result_dir/opa-decisions-v0.1.jsonl" | cut -d ' ' -f 1)"
+            input_sha="$(sha256sum "$result_dir/opa-input.json" | cut -d ' ' -f 1)"
+            jq -n --arg input_sha256 "$input_sha" --arg output_sha256 "$output_sha" --argjson elapsed_ns "$elapsed_ns" \
+              --arg transform "$transform" \
+              '{engine:"opa",engine_version:"1.22.0",transform:$transform,evaluation_method:"one-shot-cli-batch-including-process-startup-and-file-io",case_count:62464,input_sha256:$input_sha256,output_sha256:$output_sha256,elapsed_ns:$elapsed_ns,claim_ceiling:"OPA metamorphic result only; not Rust authorization parity"}' \
+              > "$result_dir/opa-run-manifest.json"
+
+            expected_mode="invariant"
+            target_case_id=""
+            if [ "$transform" = "claim-proposed-contributor-removed" ]; then
+              expected_mode="single_allow_to_deny"
+              target_case_id="$(jq -r '.changed_case_ids[0]' "$folder/transform-manifest.json")"
+              test -n "$target_case_id"
+            fi
+            compare_engine cedar \
+              target/metamorphic-engine-results/baseline-cedar/cedar-decisions-v0.1.jsonl \
+              "$result_dir/cedar/cedar-decisions-v0.1.jsonl" "$result_dir/cedar-invariance.json" \
+              "$expected_mode" "$target_case_id"
+            compare_engine opa \
+              target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl \
+              "$result_dir/opa-decisions-v0.1.jsonl" "$result_dir/opa-invariance.json" \
+              "$expected_mode" "$target_case_id"
+            jq -n --arg transform "$transform" \
+              --slurpfile cedar "$result_dir/cedar-invariance.json" \
+              --slurpfile opa "$result_dir/opa-invariance.json" \
+              --slurpfile manifest "$folder/transform-manifest.json" \
+              '{transform:$transform,transform_manifest:$manifest[0],cedar:$cedar[0],opa:$opa[0],claim_ceiling:"pinned-engine metamorphic invariance only; no Rust decision oracle, formal policy equivalence or credential-registry authority claim"}' \
+              > "$result_dir/metamorphic-result.json"
+          done
+
+      - name: Build engine metamorphic qualification summary
+        run: |
+          jq -s '{transform_count:length,transforms:map({transform,cedar_decision_divergences:.cedar.decision_divergence_count,cedar_determining_policy_divergences:.cedar.determining_policy_divergence_count,opa_decision_divergences:.opa.decision_divergence_count,opa_determining_policy_divergences:.opa.determining_policy_divergence_count}),all_engine_conditions_hold:all(.[]; .cedar.same_case_ids and .opa.same_case_ids and (if .transform == "claim-proposed-contributor-removed" then .cedar.decision_divergence_count == 1 and .cedar.determining_policy_divergence_count == 1 and .cedar.target_baseline_decision == "allow" and .cedar.target_candidate_decision == "deny" and .opa.decision_divergence_count == 1 and .opa.determining_policy_divergence_count == 1 and .opa.target_baseline_decision == "allow" and .opa.target_candidate_decision == "deny" else .cedar.decision_divergence_count == 0 and .cedar.determining_policy_divergence_count == 0 and .opa.decision_divergence_count == 0 and .opa.determining_policy_divergence_count == 0 end)),claim_ceiling:"four Cedar/OPA invariance transformations plus one explicit candidate-policy allow-to-deny negative control; no authentic Rust oracle parity"}' \
+            target/metamorphic-engine-results/*/metamorphic-result.json \
+            > target/metamorphic-engine-results/qualification-summary.json
+          jq -e '.transform_count == 5 and .all_engine_conditions_hold == true' \
+            target/metamorphic-engine-results/qualification-summary.json
+
+      - name: Publish source, transformed corpora, decisions, metrics and receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-policy-metamorphic-engine-results-${{ github.sha }}
+          path: |
+            target/scientific-policy-space/
+            target/scientific-policy-metamorphic/
+            target/metamorphic-engine-results/
+            target/opa-version.txt
+            tools/scientific-policy-metamorphic/Cargo.toml
+            tools/scientific-policy-metamorphic/Cargo.lock
+            tools/scientific-policy-metamorphic/README.md
+            tools/scientific-policy-metamorphic/src/lib.rs
+            tools/scientific-policy-metamorphic/src/main.rs
+            tools/scientific-policy-cedar-runner/Cargo.toml
+            tools/scientific-policy-cedar-runner/Cargo.lock
+            tools/scientific-policy-cedar-runner/README.md
+            tools/scientific-policy-cedar-runner/src/main.rs
+          if-no-files-found: error
+          retention-days: 14
