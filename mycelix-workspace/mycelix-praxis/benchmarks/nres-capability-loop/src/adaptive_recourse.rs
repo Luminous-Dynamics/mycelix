@@ -37,6 +37,14 @@ fn scan_hidden_history_fields(value: &Value, path: &str, errors: &mut Vec<String
         "true_future_state",
         "oracle_label",
         "clairvoyant_state",
+        "regime_id",
+        "latent_regime",
+        "latent_regime_id",
+        "persistent_regime",
+        "persistent_regime_id",
+        "hidden_regime",
+        "hidden_regime_id",
+        "true_regime",
     ];
     match value {
         Value::Object(object) => {
@@ -2300,6 +2308,13 @@ mod tests {
         assert_eq!(policy.len(), 6);
         assert!(!policy.contains_key("NORMAL"));
         assert!(!policy.contains_key("STRESS"));
+    }
+
+    #[test]
+    fn latent_regime_identifier_is_rejected_from_observation_history() {
+        let mut fixture = ex3_fixture();
+        fixture["information_states"][0]["observable_history"]["observations"][0]["values"]["latent_regime_id"] = json!("STRESS");
+        assert!(evaluate_shared_regime_nonrectangular(&fixture).is_err());
     }
 
     #[test]
