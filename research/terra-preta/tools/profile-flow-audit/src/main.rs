@@ -158,13 +158,14 @@ fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
         nonblank(value, label)?;
     }
     if input.source_sha256.len() != 64
-        || !input.source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !input
+            .source_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
     {
         return Err("source_sha256 must contain exactly 64 hexadecimal characters".to_owned());
     }
-    if !(MIN_RESOLUTION_SECONDS..=MAX_RESOLUTION_SECONDS)
-        .contains(&input.time_resolution_seconds)
-    {
+    if !(MIN_RESOLUTION_SECONDS..=MAX_RESOLUTION_SECONDS).contains(&input.time_resolution_seconds) {
         return Err(format!(
             "time_resolution_seconds must be between {} and {} (5–30 minutes)",
             MIN_RESOLUTION_SECONDS, MAX_RESOLUTION_SECONDS
@@ -198,10 +199,7 @@ fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
     let mut sensors = Vec::with_capacity(input.sensors.len());
 
     for (index, sensor) in input.sensors.iter().enumerate() {
-        nonblank(
-            &sensor.sensor_id,
-            &format!("sensors[{index}].sensor_id"),
-        )?;
+        nonblank(&sensor.sensor_id, &format!("sensors[{index}].sensor_id"))?;
         if !ids.insert(sensor.sensor_id.as_str()) {
             return Err(format!("duplicate sensor_id {:?}", sensor.sensor_id));
         }
@@ -290,8 +288,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             };
             let shallow_onset = shallow.onset.as_ref().expect("detected sensor has onset");
             let deep_onset = deep.onset.as_ref().expect("detected sensor has onset");
-            let deep_advance_seconds =
-                shallow_onset.timestamp() - deep_onset.timestamp();
+            let deep_advance_seconds = shallow_onset.timestamp() - deep_onset.timestamp();
 
             let ordering = if deep_advance_seconds > 0 {
                 nsr_pair_count += 1;
@@ -484,7 +481,10 @@ mod tests {
             sensor("D30", 30.0, ResponseStatus::Detected, Some(10)),
         ]);
         let report = evaluate(&data, "b".repeat(64)).unwrap();
-        assert_eq!(report.profile_classification, "nonsequential_response_detected");
+        assert_eq!(
+            report.profile_classification,
+            "nonsequential_response_detected"
+        );
         assert_eq!(report.nsr_pair_count, 1);
         assert_eq!(report.pair_results[0].deep_advance_seconds, 1200);
     }
@@ -521,7 +521,10 @@ mod tests {
             sensor("D30", 30.0, ResponseStatus::Detected, Some(10)),
         ]);
         let report = evaluate(&data, "e".repeat(64)).unwrap();
-        assert_eq!(report.profile_classification, "ambiguous_simultaneous_response");
+        assert_eq!(
+            report.profile_classification,
+            "ambiguous_simultaneous_response"
+        );
         assert_eq!(report.tied_pair_count, 1);
         assert_eq!(report.nsr_pair_count, 0);
     }
@@ -593,9 +596,7 @@ mod tests {
             sensor("D30", 30.0, ResponseStatus::Detected, Some(20)),
         ]);
         data.sensors[1].sensor_id = data.sensors[0].sensor_id.clone();
-        assert!(validate(&data)
-            .unwrap_err()
-            .contains("duplicate sensor_id"));
+        assert!(validate(&data).unwrap_err().contains("duplicate sensor_id"));
     }
 
     #[test]
@@ -604,9 +605,11 @@ mod tests {
             sensor("D10", 10.0, ResponseStatus::Detected, Some(190)),
             sensor("D30", 30.0, ResponseStatus::Detected, Some(20)),
         ]);
-        assert!(validate(&data)
-            .unwrap_err()
-            .contains("outside the declared event observation window"));
+        assert!(
+            validate(&data)
+                .unwrap_err()
+                .contains("outside the declared event observation window")
+        );
     }
 
     #[test]
@@ -625,11 +628,12 @@ mod tests {
             sensor("D10", 10.0, ResponseStatus::Detected, Some(10)),
             sensor("D30", 30.0, ResponseStatus::Detected, Some(20)),
         ]);
-        data.sensors[0].response_onset_utc =
-            Some("2026-01-01T00:15:00Z".to_owned());
-        assert!(validate(&data)
-            .unwrap_err()
-            .contains("declared 600-second UTC sampling grid"));
+        data.sensors[0].response_onset_utc = Some("2026-01-01T00:15:00Z".to_owned());
+        assert!(
+            validate(&data)
+                .unwrap_err()
+                .contains("declared 600-second UTC sampling grid")
+        );
     }
 
     #[test]
@@ -641,14 +645,18 @@ mod tests {
             Some(10),
         )]);
         data.response_threshold_m3_m3 = 0.0;
-        assert!(validate(&data)
-            .unwrap_err()
-            .contains("response_threshold_m3_m3"));
+        assert!(
+            validate(&data)
+                .unwrap_err()
+                .contains("response_threshold_m3_m3")
+        );
         data.response_threshold_m3_m3 = 0.01;
         data.response_onset_method = " ".to_owned();
-        assert!(validate(&data)
-            .unwrap_err()
-            .contains("response_onset_method"));
+        assert!(
+            validate(&data)
+                .unwrap_err()
+                .contains("response_onset_method")
+        );
     }
 
     #[test]
