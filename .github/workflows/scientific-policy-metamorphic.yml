@@ -135,7 +135,9 @@ jobs:
             local baseline_file="$2"
             local candidate_file="$3"
             local output_file="$4"
-            jq -n --arg engine "$engine" --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
+            local expected_mode="$5"
+            local target_case_id="$6"
+            jq -n --arg engine "$engine" --arg target_case_id "$target_case_id" --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
               def by_id: map({key:.case_id,value:{decision:.decision,determining_policy_ids:(.determining_policy_ids // [])}}) | from_entries;
               ($baseline | by_id) as $b |
               ($candidate | by_id) as $c |
@@ -146,20 +148,39 @@ jobs:
                 baseline_case_count:($bk|length),
                 candidate_case_count:($ck|length),
                 same_case_ids:($bk == $ck),
+                target_case_id:$target_case_id,
+                target_baseline_decision:(if $target_case_id == "" then null else $b[$target_case_id].decision end),
+                target_candidate_decision:(if $target_case_id == "" then null else $c[$target_case_id].decision end),
                 decision_divergence_count:([$bk[] | select($b[.].decision != $c[.].decision)] | length),
                 determining_policy_divergence_count:([$bk[] | select($b[.].determining_policy_ids != $c[.].determining_policy_ids)] | length),
                 divergence_samples:([$bk[] | select($b[.].decision != $c[.].decision or $b[.].determining_policy_ids != $c[.].determining_policy_ids) | {case_id:.,baseline:$b[.],candidate:$c[.]}] | .[0:20]),
-                claim_ceiling:"metamorphic invariance relative to this pinned engine and exact inputs; not Rust parity or policy correctness"
+                expected_mode:$expected_mode,
+                claim_ceiling:"pinned-engine metamorphic behavior only; not Rust parity or policy correctness"
               }
-            ' > "$output_file"
-            jq -e '.baseline_case_count == 62464 and .candidate_case_count == 62464 and .same_case_ids == true and .decision_divergence_count == 0 and .determining_policy_divergence_count == 0' "$output_file"
+            ' --arg expected_mode "$expected_mode" > "$output_file"
+
+            jq -e '.baseline_case_count == 62464 and .candidate_case_count == 62464 and .same_case_ids == true' "$output_file"
+            if [ "$expected_mode" = "single_allow_to_deny" ]; then
+              jq -e --arg target_case_id "$target_case_id" '
+                .decision_divergence_count == 1 and
+                .determining_policy_divergence_count == 1 and
+                .target_case_id == $target_case_id and
+                .target_baseline_decision == "allow" and
+                .target_candidate_decision == "deny" and
+                (.divergence_samples | length) == 1 and
+                .divergence_samples[0].case_id == $target_case_id
+              ' "$output_file"
+            else
+              jq -e '.decision_divergence_count == 0 and .determining_policy_divergence_count == 0' "$output_file"
+            fi
           }
 
           for transform in \
             json-object-key-order-reversed \
             json-whitespace-expanded \
             cedar-entity-order-reversed \
-            cedar-irrelevant-actor-added; do
+            cedar-irrelevant-actor-added \
+            claim-proposed-contributor-removed; do
             folder="target/scientific-policy-metamorphic/$transform"
             result_dir="target/metamorphic-engine-results/$transform"
             mkdir -p "$result_dir"
@@ -189,12 +210,21 @@ jobs:
               '{engine:"opa",engine_version:"1.22.0",transform:$transform,evaluation_method:"one-shot-cli-batch-including-process-startup-and-file-io",case_count:62464,input_sha256:$input_sha256,output_sha256:$output_sha256,elapsed_ns:$elapsed_ns,claim_ceiling:"OPA metamorphic result only; not Rust authorization parity"}' \
               > "$result_dir/opa-run-manifest.json"
 
+            expected_mode="invariant"
+            target_case_id=""
+            if [ "$transform" = "claim-proposed-contributor-removed" ]; then
+              expected_mode="single_allow_to_deny"
+              target_case_id="$(jq -r '.changed_case_ids[0]' "$folder/transform-manifest.json")"
+              test -n "$target_case_id"
+            fi
             compare_engine cedar \
               target/metamorphic-engine-results/baseline-cedar/cedar-decisions-v0.1.jsonl \
-              "$result_dir/cedar/cedar-decisions-v0.1.jsonl" "$result_dir/cedar-invariance.json"
+              "$result_dir/cedar/cedar-decisions-v0.1.jsonl" "$result_dir/cedar-invariance.json" \
+              "$expected_mode" "$target_case_id"
             compare_engine opa \
               target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl \
-              "$result_dir/opa-decisions-v0.1.jsonl" "$result_dir/opa-invariance.json"
+              "$result_dir/opa-decisions-v0.1.jsonl" "$result_dir/opa-invariance.json" \
+              "$expected_mode" "$target_case_id"
             jq -n --arg transform "$transform" \
               --slurpfile cedar "$result_dir/cedar-invariance.json" \
               --slurpfile opa "$result_dir/opa-invariance.json" \
@@ -205,10 +235,10 @@ jobs:
 
       - name: Build engine metamorphic qualification summary
         run: |
-          jq -s '{transform_count:length,transforms:map({transform,cedar_decision_divergences:.cedar.decision_divergence_count,cedar_determining_policy_divergences:.cedar.determining_policy_divergence_count,opa_decision_divergences:.opa.decision_divergence_count,opa_determining_policy_divergences:.opa.determining_policy_divergence_count}),all_engine_invariances_hold:all(.[];.cedar.same_case_ids and .opa.same_case_ids and .cedar.decision_divergence_count == 0 and .cedar.determining_policy_divergence_count == 0 and .opa.decision_divergence_count == 0 and .opa.determining_policy_divergence_count == 0),claim_ceiling:"Cedar/OPA invariance over four defined transformations only; no authentic Rust oracle parity"}' \
+          jq -s '{transform_count:length,transforms:map({transform,cedar_decision_divergences:.cedar.decision_divergence_count,cedar_determining_policy_divergences:.cedar.determining_policy_divergence_count,opa_decision_divergences:.opa.decision_divergence_count,opa_determining_policy_divergences:.opa.determining_policy_divergence_count}),all_engine_conditions_hold:all(.[]; .cedar.same_case_ids and .opa.same_case_ids and (if .transform == "claim-proposed-contributor-removed" then .cedar.decision_divergence_count == 1 and .cedar.determining_policy_divergence_count == 1 and .cedar.target_baseline_decision == "allow" and .cedar.target_candidate_decision == "deny" and .opa.decision_divergence_count == 1 and .opa.determining_policy_divergence_count == 1 and .opa.target_baseline_decision == "allow" and .opa.target_candidate_decision == "deny" else .cedar.decision_divergence_count == 0 and .cedar.determining_policy_divergence_count == 0 and .opa.decision_divergence_count == 0 and .opa.determining_policy_divergence_count == 0 end)),claim_ceiling:"four Cedar/OPA invariance transformations plus one explicit candidate-policy allow-to-deny negative control; no authentic Rust oracle parity"}' \
             target/metamorphic-engine-results/*/metamorphic-result.json \
             > target/metamorphic-engine-results/qualification-summary.json
-          jq -e '.transform_count == 4 and .all_engine_invariances_hold == true' \
+          jq -e '.transform_count == 5 and .all_engine_conditions_hold == true' \
             target/metamorphic-engine-results/qualification-summary.json
 
       - name: Publish source, transformed corpora, decisions, metrics and receipts
