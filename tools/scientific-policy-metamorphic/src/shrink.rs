@@ -405,21 +405,52 @@ mod tests {
     }
 
     #[test]
-    fn predicate_errors_never_claim_minimality() {
+    fn predicate_errors_during_candidate_evaluation_return_incomplete_trace() {
         let input = serde_json::json!({
             "principal": "actor:fixed",
             "action": "claim_proposed",
             "resource": "claim:fixed",
             "context": {"required": true, "noise": true}
         });
+        let mut calls = 0usize;
         let result = minimize_json(
             &input,
             "error-control",
             &protected_request_paths(),
             100,
-            |_| Err("engine process indeterminate".to_owned()),
+            |_| {
+                calls += 1;
+                if calls == 1 {
+                    Ok(true)
+                } else {
+                    Err("engine process indeterminate".to_owned())
+                }
+            },
+        )
+        .unwrap();
+        assert!(!result.trace.complete);
+        assert!(!result.trace.is_one_minimal);
+        assert_eq!(result.trace.candidate_evaluations, 1);
+        assert_eq!(
+            result.trace.candidates[0].evaluation_error.as_deref(),
+            Some("engine process indeterminate")
         );
-        assert!(result.is_err());
+    }
+
+    #[test]
+    fn numeric_simplification_is_monotone_and_terminates_at_zero() {
+        let input = serde_json::json!({"value": 99});
+        let result = minimize_json(
+            &input,
+            "numeric-reduction",
+            &BTreeSet::new(),
+            100,
+            |_| Ok(true),
+        )
+        .unwrap();
+        assert_eq!(result.minimized_value, serde_json::json!({"value": 0}));
+        assert!(result.trace.complete);
+        assert!(result.trace.is_one_minimal);
     }
 
     #[test]
