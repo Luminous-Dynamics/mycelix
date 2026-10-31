@@ -418,5 +418,6 @@
     "Both policies obey the same explicit observation histories and hard service floors.",
     "The A branch has a locally risky action and a safe action; B carries a much larger unavoidable loss.",
     "The fixture demonstrates objective semantics only, not operational effectiveness or calibration."
-  ]
+  ],
+  "risk_aversion_lambda": 0.9
 }
