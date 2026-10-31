@@ -11,8 +11,8 @@ This standalone Rust CLI computes event-relative spatial soil-moisture dispersio
 
 ## Input requirements
 
-- One site/plot/profile/event, explicit UTC start/end and a fixed 5–30 minute sampling grid.
-- At least two sensors with x/y coordinates in metres, depth in cm and a declared condition. For NEON DP1.00094.001, derive depth from `swc_depthsV3.csv`, not `sensor_positions` zOffset; use position coordinates only after a time-valid sensor-position join.
+- One site-level spatial group/event, with multiple plot IDs permitted. Every sensor carries its plot ID and declared depth_group_id. Use one explicit UTC time grid across all sensors.
+- At least two sensors with x/y coordinates in metres in one common site-level projected coordinate frame, actual corrected depth in cm, plot ID, depth_group_id and a declared condition. NEON plot-relative offsets from different reference origins must not be compared directly. Transform the reference coordinates plus offsets into one common projected frame and retain the coordinate provenance/uncertainty. For DP1.00094.001, derive depth from `swc_depthsV3.csv`, not `sensor_positions` zOffset; use position coordinates only after a time-valid sensor-position join.
 - One directly observed pre-event baseline for each sensor, followed by complete shared-grid bins. Missing bins must be explicit rows with null theta.
 - Volumetric theta in m³/m³, with `observed`, `linear_interpolated_gap_lt6h` or `missing` status.
 - Non-usable sensor conditions (saturated/frozen/fault/unknown) are retained in the roster and excluded from direct response statistics.
@@ -20,7 +20,7 @@ This standalone Rust CLI computes event-relative spatial soil-moisture dispersio
 
 ## Metrics
 
-At every event time and depth, the report includes roster/valid/missing/interpolated/non-usable counts, distinct valid positions, fraction crossing the declared baseline-delta threshold, mean, median, population standard deviation, IQR, MAD, robust coefficient of variation (1.4826 × MAD / |median|), positive max-to-median ratio, range and distance-binned empirical semivariance. Semivariance is half the mean squared difference between paired event-relative theta changes.
+At every event time and declared depth group, the report includes roster/valid/missing/interpolated/non-usable counts, actual median/minimum/maximum corrected depth in the group, plot IDs and sensor counts by plot, distinct valid positions, fraction crossing the declared baseline-delta threshold, mean, median, population standard deviation, IQR, MAD, robust coefficient of variation (1.4826 × MAD / |median|), positive max-to-median ratio, range and distance-binned empirical semivariance. Semivariance is half the mean squared difference between paired event-relative theta changes and is expressed in (m³/m³)².
 
 Only directly observed values from usable sensors enter the metrics. No missing or interpolated sample is imputed as zero. Semivariogram bins with no supporting pairs have null semivariance and pair_count 0; no variogram model is fitted.
 
