@@ -1,0 +1,67 @@
+{
+  "profile_id": "GCPN-SADC-AMHEWAS-INTEROP-001",
+  "profile_version": "0.1.0",
+  "status": "public-source-and-synthetic-research-only",
+  "standards": {
+    "alert_message_format": "OASIS-CAP-1.2",
+    "gcpn_sidecar": "gcpn-cap-sidecar-v0.1",
+    "sidecar_is_optional": true,
+    "sidecar_must_not_mutate_cap": true
+  },
+  "institutional_roles": [
+    "national_alerting_authority",
+    "national_meteorological_hydrological_service",
+    "national_disaster_management_authority",
+    "sadc_shoc_regional_coordination",
+    "amhewas_continental_regional_coordination",
+    "community_preparedness_response",
+    "gcpn_optional_provenance_conformance"
+  ],
+  "authority_constraints": [
+    "only_competent_national_or_local_authority_issues_its_public_warning",
+    "gcpn_never_issues_updates_or_cancellations",
+    "sadc_shoc_coordination_does_not_override_national_authority",
+    "amhewas_bulletins_keep_their_original_issuer_and_authority",
+    "gcpn_receipts_do_not_create_legal_authority_or_prove_physical_truth"
+  ],
+  "synthetic_hazard_families": [
+    "cyclone_coastal_storm",
+    "riverine_flash_flood",
+    "drought_water_scarcity",
+    "extreme_heat_urban_heat",
+    "wildfire_smoke",
+    "compound_service_disruption"
+  ],
+  "conformance_dimensions": [
+    "cap_semantic_preservation",
+    "exact_message_sidecar_binding",
+    "issuer_authority_separation",
+    "source_family_dependence",
+    "uncertainty_and_contradiction_preservation",
+    "cross_border_partition_continuity",
+    "receiver_side_delivery_receipts",
+    "accessibility_and_language_cohorts",
+    "source_to_alert_lineage",
+    "privacy_and_purpose_limitation",
+    "early_action_evidence_separation",
+    "append_only_corrections_and_disputes"
+  ],
+  "prohibited_actions": [
+    "live_situation_room_connection_without_formal_permission",
+    "real_emergency_alert_dispatch",
+    "mutation_of_national_cap_alert",
+    "gcpn_authorization_or_suppression_of_public_warning",
+    "automated_financing_or_early_action_allocation",
+    "public_disclosure_of_restricted_sensor_or_source_data",
+    "claiming_sadc_amhewas_or_un_agency_endorsement"
+  ],
+  "non_claims": [
+    "not_a_regional_situation_room",
+    "not_a_national_alerting_authority",
+    "not_a_replacement_for_amhewas_or_sadc_shoc",
+    "not_a_forecasting_system",
+    "not_a_live_warning_service",
+    "not_a_proof_of_human_comprehension_or_action",
+    "not_a_missile_defense_or_weapons_system"
+  ]
+}
