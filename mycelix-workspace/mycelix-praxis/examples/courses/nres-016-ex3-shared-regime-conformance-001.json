@@ -1,0 +1,57 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX3-SHARED-REGIME-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "authored_rust_unit_tests": 36,
+  "invalid_input_controls": [
+    "wrong benchmark ID or unsupported schema version",
+    "fewer than two persistent regimes",
+    "duplicate or empty persistent regime identifier",
+    "a transition outcome omits one or more declared regime probabilities",
+    "a transition outcome includes an undeclared regime probability",
+    "a regime-specific probability is negative, non-finite or above one",
+    "conditional regime probabilities do not sum to one for an action",
+    "scalar reference probability differs from the equal-weight regime mean",
+    "risk alpha is outside [0,1)",
+    "risk lambda is outside [0,1)",
+    "pure CVaR lambda=1 is accepted without strict-monotonicity condition",
+    "the shared regime ID is injected into observable history or policy inputs",
+    "same observable history maps to distinct policy decisions",
+    "transition observation differs from successor history",
+    "resource conservation equation fails",
+    "pathwise service floor is violated",
+    "a regime is switched partway through one shared-regime path",
+    "rectangular local adversary uses a conditional kernel absent from the declared regime set without reporting a separate relaxation",
+    "rectangularity price is negative despite the claimed set containment",
+    "shared and rectangular evaluators use different risk alpha/lambda parameters",
+    "regime probabilities are normalized across regimes rather than within each action/regime conditional distribution",
+    "terminal outcome is missing explicit null next state or null observation",
+    "latent or persistent regime identifier appears in an observable history field"
+  ],
+  "boundary_cases": [
+    "two persistent regimes produce identical transition kernels and zero price of rectangularity",
+    "regimes have opposite local worst-case kernels at sequential nodes",
+    "rectangular relaxation selects local kernels from incompatible regimes",
+    "lambda=0 reduces both formulations to expected-cost minimax",
+    "lambda approaches one from below remains admissible",
+    "lambda=1 is rejected"
+  ],
+  "round_trip_requirements": [
+    "persistent regime IDs remain unchanged across output",
+    "each action/outcome retains its complete regime-specific probability map",
+    "per-regime nested risk remains separately reported",
+    "the shared policy remains one map over observable histories and contains no regime key",
+    "rectangular local worst-regime selections remain keyed by state/action",
+    "absolute and relative price-of-rectangularity use the reported objective values",
+    "history, observation, resource and service-floor invariants remain unchanged",
+    "the scalar reference probability remains equal to the unweighted regime mean"
+  ],
+  "non_claims": [
+    "No real-world latent regime or causal inference",
+    "No calibrated or confirmatory regime probabilities",
+    "A persistent fixed regime is not a latent Markov switching process",
+    "The rectangular relaxation is a modeled superset, not a universal physical law",
+    "No deployment, readiness, emergency command or certification claim",
+    "No SOTA superiority claim"
+  ]
+}

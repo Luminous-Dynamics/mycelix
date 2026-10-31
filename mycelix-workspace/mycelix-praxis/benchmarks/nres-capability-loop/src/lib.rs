@@ -40,7 +40,7 @@ pub mod cluster_calibration;
 pub use cluster_calibration::evaluate_cluster_max_conformal;
 
 pub mod adaptive_recourse;
-pub use adaptive_recourse::{evaluate_exact_adaptive_recourse, evaluate_nested_risk_comparison, evaluate_rectangular_tv_robust_recourse};
+pub use adaptive_recourse::{evaluate_exact_adaptive_recourse, evaluate_nested_risk_comparison, evaluate_rectangular_tv_robust_recourse, evaluate_shared_regime_nonrectangular};
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
