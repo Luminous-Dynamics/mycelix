@@ -6,7 +6,7 @@
   "profile_id": "PROFILE1",
   "event_id": "EVENT1",
   "event_start_utc": "2026-06-01T00:10:00Z",
-  "observation_window_end_utc": "2026-06-01T00:10:00Z",
+  "observation_window_end_utc": "2026-06-01T00:30:00Z",
   "raw_resolution_seconds": 60,
   "target_resolution_seconds": 600,
   "minimum_good_fraction": 0.8,
@@ -35,7 +35,9 @@
       "x_m": 0,
       "y_m": 0,
       "condition": "usable",
-      "metadata_evidence_ref": "synthetic corrected depth/position"
+      "metadata_evidence_ref": "synthetic corrected depth/position",
+      "position_start_utc": "2026-01-01T00:00:00Z",
+      "position_end_utc": null
     },
     {
       "sensor_key": "001|502",
@@ -44,7 +46,9 @@
       "x_m": 0,
       "y_m": 0,
       "condition": "usable",
-      "metadata_evidence_ref": "synthetic corrected depth/position"
+      "metadata_evidence_ref": "synthetic corrected depth/position",
+      "position_start_utc": "2026-01-01T00:00:00Z",
+      "position_end_utc": null
     }
   ]
 }
