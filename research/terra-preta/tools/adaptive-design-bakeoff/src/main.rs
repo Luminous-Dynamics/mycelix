@@ -427,6 +427,48 @@ fn selection_reason(policy: Policy, coverage_reservation: bool) -> String {
     }
 }
 
+fn preserves_minimum_coverage(
+    scenario: &Scenario,
+    actions: &[PolicyAction],
+    selected_ids: &BTreeSet<String>,
+    selected_counts: &BTreeMap<String, usize>,
+    candidate: &PolicyAction,
+    remaining_budget: u32,
+) -> bool {
+    let Some(budget_after_candidate) = remaining_budget.checked_sub(candidate.cost_units) else {
+        return false;
+    };
+    let mut reserved_cost = 0u32;
+    for stratum in &scenario.strata {
+        let already_selected = selected_counts.get(&stratum.stratum_id).copied().unwrap_or(0);
+        let candidate_increment = usize::from(candidate.stratum_id == stratum.stratum_id);
+        let still_needed = stratum.minimum_selected_actions
+            .saturating_sub(already_selected + candidate_increment);
+        if still_needed == 0 {
+            continue;
+        }
+        let mut remaining_costs: Vec<u32> = actions.iter()
+            .filter(|action| {
+                action.stratum_id == stratum.stratum_id
+                    && action.action_id != candidate.action_id
+                    && !selected_ids.contains(&action.action_id)
+            })
+            .map(|action| action.cost_units)
+            .collect();
+        remaining_costs.sort_unstable();
+        if remaining_costs.len() < still_needed {
+            return false;
+        }
+        for cost in remaining_costs.into_iter().take(still_needed) {
+            let Some(next_cost) = reserved_cost.checked_add(cost) else {
+                return false;
+            };
+            reserved_cost = next_cost;
+        }
+    }
+    reserved_cost <= budget_after_candidate
+}
+
 fn select(
     scenario: &Scenario,
     policy: Policy,
@@ -456,8 +498,17 @@ fn select(
             if matches!(policy, Policy::RobustDecisionFocused) && !deficient.is_empty() {
                 let deficit_ids: BTreeSet<&str> = deficient.iter().map(|s| s.stratum_id.as_str()).collect();
                 let coverage_candidates: Vec<&PolicyAction> = fitting.iter().copied()
-                    .filter(|a| deficit_ids.contains(a.stratum_id.as_str())).collect();
-                if coverage_candidates.is_empty() { (fitting, false) } else { (coverage_candidates, true) }
+                    .filter(|a| {
+                        deficit_ids.contains(a.stratum_id.as_str())
+                            && preserves_minimum_coverage(
+                                scenario, actions, &selected_ids, &counts, a, remaining
+                            )
+                    })
+                    .collect();
+                if coverage_candidates.is_empty() {
+                    break;
+                }
+                (coverage_candidates, true)
             } else {
                 (fitting, false)
             };
@@ -754,6 +805,30 @@ mod tests {
         assert!(robust.minimum_coverage_met);
         assert!(robust.normalized_oracle_regret < eig.normalized_oracle_regret);
         assert!(robust.normalized_oracle_regret < expert.normalized_oracle_regret);
+    }
+
+    #[test]
+    fn robust_policy_reserves_budget_for_other_required_target_strata() {
+        let mut scenario: Scenario = serde_json::from_str(FIXTURE).unwrap();
+        scenario.budget_cost_units = 3;
+        let clay_high_info = scenario.actions.iter_mut()
+            .find(|action| action.action_id == "C1_CLAY_HIGH_EIG_MISSPECIFIED")
+            .unwrap();
+        clay_high_info.cost_units = 2;
+        for score in &mut clay_high_info.model_scores {
+            score.decision_value = 1.0;
+            score.information_gain = 1.0;
+            score.error_amplification_risk = 0.0;
+        }
+        validate_scenario(&scenario).unwrap();
+        let scoring = scoring_actions(&scenario);
+        let selection = select(&scenario, Policy::RobustDecisionFocused, &scoring);
+        let ids: Vec<String> = selection.iter().map(|(index, _, _)| {
+            scenario.actions[*index].action_id.clone()
+        }).collect();
+        assert!(ids.contains(&"C2_CLAY_INDEPENDENT_CORE".to_owned()));
+        assert!(ids.contains(&"W1_WEATHERED_REFERENCE".to_owned()));
+        assert!(!ids.contains(&"C1_CLAY_HIGH_EIG_MISSPECIFIED".to_owned()));
     }
 
     #[test]
