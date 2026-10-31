@@ -30,7 +30,7 @@ Every action's conditional outcome probabilities must sum to one. A non-terminal
 
 ## Non-anticipativity by construction
 
-The policy is a mapping from unique observable information-state IDs to actions. The fixture represents the information set as an explicit sequence of observed records plus prior actions. Hidden/future scenario identifiers are rejected from observation fields. Each child must preserve the full prior observation sequence and append exactly the selected action and one new observation. Canonically identical event histories cannot become separate decision variables or increase the sample count.
+The policy is a mapping from unique observable information-state IDs to actions. The fixture represents the information set as an explicit sequence of observed records plus prior actions. Hidden/future scenario identifiers are rejected from observation and transition-observation fields. Each child must preserve the full prior observation sequence, append exactly the selected action, and append exactly the observation emitted by the incoming transition. Canonically identical event histories cannot become separate decision variables or increase the sample count. These are syntactic checks only: key-name screening cannot prove that an observation was genuinely available at that time or that a latent value was not disguised under another field name. Confirmatory datasets still require a trusted observation-generation process, independent custody and an auditable timestamp/availability policy.
 
 This is a deliberately explicit information-state DAG rather than a scenario-indexed policy file. When a future stochastic-programming backend is added, it must reproduce this policy's non-anticipativity constraints and pass negative controls that permute hidden future outcomes without changing current actions.
 
@@ -83,7 +83,7 @@ The module authors 14 Rust tests covering:
 - explicit infeasibility;
 - stage-transition validation.
 
-The conformance corpus separately records 25 invalid-input controls, six boundary cases and eight round-trip requirements. These tests are authored, not confirmed passing; compilation and execution require an actual Rust toolchain/CI run.
+The conformance corpus separately records 28 invalid-input controls, seven boundary cases and nine round-trip requirements. These tests are authored, not confirmed passing; compilation and execution require an actual Rust toolchain/CI run.
 
 ## Scope boundaries and next work
 
