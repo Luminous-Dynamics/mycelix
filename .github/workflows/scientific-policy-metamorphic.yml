@@ -129,20 +129,20 @@ jobs:
             local baseline_file="$2"
             local candidate_file="$3"
             local output_file="$4"
-            jq -n --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
+            jq -n --arg engine "$engine" --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
               def by_id: map({key:.case_id,value:{decision:.decision,rule:(.rule // "")}}) | from_entries;
               ($baseline | by_id) as $b |
               ($candidate | by_id) as $c |
               ($b | keys) as $bk |
               ($c | keys) as $ck |
               {
-                engine:$ENV.ENGINE,
+                engine:$engine,
                 baseline_case_count:($bk|length),
                 candidate_case_count:($ck|length),
                 same_case_ids:($bk == $ck),
                 decision_divergence_count:([$bk[] | select($b[.].decision != $c[.].decision)] | length),
                 rule_divergence_count:([$bk[] | select($b[.].rule != $c[.].rule)] | length),
-                divergence_samples:[$bk[] | select($b[.].decision != $c[.].decision or $b[.].rule != $c[.].rule) | {case_id:.,baseline:$b[.],candidate:$c[.]}] | .[0:20],
+                divergence_samples:([$bk[] | select($b[.].decision != $c[.].decision or $b[.].rule != $c[.].rule) | {case_id:.,baseline:$b[.],candidate:$c[.]}] | .[0:20]),
                 claim_ceiling:"metamorphic invariance relative to this pinned engine and exact inputs; not Rust parity or policy correctness"
               }
             ' > "$output_file"
@@ -183,10 +183,10 @@ jobs:
               '{engine:"opa",engine_version:"1.22.0",transform:$transform,evaluation_method:"one-shot-cli-batch-including-process-startup-and-file-io",case_count:62464,input_sha256:$input_sha256,output_sha256:$output_sha256,elapsed_ns:$elapsed_ns,claim_ceiling:"OPA metamorphic result only; not Rust authorization parity"}' \
               > "$result_dir/opa-run-manifest.json"
 
-            ENGINE=cedar compare_engine cedar \
+            compare_engine cedar \
               target/metamorphic-engine-results/baseline-cedar/cedar-decisions-v0.1.jsonl \
               "$result_dir/cedar/cedar-decisions-v0.1.jsonl" "$result_dir/cedar-invariance.json"
-            ENGINE=opa compare_engine opa \
+            compare_engine opa \
               target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl \
               "$result_dir/opa-decisions-v0.1.jsonl" "$result_dir/opa-invariance.json"
             jq -n --arg transform "$transform" \
