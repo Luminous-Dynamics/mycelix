@@ -161,6 +161,30 @@ data-use terms at acquisition and preserve attribution.
 **Cross-method validation tracker:** [PF-TRIANG-001](https://github.com/Luminous-Dynamics/mycelix/issues/5538).
 
 ### Soil-water quality package and time-index policy
+### Executable one-minute normalizer (v0.1)
+
+The new Rust normalizer is at `tools/neon-swc-normalizer/`. It accepts:
+1. a one-minute CSV table exported from the pinned DP1.00094.001 package;
+2. a JSON mapping manifest declaring exact CSV header names, sensor keys, QA filters, corrected depth, x/y metres, and time-valid sensor-position metadata;
+3. the target aggregation interval (5, 10, 15, 20 or 30 minutes) and minimum good-row fraction.
+
+It emits a profile series matching the strict input contract of `profile-response-extractor`, plus an aggregation report with the exact config and source CSV SHA-256, per-bin expected/present/accepted/rejected/absent rows, median theta, coverage and missing/observed status. It refuses undeclared quality filters, duplicate sensor timestamps, non-UTC or off-grid timestamps, invalid theta values, invalid sensor-position intervals and overwriting output files. The configuration is intentionally schema-driven: the exact NEON table/columns must be checked against the actual package variables file rather than assumed by the tool.
+
+Run from the repository root:
+
+```sh
+cargo test --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml
+cargo run --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- \
+  /path/to/pinned-swc-mapping.json /path/to/SWS_1_minute.csv \
+  /path/to/normalized-profile.json /path/to/aggregation-audit.json
+cargo run --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- \
+  /path/to/normalized-profile.json /path/to/profile-response-input.json 0.01
+cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- \
+  /path/to/profile-response-input.json /path/to/profile-nsr-report.json
+```
+
+The committed fixture is synthetic software-test data; no NEON raw file has been downloaded or normalized yet. The implementation tracker is [TERRA-NEON-QA-001](https://github.com/Luminous-Dynamics/mycelix/issues/5556).
+
 ### Soil-water depth and sensor-position crosswalk
 
 The June 2026 NEON soil-sensor tutorial explicitly warns that the regular `sensor_positions` table currently reports incorrect `zOffset` depths for DP1.00094.001. Use the corrected `swc_depthsV3.csv` file from the product documentation for actual soil-water sensor depths. The tutorial shows that depth indices are not portable across products or sites: soil-water vertical position 501 is 6 cm in its example, while soil-temperature vertical position 502 is 6 cm.
