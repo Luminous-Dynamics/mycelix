@@ -22,7 +22,7 @@ The citation year and dataset DOI are not by themselves an exact NEON API releas
 3. Exclude volumetric soil-water observations exceeding the maximum porosity of the entire soil profile across all soil pits. The exact source of the maximum-porosity reference and its sensor/profile linkage must be retained.
 4. Resample to 10-minute bins using the median of good observations within each bin.
 5. If a 10-minute bin contains fewer than seven good 1-minute observations, mark that bin missing (not zero). Preserve the count of good source observations.
-6. Linearly interpolate soil-moisture gaps shorter than six hours in the resampled series. Preserve original missingness, interpolation start/end, interpolated status and the method; do not overwrite raw measurements.
+6. For the paper-analysis series, linearly interpolate only interior soil-moisture gaps whose two observed endpoint timestamps are strictly less than six hours apart. Keep a separate raw-normalized series with all originally missing bins untouched. Preserve original missingness, interpolation start/end, interpolated status, and method; do not overwrite raw measurements. Edge gaps and endpoint separations of six hours or more remain missing.
 
 Required audit columns include raw observation count, good count, rejected count by QA reason, median value, maximum-profile-porosity cutoff, bin status (`observed_median`, `missing_below_7_good`, `linear_interpolated_gap_lt6h`, `missing_gap_ge6h`, or `missing_edge`), and source-file digest.
 
@@ -84,9 +84,9 @@ All tracks share site/sensor identity and train/validation/test split manifests,
 
 ## 7. Implementation status
 
-The raw soil-water normalizer now requires a declared maximum whole-profile porosity cutoff and evidence reference. It applies this cutoff after the configured internal QA filters and preserves separate per-bin counts for QA pass, porosity rejection and porosity pass. This makes the paper's porosity exclusion executable, while the cutoff's actual site-level derivation and source-pit crosswalk remain a data-acquisition/review requirement.
+The raw soil-water normalizer now requires a declared maximum whole-profile porosity cutoff and evidence reference. It emits both a raw-normalized profile and a separate paper-analysis profile with short interior-gap interpolation; the raw-normalized profile is never overwritten. It applies this cutoff after the configured internal QA filters and preserves separate per-bin counts for QA pass, porosity rejection and porosity pass. This makes the paper's porosity exclusion executable, while the cutoff's actual site-level derivation and source-pit crosswalk remain a data-acquisition/review requirement.
 
-- `tools/neon-swc-normalizer/` executes declared soil-water QA mappings, the configured maximum profile-porosity exclusion and 1-minute-to-10-minute median aggregation; it preserves insufficient-coverage bins as missing and records each source/config digest.
+- `tools/neon-swc-normalizer/` executes declared soil-water QA mappings, the configured maximum profile-porosity exclusion and 1-minute-to-10-minute median aggregation. It writes a raw-normalized profile plus a separate paper-analysis clone that linearly interpolates only interior gaps with observed endpoints strictly less than six hours apart; original missingness remains available for sensitivity analysis.
 - `tools/neon-precip-normalizer/` maps separate 5-minute primary and 1-minute secondary gauge CSVs, applies explicitly configured QA filters, prefers secondary where present without pooling, and emits both literal paper-rule and coverage-aware rainfall tracks. It highlights that a literal fewer-than-five-good threshold makes 5-minute primary 10-minute bins zero-imputed even though at most two source samples exist; resolve this with author code before claiming exact reproduction.
 - `tools/preferential-flow-eventizer/` implements event grouping and response calculation on normalized 10-minute data; it does not parse NEON packages or apply the source QA filters.
 - `tools/inventory-neon-data.sh` records per-site Data Query responses and file metadata without downloading data.
