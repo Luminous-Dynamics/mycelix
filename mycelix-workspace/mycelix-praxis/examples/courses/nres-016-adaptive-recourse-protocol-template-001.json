@@ -1,0 +1,118 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-ADAPTIVE-RECOURSE-001",
+  "schema_version": "1.0.0",
+  "title": "NRES-016 finite-horizon adaptive recourse protocol template",
+  "status": "protocol-template-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "research_question": "Do non-anticipative adaptive policies with explicit resource ledgers and stagewise transition ambiguity reduce service deficit and realized regret under independent shift trajectories compared with static and rolling-horizon baselines?",
+  "horizon_contract": {
+    "stage_indexing": "zero-based-finite-horizon",
+    "minimum_stages": 3,
+    "maximum_stages": 12,
+    "terminal_state": "all remaining service deficits, asset states, inventories, workforce and unresolved actions are recorded; no terminal resource reset",
+    "replanning_rule": "replan only after a new observation becomes available; preserve already consumed resources and committed actions"
+  },
+  "state_definition": [
+    {"field":"service_capacity_and_deficit","semantics":"separate capacity and shortfall for every service at every stage","observable_status":"partially-observed"},
+    {"field":"asset_health_and_repair_status","semantics":"condition, failure state, repair work in progress and expected completion","observable_status":"partially-observed"},
+    {"field":"inventory_and_supply_pipeline","semantics":"on-hand stock, committed procurement, shipment state and uncertain lead time","observable_status":"partially-observed"},
+    {"field":"workforce_and_transport","semantics":"available staff hours, skill/role constraints and transport availability","observable_status":"partially-observed"},
+    {"field":"evidence_and_observation_state","semantics":"evidence freshness, missingness, verification status and observation history","observable_status":"observed"}
+  ],
+  "resource_ledgers": [
+    {"resource_type":"budget","conservation_rule":"opening balance minus committed and consumed spend plus observed replenishment","replenishment_semantics":"credit only when an observed or scenario-realized replenishment transition occurs","nonnegative":true},
+    {"resource_type":"workforce-hours","conservation_rule":"opening deployable hours minus allocated hours plus explicitly modelled shift/rest recovery","replenishment_semantics":"future shifts enter only at their availability stage and subject to role qualification","nonnegative":true},
+    {"resource_type":"inventory-and-spares","conservation_rule":"on-hand stock minus consumed items plus realized deliveries","replenishment_semantics":"deliveries arrive after declared uncertain lead times","nonnegative":true}
+  ],
+  "information_structure": {
+    "policy_input":"observable-history-only",
+    "nonanticipativity_rule":"all scenario paths with identical observable histories through stage t must select the same action at t",
+    "history_identity":"canonical history key over prior observations, public evidence and prior actions; hidden future shocks and scenario labels are excluded",
+    "negative_controls":[
+      "changing future disturbances cannot change earlier actions",
+      "permuting hidden scenario labels cannot change policy decisions",
+      "duplicating a path with identical observable history cannot increase independent sample count",
+      "withholding a future observation prevents its use by the current policy"
+    ]
+  },
+  "decision_dependent_uncertainty": {
+    "enabled":true,
+    "allowed_action_effects":[
+      "protection changes later failure probability or failure severity",
+      "repair changes recovery-time and repeat-failure transition distributions",
+      "verification changes observation quality or posterior uncertainty but not physical capacity unless specified"
+    ],
+    "causal_evidence_rule":"action-dependent transitions are modelling assumptions unless supported by a separately identified causal design; never infer intervention effects from correlation alone",
+    "freeze_before_confirmatory":true
+  },
+  "risk_contract": {
+    "primary_dynamic_risk":"nested-conditional-cvar",
+    "static_cvar_distinguished":true,
+    "ambiguity_order":"state the order of stagewise worst-case transition selection and conditional risk aggregation; freeze ambiguity sets and risk levels before confirmatory evaluation",
+    "service_floor_rule":"non-compensatory-per-service-per-stage"
+  },
+  "hard_constraints":[
+    "nonnegative resource ledger at every stage and every path",
+    "action feasibility for each observable information state",
+    "transition and repair lead-time consistency",
+    "non-anticipativity across indistinguishable observable histories",
+    "hard role, privacy and safety constraints are not softened into objective penalties",
+    "per-service floor constraints are reported separately at every stage"
+  ],
+  "candidate_methods":[
+    {"method_id":"open_loop_deterministic","description":"fixed action sequence chosen before disturbances are observed","information_admissible":true},
+    {"method_id":"rolling_horizon_mpc","description":"deterministic model-predictive control with re-optimization after each observation","information_admissible":true},
+    {"method_id":"two_stage_robust","description":"preparation followed by one recourse stage","information_admissible":true},
+    {"method_id":"multistage_stochastic","description":"expected-cost multistage recourse under a frozen scenario law","information_admissible":true},
+    {"method_id":"multistage_adaptive_robust","description":"non-anticipative multistage decisions under a declared uncertainty set","information_admissible":true},
+    {"method_id":"nested_conditional_cvar","description":"time-consistent recursive conditional risk baseline","information_admissible":true},
+    {"method_id":"stagewise_dro_recourse","description":"state/action-conditioned ambiguity sets with a declared rectangularity or coupling contract","information_admissible":true},
+    {"method_id":"clairvoyant_oracle","description":"perfect-information lower bound only; inadmissible as a deployable policy","information_admissible":false}
+  ],
+  "shift_families":[
+    "independent service shocks",
+    "within-cluster dependence",
+    "cross-service common-mode disruptions",
+    "action-dependent transition-kernel changes",
+    "seasonal and gradual distribution drift",
+    "abrupt supply-chain and workforce disruption",
+    "observation degradation and evidence conflict",
+    "transport and procurement lead-time shift"
+  ],
+  "reporting_metrics":[
+    "integrated deficit area per service",
+    "time below each service floor",
+    "maximum and cumulative floor violation",
+    "pathwise realized cost and statewise regret",
+    "worst-case pathwise regret and nested dynamic risk bound",
+    "CVaR95 and CVaR99 with static versus nested semantics",
+    "resource depletion and replenishment delay",
+    "repair completion and recovery time",
+    "action switching and human-review deferral",
+    "forecast score, ambiguity coverage, radius and vacuity",
+    "non-anticipativity violation count",
+    "hard constraint violations and infeasibility status",
+    "solve time, peak memory, optimality gap and anytime incumbent",
+    "independent source-family trajectory count"
+  ],
+  "confirmatory_targets":{
+    "exact_oracle_tolerance":1e-8,
+    "nonanticipativity_violation_count_max":0,
+    "transition_invariant_pass_rate":1.0,
+    "feasible_fixture_hard_violations_max":0,
+    "minimum_regret_improvement":0.05,
+    "paired_confidence_level":0.95,
+    "nominal_cost_noninferiority":0.02
+  },
+  "guardrails":[
+    "synthetic public-development protocol template only",
+    "not active in the curriculum",
+    "no real-world resource dispatch or emergency command",
+    "no legal or public-health readiness certification",
+    "no personal-suitability, political-belief or loyalty scoring",
+    "no composite resilience score",
+    "all methods share identical information sets, paths and resource constraints",
+    "publish infeasibility, timeout, vacuity, abstention and non-improvement outcomes"
+  ]
+}
