@@ -58,13 +58,13 @@ The statewise comparator is a lower bound, not a deployable policy. Worst-case e
 
 The fixture preserves all eight NRES-009 source cases, each evaluator-owned observed joint-state mask and every candidate state probability. Each case is crossed with four radius tiers: 0, 0.15, 0.40 and 0.90 weighted-Hamming units. The resulting 32 rows are eight cases times four sensitivity settings, not 32 independent observations.
 
-The source file is pinned by Git blob SHA-1 799799f8a315d4c0f06a43b5dce5ab2e15ccefb5. The evaluator receives NRES-009 separately and verifies source identity, service catalog, case IDs, copied observations and copied forecast distributions.
+The source file is pinned by Git blob SHA-1 799799f8a315d4c0f06a43b5dce5ab2e15ccefb5. At runtime, the evaluator checks the declared pin metadata and verifies source identity, service catalog, case IDs, copied observations and copied forecast distributions against the separately supplied NRES-009 JSON. It does not recompute a Git object hash; the repository commit and fixture blob provide the immutable source reference.
 
 The synthetic cost profiles are designed to expose different decision regimes. At moderate preparation cost, nominal and minimax-regret decisions remain targeted on some cases while worst-case expected-loss decisions shift toward comprehensive action as ambiguity grows. At high cost, no_action can remain optimal. These are fixture-design choices, not empirical findings.
 
 ## 6. Metrics and reporting
 
-For each profile and radius tier, report mean, nearest-rank p90 and maximum realised cost; mean realised statewise regret; mean selected nominal expected loss; mean exact worst-case expected-loss and worst-case regret bounds; selected action counts; evaluation row count; unique source-case count; and perfect-information reference cost.
+For each profile and radius tier, report mean, nearest-rank p90 and maximum realised cost. With only eight unique source cases, nearest-rank p90 equals the sample maximum; it is reported for interface stability, not as a stable tail estimate; mean realised statewise regret; mean selected nominal expected loss; mean exact worst-case expected-loss and worst-case regret bounds; selected action counts; evaluation row count; unique source-case count; and perfect-information reference cost.
 
 No profile, radius or objective is collapsed into a composite score.
 

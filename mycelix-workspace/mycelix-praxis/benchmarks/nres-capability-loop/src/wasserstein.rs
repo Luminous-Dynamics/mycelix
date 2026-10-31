@@ -458,7 +458,9 @@ pub fn evaluate_wasserstein_joint_decisions(
     {
         errors.push("NRES-009 source identity or synthetic boundary is invalid".to_owned());
     }
-    let source_info = fixture.get("source").unwrap_or(&Value::Null);
+    let Some(source_info) = fixture.get("source") else {
+        return Err(vec!["NRES-013 source metadata is missing".to_owned()]);
+    };
     if str_field(source_info, "fixture_git_blob_sha1") != Some(NRES009_SOURCE_GIT_BLOB_SHA1)
         || str_field(source_info, "fixture_path") != Some(NRES009_SOURCE_PATH)
         || str_field(source_info, "benchmark_id")
@@ -502,8 +504,12 @@ pub fn evaluate_wasserstein_joint_decisions(
         errors.push("service bit indexes must cover the complete dimension".to_owned());
     }
 
-    let protocol = fixture.get("protocol").unwrap_or(&Value::Null);
-    let source_protocol = source_joint.get("protocol").unwrap_or(&Value::Null);
+    let Some(protocol) = fixture.get("protocol") else {
+        return Err(vec!["NRES-013 protocol is missing".to_owned()]);
+    };
+    let Some(source_protocol) = source_joint.get("protocol") else {
+        return Err(vec!["NRES-009 source protocol is missing".to_owned()]);
+    };
     let tolerance = num_field(protocol, "probability_sum_tolerance");
     if num_field(protocol, "forecast_origin_hour")
         != num_field(source_protocol, "forecast_origin_hour")
@@ -523,8 +529,10 @@ pub fn evaluate_wasserstein_joint_decisions(
     else {
         return Err(vec!["weighted-Hamming service weights are missing".to_owned()]);
     };
-    if str_field(protocol.pointer("/ground_metric").unwrap_or(&Value::Null), "name")
-        != Some("weighted_hamming")
+    let Some(ground_metric) = protocol.get("ground_metric") else {
+        return Err(vec!["NRES-013 ground metric is missing".to_owned()]);
+    };
+    if str_field(ground_metric, "name") != Some("weighted_hamming")
         || weight_values.len() != dimension
         || weight_values.iter().any(|weight| {
             weight.as_f64().is_none_or(|number| !number.is_finite() || number <= 0.0)
@@ -535,6 +543,9 @@ pub fn evaluate_wasserstein_joint_decisions(
     }
     let weights: Vec<f64> = weight_values.iter().filter_map(Value::as_f64).collect();
     let diameter = weights.iter().sum::<f64>();
+    if !diameter.is_finite() || diameter <= 0.0 {
+        return Err(vec!["weighted-Hamming support diameter must be finite and positive".to_owned()]);
+    }
     let distances: Vec<Vec<f64>> = (0..state_count)
         .map(|left| {
             (0..state_count)
@@ -660,7 +671,7 @@ pub fn evaluate_wasserstein_joint_decisions(
     }
     for source_id in source_by_id.keys() {
         for radius_id in radius_by_id.keys() {
-            if !source_radius_pairs.contains(&(source_id.clone(), radius_id.clone())) {
+            if !source_radius_pairs.contains(&(source_id.to_owned(), radius_id.to_owned())) {
                 errors.push(format!("missing source/radius pairing: {source_id}/{radius_id}"));
             }
         }
