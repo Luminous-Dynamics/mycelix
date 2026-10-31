@@ -529,6 +529,18 @@ mod tests {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct CandidateEngineOutcome {
+    sequence: usize,
+    candidate_sha256: String,
+    cedar_decision: Option<String>,
+    cedar_determining_policy_ids: Vec<String>,
+    opa_decision: Option<String>,
+    opa_rule_id: Option<String>,
+    predicate_preserved: Option<bool>,
+    evaluation_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct ShrinkPairSummary {
     predicate: String,
     evaluation_method: String,
@@ -815,6 +827,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     let mut cedar_candidate_times = Vec::new();
     let mut opa_cli_candidate_times = Vec::new();
     let opa_candidate_process_evaluations = Cell::new(0usize);
+    let mut candidate_engine_outcomes = Vec::<CandidateEngineOutcome>::new();
     let minimization_started = Instant::now();
     let result = minimize_json_with_provenance(
         &initial_value,
@@ -824,28 +837,57 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &protected_paths,
         max_candidates,
         |candidate| {
-            let (cedar, opa, cedar_policy_ids, opa_rule, cedar_ns, opa_ns) = evaluate_policy_pair(
+            let candidate_bytes = serde_json::to_vec(candidate)
+                .map_err(|error| format!("serialize engine candidate for trace: {error}"))?;
+            let candidate_digest = sha256(&candidate_bytes);
+            let sequence = candidate_engine_outcomes.len();
+            match evaluate_policy_pair(
                 candidate,
                 &authorizer,
                 &policy_set,
                 &schema,
                 &opa_binary,
                 &rego_policy_path,
-            )?;
-            if matches!(cedar.as_str(), "allow" | "deny") {
-                cedar_candidate_times.push(cedar_ns);
-                opa_cli_candidate_times.push(opa_ns);
-                opa_candidate_process_evaluations.set(
-                    opa_candidate_process_evaluations.get() + 1
-                );
+            ) {
+                Ok((cedar, opa, cedar_policy_ids, opa_rule, cedar_ns, opa_ns)) => {
+                    let preserved = cedar == initial_cedar
+                        && opa == initial_opa
+                        && cedar != opa
+                        && cedar_policy_ids == initial_cedar_policy_ids
+                        && opa_rule == initial_opa_rule;
+                    if matches!(cedar.as_str(), "allow" | "deny") {
+                        cedar_candidate_times.push(cedar_ns);
+                        opa_cli_candidate_times.push(opa_ns);
+                        opa_candidate_process_evaluations.set(
+                            opa_candidate_process_evaluations.get() + 1
+                        );
+                    }
+                    candidate_engine_outcomes.push(CandidateEngineOutcome {
+                        sequence,
+                        candidate_sha256: candidate_digest,
+                        cedar_decision: Some(cedar),
+                        cedar_determining_policy_ids: cedar_policy_ids,
+                        opa_decision: Some(opa),
+                        opa_rule_id: Some(opa_rule),
+                        predicate_preserved: Some(preserved),
+                        evaluation_error: None,
+                    });
+                    Ok(preserved)
+                }
+                Err(error) => {
+                    candidate_engine_outcomes.push(CandidateEngineOutcome {
+                        sequence,
+                        candidate_sha256: candidate_digest,
+                        cedar_decision: None,
+                        cedar_determining_policy_ids: Vec::new(),
+                        opa_decision: None,
+                        opa_rule_id: None,
+                        predicate_preserved: None,
+                        evaluation_error: Some(error.clone()),
+                    });
+                    Err(error)
+                }
             }
-            Ok(
-                cedar == initial_cedar
-                    && opa == initial_opa
-                    && cedar != opa
-                    && cedar_policy_ids == initial_cedar_policy_ids
-                    && opa_rule == initial_opa_rule
-            )
         },
     )
     .map_err(|error| format!("counterexample minimization incomplete: {error}"))?;
@@ -876,6 +918,18 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         .map_err(|error| format!("serialize shrink trace: {error}"))?;
     fs::write(output_directory.join("shrink-trace.json"), &trace_bytes)
         .map_err(|error| format!("write shrink trace: {error}"))?;
+    let mut candidate_outcomes_bytes = Vec::new();
+    for outcome in &candidate_engine_outcomes {
+        let mut row = serde_json::to_vec(outcome)
+            .map_err(|error| format!("serialize candidate engine outcome: {error}"))?;
+        row.push(b'\n');
+        candidate_outcomes_bytes.extend_from_slice(&row);
+    }
+    fs::write(
+        output_directory.join("candidate-engine-outcomes.jsonl"),
+        &candidate_outcomes_bytes,
+    )
+    .map_err(|error| format!("write candidate engine outcomes: {error}"))?;
     let summary = ShrinkPairSummary {
         predicate: "cedar-opa-decision-divergence".to_owned(),
         evaluation_method: "Cedar in-process request construction+authorization; OPA one-shot CLI per candidate including startup/policy loading/input parsing".to_owned(),
