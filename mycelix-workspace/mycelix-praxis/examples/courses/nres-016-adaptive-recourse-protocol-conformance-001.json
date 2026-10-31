@@ -1,0 +1,53 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-ADAPTIVE-RECOURSE-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "invalid_input_controls": [
+    "wrong benchmark ID or schema version",
+    "status is not protocol-template-for-review",
+    "evaluation split is not public-development-only",
+    "curriculum activation set true",
+    "missing state variable category",
+    "resource ledger lacks conservation or non-negative invariant",
+    "resource replenishment credited before its transition",
+    "policy input includes hidden future shocks or scenario labels",
+    "duplicate observable-history key maps to inconsistent information states",
+    "same observable history selects different actions",
+    "stage action uses unavailable future observation",
+    "decision-dependent uncertainty enabled without a frozen action-effect model",
+    "causal effect claimed from observational correlation alone",
+    "static terminal CVaR mislabeled as nested time-consistent risk",
+    "ambiguity aggregation order is unspecified",
+    "critical service floor encoded only as compensable weighted penalty",
+    "negative resource balance or silent resource reset",
+    "repair or procurement lead time violated",
+    "infeasible fixture silently relaxed instead of reported",
+    "perfect-information oracle treated as deployable policy",
+    "scenario copies or time steps counted as independent source families",
+    "composite or personal-suitability score introduced"
+  ],
+  "boundary_cases": [
+    "minimum horizon has three decision stages",
+    "no admissible replenishment occurs during the horizon",
+    "resource balance reaches exactly zero",
+    "all scenarios share the same observable history at the first decision",
+    "paths branch only after a new observation is revealed",
+    "declared infeasible instance returns explicit infeasibility status"
+  ],
+  "round_trip_requirements": [
+    "stage indices remain stable and ordered",
+    "resource IDs and units remain stable",
+    "observable-history identity remains canonical",
+    "policy decisions remain keyed to observable history only",
+    "service floors remain separate by service and stage",
+    "risk recursion and ambiguity order remain explicit",
+    "scenario-family lineage and split assignment remain stable"
+  ],
+  "non_claims": [
+    "No solver or optimal policy is implemented by this protocol PR",
+    "No exact-oracle comparison has been run",
+    "No confirmatory or real-world data",
+    "No deployment, legal, emergency-command or readiness certification",
+    "No SOTA superiority result"
+  ]
+}
