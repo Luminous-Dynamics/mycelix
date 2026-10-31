@@ -255,6 +255,7 @@ jobs:
             tools/scientific-policy-metamorphic/Cargo.lock
             tools/scientific-policy-metamorphic/README.md
             tools/scientific-policy-metamorphic/src/lib.rs
+            tools/scientific-policy-metamorphic/src/shrink.rs
             tools/scientific-policy-metamorphic/src/main.rs
             tools/scientific-policy-cedar-runner/Cargo.toml
             tools/scientific-policy-cedar-runner/Cargo.lock
