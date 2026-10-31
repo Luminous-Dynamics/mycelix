@@ -47,6 +47,10 @@ The machine-readable report contains:
 
 A transition from `mixed_response_ordering` at 5 minutes to an ambiguous or sequential classification at 15/30 minutes is not a bug to smooth away. It is evidence that the measurement design cannot resolve the underlying response ordering at that cadence. Conversely, unchanged classification across cadences is only algorithmic stability; it does not prove the signature is physically correct.
 
+### Synthetic fixture's analytical expectation
+
+The committed 1-minute fixture encodes response changes at 35, 45 and 65 minutes after midnight for the 30-, 10- and 60-cm sensors, respectively; event onset is 00:30 UTC. At 5-minute bins the 30-cm response interval (00:30, 00:35] is strictly earlier than the 10-cm interval (00:40, 00:45], so one deeper-first pair is resolvable. At 10-, 15- and 30-minute aggregation the relevant intervals touch or overlap under the profile auditor's strict interval-ordering rule; they must not be counted as robust NSR. A leave-one-sensor-out design should lose that pair when either 10- or 30-cm sensor is removed, but preserve it when the 60-cm sensor is removed. These are analytically predicted fixture outcomes, not a successful Rust or CI run.
+
 ## 4. Benchmark matrix
 
 | Dimension | Required strata | Reported measure |
