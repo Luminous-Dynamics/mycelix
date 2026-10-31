@@ -183,6 +183,7 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
     let fixture_id = string_field(fixture, "benchmark_id");
     if fixture_id != Some(BENCHMARK_ID)
         && fixture_id != Some("PRAXIS-NRES-016-EX1-NESTED-CVAR-COMPARISON-001")
+        && fixture_id != Some("PRAXIS-NRES-016-EX2-RECTANGULAR-TV-ROBUST-RECOURSE-001")
     {
         errors.push("unexpected NRES-016 adaptive-recourse benchmark_id".to_owned());
     }
@@ -1431,6 +1432,23 @@ mod tests {
         })
     }
 
+    fn robust_fixture() -> Value {
+        let mut fixture = risk_fixture(0.9);
+        fixture["benchmark_id"] = json!("PRAXIS-NRES-016-EX2-RECTANGULAR-TV-ROBUST-RECOURSE-001");
+        for state in fixture["information_states"].as_array_mut().unwrap() {
+            for action in state["actions"].as_array_mut().unwrap() {
+                action["transition_tv_radius"] = json!(0.0);
+                if state["information_state_id"] == "A" && action["action_id"] == "SAFE" {
+                    action["fixed_cost"] = json!(460.0);
+                }
+                if state["information_state_id"] == "A" && action["action_id"] == "GAMBLE" {
+                    action["transition_tv_radius"] = json!(0.1);
+                }
+            }
+        }
+        fixture
+    }
+
     fn risk_fixture(alpha: f64) -> Value {
         let mut states = vec![
             json!({
@@ -1656,6 +1674,58 @@ mod tests {
             "service_floors": {"water":70.0,"power":60.0},
             "information_states": states
         })
+    }
+
+    #[test]
+    fn tv_worst_case_probability_moves_exact_declared_mass() {
+        let worst = tv_worst_case_distribution(&[0.0, 1000.0], &[0.95, 0.05], 0.1).unwrap();
+        assert!((worst[0] - 0.85).abs() < 1e-12);
+        assert!((worst[1] - 0.15).abs() < 1e-12);
+        assert!((0.5 * ((worst[0] - 0.95).abs() + (worst[1] - 0.05).abs()) - 0.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn zero_tv_radius_preserves_nominal_transition_distribution() {
+        let nominal = vec![0.7, 0.2, 0.1];
+        let worst = tv_worst_case_distribution(&[0.0, 10.0, 100.0], &nominal, 0.0).unwrap();
+        assert_eq!(worst, nominal);
+    }
+
+    #[test]
+    fn tv_radius_one_can_move_all_mass_to_maximum_loss() {
+        let worst = tv_worst_case_distribution(&[0.0, 5.0, 10.0], &[0.2, 0.3, 0.5], 1.0).unwrap();
+        assert_eq!(worst, vec![0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn tv_worst_case_rejects_invalid_radii_and_probability_mass() {
+        assert!(tv_worst_case_distribution(&[0.0, 1.0], &[0.95, 0.05], 1.01).is_err());
+        assert!(tv_worst_case_distribution(&[0.0, 1.0], &[0.8, 0.1], 0.1).is_err());
+    }
+
+    #[test]
+    fn rectangular_tv_robustness_reverses_nominal_gamble() {
+        let report = evaluate_rectangular_tv_robust_recourse(&robust_fixture()).unwrap();
+        assert_eq!(report["local_action_change_at_A"]["nominal_nested_action"], json!("GAMBLE"));
+        assert_eq!(report["local_action_change_at_A"]["rectangular_tv_robust_action"], json!("SAFE"));
+        assert_eq!(report["local_action_change_at_A"]["different"], json!(true));
+        assert!((report["robust"]["nominal_expected_cost_under_selected_policy"].as_f64().unwrap() - 5230.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn rectangular_tv_radius_increase_cannot_reduce_fixed_action_risk() {
+        let low = tv_worst_case_distribution(&[0.0, 1000.0], &[0.95, 0.05], 0.02).unwrap();
+        let high = tv_worst_case_distribution(&[0.0, 1000.0], &[0.95, 0.05], 0.10).unwrap();
+        let low_risk = 0.1 * low[1] * 1000.0 + 0.9 * upper_cvar(&[(0.0, low[0]), (1000.0, low[1])], 0.9).unwrap();
+        let high_risk = 0.1 * high[1] * 1000.0 + 0.9 * upper_cvar(&[(0.0, high[0]), (1000.0, high[1])], 0.9).unwrap();
+        assert!(high_risk + 1e-12 >= low_risk);
+    }
+
+    #[test]
+    fn invalid_action_tv_radius_is_rejected_by_model_parser() {
+        let mut fixture = robust_fixture();
+        fixture["information_states"][1]["actions"][1]["transition_tv_radius"] = json!(1.1);
+        assert!(evaluate_rectangular_tv_robust_recourse(&fixture).is_err());
     }
 
     #[test]
