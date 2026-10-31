@@ -56,7 +56,7 @@ fn run() -> Result<ExitCode, String> {
     for case in &cases {
         let mut row = serde_json::to_vec(&project_engine_inputs(case))
             .map_err(|error| format!("serialize projected engine inputs: {error}"))?;
-        row.push(b'\\n');
+        row.push(b'\n');
         engine_writer
             .write_all(&row)
             .map_err(|error| format!("write projected engine inputs: {error}"))?;
