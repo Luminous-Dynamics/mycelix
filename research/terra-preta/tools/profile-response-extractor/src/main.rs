@@ -466,7 +466,7 @@ mod tests {
         onset_minute: Option<i64>,
         response_delta: f64,
     ) -> SensorSeries {
-        let observations = [-10, 0, 10, 20, 30].into_iter().map(|minute| {
+        let observations = [-10, 0, 10, 20, 30, 40].into_iter().map(|minute| {
             let theta = if Some(minute) == onset_minute {
                 0.20 + response_delta
             } else if onset_minute.is_some_and(|onset| minute > onset) {
@@ -497,13 +497,13 @@ mod tests {
             profile_id: "PROFILE1".to_owned(),
             event_id: "EVENT1".to_owned(),
             event_start_utc: stamp(0),
-            observation_window_end_utc: stamp(30),
+            observation_window_end_utc: stamp(40),
             time_resolution_seconds: 600,
             source_evidence_ref: "synthetic fixture".to_owned(),
             sensors: vec![
                 series("S10", 10.0, Some(20), 0.012),
                 series("S30", 30.0, Some(0), 0.025),
-                series("S60", 60.0, Some(30), 0.040),
+                series("S60", 60.0, Some(40), 0.040),
             ],
         }
     }
