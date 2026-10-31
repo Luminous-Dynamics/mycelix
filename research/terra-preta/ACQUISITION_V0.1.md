@@ -81,6 +81,23 @@ No model should be presented as evidence of South African efficacy, carbon perma
 
 **Exact paper preprocessing:** See [NEON Preferential-Flow Preprocessing Contract](./NEON_PREFERENTIAL_FLOW_PREPROCESSING_CONTRACT_V0.1.md). The 2026 paper cites 2023 NEON dataset DOIs; RELEASE-2026 is not a substitute until the DOI-to-release crosswalk is independently resolved.
 
+## 6. Dynamic morphology and transient hydraulic coupling dataset
+
+A second directly relevant dataset is [Hirmas et al. (2025), Dryad DOI 10.5061/dryad.zs7h44jkn](https://doi.org/10.5061/dryad.zs7h44jkn), published 14 August 2025 under CC0 1.0. The landing page reports a 4.60 MB data package. Its README lists:
+- three ImageJ MLT 2D pore geometry exports for Ap1, Bt and Btkss2 horizons;
+- soil volumetric water content at 10, 40 and 120 cm;
+- horizon bulk density, porosity, COLE, field capacity/wilting point and water-retention data;
+- 180 μm MLT grid / 0.18 mm resolution, geometry lengths in mm;
+- original R analysis/partition/retention/pore-response/conductivity/sensitivity scripts and tabulated outputs.
+
+The source paper uses an area cutoff of π mm² for defining included macropore objects (equivalent circular radius 1 mm). Our morphology auditor exposes this as an optional filter; default remains zero. The raw image exports and exact README are to be acquired and hashed before claiming a reproduction.
+
+**Scientific use:** This is a high-value morphology-to-hydrology bridge dataset: use dry-state 2D image geometry plus sensor matrix-water-content time series to reproduce inferred changes in interpedal pore width, matrix/macropore partition, and transient hydraulic conductivity. The paper's dynamically changing pore width is inferred from its model, not repeatedly imaged at every time step. It is not a direct time-lapse pore-width truth series.
+
+**Transfer boundary:** the paper applies to one particular Konza Prairie APT soil profile with shrink–swell behavior. Its fitted coefficients cannot be applied directly to Terra Preta or South African soils. 2D geometry does not establish 3D connectivity; the paper's comparison to a prior transient-conductivity model is not equivalent to independent tracer validation at every time point.
+
+Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545). The benchmark is [DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md](./DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md).
+
 ## 6. NEON event-scale preferential-flow benchmark sources
 
 A new derived benchmark should be acquired before or alongside the raw NEON reconstruction:
