@@ -306,37 +306,43 @@ fn analyse_sensor(
     let mut missing_event_bins = 0usize;
     let mut maximum_event_theta: Option<f64> = None;
 
+    let event_samples: Vec<_> = observations
+        .iter()
+        .filter(|sample| sample.timestamp >= *event_start && sample.timestamp <= *event_end)
+        .collect();
+    for sample in &event_samples {
+        if matches!(sample.status, ObservationStatus::Missing) {
+            missing_event_bins += 1;
+        } else if let Some(theta) = sample.theta {
+            maximum_event_theta =
+                Some(maximum_event_theta.map(|value| value.max(theta)).unwrap_or(theta));
+        }
+    }
+
     if !baseline_valid || baseline_theta.is_none() {
         response_status = "indeterminate_missing_baseline";
     } else {
         let base = baseline_theta.expect("validated baseline");
         let mut blocked_by_gap = false;
-        for sample in observations.iter().filter(|sample| {
-            sample.timestamp >= *event_start && sample.timestamp <= *event_end
-        }) {
+        for sample in &event_samples {
             if matches!(sample.status, ObservationStatus::Missing) {
-                missing_event_bins += 1;
                 blocked_by_gap = true;
                 break;
             }
             let theta = sample.theta.expect("non-missing observations have theta");
-            maximum_event_theta = Some(maximum_event_theta.map(|value| value.max(theta)).unwrap_or(theta));
             if theta - base >= threshold {
                 response_status = "detected";
                 response_onset = Some(sample.timestamp.clone());
-                response_lag_minutes = Some((sample.timestamp.clone() - event_start.clone()).num_minutes());
+                response_lag_minutes =
+                    Some((sample.timestamp.clone() - event_start.clone()).num_minutes());
                 break;
             }
         }
         if blocked_by_gap && response_onset.is_none() {
             response_status = "indeterminate_data_gap";
+        } else if response_onset.is_none() {
+            response_status = "not_detected";
         }
-    }
-
-    if response_onset.is_none() && baseline_valid && missing_event_bins == 0 {
-        // If the response scan did not encounter a missing bin, no threshold crossing
-        // within the fully observed interval is a determinate non-response.
-        response_status = "not_detected";
     }
 
     let maximum_event_increase = match (baseline_theta, maximum_event_theta) {
@@ -366,7 +372,7 @@ fn analyse_sensor(
         valid_rise_intervals += 1;
         let elapsed_hours = (pair[1].timestamp.clone() - pair[0].timestamp.clone()).num_seconds() as f64 / 3600.0;
         let rate = (theta_end - theta_start) / elapsed_hours;
-        if rate > maximum_rise_rate.unwrap_or(f64::NEG_INFINITY) {
+        if rate > 0.0 && rate > maximum_rise_rate.unwrap_or(f64::NEG_INFINITY) {
             maximum_rise_rate = Some(rate);
             maximum_rise_start = Some(pair[0].timestamp.clone());
             maximum_rise_end = Some(pair[1].timestamp.clone());
