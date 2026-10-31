@@ -122,3 +122,9 @@ Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynami
 - Hirmas, D. R. et al. (2025). Predicting Soil Interpedal Macroporosity and Hydraulic Conductivity Dynamics: A Model for Integrating Laser-Scanned Profile Imagery With Soil Moisture Sensor Data. Water Resources Research, 61(9), e2024WR039836. https://doi.org/10.1029/2024WR039836
 - Hirmas, D. R. et al. (2025). Data: same title [Dataset]. Dryad. https://doi.org/10.5061/dryad.zs7h44jkn
 - Cao, X. et al. (2024). A review of advancements in the theory and characterization of soil macropore structure. PeerJ, 12, e18442. https://doi.org/10.7717/peerj.18442
+
+## v0.1 model parity note
+
+The new Rust crate currently uses average macropore width and aggregate projected pore area/perimeter in the whole-soil saturated-conductivity calculations. It does not yet implement per-pore area/width corrections (Hirmas Eqs. 35–36). It should be treated as an equation-level average-geometry prototype until that per-pore path and the authors' R-code outputs are reproduced.
+
+The paper body prints a minus sign in Eq. 37, while Figure 6 and Table 1 support the positive near-1:1 relationship. This sign discrepancy is explicitly recorded in the implementation; v0.1 follows figure/table provisionally and requires author-script parity before claiming exact reproduction.
