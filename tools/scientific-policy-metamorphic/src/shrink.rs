@@ -40,6 +40,7 @@ pub struct ShrinkTrace {
     pub original_sha256: String,
     pub minimized_sha256: String,
     pub reduction_profile: String,
+    pub input_encoding_profile: String,
     pub protected_paths: Vec<String>,
     pub max_candidate_evaluations: usize,
     pub candidate_evaluations: usize,
@@ -63,9 +64,48 @@ struct Reduction {
     value: Value,
 }
 
+fn stable_json_bytes(value: &Value, output: &mut Vec<u8>) -> Result<(), ShrinkError> {
+    match value {
+        Value::Object(object) => {
+            let mut keys = object.keys().collect::<Vec<_>>();
+            keys.sort();
+            output.push(b'{');
+            for (index, key) in keys.iter().enumerate() {
+                if index > 0 {
+                    output.push(b',');
+                }
+                let encoded_key = serde_json::to_vec(key.as_str())
+                    .map_err(|error| ShrinkError(format!("serialize JSON key: {error}")))?;
+                output.extend_from_slice(&encoded_key);
+                output.push(b':');
+                if let Some(child) = object.get(*key) {
+                    stable_json_bytes(child, output)?;
+                }
+            }
+            output.push(b'}');
+        }
+        Value::Array(values) => {
+            output.push(b'[');
+            for (index, child) in values.iter().enumerate() {
+                if index > 0 {
+                    output.push(b',');
+                }
+                stable_json_bytes(child, output)?;
+            }
+            output.push(b']');
+        }
+        _ => {
+            let encoded = serde_json::to_vec(value)
+                .map_err(|error| ShrinkError(format!("serialize JSON value: {error}")))?;
+            output.extend_from_slice(&encoded);
+        }
+    }
+    Ok(())
+}
+
 fn sha256(value: &Value) -> Result<String, ShrinkError> {
-    let bytes = serde_json::to_vec(value)
-        .map_err(|error| ShrinkError(format!("serialize shrink candidate: {error}")))?;
+    let mut bytes = Vec::new();
+    stable_json_bytes(value, &mut bytes)?;
     Ok(hex::encode(Sha256::digest(bytes)))
 }
 
@@ -294,6 +334,7 @@ where
             original_sha256,
             minimized_sha256,
             reduction_profile: "json-object-array-scalar-v0.1".to_owned(),
+            input_encoding_profile: "serde-json-sorted-objects-v0.1".to_owned(),
             protected_paths: protected_paths.iter().cloned().collect(),
             max_candidate_evaluations,
             candidate_evaluations: candidates.len(),
@@ -443,6 +484,13 @@ mod tests {
             result.trace.candidates[0].evaluation_error.as_deref(),
             Some("engine process indeterminate")
         );
+    }
+
+    #[test]
+    fn stable_digest_ignores_object_member_insertion_order() {
+        let first: Value = serde_json::from_str(r#"{"b":2,"a":{"y":4,"x":3}}"#).unwrap();
+        let second: Value = serde_json::from_str(r#"{"a":{"x":3,"y":4},"b":2}"#).unwrap();
+        assert_eq!(sha256(&first).unwrap(), sha256(&second).unwrap());
     }
 
     #[test]
