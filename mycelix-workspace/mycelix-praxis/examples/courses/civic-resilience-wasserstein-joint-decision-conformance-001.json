@@ -1,0 +1,190 @@
+{
+  "benchmark_id": "PRAXIS-NRES-013-WASSERSTEIN-JOINT-DECISION-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "invalid_input_controls": [
+    {
+      "id": "N013-NEG-001",
+      "condition": "wrong benchmark ID"
+    },
+    {
+      "id": "N013-NEG-002",
+      "condition": "unsupported schema version"
+    },
+    {
+      "id": "N013-NEG-003",
+      "condition": "status not synthetic"
+    },
+    {
+      "id": "N013-NEG-004",
+      "condition": "evaluation split not public-development-only"
+    },
+    {
+      "id": "N013-NEG-005",
+      "condition": "active_in_curriculum true"
+    },
+    {
+      "id": "N013-NEG-006",
+      "condition": "pinned source Git blob SHA differs"
+    },
+    {
+      "id": "N013-NEG-007",
+      "condition": "source path or benchmark ID differs"
+    },
+    {
+      "id": "N013-NEG-008",
+      "condition": "source service catalog differs"
+    },
+    {
+      "id": "N013-NEG-009",
+      "condition": "missing or unknown source case ID"
+    },
+    {
+      "id": "N013-NEG-010",
+      "condition": "duplicate source case within radius tier"
+    },
+    {
+      "id": "N013-NEG-011",
+      "condition": "missing source/radius pairing"
+    },
+    {
+      "id": "N013-NEG-012",
+      "condition": "copied observed mask differs"
+    },
+    {
+      "id": "N013-NEG-013",
+      "condition": "copied candidate distribution differs"
+    },
+    {
+      "id": "N013-NEG-014",
+      "condition": "invalid service bit index"
+    },
+    {
+      "id": "N013-NEG-015",
+      "condition": "service dimension exceeds exact limit"
+    },
+    {
+      "id": "N013-NEG-016",
+      "condition": "metric weight count mismatch"
+    },
+    {
+      "id": "N013-NEG-017",
+      "condition": "metric weight non-positive or non-finite"
+    },
+    {
+      "id": "N013-NEG-018",
+      "condition": "duplicate radius tier ID"
+    },
+    {
+      "id": "N013-NEG-019",
+      "condition": "negative/non-finite radius"
+    },
+    {
+      "id": "N013-NEG-020",
+      "condition": "case radius differs from tier"
+    },
+    {
+      "id": "N013-NEG-021",
+      "condition": "duplicate or empty case ID"
+    },
+    {
+      "id": "N013-NEG-022",
+      "condition": "incomplete state enumeration"
+    },
+    {
+      "id": "N013-NEG-023",
+      "condition": "duplicate/out-of-range state mask"
+    },
+    {
+      "id": "N013-NEG-024",
+      "condition": "invalid state probability"
+    },
+    {
+      "id": "N013-NEG-025",
+      "condition": "probability mass does not sum to one"
+    },
+    {
+      "id": "N013-NEG-026",
+      "condition": "duplicate or empty action ID"
+    },
+    {
+      "id": "N013-NEG-027",
+      "condition": "negative/non-finite resource units"
+    },
+    {
+      "id": "N013-NEG-028",
+      "condition": "prepared mask out of range"
+    },
+    {
+      "id": "N013-NEG-029",
+      "condition": "missing or invalid no_action baseline"
+    },
+    {
+      "id": "N013-NEG-030",
+      "condition": "duplicate or empty profile ID"
+    },
+    {
+      "id": "N013-NEG-031",
+      "condition": "service cost vector dimension mismatch"
+    },
+    {
+      "id": "N013-NEG-032",
+      "condition": "negative/non-finite service/resource cost or budget"
+    },
+    {
+      "id": "N013-NEG-033",
+      "condition": "residual fraction outside [0,1]"
+    },
+    {
+      "id": "N013-NEG-034",
+      "condition": "no feasible action"
+    },
+    {
+      "id": "N013-NEG-035",
+      "condition": "missing/duplicate/mismatched golden row"
+    },
+    {
+      "id": "N013-NEG-036",
+      "condition": "prohibited aggregate/political/identity/personal-suitability field"
+    }
+  ],
+  "boundary_cases": [
+    {
+      "id": "N013-BOUNDARY-001",
+      "condition": "radius exactly zero",
+      "expected": "Ambiguity set is the singleton nominal distribution; worst-case loss equals nominal expectation."
+    },
+    {
+      "id": "N013-BOUNDARY-002",
+      "condition": "radius at least the weighted-Hamming diameter",
+      "expected": "Every distribution on finite support is reachable; worst-case loss equals maximum support loss."
+    }
+  ],
+  "round_trip_requirements": [
+    "Preserve pinned NRES-009 blob SHA, source case IDs, service catalog and horizon.",
+    "Preserve every candidate joint state mask and probability exactly.",
+    "Preserve evaluator-owned observed masks independently of candidate forecasts.",
+    "Preserve service bit ordering and transport weights.",
+    "Preserve all radius tier identifiers and values.",
+    "Preserve action IDs, resources and prepared masks.",
+    "Preserve profile resource caps, resource cost, service losses and residual fractions.",
+    "Preserve each policy output independently.",
+    "Preserve infeasibility, tie-break and perfect-information semantics.",
+    "Preserve unknown namespaced extension fields losslessly."
+  ],
+  "conformance_targets": {
+    "valid_fixture_acceptance": "100 percent",
+    "listed_negative_case_rejection": "100 percent",
+    "golden_metric_absolute_tolerance": 1e-10,
+    "state_space": "complete 2^d support",
+    "resource_constraints": "non-compensatory",
+    "composite_scores_accepted": 0
+  },
+  "limitations": [
+    "32 rows are eight source cases crossed with four radii, not 32 independent cases.",
+    "Exact evaluator is bounded to six services pending complexity profiling.",
+    "Metric and radii are fixed synthetic values, not learned or calibrated ambiguity.",
+    "Single-horizon benchmark; no trajectory dynamics or multi-stage recourse.",
+    "Confirmatory tests require independently generated and custodied cases."
+  ]
+}

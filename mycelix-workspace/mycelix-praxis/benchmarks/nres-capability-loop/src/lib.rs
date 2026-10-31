@@ -27,6 +27,9 @@ pub use decision_value::evaluate_reliability_resolution_decision_value;
 pub mod robust_decision;
 pub use robust_decision::evaluate_ambiguity_robust_decisions;
 
+pub mod wasserstein;
+pub use wasserstein::evaluate_wasserstein_joint_decisions;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
