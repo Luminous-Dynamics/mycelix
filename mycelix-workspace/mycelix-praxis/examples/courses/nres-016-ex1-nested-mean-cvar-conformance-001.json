@@ -1,0 +1,55 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX1-NESTED-MEAN-CVAR-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "authored_rust_unit_tests": 22,
+  "invalid_input_controls": [
+    "EX1 fixture is not explicitly synthetic and public-development-only",
+    "curriculum activation set true",
+    "risk confidence level is missing, non-finite or outside [0,1)",
+    "risk aversion lambda is missing, non-finite or outside [0,1)",
+    "pure CVaR lambda=1 is accepted despite missing strict-monotonicity condition",
+    "action-conditioned probabilities do not sum to one",
+    "negative/non-finite loss or non-positive probability in finite risk distribution",
+    "risk distribution probability mass does not sum to one",
+    "nested action has a positive-probability successor with no feasible continuation",
+    "static policy enumeration violates hard service floors",
+    "multiple policy actions are assigned to the same observable information state",
+    "hidden/future scenario identifier enters an observation history",
+    "transition observation differs from the successor's appended observation",
+    "resource conservation equation fails along a transition",
+    "duplicate canonical observable histories are treated as separate decisions",
+    "terminal outcome has non-null observation or non-terminal outcome omits its observation",
+    "static terminal-risk comparator and nested recursion use different alpha/lambda parameters"
+  ],
+  "boundary_cases": [
+    "lambda=0 reduces the one-period map to expectation",
+    "lambda approaches one from below but remains strictly monotone",
+    "lambda=1 is rejected",
+    "one-point loss distribution has CVaR equal to its only loss",
+    "fractional upper-tail mass is handled by the Rockafellar-Uryasev formula",
+    "a different branch dominates terminal tail while a local gamble reverses under nested risk",
+    "all candidate policies violate a pathwise service floor and the report is explicitly infeasible/null",
+    "lambda=0 reduces the one-period map and nested recursion to expected cost",
+    "lambda just below one remains admissible and strictly monotone",
+    "alpha=0 reduces CVaR_0 to expectation under the upper-loss Rockafellar-Uryasev convention",
+    "alpha approaching one from below approaches the maximum support loss"
+  ],
+  "round_trip_requirements": [
+    "risk confidence alpha and lambda remain unchanged in evaluator output",
+    "same terminal cost distribution is used for static mean and CVaR",
+    "static objective equals (1-lambda)*terminal mean + lambda*terminal CVaR",
+    "nested objective uses the same one-period map at every observable information state",
+    "nested and static policies retain one action per canonical observable history",
+    "transition probabilities and successor observations remain attached to their incoming outcomes",
+    "risk units and total cost units remain identical"
+  ],
+  "non_claims": [
+    "No confirmatory or real-world outcome data",
+    "No calibration or coverage guarantee",
+    "No distributionally robust ambiguity set",
+    "No claim that pure nested CVaR at lambda=1 provides strict monotonicity",
+    "No unconditional theorem claim beyond the assumptions of the cited dynamic-programming formulation",
+    "No SOTA superiority, operational deployment, readiness or certification claim"
+  ]
+}
