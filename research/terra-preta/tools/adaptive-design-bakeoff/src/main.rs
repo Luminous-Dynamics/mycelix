@@ -726,10 +726,10 @@ fn run_benchmark(bytes: &[u8]) -> Result<Report, Box<dyn Error>> {
     validate_scenario(&scenario)?;
     let oracle_result = oracle(&scenario)?;
     let score_actions = scoring_actions(&scenario);
+    let selector_context = policy_context(&scenario);
     let mut results = Vec::new();
 
     for policy in Policy::ALL {
-        let selector_context = policy_context(&scenario);
         let selection = select(&selector_context, policy, &score_actions);
         results.push(summarize_policy(&scenario, policy, selection, &oracle_result));
     }
@@ -746,7 +746,7 @@ fn run_benchmark(bytes: &[u8]) -> Result<Report, Box<dyn Error>> {
         oracle: oracle_result,
         policy_results: results,
         warnings: vec![
-            "Evaluator-only synthetic truth is excluded from the PolicyAction type and used only after selection.".to_owned(),
+            "Evaluator-only synthetic truth is absent from both PolicyAction and PolicyContext; selector functions cannot access the Scenario or oracle truth.".to_owned(),
             "The R-IDeA-inspired comparator is a transparent benchmark score, not a reproduction of the published R-IDeA method.".to_owned(),
             "The v0.1 utility is additive and model scores are static; action redundancy, complementarity, and sequential posterior updating are not modeled.".to_owned(),
             "The EIG policy is a supplied-score proxy, not a full Bayesian optimal-design implementation.".to_owned(),
