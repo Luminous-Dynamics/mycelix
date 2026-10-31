@@ -42,6 +42,8 @@ For 0–50 cm, include the Krueger 5/20/40 cm storage baseline. For other contro
 
 Every comparison must use the same soil profiles, storms, sensor models, calibration error, missingness model, budget, held-out scenarios and independent reference evidence.
 
+For the lateral-heterogeneity track, the 2025 Nimmo et al. review reports that many studies use 10–30 cm spacing in both horizontal and vertical directions; finger-flow detection can require 5–10 cm spacing or better. It cautions that mm-scale macropore flow is generally not resolved by this method unless surrounding matrix wetting expands over a substantial width. These are method-specific resolution observations, not universal deployment prescriptions. Candidate layouts must be evaluated against the expected wetted footprint, sensor support volume and the target mechanism, with explicit false-negative limits for pathways narrower than the sensor spacing.
+
 ## 4. Utility: expected reduction in decision-relevant uncertainty per total cost
 
 Let H be the latent mechanism/parameter state and D the observations already collected. An action a is a candidate measurement or sensor deployment. A first information-theoretic score is:
@@ -56,7 +58,9 @@ where C(a) includes sensor purchase, installation, calibration, power/telemetry,
 
 Use robust selection across predeclared soil, climate, antecedent-state and forcing strata. Report mean, worst-stratum and lower-tail utility; consider CVaR or maximin selection when a rare but consequential pathway must not be systematically missed. Do not optimize a single pooled average when localized pathways are the target.
 
-The observation model must include sensing volume, calibration uncertainty, depth/position uncertainty, temporal cadence, drift, noise, saturation/frozen/fault states, missingness and installation disturbance.
+The observation model must include sensing volume, calibration uncertainty, depth/position uncertainty, temporal cadence, drift, noise, saturation/frozen/fault states, missingness and installation disturbance. For dielectric/FDR sensors, calibration uncertainty must be stratified by soil type, temperature and electrical conductivity rather than represented by a single global noise constant. A 2026 review of FDR-based capacitive sensors identifies these as material interference variables and argues for physically decoupled compensation; treat this as an instrumentation baseline to test, not proof that a universal calibration can be transferred across soils.
+
+The Krueger et al. (2026) robust-design analysis perturbed hypothetical sensor measurements with Gaussian error (SD 0.01 m³/m³ and a 0.02 sensitivity case) and selected layouts by worst-case R² across error realizations. We should reproduce this kind of measurement-error stress test but score PF-specific mechanism/flux utility instead of profile-mean storage error.
 
 ## 5. Required implementation protocol
 
@@ -122,5 +126,6 @@ The next implementation must connect the validated spatial hydraulic/measurement
 ## References
 
 - Krueger, E. S. et al. (2026). Optimizing soil moisture sensor installation depths and number of sensors for in situ monitoring networks. *Vadose Zone Journal*, 25(3), e70100. https://doi.org/10.1002/vzj2.70100
+- Xu, Y. et al. (2026). Advances in Calibration Methods for FDR-Based Capacitive Soil Moisture Sensors. *Sensors*, 26(11), 3366. https://doi.org/10.3390/s26113366
 - Nimmo, J. R. et al. (2025). Identifying preferential flow from soil moisture time series: Review of methodologies. *Vadose Zone Journal*, 24(2), e70017. https://doi.org/10.1002/vzj2.70017
 - Li, B. et al. (2026). Dominant Controls on Preferential Flow and Their Implications for Future Soil Water Fluxes. *Earth's Future*. https://doi.org/10.1029/2026EF008296
