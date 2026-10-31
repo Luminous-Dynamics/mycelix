@@ -37,17 +37,24 @@ Never put secrets or production credentials into a corpus, trace, artifact or po
 The follow-on branch now exports a generic deterministic Rust JSON reducer in
 `src/shrink.rs`. The caller supplies exact source bytes, the parsed JSON
 value, a predicate identifier, protected JSON Pointer paths, an evaluation
-budget and a predicate callback. The reducer verifies that the exact bytes
-decode to the supplied value, hashes raw source bytes separately from its
-sorted-object normalized-value encoding, and records every candidate
-evaluation. Its reduction neighborhood and digest-encoding profile are
-explicitly versioned.
+budget and a predicate callback. A duplicate-aware serde visitor rejects
+repeated object member names, including escaped-equivalent names, and rejects
+malformed UTF-8, unpaired surrogates and trailing content. The parser verifies
+that exact bytes decode to the supplied value. Raw source bytes are hashed
+separately from the sorted-object normalized-value encoding.
 
-The unit tests cover source-byte versus normalized-value identity, byte/value
-mismatch rejection, deterministic traversal/digests, protected PARC identity,
-budget exhaustion, predicate errors and monotone scalar reduction. This is
-not yet an engine-integrated Cedar/OPA shrink run; real engine invocation,
-policy/schema digest binding and per-case artifacts remain open.
+Candidate descriptors are generated only up to the remaining predicate
+evaluation budget; full candidate JSON values are cloned only for evaluation.
+The API caps inputs at 4 MiB and predicate evaluations at 100,000. Its
+reduction neighborhood and digest-encoding profile are explicitly versioned.
+
+Unit tests cover source-byte versus normalized-value identity, byte/value
+mismatch rejection, duplicate keys at multiple depths, escaped duplicate
+names, malformed UTF-8, unpaired surrogates, deterministic traversal/digests,
+protected PARC identity, array-element reduction, budget exhaustion, predicate
+errors and monotone scalar reduction. This is not yet an engine-integrated
+Cedar/OPA shrink run; real engine invocation, policy/schema digest binding and
+per-case artifacts remain open.
 
 ## 5. Semantics and diagnostics
 
