@@ -43,6 +43,26 @@ jobs:
           cargo run --manifest-path tools/scientific-policy-space/Cargo.toml --locked -- target/scientific-policy-space
           test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
 
+      - name: Independently audit corpus cardinality, source pin and paired case IDs
+        run: |
+          jq -e -s '
+            length == 62464 and
+            ([.[].case_id] | unique | length == 62464) and
+            all(.[];
+              .expected_decision == null and
+              .expected_decision_status == "pending_authentic_rust_oracle" and
+              .baseline_revision == "f89b4bcdcfb901961e2ca11a577775acbf53a74d" and
+              .baseline_source_blob_sha == "dd9ea9267cdae2e2c67244e8a90821defaacefb3"
+            )
+          ' target/scientific-policy-space/scientific-policy-decision-space-v0.1.jsonl
+          jq -n             --slurpfile abstract target/scientific-policy-space/scientific-policy-decision-space-v0.1.jsonl             --slurpfile engine target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl             '
+              ($abstract | map(.case_id) | sort) as $a |
+              ($engine | map(.case_id) | sort) as $e |
+              ($abstract | length == 62464) and
+              ($engine | length == 62464) and
+              ($a == $e)
+            '
+
       - name: Format runner and batch adapter
         run: cargo fmt --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --all
 
