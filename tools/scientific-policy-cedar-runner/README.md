@@ -58,6 +58,26 @@ Rust authorization parity.
 
 Cedar output is a candidate engine result, not an expected decision. The authentic compiled Rust policy crate remains unavailable due to #5189, so Cedar results do not establish Rust/Cedar parity. The outer Rust kernel still owns signatures, actor/key binding, revocation, membership, replay, receipt integrity and atomic commit.
 
+## Native OPA query benchmarks
+
+The metamorphic workflow additionally runs OPA 1.22.0's native `opa bench`
+for one deterministic input from each of the eight policy actions, with
+`--benchmem`, metrics and five benchmark repetitions. These distributions
+measure repeated Rego query evaluation and exclude process startup, policy
+loading/compilation and input-file preparation according to OPA's benchmark
+model. They are a more appropriate comparison point for Cedar's in-process
+`authorization_latency` than the full one-shot OPA batch wall time.
+
+The workflow still records three distinct measurements:
+- Cedar request/entity construction and pure authorization separately.
+- OPA native per-query evaluation with allocations.
+- OPA one-shot 62,464-case batch including process startup, input/output conversion and file I/O.
+
+The per-action inputs and raw benchmark outputs are uploaded with exact policy,
+input, binary and host provenance. The benchmark set is intentionally bounded
+and representative; it is not a universal authorization workload or an
+apples-to-apples end-to-end product comparison.
+
 ## Claim ceiling
 
 This benchmark compares the Cedar engine only on the frozen abstract authorization domain. It does not compare evidence-profile projection semantics, credential registry behavior, cryptographic identity, full Mycelix event-log semantics or production end-to-end costs.
