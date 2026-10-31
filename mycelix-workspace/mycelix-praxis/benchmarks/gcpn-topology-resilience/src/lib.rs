@@ -266,6 +266,13 @@ mod tests {
 
     #[test]
     fn fixture_is_frozen_and_unique() {
+        fn fnv1a64(bytes: &[u8]) -> u64 {
+            bytes.iter().fold(0xcbf29ce484222325u64, |mut hash, byte| {
+                hash ^= u64::from(*byte);
+                hash.wrapping_mul(0x100000001b3)
+            })
+        }
+        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0x0cf24a2151b682ad);
         let scenarios = parse_fixture(FIXTURE).unwrap();
         assert_eq!(scenarios.len(), 10);
         let ids: HashSet<_> = scenarios.iter().map(|s| s.scenario_id.as_str()).collect();
