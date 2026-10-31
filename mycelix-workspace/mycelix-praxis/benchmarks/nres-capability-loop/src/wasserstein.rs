@@ -946,6 +946,82 @@ mod tests {
         vec![vec![0.0, 1.0], vec![1.0, 0.0]]
     }
 
+    fn subgradient_bisection_upper(
+        probabilities: &[f64],
+        losses: &[f64],
+        distances: &[Vec<f64>],
+        radius: f64,
+    ) -> f64 {
+        if radius == 0.0 {
+            return dot(probabilities, losses);
+        }
+        let state_count = probabilities.len();
+        let objective = |lambda: f64| {
+            let mut value = lambda * radius;
+            for source in 0..state_count {
+                let worst = (0..state_count)
+                    .map(|destination| losses[destination] - lambda * distances[source][destination])
+                    .fold(f64::NEG_INFINITY, f64::max);
+                value += probabilities[source] * worst;
+            }
+            value
+        };
+
+        // Bound the search beyond every pairwise line intersection.
+        let mut high = 1.0_f64;
+        for source in 0..state_count {
+            for left in 0..state_count {
+                for right in 0..state_count {
+                    let denominator = distances[source][left] - distances[source][right];
+                    if denominator.abs() > 1e-12 {
+                        let crossing = (losses[left] - losses[right]) / denominator;
+                        if crossing.is_finite() && crossing > high {
+                            high = crossing;
+                        }
+                    }
+                }
+            }
+        }
+        high += 1.0;
+        let mut low = 0.0_f64;
+
+        // The derivative is an interval at kinks. Its signs bracket a minimum.
+        for _ in 0..100 {
+            let midpoint = (low + high) * 0.5;
+            let mut derivative_low = radius;
+            let mut derivative_high = radius;
+            for source in 0..state_count {
+                let mut maximum = f64::NEG_INFINITY;
+                let mut minimum_active_distance = f64::INFINITY;
+                let mut maximum_active_distance = 0.0_f64;
+                for destination in 0..state_count {
+                    let value = losses[destination]
+                        - midpoint * distances[source][destination];
+                    let distance = distances[source][destination];
+                    if value > maximum + 1e-10 {
+                        maximum = value;
+                        minimum_active_distance = distance;
+                        maximum_active_distance = distance;
+                    } else if (value - maximum).abs() <= 1e-10 {
+                        minimum_active_distance = minimum_active_distance.min(distance);
+                        maximum_active_distance = maximum_active_distance.max(distance);
+                    }
+                }
+                derivative_low -= probabilities[source] * maximum_active_distance;
+                derivative_high -= probabilities[source] * minimum_active_distance;
+            }
+            if derivative_low <= 0.0 && derivative_high >= 0.0 {
+                return objective(midpoint);
+            }
+            if derivative_high < 0.0 {
+                low = midpoint;
+            } else {
+                high = midpoint;
+            }
+        }
+        objective(low).min(objective(high))
+    }
+
     #[test]
     fn zero_radius_equals_nominal_expectation() {
         let (value, lambda) = wasserstein_upper_expectation(
@@ -1122,5 +1198,73 @@ mod tests {
         assert_eq!(strategies["wasserstein_worst_case_expected_loss"]["action_counts"]["comprehensive"], json!(6));
         assert_eq!(strategies["wasserstein_minimax_regret"]["action_counts"]["targeted"], json!(5));
     }
+
+    #[test]
+    fn breakpoint_dual_matches_independent_subgradient_bisection_on_all_source_cases() {
+        let source: Value = serde_json::from_str(SOURCE_FIXTURE).expect("source parses");
+        let fixture: Value = serde_json::from_str(NRES013_FIXTURE).expect("NRES-013 parses");
+        let dimension = fixture["service_catalog"].as_array().unwrap().len();
+        let state_count = 1usize << dimension;
+        let weights: Vec<f64> = fixture["protocol"]["ground_metric"]["service_change_weights"]
+            .as_array().unwrap().iter().map(|value| value.as_f64().unwrap()).collect();
+        let diameter = weights.iter().sum::<f64>();
+        let distances: Vec<Vec<f64>> = (0..state_count).map(|left| {
+            (0..state_count).map(|right| weighted_hamming(left, right, &weights)).collect()
+        }).collect();
+        let mut errors = Vec::new();
+
+        for profile_value in fixture["decision_profiles"].as_array().unwrap() {
+            let profile = Profile {
+                id: str_field(profile_value, "profile_id").unwrap().to_owned(),
+                max_resource_units: num_field(profile_value, "max_resource_units").unwrap(),
+                resource_unit_cost: num_field(profile_value, "resource_unit_cost").unwrap(),
+                service_breach_costs: profile_value["service_breach_costs"].as_array().unwrap()
+                    .iter().map(|value| value.as_f64().unwrap()).collect(),
+                prepared_residual_fraction: num_field(profile_value, "prepared_residual_fraction").unwrap(),
+            };
+            let actions: Vec<Action> = fixture["action_catalog"].as_array().unwrap().iter().map(|value| Action {
+                id: str_field(value, "action_id").unwrap().to_owned(),
+                resource_units: num_field(value, "resource_units").unwrap(),
+                prepared_mask: value["prepared_service_mask"].as_u64().unwrap() as usize,
+            }).filter(|action| action.resource_units <= profile.max_resource_units + 1e-12).collect();
+
+            for source_case in source["evaluation_cases"].as_array().unwrap() {
+                let probabilities = parse_joint_probabilities(
+                    source_case,
+                    str_field(source_case, "case_id").unwrap(),
+                    state_count,
+                    1e-12,
+                    &mut errors,
+                ).expect("source forecast is valid");
+                let action_losses: Vec<Vec<f64>> = actions.iter()
+                    .map(|action| action_state_losses(&profile, action, dimension, state_count))
+                    .collect();
+                let state_oracle: Vec<f64> = (0..state_count).map(|state| {
+                    action_losses.iter().map(|loss| loss[state]).fold(f64::INFINITY, f64::min)
+                }).collect();
+                let regret_losses: Vec<Vec<f64>> = action_losses.iter().map(|loss| {
+                    loss.iter().enumerate().map(|(state, value)| (value - state_oracle[state]).max(0.0)).collect()
+                }).collect();
+
+                for radius in [0.15_f64, 0.40_f64, 0.90_f64] {
+                    for losses in action_losses.iter().chain(regret_losses.iter()) {
+                        let breakpoint = wasserstein_upper_expectation(
+                            &probabilities, losses, &distances, radius, diameter,
+                        ).expect("breakpoint dual is finite").0;
+                        let bisection = subgradient_bisection_upper(
+                            &probabilities, losses, &distances, radius,
+                        );
+                        assert!(
+                            (breakpoint - bisection).abs() <= 1e-8,
+                            "dual mismatch for {} radius {radius}: breakpoint={breakpoint}, bisection={bisection}",
+                            str_field(source_case, "case_id").unwrap()
+                        );
+                    }
+                }
+            }
+        }
+        assert!(errors.is_empty(), "source forecast parser should accept all pinned cases: {errors:?}");
+    }
+
 
 }
