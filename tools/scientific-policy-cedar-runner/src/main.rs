@@ -535,9 +535,13 @@ struct ShrinkPairSummary {
     initial_case_id: String,
     initial_cedar_decision: String,
     initial_opa_decision: String,
+    initial_cedar_determining_policy_ids: Vec<String>,
+    initial_opa_rule_id: String,
     minimized_case_id: String,
     minimized_cedar_decision: String,
     minimized_opa_decision: String,
+    minimized_cedar_determining_policy_ids: Vec<String>,
+    minimized_opa_rule_id: String,
     candidate_evaluations: usize,
     opa_candidate_process_evaluations: usize,
     cedar_candidate_latency: TimingSummary,
@@ -613,19 +617,19 @@ fn evaluate_policy_pair(
     schema: &Schema,
     opa_binary: &Path,
     rego_policy_path: &Path,
-) -> Result<(String, String, Vec<String>, u128, u128), String> {
+) -> Result<(String, String, Vec<String>, String, u128, u128), String> {
     let case: EngineInputCase = match serde_json::from_value(candidate.clone()) {
         Ok(case) => case,
         Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0)),
     };
     if case.case_id != case.cedar.case_id || case.case_id != case.rego.case_id {
-        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0));
+        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), "invalid".to_owned(), 0, 0));
     }
     if validate_explicit_entities(&case, 0).is_err()
         || !case.cedar.request.context.is_object()
         || !case.rego.input.is_object()
     {
-        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0));
+        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), "invalid".to_owned(), 0, 0));
     }
     let (cedar_decision, cedar_policy_ids, construction_ns, authorization_ns) =
         match evaluate_case(authorizer, policy_set, schema, &case) {
@@ -635,12 +639,13 @@ fn evaluate_policy_pair(
             }
             Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0)),
         };
-    let (opa_effect, _opa_rule, opa_elapsed_ns) =
+    let (opa_effect, opa_rule, opa_elapsed_ns) =
         opa_decision(opa_binary, rego_policy_path, &case.rego.input)?;
     Ok((
         cedar_decision.to_owned(),
         opa_effect,
         cedar_policy_ids,
+        opa_rule,
         construction_ns + authorization_ns,
         opa_elapsed_ns,
     ))
@@ -723,7 +728,14 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     }
     let authorizer = Authorizer::new();
 
-    let (initial_cedar, initial_opa, _, _, _) = evaluate_policy_pair(
+    let (
+        initial_cedar,
+        initial_opa,
+        initial_cedar_policy_ids,
+        initial_opa_rule,
+        _,
+        _,
+    ) = evaluate_policy_pair(
         &initial_value,
         &authorizer,
         &policy_set,
@@ -750,8 +762,11 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         "/cedar/entities",
         "/rego/case_id",
         "/rego/input/action",
+        "/rego/input/actor/id",
         "/rego/input/actor/roles",
         "/rego/input/claim/exists",
+        "/rego/input/claim/creatorActorId",
+        "/rego/input/claim/creatorOrganizationId",
     ] {
         protected_paths.insert(pointer.to_owned());
     }
@@ -765,7 +780,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         "opa_version": opa_version_text.trim(),
         "opa_query": "data.mycelix.authz.decision",
         "opa_flags": ["eval", "--strict", "--timeout=5s", "--format=json", "--stdin-input"],
-        "predicate": "preserve_initial_cedar_opa_decision_divergence",
+        "predicate": "preserve_initial_cedar_opa_decision_and_reason_divergence",
         "max_candidate_evaluations": max_candidates,
         "protected_paths": protected_paths
     }))
@@ -791,7 +806,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &protected_paths,
         max_candidates,
         |candidate| {
-            let (cedar, opa, _, cedar_ns, opa_ns) = evaluate_policy_pair(
+            let (cedar, opa, cedar_policy_ids, opa_rule, cedar_ns, opa_ns) = evaluate_policy_pair(
                 candidate,
                 &authorizer,
                 &policy_set,
@@ -806,13 +821,26 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                     opa_candidate_process_evaluations.get() + 1
                 );
             }
-            Ok(cedar == initial_cedar && opa == initial_opa && cedar != opa)
+            Ok(
+                cedar == initial_cedar
+                    && opa == initial_opa
+                    && cedar != opa
+                    && cedar_policy_ids == initial_cedar_policy_ids
+                    && opa_rule == initial_opa_rule
+            )
         },
     )
     .map_err(|error| format!("counterexample minimization incomplete: {error}"))?;
     let minimization_wall_ns = minimization_started.elapsed().as_nanos();
 
-    let (minimized_cedar, minimized_opa, _, _, _) = evaluate_policy_pair(
+    let (
+        minimized_cedar,
+        minimized_opa,
+        minimized_cedar_policy_ids,
+        minimized_opa_rule,
+        _,
+        _,
+    ) = evaluate_policy_pair(
         &result.minimized_value,
         &authorizer,
         &policy_set,
@@ -836,12 +864,16 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         initial_case_id: initial_case.case_id,
         initial_cedar_decision: initial_cedar,
         initial_opa_decision: initial_opa,
+        initial_cedar_determining_policy_ids: initial_cedar_policy_ids,
+        initial_opa_rule_id: initial_opa_rule,
         minimized_case_id: result.minimized_value["case_id"]
             .as_str()
             .ok_or_else(|| "minimized case ID is missing".to_owned())?
             .to_owned(),
         minimized_cedar_decision: minimized_cedar,
         minimized_opa_decision: minimized_opa,
+        minimized_cedar_determining_policy_ids: minimized_cedar_policy_ids,
+        minimized_opa_rule_id: minimized_opa_rule,
         candidate_evaluations: result.trace.candidate_evaluations,
         opa_candidate_process_evaluations: opa_candidate_process_evaluations.get(),
         cedar_candidate_latency: timing_summary(&cedar_candidate_times),
