@@ -764,7 +764,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         "cedar_sdk": "4.14.0",
         "opa_version": opa_version_text.trim(),
         "opa_query": "data.mycelix.authz.decision",
-        "opa_flags": ["eval", "--strict", "--format=json", "--stdin-input"],
+        "opa_flags": ["eval", "--strict", "--timeout=5s", "--format=json", "--stdin-input"],
         "predicate": "preserve_initial_cedar_opa_decision_divergence",
         "max_candidate_evaluations": max_candidates,
         "protected_paths": protected_paths
