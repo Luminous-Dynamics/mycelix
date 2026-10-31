@@ -1,6 +1,6 @@
 # Soil Moisture Spatial-Heterogeneity Benchmark v0.1
 
-**Status:** research benchmark specification. No spatial heterogeneity classifier or field score is claimed by this document. Thresholds are proposed and must be preregistered.
+**Status:** benchmark specification plus a deterministic Rust spatial-dispersion auditor at [tools/spatial-heterogeneity-audit](./tools/spatial-heterogeneity-audit/README.md). No field score, tracer validation or physical pathway certificate is claimed. Thresholds are proposed and must be preregistered.
 
 ## 1. Why this method family matters
 
@@ -94,6 +94,8 @@ Use the spatial audit to choose where to measure next. Under a fixed budget, com
 Use expected reduction in decision-relevant uncertainty (pathway localization, lower-boundary arrival or nutrient export), not entropy alone. Record the selection probability and whether each planned measurement was actually acquired; this avoids verification bias from validating only model-selected hotspots.
 
 ## 8. Implementation sequence
+
+The v0.1 executable computes per-depth/time event-relative dispersion and distance-binned empirical semivariograms, preserves pair support, and tests sensor-order and translation/rotation invariance plus a homogeneous matrix-only null. It is a descriptive statistic engine; localized-path classification, layout ablation, and ERT/GPR/tracer validation remain open.
 
 1. Build a deterministic spatial observation-operator generator with homogeneous, localized, disconnected and lateral-flow truth patterns.
 2. Implement per-depth spatial dispersion and distance-binned semivariogram reports with strict support and missingness checks.
