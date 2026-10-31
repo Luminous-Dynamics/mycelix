@@ -40,11 +40,22 @@ recorded.
 
 ## Engine evaluation boundary
 
-Generation is not a metamorphic evaluation result. The intended next use is to
-run each transformed folder through the exact pinned Cedar 4.14.0 and OPA 1.22.0
-runners, compare each engine's per-case decisions with its own baseline, and
-record any diagnostics, failures, or divergences. A transformation is not
-qualified merely because its JSON parses.
+Generation alone is not a metamorphic evaluation result. The dedicated
+`.github/workflows/scientific-policy-metamorphic.yml` workflow runs both the
+baseline and all four variants through Cedar 4.14.0 and OPA 1.22.0. It compares
+each engine against its own baseline using stable case IDs, decision values,
+and determining-policy identifiers (Cedar `Diagnostics::reason()`; OPA rule
+IDs). Any case-set change, decision drift, determining-policy drift, parser or
+schema error, Cedar evaluation diagnostic, OPA failure, or incomplete output
+fails the qualification.
+
+The Cedar runner requires the requested principal Actor and exactly one
+resource Claim, unique UIDs, and schema-valid attributes. Additional unique
+Actor entities are permitted for the explicitly documented irrelevant-entity
+transformation; action entities remain supplied by the pinned schema. The
+workflow preserves engine-specific diagnostics and provenance. The OPA batch
+measurement and Cedar in-process measurement remain separately labelled and
+must not be compared as apples-to-apples timing.
 
 The object-key and whitespace variants are pure serialization transformations.
 Cedar entity order is treated as set-order-independent only under unique UID
@@ -54,7 +65,10 @@ that expectation rather than assuming it.
 
 ## Claim ceiling
 
-This tool proves deterministic transformation and byte-level provenance of the
-generated corpora. It does not prove decision invariance, Cedar/OPA agreement,
-Rust policy parity, credential-registry correctness, or production authorization
-safety.
+The generator proves deterministic transformation and byte-level provenance;
+the dedicated workflow additionally tests invariance relative to each pinned
+engine over these four preconditioned transformations. Neither establishes
+Cedar/OPA policy equivalence, authentic Rust policy parity, credential-registry
+correctness, or production authorization safety. A fifth class of
+meaning-changing negative controls remains future work and must be interpreted
+against an explicit policy-semantic oracle rather than assumed outcomes.
