@@ -4,7 +4,8 @@ use serde_json::Value;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use scientific_policy_metamorphic::shrink::{
-    minimize_json_with_provenance, PredicateProvenance, MAX_SOURCE_INPUT_BYTES,
+    minimize_json_with_provenance, parse_unique_json_bytes, PredicateProvenance,
+    MAX_SOURCE_INPUT_BYTES,
 };
 use std::cell::Cell;
 use std::collections::BTreeSet;
@@ -826,8 +827,8 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
             "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
         ));
     }
-    let initial_value: Value = serde_json::from_slice(&source_bytes)
-        .map_err(|error| format!("parse original counterexample: {error}"))?;
+    let initial_value: Value = parse_unique_json_bytes(&source_bytes)
+        .map_err(|error| format!("strictly parse original counterexample before engine evaluation: {error}"))?;
     let initial_case: EngineInputCase = serde_json::from_value(initial_value.clone())
         .map_err(|error| format!("parse original engine case: {error}"))?;
 
