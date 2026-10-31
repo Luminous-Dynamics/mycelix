@@ -75,6 +75,37 @@
       "release_specific_qa_notes": [
         "NEON RELEASE-2023 reprocessing removed calDefaultQM from affecting VSWCFinalQF while retaining calDefaultQM and calNEONQM as informational metrics in the expanded package.",
         "Do not assume finalQF semantics are identical across releases. Pin the release-specific ATBD and issue log."
+      ],
+      "spatial_metadata": {
+        "corrected_depth_reference_file": "swc_depthsV3.csv",
+        "depth_semantics": "NEON's June 2026 soil-sensor tutorial explicitly warns that the standard sensor_positions zOffset is not currently correct for DP1.00094.001; use the corrected swc_depthsV3.csv keyed by siteID, horizontalPosition.HOR and verticalPosition.VER.",
+        "position_coordinates": "Use sensor_positions coordinate fields only after joining with sensor ID/HOR.VER and the applicable positionStartDateTime/positionEndDateTime validity interval; retain xOffset/yOffset/eastOffset/northOffset and the reference location metadata.",
+        "temporal_position_validity": "A sensor may have multiple position rows after relocation. Split the time series at position validity boundaries; never join by HOR.VER alone when multiple historical positions exist.",
+        "expected_table_names": [
+          "SWS_1_minute",
+          "SWS_30_minute"
+        ],
+        "field_crosswalk_to_verify_at_acquisition": {
+          "time": "startDateTime / endDateTime",
+          "plot": "horizontalPosition",
+          "depth_index": "verticalPosition",
+          "soil_water_content": "VSWCMean",
+          "final_quality_flag": "VSWCFinalQF"
+        },
+        "note": "Confirm exact table/column presence against the actual pinned package variables file before parsing; the June 2026 tutorial demonstrates the 30-minute table names/fields and the product page documents the 1-minute and 30-minute time indices."
+      },
+      "calibration_uncertainty_history": [
+        {
+          "notification": "2023-11-01",
+          "issue": "measurement uncertainty for many DP1.00094.001 locations was understated because the reported calibration uncertainty did not reflect use of default manufacturer calibration",
+          "source_uri": "https://www.neonscience.org/impact/observatory-blog/incorrect-measurement-uncertainty-reported-many-soil-water-content"
+        },
+        {
+          "notification": "2023-12-20",
+          "status": "resolved by reprocessing",
+          "detail": "NEON reports the issue resolved for provisional data from July 2022 onward and states earlier affected data would be corrected in RELEASE-2024. Verify the pinned release's uncertainty and calibration metadata before use.",
+          "source_uri": "https://www.neonscience.org/impact/observatory-blog/resolved-incorrect-measurement-uncertainty-reported-many-soil-water-content"
+        }
       ]
     },
     {
@@ -165,7 +196,10 @@
     "Acquire and audit the HydroShare v1.1 NEON Soil Preferential Flow Database as a derived fast-start benchmark, recording external file URLs, exact filenames, publisher checksums, local SHA-256 and file-level license notices.",
     "Reconcile HydroShare v1.1 source lineage and event/sensor/site fields against Li et al. (2026); do not treat it as an independent site holdout or independent reference method.",
     "For DP1.00094.001, acquire 1-minute observations and expanded-package QA fields; acquire the basic package for finalQF parity comparison. Do not use 30-minute averages for the 10-minute event detector.",
-    "Generate a versioned 5/10/15/20/30-minute median aggregator report with bin coverage and QA counts; see TERRA-NEON-QA-001."
+    "Generate a versioned 5/10/15/20/30-minute median aggregator report with bin coverage and QA counts; see TERRA-NEON-QA-001.",
+    "For DP1.00094.001, use swc_depthsV3.csv as the corrected depth reference; do not use the standard sensor_positions zOffset for soil-water sensor depths.",
+    "Join soil-water time series to sensor_positions using site, HOR/VER, and time-valid positionStartDateTime/positionEndDateTime; retain relocations and split records at position changes.",
+    "Preserve calibration and measurement-uncertainty history. The 2023 uncertainty issue was reprocessed/resolved in provisional data and RELEASE-2024; verify the exact pinned release before using reported uncertainty for response-threshold calibration or weighting."
   ],
   "derived_datasets": [
     {
