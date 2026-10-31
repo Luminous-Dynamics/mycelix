@@ -149,6 +149,92 @@ struct ParameterRecord {
     interdomain_exchange_fraction_per_step: f64,
 }
 
+#[derive(Clone, Debug, Serialize)]
+struct BoundaryObservation {
+    step_index: usize,
+    timestamp_utc: String,
+    precipitation_input_mm: f64,
+    total_boundary_outflow_mm: f64,
+    total_boundary_tracer_export_mg_m2: f64,
+    boundary_flow_weighted_tracer_concentration_mg_l: Option<f64>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ObservationSet {
+    observation_schema_version: &'static str,
+    scenario_id: String,
+    dt_seconds: i64,
+    truth_manifest_sha256: String,
+    observation_operator: &'static str,
+    measurement_model: &'static str,
+    observations: Vec<BoundaryObservation>,
+    interpretation_boundary: &'static str,
+    warnings: Vec<String>,
+}
+
+fn boundary_observations(input: &Input, truth: &Report, truth_sha256: String) -> ObservationSet {
+    let observations = truth
+        .steps
+        .iter()
+        .map(|step| {
+            let outflow_mm = step.surface_runoff_mm
+                + step.macropore_capacity_overflow_mm
+                + step.matrix_deep_drainage_mm
+                + step.macropore_deep_drainage_mm;
+            let tracer_export_mg_m2 = step.surface_runoff_tracer_mg_m2
+                + step.macropore_capacity_overflow_tracer_mg_m2
+                + step.matrix_deep_tracer_mg_m2
+                + step.macropore_deep_tracer_mg_m2;
+            BoundaryObservation {
+                step_index: step.step_index,
+                timestamp_utc: step.timestamp_utc.clone(),
+                precipitation_input_mm: step.rainfall_input_mm,
+                total_boundary_outflow_mm: outflow_mm,
+                total_boundary_tracer_export_mg_m2: tracer_export_mg_m2,
+                boundary_flow_weighted_tracer_concentration_mg_l: if outflow_mm > 0.0 {
+                    Some(tracer_export_mg_m2 / outflow_mm)
+                } else {
+                    None
+                },
+            }
+        })
+        .collect();
+
+    ObservationSet {
+        observation_schema_version: "0.1.0",
+        scenario_id: input.scenario_id.clone(),
+        dt_seconds: input.dt_seconds,
+        truth_manifest_sha256: truth_sha256,
+        observation_operator: "synthetic_boundary_flux_aggregation_v0.1",
+        measurement_model: "perfect_noiseless_boundary_collection",
+        observations,
+        interpretation_boundary: "model-visible aggregate boundary observations only; no latent matrix/macropore domain states or pathway partition are exposed",
+        warnings: vec![
+            "These are noiseless synthetic observations produced from a two-reservoir toy generator, not field measurements.".to_owned(),
+            "Total boundary outflow and tracer export are aggregated across internal domains; this file does not reveal matrix versus macropore contributions.".to_owned(),
+            "No soil-moisture sensor observation operator, sampling noise, calibration error or incomplete-collection process is implemented in v0.1.".to_owned(),
+            "The matching truth manifest is a separate privileged artifact; do not make it available to model-fitting or evaluation code.".to_owned(),
+        ],
+    }
+}
+
+fn write_new_file(path: &str, bytes: &[u8]) -> Result<(), io::Error> {
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("refusing overwrite or cannot create output {path}: {error}"),
+            )
+        })?;
+    output.write_all(bytes)?;
+    output.write_all(b"\n")?;
+    output.sync_all()
+}
+
+
 fn finite_nonnegative(value: f64, label: &str) -> Result<(), String> {
     if !value.is_finite() || value < 0.0 {
         return Err(format!("{label} must be finite and non-negative"));
@@ -487,10 +573,10 @@ fn simulate(input: &Input, input_sha256: String) -> Result<Report, String> {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
+    if args.len() != 4 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "usage: known-truth-generator <scenario-input.json> <new-report.json>",
+            "usage: known-truth-generator <scenario-input.json> <privileged-truth-manifest.json> <model-visible-observations.json>",
         ).into());
     }
     let bytes = fs::read(&args[1])?;
@@ -498,17 +584,18 @@ fn run() -> Result<(), Box<dyn Error>> {
     let input: Input = serde_json::from_slice(&bytes)?;
     let report = simulate(&input, input_sha256)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    let encoded = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&args[2])
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create report: {error}")))?;
-    output.write_all(&encoded)?;
-    output.write_all(b"\n")?;
-    output.sync_all()?;
+    let truth_encoded = serde_json::to_vec_pretty(&report)?;
+    let truth_sha256 = format!("{:x}", Sha256::digest(&truth_encoded));
+    let observations = boundary_observations(&input, &report, truth_sha256);
+    let observations_encoded = serde_json::to_vec_pretty(&observations)?;
+
+    write_new_file(&args[2], &truth_encoded)?;
+    if let Err(error) = write_new_file(&args[3], &observations_encoded) {
+        let _ = fs::remove_file(&args[2]);
+        return Err(error.into());
+    }
     println!(
-        "known-truth scenario complete: {} steps; rainfall {:.3} mm; macro boundary drainage {:.3} mm; max balance residual {:.3e} mm",
+        "known-truth scenario complete: {} steps; rainfall {:.3} mm; hidden macro boundary drainage {:.3} mm; max balance residual {:.3e} mm; wrote separate truth and observation files",
         report.step_count,
         report.total_rainfall_mm,
         report.total_macropore_deep_drainage_mm,
@@ -561,6 +648,41 @@ mod tests {
                 rainfall_tracer_concentration_mg_l: 1.0,
             }).collect(),
         }
+    }
+
+    #[test]
+    fn model_visible_observations_hide_latent_domain_partition() {
+        let input = base(ScenarioFamily::ConnectedMacropore, 0.3, true, 0.0);
+        let truth = simulate(&input, "a".repeat(64)).unwrap();
+        let encoded_truth = serde_json::to_vec(&truth).unwrap();
+        let truth_sha256 = format!("{:x}", Sha256::digest(&encoded_truth));
+        let observations = boundary_observations(&input, &truth, truth_sha256.clone());
+        let encoded = serde_json::to_vec(&observations).unwrap();
+        let json_text = String::from_utf8(encoded).unwrap();
+
+        assert!(json_text.contains("perfect_noiseless_boundary_collection"));
+        assert!(json_text.contains(&truth_sha256));
+        assert!(!json_text.contains("matrix_water_mm"));
+        assert!(!json_text.contains("macropore_water_mm"));
+        assert!(!json_text.contains("matrix_deep_drainage_mm"));
+        assert!(!json_text.contains("macropore_deep_drainage_mm"));
+        assert_eq!(observations.observations.len(), truth.steps.len());
+        assert!(observations.observations.iter().all(|row| {
+            row.total_boundary_outflow_mm.is_finite()
+                && row.total_boundary_tracer_export_mg_m2.is_finite()
+        }));
+    }
+
+    #[test]
+    fn zero_outflow_has_no_flow_weighted_tracer_concentration() {
+        let input = base(ScenarioFamily::MatrixOnly, 0.0, false, 0.0);
+        let truth = simulate(&input, "b".repeat(64)).unwrap();
+        let observations =
+            boundary_observations(&input, &truth, "c".repeat(64));
+        assert!(observations.observations.iter().any(|row| {
+            row.total_boundary_outflow_mm == 0.0
+                && row.boundary_flow_weighted_tracer_concentration_mg_l.is_none()
+        }));
     }
 
     #[test]
