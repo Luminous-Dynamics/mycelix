@@ -20,7 +20,7 @@ Each information state contains:
 - current service levels keyed by service;
 - feasible actions.
 
-Each action has a fixed cost, resource use, and a conditional outcome list. Each outcome has a positive probability, stage cost, resource replenishment and either a next information-state ID or explicit null at the terminal stage.
+Each action has a fixed cost, resource use, and a conditional outcome list. Each outcome has a positive probability, an explicit observation emitted by that transition (or null at the terminal stage), stage cost, resource replenishment and either a next information-state ID or explicit null at the terminal stage. The successor's appended observation must exactly equal the transition-emitted observation.
 
 For current resource balance b_t, action use u_t and realized replenishment r_t, the next information state must satisfy:
 
@@ -72,12 +72,12 @@ The different transition probabilities for PREVENT and DEFER are synthetic actio
 
 ## Unit tests and controls
 
-The module authors 10 Rust tests covering:
+The module authors 14 Rust tests covering:
 - exact expected cost against the hand solution;
 - selection of actions at multiple stages;
 - pruning an action whose future branch violates a service floor;
 - one action per observable information state;
-- duplicate canonical histories, hidden future labels and invalid child-history extension;
+- duplicate canonical histories, hidden future labels, invalid child-history extension and transition/observation mismatch;
 - resource conservation and resource-overdraw rejection;
 - conditional probability normalization;
 - explicit infeasibility;
