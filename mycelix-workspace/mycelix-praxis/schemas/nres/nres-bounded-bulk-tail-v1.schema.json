@@ -25,8 +25,8 @@
           "bulk_conditional_probabilities": {"type": "array", "minItems": 1, "items": {"type": "number", "minimum": 0, "maximum": 1}},
           "bulk_state_losses": {"type": "array", "minItems": 1, "items": {"type": "number", "minimum": 0}},
           "bulk_tv_radius": {"type": "number", "minimum": 0, "maximum": 1},
-          "tail_mass_lower": {"type": "number", "minimum": 0, "maximum": 1},
-          "tail_mass_upper": {"type": "number", "minimum": 0, "maximum": 1},
+          "tail_mass_lower": {"type": "number", "minimum": 0, "maximum": 0.5},
+          "tail_mass_upper": {"type": "number", "minimum": 0, "maximum": 0.5},
           "tail_loss_upper_bound": {"oneOf": [{"type": "number", "minimum": 0}, {"type": "null"}]},
           "tail_bound_basis": {"type": "string", "minLength": 1}
         },
