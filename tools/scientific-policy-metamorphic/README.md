@@ -15,11 +15,14 @@ Callers can protect JSON Pointer paths such as `/principal`, `/action` and
 `/resource` so an authorization counterexample retains its request identity.
 
 Each candidate records its sequence, JSON Pointer, operation, before/candidate
-SHA-256, predicate outcome and any evaluation error. A complete trace claims
-only 1-minimality in that exact reduction neighborhood. Candidate-budget
-exhaustion or an evaluation error returns an incomplete trace and never
-claims minimality. The original input must satisfy the predicate before
-shrinking begins.
+SHA-256, predicate outcome and any evaluation error. The trace also pins the
+reduction profile, sorted-object JSON digest-encoding profile and protected
+JSON Pointer set. A complete trace claims only 1-minimality in that exact
+reduction neighborhood. Candidate-budget exhaustion or an evaluation error
+returns an incomplete trace and never claims minimality. The original input
+must satisfy the predicate before shrinking begins. Object traversal and
+digest serialization sort member names explicitly; the encoding is a local
+stable JSON profile, not an RFC 8785/JCS claim.
 
 Initial tests cover deterministic output, protected identity fields, nested
 resource protection, budget exhaustion, predicate errors and removal of
