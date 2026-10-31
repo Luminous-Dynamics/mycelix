@@ -607,7 +607,7 @@ mod tests {
             profile_id: "PROFILE1".to_owned(),
             event_id: "EVENT1".to_owned(),
             event_start_utc: stamp(10),
-            observation_window_end_utc: stamp(10),
+            observation_window_end_utc: stamp(30),
             raw_resolution_seconds: 60,
             target_resolution_seconds: 600,
             minimum_good_fraction: 0.8,
@@ -647,14 +647,14 @@ mod tests {
     fn csv_fixture() -> String {
         let mut rows = vec!["horizontalPosition,verticalPosition,startDateTime,VSWCMean,VSWCFinalQF".to_owned()];
         for sensor in 0..2 {
-            for minute in 0..20 {
+            for minute in 0..40 {
                 let baseline = minute < 10;
                 let theta = if sensor == 0 {
                     if baseline { 0.20 } else { 0.24 }
-                } else if baseline {
+                } else if baseline || minute < 30 {
                     0.18
                 } else {
-                    0.19
+                    0.21
                 };
                 let qf = if sensor == 0 && minute == 12 { "1" } else { "0" };
                 rows.push(format!(
@@ -680,7 +680,9 @@ mod tests {
         assert_eq!(normalized.sensors[0].observations[0].status, "observed");
         assert_eq!(normalized.sensors[0].observations[0].volumetric_water_content_m3_m3, Some(0.20));
         assert_eq!(normalized.sensors[0].observations[1].volumetric_water_content_m3_m3, Some(0.24));
-        assert_eq!(report.observed_bin_count, 4);
+        assert_eq!(normalized.sensors[1].observations[1].volumetric_water_content_m3_m3, Some(0.18));
+        assert_eq!(normalized.sensors[1].observations[3].volumetric_water_content_m3_m3, Some(0.21));
+        assert_eq!(report.observed_bin_count, 8);
         assert_eq!(report.missing_bin_count, 0);
         assert_eq!(report.bins[1].quality_rejected_rows, 1);
         assert_eq!(report.bins[1].quality_pass_rows, 9);
@@ -691,7 +693,7 @@ mod tests {
     fn bins_below_minimum_good_fraction_become_missing_not_zero() {
         let config = config();
         let mut rows: Vec<String> = csv_fixture().lines().map(str::to_owned).collect();
-        for row in rows.iter_mut().skip(2).take(3) {
+        for row in rows.iter_mut().skip(11).take(3) {
             let fields: Vec<&str> = row.split(',').collect();
             *row = format!("{},{},{},{},1", fields[0], fields[1], fields[2], fields[3]);
         }
