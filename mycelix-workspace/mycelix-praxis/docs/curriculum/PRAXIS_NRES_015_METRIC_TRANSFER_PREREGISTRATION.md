@@ -114,6 +114,18 @@ A bulk-tail model must state:
 
 Arbitrary contamination with unbounded loss must not be silently clipped. If no defensible tail bound exists, report an infinite or vacuous robust objective. Compare this method with W1, conformal W1 and CVaR at the same tail mass / loss profile where meaningful.
 
+### 6.1 Implemented public reference: NRES-015-BT1
+
+A separate stacked implementation branch adds a minimal exact two-band comparator. It is deliberately narrower than a trainable bulk-calibrated credal method and is not claimed to reproduce Chen et al. The method freezes a finite bulk set, uses a conditional bulk distribution with a total-variation radius, and represents the complement with an interval for tail mass and an explicit uniform tail-loss cap.
+
+For bulk probability p_B, bulk loss L_B and radius eta_B, the exact bulk upper expectation is the supremum of expected loss over the TV ball. On finite support, the reference solver moves up to eta_B mass from lowest-loss donor states to a maximum-loss receiver. For a tail-mass interval [t_low,t_high] and finite tail cap M_T, the total bound maximizes (1-t)U_B + tM_T at an endpoint: t_high if M_T >= U_B, otherwise t_low.
+
+The fail-closed rule is part of the method: if t_high > 0 and no finite tail cap is supplied, the upper expectation is infinite and the machine-readable numeric field is null. It is not clipped to an observed maximum. The implementation reports nominal bulk risk, worst-case bulk risk, moved TV mass, chosen tail-mass endpoint and explicit risk status separately.
+
+The public synthetic fixture has 16 states, eight predeclared bulk IDs, three cost profiles and both finite and unbounded tail cases. The Rust module authors 12 tests, and a separate conformance file records invalid-input, boundary and round-trip controls. These are implementation artifacts, not executed-test evidence until a Rust toolchain or CI run actually executes them.
+
+BT1 supplies no calibration, coverage guarantee, learned transport geometry, decision optimizer, confirmatory data or SOTA result. The declared tail cap is an input assumption, not a demonstrated operational bound. See PRAXIS-NRES-015-BT1-BOUNDED-BULK-TAIL-REFERENCE.md for the exact model, arithmetic checks and limitations.
+
 ## 7. Calibration and dependence
 
 Forecast calibration and ambiguity coverage are distinct:
@@ -196,4 +208,4 @@ NRES-015's proposed contribution is a reproducible quantitative layer for compar
 
 ## 13. Reproducibility and status
 
-This PR contains a research protocol, schema and conformance requirements only. It does not contain a learned metric, bulk-tail optimizer, hidden challenge data, trained model or SOTA result. Public NRES fixtures remain synthetic, public-development-only and inactive in the live curriculum.
+The NRES-015 protocol PR (#5560) establishes the preregistration and custody contract. A separate stacked child implementation adds the BT1 bounded bulk-tail reference comparator, but does not yet contain a learned metric, calibrated credal optimizer, hidden challenge data, trained model or SOTA result. Public NRES fixtures remain synthetic, public-development-only and inactive in the live curriculum.
