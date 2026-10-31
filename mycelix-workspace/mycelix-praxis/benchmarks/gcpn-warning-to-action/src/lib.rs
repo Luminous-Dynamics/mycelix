@@ -118,12 +118,33 @@ impl Report {
             && self.chronology_violations == 0
     }
 
-    pub fn service_coverage_ratio(&self) -> f64 {
-        if self.intended_people_total == 0 {
-            0.0
-        } else {
-            self.unique_people_served_total as f64 / self.intended_people_total as f64
-        }
+    /// True when the frozen fixture's deliberate negative controls produce
+    /// the exact independently calculated violation counts and timing totals.
+    /// This is a benchmark self-check, not a claim that the fixture is compliant.
+    pub fn fixture_oracle_matches(&self) -> bool {
+        self.case_count == 10
+            && self.missing_lineage == 0
+            && self.unauthorized_decisions == 1
+            && self.unauthorized_activations == 1
+            && self.unapproved_fund_releases == 1
+            && self.unauthorized_action_starts == 1
+            && self.false_completions == 1
+            && self.population_overclaims == 1
+            && self.service_accounting_mismatches == 0
+            && self.grievance_suppression == 1
+            && self.grievance_resolution_overcounts == 0
+            && self.impact_overclaims == 1
+            && self.chronology_violations == 1
+            && self.activation_count == 9
+            && self.funds_released_count == 8
+            && self.actions_started_count == 6
+            && self.actions_completed_count == 6
+            && self.intended_people_total == 10_000
+            && self.unique_people_served_total == 3_790
+            && self.warning_to_decision == Latency { observations: 10, total_ticks: 980 }
+            && self.decision_to_finance == Latency { observations: 8, total_ticks: 800 }
+            && self.finance_to_action == Latency { observations: 6, total_ticks: 800 }
+            && self.action_to_completion == Latency { observations: 4, total_ticks: 2_000 }
     }
 }
 
@@ -353,6 +374,13 @@ mod tests {
         let cases = parse_fixture(FIXTURE).unwrap();
         assert_eq!(cases.len(), 10);
         assert_eq!(cases.iter().map(|case| case.case_id.as_str()).collect::<HashSet<_>>().len(), 10);
+    }
+
+    #[test]
+    fn frozen_fixture_detects_all_expected_negative_controls() {
+        let report = fixture_report().unwrap();
+        assert!(report.fixture_oracle_matches(), "{report:?}");
+        assert!(!report.hard_gates_pass());
     }
 
     #[test]
