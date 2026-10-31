@@ -295,6 +295,41 @@
           "source_uri": "https://doi.org/10.1016/j.jhydrol.2026.136082"
         }
       ]
+    },
+    {
+      "source_id": "zhou_biochar_crack_dw_meta_2026",
+      "title": "Effect of Biochar on Soil Shrinkage and Cracks and Its Evolution Under Dry and Wet Cycles: A Meta-Analysis",
+      "source_uri": "https://doi.org/10.3390/agriculture16161722",
+      "paper_uri": "https://doi.org/10.3390/agriculture16161722",
+      "version": "Agriculture 2026, 16(16), 1722; published 2026-08-12",
+      "source_class": "literature_extracted_biochar_response",
+      "license_status": "Open-access MDPI article; confirm exact CC BY version and supplementary-data terms before redistribution.",
+      "permitted_research_use": "Crack-morphology and wet-dry-history evidence stratum for research synthesis after full article, extraction table and source-study crosswalk audit; not a field rate recommendation or hydraulic-transport label.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "limitations": [
+        "The article reports 278 paired observations extracted from 44 peer-reviewed articles and uses article-clustered robust variance estimation; paired observations must not be counted as independent articles or treatment assignments.",
+        "Article reports pooled average reductions of 39.12% in crack intensity factor and 35.17% in mean crack width; the 22.20% crack-length-density reduction was not statistically significant under article-clustered inference.",
+        "Heterogeneity exceeded 98% across the three crack metrics and all article-clustered prediction intervals crossed zero; pooled averages do not imply uniform effects or transport to a new soil domain.",
+        "Evidence for crack metrics beyond six drying-wetting cycles is sparse; the article explicitly treats later-cycle patterns as unresolved rather than establishing universal deterioration or persistence.",
+        "Application-rate subgroups differed, but application rate explained only about 12.60-15.80% of observed variation; high-rate laboratory subgroup results are not field recommendations.",
+        "The study's mechanistic interpretation of interfaces and pore restructuring is inferred from response patterns and literature, not direct observation in the meta-analysis; no raw micro-CT or field transport ground truth is supplied by this record.",
+        "No extracted effect-size table or local article file, publisher checksum or SHA-256 has been acquired."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "zhou_2026_meta_analysis_article",
+          "role": "publisher_meta_analysis_and_methods_reference",
+          "filename": null,
+          "expected_size_bytes": null,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "metadata_reviewed_not_downloaded",
+          "license_status": "open_access_exact_license_and_supplement_terms_recheck",
+          "source_uri": "https://doi.org/10.3390/agriculture16161722"
+        }
+      ]
     }
   ]
 }
