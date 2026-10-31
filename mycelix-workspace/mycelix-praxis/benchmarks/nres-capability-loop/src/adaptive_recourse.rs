@@ -925,7 +925,7 @@ mod tests {
     #[test]
     fn child_history_must_append_the_selected_prior_action() {
         let mut fixture = small_fixture();
-        fixture["information_states"][1]["observable_history"]["prior_actions"] = json!(["DEFER"]);
+        fixture["information_states"][1]["observable_history"]["prior_actions"] = json!(["UNDECLARED-ACTION"]);
         assert!(evaluate_exact_adaptive_recourse(&fixture).is_err());
     }
 
