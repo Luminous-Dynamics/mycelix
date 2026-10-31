@@ -100,3 +100,8 @@ where w is the declared target-stratum weight and v is the evaluator-only synthe
 
 The v0.1 fixture's expected values (one deliberately adversarial scenario, not general evidence) are: oracle 1.36; robust decision-focused 1.35; OFAT 1.12; representative-only 1.12; R-IDeA-inspired comparator 1.23; EIG-only 0.77; expert-fixed 0.99. These values are fixture regression targets, not policy-level statistical conclusions. Future evaluation must use many independently versioned scenario families and seeds, including policy-weight sensitivity.
 
+### v0.1 limitations and next qualification step
+
+The v0.1 synthetic utility is additive across selected actions and target-stratum weighted. It does not yet represent redundant action pairs, complementary measurements, cost uncertainty, delayed returns, observation-dependent posterior updates, or sequential changes in model predictions. The Bayesian EIG policy is therefore a proxy ranking over supplied static information-gain scores, not a full Bayesian optimal-design implementation. The R-IDeA-inspired score is not a reproduction of the published R-IDeA method.
+
+The next version must add action-pair redundancy/complementarity and sequential observation updates, then compare greedy selection with exact or approximation-aware batch design on small known-truth worlds. It must also test objective-weight sensitivity and target-distribution uncertainty. Do not interpret v0.1 utility rankings as general acquisition-policy superiority.
