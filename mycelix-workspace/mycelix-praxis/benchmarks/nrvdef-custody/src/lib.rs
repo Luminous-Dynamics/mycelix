@@ -295,8 +295,8 @@ fn evaluate_history(events: &[&Event], report: &mut Report) {
 
     let mut derived = Derived::default();
     let mut event_ids = HashSet::new();
-    let mut history_claim = first.claim_id.as_str();
-    let mut history_protocol = first.protocol_version.as_str();
+    let history_claim = first.claim_id.as_str();
+    let history_protocol = first.protocol_version.as_str();
     let mut previous_digest = "GENESIS";
     let mut previous_sequence = 0u32;
     let mut chain_valid = true;
@@ -476,7 +476,7 @@ mod tests {
                 hash.wrapping_mul(0x100000001b3)
             })
         }
-        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0);
+        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0xb6014db30ed2b435);
         let events = parse_fixture(FIXTURE).unwrap();
         assert_eq!(events.len(), 30);
         assert!(fixture_report().unwrap().fixture_oracle_matches());
