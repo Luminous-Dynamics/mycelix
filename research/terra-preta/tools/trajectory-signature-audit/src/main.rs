@@ -153,14 +153,12 @@ fn parse_utc(
     Ok(parsed)
 }
 
-fn validate_theta(
-    theta: Option<f64>,
-    status: SampleStatus,
-    label: &str,
-) -> Result<(), String> {
+fn validate_theta(theta: Option<f64>, status: SampleStatus, label: &str) -> Result<(), String> {
     match (status, theta) {
         (SampleStatus::Missing, None) => Ok(()),
-        (SampleStatus::Missing, Some(_)) => Err(format!("{label}: missing status requires null theta")),
+        (SampleStatus::Missing, Some(_)) => {
+            Err(format!("{label}: missing status requires null theta"))
+        }
         (SampleStatus::Observed | SampleStatus::LinearInterpolatedGapLt6h, None) => {
             Err(format!("{label}: non-missing status requires theta"))
         }
@@ -171,9 +169,22 @@ fn validate_theta(
     }
 }
 
-fn validate(input: &Input) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffset>, DateTime<FixedOffset>, Vec<ParsedObservation>), String> {
+fn validate(
+    input: &Input,
+) -> Result<
+    (
+        DateTime<FixedOffset>,
+        DateTime<FixedOffset>,
+        DateTime<FixedOffset>,
+        Vec<ParsedObservation>,
+    ),
+    String,
+> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     for (value, label) in [
         (&input.study_id, "study_id"),
@@ -188,7 +199,10 @@ fn validate(input: &Input) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffse
         nonblank(value, label)?;
     }
     if input.source_sha256.len() != 64
-        || !input.source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !input
+            .source_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
     {
         return Err("source_sha256 must contain exactly 64 hexadecimal characters".to_owned());
     }
@@ -199,14 +213,29 @@ fn validate(input: &Input) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffse
         return Err("sensor_depth_cm must be finite and greater than zero".to_owned());
     }
 
-    let start = parse_utc(&input.event_start_utc, "event_start_utc", input.time_resolution_seconds)?;
-    let end = parse_utc(&input.observation_window_end_utc, "observation_window_end_utc", input.time_resolution_seconds)?;
-    let baseline_time = parse_utc(&input.baseline.timestamp_utc, "baseline.timestamp_utc", input.time_resolution_seconds)?;
+    let start = parse_utc(
+        &input.event_start_utc,
+        "event_start_utc",
+        input.time_resolution_seconds,
+    )?;
+    let end = parse_utc(
+        &input.observation_window_end_utc,
+        "observation_window_end_utc",
+        input.time_resolution_seconds,
+    )?;
+    let baseline_time = parse_utc(
+        &input.baseline.timestamp_utc,
+        "baseline.timestamp_utc",
+        input.time_resolution_seconds,
+    )?;
     if start >= end {
         return Err("observation_window_end_utc must be after event_start_utc".to_owned());
     }
     if baseline_time + Duration::seconds(i64::from(input.time_resolution_seconds)) != start {
-        return Err("baseline timestamp must be exactly one declared sampling interval before event start".to_owned());
+        return Err(
+            "baseline timestamp must be exactly one declared sampling interval before event start"
+                .to_owned(),
+        );
     }
     validate_theta(
         input.baseline.volumetric_water_content_m3_m3,
@@ -218,7 +247,10 @@ fn validate(input: &Input) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffse
         if !threshold.maximum_diffuse_rate_m3_m3_per_hour.is_finite()
             || threshold.maximum_diffuse_rate_m3_m3_per_hour <= 0.0
         {
-            return Err("maximum_diffuse_rate_m3_m3_per_hour must be finite and greater than zero".to_owned());
+            return Err(
+                "maximum_diffuse_rate_m3_m3_per_hour must be finite and greater than zero"
+                    .to_owned(),
+            );
         }
         nonblank(&threshold.method, "rate_threshold.method")?;
         nonblank(&threshold.evidence_ref, "rate_threshold.evidence_ref")?;
@@ -239,7 +271,9 @@ fn validate(input: &Input) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffse
             input.time_resolution_seconds,
         )?;
         if time < start || time > end {
-            return Err(format!("observations[{index}] lies outside event observation window"));
+            return Err(format!(
+                "observations[{index}] lies outside event observation window"
+            ));
         }
         if !times_seen.insert(time.timestamp()) {
             return Err(format!("duplicate observation timestamp at index {index}"));
@@ -275,13 +309,28 @@ fn status_name(status: SampleStatus) -> &'static str {
 fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let (_start, _end, _baseline_time, observations) = validate(input)?;
     let baseline = input.baseline.volumetric_water_content_m3_m3;
-    let event_start = DateTime::parse_from_rfc3339(&input.event_start_utc).expect("validated UTC event start");
-    let event_end = DateTime::parse_from_rfc3339(&input.observation_window_end_utc).expect("validated UTC event end");
-    let event_window_start_covered = observations.first().is_some_and(|x| x.timestamp.timestamp() == event_start.timestamp());
-    let event_window_end_covered = observations.last().is_some_and(|x| x.timestamp.timestamp() == event_end.timestamp());
-    let observed_count = observations.iter().filter(|x| x.status == SampleStatus::Observed).count();
-    let interpolated_count = observations.iter().filter(|x| x.status.is_interpolated()).count();
-    let missing_count = observations.iter().filter(|x| x.status.is_missing()).count();
+    let event_start =
+        DateTime::parse_from_rfc3339(&input.event_start_utc).expect("validated UTC event start");
+    let event_end = DateTime::parse_from_rfc3339(&input.observation_window_end_utc)
+        .expect("validated UTC event end");
+    let event_window_start_covered = observations
+        .first()
+        .is_some_and(|x| x.timestamp.timestamp() == event_start.timestamp());
+    let event_window_end_covered = observations
+        .last()
+        .is_some_and(|x| x.timestamp.timestamp() == event_end.timestamp());
+    let observed_count = observations
+        .iter()
+        .filter(|x| x.status == SampleStatus::Observed)
+        .count();
+    let interpolated_count = observations
+        .iter()
+        .filter(|x| x.status.is_interpolated())
+        .count();
+    let missing_count = observations
+        .iter()
+        .filter(|x| x.status.is_missing())
+        .count();
 
     let mut peak_theta: Option<f64> = None;
     for observation in &observations {
@@ -394,13 +443,23 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         positive_rise_interval_count: positive_intervals,
         peak_theta_m3_m3: peak_theta,
         amplitude_from_baseline_m3_m3: amplitude,
-        cumulative_positive_rise_m3_m3: if evaluable > 0 { Some(cumulative_positive_rise) } else { None },
+        cumulative_positive_rise_m3_m3: if evaluable > 0 {
+            Some(cumulative_positive_rise)
+        } else {
+            None
+        },
         maximum_rate_of_rise_m3_m3_per_hour: peak_rate,
         maximum_rate_interval_start_utc: maximum_start,
         maximum_rate_interval_end_utc: maximum_end,
-        maximum_rate_threshold_m3_m3_per_hour: input.rate_threshold.as_ref().map(|x| x.maximum_diffuse_rate_m3_m3_per_hour),
+        maximum_rate_threshold_m3_m3_per_hour: input
+            .rate_threshold
+            .as_ref()
+            .map(|x| x.maximum_diffuse_rate_m3_m3_per_hour),
         maximum_rate_threshold_method: input.rate_threshold.as_ref().map(|x| x.method.clone()),
-        maximum_rate_threshold_evidence_ref: input.rate_threshold.as_ref().map(|x| x.evidence_ref.clone()),
+        maximum_rate_threshold_evidence_ref: input
+            .rate_threshold
+            .as_ref()
+            .map(|x| x.evidence_ref.clone()),
         trajectory_threshold_status: threshold_status,
         coverage_status,
         interpretation_boundary: "soil-moisture trajectory signature and optional threshold proxy only; not direct preferential water flux or independent pathway truth",
@@ -526,7 +585,10 @@ mod tests {
         assert_eq!(report.maximum_rate_interval_end_utc, Some(stamp(30)));
         assert_eq!(report.amplitude_from_baseline_m3_m3, Some(0.02));
         assert_eq!(report.cumulative_positive_rise_m3_m3, Some(0.025));
-        assert_eq!(report.trajectory_threshold_status, "above_declared_rate_threshold_proxy_only");
+        assert_eq!(
+            report.trajectory_threshold_status,
+            "above_declared_rate_threshold_proxy_only"
+        );
     }
 
     #[test]
@@ -536,11 +598,31 @@ mod tests {
         input.observation_window_end_utc = stamp(20);
         input.baseline.timestamp_utc = stamp(-5);
         input.observations = vec![
-            Observation { timestamp_utc: stamp(0), volumetric_water_content_m3_m3: Some(0.20), status: SampleStatus::Observed },
-            Observation { timestamp_utc: stamp(5), volumetric_water_content_m3_m3: Some(0.21), status: SampleStatus::Observed },
-            Observation { timestamp_utc: stamp(10), volumetric_water_content_m3_m3: Some(0.22), status: SampleStatus::Observed },
-            Observation { timestamp_utc: stamp(15), volumetric_water_content_m3_m3: Some(0.23), status: SampleStatus::Observed },
-            Observation { timestamp_utc: stamp(20), volumetric_water_content_m3_m3: Some(0.24), status: SampleStatus::Observed },
+            Observation {
+                timestamp_utc: stamp(0),
+                volumetric_water_content_m3_m3: Some(0.20),
+                status: SampleStatus::Observed,
+            },
+            Observation {
+                timestamp_utc: stamp(5),
+                volumetric_water_content_m3_m3: Some(0.21),
+                status: SampleStatus::Observed,
+            },
+            Observation {
+                timestamp_utc: stamp(10),
+                volumetric_water_content_m3_m3: Some(0.22),
+                status: SampleStatus::Observed,
+            },
+            Observation {
+                timestamp_utc: stamp(15),
+                volumetric_water_content_m3_m3: Some(0.23),
+                status: SampleStatus::Observed,
+            },
+            Observation {
+                timestamp_utc: stamp(20),
+                volumetric_water_content_m3_m3: Some(0.24),
+                status: SampleStatus::Observed,
+            },
         ];
         let report = evaluate(&input, "c".repeat(64)).unwrap();
         assert_eq!(report.maximum_rate_of_rise_m3_m3_per_hour, Some(0.12));
@@ -552,7 +634,10 @@ mod tests {
         input.observations[2].volumetric_water_content_m3_m3 = None;
         input.observations[2].status = SampleStatus::Missing;
         let report = evaluate(&input, "d".repeat(64)).unwrap();
-        assert_eq!(report.coverage_status, "incomplete_due_to_missing_observations");
+        assert_eq!(
+            report.coverage_status,
+            "incomplete_due_to_missing_observations"
+        );
         assert_eq!(report.missing_count, 1);
         assert_eq!(report.adjacent_intervals_missing, 2);
     }
@@ -563,7 +648,10 @@ mod tests {
         input.observations[2].status = SampleStatus::LinearInterpolatedGapLt6h;
         let report = evaluate(&input, "e".repeat(64)).unwrap();
         assert_eq!(report.interpolated_count, 1);
-        assert_eq!(report.coverage_status, "complete_with_interpolated_observations");
+        assert_eq!(
+            report.coverage_status,
+            "complete_with_interpolated_observations"
+        );
     }
 
     #[test]
@@ -571,7 +659,10 @@ mod tests {
         let mut input = base();
         input.rate_threshold = None;
         let report = evaluate(&input, "f".repeat(64)).unwrap();
-        assert_eq!(report.trajectory_threshold_status, "not_evaluated_no_diffuse_rate_threshold");
+        assert_eq!(
+            report.trajectory_threshold_status,
+            "not_evaluated_no_diffuse_rate_threshold"
+        );
         assert_eq!(report.maximum_rate_threshold_m3_m3_per_hour, None);
     }
 
@@ -582,7 +673,10 @@ mod tests {
         input.baseline.volumetric_water_content_m3_m3 = None;
         let report = evaluate(&input, "1".repeat(64)).unwrap();
         assert_eq!(report.amplitude_from_baseline_m3_m3, None);
-        assert_eq!(report.trajectory_threshold_status, "above_declared_rate_threshold_proxy_only");
+        assert_eq!(
+            report.trajectory_threshold_status,
+            "above_declared_rate_threshold_proxy_only"
+        );
     }
 
     #[test]
@@ -615,14 +709,22 @@ mod tests {
     fn rejects_irregular_time_grid() {
         let mut input = base();
         input.observations[2].timestamp_utc = stamp(25);
-        assert!(validate(&input).unwrap_err().contains("gap-free on the declared sampling grid"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("gap-free on the declared sampling grid")
+        );
     }
 
     #[test]
     fn rejects_mismatched_baseline_timestamp() {
         let mut input = base();
         input.baseline.timestamp_utc = stamp(-20);
-        assert!(validate(&input).unwrap_err().contains("exactly one declared sampling interval"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("exactly one declared sampling interval")
+        );
     }
 
     #[test]
