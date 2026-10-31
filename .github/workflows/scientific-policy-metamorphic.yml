@@ -201,14 +201,15 @@ jobs:
             claim_superseded
             claim_retracted
           )
+          cedar_manifest="target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json"
           for action in "${actions[@]}"; do
-            input_file="target/opa-native-bench/$action-input.json"
+            input_file="target/metamorphic-engine-results/baseline-cedar/opa-action-inputs/$action.json"
             output_file="target/opa-native-bench/$action-bench.json"
-            jq -sc --arg action "$action" \
-              '[.[] | select(.rego.input.action == $action) | .rego.input][0]' \
-              target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl \
-              > "$input_file"
+            test -s "$input_file"
             jq -e --arg action "$action" '.action == $action' "$input_file"
+            expected_sha="$(jq -r --arg action "$action" '.action_benchmarks[] | select(.action == $action) | .rego_input_sha256' "$cedar_manifest")"
+            actual_sha="$(sha256sum "$input_file" | cut -d ' ' -f 1)"
+            test "$actual_sha" = "$expected_sha"
             /tmp/opa bench --format=json --metrics --benchmem --count=5 \
               --input "$input_file" \
               --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
@@ -222,6 +223,8 @@ jobs:
             printf 'opa_binary_sha256='; sha256sum /tmp/opa
             printf 'policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego
             printf 'source_input_sha256='; sha256sum target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl
+            printf 'cedar_action_benchmark_manifest_sha256='; sha256sum target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json
+            sha256sum target/metamorphic-engine-results/baseline-cedar/opa-action-inputs/*.json
             uname -a
             printf 'logical_cpus=%s\n' "$(nproc)"
           } > target/opa-native-bench/reproducibility.txt
