@@ -19,13 +19,17 @@ The runner also supports a deliberately seeded, engine-specific mismatch:
       output-directory 2000
 
 The command requires OPA 1.22.0 and a valid single paired engine-input case.
-It first confirms that Cedar and OPA return different decisions. It then
-preserves that exact decision direction while reducing the JSON case with the
-shared deterministic shrinker. Each candidate is schema-checked and evaluated
-by Cedar 4.14.0 in-process and OPA 1.22.0 through a one-shot
-`opa eval --stdin-input` process. Invalid candidate reductions are rejected;
-Cedar evaluation diagnostics or OPA process failures make the run
-indeterminate rather than being converted to Deny.
+The seed is parsed by the shared duplicate-aware strict JSON parser before any
+Cedar or OPA evaluation; duplicate/escaped duplicate keys, malformed UTF-8,
+unpaired surrogates and trailing JSON are rejected. It first confirms that
+Cedar and OPA return different decisions. It then preserves that exact
+decision direction while reducing the JSON case with the shared deterministic
+shrinker. Each candidate is checked against the paired-case shape and Cedar
+schema before engine evaluation. A candidate rejected at this input boundary
+is explicitly recorded as `input_rejected_before_engines` with null Cedar/OPA
+decision fields; it is not misreported as an engine Deny or an OPA result.
+Cedar evaluation diagnostics or OPA process failures make the run indeterminate
+rather than being converted to Deny.
 
 The output directory receives the minimized case, complete candidate
 trace, per-candidate engine outcome JSONL and summary. Each sidecar row binds
