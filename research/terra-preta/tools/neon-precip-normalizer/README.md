@@ -22,6 +22,16 @@ Use `-` for a source file whose config is absent.
 - Secondary data are preferred if at least one secondary row exists within a 10-minute bin. If secondary rows exist but fail QA, the tool does not silently use the primary gauge. Primary is a fallback only when no secondary row exists in that bin.
 - Throughfall DP1.00046.001 is rejected as a substitute for open precipitation. Current hourly/daily weighing-gauge DP1.00044.001 is rejected as a 10-minute intensity input.
 
+## Paired-gauge overlap audit
+
+When both sources are configured, the report also computes a separate paired-gauge audit. A 10-minute bin enters this comparison only when both the primary and secondary sources independently meet the coverage-aware minimum-good-row rule. The report preserves the paired interval depths and computes:
+- number of bins where both sources have rows and number where both meet coverage;
+- one-source-only and other-source-unqualified coverage counts;
+- dry/wet counts and wet/dry disagreement;
+- mean signed bias (secondary minus primary), MAE, RMSE and maximum absolute difference.
+
+These are measurements of source-method disagreement on common support. They are **not** calibration truth, not a pooled rainfall series, and not permission to substitute a current gauge product for the paper's historic input. The source identities and raw CSV digests remain separate.
+
 ## Two output tracks
 
 **paper_reproduction** applies the literal five-good-observation threshold reported by Li et al. (2026): when at least one selected-source row exists but fewer than five rows pass configured QA, the 10-minute value is set to zero and status is explicitly `paper_zero_imputed_lt5_good`. A documented zero-rainfall row with adequate QA remains `observed_sum`; no-source-row bins remain missing rather than being invented as zero.
