@@ -193,6 +193,20 @@ Relevant external directions include:
 
 These methods are candidate comparators and components, not claims to reproduce or outperform the published methods. NRES-016 must compare on identical information sets, source-family splits, transition models, scenario paths, constraints and compute budgets.
 
+## 10.1 Industry and standards crosswalk
+
+NRES-016 should be an evidence/decision analytics layer that composes with existing operational management systems—not a replacement for them.
+
+| Industry framework | What it already governs | NRES contribution | Boundary |
+|---|---|---|---|
+| FEMA HSEEP | Exercise program management, design/development, conduct, evaluation and improvement planning; capability findings and AAR/IP corrective actions | Repeatable scenario trajectories, objective-level measures, service-floor evidence, pathwise action/regret analysis and machine-readable corrective-action evidence | Does not replace exercise leadership, evaluator judgement, AAR/IP ownership or whole-community participation |
+| WHO PHEOC Framework, second edition (2026) | Governance/legal authority; plans/procedures; information systems/data standards; infrastructure/technology; workforce/surge/training/exercises | Quantitative support for scenario analysis, information/evidence lineage, resource ledgers, workforce capacity, recovery trajectories and monitoring | Does not grant legal authority, define national command structure or establish PHEOC capacity |
+| ISO 22301:2019 + Amendment 1:2024 | Business continuity management-system requirements, including climate-action amendment | Traceable scenario evidence, continuity-impact measures, resource constraints, recovery-time and improvement evidence | Not a management system, certification assessment or conformity claim; organization retains BCMS responsibility |
+
+As checked for this protocol revision, ISO lists ISO 22301:2019 with Amendment 1:2024 as published, and shows ISO/CD 22301 as a committee draft under development to replace the 2019 edition. The new draft is not a published requirement and must not be treated as one. The NRES crosswalk must be versioned if the standard is subsequently revised.
+
+The appropriate industry success test is **complementary operational value**: can an authorized organization use NRES evidence to make an existing exercise/continuity process more measurable, reproducible and decision-aware without weakening authority, human oversight, inclusion or corrective-action governance? That is materially different from claiming that NRES "replaces HSEEP", "certifies ISO 22301" or "runs a PHEOC".
+
 ## 11. Implementation sequence
 
 1. Freeze the micro-instance schema and prove exact dynamic-programming/policy-enumeration agreement.
