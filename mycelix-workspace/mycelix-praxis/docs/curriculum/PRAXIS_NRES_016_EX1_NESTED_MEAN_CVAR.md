@@ -37,7 +37,7 @@ CVaR_{\alpha}(Z)
 \right].
 ]
 
-The exact finite-support minimum occurs at a support value, so EX1 checks every distinct support loss rather than approximating the quantile with a histogram.
+The exact finite-support minimum occurs at a support value, so EX1 checks every distinct support loss rather than approximating the quantile with a histogram. Under this loss-side convention, \(CVaR_0=E[Z]\), while \(CVaR_\alpha\) approaches the maximum support loss as alpha approaches one.
 
 **Important theory correction:** pure AVaR/CVaR is not strictly monotone in general. Therefore, nesting pure conditional AVaR does not automatically establish every strong time-consistency result. Füllner and Rebennack's 2025 SIAM Review distinguishes these notions and identifies the mapping ((1-\lambda)E+\lambda AVaR_\alpha) as strictly monotone for (\lambda\in[0,1)), which supports the nested dynamic-programming equivalence under their stated assumptions (Sections 12.1.1–12.1.3; DOI: https://doi.org/10.1137/23M1575093).
 
@@ -108,7 +108,7 @@ The numbers deliberately show a preference difference, not a global performance 
 
 ## Unit tests and conformance
 
-The module authors 20 Rust unit tests, including:
+The module authors 22 Rust unit tests, including:
 - finite-distribution CVaR hand calculation;
 - static-versus-nested policy reversal and objective values;
 - one action per observable information state;
@@ -116,7 +116,7 @@ The module authors 20 Rust unit tests, including:
 - explicit infeasibility under pathwise service floors;
 - existing EX0 history, observation, resource and stage negative controls.
 
-The conformance corpus separately records risk-level/lambda controls, objective semantics, policy non-anticipativity and terminal-distribution round-trip requirements. Authored tests are not passing tests until a Rust toolchain/CI run executes them.
+The conformance corpus records 17 invalid-input controls, 11 boundary cases and seven round-trip requirements, in addition to the 22 authored Rust tests. Authored tests are not passing tests until a Rust toolchain/CI run executes them.
 
 ## Research comparison and next steps
 
