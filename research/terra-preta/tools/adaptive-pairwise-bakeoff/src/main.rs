@@ -329,13 +329,13 @@ fn coverage_met(context: &PolicyContext, actions: &[PolicyAction], selected: &[S
 fn selector_utility(selected: &[String], actions: &[PolicyAction], pairs: &[SelectorPair]) -> f64 {
     let mut total = 0.0;
     for id in selected {
-        if let Some(action) = actions.iter().find(|a| a.action_id == *id) {
+        if let Some(action) = actions.iter().find(|a| a.action_id.as_str() == id.as_str()) {
             total += action.predicted_standalone_value;
         }
     }
-    for i in 0..selected.len() {
-        for j in (i + 1)..selected.len() {
-            total += pair_value(&selected[i], &selected[j], pairs);
+    for (index, action_a) in selected.iter().enumerate() {
+        for action_b in selected.iter().skip(index + 1) {
+            total += pair_value(action_a, action_b, pairs);
         }
     }
     total
@@ -347,12 +347,12 @@ fn marginal_gain(
     pairs: &[SelectorPair],
 ) -> f64 {
     let mut gain: f64 = additions.iter().map(|a| a.predicted_standalone_value).sum();
-    for i in 0..additions.len() {
-        for j in (i + 1)..additions.len() {
-            gain += pair_value(&additions[i].action_id, &additions[j].action_id, pairs);
+    for (index, action) in additions.iter().enumerate() {
+        for other in additions.iter().skip(index + 1) {
+            gain += pair_value(&action.action_id, &other.action_id, pairs);
         }
         for existing in selected {
-            gain += pair_value(&additions[i].action_id, existing, pairs);
+            gain += pair_value(&action.action_id, existing, pairs);
         }
     }
     gain
@@ -422,15 +422,13 @@ fn select(
         }
 
         if matches!(policy, Policy::PairAwareJointLookahead) {
-            for i in 0..unselected.len() {
-                for j in (i + 1)..unselected.len() {
-                    let a = unselected[i];
-                    let b = unselected[j];
+            for (index, a) in unselected.iter().enumerate() {
+                for b in unselected.iter().skip(index + 1) {
                     let Some(cost) = a.cost_units.checked_add(b.cost_units) else { continue; };
                     if cost > remaining {
                         continue;
                     }
-                    let gain = marginal_gain(&[a, b], &selected, pairs);
+                    let gain = marginal_gain(&[*a, *b], &selected, pairs);
                     let mut ids = vec![a.action_id.clone(), b.action_id.clone()];
                     ids.sort();
                     consider_candidate(&mut best, gain, cost, ids);
@@ -481,9 +479,9 @@ fn truth_utility(selected: &[String], scenario: &Scenario) -> f64 {
         .filter_map(|id| by_id.get(id.as_str()))
         .map(|a| a.synthetic_truth_standalone_value)
         .sum();
-    for i in 0..selected.len() {
-        for j in (i + 1)..selected.len() {
-            let key = canonical_pair(&selected[i], &selected[j]);
+    for (index, action_a) in selected.iter().enumerate() {
+        for action_b in selected.iter().skip(index + 1) {
+            let key = canonical_pair(action_a, action_b);
             if let Some(pair) = scenario.pair_relations.iter()
                 .find(|p| canonical_pair(&p.action_a, &p.action_b) == key)
             {
