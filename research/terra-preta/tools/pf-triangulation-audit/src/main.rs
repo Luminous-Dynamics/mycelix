@@ -80,23 +80,19 @@ impl ReferenceMethod {
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-enum ReferenceReviewStatus {
+enum ReferenceReviewClaim {
     PendingIndependentReview,
-    IndependentlyReviewedBlinded,
+    ClaimsIndependentReviewBlinded,
     SyntheticTestOnly,
 }
 
-impl ReferenceReviewStatus {
+impl ReferenceReviewClaim {
     fn as_str(self) -> &'static str {
         match self {
             Self::PendingIndependentReview => "pending_independent_review",
-            Self::IndependentlyReviewedBlinded => "independently_reviewed_blinded",
+            Self::ClaimsIndependentReviewBlinded => "claims_independent_review_blinded",
             Self::SyntheticTestOnly => "synthetic_test_only",
         }
-    }
-
-    fn eligible(self) -> bool {
-        matches!(self, Self::IndependentlyReviewedBlinded)
     }
 }
 
@@ -153,9 +149,9 @@ struct IndependentReference {
     profile_id: String,
     method: ReferenceMethod,
     outcome: ReferenceOutcome,
-    review_status: ReferenceReviewStatus,
+    review_claim: ReferenceReviewClaim,
     quality_status: ReferenceQualityStatus,
-    reviewer_evidence_ref: Option<String>,
+    reviewer_evidence_ref_claimed: Option<String>,
     evidence_ref: String,
     detection_limit_or_resolution: String,
 }
@@ -202,9 +198,10 @@ struct ReferenceResult {
     profile_id: String,
     method: &'static str,
     outcome: &'static str,
-    review_status: &'static str,
-    quality_status: &'static str,
-    reviewer_evidence_ref: Option<String>,
+    review_claim: &'static str,
+    review_verification_status: &'static str,
+    quality_status_claimed: &'static str,
+    reviewer_evidence_ref_claimed: Option<String>,
     evidence_ref: String,
     detection_limit_or_resolution: String,
 }
@@ -233,12 +230,13 @@ struct Report {
     independent_reference_count: usize,
     eligible_independent_reference_count: usize,
     pending_review_reference_count: usize,
+    unverified_review_claim_count: usize,
     synthetic_reference_count: usize,
     unqualified_reference_count: usize,
     quality_indeterminate_reference_count: usize,
-    reference_supporting_count: usize,
-    reference_not_supporting_count: usize,
-    reference_indeterminate_count: usize,
+    claimed_reference_supporting_count: usize,
+    claimed_reference_not_supporting_count: usize,
+    claimed_reference_indeterminate_count: usize,
     independent_reference_assessment: &'static str,
     physical_claim_status: &'static str,
     sensor_concordance: Vec<SensorConcordance>,
@@ -285,12 +283,12 @@ fn proxy_concordance(vt: ProxyStatus, trajectory: ProxyStatus) -> &'static str {
 
 fn reference_assessment(supporting: usize, not_supporting: usize, indeterminate: usize) -> &'static str {
     match (supporting > 0, not_supporting > 0, indeterminate > 0) {
-        (true, true, _) => "conflicting_independent_references",
+        (true, true, _) => "unverified_reference_claims_only",
         (true, false, true) => "supports_bypass_with_indeterminate_references",
         (true, false, false) => "supports_bypass",
         (false, true, true) => "does_not_support_bypass_with_indeterminate_references",
         (false, true, false) => "does_not_support_bypass",
-        (false, false, true) => "indeterminate_references_only",
+        (false, false, true) => "unverified_reference_claims_only",
         (false, false, false) => "no_independent_reference",
     }
 }
@@ -338,17 +336,17 @@ fn validate(input: &Input) -> Result<(), String> {
             &reference.detection_limit_or_resolution,
             &format!("independent_references[{index}].detection_limit_or_resolution"),
         )?;
-        match (reference.review_status, reference.reviewer_evidence_ref.as_deref()) {
-            (ReferenceReviewStatus::IndependentlyReviewedBlinded, Some(value))
+        match (reference.review_claim, reference.reviewer_evidence_ref_claimed.as_deref()) {
+            (ReferenceReviewClaim::ClaimsIndependentReviewBlinded, Some(value))
                 if !value.trim().is_empty() => {}
-            (ReferenceReviewStatus::IndependentlyReviewedBlinded, _) => {
+            (ReferenceReviewClaim::ClaimsIndependentReviewBlinded, _) => {
                 return Err(format!(
-                    "independent_references[{index}] blinded review requires reviewer_evidence_ref"
+                    "independent_references[{index}] review claim requires reviewer_evidence_ref_claimed"
                 ));
             }
             (_, Some(value)) if value.trim().is_empty() => {
                 return Err(format!(
-                    "independent_references[{index}].reviewer_evidence_ref must not be blank when supplied"
+                    "independent_references[{index}].reviewer_evidence_ref_claimed must not be blank when supplied"
                 ));
             }
             _ => {}
@@ -432,37 +430,38 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         });
     }
 
-    let mut ref_supporting = 0usize;
-    let mut ref_not_supporting = 0usize;
-    let mut ref_indeterminate = 0usize;
-    let mut eligible_reference_count = 0usize;
+    let mut claimed_supporting = 0usize;
+    let mut claimed_not_supporting = 0usize;
+    let mut claimed_indeterminate = 0usize;
     let mut pending_review_count = 0usize;
+    let mut unverified_review_claim_count = 0usize;
     let mut synthetic_reference_count = 0usize;
     let mut unqualified_reference_count = 0usize;
     let mut quality_indeterminate_reference_count = 0usize;
+
+    // This v0.1 audit has no trusted issuer-key registry or signature verifier.
+    // Therefore every review/quality field is a self-declared claim, never
+    // sufficient to adjudicate a physical pathway claim.
     let independent_references: Vec<_> = input
         .independent_references
         .iter()
         .map(|reference| {
-            let eligible = reference.review_status.eligible()
-                && reference.quality_status == ReferenceQualityStatus::Qualified;
-            match reference.review_status {
-                ReferenceReviewStatus::PendingIndependentReview => pending_review_count += 1,
-                ReferenceReviewStatus::SyntheticTestOnly => synthetic_reference_count += 1,
-                ReferenceReviewStatus::IndependentlyReviewedBlinded => {}
+            match reference.review_claim {
+                ReferenceReviewClaim::PendingIndependentReview => pending_review_count += 1,
+                ReferenceReviewClaim::ClaimsIndependentReviewBlinded => {
+                    unverified_review_claim_count += 1
+                }
+                ReferenceReviewClaim::SyntheticTestOnly => synthetic_reference_count += 1,
             }
             if reference.quality_status == ReferenceQualityStatus::Unqualified {
                 unqualified_reference_count += 1;
             } else if reference.quality_status == ReferenceQualityStatus::Indeterminate {
                 quality_indeterminate_reference_count += 1;
             }
-            if eligible {
-                eligible_reference_count += 1;
-                match reference.outcome {
-                    ReferenceOutcome::SupportsBypass => ref_supporting += 1,
-                    ReferenceOutcome::DoesNotSupportBypass => ref_not_supporting += 1,
-                    ReferenceOutcome::Indeterminate => ref_indeterminate += 1,
-                }
+            match reference.outcome {
+                ReferenceOutcome::SupportsBypass => claimed_supporting += 1,
+                ReferenceOutcome::DoesNotSupportBypass => claimed_not_supporting += 1,
+                ReferenceOutcome::Indeterminate => claimed_indeterminate += 1,
             }
             ReferenceResult {
                 reference_id: reference.reference_id.clone(),
@@ -470,29 +469,23 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 profile_id: reference.profile_id.clone(),
                 method: reference.method.as_str(),
                 outcome: reference.outcome.as_str(),
-                review_status: reference.review_status.as_str(),
-                quality_status: reference.quality_status.as_str(),
-                reviewer_evidence_ref: reference.reviewer_evidence_ref.clone(),
+                review_claim: reference.review_claim.as_str(),
+                review_verification_status: "not_cryptographically_verified",
+                quality_status_claimed: reference.quality_status.as_str(),
+                reviewer_evidence_ref_claimed: reference.reviewer_evidence_ref_claimed.clone(),
                 evidence_ref: reference.evidence_ref.clone(),
                 detection_limit_or_resolution: reference.detection_limit_or_resolution.clone(),
             }
         })
         .collect();
 
-    let reference_state = if eligible_reference_count == 0 {
-        "no_eligible_independent_reference"
+    let eligible_reference_count = 0usize;
+    let reference_state = if input.independent_references.is_empty() {
+        "no_independent_reference_records"
     } else {
-        reference_assessment(ref_supporting, ref_not_supporting, ref_indeterminate)
+        "unverified_reference_claims_only"
     };
-    let physical_claim_status = match reference_state {
-        "supports_bypass" => "reviewed_reference_support_present",
-        "supports_bypass_with_indeterminate_references" => "reviewed_reference_support_with_unresolved_evidence",
-        "does_not_support_bypass" => "reviewed_reference_does_not_support_bypass",
-        "does_not_support_bypass_with_indeterminate_references" => "reviewed_reference_non_support_with_unresolved_evidence",
-        "conflicting_independent_references" => "conflicting_reviewed_reference_evidence",
-        "indeterminate_references_only" => "reviewed_reference_indeterminate",
-        _ => "not_adjudicated_no_eligible_independent_reference",
-    };
+    let physical_claim_status = "not_adjudicated_external_attestation_verifier_required";
 
     Ok(Report {
         audit_version: AUDIT_VERSION,
@@ -517,12 +510,13 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         independent_reference_count: input.independent_references.len(),
         eligible_independent_reference_count: eligible_reference_count,
         pending_review_reference_count: pending_review_count,
+        unverified_review_claim_count,
         synthetic_reference_count: synthetic_reference_count,
         unqualified_reference_count: unqualified_reference_count,
         quality_indeterminate_reference_count: quality_indeterminate_reference_count,
-        reference_supporting_count: ref_supporting,
-        reference_not_supporting_count: ref_not_supporting,
-        reference_indeterminate_count: ref_indeterminate,
+        claimed_reference_supporting_count: claimed_supporting,
+        claimed_reference_not_supporting_count: claimed_not_supporting,
+        claimed_reference_indeterminate_count: claimed_indeterminate,
         independent_reference_assessment: reference_state,
         physical_claim_status,
         sensor_concordance,
@@ -533,12 +527,12 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             output_sha256: x.output_sha256.clone(),
             evidence_ref: x.evidence_ref.clone(),
         }).collect(),
-        interpretation_boundary: "proxy method concordance is descriptive only; physical pathway claims require independently reviewed tracer/geophysical/boundary evidence",
+        interpretation_boundary: "proxy concordance and self-declared reference metadata are descriptive only; physical adjudication requires a verified external attestation",
         warnings: vec![
             "No majority vote or weighted consensus is computed across VT, NSR and trajectory signatures.".to_owned(),
             "NSR is profile-level while VT and trajectory proxies are sensor-level; this report preserves the NSR profile signature separately.".to_owned(),
             "Agreement between proxy methods is not independent validation because the methods may share sensor inputs, preprocessing and hydraulic priors.".to_owned(),
-            "Physical claim status uses only independent references explicitly marked independently_reviewed_blinded and quality_status=qualified; self-declared, pending or synthetic references cannot adjudicate field claims.".to_owned(),
+            "This v0.1 tool does not verify reviewer identity, blinding, signatures or an external Mycelix attestation. Review and quality fields are self-declared claims only; no reference can adjudicate a physical claim until a trusted attestation verifier is implemented.".to_owned(),
             "Method artifact SHA-256 values are recorded as supplied; this tool does not open or independently verify the referenced report files.".to_owned(),
             "Different tracer/geophysical methods have different detection limits and spatial supports; preserve each reference record and do not treat the summary as a universal gold standard.".to_owned(),
         ],
@@ -647,6 +641,9 @@ mod tests {
                 profile_id: "PROFILE-01".to_owned(),
                 method: ReferenceMethod::ConservativeTracer,
                 outcome: ReferenceOutcome::SupportsBypass,
+                review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
+                quality_status: ReferenceQualityStatus::Qualified,
+                reviewer_evidence_ref_claimed: Some("synthetic self-declared review reference".to_owned()),
                 evidence_ref: "synthetic tracer truth".to_owned(),
                 detection_limit_or_resolution: "arrival detected at lower boundary".to_owned(),
             }],
@@ -693,7 +690,7 @@ mod tests {
         assert_eq!(report.proxy_agree_positive_count, 1);
         assert_eq!(
             report.physical_claim_status,
-            "not_adjudicated_no_independent_reference"
+            "not_adjudicated_external_attestation_verifier_required"
         );
     }
 
@@ -706,17 +703,20 @@ mod tests {
             profile_id: "PROFILE-01".to_owned(),
             method: ReferenceMethod::Ert,
             outcome: ReferenceOutcome::DoesNotSupportBypass,
+            review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
+            quality_status: ReferenceQualityStatus::Qualified,
+            reviewer_evidence_ref_claimed: Some("synthetic self-declared review reference".to_owned()),
             evidence_ref: "synthetic ERT reference".to_owned(),
             detection_limit_or_resolution: "spatial resolution 5 cm".to_owned(),
         });
         let report = evaluate(&data, "1".repeat(64)).unwrap();
         assert_eq!(
             report.independent_reference_assessment,
-            "conflicting_independent_references"
+            "unverified_reference_claims_only"
         );
         assert_eq!(
             report.physical_claim_status,
-            "conflicting_independent_reference_evidence"
+            "not_adjudicated_external_attestation_verifier_required"
         );
     }
 
@@ -727,7 +727,7 @@ mod tests {
         let report = evaluate(&data, "2".repeat(64)).unwrap();
         assert_eq!(
             report.physical_claim_status,
-            "independent_reference_does_not_support_bypass"
+            "not_adjudicated_external_attestation_verifier_required"
         );
         assert_eq!(report.proxy_agree_positive_count, 1);
     }
@@ -745,8 +745,10 @@ mod tests {
             detection_limit_or_resolution: "image pixel 1 mm".to_owned(),
         });
         let report = evaluate(&data, "3".repeat(64)).unwrap();
-        assert_eq!(report.reference_supporting_count, 2);
-        assert_eq!(report.physical_claim_status, "independent_reference_support_present");
+        assert_eq!(report.claimed_reference_supporting_count, 2);
+        assert_eq!(report.eligible_independent_reference_count, 0);
+        assert_eq!(report.unverified_review_claim_count, 2);
+        assert_eq!(report.physical_claim_status, "not_adjudicated_external_attestation_verifier_required");
     }
 
     #[test]
@@ -756,11 +758,11 @@ mod tests {
         let report = evaluate(&data, "4".repeat(64)).unwrap();
         assert_eq!(
             report.independent_reference_assessment,
-            "indeterminate_references_only"
+            "unverified_reference_claims_only"
         );
         assert_eq!(
             report.physical_claim_status,
-            "independent_reference_indeterminate"
+            "not_adjudicated_external_attestation_verifier_required"
         );
     }
 
