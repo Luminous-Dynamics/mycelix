@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/adaptive-design-bakeoff/benchmark-report.schema.json",
+  "title": "Synthetic adaptive experiment policy bake-off report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_version",
+    "status",
+    "scenario_id",
+    "input_sha256",
+    "candidate_count",
+    "eligible_candidate_count",
+    "ineligible_candidate_count",
+    "budget_cost_units",
+    "oracle",
+    "policy_results",
+    "warnings",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "report_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "synthetic_benchmark_only"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "eligible_candidate_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ineligible_candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "budget_cost_units": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "oracle": {
+      "$ref": "#/$defs/oracle"
+    },
+    "policy_results": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "$ref": "#/$defs/policy"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "oracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selected_action_ids",
+        "total_cost_units",
+        "weighted_synthetic_decision_utility"
+      ],
+      "properties": {
+        "selected_action_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "total_cost_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "weighted_synthetic_decision_utility": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "selectedAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selection_order",
+        "action_id",
+        "stratum_id",
+        "cost_units",
+        "score_at_selection",
+        "selection_reason"
+      ],
+      "properties": {
+        "selection_order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stratum_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cost_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "score_at_selection": {
+          "type": "number"
+        },
+        "selection_reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stratum_id",
+        "target_weight",
+        "selected_action_count",
+        "required_minimum_count",
+        "minimum_met",
+        "selected_fraction_of_target_minimum"
+      ],
+      "properties": {
+        "stratum_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "selected_action_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_minimum_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimum_met": {
+          "type": "boolean"
+        },
+        "selected_fraction_of_target_minimum": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "selected_actions",
+        "total_cost_units",
+        "budget_remaining_units",
+        "minimum_coverage_met",
+        "stratum_coverage",
+        "weighted_synthetic_decision_utility",
+        "oracle_regret",
+        "normalized_oracle_regret",
+        "mean_model_disagreement",
+        "mean_error_amplification_risk"
+      ],
+      "properties": {
+        "policy_id": {
+          "enum": [
+            "random_feasible",
+            "expert_fixed",
+            "one_factor_at_a_time",
+            "bayesian_eig_proxy",
+            "representative_only",
+            "ridea_inspired_comparator",
+            "robust_decision_focused"
+          ]
+        },
+        "selected_actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selectedAction"
+          }
+        },
+        "total_cost_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "budget_remaining_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimum_coverage_met": {
+          "type": "boolean"
+        },
+        "stratum_coverage": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverage"
+          }
+        },
+        "weighted_synthetic_decision_utility": {
+          "type": "number",
+          "minimum": 0
+        },
+        "oracle_regret": {
+          "type": "number",
+          "minimum": 0
+        },
+        "normalized_oracle_regret": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mean_model_disagreement": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mean_error_amplification_risk": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}
