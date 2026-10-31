@@ -137,7 +137,7 @@ jobs:
             local output_file="$4"
             local expected_mode="$5"
             local target_case_id="$6"
-            jq -n --arg engine "$engine" --arg target_case_id "$target_case_id" --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
+            jq -n --arg engine "$engine" --arg target_case_id "$target_case_id" --arg expected_mode "$expected_mode" --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
               def by_id: map({key:.case_id,value:{decision:.decision,determining_policy_ids:(.determining_policy_ids // [])}}) | from_entries;
               ($baseline | by_id) as $b |
               ($candidate | by_id) as $c |
@@ -157,7 +157,7 @@ jobs:
                 expected_mode:$expected_mode,
                 claim_ceiling:"pinned-engine metamorphic behavior only; not Rust parity or policy correctness"
               }
-            ' --arg expected_mode "$expected_mode" > "$output_file"
+            ' > "$output_file"
 
             jq -e '.baseline_case_count == 62464 and .candidate_case_count == 62464 and .same_case_ids == true' "$output_file"
             if [ "$expected_mode" = "single_allow_to_deny" ]; then
