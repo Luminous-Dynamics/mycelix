@@ -4,7 +4,7 @@ use chrono::{TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
+    collections::{BTreeMap, HashSet},
     env,
     error::Error,
     fs,
@@ -109,6 +109,12 @@ struct SemivariogramBin {
 }
 
 #[derive(Clone, Debug, Serialize)]
+struct PlotSensorCount {
+    plot_id: String,
+    sensor_count: usize,
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct DepthTimeSummary {
     timestamp_utc: String,
     depth_group_id: String,
@@ -117,6 +123,8 @@ struct DepthTimeSummary {
     maximum_sensor_depth_cm: f64,
     roster_sensor_count: usize,
     roster_plot_count: usize,
+    plot_ids: Vec<String>,
+    plot_sensor_counts: Vec<PlotSensorCount>,
     valid_observed_sensor_count: usize,
     non_usable_condition_count: usize,
     invalid_baseline_count: usize,
@@ -426,10 +434,19 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             let median_depth_cm = median(&sorted_depths).expect("depth group has sensor metadata");
             let minimum_sensor_depth_cm = *sorted_depths.first().expect("depth group has sensor metadata");
             let maximum_sensor_depth_cm = *sorted_depths.last().expect("depth group has sensor metadata");
-            let mut plot_ids: Vec<&str> = depth_sensors.iter().map(|sensor| sensor.plot_id.as_str()).collect();
-            plot_ids.sort_unstable();
-            plot_ids.dedup();
+            let mut plot_counts: BTreeMap<String, usize> = BTreeMap::new();
+            for sensor in &depth_sensors {
+                *plot_counts.entry(sensor.plot_id.clone()).or_insert(0) += 1;
+            }
+            let plot_ids: Vec<String> = plot_counts.keys().cloned().collect();
             let roster_plot_count = plot_ids.len();
+            let plot_sensor_counts: Vec<PlotSensorCount> = plot_counts
+                .into_iter()
+                .map(|(plot_id, sensor_count)| PlotSensorCount {
+                    plot_id,
+                    sensor_count,
+                })
+                .collect();
             let mut deltas = Vec::with_capacity(depth_sensors.len());
             let mut valid_values = Vec::new();
             let mut distinct_positions: Vec<(f64, f64)> = Vec::new();
@@ -538,6 +555,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 maximum_sensor_depth_cm,
                 roster_sensor_count: depth_sensors.len(),
                 roster_plot_count,
+                plot_ids,
+                plot_sensor_counts,
                 valid_observed_sensor_count: valid_count,
                 non_usable_condition_count: non_usable_count,
                 invalid_baseline_count,
@@ -706,6 +725,9 @@ mod tests {
         let last = &report.summaries[1];
         assert_eq!(last.valid_observed_sensor_count, 4);
         assert_eq!(last.roster_plot_count, 2);
+        assert_eq!(last.plot_ids, vec!["P01".to_owned(), "P02".to_owned()]);
+        assert_eq!(last.plot_sensor_counts[0].sensor_count, 2);
+        assert_eq!(last.plot_sensor_counts[1].sensor_count, 2);
         assert_eq!(last.positive_response_count, 2);
         assert_eq!(last.positive_response_fraction, Some(0.5));
         assert_eq!(last.semivariogram.iter().map(|bin| bin.pair_count).sum::<usize>(), 6);
