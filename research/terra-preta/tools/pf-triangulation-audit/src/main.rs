@@ -29,6 +29,8 @@ enum NsrSignature {
     SequentialResponseOnly,
     SequentialAndSimultaneousResponse,
     AmbiguousSimultaneousResponse,
+    AmbiguousResponseOrderingDueToSamplingInterval,
+    SequentialResponseWithAmbiguousPairs,
     NotApplicableInsufficientResponders,
     IndeterminateNoDistinctDepthPair,
     IndeterminateIncompleteProfileWithoutNsr,
@@ -43,6 +45,12 @@ impl NsrSignature {
             Self::SequentialResponseOnly => "sequential_response_only",
             Self::SequentialAndSimultaneousResponse => "sequential_and_simultaneous_response",
             Self::AmbiguousSimultaneousResponse => "ambiguous_simultaneous_response",
+            Self::AmbiguousResponseOrderingDueToSamplingInterval => {
+                "ambiguous_response_ordering_due_to_sampling_interval"
+            }
+            Self::SequentialResponseWithAmbiguousPairs => {
+                "sequential_response_with_ambiguous_pairs"
+            }
             Self::NotApplicableInsufficientResponders => "not_applicable_insufficient_responders",
             Self::IndeterminateNoDistinctDepthPair => "indeterminate_no_distinct_depth_pair",
             Self::IndeterminateIncompleteProfileWithoutNsr => "indeterminate_incomplete_profile_without_nsr",
