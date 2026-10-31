@@ -35,5 +35,6 @@
       "interface_area_evidence_ref": "synthetic",
       "flux_density_evidence_ref": "synthetic"
     }
-  ]
+  ],
+  "maximum_allowed_interval_seconds": 3600
 }
