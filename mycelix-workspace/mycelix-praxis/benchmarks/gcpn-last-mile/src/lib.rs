@@ -401,6 +401,38 @@ mod tests {
     }
 
     #[test]
+    fn every_scenario_matches_the_frozen_deduplicated_oracle() {
+        let c = cohorts();
+        let expected: [(&str, u64, u64, u64, u64, u64, [u64; 4]); 10] = [
+            ("all-channels-up", 2_700, 2_700, 0, 0, 3_750, [1_400, 2_200, 1_400, 1_450]),
+            ("cell-broadcast-down", 2_700, 2_700, 0, 0, 2_350, [0, 2_200, 1_400, 1_450]),
+            ("mobile-data-down", 2_700, 2_450, 0, 250, 2_350, [1_400, 2_200, 0, 1_450]),
+            ("radio-tv-down", 2_700, 2_700, 0, 0, 1_550, [1_400, 0, 1_400, 1_450]),
+            ("community-relay-down", 2_200, 2_200, 500, 0, 2_800, [1_400, 2_200, 1_400, 0]),
+            ("cell-broadcast-mobile-data-down", 2_700, 2_450, 0, 250, 950, [0, 2_200, 0, 1_450]),
+            ("radio-tv-cell-broadcast-down", 2_700, 2_700, 0, 0, 150, [0, 0, 1_400, 1_450]),
+            ("grid-mobile-network-loss-radio-backup", 2_700, 2_450, 0, 250, 950, [0, 2_200, 0, 1_450]),
+            ("only-community-relay", 1_450, 1_450, 1_250, 0, 0, [0, 0, 0, 1_450]),
+            ("no-channels", 0, 0, 2_700, 0, 0, [0, 0, 0, 0]),
+        ];
+
+        for (id, unique, accessible, uncovered, inaccessible, duplicates, channel_receipts) in expected {
+            let e = evaluate(&scenario(id), &c);
+            assert_eq!(e.unique_receivers_reached, unique, "{id}");
+            assert_eq!(e.accessible_receivers_reached, accessible, "{id}");
+            assert_eq!(e.uncovered_receivers, uncovered, "{id}");
+            assert_eq!(e.reached_without_accessible_format, inaccessible, "{id}");
+            assert_eq!(e.duplicate_channel_deliveries, duplicates, "{id}");
+            assert_eq!(e.channel_receipts, channel_receipts, "{id}");
+            assert_eq!(
+                e.channel_receipt_total() - e.unique_receivers_reached,
+                e.duplicate_channel_deliveries,
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
     fn accessible_format_cannot_be_claimed_for_an_unavailable_channel() {
         let invalid = COHORT_FIXTURE.replace(
             "urban-general,1000,true,true,true,false,true,true,true,false",
