@@ -84,7 +84,9 @@ All tracks share site/sensor identity and train/validation/test split manifests,
 
 ## 7. Implementation status
 
-- `tools/neon-swc-normalizer/` executes declared soil-water QA mappings and 1-minute-to-10-minute median aggregation; it preserves insufficient-coverage bins as missing and records each source/config digest.
+The raw soil-water normalizer now requires a declared maximum whole-profile porosity cutoff and evidence reference. It applies this cutoff after the configured internal QA filters and preserves separate per-bin counts for QA pass, porosity rejection and porosity pass. This makes the paper's porosity exclusion executable, while the cutoff's actual site-level derivation and source-pit crosswalk remain a data-acquisition/review requirement.
+
+- `tools/neon-swc-normalizer/` executes declared soil-water QA mappings, the configured maximum profile-porosity exclusion and 1-minute-to-10-minute median aggregation; it preserves insufficient-coverage bins as missing and records each source/config digest.
 - `tools/neon-precip-normalizer/` maps separate 5-minute primary and 1-minute secondary gauge CSVs, applies explicitly configured QA filters, prefers secondary where present without pooling, and emits both literal paper-rule and coverage-aware rainfall tracks. It highlights that a literal fewer-than-five-good threshold makes 5-minute primary 10-minute bins zero-imputed even though at most two source samples exist; resolve this with author code before claiming exact reproduction.
 - `tools/preferential-flow-eventizer/` implements event grouping and response calculation on normalized 10-minute data; it does not parse NEON packages or apply the source QA filters.
 - `tools/inventory-neon-data.sh` records per-site Data Query responses and file metadata without downloading data.
