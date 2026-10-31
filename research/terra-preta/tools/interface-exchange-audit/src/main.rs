@@ -87,7 +87,7 @@ struct SampleResult {
     specific_wetted_interface_area_m2_per_m3_bulk: f64,
     macropore_to_matrix_flux_density_m_s: f64,
     exchange_rate_per_s: f64,
-    exchange_rate_mm_per_m_profile_per_s: f64,
+    exchange_rate_depth_equivalent_mm_per_s: f64,
     interface_area_status: &'static str,
     flux_density_status: &'static str,
     interface_area_evidence_ref: String,
@@ -250,8 +250,8 @@ fn validate(input: &Input) -> Result<Vec<ParsedSample>, String> {
             return Err("sample timestamps must be strictly increasing with no duplicates".to_owned());
         }
     }
-    if parsed.first().map(|sample| sample.timestamp) != Some(event_start)
-        || parsed.last().map(|sample| sample.timestamp) != Some(event_end)
+    if parsed.first().map(|sample| sample.timestamp.clone()) != Some(event_start.clone())
+        || parsed.last().map(|sample| sample.timestamp.clone()) != Some(event_end.clone())
     {
         return Err("first and last sample timestamps must equal the declared event window boundaries".to_owned());
     }
@@ -294,7 +294,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             specific_wetted_interface_area_m2_per_m3_bulk: sample.area_m2_per_m3,
             macropore_to_matrix_flux_density_m_s: sample.flux_m_s,
             exchange_rate_per_s: sample.exchange_rate_s_inv,
-            exchange_rate_mm_per_m_profile_per_s: sample.exchange_rate_s_inv * input.profile_depth_mm,
+            exchange_rate_depth_equivalent_mm_per_s: sample.exchange_rate_s_inv * input.profile_depth_mm,
             interface_area_status: sample.interface_area_status.as_str(),
             flux_density_status: sample.flux_density_status.as_str(),
             interface_area_evidence_ref: input.samples[index].interface_area_evidence_ref.clone(),
@@ -320,9 +320,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         integrated_exchange_fraction * input.bulk_sample_volume_m3;
     let cumulative_gross_exchange_depth_mm =
         integrated_exchange_fraction * input.profile_depth_mm;
-    let duration_seconds =
-        (parsed.last().unwrap().timestamp - parsed.first().unwrap().timestamp).num_milliseconds() as f64
-            / 1000.0;
+    let duration_seconds = (parsed.last().unwrap().timestamp.clone()
+        - parsed.first().unwrap().timestamp.clone()).num_milliseconds() as f64 / 1000.0;
     let mean_exchange_rate_per_s = integrated_exchange_fraction / duration_seconds;
 
     if !cumulative_gross_exchange_volume_m3.is_finite()
@@ -497,7 +496,7 @@ mod tests {
         let report = evaluate(&data, "e".repeat(64)).unwrap();
         assert!((report.cumulative_gross_exchange_m3_per_m3_bulk - 0.09).abs() < 1.0e-12);
         assert_eq!(report.derived_interface_area_sample_count, 1);
-        assert_eq!(report.ct_measured_interface_area_sample_count, 2);
+        assert_eq!(report.measured_interface_area_sample_count, 2);
     }
 
     #[test]
