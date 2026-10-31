@@ -100,9 +100,9 @@ struct StepResult {
     matrix_deep_tracer_mg_m2: f64,
     macropore_deep_tracer_mg_m2: f64,
     surface_runoff_mm: f64,
-    lateral_macropore_loss_mm: f64,
+    macropore_capacity_overflow_mm: f64,
     surface_runoff_tracer_mg_m2: f64,
-    lateral_macropore_tracer_mg_m2: f64,
+    macropore_capacity_overflow_tracer_mg_m2: f64,
     matrix_to_macropore_exchange_mm: f64,
     macropore_to_matrix_exchange_mm: f64,
     water_balance_residual_mm: f64,
@@ -123,7 +123,7 @@ struct Report {
     total_tracer_input_mg_m2: f64,
     total_evaporation_mm: f64,
     total_surface_runoff_mm: f64,
-    total_lateral_macropore_loss_mm: f64,
+    total_macropore_capacity_overflow_mm: f64,
     total_matrix_deep_drainage_mm: f64,
     total_macropore_deep_drainage_mm: f64,
     total_matrix_deep_tracer_mg_m2: f64,
@@ -204,8 +204,11 @@ fn validate(input: &Input) -> Result<(Vec<ParsedForcing>, Pool, Pool), String> {
 
     match input.family {
         ScenarioFamily::MatrixOnly => {
-            if p.macropore_inflow_fraction != 0.0 || p.macropore_path_connected {
-                return Err("matrix_only requires zero macropore inflow fraction and disconnected macropore path".to_owned());
+            if p.macropore_inflow_fraction != 0.0
+                || p.macropore_path_connected
+                || p.interdomain_exchange_fraction_per_step != 0.0
+            {
+                return Err("matrix_only requires zero macropore inflow, no connected macro path and zero inter-domain exchange".to_owned());
             }
         }
         ScenarioFamily::ConnectedMacropore => {
@@ -241,6 +244,11 @@ fn validate(input: &Input) -> Result<(Vec<ParsedForcing>, Pool, Pool), String> {
         || initial.macropore_water_mm > p.macropore_capacity_mm
     {
         return Err("initial water storage must not exceed its domain capacity".to_owned());
+    }
+    if matches!(input.family, ScenarioFamily::MatrixOnly)
+        && (initial.macropore_water_mm != 0.0 || initial.macropore_tracer_mg_m2 != 0.0)
+    {
+        return Err("matrix_only requires zero initial macropore water and tracer storage".to_owned());
     }
     if initial.matrix_water_mm == 0.0 && initial.matrix_tracer_mg_m2 > 0.0 {
         return Err("matrix tracer mass requires nonzero matrix water storage".to_owned());
@@ -358,7 +366,7 @@ fn simulate(input: &Input, input_sha256: String) -> Result<Report, String> {
 
         let (surface_runoff, surface_runoff_tracer) =
             add_water_and_tracer(&mut matrix, matrix_rain, matrix_tracer_input);
-        let (lateral_macropore_loss, lateral_macropore_tracer) =
+        let (macropore_capacity_overflow, macropore_capacity_overflow_tracer) =
             add_water_and_tracer(&mut macropore, macropore_rain, macropore_tracer_input);
 
         let (matrix_to_macropore_exchange, macropore_to_matrix_exchange) =
@@ -380,14 +388,14 @@ fn simulate(input: &Input, input_sha256: String) -> Result<Report, String> {
         let water_residual = initial_water + sample.rainfall_mm
             - final_water
             - surface_runoff
-            - lateral_macropore_loss
+            - macropore_capacity_overflow
             - matrix_drainage
             - macropore_drainage
             - evaporation;
         let tracer_residual = initial_tracer + tracer_input
             - final_tracer
             - surface_runoff_tracer
-            - lateral_macropore_tracer
+            - macropore_capacity_overflow_tracer
             - matrix_drainage_tracer
             - macropore_drainage_tracer;
 
@@ -412,9 +420,9 @@ fn simulate(input: &Input, input_sha256: String) -> Result<Report, String> {
             matrix_deep_tracer_mg_m2: matrix_drainage_tracer,
             macropore_deep_tracer_mg_m2: macropore_drainage_tracer,
             surface_runoff_mm: surface_runoff,
-            lateral_macropore_loss_mm: lateral_macropore_loss,
+            macropore_capacity_overflow_mm: macropore_capacity_overflow,
             surface_runoff_tracer_mg_m2: surface_runoff_tracer,
-            lateral_macropore_tracer_mg_m2: lateral_macropore_tracer,
+            macropore_capacity_overflow_tracer_mg_m2: macropore_capacity_overflow_tracer,
             matrix_to_macropore_exchange_mm: matrix_to_macropore_exchange,
             macropore_to_matrix_exchange_mm: macropore_to_matrix_exchange,
             water_balance_residual_mm: water_residual,
@@ -430,7 +438,7 @@ fn simulate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let total_tracer_input = sum(|step| step.tracer_input_mg_m2);
     let total_evaporation = sum(|step| step.evaporation_mm);
     let total_surface_runoff = sum(|step| step.surface_runoff_mm);
-    let total_lateral_loss = sum(|step| step.lateral_macropore_loss_mm);
+    let total_lateral_loss = sum(|step| step.macropore_capacity_overflow_mm);
     let total_matrix_drainage = sum(|step| step.matrix_deep_drainage_mm);
     let total_macropore_drainage = sum(|step| step.macropore_deep_drainage_mm);
 
@@ -454,7 +462,7 @@ fn simulate(input: &Input, input_sha256: String) -> Result<Report, String> {
         total_tracer_input_mg_m2: total_tracer_input,
         total_evaporation_mm: total_evaporation,
         total_surface_runoff_mm: total_surface_runoff,
-        total_lateral_macropore_loss_mm: total_lateral_loss,
+        total_macropore_capacity_overflow_mm: total_lateral_loss,
         total_matrix_deep_drainage_mm: total_matrix_drainage,
         total_macropore_deep_drainage_mm: total_macropore_drainage,
         total_matrix_deep_tracer_mg_m2: sum(|step| step.matrix_deep_tracer_mg_m2),
@@ -563,6 +571,23 @@ mod tests {
         assert_eq!(report.total_macropore_deep_tracer_mg_m2, 0.0);
         assert!(report.max_abs_water_balance_residual_mm < BALANCE_TOLERANCE);
         assert!(report.max_abs_tracer_balance_residual_mg_m2 < BALANCE_TOLERANCE);
+    }
+
+    #[test]
+    fn matrix_only_rejects_hidden_interdomain_exchange() {
+        let input = base(ScenarioFamily::MatrixOnly, 0.0, false, 0.2);
+        assert!(validate(&input)
+            .unwrap_err()
+            .contains("zero inter-domain exchange"));
+    }
+
+    #[test]
+    fn matrix_only_rejects_initial_macropore_storage() {
+        let mut input = base(ScenarioFamily::MatrixOnly, 0.0, false, 0.0);
+        input.initial_state.macropore_water_mm = 1.0;
+        assert!(validate(&input)
+            .unwrap_err()
+            .contains("zero initial macropore water and tracer storage"));
     }
 
     #[test]
