@@ -738,6 +738,14 @@ fn per_pore_state(
         ));
     }
 
+    let retention_curve_fit = fit_van_genuchten_retention_curve(
+        &per_pore_retention_curve,
+        per_pore_volume_fraction_sum,
+        point.structural_alpha_figure_table_plus_per_m.or(point.structural_alpha_per_m),
+        point.structural_alpha_printed_eq37_minus_per_m,
+        point.structural_n,
+    );
+
     Ok(TimeStateAudit {
         timestamp_utc: point.timestamp_utc.clone(),
         matrix_water_content_m3_m3: point.matrix_water_content_m3_m3,
@@ -749,13 +757,7 @@ fn per_pore_state(
         per_pore_minus_aggregate_difference:
             per_pore_volume_fraction_sum - point.macropore_volume_fraction,
         per_pore_retention_curve,
-        retention_curve_fit: fit_van_genuchten_retention_curve(
-            &per_pore_retention_curve,
-            per_pore_volume_fraction_sum,
-            point.structural_alpha_figure_table_plus_per_m.or(point.structural_alpha_per_m),
-            point.structural_alpha_printed_eq37_minus_per_m,
-            point.structural_n,
-        ),
+        retention_curve_fit,
         maximum_macropore_volume_fraction_at_wilting_point:
             report.maximum_macropore_volume_fraction_at_wilting_point,
     })
@@ -944,6 +946,64 @@ mod tests {
         assert!(parse_utc("not-a-timestamp", "timestamp").unwrap_err().contains("invalid RFC3339"));
     }
 
+    fn retention_point(head: f64, theta_p: f64) -> PoreRetentionPoint {
+        PoreRetentionPoint {
+            object_id: format!("synthetic-{}", head.abs()),
+            area_mm2: 1.0,
+            dry_min_feret_mm: 1.0,
+            dynamic_min_feret_mm: 1.0,
+            matric_head_m: Some(head),
+            individual_conversion_factor_rp: Some(1.0),
+            individual_volume_fraction: theta_p,
+            cumulative_macropore_water_content_m3_m3: theta_p,
+        }
+    }
+
+    #[test]
+    fn fits_a_synthetic_van_genuchten_retention_curve() {
+        let maximum_fraction = 0.20;
+        let alpha = 1_500.0;
+        let n = 2.8;
+        let points: Vec<_> = (0..21)
+            .map(|index| {
+                let log_head = -4.0 + (index as f64 * 3.0 / 20.0);
+                let head = -10.0_f64.powf(log_head);
+                let theta = van_genuchten_theta_p(maximum_fraction, head, alpha, n).unwrap();
+                retention_point(head, theta)
+            })
+            .collect();
+        let fit = fit_van_genuchten_retention_curve(
+            &points,
+            maximum_fraction,
+            Some(alpha),
+            None,
+            Some(n),
+        );
+        assert_eq!(fit.status, "fitted_descriptive_no_uncertainty_interval");
+        let fitted_alpha = fit.alpha2_fit_per_m.unwrap();
+        let fitted_n = fit.n2_fit.unwrap();
+        assert!((fitted_alpha / alpha - 1.0).abs() < 0.03);
+        assert!((fitted_n - n).abs() < 0.08);
+        assert!(fit.rmse_m3_m3.unwrap() < 1.0e-4);
+        assert!(fit.figure_table_alpha_rmse_m3_m3.unwrap() < 1.0e-10);
+    }
+
+    #[test]
+    fn retention_fit_abstains_when_too_few_pore_points_exist() {
+        let points = vec![retention_point(-0.01, 0.10), retention_point(-0.02, 0.15)];
+        let fit = fit_van_genuchten_retention_curve(
+            &points,
+            0.2,
+            Some(1500.0),
+            Some(-500.0),
+            Some(2.8),
+        );
+        assert_eq!(fit.status, "not_fitted_insufficient_retention_points");
+        assert_eq!(fit.alpha2_fit_per_m, None);
+        assert_eq!(fit.figure_table_alpha_rmse_m3_m3, Some(0.0));
+        assert_eq!(fit.printed_eq37_minus_alpha_rmse_m3_m3, None);
+    }
+
     #[test]
     fn equation_35_returns_positive_dimensionless_conversion() {
         let result = conversion_factor_rp(20.0, 2.0).unwrap();
@@ -983,7 +1043,7 @@ mod tests {
             fluid_properties:FluidProperties{surface_tension_n_m:0.0728,water_density_kg_m3:1000.0,gravity_m_s2:9.80665},
             derived_geometry:DynamicDerivedGeometry{dry_structural_unit_width_mm:18.0,dry_mean_macropore_width_mm:2.0,total_dry_repeat_width_mm:20.0},
             maximum_macropore_volume_fraction_at_wilting_point:0.1,
-            time_points:vec![DynamicTimePoint{timestamp_utc:"2026-01-01T00:00:00Z".to_owned(),matrix_water_content_m3_m3:0.3,structural_unit_width_mm:20.0,macropore_width_mm:0.0,macropore_volume_fraction:0.0}]
+            time_points:vec![DynamicTimePoint{timestamp_utc:"2026-01-01T00:00:00Z".to_owned(),matrix_water_content_m3_m3:0.3,structural_unit_width_mm:20.0,macropore_width_mm:0.0,macropore_volume_fraction:0.0,structural_alpha_per_m:None,structural_alpha_figure_table_plus_per_m:None,structural_alpha_printed_eq37_minus_per_m:None,structural_n:None}]
         };
         let state=per_pore_state(&[pore("A",10.0,20.0,2.0)],&config,&dynamic,&dynamic.time_points[0]).unwrap();
         assert_eq!(state.per_pore_volume_fraction_sum,0.0);
