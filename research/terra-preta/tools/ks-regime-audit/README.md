@@ -43,4 +43,5 @@ This is a descriptive evaluator for already frozen predictions. It does not acqu
 
 Implementation tracker: [TERRA-KS-REGIME-001](https://github.com/Luminous-Dynamics/mycelix/issues/5567).
 
+
 Reference: Qin, M., Giménez, D., Hirmas, D. R., & Nemes, A. (2026). Predicting soil saturated hydraulic conductivity from water retention data – The roles of macroporosity and database composition on model performance. Geoderma 471, 117866. https://doi.org/10.1016/j.geoderma.2026.117866.
