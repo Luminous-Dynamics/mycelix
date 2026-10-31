@@ -9,6 +9,7 @@ on:
       - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar"
       - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json"
       - "docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego"
       - ".github/workflows/scientific-policy-metamorphic.yml"
 
 permissions:
@@ -249,6 +250,122 @@ jobs:
             printf 'logical_cpus=%s\n' "$(nproc)"
           } > target/opa-native-bench/reproducibility.txt
 
+      - name: Generate and qualify indexed-role Rego projection
+        run: |
+          set -euo pipefail
+          mkdir -p target/opa-indexed-role-bench
+          source_file="target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl"
+          source_sha="$(jq -r '.engine_inputs_sha256' target/scientific-policy-space/manifest.json)"
+          test -s "$source_file"
+          projection_started="$(date +%s%N)"
+          cargo run --release --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked --bin role_index_projection -- \
+            "$source_file" "$source_sha" target/scientific-policy-indexed-role
+          projection_elapsed_ns="$(( $(date +%s%N) - projection_started ))"
+          indexed_file="target/scientific-policy-indexed-role/indexed-engine-inputs-v0.1.jsonl"
+          indexed_manifest="target/scientific-policy-indexed-role/manifest.json"
+          test "$(wc -l < "$indexed_file")" -eq 62464
+          jq -e --arg source_sha "$source_sha" '
+            .schema_version == "mycelix-indexed-role-corpus-v0.1" and
+            .projection_profile == "mycelix-rego-role-index-v0.1" and
+            .source_engine_inputs_sha256 == $source_sha and
+            .source_case_count == 62464 and
+            .indexed_case_count == 62464 and
+            .action_count == 8 and
+            (.action_inputs | length) == 8
+          ' "$indexed_manifest"
+          indexed_sha="$(sha256sum "$indexed_file" | cut -d ' ' -f 1)"
+          test "$indexed_sha" = "$(jq -r '.indexed_engine_inputs_sha256' "$indexed_manifest")"
+
+          jq -s '{cases: map({case_id, input})}' "$indexed_file" \
+            > target/opa-indexed-role-bench/indexed-batch-input.json
+          jq -e '.cases | length == 62464' target/opa-indexed-role-bench/indexed-batch-input.json
+          batch_started="$(date +%s%N)"
+          /tmp/opa eval --strict --format=json \
+            --input target/opa-indexed-role-bench/indexed-batch-input.json \
+            --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego \
+            --data tools/scientific-policy-cedar-runner/opa-batch.rego \
+            'data.mycelix.authz.batch.decisions' \
+            > target/opa-indexed-role-bench/indexed-batch-eval.json
+          batch_elapsed_ns="$(( $(date +%s%N) - batch_started ))"
+          jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0-indexed-role", decision:.decision.effect, determining_policy_ids:[.decision.rule]}' \
+            target/opa-indexed-role-bench/indexed-batch-eval.json \
+            > target/opa-indexed-role-bench/indexed-decisions-v0.1.jsonl
+          test "$(wc -l < target/opa-indexed-role-bench/indexed-decisions-v0.1.jsonl)" -eq 62464
+
+          jq -n \
+            --slurpfile baseline target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl \
+            --slurpfile indexed target/opa-indexed-role-bench/indexed-decisions-v0.1.jsonl '
+            def normalize:
+              map({key:.case_id,value:{decision:.decision,determining_policy_ids:(.determining_policy_ids // [])}})
+              | from_entries;
+            ($baseline[0] | normalize) as $b |
+            ($indexed[0] | normalize) as $i |
+            ($b | keys) as $bk |
+            ($i | keys) as $ik |
+            {
+              baseline_case_count:($bk|length),
+              indexed_case_count:($ik|length),
+              same_case_ids:($bk == $ik),
+              decision_divergences:([$bk[] | select($b[.].decision != $i[.].decision)] | length),
+              determining_policy_divergences:([$bk[] | select($b[.].determining_policy_ids != $i[.].determining_policy_ids)] | length),
+              mismatch_samples:([$bk[] | select($b[.].decision != $i[.].decision or $b[.].determining_policy_ids != $i[.].determining_policy_ids) | {case_id:.,baseline:$b[.],indexed:$i[.]}] | .[0:20]),
+              claim_ceiling:"Rego representation equivalence on the frozen source-pinned 62,464-case corpus; not Cedar or Rust authorization parity"
+            }
+          ' > target/opa-indexed-role-bench/equivalence.json
+          jq -e '
+            .baseline_case_count == 62464 and
+            .indexed_case_count == 62464 and
+            .same_case_ids == true and
+            .decision_divergences == 0 and
+            .determining_policy_divergences == 0
+          ' target/opa-indexed-role-bench/equivalence.json
+
+          for action in \
+            claim_proposed \
+            legacy_claim_imported \
+            evidence_attached \
+            attestation_recorded \
+            attestation_corrected \
+            attestation_withdrawn \
+            claim_superseded \
+            claim_retracted; do
+            baseline_input="target/metamorphic-engine-results/baseline-cedar/opa-action-inputs/$action.json"
+            indexed_input="target/scientific-policy-indexed-role/action-inputs/$action.json"
+            baseline_output="target/opa-indexed-role-bench/$action-baseline.json"
+            indexed_output="target/opa-indexed-role-bench/$action-indexed.json"
+            test -s "$baseline_input"
+            test -s "$indexed_input"
+            jq -e --arg action "$action" '.action == $action' "$baseline_input"
+            jq -e --arg action "$action" '.action == $action and (.actor.role_index | type == "object") and (.actor.roles == null)' "$indexed_input"
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$baseline_input" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+              'data.mycelix.authz.decision' > "$baseline_output"
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$indexed_input" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego \
+              'data.mycelix.authz.decision' > "$indexed_output"
+            test -s "$baseline_output"
+            test -s "$indexed_output"
+          done
+
+          {
+            printf 'projection_profile=mycelix-rego-role-index-v0.1\n'
+            printf 'source_sha256=%s\n' "$source_sha"
+            printf 'indexed_jsonl_sha256=%s\n' "$indexed_sha"
+            printf 'projection_generation_elapsed_ns=%s\n' "$projection_elapsed_ns"
+            printf 'indexed_batch_eval_elapsed_ns=%s\n' "$batch_elapsed_ns"
+            printf 'source_bytes=%s\n' "$(wc -c < "$source_file")"
+            printf 'indexed_bytes=%s\n' "$(wc -c < "$indexed_file")"
+            printf 'opa_version='; /tmp/opa version
+            printf 'opa_binary_sha256='; sha256sum /tmp/opa
+            printf 'array_policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego
+            printf 'indexed_policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego
+            uname -a
+            printf 'logical_cpus=%s\n' "$(nproc)"
+            sha256sum target/opa-indexed-role-bench/*-baseline.json target/opa-indexed-role-bench/*-indexed.json
+          } > target/opa-indexed-role-bench/reproducibility.txt
+
       - name: Evaluate each metamorphic corpus through Cedar and OPA
         run: |
           set -euo pipefail
@@ -374,6 +491,8 @@ jobs:
             target/scientific-policy-metamorphic/
             target/metamorphic-engine-results/
             target/opa-native-bench/
+            target/opa-indexed-role-bench/
+            target/scientific-policy-indexed-role/
             target/policy-counterexample-seed.json
             target/policy-counterexample-shrink/
             target/opa-version.txt
