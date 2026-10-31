@@ -160,6 +160,18 @@ data-use terms at acquisition and preserve attribution.
 
 **Cross-method validation tracker:** [PF-TRIANG-001](https://github.com/Luminous-Dynamics/mycelix/issues/5538).
 
+### Soil-water quality package and time-index policy
+
+For DP1.00094.001, obtain the **1-minute time index** for event reconstruction. NEON also publishes a 30-minute index, but it is too coarse to reconstruct the 10-minute median/event response series without losing sub-30-minute timing information. Do not feed 30-minute data into the eventizer and label it a 10-minute reproduction.
+
+For quality review, obtain both:
+- **Expanded package** as the primary QA audit source, because it retains detailed quality flags/metrics.
+- **Basic package** as a parity source for its aggregated `finalQF`.
+
+The current NEON tutorial describes basic-package `finalQF` as an aggregated quality flag and expanded packages as containing detailed flags. The release-2023 notes for DP1.00094.001 also state that the default-calibration quality metric `calDefaultQM` no longer affects `VSWCFinalQF`, while `calDefaultQM` and `calNEONQM` remain informational metrics in expanded downloads. Pin the ATBD, issue log, release and exact flag fields that support each accepted/rejected row; never assume the same quality-flag semantics across releases.
+
+The raw 1-minute to 5/10/15/20/30-minute median conversion is not yet implemented as a raw NEON parser. It is tracked in [TERRA-NEON-QA-001](https://github.com/Luminous-Dynamics/mycelix/issues/5556). Until that normalizer exists, the profile-response extractor consumes an explicitly QA-reviewed regular profile series and does not interpret raw NEON flags.
+
 ### NEON metadata inventory (preflight)
 
 Before downloading files, create a local text file containing one NEON site code per line (comments beginning with # are ignored). Use only the paper's reconciled site roster; do not infer it from the paper's aggregate site count.
