@@ -12,7 +12,7 @@ This standalone Rust CLI computes event-relative spatial soil-moisture dispersio
 ## Input requirements
 
 - One site/plot/profile/event, explicit UTC start/end and a fixed 5–30 minute sampling grid.
-- At least two sensors with x/y coordinates in metres, depth in cm and a declared condition.
+- At least two sensors with x/y coordinates in metres, depth in cm and a declared condition. For NEON DP1.00094.001, derive depth from `swc_depthsV3.csv`, not `sensor_positions` zOffset; use position coordinates only after a time-valid sensor-position join.
 - One directly observed pre-event baseline for each sensor, followed by complete shared-grid bins. Missing bins must be explicit rows with null theta.
 - Volumetric theta in m³/m³, with `observed`, `linear_interpolated_gap_lt6h` or `missing` status.
 - Non-usable sensor conditions (saturated/frozen/fault/unknown) are retained in the roster and excluded from direct response statistics.
