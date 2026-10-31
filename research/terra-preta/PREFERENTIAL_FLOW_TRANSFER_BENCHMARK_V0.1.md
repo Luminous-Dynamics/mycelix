@@ -6,7 +6,7 @@
 
 **Executable preprocessing:** [Preferential-flow eventizer](./tools/preferential-flow-eventizer/README.md) and [synthetic known-truth benchmark](./SYNTHETIC_KNOWN_TRUTH_BENCHMARK_V0.1.md). The eventizer consumes QA-filtered 10-minute normalized series; it does not parse raw NEON packages or certify pathways.
 
-**Implementation trackers:** [PF reproduction/transfer](https://github.com/Luminous-Dynamics/mycelix/issues/5534) · [NEON cohort and normalization](https://github.com/Luminous-Dynamics/mycelix/issues/5537).
+**Implementation trackers:** [PF reproduction/transfer](https://github.com/Luminous-Dynamics/mycelix/issues/5534) · [NEON cohort and normalization](https://github.com/Luminous-Dynamics/mycelix/issues/5537). · [2025 site-prevalence and RF reproduction](https://github.com/Luminous-Dynamics/mycelix/issues/5561).
 
 ## 1. Why this is the next benchmark
 
