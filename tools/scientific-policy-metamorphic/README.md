@@ -19,9 +19,16 @@ SHA-256, predicate outcome and any evaluation error. The trace also pins the
 reduction profile, sorted-object JSON digest-encoding profile and protected
 JSON Pointer set. It stores both the exact raw source-input SHA-256 and the
 normalized parsed-value SHA-256; the supplied source bytes must parse to the
-exact value being minimized. Thus whitespace/property-order changes alter the
-source digest but preserve the normalized-value digest. This local encoding
-is not an RFC 8785/JCS claim.
+exact value being minimized. Callers must perform strict duplicate-key,
+schema and engine-specific validation before calling the reducer. Thus
+whitespace/property-order changes alter the source digest but preserve the
+normalized-value digest. This local encoding is not an RFC 8785/JCS claim.
+
+Candidate descriptors are generated only up to the remaining evaluation
+budget, and the full JSON value is cloned only when a candidate is evaluated.
+The API caps source records at 4 MiB and candidate predicate evaluations at
+100,000; exhaustion remains explicitly incomplete rather than claiming
+1-minimality.
 
 A complete trace claims only 1-minimality in that exact reduction
 neighborhood. Candidate-budget exhaustion or an evaluation error returns an
