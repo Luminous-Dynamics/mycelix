@@ -671,6 +671,22 @@ mod tests {
     }
 
     #[test]
+    fn self_declared_blinded_review_never_becomes_verified_reference() {
+        let report = evaluate(&input(), "e".repeat(64)).unwrap();
+        assert_eq!(report.independent_reference_count, 1);
+        assert_eq!(report.unverified_review_claim_count, 1);
+        assert_eq!(report.eligible_independent_reference_count, 0);
+        assert_eq!(
+            report.physical_claim_status,
+            "not_adjudicated_external_attestation_verifier_required"
+        );
+        assert_eq!(
+            report.independent_references[0].review_verification_status,
+            "not_cryptographically_verified"
+        );
+    }
+
+    #[test]
     fn proxies_alone_never_adjudicate_physical_pathway_claim() {
         let mut data = input();
         data.independent_references.clear();
