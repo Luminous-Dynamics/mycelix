@@ -153,6 +153,33 @@ struct TrackSummary {
 }
 
 #[derive(Serialize)]
+struct GaugeOverlapPair {
+    timestamp_utc: String,
+    primary_weighing_mm_per_10min: f64,
+    secondary_tipping_mm_per_10min: f64,
+    secondary_minus_primary_mm: f64,
+}
+
+#[derive(Serialize)]
+struct GaugeOverlapAudit {
+    bins_with_both_sources_present: usize,
+    bins_with_both_sources_coverage_qualified: usize,
+    primary_only_coverage_qualified_bins: usize,
+    secondary_only_coverage_qualified_bins: usize,
+    primary_present_secondary_unqualified_bins: usize,
+    secondary_present_primary_unqualified_bins: usize,
+    paired_dry_bins: usize,
+    paired_wet_bins: usize,
+    paired_wet_dry_disagreement_bins: usize,
+    mean_secondary_minus_primary_bias_mm: Option<f64>,
+    mean_absolute_difference_mm: Option<f64>,
+    root_mean_square_difference_mm: Option<f64>,
+    maximum_absolute_difference_mm: Option<f64>,
+    paired_bins: Vec<GaugeOverlapPair>,
+    interpretation_boundary: &'static str,
+}
+
+#[derive(Serialize)]
 struct Report {
     audit_version: &'static str,
     config_sha256: String,
@@ -167,6 +194,7 @@ struct Report {
     secondary_source: Option<SourceAudit>,
     paper_reproduction: TrackSummary,
     coverage_aware_sensitivity: TrackSummary,
+    gauge_overlap_audit: GaugeOverlapAudit,
     warnings: Vec<String>,
     interpretation_boundary: &'static str,
 }
@@ -602,6 +630,131 @@ fn source_audit(source: &LoadedSource) -> SourceAudit {
     }
 }
 
+fn coverage_qualified_depth(
+    source: Option<&LoadedSource>,
+    bin_start: i64,
+    minimum_good_fraction: f64,
+) -> (bool, Option<f64>) {
+    let Some(source) = source else {
+        return (false, None);
+    };
+    let Some(accumulator) = source.bins.get(&bin_start) else {
+        return (false, None);
+    };
+    let present = accumulator.present_rows > 0;
+    if !present {
+        return (false, None);
+    }
+    let expected_rows = (TARGET_SECONDS / i64::from(source.config.interval_seconds)) as usize;
+    let minimum_good_rows = ((minimum_good_fraction * expected_rows as f64).ceil() as usize).max(1);
+    if accumulator.good_rows >= minimum_good_rows {
+        (true, Some(accumulator.sum_mm))
+    } else {
+        (true, None)
+    }
+}
+
+fn gauge_overlap_audit(
+    start: DateTime<FixedOffset>,
+    end: DateTime<FixedOffset>,
+    primary: Option<&LoadedSource>,
+    secondary: Option<&LoadedSource>,
+    minimum_good_fraction: f64,
+) -> GaugeOverlapAudit {
+    let bin_count = ((end.timestamp() - start.timestamp()) / TARGET_SECONDS) as usize;
+    let mut both_present = 0usize;
+    let mut both_qualified = 0usize;
+    let mut primary_only_qualified = 0usize;
+    let mut secondary_only_qualified = 0usize;
+    let mut primary_present_secondary_unqualified = 0usize;
+    let mut secondary_present_primary_unqualified = 0usize;
+    let mut paired_dry = 0usize;
+    let mut paired_wet = 0usize;
+    let mut wet_dry_disagreement = 0usize;
+    let mut signed_sum = 0.0;
+    let mut absolute_sum = 0.0;
+    let mut squared_sum = 0.0;
+    let mut maximum_absolute = 0.0f64;
+    let mut pairs = Vec::new();
+
+    for index in 0..bin_count {
+        let timestamp = start.clone() + Duration::seconds(TARGET_SECONDS * index as i64);
+        let (primary_present, primary_depth) = coverage_qualified_depth(
+            primary,
+            timestamp.timestamp(),
+            minimum_good_fraction,
+        );
+        let (secondary_present, secondary_depth) = coverage_qualified_depth(
+            secondary,
+            timestamp.timestamp(),
+            minimum_good_fraction,
+        );
+
+        if primary_present && secondary_present {
+            both_present += 1;
+        }
+        if primary_present && primary_depth.is_some() && secondary_depth.is_none() {
+            primary_present_secondary_unqualified += 1;
+        }
+        if secondary_present && secondary_depth.is_some() && primary_depth.is_none() {
+            secondary_present_primary_unqualified += 1;
+        }
+
+        match (primary_depth, secondary_depth) {
+            (Some(primary_mm), Some(secondary_mm)) => {
+                both_qualified += 1;
+                if primary_mm == 0.0 && secondary_mm == 0.0 {
+                    paired_dry += 1;
+                } else {
+                    paired_wet += 1;
+                }
+                if (primary_mm == 0.0) != (secondary_mm == 0.0) {
+                    wet_dry_disagreement += 1;
+                }
+                let difference = secondary_mm - primary_mm;
+                let absolute = difference.abs();
+                signed_sum += difference;
+                absolute_sum += absolute;
+                squared_sum += difference * difference;
+                maximum_absolute = maximum_absolute.max(absolute);
+                pairs.push(GaugeOverlapPair {
+                    timestamp_utc: timestamp.to_rfc3339(),
+                    primary_weighing_mm_per_10min: primary_mm,
+                    secondary_tipping_mm_per_10min: secondary_mm,
+                    secondary_minus_primary_mm: difference,
+                });
+            }
+            (Some(_), None) => {
+                primary_only_qualified += 1;
+            }
+            (None, Some(_)) => {
+                secondary_only_qualified += 1;
+            }
+            (None, None) => {}
+        }
+    }
+
+    let count = pairs.len();
+    let denominator = count as f64;
+    GaugeOverlapAudit {
+        bins_with_both_sources_present: both_present,
+        bins_with_both_sources_coverage_qualified: both_qualified,
+        primary_only_coverage_qualified_bins: primary_only_qualified,
+        secondary_only_coverage_qualified_bins: secondary_only_qualified,
+        primary_present_secondary_unqualified_bins: primary_present_secondary_unqualified,
+        secondary_present_primary_unqualified_bins: secondary_present_primary_unqualified,
+        paired_dry_bins: paired_dry,
+        paired_wet_bins: paired_wet,
+        paired_wet_dry_disagreement_bins: wet_dry_disagreement,
+        mean_secondary_minus_primary_bias_mm: (count > 0).then_some(signed_sum / denominator),
+        mean_absolute_difference_mm: (count > 0).then_some(absolute_sum / denominator),
+        root_mean_square_difference_mm: (count > 0).then_some((squared_sum / denominator).sqrt()),
+        maximum_absolute_difference_mm: (count > 0).then_some(maximum_absolute),
+        paired_bins: pairs,
+        interpretation_boundary: "Paired gauge differences measure source-method disagreement on common coverage, not instrument accuracy or a reason to pool gauge series. Confirm against calibration/reference precipitation before selecting a preferred source.",
+    }
+}
+
 fn evaluate(
     config: &Config,
     config_sha256: String,
@@ -640,6 +793,14 @@ fn evaluate(
         coverage_bins.push(coverage);
     }
 
+    let overlap_audit = gauge_overlap_audit(
+        start.clone(),
+        end.clone(),
+        primary.as_ref(),
+        secondary.as_ref(),
+        config.coverage_aware_minimum_good_fraction,
+    );
+
     let mut warnings = vec![
         "Input CSVs must already be mapped to the declared raw NEON product tables and release-specific QA columns. This tool executes configured filters; it does not infer NEON QA policy.".to_owned(),
         "Precipitation values are interpreted as interval depth in mm and summed into left-closed/right-open 10-minute bins. Verify source table interval and timestamp convention against its pinned variables file/ATBD.".to_owned(),
@@ -647,6 +808,7 @@ fn evaluate(
         "The literal paper rule assigns zero when the selected source has fewer than five good measurements. The coverage-aware track preserves insufficient-coverage bins as missing.".to_owned(),
         "The paper text does not explain how a five-good-sample threshold is intended to behave for a 5-minute primary gauge, which can provide only two values per 10-minute bin. The literal track preserves the wording; the coverage-aware track exposes the alternative.".to_owned(),
         "No-source-row bins remain missing in both tracks; a documented zero-valued rainfall row is observed zero, not missing.".to_owned(),
+        "The paired gauge-overlap audit compares only bins where both source series independently meet the coverage-aware threshold. It does not average the two sources or declare either one to be truth.".to_owned(),
     ];
     if let Some(source) = &primary {
         if config.paper_minimum_good_observations > (TARGET_SECONDS / i64::from(source.config.interval_seconds)) as usize {
@@ -668,6 +830,7 @@ fn evaluate(
         secondary_source: secondary.as_ref().map(source_audit),
         paper_reproduction: make_track(paper_bins),
         coverage_aware_sensitivity: make_track(coverage_bins),
+        gauge_overlap_audit: overlap_audit,
         warnings,
         interpretation_boundary: "This is a configured preprocessing executor. Paper-rule zero imputation, source selection and aggregation are auditable operations, not proof that every source bin is physically representative. Rainfall is not throughfall, and the output is not a preferential-flow label.",
     })
@@ -776,6 +939,10 @@ mod tests {
         b"gauge_id,timestamp_utc,precipitation_mm,finalQF\nPRI-01,2026-01-01T00:00:00Z,0.2,0\nPRI-01,2026-01-01T00:05:00Z,0.3,0\nPRI-01,2026-01-01T00:10:00Z,0.7,0\nPRI-01,2026-01-01T00:15:00Z,0.8,0\n"
     }
 
+    fn full_secondary_csv() -> &'static [u8] {
+        b"gauge_id,timestamp_utc,precipitation_mm,rangeQF,scienceQF\nSEC-01,2026-01-01T00:00:00Z,0.15,0,0\nSEC-01,2026-01-01T00:01:00Z,0.15,0,0\nSEC-01,2026-01-01T00:02:00Z,0.15,0,0\nSEC-01,2026-01-01T00:03:00Z,0.15,0,0\nSEC-01,2026-01-01T00:04:00Z,0.15,0,0\nSEC-01,2026-01-01T00:05:00Z,0.15,0,0\nSEC-01,2026-01-01T00:06:00Z,0.15,0,0\nSEC-01,2026-01-01T00:07:00Z,0.15,0,0\nSEC-01,2026-01-01T00:08:00Z,0.15,0,0\nSEC-01,2026-01-01T00:09:00Z,0.15,0,0\n"
+    }
+
     fn secondary_csv() -> &'static [u8] {
         b"gauge_id,timestamp_utc,precipitation_mm,rangeQF,scienceQF\nSEC-01,2026-01-01T00:00:00Z,0.1,0,0\nSEC-01,2026-01-01T00:01:00Z,0.1,0,0\nSEC-01,2026-01-01T00:02:00Z,0.1,0,0\nSEC-01,2026-01-01T00:03:00Z,0.1,0,0\nSEC-01,2026-01-01T00:04:00Z,0.1,1,0\n"
     }
@@ -793,6 +960,22 @@ mod tests {
         assert_eq!(report.coverage_aware_sensitivity.bins[1].selected_source, "primary_weighing");
         assert_eq!(report.coverage_aware_sensitivity.bins[1].status, "observed_sum_coverage_qualified");
         assert_eq!(report.coverage_aware_sensitivity.bins[1].precipitation_mm_per_10min, Some(1.5));
+    }
+
+    #[test]
+    fn compares_gauges_only_on_common_coverage_without_pooling() {
+        let config = config();
+        let report = evaluate(&config, "overlap-config".to_owned(), Some(primary_csv()), Some(full_secondary_csv())).unwrap();
+        let overlap = &report.gauge_overlap_audit;
+        assert_eq!(overlap.bins_with_both_sources_present, 1);
+        assert_eq!(overlap.bins_with_both_sources_coverage_qualified, 1);
+        assert_eq!(overlap.primary_only_coverage_qualified_bins, 1);
+        assert_eq!(overlap.paired_wet_bins, 1);
+        assert_eq!(overlap.paired_wet_dry_disagreement_bins, 0);
+        assert_eq!(overlap.paired_bins[0].primary_weighing_mm_per_10min, 0.5);
+        assert!((overlap.paired_bins[0].secondary_tipping_mm_per_10min - 1.5).abs() < 1e-12);
+        assert!((overlap.mean_secondary_minus_primary_bias_mm.unwrap() - 1.0).abs() < 1e-12);
+        assert!((overlap.root_mean_square_difference_mm.unwrap() - 1.0).abs() < 1e-12);
     }
 
     #[test]
