@@ -4,6 +4,8 @@
 
 **Implementation tracker:** [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545).
 
+**Per-pore reproduction track:** [benchmark](./HIRMAS_DYNAMIC_MORPHOLOGY_REPRODUCTION_BENCHMARK_V0.1.md) · [auditor](./tools/hirmas-pore-resolved-audit/README.md) · [issue #5568](https://github.com/Luminous-Dynamics/mycelix/issues/5568).
+
 ## 1. Paradigm shift: pore geometry is a state, not just a static soil attribute
 
 Many hydraulic workflows characterize a soil profile with fixed retention and conductivity curves. In structured shrink–swell soils, interpedal pores can expand as the matrix dries and contract as matrix water content rises. The geometry that controls bypass and the conductivity connecting pore domains can therefore evolve over the same wetting/drying event being predicted.
