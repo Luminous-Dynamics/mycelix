@@ -678,10 +678,26 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn terminal_state(id: &str, resources: f64, water: f64, power: f64) -> Value {
+    fn observed_history(observations: &[&str], prior_actions: &[&str]) -> Value {
+        json!({
+            "observations": observations.iter().enumerate().map(|(stage, value)| {
+                json!({"stage": stage, "values": {"observed_event": value}})
+            }).collect::<Vec<_>>(),
+            "prior_actions": prior_actions
+        })
+    }
+
+    fn terminal_state(
+        id: &str,
+        resources: f64,
+        water: f64,
+        power: f64,
+        observations: &[&str],
+        prior_actions: &[&str],
+    ) -> Value {
         json!({
             "information_state_id": id,
-            "observable_history_key": format!("history-{id}"),
+            "observable_history": observed_history(observations, prior_actions),
             "stage": 2,
             "resource_units_available": resources,
             "service_levels": {"water": water, "power": power},
@@ -704,7 +720,7 @@ mod tests {
         let mut states = vec![
             json!({
                 "information_state_id":"ROOT",
-                "observable_history_key":"history-root",
+                "observable_history":observed_history(&["initial"], &[]),
                 "stage":0,
                 "resource_units_available":2.0,
                 "service_levels":{"water":100.0,"power":100.0},
@@ -730,7 +746,7 @@ mod tests {
                 ]
             }),
             json!({
-                "information_state_id":"P-QUIET","observable_history_key":"history-p-quiet","stage":1,
+                "information_state_id":"P-QUIET","observable_history":observed_history(&["initial", "quiet"], &["PREVENT"]),"stage":1,
                 "resource_units_available":1.0,"service_levels":{"water":100.0,"power":100.0},
                 "actions":[
                     {"action_id":"USE-SPARE","fixed_cost":1.0,"resource_use":1.0,"outcomes":[{"outcome_id":"done","probability":1.0,"next_information_state_id":"PQ-END-USE","stage_cost":0.0,"resources_replenished":0.0}]},
@@ -738,7 +754,7 @@ mod tests {
                 ]
             }),
             json!({
-                "information_state_id":"P-STORM","observable_history_key":"history-p-storm","stage":1,
+                "information_state_id":"P-STORM","observable_history":observed_history(&["initial", "storm"], &["PREVENT"]),"stage":1,
                 "resource_units_available":1.0,"service_levels":{"water":70.0,"power":80.0},
                 "actions":[
                     {"action_id":"REPAIR","fixed_cost":2.0,"resource_use":1.0,"outcomes":[{"outcome_id":"done","probability":1.0,"next_information_state_id":"PS-END-REPAIR","stage_cost":0.0,"resources_replenished":0.0}]},
@@ -746,7 +762,7 @@ mod tests {
                 ]
             }),
             json!({
-                "information_state_id":"D-QUIET","observable_history_key":"history-d-quiet","stage":1,
+                "information_state_id":"D-QUIET","observable_history":observed_history(&["initial", "quiet"], &["DEFER"]),"stage":1,
                 "resource_units_available":2.0,"service_levels":{"water":100.0,"power":100.0},
                 "actions":[
                     {"action_id":"USE-SPARE","fixed_cost":1.0,"resource_use":1.0,"outcomes":[{"outcome_id":"done","probability":1.0,"next_information_state_id":"DQ-END-USE","stage_cost":0.0,"resources_replenished":0.0}]},
@@ -754,18 +770,18 @@ mod tests {
                 ]
             }),
             json!({
-                "information_state_id":"D-STORM","observable_history_key":"history-d-storm","stage":1,
+                "information_state_id":"D-STORM","observable_history":observed_history(&["initial", "storm"], &["DEFER"]),"stage":1,
                 "resource_units_available":2.0,"service_levels":{"water":40.0,"power":50.0},
                 "actions":[{"action_id":"RECOVER","fixed_cost":3.0,"resource_use":1.0,"outcomes":[{"outcome_id":"done","probability":1.0,"next_information_state_id":"DS-END-RECOVER","stage_cost":0.0,"resources_replenished":0.0}]}]
             })
         ];
-        states.push(terminal_state("PQ-END-USE", 0.0, 100.0, 100.0));
-        states.push(terminal_state("PQ-END-HOLD", 1.0, 100.0, 100.0));
-        states.push(terminal_state("PS-END-REPAIR", 0.0, 80.0, 90.0));
-        states.push(terminal_state("PS-END-HOLD", 1.0, 70.0, 80.0));
-        states.push(terminal_state("DQ-END-USE", 1.0, 100.0, 100.0));
-        states.push(terminal_state("DQ-END-HOLD", 2.0, 100.0, 100.0));
-        states.push(terminal_state("DS-END-RECOVER", 1.0, 60.0, 50.0));
+        states.push(terminal_state("PQ-END-USE", 0.0, 100.0, 100.0, &["initial", "quiet", "safe"], &["PREVENT", "USE-SPARE"]));
+        states.push(terminal_state("PQ-END-HOLD", 1.0, 100.0, 100.0, &["initial", "quiet", "held"], &["PREVENT", "HOLD"]));
+        states.push(terminal_state("PS-END-REPAIR", 0.0, 80.0, 90.0, &["initial", "storm", "repaired"], &["PREVENT", "REPAIR"]));
+        states.push(terminal_state("PS-END-HOLD", 1.0, 70.0, 80.0, &["initial", "storm", "held"], &["PREVENT", "HOLD"]));
+        states.push(terminal_state("DQ-END-USE", 1.0, 100.0, 100.0, &["initial", "quiet", "safe"], &["DEFER", "USE-SPARE"]));
+        states.push(terminal_state("DQ-END-HOLD", 2.0, 100.0, 100.0, &["initial", "quiet", "held"], &["DEFER", "HOLD"]));
+        states.push(terminal_state("DS-END-RECOVER", 1.0, 60.0, 50.0, &["initial", "storm", "recovery-failed"], &["DEFER", "RECOVER"]));
 
         json!({
             "benchmark_id": BENCHMARK_ID,
@@ -818,7 +834,21 @@ mod tests {
     #[test]
     fn duplicate_observable_history_is_rejected() {
         let mut fixture = small_fixture();
-        fixture["information_states"][1]["observable_history_key"] = json!("history-root");
+        fixture["information_states"][1]["observable_history"] = fixture["information_states"][3]["observable_history"].clone();
+        assert!(evaluate_exact_adaptive_recourse(&fixture).is_err());
+    }
+
+    #[test]
+    fn hidden_future_scenario_field_is_rejected_from_observations() {
+        let mut fixture = small_fixture();
+        fixture["information_states"][0]["observable_history"]["observations"][0]["values"]["latent_scenario_id"] = json!("HIDDEN");
+        assert!(evaluate_exact_adaptive_recourse(&fixture).is_err());
+    }
+
+    #[test]
+    fn child_history_must_append_the_selected_prior_action() {
+        let mut fixture = small_fixture();
+        fixture["information_states"][1]["observable_history"]["prior_actions"] = json!(["DEFER"]);
         assert!(evaluate_exact_adaptive_recourse(&fixture).is_err());
     }
 
