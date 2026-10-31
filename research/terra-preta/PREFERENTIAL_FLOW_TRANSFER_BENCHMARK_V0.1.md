@@ -71,6 +71,36 @@ Reproduction tolerance (proposed acceptance, not achieved):
 
 A match on this split is a replication result, not evidence of site-level generalization.
 
+### 2.4 Published site-held-out companion benchmark: Li et al. (2025)
+
+The 2025 *Geophysical Research Letters* study, “Ubiquity and Causes of Soil Water Preferential Flow Across 17 Ecoregions” (DOI [10.1029/2025GL118045](https://doi.org/10.1029/2025GL118045)), supplies a second published comparator that addresses a different task:
+
+| Item | Published 2025 reference |
+|---|---|
+| Network | 40 terrestrial NEON sites across 17 ecoregions |
+| Sensor coverage | Approximately 1,500 multi-depth sensors |
+| Observation period | Approximately 4–7 years/site; 2016–2022 analysis window |
+| Event eligibility | Cumulative rainfall at least 2 mm |
+| PF methods | Velocity threshold (VT) and nonsequential response (NSR), reported separately |
+| VT references | Maximum depth-weighted Rosetta3 Ksat; median and median + one standard deviation sensitivity variants |
+| Prediction model | Random Forest regression predicting site-level PF occurrence probability |
+| Predictor families | Rain intensity, antecedent soil-moisture median/CV, NPP, MAT, MAP, land cover, texture, aridity and ET |
+| Site split | 24 training sites / 16 testing sites (60/40 random site partition) |
+
+This is a **site-held-out site-probability benchmark**, not an event-level classification benchmark. Do not compare its site probability fit to the 2026 ResNet's event-sensor F1 as if the metrics, target unit or evaluation task were equivalent. Its strength is that complete sites are held out; its limitation is that both targets remain soil-moisture-derived proxy methods, not tracer-confirmed pathway labels. The published paper's figure reports training/test fitted versus observed site PF probabilities for VT and NSR; do not manufacture an F1/AUCPR value that the paper does not report.
+
+### 2.5 Required dual-paper bake-off
+
+The transfer programme must now reproduce both published protocols independently:
+
+1. **2026 event-sensor ResNet:** 33 sites / 586 sensors / 15,554 event-sensor samples; 70/15/15 chronological split within each sensor; joint log-velocity regression and Ksat-derived PF classification; 50 bootstrap-trained ensemble members.
+2. **2025 site-level Random Forest:** 40 sites / 17 ecoregions; 2 mm minimum event eligibility; VT- and NSR-derived site probabilities kept as separate targets; 24/16 site train/test split; maximum/median/median-plus-SD Ksat sensitivity.
+3. **Common apples-to-apples site holdout:** run the 2026 ResNet feature/model family and the 2025 RF predictor family on one newly frozen common site split, reporting event-level and site-aggregated scores separately. No tuning on the 16-site test fold.
+4. **Nested ecoregion holdout:** hold out complete ecoregions in the outer loop; report worst-ecoregion risk and abstention.
+5. **Independent pathway track:** score only against tracer/geophysical/boundary evidence with its own adjudication process. Neither paper's proxy target qualifies as independent physical truth.
+
+The 2025 and 2026 papers both use NEON observations. Their derived datasets are not independent external validation merely because their publication years or modelling methods differ. Reconcile shared source sites, sensors, profiles, storms and data releases before any combined score or ensemble is published.
+
 ## 3. Correct the data-source version before modelling
 
 ### 3.1 Soil moisture
