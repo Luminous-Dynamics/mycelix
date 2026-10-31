@@ -48,6 +48,26 @@ pub struct PredicateProvenance {
 }
 
 impl PredicateProvenance {
+    /// Construct provenance digests from the exact byte slices supplied to
+    /// the selected engine adapter.
+    pub fn from_bytes(
+        engine_id: impl Into<String>,
+        engine_version: impl Into<String>,
+        engine_binary: &[u8],
+        policy: &[u8],
+        schema: &[u8],
+        evaluation_config: &[u8],
+    ) -> Self {
+        Self {
+            engine_id: engine_id.into(),
+            engine_version: engine_version.into(),
+            engine_binary_sha256: sha256_bytes(engine_binary),
+            policy_sha256: sha256_bytes(policy),
+            schema_sha256: sha256_bytes(schema),
+            evaluation_config_sha256: sha256_bytes(evaluation_config),
+        }
+    }
+
     fn validate(&self) -> Result<(), ShrinkError> {
         for (name, value) in [
             ("engine_id", self.engine_id.as_str()),
@@ -924,6 +944,26 @@ mod tests {
             schema_sha256: "c".repeat(64),
             evaluation_config_sha256: "d".repeat(64),
         }
+    }
+
+    #[test]
+    fn predicate_provenance_digests_are_derived_from_exact_bytes() {
+        let provenance = PredicateProvenance::from_bytes(
+            "cedar-policy",
+            "4.14.0",
+            b"engine-binary",
+            b"policy-source",
+            b"schema-source",
+            b"evaluation-config",
+        );
+        assert_eq!(provenance.engine_binary_sha256, sha256_bytes(b"engine-binary"));
+        assert_eq!(provenance.policy_sha256, sha256_bytes(b"policy-source"));
+        assert_eq!(provenance.schema_sha256, sha256_bytes(b"schema-source"));
+        assert_eq!(
+            provenance.evaluation_config_sha256,
+            sha256_bytes(b"evaluation-config")
+        );
+        assert!(provenance.validate().is_ok());
     }
 
     #[test]
