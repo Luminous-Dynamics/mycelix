@@ -358,6 +358,18 @@ fn common_batches(doses: &BTreeMap<u64, Vec<UnitMean>>) -> Vec<String> {
     common.unwrap_or_default().into_iter().collect()
 }
 
+fn common_batches(doses: &BTreeMap<u64, Vec<UnitMean>>) -> Vec<String> {
+    let mut common: Option<BTreeSet<String>> = None;
+    for units in doses.values() {
+        let batches: BTreeSet<String> = units.iter().map(|u| u.batch.clone()).collect();
+        common = Some(match common {
+            Some(previous) => previous.intersection(&batches).cloned().collect(),
+            None => batches,
+        });
+    }
+    common.unwrap_or_default().into_iter().collect()
+}
+
 fn shape(doses: &BTreeMap<u64, Vec<UnitMean>>, floor: usize, tol: f64) -> &'static str {
     if doses.values().any(|units| units.len() < floor) {
         return "insufficient_independent_replication";
@@ -511,6 +523,9 @@ fn audit(bytes: &[u8], label: &str, floor: usize, tolerance: f64) -> Result<Repo
     ];
     if reports.iter().any(|s| s.common_block_count == 0 && s.dose_points.len() > 1) {
         warnings.push("At least one response series has no common block represented at every dose.".to_owned());
+    }
+    if reports.iter().any(|s| s.common_material_batch_count == 0 && s.dose_points.len() > 1) {
+        warnings.push("At least one response series has no material batch represented at every dose; dose and batch effects may be confounded.".to_owned());
     }
     if reports.iter().any(|s| s.common_material_batch_count == 0 && s.dose_points.len() > 1) {
         warnings.push("At least one response series has no material batch represented at every dose; dose and batch effects may be confounded.".to_owned());
