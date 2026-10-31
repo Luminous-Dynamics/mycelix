@@ -835,8 +835,12 @@ mod tests {
         for state in &mut states {
             for action in state["actions"].as_array_mut().unwrap() {
                 for outcome in action["outcomes"].as_array_mut().unwrap() {
-                    match outcome["next_information_state_id"].as_str() {
-                        Some(next_id) => outcome["observation"] = next_observations[next_id].clone(),
+                    let next_id = outcome
+                        .get("next_information_state_id")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned);
+                    match next_id {
+                        Some(next_id) => outcome["observation"] = next_observations[&next_id].clone(),
                         None => outcome["observation"] = Value::Null,
                     }
                 }
