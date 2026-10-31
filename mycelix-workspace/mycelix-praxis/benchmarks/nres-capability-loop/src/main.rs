@@ -1,7 +1,8 @@
 use praxis_nres_capability_loop::{
     evaluate, evaluate_ambiguity_robust_decisions, evaluate_joint_service_forecasts, evaluate_probability_forecasts,
     evaluate_reliability_resolution_decision_value, evaluate_resilience_trajectories,
-    evaluate_tail_shift_robustness, evaluate_wasserstein_joint_decisions, export_evidence_envelope,
+    evaluate_tail_shift_robustness, evaluate_wasserstein_joint_decisions,
+    evaluate_wasserstein_radius_calibration, export_evidence_envelope,
 };
 use serde_json::Value;
 use std::process::ExitCode;
@@ -15,6 +16,7 @@ const NRES010: &str = include_str!("../../../examples/courses/civic-resilience-t
 const NRES011: &str = include_str!("../../../examples/courses/civic-resilience-reliability-resolution-decision-value-fixture-001.json");
 const NRES012: &str = include_str!("../../../examples/courses/civic-resilience-ambiguity-robust-decision-fixture-001.json");
 const NRES013: &str = include_str!("../../../examples/courses/civic-resilience-wasserstein-joint-decision-fixture-001.json");
+const NRES014: &str = include_str!("../../../examples/courses/civic-resilience-wasserstein-radius-calibration-fixture-001.json");
 
 fn parse_fixture(contents: &str, label: &str) -> Result<Value, ExitCode> {
     serde_json::from_str(contents).map_err(|error| {
@@ -26,6 +28,17 @@ fn parse_fixture(contents: &str, label: &str) -> Result<Value, ExitCode> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    if args.iter().any(|arg| arg == "--calibrate-wasserstein-radius") {
+        let nres009 = match parse_fixture(NRES009, "NRES-009") {
+            Ok(value) => value,
+            Err(code) => return code,
+        };
+        let nres014 = match parse_fixture(NRES014, "NRES-014") {
+            Ok(value) => value,
+            Err(code) => return code,
+        };
+        return emit(evaluate_wasserstein_radius_calibration(&nres009, &nres014));
+    }
     if args.iter().any(|arg| arg == "--wasserstein-joint") {
         let nres009 = match parse_fixture(NRES009, "NRES-009") {
             Ok(value) => value,
