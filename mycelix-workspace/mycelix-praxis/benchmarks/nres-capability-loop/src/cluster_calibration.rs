@@ -261,6 +261,11 @@ pub fn evaluate_cluster_max_conformal(fixture: &Value) -> Result<Value, Vec<Stri
             "denominator": development.len(),
             "value": covered_clusters as f64 / development.len() as f64
         },
+        "development_coverage_interpretation": if radius_unbounded {
+            "Vacuous diagnostic: no finite threshold is available, so all development cluster maxima are mechanically treated as included."
+        } else {
+            "Descriptive public-development diagnostic only; not a confirmatory coverage estimate."
+        },
         "development_block_coverage": {
             "numerator": covered_blocks,
             "denominator": total_development_blocks,
@@ -373,6 +378,7 @@ mod tests {
         let report = evaluate_cluster_max_conformal(&fixture(calibration, development, 0.1)).unwrap();
         assert_eq!(report["development_cluster_coverage"]["value"], json!(1.0));
         assert_eq!(report["development_block_coverage"]["value"], json!(1.0));
+        assert!(report["development_coverage_interpretation"].as_str().unwrap().contains("Vacuous diagnostic"));
     }
 
     #[test]
@@ -410,6 +416,15 @@ mod tests {
         let calibration = vec![cluster("C1", [0.1, 0.2, 0.3])];
         let development = vec![cluster("D1", [0.2, 0.3, 0.4])];
         assert!(evaluate_cluster_max_conformal(&fixture(calibration, development, 0.0)).is_err());
+    }
+
+    #[test]
+    fn missing_cluster_definition_is_rejected() {
+        let calibration = vec![cluster("C1", [0.1, 0.2, 0.3]), cluster("C2", [0.1, 0.2, 0.4])];
+        let development = vec![cluster("D1", [0.2, 0.3, 0.4])];
+        let mut input = fixture(calibration, development, 0.2);
+        input.as_object_mut().unwrap().remove("dependence_cluster_definition");
+        assert!(evaluate_cluster_max_conformal(&input).is_err());
     }
 
     #[test]
