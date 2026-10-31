@@ -227,7 +227,9 @@
         "common_block_count",
         "minimum_independent_units_per_dose",
         "shape_status",
-        "reversal_detected"
+        "reversal_detected",
+        "common_material_batch_ids_across_all_doses",
+        "common_material_batch_count"
       ],
       "properties": {
         "series_id": {
@@ -271,6 +273,17 @@
         },
         "reversal_detected": {
           "type": "boolean"
+        },
+        "common_material_batch_ids_across_all_doses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "common_material_batch_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
