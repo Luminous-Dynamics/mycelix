@@ -471,6 +471,7 @@ jobs:
           jq empty research/terra-preta/tools/preferential-flow-eventizer/fixtures/synthetic-one-event.json
           jq empty research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json
           jq empty research/terra-preta/tools/profile-threshold-stability-audit/fixtures/synthetic-threshold-reports.json
+          jq empty research/terra-preta/tools/ks-regime-audit/fixtures/synthetic-regime-predictions.json
           jq empty research/terra-preta/tools/profile-response-extractor/fixtures/synthetic-mixed-profile.json
           jq empty research/terra-preta/tools/spatial-heterogeneity-audit/fixtures/synthetic-array.json
           jq empty research/terra-preta/tools/neon-swc-normalizer/fixtures/synthetic-config.json
@@ -522,6 +523,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/profile-threshold-stability-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/ks-regime-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- --check
@@ -559,6 +561,9 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/profile-threshold-stability-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/profile-threshold-stability-audit/Cargo.toml -- research/terra-preta/tools/profile-threshold-stability-audit/fixtures/synthetic-threshold-reports.json "$RUNNER_TEMP/terra-preta-profile-threshold-stability.json"
           jq -e '.threshold_count == 3 and .profile_nsr_persistence_status == "nsr_pair_persistent_across_all_thresholds" and .persistent_nsr_pair_count == 1 and any(.pair_stability[]; .shallow_sensor_id == "D30" and .deep_sensor_id == "D90" and .persistence_status == "persistent_nsr_all_thresholds") and any(.pair_stability[]; .shallow_sensor_id == "D10" and .deep_sensor_id == "D60" and .persistence_status == "not_evaluable_across_all_thresholds" and .absent_pair_threshold_count == 1)' "$RUNNER_TEMP/terra-preta-profile-threshold-stability.json"
+          cargo test --manifest-path research/terra-preta/tools/ks-regime-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/ks-regime-audit/Cargo.toml -- research/terra-preta/tools/ks-regime-audit/fixtures/synthetic-regime-predictions.json "$RUNNER_TEMP/terra-preta-ks-regime-report.json"
+          jq -e '.evaluation_track == "multi_method" and .observation_count == 6 and .independent_group_count == 4 and .rac_boundary_fraction == 0.05 and .total_porosity_boundary_fraction == 0.4 and any(.strata[]; .stratum_id == "rac_lt_5pct" and .observations == 3) and any(.strata[]; .stratum_id == "rac_ge_5pct" and .observations == 3) and any(.strata[]; .stratum_id == "rac_lt_5pct::ks_method::steady_state" and .observations == 2)' "$RUNNER_TEMP/terra-preta-ks-regime-report.json"
           cargo test --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml -- research/terra-preta/tools/spatial-heterogeneity-audit/fixtures/synthetic-array.json "$RUNNER_TEMP/terra-preta-spatial-report.json"
           jq -e '.sensor_count == 4 and .distinct_depth_group_count == 1 and .time_depth_summary_count == 2 and .summaries[1].valid_observed_sensor_count == 4 and .summaries[1].roster_plot_count == 2 and (.summaries[1].plot_ids == ["P01","P02"]) and .summaries[1].positive_response_count == 2 and .summaries[1].positive_response_fraction == 0.5 and ([.summaries[1].semivariogram[].pair_count] | add) == 6' "$RUNNER_TEMP/terra-preta-spatial-report.json"
@@ -619,6 +624,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/profile-threshold-stability-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/ks-regime-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml --all-targets -- -D warnings
