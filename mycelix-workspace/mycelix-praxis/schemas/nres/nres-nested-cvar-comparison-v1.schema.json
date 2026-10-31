@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:016:ex1:nested-cvar:v1",
+  "title": "Praxis NRES-016 EX1 Nested Conditional CVaR Comparison",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "evaluation_split",
+    "active_in_curriculum",
+    "objective_semantics",
+    "horizon_stages",
+    "initial_information_state_id",
+    "service_floors",
+    "information_states",
+    "guardrails",
+    "benchmark_id",
+    "risk_confidence_level"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "PRAXIS-NRES-016-EX1-NESTED-CVAR-COMPARISON-001"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "synthetic-demonstration-for-review"
+    },
+    "evaluation_split": {
+      "const": "public-development-only"
+    },
+    "active_in_curriculum": {
+      "const": false
+    },
+    "objective_semantics": {
+      "const": "minimum-expected-total-cost-subject-to-pathwise-service-floors"
+    },
+    "horizon_stages": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 12
+    },
+    "initial_information_state_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "service_floors": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "information_states": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/informationState"
+      }
+    },
+    "guardrails": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "risk_confidence_level": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 1
+    }
+  },
+  "$defs": {
+    "informationState": {
+      "type": "object",
+      "required": [
+        "information_state_id",
+        "observable_history",
+        "stage",
+        "resource_units_available",
+        "service_levels",
+        "actions"
+      ],
+      "properties": {
+        "information_state_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observable_history": {
+          "type": "object",
+          "required": [
+            "observations",
+            "prior_actions"
+          ],
+          "properties": {
+            "observations": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "stage",
+                  "values"
+                ],
+                "properties": {
+                  "stage": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "values": {
+                    "type": "object",
+                    "propertyNames": {
+                      "not": {
+                        "enum": [
+                          "scenario_id",
+                          "scenario_label",
+                          "latent_scenario_id",
+                          "future_scenario_id",
+                          "future_shock",
+                          "hidden_outcome",
+                          "future_outcome",
+                          "true_future_state",
+                          "oracle_label",
+                          "clairvoyant_state"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "prior_actions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "stage": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resource_units_available": {
+          "type": "number",
+          "minimum": 0
+        },
+        "service_levels": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "action_id",
+        "fixed_cost",
+        "resource_use",
+        "outcomes"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixed_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resource_use": {
+          "type": "number",
+          "minimum": 0
+        },
+        "outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/outcome"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "outcome": {
+      "type": "object",
+      "required": [
+        "outcome_id",
+        "probability",
+        "observation",
+        "next_information_state_id",
+        "stage_cost",
+        "resources_replenished"
+      ],
+      "properties": {
+        "outcome_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "probability": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "next_information_state_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stage_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resources_replenished": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observation": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "stage",
+                "values"
+              ],
+              "properties": {
+                "stage": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "values": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "scenario_id",
+                        "scenario_label",
+                        "latent_scenario_id",
+                        "future_scenario_id",
+                        "future_shock",
+                        "hidden_outcome",
+                        "future_outcome",
+                        "true_future_state",
+                        "oracle_label",
+                        "clairvoyant_state"
+                      ]
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "overall_resilience_score"
+        ]
+      },
+      {
+        "required": [
+          "composite_score"
+        ]
+      },
+      {
+        "required": [
+          "personal_suitability_score"
+        ]
+      },
+      {
+        "required": [
+          "political_affiliation"
+        ]
+      },
+      {
+        "required": [
+          "loyalty_score"
+        ]
+      }
+    ]
+  },
+  "description": "Synthetic finite-horizon fixture comparing recursive conditional upper-CVaR and precommitment terminal path-CVaR with an expected-cost tie-break. CVaR confidence level must be in [0,1)."
+}
