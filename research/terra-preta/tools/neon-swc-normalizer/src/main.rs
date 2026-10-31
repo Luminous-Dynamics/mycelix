@@ -868,7 +868,7 @@ mod tests {
         let mut config = config();
         config.maximum_profile_porosity_m3_m3 = 0.22;
         let csv = csv_fixture();
-        let (normalized, report) =
+        let (normalized, _paper_analysis, report) =
             evaluate(&config, csv.as_bytes(), "porosity-source".to_owned(), "porosity-config".to_owned()).unwrap();
         assert_eq!(normalized.sensors[0].observations[1].status, "missing");
         assert_eq!(report.bins[1].quality_pass_rows, 9);
@@ -895,7 +895,7 @@ mod tests {
             *row = format!("{},{},{},{},1", fields[0], fields[1], fields[2], fields[3]);
         }
         let csv = rows.join("\n") + "\n";
-        let (normalized, report) =
+        let (normalized, _paper_analysis, report) =
             evaluate(&config, csv.as_bytes(), "c".repeat(64), "d".repeat(64)).unwrap();
         assert_eq!(normalized.sensors[0].observations[1].status, "missing");
         assert_eq!(normalized.sensors[0].observations[1].volumetric_water_content_m3_m3, None);
