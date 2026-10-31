@@ -1,0 +1,2735 @@
+{
+  "benchmark_id": "PRAXIS-NRES-013-WASSERSTEIN-JOINT-DECISION-001",
+  "schema_version": "1.0.0",
+  "title": "Finite-support Wasserstein ambiguity over joint service-failure states",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "purpose": "Compare nominal, Wasserstein worst-case expected-loss and Wasserstein minimax-regret decisions over complete joint service-failure distributions with fixed source forecasts, outcomes, actions and cost profiles.",
+  "source": {
+    "benchmark_id": "PRAXIS-NRES-009-JOINT-SERVICE-FORECAST-001",
+    "fixture_path": "mycelix-workspace/mycelix-praxis/examples/courses/civic-resilience-joint-service-forecast-fixture-001.json",
+    "fixture_git_blob_sha1": "799799f8a315d4c0f06a43b5dce5ab2e15ccefb5",
+    "source_case_count": 8,
+    "linkage_rule": "Each NRES-013 row preserves its exact NRES-009 source case ID, evaluator-owned observed state and complete candidate joint distribution. Each source case is crossed with every ambiguity-radius tier."
+  },
+  "service_catalog": [
+    {
+      "service_id": "electricity_supply",
+      "bit_index": 0,
+      "unit": "binary-breach-indicator"
+    },
+    {
+      "service_id": "communications_access",
+      "bit_index": 1,
+      "unit": "binary-breach-indicator"
+    },
+    {
+      "service_id": "water_service_continuity",
+      "bit_index": 2,
+      "unit": "binary-breach-indicator"
+    },
+    {
+      "service_id": "health_logistics_continuity",
+      "bit_index": 3,
+      "unit": "binary-breach-indicator"
+    }
+  ],
+  "protocol": {
+    "forecast_origin_hour": 0,
+    "forecast_horizon_hours": 24,
+    "state_count": 16,
+    "probability_sum_tolerance": 1e-12,
+    "state_encoding": "Bit i is the binary breach indicator for service_catalog[bit_index=i]; all 2^d joint states are enumerated.",
+    "ground_metric": {
+      "name": "weighted_hamming",
+      "service_change_weights": [
+        1,
+        1,
+        1.25,
+        1.5
+      ],
+      "definition": "d(s,t)=sum_i w_i*1[s_i!=t_i], with finite strictly-positive weights defining transport distance only."
+    },
+    "ambiguity_set": "P_epsilon(p)={q in simplex on complete joint state support: W_1,d(q,p)<=epsilon}.",
+    "radius_interpretation": "Synthetic sensitivity parameter in weighted-Hamming units; not a confidence level or coverage guarantee.",
+    "robust_dual": "sup_q E_q[loss]=inf_{lambda>=0}{lambda*epsilon+sum_i p_i*max_j(loss(s_j)-lambda*d(s_i,s_j))}; exact finite piecewise-linear dual evaluated at all upper-envelope breakpoints.",
+    "decision_rule": "Nominal minimizes E_p loss; Wasserstein expected-loss minimizes the exact worst-case expected loss; Wasserstein minimax-regret minimizes exact worst-case expected statewise regret versus the best feasible action once state is known.",
+    "action_loss": "resource_units*resource_unit_cost + sum over breached services [service_breach_cost_i*(prepared_residual_fraction if prepared else 1)].",
+    "resource_rule": "Actions above profile max_resource_units are excluded from all policies and perfect-information calculations.",
+    "tie_break": "Action catalog order; tolerance-level ties retain first feasible action.",
+    "aggregation_rule": "Keep each profile and radius separate; no composite robustness or resilience score."
+  },
+  "radius_levels": [
+    {
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0
+    },
+    {
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15
+    },
+    {
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4
+    },
+    {
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9
+    }
+  ],
+  "action_catalog": [
+    {
+      "action_id": "no_action",
+      "resource_units": 0,
+      "prepared_service_mask": 0
+    },
+    {
+      "action_id": "targeted",
+      "resource_units": 1,
+      "prepared_service_mask": 5
+    },
+    {
+      "action_id": "comprehensive",
+      "resource_units": 2.5,
+      "prepared_service_mask": 15
+    }
+  ],
+  "decision_profiles": [
+    {
+      "profile_id": "low_preparation_cost",
+      "max_resource_units": 3,
+      "resource_unit_cost": 0.2,
+      "service_breach_costs": [
+        1,
+        1.5,
+        3,
+        5
+      ],
+      "prepared_residual_fraction": 0.4
+    },
+    {
+      "profile_id": "moderate_preparation_cost",
+      "max_resource_units": 3,
+      "resource_unit_cost": 2,
+      "service_breach_costs": [
+        3,
+        2,
+        5,
+        7
+      ],
+      "prepared_residual_fraction": 0.3
+    },
+    {
+      "profile_id": "high_preparation_cost",
+      "max_resource_units": 3,
+      "resource_unit_cost": 7,
+      "service_breach_costs": [
+        4,
+        4,
+        7,
+        10
+      ],
+      "prepared_residual_fraction": 0.2
+    }
+  ],
+  "evaluation_cases": [
+    {
+      "case_id": "W13-JOINT-01-nominal",
+      "source_case_id": "JOINT-01",
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0,
+      "evaluator": {
+        "observed_breach_mask": 0
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.147524506561722
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.062530327449278
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.037131103966309
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.037131103966309
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.059924897138891
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.03558397463438
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.03558397463438
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.025342410214029
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-01-narrow",
+      "source_case_id": "JOINT-01",
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15,
+      "evaluator": {
+        "observed_breach_mask": 0
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.147524506561722
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.062530327449278
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.037131103966309
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.037131103966309
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.059924897138891
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.03558397463438
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.03558397463438
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.025342410214029
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-01-moderate",
+      "source_case_id": "JOINT-01",
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4,
+      "evaluator": {
+        "observed_breach_mask": 0
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.147524506561722
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.062530327449278
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.037131103966309
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.037131103966309
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.059924897138891
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.03558397463438
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.03558397463438
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.025342410214029
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-01-wide",
+      "source_case_id": "JOINT-01",
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9,
+      "evaluator": {
+        "observed_breach_mask": 0
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.147524506561722
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.062530327449278
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.037131103966309
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.087703319150944
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.052108606207732
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.037131103966309
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.059924897138891
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.03558397463438
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.03558397463438
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.025342410214029
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-02-nominal",
+      "source_case_id": "JOINT-02",
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0,
+      "evaluator": {
+        "observed_breach_mask": 3
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.046564575850989
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.082290845253903
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.082290845253903
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.174409529049483
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.027682640343413
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.103566039392717
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.027682640343413
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.103566039392717
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.018914670404399
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033387964999555
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.033387964999555
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.070685026141801
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-02-narrow",
+      "source_case_id": "JOINT-02",
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15,
+      "evaluator": {
+        "observed_breach_mask": 3
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.046564575850989
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.082290845253903
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.082290845253903
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.174409529049483
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.027682640343413
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.103566039392717
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.027682640343413
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.103566039392717
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.018914670404399
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033387964999555
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.033387964999555
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.070685026141801
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-02-moderate",
+      "source_case_id": "JOINT-02",
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4,
+      "evaluator": {
+        "observed_breach_mask": 3
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.046564575850989
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.082290845253903
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.082290845253903
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.174409529049483
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.027682640343413
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.103566039392717
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.027682640343413
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.103566039392717
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.018914670404399
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033387964999555
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.033387964999555
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.070685026141801
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-02-wide",
+      "source_case_id": "JOINT-02",
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9,
+      "evaluator": {
+        "observed_breach_mask": 3
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.046564575850989
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.082290845253903
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.082290845253903
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.174409529049483
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.027682640343413
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.103566039392717
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.027682640343413
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.048892804643538
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.103566039392717
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.018914670404399
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033387964999555
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.033387964999555
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.070685026141801
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-03-nominal",
+      "source_case_id": "JOINT-03",
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0,
+      "evaluator": {
+        "observed_breach_mask": 1
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047383673974119
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.100996667156043
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-03-narrow",
+      "source_case_id": "JOINT-03",
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15,
+      "evaluator": {
+        "observed_breach_mask": 1
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047383673974119
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.100996667156043
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-03-moderate",
+      "source_case_id": "JOINT-03",
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4,
+      "evaluator": {
+        "observed_breach_mask": 1
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047383673974119
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.100996667156043
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-03-wide",
+      "source_case_id": "JOINT-03",
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9,
+      "evaluator": {
+        "observed_breach_mask": 1
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047383673974119
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.100996667156043
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-04-nominal",
+      "source_case_id": "JOINT-04",
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0,
+      "evaluator": {
+        "observed_breach_mask": 5
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.026452944632976
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.099080589291171
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.082567157742642
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.082567157742642
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.174895949898207
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.015726275584304
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.027775591864625
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.027775591864625
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.058834997545757
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.031941930644319
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.056383539314684
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.056383539314684
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.119368519479363
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-04-narrow",
+      "source_case_id": "JOINT-04",
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15,
+      "evaluator": {
+        "observed_breach_mask": 5
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.026452944632976
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.099080589291171
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.082567157742642
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.082567157742642
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.174895949898207
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.015726275584304
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.027775591864625
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.027775591864625
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.058834997545757
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.031941930644319
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.056383539314684
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.056383539314684
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.119368519479363
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-04-moderate",
+      "source_case_id": "JOINT-04",
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4,
+      "evaluator": {
+        "observed_breach_mask": 5
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.026452944632976
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.099080589291171
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.082567157742642
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.082567157742642
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.174895949898207
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.015726275584304
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.027775591864625
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.027775591864625
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.058834997545757
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.031941930644319
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.056383539314684
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.056383539314684
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.119368519479363
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-04-wide",
+      "source_case_id": "JOINT-04",
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9,
+      "evaluator": {
+        "observed_breach_mask": 5
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.026452944632976
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.099080589291171
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.046748738360001
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.082567157742642
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.082567157742642
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.174895949898207
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.015726275584304
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.027775591864625
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.027775591864625
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.058834997545757
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.031941930644319
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.056383539314684
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.056383539314684
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.119368519479363
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-05-nominal",
+      "source_case_id": "JOINT-05",
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0,
+      "evaluator": {
+        "observed_breach_mask": 7
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.014881273602768
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.055738420747586
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.098388837937036
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.098388837937036
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.05341598654977
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.094289303022993
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.094289303022993
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.19961809140393
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-05-narrow",
+      "source_case_id": "JOINT-05",
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15,
+      "evaluator": {
+        "observed_breach_mask": 7
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.014881273602768
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.055738420747586
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.098388837937036
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.098388837937036
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.05341598654977
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.094289303022993
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.094289303022993
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.19961809140393
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-05-moderate",
+      "source_case_id": "JOINT-05",
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4,
+      "evaluator": {
+        "observed_breach_mask": 7
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.014881273602768
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.055738420747586
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.098388837937036
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.098388837937036
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.05341598654977
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.094289303022993
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.094289303022993
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.19961809140393
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-05-wide",
+      "source_case_id": "JOINT-05",
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9,
+      "evaluator": {
+        "observed_breach_mask": 7
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.014881273602768
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.055738420747586
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.098388837937036
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.026298802487651
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.046448683956322
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.098388837937036
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.05341598654977
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.094289303022993
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.094289303022993
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.19961809140393
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-06-nominal",
+      "source_case_id": "JOINT-06",
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0,
+      "evaluator": {
+        "observed_breach_mask": 11
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.04738367397412
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100996667156044
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-06-narrow",
+      "source_case_id": "JOINT-06",
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15,
+      "evaluator": {
+        "observed_breach_mask": 11
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.04738367397412
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100996667156044
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-06-moderate",
+      "source_case_id": "JOINT-06",
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4,
+      "evaluator": {
+        "observed_breach_mask": 11
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.04738367397412
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100996667156044
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-06-wide",
+      "source_case_id": "JOINT-06",
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9,
+      "evaluator": {
+        "observed_breach_mask": 11
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.04738367397412
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100996667156044
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-07-nominal",
+      "source_case_id": "JOINT-07",
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0,
+      "evaluator": {
+        "observed_breach_mask": 12
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047138338460932
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028023742215024
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.028023742215024
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.019980244693404
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083304822280095
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.035268904836469
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.083304822280095
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035268904836469
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.169201972923825
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.100473742969529
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100473742969529
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071555997783694
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-07-narrow",
+      "source_case_id": "JOINT-07",
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15,
+      "evaluator": {
+        "observed_breach_mask": 12
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047138338460932
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028023742215024
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.028023742215024
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.019980244693404
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083304822280095
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.035268904836469
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.083304822280095
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035268904836469
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.169201972923825
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.100473742969529
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100473742969529
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071555997783694
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-07-moderate",
+      "source_case_id": "JOINT-07",
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4,
+      "evaluator": {
+        "observed_breach_mask": 12
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047138338460932
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028023742215024
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.028023742215024
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.019980244693404
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083304822280095
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.035268904836469
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.083304822280095
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035268904836469
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.169201972923825
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.100473742969529
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100473742969529
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071555997783694
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-07-wide",
+      "source_case_id": "JOINT-07",
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9,
+      "evaluator": {
+        "observed_breach_mask": 12
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047138338460932
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028023742215024
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.028023742215024
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.019980244693404
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083304822280095
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.035268904836469
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.083304822280095
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.049495255383978
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035268904836469
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.169201972923825
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.100473742969529
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100473742969529
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071555997783694
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-08-nominal",
+      "source_case_id": "JOINT-08",
+      "radius_level_id": "nominal",
+      "wasserstein_radius": 0,
+      "evaluator": {
+        "observed_breach_mask": 6
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047383673974119
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100996667156043
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-08-narrow",
+      "source_case_id": "JOINT-08",
+      "radius_level_id": "narrow",
+      "wasserstein_radius": 0.15,
+      "evaluator": {
+        "observed_breach_mask": 6
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047383673974119
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100996667156043
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-08-moderate",
+      "source_case_id": "JOINT-08",
+      "radius_level_id": "moderate",
+      "wasserstein_radius": 0.4,
+      "evaluator": {
+        "observed_breach_mask": 6
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047383673974119
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100996667156043
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W13-JOINT-08-wide",
+      "source_case_id": "JOINT-08",
+      "radius_level_id": "wide",
+      "wasserstein_radius": 0.9,
+      "evaluator": {
+        "observed_breach_mask": 6
+      },
+      "candidate_output": {
+        "forecast_distribution": [
+          {
+            "state_mask": 0,
+            "probability": 0.047383673974119
+          },
+          {
+            "state_mask": 1,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 2,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 3,
+            "probability": 0.059703429207391
+          },
+          {
+            "state_mask": 4,
+            "probability": 0.083738389350815
+          },
+          {
+            "state_mask": 5,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 6,
+            "probability": 0.147897912225997
+          },
+          {
+            "state_mask": 7,
+            "probability": 0.105387826597611
+          },
+          {
+            "state_mask": 8,
+            "probability": 0.028169594177614
+          },
+          {
+            "state_mask": 9,
+            "probability": 0.016736861321138
+          },
+          {
+            "state_mask": 10,
+            "probability": 0.049752857672825
+          },
+          {
+            "state_mask": 11,
+            "probability": 0.035452464867436
+          },
+          {
+            "state_mask": 12,
+            "probability": 0.057215786323749
+          },
+          {
+            "state_mask": 13,
+            "probability": 0.033975278831293
+          },
+          {
+            "state_mask": 14,
+            "probability": 0.100996667156043
+          },
+          {
+            "state_mask": 15,
+            "probability": 0.071928417092713
+          }
+        ]
+      }
+    }
+  ],
+  "golden_expectations": [
+    {
+      "profile_id": "low_preparation_cost",
+      "radius_level_id": "nominal",
+      "nominal_point_mean_realized_cost": 2.15,
+      "wasserstein_expected_mean_realized_cost": 2.15,
+      "wasserstein_minimax_regret_mean_realized_cost": 2.15,
+      "wasserstein_expected_mean_upper_bound": 2.694347214178685,
+      "wasserstein_minimax_regret_mean_upper_bound": 0.07801058605807476,
+      "mean_perfect_information_cost": 2.0125
+    },
+    {
+      "profile_id": "low_preparation_cost",
+      "radius_level_id": "narrow",
+      "nominal_point_mean_realized_cost": 2.15,
+      "wasserstein_expected_mean_realized_cost": 2.15,
+      "wasserstein_minimax_regret_mean_realized_cost": 2.15,
+      "wasserstein_expected_mean_upper_bound": 2.8943472141786852,
+      "wasserstein_minimax_regret_mean_upper_bound": 0.1365100686894069,
+      "mean_perfect_information_cost": 2.0125
+    },
+    {
+      "profile_id": "low_preparation_cost",
+      "radius_level_id": "moderate",
+      "nominal_point_mean_realized_cost": 2.15,
+      "wasserstein_expected_mean_realized_cost": 2.15,
+      "wasserstein_minimax_regret_mean_realized_cost": 2.15,
+      "wasserstein_expected_mean_upper_bound": 3.2276805475120187,
+      "wasserstein_minimax_regret_mean_upper_bound": 0.20624083416340083,
+      "mean_perfect_information_cost": 2.0125
+    },
+    {
+      "profile_id": "low_preparation_cost",
+      "radius_level_id": "wide",
+      "nominal_point_mean_realized_cost": 2.15,
+      "wasserstein_expected_mean_realized_cost": 2.15,
+      "wasserstein_minimax_regret_mean_realized_cost": 2.15,
+      "wasserstein_expected_mean_upper_bound": 3.8404919776303448,
+      "wasserstein_minimax_regret_mean_upper_bound": 0.3062394595118078,
+      "mean_perfect_information_cost": 2.0125
+    },
+    {
+      "profile_id": "moderate_preparation_cost",
+      "radius_level_id": "nominal",
+      "nominal_point_mean_realized_cost": 5.612500000000001,
+      "wasserstein_expected_mean_realized_cost": 5.612500000000001,
+      "wasserstein_minimax_regret_mean_realized_cost": 5.612500000000001,
+      "wasserstein_expected_mean_upper_bound": 7.481830905142371,
+      "wasserstein_minimax_regret_mean_upper_bound": 1.165046166913089,
+      "mean_perfect_information_cost": 5.1625000000000005
+    },
+    {
+      "profile_id": "moderate_preparation_cost",
+      "radius_level_id": "narrow",
+      "nominal_point_mean_realized_cost": 5.612500000000001,
+      "wasserstein_expected_mean_realized_cost": 6.3875,
+      "wasserstein_minimax_regret_mean_realized_cost": 5.612500000000001,
+      "wasserstein_expected_mean_upper_bound": 7.872775642403068,
+      "wasserstein_minimax_regret_mean_upper_bound": 1.5356703056906535,
+      "mean_perfect_information_cost": 5.1625000000000005
+    },
+    {
+      "profile_id": "moderate_preparation_cost",
+      "radius_level_id": "moderate",
+      "nominal_point_mean_realized_cost": 5.612500000000001,
+      "wasserstein_expected_mean_realized_cost": 7.1375,
+      "wasserstein_minimax_regret_mean_realized_cost": 5.612500000000001,
+      "wasserstein_expected_mean_upper_bound": 8.23431973362595,
+      "wasserstein_minimax_regret_mean_upper_bound": 2.068768983579309,
+      "mean_perfect_information_cost": 5.1625000000000005
+    },
+    {
+      "profile_id": "moderate_preparation_cost",
+      "radius_level_id": "wide",
+      "nominal_point_mean_realized_cost": 5.612500000000001,
+      "wasserstein_expected_mean_realized_cost": 7.1375,
+      "wasserstein_minimax_regret_mean_realized_cost": 5.612500000000001,
+      "wasserstein_expected_mean_upper_bound": 8.905468714046481,
+      "wasserstein_minimax_regret_mean_upper_bound": 2.8737899472491866,
+      "mean_perfect_information_cost": 5.1625000000000005
+    },
+    {
+      "profile_id": "high_preparation_cost",
+      "radius_level_id": "nominal",
+      "nominal_point_mean_realized_cost": 10.5,
+      "wasserstein_expected_mean_realized_cost": 10.5,
+      "wasserstein_minimax_regret_mean_realized_cost": 10.5,
+      "wasserstein_expected_mean_upper_bound": 13.145448861598599,
+      "wasserstein_minimax_regret_mean_upper_bound": 0.5971361197706998,
+      "mean_perfect_information_cost": 10.05
+    },
+    {
+      "profile_id": "high_preparation_cost",
+      "radius_level_id": "narrow",
+      "nominal_point_mean_realized_cost": 10.5,
+      "wasserstein_expected_mean_realized_cost": 10.5,
+      "wasserstein_minimax_regret_mean_realized_cost": 10.5,
+      "wasserstein_expected_mean_upper_bound": 14.1454488615986,
+      "wasserstein_minimax_regret_mean_upper_bound": 0.9276437689762372,
+      "mean_perfect_information_cost": 10.05
+    },
+    {
+      "profile_id": "high_preparation_cost",
+      "radius_level_id": "moderate",
+      "nominal_point_mean_realized_cost": 10.5,
+      "wasserstein_expected_mean_realized_cost": 10.5,
+      "wasserstein_minimax_regret_mean_realized_cost": 10.5,
+      "wasserstein_expected_mean_upper_bound": 15.812115528265267,
+      "wasserstein_minimax_regret_mean_upper_bound": 1.3552353589781498,
+      "mean_perfect_information_cost": 10.05
+    },
+    {
+      "profile_id": "high_preparation_cost",
+      "radius_level_id": "wide",
+      "nominal_point_mean_realized_cost": 10.5,
+      "wasserstein_expected_mean_realized_cost": 11.1875,
+      "wasserstein_minimax_regret_mean_realized_cost": 10.5,
+      "wasserstein_expected_mean_upper_bound": 18.967416581816668,
+      "wasserstein_minimax_regret_mean_upper_bound": 1.886127220641992,
+      "mean_perfect_information_cost": 10.05
+    }
+  ],
+  "interpretation_guardrails": [
+    "All cases, forecasts, observations, actions, costs, metric weights and radii are fictional synthetic development inputs.",
+    "The 32 rows are eight NRES-009 source cases crossed with four radius settings, not 32 independent observations.",
+    "Source outcomes and candidate forecasts are copied exactly and retain source case identities.",
+    "The radius is a sensitivity parameter, not a calibrated confidence set.",
+    "The weighted-Hamming metric is fixed; no learned or loss-aware metric is claimed.",
+    "This is a single 24-hour joint-state decision benchmark, not cascade propagation, recovery or multi-stage recourse.",
+    "The perfect-information reference is a statewise lower bound, not a deployable policy.",
+    "Fixture conformance does not demonstrate real-world readiness, causal effects, legal authority, forecast superiority or SOTA performance.",
+    "No political belief, loyalty, identity, willingness to serve, personal suitability or personal data is scored."
+  ]
+}
