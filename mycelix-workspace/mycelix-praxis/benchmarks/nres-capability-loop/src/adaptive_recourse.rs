@@ -1730,6 +1730,8 @@ mod tests {
         assert_eq!(report["local_action_change_at_A"]["nominal_nested_action"], json!("GAMBLE"));
         assert_eq!(report["local_action_change_at_A"]["rectangular_tv_robust_action"], json!("SAFE"));
         assert_eq!(report["local_action_change_at_A"]["different"], json!(true));
+        assert!(report["robust"]["nested_rectangular_tv_mean_cvar_objective"].as_f64().unwrap()
+            + 1e-10 >= report["nominal_nested_reference"]["nested"]["nested_mean_cvar_objective"].as_f64().unwrap());
         assert!((report["robust"]["nominal_expected_cost_under_selected_policy"].as_f64().unwrap() - 5230.0).abs() < 1e-10);
         let gamble = &report["robust"]["all_feasible_action_diagnostics"]["A/GAMBLE"];
         assert!((gamble["worst_case_probabilities"][0].as_f64().unwrap() - 0.85).abs() < 1e-12);
