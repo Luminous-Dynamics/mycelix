@@ -57,6 +57,18 @@ These are engineering parity targets, not evidence that all published uncertaint
 
 ## 5. Publication ambiguities and explicit adjudication
 
+### Per-pore retention-curve parameter fitting
+
+The object-resolved tool now fits the structural-domain van Genuchten relation (Eq. 32) to the per-pore cumulative water-retention points at each matrix-water state. The deterministic grid search estimates alpha_2 and n_2, reports RMSE and maximum absolute error, and publishes a near-optimal parameter region for sensitivity inspection. This region is not a statistical confidence interval. The fitter abstains when fewer than five usable pore-head points exist or when the parameter search is nonfinite.
+
+When the upstream dynamic report carries both Eq. 37 branches, the per-pore report also computes their retention-curve RMSE using the upstream n_2. That makes the paper's printed-minus versus figure/table-plus sign issue directly comparable to the per-pore curve at each water state. It does not determine which branch the authors used; the Dryad R script and original output remain the reference needed to adjudicate the discrepancy.
+
+Proposed additional acceptance gates:
+- reproduce the authors' dry-state alpha_2 and n_2 estimates from the object-resolved curve within 1% relative error before proceeding to dynamic states;
+- compare fitted alpha_2 and n_2 at every matrix-water state with the archived R outputs, not just an average;
+- check the positive and printed-minus Eq. 37 branches against those independently fitted alpha_2 values without selecting the better branch post hoc;
+- report grid sensitivity and insufficient-point cases; do not present the near-optimal parameter range as a confidence interval.
+
 ### Structural alpha relation
 
 The body prints Eq. 37 with a negative beta_1 term, while Figure 6 and Table 1 support a positive near-1:1 relationship and positive beta_1. The current Rust average-geometry tool follows the plotted Figure 6/Table 1 relationship provisionally. The author R script must determine which expression generated the actual reported outputs. Report both branches during parity analysis; do not silently choose one.
