@@ -340,95 +340,115 @@ fn append_irrelevant_actor(case: &mut Value) -> Result<(), MetamorphicError> {
 }
 
 fn remove_contributor_from_claim_proposed(case: &mut Value) -> Result<(), MetamorphicError> {
-    let request = case
-        .get("cedar")
-        .and_then(|cedar| cedar.get("request"))
-        .and_then(Value::as_object)
-        .ok_or_else(|| error("Cedar request must be an object"))?;
-    let action = required_string_value(request, "action")?;
-    if action != "Mycelix::Action::\\"claim_proposed\\"" {
+    let (action, resource) = {
+        let request = case
+            .get("cedar")
+            .and_then(|cedar| cedar.get("request"))
+            .and_then(Value::as_object)
+            .ok_or_else(|| error("Cedar request must be an object"))?;
+        (
+            required_string_value(request, "action")?.to_owned(),
+            required_string_value(request, "resource")?.to_owned(),
+        )
+    };
+    if action != r#"Mycelix::Action::"claim_proposed""# {
         return Ok(());
     }
 
-    let resource = required_string_value(request, "resource")?;
-    let rego_input = case
-        .get("rego")
-        .and_then(|rego| rego.get("input"))
-        .and_then(Value::as_object)
-        .ok_or_else(|| error("Rego input must be an object"))?;
-    if rego_input.get("action").and_then(Value::as_str) != Some("claim_proposed")
-        || rego_input
-            .get("claim")
-            .and_then(|claim| claim.get("exists"))
-            .and_then(Value::as_bool)
-            != Some(false)
     {
-        return Ok(());
-    }
-
-    let cedar = case
-        .get_mut("cedar")
-        .and_then(Value::as_object_mut)
-        .ok_or_else(|| error("Cedar projection must be an object"))?;
-    let entities = cedar
-        .get_mut("entities")
-        .and_then(Value::as_array_mut)
-        .ok_or_else(|| error("Cedar entities must be an array"))?;
-    let mut target_actor_index = None;
-    let mut absent_claim = false;
-    for (index, entity) in entities.iter().enumerate() {
-        let uid = entity
-            .get("uid")
-            .ok_or_else(|| error("Cedar entity is missing uid"))?;
-        let entity_type = uid.get("type").and_then(Value::as_str).unwrap_or_default();
-        let entity_id = uid.get("id").and_then(Value::as_str).unwrap_or_default();
-        if entity_type == "Mycelix::Actor" {
-            let roles = entity
-                .get("attrs")
-                .and_then(|attrs| attrs.get("roles"))
-                .and_then(Value::as_array)
-                .ok_or_else(|| error("Cedar Actor roles must be an array"))?;
-            if roles.as_slice() == [Value::String("contributor".to_owned())] {
-                target_actor_index = Some(index);
-            }
-        } else if entity_type == "Mycelix::Claim" && entity_id == resource {
-            absent_claim = entity
-                .get("attrs")
-                .and_then(|attrs| attrs.get("exists"))
+        let rego_input = case
+            .get("rego")
+            .and_then(|rego| rego.get("input"))
+            .and_then(Value::as_object)
+            .ok_or_else(|| error("Rego input must be an object"))?;
+        if rego_input.get("action").and_then(Value::as_str) != Some("claim_proposed")
+            || rego_input
+                .get("claim")
+                .and_then(|claim| claim.get("exists"))
                 .and_then(Value::as_bool)
-                == Some(false);
+                != Some(false)
+        {
+            return Ok(());
         }
     }
+
+    let target_actor_index = {
+        let entities = case
+            .get("cedar")
+            .and_then(|cedar| cedar.get("entities"))
+            .and_then(Value::as_array)
+            .ok_or_else(|| error("Cedar entities must be an array"))?;
+        let mut actor_index = None;
+        let mut absent_claim = false;
+        for (index, entity) in entities.iter().enumerate() {
+            let uid = entity
+                .get("uid")
+                .ok_or_else(|| error("Cedar entity is missing uid"))?;
+            let entity_type = uid.get("type").and_then(Value::as_str).unwrap_or_default();
+            let entity_id = uid.get("id").and_then(Value::as_str).unwrap_or_default();
+            if entity_type == "Mycelix::Actor" {
+                let roles = entity
+                    .get("attrs")
+                    .and_then(|attrs| attrs.get("roles"))
+                    .and_then(Value::as_array)
+                    .ok_or_else(|| error("Cedar Actor roles must be an array"))?;
+                if roles.as_slice() == [Value::String("contributor".to_owned())] {
+                    actor_index = Some(index);
+                }
+            } else if entity_type == "Mycelix::Claim" && entity_id == resource {
+                absent_claim = entity
+                    .get("attrs")
+                    .and_then(|attrs| attrs.get("exists"))
+                    .and_then(Value::as_bool)
+                    == Some(false);
+            }
+        }
+        if absent_claim { actor_index } else { None }
+    };
 
     let Some(actor_index) = target_actor_index else {
         return Ok(());
     };
-    if !absent_claim {
-        return Ok(());
+
+    {
+        let actor_roles = case
+            .get("rego")
+            .and_then(|rego| rego.get("input"))
+            .and_then(|input| input.get("actor"))
+            .and_then(|actor| actor.get("roles"))
+            .and_then(Value::as_array)
+            .ok_or_else(|| error("Rego actor roles must be an array"))?;
+        if actor_roles.as_slice() != [Value::String("contributor".to_owned())] {
+            return Err(error("target Cedar and Rego actor roles are not identical contributor-only sets"));
+        }
     }
 
-    let rego = case
-        .get_mut("rego")
-        .and_then(Value::as_object_mut)
-        .ok_or_else(|| error("Rego projection must be an object"))?;
-    let actor_roles = rego
-        .get_mut("input")
-        .and_then(Value::as_object_mut)
-        .and_then(|input| input.get_mut("actor"))
-        .and_then(Value::as_object_mut)
-        .and_then(|actor| actor.get_mut("roles"))
-        .and_then(Value::as_array_mut)
-        .ok_or_else(|| error("Rego actor roles must be an array"))?;
-    if actor_roles.as_slice() != [Value::String("contributor".to_owned())] {
-        return Err(error("target Cedar and Rego actor roles are not identical contributor-only sets"));
+    {
+        let entities = case
+            .get_mut("cedar")
+            .and_then(Value::as_object_mut)
+            .and_then(|cedar| cedar.get_mut("entities"))
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| error("Cedar entities must be an array"))?;
+        entities[actor_index]
+            .get_mut("attrs")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| error("target Cedar Actor attrs must be an object"))?
+            .insert("roles".to_owned(), Value::Array(Vec::new()));
     }
-
-    entities[actor_index]
-        .get_mut("attrs")
-        .and_then(Value::as_object_mut)
-        .ok_or_else(|| error("target Cedar Actor attrs must be an object"))?
-        .insert("roles".to_owned(), Value::Array(Vec::new()));
-    *actor_roles = Vec::new();
+    {
+        let actor_roles = case
+            .get_mut("rego")
+            .and_then(Value::as_object_mut)
+            .and_then(|rego| rego.get_mut("input"))
+            .and_then(Value::as_object_mut)
+            .and_then(|input| input.get_mut("actor"))
+            .and_then(Value::as_object_mut)
+            .and_then(|actor| actor.get_mut("roles"))
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| error("Rego actor roles must be an array"))?;
+        actor_roles.clear();
+    }
     Ok(())
 }
 
