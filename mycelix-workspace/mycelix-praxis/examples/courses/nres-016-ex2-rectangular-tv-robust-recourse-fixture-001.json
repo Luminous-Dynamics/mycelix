@@ -1,0 +1,432 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX2-RECTANGULAR-TV-ROBUST-RECOURSE-001",
+  "schema_version": "1.0.0",
+  "title": "NRES-016 EX2 rectangular TV-robust adaptive recourse",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "objective_semantics": "minimum-expected-total-cost-subject-to-pathwise-service-floors",
+  "risk_confidence_level": 0.9,
+  "horizon_stages": 3,
+  "initial_information_state_id": "ROOT",
+  "service_floors": {
+    "water": 70,
+    "power": 60
+  },
+  "information_states": [
+    {
+      "information_state_id": "ROOT",
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          }
+        ],
+        "prior_actions": []
+      },
+      "stage": 0,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "START",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "branch-a",
+              "probability": 0.5,
+              "next_information_state_id": "A",
+              "observation": {
+                "stage": 1,
+                "values": {
+                  "observed_event": "A"
+                }
+              },
+              "stage_cost": 0,
+              "resources_replenished": 0
+            },
+            {
+              "outcome_id": "branch-b",
+              "probability": 0.5,
+              "next_information_state_id": "B",
+              "observation": {
+                "stage": 1,
+                "values": {
+                  "observed_event": "B"
+                }
+              },
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ],
+          "transition_tv_radius": 0
+        }
+      ]
+    },
+    {
+      "information_state_id": "A",
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "A"
+            }
+          }
+        ],
+        "prior_actions": [
+          "START"
+        ]
+      },
+      "stage": 1,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "SAFE",
+          "fixed_cost": 460,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "safe",
+              "probability": 1,
+              "next_information_state_id": "A-SAFE",
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "safe"
+                }
+              },
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ],
+          "transition_tv_radius": 0
+        },
+        {
+          "action_id": "GAMBLE",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "good",
+              "probability": 0.95,
+              "next_information_state_id": "A-GOOD",
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "good"
+                }
+              },
+              "stage_cost": 0,
+              "resources_replenished": 0
+            },
+            {
+              "outcome_id": "bad",
+              "probability": 0.05,
+              "next_information_state_id": "A-BAD",
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "bad"
+                }
+              },
+              "stage_cost": 1000,
+              "resources_replenished": 0
+            }
+          ],
+          "transition_tv_radius": 0.1
+        }
+      ]
+    },
+    {
+      "information_state_id": "B",
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "B"
+            }
+          }
+        ],
+        "prior_actions": [
+          "START"
+        ]
+      },
+      "stage": 1,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "HOLD",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "catastrophe",
+              "probability": 1,
+              "next_information_state_id": "B-END",
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "catastrophe"
+                }
+              },
+              "stage_cost": 10000,
+              "resources_replenished": 0
+            }
+          ],
+          "transition_tv_radius": 0
+        }
+      ]
+    },
+    {
+      "information_state_id": "A-SAFE",
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "A"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "safe"
+            }
+          }
+        ],
+        "prior_actions": [
+          "START",
+          "SAFE"
+        ]
+      },
+      "stage": 2,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "observation": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ],
+          "transition_tv_radius": 0
+        }
+      ]
+    },
+    {
+      "information_state_id": "A-GOOD",
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "A"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "good"
+            }
+          }
+        ],
+        "prior_actions": [
+          "START",
+          "GAMBLE"
+        ]
+      },
+      "stage": 2,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "observation": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ],
+          "transition_tv_radius": 0
+        }
+      ]
+    },
+    {
+      "information_state_id": "A-BAD",
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "A"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "bad"
+            }
+          }
+        ],
+        "prior_actions": [
+          "START",
+          "GAMBLE"
+        ]
+      },
+      "stage": 2,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "observation": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ],
+          "transition_tv_radius": 0
+        }
+      ]
+    },
+    {
+      "information_state_id": "B-END",
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "B"
+            }
+          },
+          {
+            "stage": 2,
+            "values": {
+              "observed_event": "catastrophe"
+            }
+          }
+        ],
+        "prior_actions": [
+          "START",
+          "HOLD"
+        ]
+      },
+      "stage": 2,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "observation": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ],
+          "transition_tv_radius": 0
+        }
+      ]
+    }
+  ],
+  "guardrails": [
+    "All outcomes, probabilities, resource units, radii and costs are synthetic.",
+    "Each action has its own explicitly declared transition TV radius.",
+    "TV is half the L1 distance and the adversary may move at most eta probability mass.",
+    "Ambiguity is rectangular across observable information state/action transitions.",
+    "Lambda remains below one to preserve the strict-monotonicity condition of the nested mean-CVaR risk map.",
+    "The 0.10 radius on GAMBLE is an illustrative parameter, not calibrated.",
+    "No cross-stage coupled ambiguity or real-world operational conclusion is claimed."
+  ],
+  "risk_aversion_lambda": 0.9
+}
