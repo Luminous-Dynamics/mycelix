@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 use scientific_policy_metamorphic::shrink::{
     minimize_json_with_provenance, PredicateProvenance, MAX_SOURCE_INPUT_BYTES,
 };
+use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::env;
 use std::fs::{self, File};
@@ -530,6 +531,7 @@ mod tests {
 #[derive(Debug, Clone, Serialize)]
 struct ShrinkPairSummary {
     predicate: String,
+    evaluation_method: String,
     initial_case_id: String,
     initial_cedar_decision: String,
     initial_opa_decision: String,
@@ -537,6 +539,10 @@ struct ShrinkPairSummary {
     minimized_cedar_decision: String,
     minimized_opa_decision: String,
     candidate_evaluations: usize,
+    opa_candidate_process_evaluations: usize,
+    cedar_candidate_latency: TimingSummary,
+    opa_cli_candidate_latency: TimingSummary,
+    minimization_wall_ns: u128,
     accepted_reductions: usize,
     complete: bool,
     is_one_minimal: bool,
@@ -547,12 +553,14 @@ fn opa_decision(
     opa_binary: &Path,
     rego_policy_path: &Path,
     input: &Value,
-) -> Result<(String, String), String> {
+) -> Result<(String, String, u128), String> {
+    let started = Instant::now();
     let input_bytes = serde_json::to_vec(input)
         .map_err(|error| format!("serialize OPA candidate input: {error}"))?;
     let mut child = Command::new(opa_binary)
         .arg("eval")
         .arg("--strict")
+        .arg("--timeout=5s")
         .arg("--format=json")
         .arg("--stdin-input")
         .arg("--data")
@@ -595,7 +603,7 @@ fn opa_decision(
     if !matches!(effect, "allow" | "deny") {
         return Err(format!("OPA returned unsupported decision effect: {effect}"));
     }
-    Ok((effect.to_owned(), rule.to_owned()))
+    Ok((effect.to_owned(), rule.to_owned(), started.elapsed().as_nanos()))
 }
 
 fn evaluate_policy_pair(
@@ -605,30 +613,37 @@ fn evaluate_policy_pair(
     schema: &Schema,
     opa_binary: &Path,
     rego_policy_path: &Path,
-) -> Result<(String, String, Vec<String>), String> {
+) -> Result<(String, String, Vec<String>, u128, u128), String> {
     let case: EngineInputCase = match serde_json::from_value(candidate.clone()) {
         Ok(case) => case,
-        Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new())),
+        Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0)),
     };
     if case.case_id != case.cedar.case_id || case.case_id != case.rego.case_id {
-        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new()));
+        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0));
     }
     if validate_explicit_entities(&case, 0).is_err()
         || !case.cedar.request.context.is_object()
         || !case.rego.input.is_object()
     {
-        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new()));
+        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0));
     }
-    let (cedar_decision, cedar_policy_ids, _, _) =
+    let (cedar_decision, cedar_policy_ids, construction_ns, authorization_ns) =
         match evaluate_case(authorizer, policy_set, schema, &case) {
             Ok(result) => result,
             Err(message) if message.starts_with("Cedar evaluation diagnostic") => {
                 return Err(message);
             }
-            Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new())),
+            Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0)),
         };
-    let (opa_effect, _opa_rule) = opa_decision(opa_binary, rego_policy_path, &case.rego.input)?;
-    Ok((cedar_decision.to_owned(), opa_effect, cedar_policy_ids))
+    let (opa_effect, _opa_rule, opa_elapsed_ns) =
+        opa_decision(opa_binary, rego_policy_path, &case.rego.input)?;
+    Ok((
+        cedar_decision.to_owned(),
+        opa_effect,
+        cedar_policy_ids,
+        construction_ns + authorization_ns,
+        opa_elapsed_ns,
+    ))
 }
 
 fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
@@ -708,7 +723,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     }
     let authorizer = Authorizer::new();
 
-    let (initial_cedar, initial_opa, _) = evaluate_policy_pair(
+    let (initial_cedar, initial_opa, _, _, _) = evaluate_policy_pair(
         &initial_value,
         &authorizer,
         &policy_set,
@@ -764,6 +779,10 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &evaluation_config,
     );
 
+    let mut cedar_candidate_times = Vec::new();
+    let mut opa_cli_candidate_times = Vec::new();
+    let opa_candidate_process_evaluations = Cell::new(0usize);
+    let minimization_started = Instant::now();
     let result = minimize_json_with_provenance(
         &initial_value,
         &source_bytes,
@@ -772,7 +791,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &protected_paths,
         max_candidates,
         |candidate| {
-            let (cedar, opa, _) = evaluate_policy_pair(
+            let (cedar, opa, _, cedar_ns, opa_ns) = evaluate_policy_pair(
                 candidate,
                 &authorizer,
                 &policy_set,
@@ -780,12 +799,20 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                 &opa_binary,
                 &rego_policy_path,
             )?;
+            if matches!(cedar.as_str(), "allow" | "deny") {
+                cedar_candidate_times.push(cedar_ns);
+                opa_cli_candidate_times.push(opa_ns);
+                opa_candidate_process_evaluations.set(
+                    opa_candidate_process_evaluations.get() + 1
+                );
+            }
             Ok(cedar == initial_cedar && opa == initial_opa && cedar != opa)
         },
     )
     .map_err(|error| format!("counterexample minimization incomplete: {error}"))?;
+    let minimization_wall_ns = minimization_started.elapsed().as_nanos();
 
-    let (minimized_cedar, minimized_opa, _) = evaluate_policy_pair(
+    let (minimized_cedar, minimized_opa, _, _, _) = evaluate_policy_pair(
         &result.minimized_value,
         &authorizer,
         &policy_set,
@@ -805,6 +832,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         .map_err(|error| format!("write shrink trace: {error}"))?;
     let summary = ShrinkPairSummary {
         predicate: "cedar-opa-decision-divergence".to_owned(),
+        evaluation_method: "Cedar in-process request construction+authorization; OPA one-shot CLI per candidate including startup/policy loading/input parsing".to_owned(),
         initial_case_id: initial_case.case_id,
         initial_cedar_decision: initial_cedar,
         initial_opa_decision: initial_opa,
@@ -815,6 +843,10 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         minimized_cedar_decision: minimized_cedar,
         minimized_opa_decision: minimized_opa,
         candidate_evaluations: result.trace.candidate_evaluations,
+        opa_candidate_process_evaluations: opa_candidate_process_evaluations.get(),
+        cedar_candidate_latency: timing_summary(&cedar_candidate_times),
+        opa_cli_candidate_latency: timing_summary(&opa_cli_candidate_times),
+        minimization_wall_ns,
         accepted_reductions: result.trace.accepted_reductions,
         complete: result.trace.complete,
         is_one_minimal: result.trace.is_one_minimal,
