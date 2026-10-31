@@ -159,7 +159,6 @@ struct Action {
 #[derive(Clone)]
 struct InformationState {
     state_id: String,
-    history_identity: String,
     observations: Vec<Value>,
     prior_actions: Vec<String>,
     stage: usize,
@@ -388,7 +387,6 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
             state_id.clone(),
             InformationState {
                 state_id,
-                history_identity,
                 observations,
                 prior_actions,
                 stage,
