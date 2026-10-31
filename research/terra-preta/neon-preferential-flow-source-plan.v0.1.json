@@ -63,7 +63,19 @@
       "expected_rows": null,
       "publisher_checksum": null,
       "local_sha256": null,
-      "license_status": "verify applicable NEON data-use terms at acquisition"
+      "license_status": "verify applicable NEON data-use terms at acquisition",
+      "recommended_data_strategy": {
+        "primary_time_index": "1-minute",
+        "not_for_event_reconstruction": "30-minute",
+        "package_for_full_qa_review": "expanded",
+        "parity_package": "basic",
+        "reason": "Current NEON tutorial documents 1-minute and 30-minute time indices; basic package includes finalQF while expanded package includes detailed quality flags and metrics. Preserve both package variants to audit the QA policy.",
+        "processing_boundary": "Do not assume 1-minute rows are already valid. Apply release-specific quality-flag logic before aggregation, preserve the raw flags, and emit 5-30 minute median series with per-bin completeness metadata."
+      },
+      "release_specific_qa_notes": [
+        "NEON RELEASE-2023 reprocessing removed calDefaultQM from affecting VSWCFinalQF while retaining calDefaultQM and calNEONQM as informational metrics in the expanded package.",
+        "Do not assume finalQF semantics are identical across releases. Pin the release-specific ATBD and issue log."
+      ]
     },
     {
       "source_id": "neon_precipitation_legacy",
@@ -151,7 +163,9 @@
     "Reproduce the legacy eventizer and historical split before making any new-model comparison.",
     "Do not treat the 2025 17-ecoregion NEON paper as an independent external dataset; reconcile overlapping sites/sensors/events.",
     "Acquire and audit the HydroShare v1.1 NEON Soil Preferential Flow Database as a derived fast-start benchmark, recording external file URLs, exact filenames, publisher checksums, local SHA-256 and file-level license notices.",
-    "Reconcile HydroShare v1.1 source lineage and event/sensor/site fields against Li et al. (2026); do not treat it as an independent site holdout or independent reference method."
+    "Reconcile HydroShare v1.1 source lineage and event/sensor/site fields against Li et al. (2026); do not treat it as an independent site holdout or independent reference method.",
+    "For DP1.00094.001, acquire 1-minute observations and expanded-package QA fields; acquire the basic package for finalQF parity comparison. Do not use 30-minute averages for the 10-minute event detector.",
+    "Generate a versioned 5/10/15/20/30-minute median aggregator report with bin coverage and QA counts; see TERRA-NEON-QA-001."
   ],
   "derived_datasets": [
     {
