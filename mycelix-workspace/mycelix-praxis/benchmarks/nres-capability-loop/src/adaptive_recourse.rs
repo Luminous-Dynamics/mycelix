@@ -1388,7 +1388,7 @@ mod tests {
     fn nested_cvar_keeps_one_action_per_observable_information_state() {
         let report = evaluate_nested_cvar_comparison(&risk_fixture(0.9)).unwrap();
         let policy = report["nested"]["policy"].as_object().unwrap();
-        assert_eq!(policy.len(), 7);
+        assert_eq!(policy.len(), 5);
         assert_eq!(report["nonanticipativity_semantics"], json!("both optimizers choose one action per explicit observable information state"));
     }
 
@@ -1403,7 +1403,8 @@ mod tests {
         let mut fixture = risk_fixture(0.9);
         fixture["information_states"][2]["service_levels"]["water"] = json!(40.0);
         let report = evaluate_nested_cvar_comparison(&fixture).unwrap();
-        assert_eq!(report["nested"]["policy"]["B"], Value::Null);
+        assert!(report["nested"].is_null());
+        assert!(report["static_terminal"].is_null());
     }
 
     #[test]
