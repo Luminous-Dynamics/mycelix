@@ -111,6 +111,7 @@ struct DepthTimeSummary {
     roster_sensor_count: usize,
     valid_observed_sensor_count: usize,
     non_usable_condition_count: usize,
+    invalid_baseline_count: usize,
     missing_sample_count: usize,
     interpolated_sample_count: usize,
     observed_sample_count_excluded_by_condition: usize,
@@ -408,6 +409,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             let mut valid_values = Vec::new();
             let mut distinct_positions: Vec<(f64, f64)> = Vec::new();
             let mut non_usable_count = 0usize;
+            let mut invalid_baseline_count = 0usize;
             let mut missing_count = 0usize;
             let mut interpolated_count = 0usize;
             let mut observed_excluded_by_condition = 0usize;
@@ -433,6 +435,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                         if sensor.baseline_status != SampleStatus::Observed
                             || sensor.baseline_theta.is_none()
                         {
+                            invalid_baseline_count += 1;
                             None
                         } else {
                             match sample.status {
@@ -508,6 +511,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 roster_sensor_count: depth_sensors.len(),
                 valid_observed_sensor_count: valid_count,
                 non_usable_condition_count: non_usable_count,
+                invalid_baseline_count,
                 missing_sample_count: missing_count,
                 interpolated_sample_count: interpolated_count,
                 observed_sample_count_excluded_by_condition: observed_excluded_by_condition,
@@ -661,6 +665,26 @@ mod tests {
         assert_eq!(last.positive_response_fraction, Some(0.5));
         assert_eq!(last.semivariogram.iter().map(|bin| bin.pair_count).sum::<usize>(), 6);
         assert!(last.median_absolute_deviation_delta_theta_m3_m3.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn homogeneous_matrix_only_control_has_zero_event_spatial_dispersion() {
+        let mut input = fixture();
+        for sensor in &mut input.sensors {
+            for observation in sensor.observations.iter_mut().skip(1) {
+                observation.volumetric_water_content_m3_m3 = Some(0.20);
+            }
+        }
+        let report = evaluate(&input, "h".repeat(64)).unwrap();
+        let last = &report.summaries[1];
+        assert_eq!(last.positive_response_count, 0);
+        assert_eq!(last.positive_response_fraction, Some(0.0));
+        assert_eq!(last.minimum_delta_theta_m3_m3, Some(0.0));
+        assert_eq!(last.maximum_delta_theta_m3_m3, Some(0.0));
+        assert_eq!(last.population_std_delta_theta_m3_m3, Some(0.0));
+        assert!(last.semivariogram.iter().all(|bin| {
+            bin.semivariance_theta_squared.is_none_or(|value| value == 0.0)
+        }));
     }
 
     #[test]
