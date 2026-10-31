@@ -35,4 +35,6 @@ This is an object-resolved **2D geometry-derived** pore-retention estimate. It d
 
 Implementation tracker: [TERRA-HIRMAS-PORE-001](https://github.com/Luminous-Dynamics/mycelix/issues/5568).
 
+Acceptance contract: [Hirmas Dynamic Morphology Reproduction Benchmark](../../HIRMAS_DYNAMIC_MORPHOLOGY_REPRODUCTION_BENCHMARK_V0.1.md).
+
 Reference: Hirmas et al. (2025), Water Resources Research 61(9), e2024WR039836, DOI 10.1029/2024WR039836. Dataset: Dryad DOI 10.5061/dryad.zs7h44jkn (CC0 1.0).
