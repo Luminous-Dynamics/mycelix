@@ -84,11 +84,15 @@ All tracks share site/sensor identity and train/validation/test split manifests,
 
 ## 7. Implementation status
 
+- `tools/neon-swc-normalizer/` executes declared soil-water QA mappings and 1-minute-to-10-minute median aggregation; it preserves insufficient-coverage bins as missing and records each source/config digest.
+- `tools/neon-precip-normalizer/` maps separate 5-minute primary and 1-minute secondary gauge CSVs, applies explicitly configured QA filters, prefers secondary where present without pooling, and emits both literal paper-rule and coverage-aware rainfall tracks. It highlights that a literal fewer-than-five-good threshold makes 5-minute primary 10-minute bins zero-imputed even though at most two source samples exist; resolve this with author code before claiming exact reproduction.
 - `tools/preferential-flow-eventizer/` implements event grouping and response calculation on normalized 10-minute data; it does not parse NEON packages or apply the source QA filters.
 - `tools/inventory-neon-data.sh` records per-site Data Query responses and file metadata without downloading data.
 - `tools/acquire-neon-data.sh` downloads selected NEON files and verifies file size/MD5 plus local SHA-256 after the user supplies a local API token.
 - `tools/profile-flow-audit/` implements NSR as a separate diagnostic with interval-censored response timing; it must not be inserted into the 2026 ResNet reproduction target. Pair order is considered robust only when response intervals are strictly separated; overlap is reported as ambiguous.
 - `tools/pf-threshold-audit/` tests sensitivity across Rosetta Ksat and modelled matrix-velocity threshold families without assuming an undocumented log base.
+
+The soil-water and precipitation normalizers together still do not constitute a full raw NEON package parser. Product-specific variable names, detailed QA semantics, maximum-profile-porosity provenance, source release, aggregation alignment and sensor mapping must be configured from each pinned release's variables/ATBD and independently reviewed.
 
 Implementation tracker: [TERRA-NEON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5537).
 
