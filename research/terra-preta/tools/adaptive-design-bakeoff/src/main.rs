@@ -721,6 +721,8 @@ fn run_benchmark(bytes: &[u8]) -> Result<Report, Box<dyn Error>> {
         warnings: vec![
             "Evaluator-only synthetic truth is excluded from the PolicyAction type and used only after selection.".to_owned(),
             "The R-IDeA-inspired comparator is a transparent benchmark score, not a reproduction of the published R-IDeA method.".to_owned(),
+            "The v0.1 utility is additive and model scores are static; action redundancy, complementarity, and sequential posterior updating are not modeled.".to_owned(),
+            "The EIG policy is a supplied-score proxy, not a full Bayesian optimal-design implementation.".to_owned(),
             "Results are specific to this synthetic scenario and do not establish soil efficacy or general policy superiority.".to_owned(),
             "Eligibility is a supplied synthetic flag; this tool has no permission, safety, regulatory, landholder, or institutional authority.".to_owned(),
         ],
