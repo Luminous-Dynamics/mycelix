@@ -2,7 +2,7 @@
   "benchmark_id": "PRAXIS-NRES-016-EX1-NESTED-MEAN-CVAR-CONFORMANCE-001",
   "schema_version": "1.0.0",
   "evaluation_split": "public-development-only",
-  "authored_rust_unit_tests": 20,
+  "authored_rust_unit_tests": 22,
   "invalid_input_controls": [
     "EX1 fixture is not explicitly synthetic and public-development-only",
     "curriculum activation set true",
@@ -26,11 +26,14 @@
     "lambda=0 reduces the one-period map to expectation",
     "lambda approaches one from below but remains strictly monotone",
     "lambda=1 is rejected",
-    "alpha=0 computes mean-CVaR mixture with upper support maximum as CVaR",
     "one-point loss distribution has CVaR equal to its only loss",
     "fractional upper-tail mass is handled by the Rockafellar-Uryasev formula",
     "a different branch dominates terminal tail while a local gamble reverses under nested risk",
-    "all candidate policies violate a pathwise service floor and the report is explicitly infeasible/null"
+    "all candidate policies violate a pathwise service floor and the report is explicitly infeasible/null",
+    "lambda=0 reduces the one-period map and nested recursion to expected cost",
+    "lambda just below one remains admissible and strictly monotone",
+    "alpha=0 reduces CVaR_0 to expectation under the upper-loss Rockafellar-Uryasev convention",
+    "alpha approaching one from below approaches the maximum support loss"
   ],
   "round_trip_requirements": [
     "risk confidence alpha and lambda remain unchanged in evaluator output",
