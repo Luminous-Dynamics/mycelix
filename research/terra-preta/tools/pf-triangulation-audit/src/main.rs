@@ -281,18 +281,6 @@ fn proxy_concordance(vt: ProxyStatus, trajectory: ProxyStatus) -> &'static str {
     }
 }
 
-fn reference_assessment(supporting: usize, not_supporting: usize, indeterminate: usize) -> &'static str {
-    match (supporting > 0, not_supporting > 0, indeterminate > 0) {
-        (true, true, _) => "unverified_reference_claims_only",
-        (true, false, true) => "supports_bypass_with_indeterminate_references",
-        (true, false, false) => "supports_bypass",
-        (false, true, true) => "does_not_support_bypass_with_indeterminate_references",
-        (false, true, false) => "does_not_support_bypass",
-        (false, false, true) => "unverified_reference_claims_only",
-        (false, false, false) => "no_independent_reference",
-    }
-}
-
 fn validate(input: &Input) -> Result<(), String> {
     if input.schema_version != "0.1.0" {
         return Err(format!("unsupported schema_version {:?}", input.schema_version));
@@ -679,7 +667,7 @@ mod tests {
         assert_eq!(report.neither_proxy_evaluable_count, 1);
         assert_eq!(report.velocity_indeterminate_count, 1);
         assert_eq!(report.trajectory_indeterminate_count, 1);
-        assert_eq!(report.nsr_profile_signature, "nonsequential_response");
+        assert_eq!(report.nsr_profile_signature, "nonsequential_response_detected");
     }
 
     #[test]
@@ -695,7 +683,7 @@ mod tests {
     }
 
     #[test]
-    fn independent_reference_conflict_is_preserved() {
+    fn conflicting_reference_claims_are_retained_but_not_adjudicated() {
         let mut data = input();
         data.independent_references.push(IndependentReference {
             reference_id: "ERT-01".to_owned(),
@@ -714,6 +702,8 @@ mod tests {
             report.independent_reference_assessment,
             "unverified_reference_claims_only"
         );
+        assert_eq!(report.eligible_independent_reference_count, 0);
+        assert_eq!(report.unverified_review_claim_count, 2);
         assert_eq!(
             report.physical_claim_status,
             "not_adjudicated_external_attestation_verifier_required"
@@ -721,7 +711,7 @@ mod tests {
     }
 
     #[test]
-    fn independent_reference_not_supporting_is_not_overridden_by_proxy_majority() {
+    fn self_declared_non_support_claim_is_not_physical_adjudication() {
         let mut data = input();
         data.independent_references[0].outcome = ReferenceOutcome::DoesNotSupportBypass;
         let report = evaluate(&data, "2".repeat(64)).unwrap();
@@ -733,7 +723,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_independent_supports_are_not_a_proxy_vote() {
+    fn multiple_self_declared_support_claims_are_not_eligible() {
         let mut data = input();
         data.independent_references.push(IndependentReference {
             reference_id: "DYE-01".to_owned(),
@@ -741,6 +731,9 @@ mod tests {
             profile_id: "PROFILE-01".to_owned(),
             method: ReferenceMethod::DyeTracer,
             outcome: ReferenceOutcome::SupportsBypass,
+            review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
+            quality_status: ReferenceQualityStatus::Qualified,
+            reviewer_evidence_ref_claimed: Some("synthetic self-declared review reference".to_owned()),
             evidence_ref: "synthetic dye map".to_owned(),
             detection_limit_or_resolution: "image pixel 1 mm".to_owned(),
         });
@@ -752,7 +745,7 @@ mod tests {
     }
 
     #[test]
-    fn indeterminate_independent_reference_is_retained() {
+    fn self_declared_indeterminate_claim_is_not_eligible() {
         let mut data = input();
         data.independent_references[0].outcome = ReferenceOutcome::Indeterminate;
         let report = evaluate(&data, "4".repeat(64)).unwrap();
@@ -760,6 +753,7 @@ mod tests {
             report.independent_reference_assessment,
             "unverified_reference_claims_only"
         );
+        assert_eq!(report.eligible_independent_reference_count, 0);
         assert_eq!(
             report.physical_claim_status,
             "not_adjudicated_external_attestation_verifier_required"
@@ -779,6 +773,9 @@ mod tests {
             profile_id: "PROFILE-01".to_owned(),
             method: ReferenceMethod::DyeTracer,
             outcome: ReferenceOutcome::SupportsBypass,
+            review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
+            quality_status: ReferenceQualityStatus::Qualified,
+            reviewer_evidence_ref_claimed: Some("synthetic self-declared review reference".to_owned()),
             evidence_ref: "duplicate".to_owned(),
             detection_limit_or_resolution: "unknown".to_owned(),
         });
