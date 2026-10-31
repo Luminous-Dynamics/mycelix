@@ -35,6 +35,11 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml -- --check
       - name: Run policy and leakage tests
         run: cargo test --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml
+      - name: Validate scenario instance against schema
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/adaptive-design-bakeoff/scenario.schema.json \
+            research/terra-preta/tools/adaptive-design-bakeoff/fixtures/synthetic-adaptive-scenario.json
       - name: Execute deterministic synthetic bake-off
         run: |
           cargo run --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml -- \
