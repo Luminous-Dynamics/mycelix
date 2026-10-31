@@ -350,7 +350,7 @@ fn validate_dynamic(config: &Config, report: &DynamicReport) -> Result<(), Strin
             &format!("time_points[{index}].timestamp_utc"),
         )?;
         if let Some(previous) = &previous_time {
-            if timestamp <= *previous {
+            if timestamp <= previous.clone() {
                 return Err("dynamic report time points must be strictly chronological with no duplicate timestamps".to_owned());
             }
         }
@@ -665,6 +665,17 @@ mod tests {
             perimeter_mm: perimeter,
             dry_min_feret_mm: min_feret,
         }
+    }
+
+    #[test]
+    fn parse_utc_requires_explicit_zero_offset() {
+        assert!(parse_utc("2026-01-01T00:00:00+01:00", "timestamp").unwrap_err().contains("zero UTC offset"));
+        assert!(parse_utc("2026-01-01T00:00:00Z", "timestamp").is_ok());
+    }
+
+    #[test]
+    fn parse_utc_rejects_invalid_timestamp() {
+        assert!(parse_utc("not-a-timestamp", "timestamp").unwrap_err().contains("invalid RFC3339"));
     }
 
     #[test]
