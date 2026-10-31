@@ -146,10 +146,21 @@ jobs:
               (.[$i].candidate_sha256 | length == 64) and
               (.[$i].predicate_preserved != null) and
               (.[$i].evaluation_error == null) and
-              (if .[$i].predicate_preserved == true then
-                 .[$i].cedar_determining_policy_ids == $summary[0].initial_cedar_determining_policy_ids and
-                 .[$i].opa_rule_id == $summary[0].initial_opa_rule_id
-               else true end)
+              (if .[$i].candidate_status == "input_rejected_before_engines" then
+                 .[$i].cedar_decision == null and
+                 .[$i].opa_decision == null and
+                 .[$i].input_rejection != null and
+                 .[$i].predicate_preserved == false
+               else
+                 .[$i].candidate_status == "evaluated" and
+                 .[$i].cedar_decision != null and
+                 .[$i].opa_decision != null and
+                 .[$i].input_rejection == null and
+                 (if .[$i].predicate_preserved == true then
+                    .[$i].cedar_determining_policy_ids == $summary[0].initial_cedar_determining_policy_ids and
+                    .[$i].opa_rule_id == $summary[0].initial_opa_rule_id
+                  else true end)
+               end)
             ) and
             ([.[] | select(.predicate_preserved == true)] | length) ==
               $summary[0].accepted_reductions
