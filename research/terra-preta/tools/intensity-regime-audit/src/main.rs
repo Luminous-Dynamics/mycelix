@@ -200,6 +200,7 @@ fn validate(input: &Input) -> Result<(), String> {
     }
 
     let mut seen = HashSet::new();
+    let mut site_ecoregions = HashMap::<&str, &str>::new();
     for (index, event) in input.events.iter().enumerate() {
         for (value, label) in [
             (&event.site_id, "site_id"),
@@ -214,6 +215,17 @@ fn validate(input: &Input) -> Result<(), String> {
                 "duplicate rainfall event {:?} for site {:?}",
                 event.event_id, event.site_id
             ));
+        }
+        if let Some(previous_ecoregion) = site_ecoregions.insert(
+            event.site_id.as_str(),
+            event.ecoregion_id.as_str(),
+        ) {
+            if previous_ecoregion != event.ecoregion_id {
+                return Err(format!(
+                    "site {:?} is assigned to multiple ecoregions",
+                    event.site_id
+                ));
+            }
         }
         if !event.rainfall_total_mm.is_finite() || event.rainfall_total_mm < 0.0 {
             return Err(format!("events[{index}].rainfall_total_mm must be finite and non-negative"));
@@ -304,8 +316,6 @@ fn evaluate(input: &Input, input_sha256: String) -> Report {
             site_ids.push(event.site_id.clone());
             site_ecoregions.insert(event.site_id.clone(), event.ecoregion_id.clone());
             site_band_counts.push([SiteBandCounts::default(); BAND_COUNT]);
-        } else if site_ecoregions.get(&event.site_id) != Some(&event.ecoregion_id) {
-            // Keep site grouping stable; cross-ecoregion site metadata must be resolved upstream.
         }
 
         let eligible = event.rainfall_total_mm >= RAINFALL_ELIGIBILITY_MM;
@@ -539,6 +549,13 @@ mod tests {
         assert_eq!(report_a.bands[2].methods[0].identification_lower_bound, Some(0.0));
         assert_eq!(report_a.bands[2].methods[0].identification_upper_bound, Some(1.0));
         assert_eq!(report_a.bands[3].methods[0].site_cluster_bootstrap_95pct, report_b.bands[3].methods[0].site_cluster_bootstrap_95pct);
+    }
+
+    #[test]
+    fn rejects_site_assigned_to_multiple_ecoregions() {
+        let mut input = fixture();
+        input.events[1].ecoregion_id = "other-ecoregion".to_owned();
+        assert!(validate(&input).unwrap_err().contains("assigned to multiple ecoregions"));
     }
 
     #[test]
