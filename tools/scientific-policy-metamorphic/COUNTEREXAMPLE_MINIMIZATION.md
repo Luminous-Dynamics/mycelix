@@ -1,6 +1,6 @@
 # Authorization Counterexample Minimization v0.1
 
-Status: contract plus a generic deterministic JSON reducer implementation in src/shrink.rs. Engine-integrated Cedar/OPA minimization and Rust-oracle parity remain unimplemented.
+Status: contract plus generic Rust reducer and first Cedar/OPA integrated shrink mode. The current workflow minimizes a deliberately seeded candidate-policy divergence; authentic Rust-oracle mismatch minimization remains blocked.
 
 ## 1. Why minimize?
 
@@ -86,6 +86,30 @@ For OPA, use its native bench/profiler for in-process measurements and separatel
 
 The actual Mycelix Rust authorization implementation and canonical v1 input/output contract remain required before parity can be claimed. Keep results explicitly pending until authentic source, policy artifacts and a reference contract are recovered. A second Cedar or OPA implementation is not a substitute for the missing Rust oracle.
 
-## 9. Claim ceiling
+## 9. First Cedar/OPA integration
+
+The current branch adds `--shrink-pair` to the Cedar runner. It consumes one
+paired engine-input JSON object, checks OPA 1.22.0, loads and strictly validates
+Cedar 4.14.0 policy/schema, and first confirms that the source case produces
+different decisions. It then calls the generic shrinker while preserving the
+exact initial decision direction.
+
+Every candidate is deserialized into the paired case shape. Invalid schema or
+entity reductions are treated as non-preserving candidates. Cedar policy
+evaluation diagnostics and OPA process failures are indeterminate and stop a
+minimality claim. OPA is invoked via a five-second-bounded one-shot
+`opa eval --stdin-input` process per valid candidate; Cedar is evaluated
+in-process. The output records these timings separately and labels the OPA
+measurement as including CLI startup and policy loading.
+
+The CI seed is intentional: select the source-pinned claim-proposed contributor
+case, remove the contributor role from the Rego projection only, and retain it
+in the Cedar entity projection. The predicate is therefore known to be Cedar
+Allow / OPA Deny. The workflow requires that exact divergence to persist in the
+minimized case and requires a completed 1-minimal trace. This tests the
+counterexample tooling end to end; it is not an observed discrepancy from the
+authentic Rust implementation and does not establish Cedar/OPA equivalence.
+
+## 10. Claim ceiling
 
 A completed shrink run establishes that a declared engine/policy predicate is preserved by the recorded deterministic reduction sequence and is 1-minimal in the declared finite neighborhood. It does not establish global minimality, policy correctness, formal equivalence, or parity with Mycelix Rust authorization.
