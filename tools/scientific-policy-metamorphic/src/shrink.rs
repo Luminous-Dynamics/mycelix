@@ -281,7 +281,9 @@ impl<'de> Visitor<'de> for StrictJsonValueVisitor {
     }
 }
 
-fn parse_unique_json(input: &[u8]) -> Result<Value, ShrinkError> {
+/// Parse untrusted JSON while rejecting duplicate keys, invalid Unicode,
+/// non-finite numeric values and trailing content before a Value is created.
+pub fn parse_unique_json_bytes(input: &[u8]) -> Result<Value, ShrinkError> {
     let mut deserializer = serde_json::Deserializer::from_slice(input);
     let value = StrictJsonSeed
         .deserialize(&mut deserializer)
@@ -617,7 +619,7 @@ where
             "candidate evaluation budget exceeds {MAX_CANDIDATE_EVALUATIONS}"
         )));
     }
-    let decoded_source = parse_unique_json(source_input_bytes)?;
+    let decoded_source = parse_unique_json_bytes(source_input_bytes)?;
     if decoded_source != *input {
         return Err(ShrinkError(
             "exact source input bytes do not decode to the supplied JSON value".to_owned(),
@@ -915,20 +917,20 @@ mod tests {
             br#"{"outer":{"a":1,"a":2}}"#.as_slice(),
             br#"{"a":1,"\u0061":2}"#.as_slice(),
         ] {
-            assert!(parse_unique_json(input).is_err());
+            assert!(parse_unique_json_bytes(input).is_err());
         }
     }
 
     #[test]
     fn strict_source_parser_rejects_invalid_utf8_and_unpaired_surrogates() {
-        assert!(parse_unique_json(&[0xff, 0x7b, 0x7d]).is_err());
-        assert!(parse_unique_json(br#"{"bad":"\uD800"}"#).is_err());
-        assert!(parse_unique_json(br#"{"bad":"\uDC00"}"#).is_err());
+        assert!(parse_unique_json_bytes(&[0xff, 0x7b, 0x7d]).is_err());
+        assert!(parse_unique_json_bytes(br#"{"bad":"\uD800"}"#).is_err());
+        assert!(parse_unique_json_bytes(br#"{"bad":"\uDC00"}"#).is_err());
     }
 
     #[test]
     fn accepts_unique_json_with_nested_arrays_and_unicode() {
-        let parsed = parse_unique_json(
+        let parsed = parse_unique_json_bytes(
             br#"{"outer":[{"music":"\uD834\uDD1E"}],"plain":"é"}"#,
         )
         .unwrap();
