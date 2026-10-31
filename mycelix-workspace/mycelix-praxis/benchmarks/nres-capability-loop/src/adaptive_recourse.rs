@@ -807,7 +807,7 @@ fn combine_path_plans(
     for plan in chosen.values() {
         for (child_state, child_action) in &plan.policy {
             if let Some(previous) = policy.insert(child_state.clone(), child_action.clone()) {
-                if previous != *child_action {
+                if previous.as_str() != child_action.as_str() {
                     return;
                 }
             }
@@ -1045,7 +1045,7 @@ pub fn evaluate_nested_cvar_comparison(fixture: &Value) -> Result<Value, Vec<Str
         let expected = mean_cost(&plan.outcomes);
         let replace = match &static_best {
             None => true,
-            Some((best_cvar, best_mean, best_plan))
+            Some((best_cvar, _, _))
                 if terminal_cvar < *best_cvar - TOLERANCE => true,
             Some((best_cvar, best_mean, _))
                 if (terminal_cvar - *best_cvar).abs() <= TOLERANCE
