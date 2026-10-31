@@ -32,6 +32,8 @@ struct Input {
 struct ImageMetadata {
     dimensions_voxels_xyz: [usize; 3],
     voxel_spacing_um_xyz: [f64; 3],
+    /// v0.1 currently supports z as the vertical axis; importers must reorder axes explicitly.
+    vertical_axis: String,
     source_image_sha256: String,
 }
 
@@ -137,6 +139,7 @@ struct Report {
     horizon_id: String,
     image_dimensions_voxels_xyz: [usize; 3],
     voxel_spacing_um_xyz: [f64; 3],
+    vertical_axis: String,
     sample_volume_um3: f64,
     total_extracted_pore_volume_um3: f64,
     extracted_pore_volume_fraction: f64,
@@ -206,6 +209,9 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, HashMap<String, usize>
     }
 
     valid_sha256(&input.image.source_image_sha256, "image.source_image_sha256")?;
+    if input.image.vertical_axis != "z" {
+        return Err("v0.1 requires image.vertical_axis = \"z\"; reorder dimensions, spacing and pore coordinates before import".to_owned());
+    }
     valid_sha256(&input.segmentation.output_sha256, "segmentation.output_sha256")?;
     valid_sha256(&input.network.source_network_sha256, "network.source_network_sha256")?;
 
@@ -399,9 +405,13 @@ fn widest_path_bottleneck(input: &Input, graph: &[Vec<(usize, usize)>], throats:
         if state.score < best[state.node] {
             continue;
         }
-        if input.network.pores[state.node].touches_bottom_boundary {
+        if input.network.pores[state.node].touches_bottom_boundary && state.score.is_finite() {
             return Some(state.score);
         }
+        // A single pore may be labelled as touching both sample faces. That is
+        // topological percolation but has no throat bottleneck radius; keep
+        // exploring for any finite, throat-bearing alternative path.
+
         for &(neighbor, edge_index) in &graph[state.node] {
             let candidate = state.score.min(throats[edge_index].radius_um);
             if candidate > best[neighbor] {
@@ -504,6 +514,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         horizon_id: input.horizon_id.clone(),
         image_dimensions_voxels_xyz: input.image.dimensions_voxels_xyz,
         voxel_spacing_um_xyz: input.image.voxel_spacing_um_xyz,
+        vertical_axis: input.image.vertical_axis.clone(),
         sample_volume_um3,
         total_extracted_pore_volume_um3,
         extracted_pore_volume_fraction: total_pore_volume_um3 / sample_volume_um3,
@@ -612,6 +623,7 @@ mod tests {
             image: ImageMetadata {
                 dimensions_voxels_xyz: [10, 10, 100],
                 voxel_spacing_um_xyz: [100.0, 100.0, 100.0],
+                vertical_axis: "z".to_owned(),
                 source_image_sha256: "a".repeat(64),
             },
             segmentation: SegmentationMetadata {
@@ -711,6 +723,30 @@ mod tests {
         let report = evaluate(&input, "1".repeat(64)).unwrap();
         assert!((report.extracted_pore_volume_fraction - 0.02).abs() < 1.0e-12);
         assert!((report.percolating_pore_volume_fraction_at_zero_threshold - 0.5).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn rejects_undeclared_or_unsupported_vertical_axis() {
+        let mut input = base(
+            vec![pore("top", 0.0, 100.0, true, false), pore("bottom", 99.0, 100.0, false, true)],
+            vec![throat("path", "top", "bottom", 9900.0, 20.0)],
+            vec![0.0],
+        );
+        input.image.vertical_axis = "y".to_owned();
+        assert!(validate(&input).unwrap_err().contains("vertical_axis"));
+    }
+
+    #[test]
+    fn single_pore_spanning_both_boundaries_does_not_emit_infinite_bottleneck() {
+        let input = base(
+            vec![pore("spanning", 49.5, 100.0, true, true)],
+            vec![],
+            vec![0.0],
+        );
+        let report = evaluate(&input, "9".repeat(64)).unwrap();
+        assert!(report.top_bottom_percolates_at_zero_threshold);
+        assert_eq!(report.widest_top_bottom_path_bottleneck_radius_um, None);
+        assert_eq!(report.shortest_top_bottom_path_length_um, Some(0.0));
     }
 
     #[test]
