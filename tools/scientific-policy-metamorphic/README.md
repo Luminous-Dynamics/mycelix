@@ -4,6 +4,29 @@ A standalone Rust tool that creates deterministic transformations of the frozen
 62,464-row Cedar/OPA input corpus. It does not calculate expected Allow/Deny
 decisions and does not depend on the missing Rust authorization oracle.
 
+
+## Deterministic counterexample shrinking
+
+The crate now exports `shrink::minimize_json`, a generic deterministic reducer
+that preserves a caller-supplied predicate. It explores a finite, documented
+neighborhood of JSON reductions: object-member removal, array-element removal,
+empty/shortened strings, numeric simplification and true-to-false changes.
+Callers can protect JSON Pointer paths such as `/principal`, `/action` and
+`/resource` so an authorization counterexample retains its request identity.
+
+Each candidate records its sequence, JSON Pointer, operation, before/candidate
+SHA-256, predicate outcome and any evaluation error. A complete trace claims
+only 1-minimality in that exact reduction neighborhood. Candidate-budget
+exhaustion or an evaluation error returns an incomplete trace and never
+claims minimality. The original input must satisfy the predicate before
+shrinking begins.
+
+Initial tests cover deterministic output, protected identity fields, nested
+resource protection, budget exhaustion, predicate errors and removal of
+irrelevant context/entities. This is a generic JSON reducer: it is not yet
+wired to invoke Cedar/OPA or to minimize the 62,464-case engine corpus. It
+makes no Rust authorization parity or policy-correctness claim.
+
 ## Run
 
 ```sh
