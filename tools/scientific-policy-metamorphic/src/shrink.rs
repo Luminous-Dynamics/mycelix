@@ -59,10 +59,17 @@ pub struct ShrinkResult {
 }
 
 #[derive(Debug, Clone)]
+enum ReductionKind {
+    RemoveObjectMember,
+    RemoveArrayElement,
+    ReplaceValue(Value),
+}
+
+#[derive(Debug, Clone)]
 struct Reduction {
     path: String,
     operation: String,
-    value: Value,
+    kind: ReductionKind,
 }
 
 fn stable_json_bytes(value: &Value, output: &mut Vec<u8>) -> Result<(), ShrinkError> {
@@ -127,20 +134,16 @@ fn is_protected(path: &str, protected_paths: &BTreeSet<String>) -> bool {
     })
 }
 
-fn push_if_changed(
+fn push_reduction(
     output: &mut Vec<Reduction>,
-    path: String,
-    operation: &str,
-    candidate: Value,
-    current: &Value,
-) {
-    if &candidate != current {
-        output.push(Reduction {
-            path,
-            operation: operation.to_owned(),
-            value: candidate,
-        });
+    reduction: Reduction,
+    limit: usize,
+) -> bool {
+    if output.len() >= limit {
+        return false;
     }
+    output.push(reduction);
+    true
 }
 
 fn collect_reductions(
@@ -148,9 +151,10 @@ fn collect_reductions(
     path: &str,
     protected_paths: &BTreeSet<String>,
     output: &mut Vec<Reduction>,
-) {
+    limit: usize,
+) -> bool {
     if is_protected(path, protected_paths) {
-        return;
+        return false;
     }
 
     match current {
@@ -162,89 +166,181 @@ fn collect_reductions(
                 if is_protected(&child_path, protected_paths) {
                     continue;
                 }
-                let mut candidate = object.clone();
-                candidate.remove(key);
-                push_if_changed(
+                if !push_reduction(
                     output,
-                    child_path,
-                    "remove_object_member",
-                    Value::Object(candidate),
-                    current,
-                );
+                    Reduction {
+                        path: child_path,
+                        operation: "remove_object_member".to_owned(),
+                        kind: ReductionKind::RemoveObjectMember,
+                    },
+                    limit,
+                ) {
+                    return true;
+                }
             }
             for key in &keys {
                 if let Some(value) = object.get(key) {
                     let child_path = format!("{path}/{}", escape_pointer_token(key));
-                    collect_reductions(value, &child_path, protected_paths, output);
+                    if collect_reductions(value, &child_path, protected_paths, output, limit) {
+                        return true;
+                    }
                 }
             }
         }
         Value::Array(values) => {
             for index in (0..values.len()).rev() {
-                let mut candidate = values.clone();
-                candidate.remove(index);
-                push_if_changed(
+                if !push_reduction(
                     output,
-                    format!("{path}/{index}"),
-                    "remove_array_element",
-                    Value::Array(candidate),
-                    current,
-                );
+                    Reduction {
+                        path: format!("{path}/{index}"),
+                        operation: "remove_array_element".to_owned(),
+                        kind: ReductionKind::RemoveArrayElement,
+                    },
+                    limit,
+                ) {
+                    return true;
+                }
             }
             for (index, value) in values.iter().enumerate() {
                 let child_path = format!("{path}/{index}");
-                collect_reductions(value, &child_path, protected_paths, output);
+                if collect_reductions(value, &child_path, protected_paths, output, limit) {
+                    return true;
+                }
             }
         }
         Value::String(value) => {
-            push_if_changed(
-                output,
-                path.to_owned(),
-                "replace_string_with_empty",
-                Value::String(String::new()),
-                current,
-            );
-            if let Some(first) = value.chars().next() {
-                push_if_changed(
+            let empty = Value::String(String::new());
+            if &empty != current
+                && !push_reduction(
                     output,
-                    path.to_owned(),
-                    "shorten_string_to_first_scalar",
-                    Value::String(first.to_string()),
-                    current,
-                );
+                    Reduction {
+                        path: path.to_owned(),
+                        operation: "replace_string_with_empty".to_owned(),
+                        kind: ReductionKind::ReplaceValue(empty),
+                    },
+                    limit,
+                )
+            {
+                return true;
+            }
+            if let Some(first) = value.chars().next() {
+                let shortened = Value::String(first.to_string());
+                if &shortened != current
+                    && !push_reduction(
+                        output,
+                        Reduction {
+                            path: path.to_owned(),
+                            operation: "shorten_string_to_first_scalar".to_owned(),
+                            kind: ReductionKind::ReplaceValue(shortened),
+                        },
+                        limit,
+                    )
+                {
+                    return true;
+                }
             }
         }
         Value::Number(_) => {
-            push_if_changed(
-                output,
-                path.to_owned(),
-                "replace_number_with_zero",
-                Value::Number(Number::from(0)),
-                current,
-            );
+            let zero = Value::Number(Number::from(0));
+            if &zero != current
+                && !push_reduction(
+                    output,
+                    Reduction {
+                        path: path.to_owned(),
+                        operation: "replace_number_with_zero".to_owned(),
+                        kind: ReductionKind::ReplaceValue(zero),
+                    },
+                    limit,
+                )
+            {
+                return true;
+            }
         }
         Value::Bool(value) => {
-            if *value {
-                push_if_changed(
+            if *value
+                && !push_reduction(
                     output,
-                    path.to_owned(),
-                    "replace_true_with_false",
-                    Value::Bool(false),
-                    current,
-                );
+                    Reduction {
+                        path: path.to_owned(),
+                        operation: "replace_true_with_false".to_owned(),
+                        kind: ReductionKind::ReplaceValue(Value::Bool(false)),
+                    },
+                    limit,
+                )
+            {
+                return true;
             }
         }
         Value::Null => {}
     }
+    false
 }
 
 fn encode_reductions(
     value: &Value,
     protected_paths: &BTreeSet<String>,
-) -> Vec<Reduction> {
+    limit: usize,
+) -> (Vec<Reduction>, bool) {
     let mut output = Vec::new();
-    collect_reductions(value, "", protected_paths, &mut output);
-    output
+    let truncated = collect_reductions(value, "", protected_paths, &mut output, limit);
+    (output, truncated)
+}
+
+fn decode_pointer_token(token: &str) -> String {
+    token.replace("~1", "/").replace("~0", "~")
+}
+
+fn apply_reduction(
+    current: &Value,
+    reduction: &Reduction,
+) -> Result<Value, ShrinkError> {
+    let mut candidate = current.clone();
+    match &reduction.kind {
+        ReductionKind::ReplaceValue(value) => {
+            if reduction.path.is_empty() {
+                candidate = value.clone();
+            } else {
+                let target = candidate
+                    .pointer_mut(&reduction.path)
+                    .ok_or_else(|| ShrinkError(format!("reduction target disappeared: {}", reduction.path)))?;
+                *target = value.clone();
+            }
+        }
+        ReductionKind::RemoveObjectMember | ReductionKind::RemoveArrayElement => {
+            let (parent_path, token) = reduction
+                .path
+                .rsplit_once('/')
+                .ok_or_else(|| ShrinkError(format!("invalid removal pointer: {}", reduction.path)))?;
+            let decoded = decode_pointer_token(token);
+            let parent = candidate
+                .pointer_mut(parent_path)
+                .ok_or_else(|| ShrinkError(format!("reduction parent disappeared: {parent_path}")))?;
+            match &reduction.kind {
+                ReductionKind::RemoveObjectMember => {
+                    let object = parent.as_object_mut().ok_or_else(|| {
+                        ShrinkError(format!("object reduction parent is not an object: {parent_path}"))
+                    })?;
+                    if object.remove(&decoded).is_none() {
+                        return Err(ShrinkError(format!("object reduction key disappeared: {decoded}")));
+                    }
+                }
+                ReductionKind::RemoveArrayElement => {
+                    let index = decoded.parse::<usize>().map_err(|_| {
+                        ShrinkError(format!("array reduction index is invalid: {decoded}"))
+                    })?;
+                    let array = parent.as_array_mut().ok_or_else(|| {
+                        ShrinkError(format!("array reduction parent is not an array: {parent_path}"))
+                    })?;
+                    if index >= array.len() {
+                        return Err(ShrinkError(format!("array reduction index is out of range: {index}")));
+                    }
+                    array.remove(index);
+                }
+                ReductionKind::ReplaceValue(_) => unreachable!(),
+            }
+        }
+    }
+    Ok(candidate)
 }
 
 /// Deterministically shrink an input while preserving a caller-provided
@@ -293,16 +389,16 @@ where
     let mut is_one_minimal = false;
 
     'shrink: loop {
-        let reductions = encode_reductions(&current, protected_paths);
+        let remaining_budget = max_candidate_evaluations - candidates.len();
+        let (reductions, truncated) =
+            encode_reductions(&current, protected_paths, remaining_budget);
         let before_sha256 = sha256(&current)?;
         let mut accepted = false;
 
         for reduction in reductions {
-            if candidates.len() >= max_candidate_evaluations {
-                break 'shrink;
-            }
-            let candidate_sha256 = sha256(&reduction.value)?;
-            let evaluation = predicate(&reduction.value);
+            let candidate = apply_reduction(&current, &reduction)?;
+            let candidate_sha256 = sha256(&candidate)?;
+            let evaluation = predicate(&candidate);
             let (predicate_preserved, accepted_candidate, evaluation_error) =
                 match evaluation {
                     Ok(preserved) => (Some(preserved), preserved, None),
@@ -323,7 +419,7 @@ where
                 break 'shrink;
             }
             if accepted_candidate {
-                current = reduction.value;
+                current = candidate;
                 accepted_reductions += 1;
                 accepted = true;
                 break;
@@ -332,6 +428,9 @@ where
 
         if accepted {
             continue;
+        }
+        if truncated {
+            break 'shrink;
         }
 
         complete = true;
