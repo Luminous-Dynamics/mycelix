@@ -518,6 +518,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/pf-triangulation-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml -- --check
       - name: Test standalone audit tools and JSON Schema conformance
         run: |
           cargo test --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml
@@ -550,6 +551,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml -- research/terra-preta/tools/known-truth-generator/fixtures/connected-macropore.json "$RUNNER_TEMP/terra-preta-known-truth-manifest.json" "$RUNNER_TEMP/terra-preta-model-visible-observations.json"
           jq -e '.scenario_family == "connected_macropore" and .true_macropore_path_connected == true and .total_macropore_deep_drainage_mm > 0 and .total_macropore_deep_tracer_mg_m2 > 0 and .max_abs_water_balance_residual_mm < 1e-10 and .max_abs_tracer_balance_residual_mg_m2 < 1e-10' "$RUNNER_TEMP/terra-preta-known-truth-manifest.json"
           jq -e '.observation_schema_version == "0.1.0" and .observation_operator == "synthetic_boundary_flux_aggregation_v0.1" and .measurement_model == "perfect_noiseless_boundary_collection" and (.observations | length == 12) and (.observations | all(has("matrix_water_mm") | not)) and (.observations | all(has("macropore_water_mm") | not))' "$RUNNER_TEMP/terra-preta-model-visible-observations.json"
+          cargo test --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml -- research/terra-preta/tools/dynamic-macropore-audit/fixtures/synthetic-konza-like-input.json "$RUNNER_TEMP/terra-preta-dynamic-macropore-report.json"
+          jq -e '.time_point_count == 3 and (.derived_geometry.dry_structural_unit_width_mm == 18) and (.time_points[0].macropore_width_mm == 2) and (.time_points[2].macropore_width_mm < .time_points[0].macropore_width_mm) and (.time_points[2].macropore_volume_fraction < .time_points[0].macropore_volume_fraction) and (.time_points | all(.[]; .whole_soil_transient_saturated_conductivity_m_s > 0)) and (.unsaturated_conductivity_status == "not_implemented_v0.1; no unsaturated conductivity claim")' "$RUNNER_TEMP/terra-preta-dynamic-macropore-report.json"
       - name: Test grouped split manifest fail-closed checks
         run: bash research/terra-preta/tools/test-split-manifest.sh
       - name: Lint standalone audit tools
@@ -569,6 +573,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/pf-triangulation-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml --all-targets -- -D warnings
 
   # Summary gate
   ci-pass:
