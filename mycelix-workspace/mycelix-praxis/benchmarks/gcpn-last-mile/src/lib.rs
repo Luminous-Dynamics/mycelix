@@ -15,7 +15,7 @@ pub const CHANNEL_NAMES: [&str; 4] = [
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cohort {
     pub cohort_id: String,
-    pub recipients: u64,
+    pub recipients: u32,
     /// Channel order is CHANNEL_NAMES.
     pub channel_access: [bool; 4],
     /// A channel can be accessible only when the cohort can receive that channel.
@@ -101,7 +101,7 @@ fn parse_bool(value: &str, field: &str) -> Result<bool, String> {
     }
 }
 
-fn parse_recipient_count(value: &str, field: &str) -> Result<u64, String> {
+fn parse_recipient_count(value: &str, field: &str) -> Result<u32, String> {
     // Bound individual synthetic cohort sizes to u32 so aggregate u64 sums
     // and duplicate-delivery multiplication remain overflow-safe.
     let count: u32 = value
@@ -110,7 +110,7 @@ fn parse_recipient_count(value: &str, field: &str) -> Result<u64, String> {
     if count == 0 {
         return Err(format!("{field} must be greater than zero"));
     }
-    Ok(u64::from(count))
+    Ok(count)
 }
 
 pub fn parse_cohorts(input: &str) -> Result<Vec<Cohort>, String> {
@@ -237,17 +237,17 @@ pub fn evaluate(scenario: &Scenario, cohorts: &[Cohort]) -> Evaluation {
             }
         }
 
-        let unique_delivered = if active_channels > 0 { cohort.recipients } else { 0 };
-        let accessible_delivered = if has_accessible_delivery { cohort.recipients } else { 0 };
+        let unique_delivered = if active_channels > 0 { recipients } else { 0 };
+        let accessible_delivered = if has_accessible_delivery { recipients } else { 0 };
         let duplicate_deliveries = if active_channels > 1 {
-            cohort.recipients * (active_channels - 1)
+            recipients * (active_channels - 1)
         } else {
             0
         };
 
         let result = CohortOutcome {
             cohort_id: cohort.cohort_id.clone(),
-            intended: cohort.recipients,
+            intended: recipients,
             unique_delivered,
             accessible_delivered,
             channel_receipts,
@@ -292,12 +292,21 @@ mod tests {
     }
 
     #[test]
-    fn fixtures_have_unique_ids_and_expected_population_total() {
+    fn fixtures_have_unique_ids_expected_totals_and_pinned_fingerprints() {
+        fn fnv1a64(bytes: &[u8]) -> u64 {
+            bytes.iter().fold(0xcbf29ce484222325u64, |mut hash, byte| {
+                hash ^= u64::from(*byte);
+                hash.wrapping_mul(0x100000001b3)
+            })
+        }
+        assert_eq!(fnv1a64(COHORT_FIXTURE.as_bytes()), 0x59f956045ca16c3d);
+        assert_eq!(fnv1a64(SCENARIO_FIXTURE.as_bytes()), 0x2a7269d9a7d4caee);
+
         let c = cohorts();
         let s = parse_scenarios(SCENARIO_FIXTURE).unwrap();
         assert_eq!(c.len(), 5);
         assert_eq!(s.len(), 10);
-        assert_eq!(c.iter().map(|x| x.recipients).sum::<u64>(), 2_700);
+        assert_eq!(c.iter().map(|x| u64::from(x.recipients)).sum::<u64>(), 2_700);
         assert_eq!(c.iter().map(|x| x.cohort_id.as_str()).collect::<HashSet<_>>().len(), 5);
         assert_eq!(s.iter().map(|x| x.scenario_id.as_str()).collect::<HashSet<_>>().len(), 10);
     }
