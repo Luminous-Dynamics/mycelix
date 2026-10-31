@@ -2,6 +2,7 @@ scenario_id,alert_authorized,central_hub_up,origin_to_central_up,central_remote_
 all-available,true,true,true,true,true,true,true,true,true,true,1000,600,400
 central-hub-outage,true,false,true,true,true,true,true,true,true,true,1000,600,400
 origin-central-uplink-loss,true,true,false,true,true,true,true,true,true,true,1000,600,400
+central-remote-path-outage,true,true,true,false,true,true,true,true,true,true,1000,600,400
 interregional-partition,true,true,true,true,true,false,true,true,true,true,1000,600,400
 origin-regional-service-outage,true,true,true,true,false,true,true,true,true,true,1000,600,400
 local-first-path-outage,true,true,true,true,true,true,true,false,true,true,1000,600,400
