@@ -56,8 +56,12 @@ convergence and engine-provenance validation.
 The Cedar runner now consumes this reducer through `--shrink-pair`: a seeded
 Cedar/OPA decision mismatch is evaluated on each valid candidate using Cedar
 4.14.0 in-process and OPA 1.22.0 through a bounded one-shot CLI invocation.
-The qualification workflow publishes the minimized input, full reduction
-trace, binary/policy/schema/configuration digests and separate Cedar/OPA
+The predicate preserves both decision values and their reasons: Cedar's
+determining-policy IDs and OPA's rule ID. A sidecar JSONL records each
+candidate's digest, engine decisions/reasons, predicate result and any error.
+The qualification workflow reconciles sidecar rows and accepted outcomes
+against the reducer trace, and publishes the minimized input, full reduction
+trace, engine/policy/schema/configuration digests and separate Cedar/OPA
 candidate timing distributions. This is a deliberately seeded candidate-policy
 counterexample, not an authentic Rust authorization mismatch or a result from
 all 62,464 corpus rows. It makes no Rust authorization parity or
