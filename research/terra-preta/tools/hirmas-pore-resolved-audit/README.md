@@ -29,6 +29,10 @@ For each dynamic matrix-water state, this tool uses the upstream mean pore width
 
 The output retains both the per-pore sum of f_pi and the upstream aggregate Eq. 22 volume fraction, with absolute discrepancy. It never rescales or forces the per-pore sum to equal the aggregate result.
 
+For each state with at least five usable pore-head points, the CLI also performs a deterministic least-squares fit of the structural-domain van Genuchten retention function (Eq. 32) to obtain descriptive alpha_2 and n_2 estimates. It reports RMSE, maximum absolute error and a near-optimal parameter sensitivity region (within 5% of the minimum SSE or a 1e-12 absolute SSE tolerance). This region is a grid-sensitivity diagnostic, not a confidence interval. With fewer than five valid points, it abstains rather than forcing a two-parameter fit.
+
+Where upstream dynamic reports contain Eq. 37 candidates, fit error is also computed for the positive Figure 6/Table 1 alpha branch and the printed negative-sign branch using the upstream n_2. This comparison does not adjudicate which formula the authors actually used; author-script parity is still required.
+
 ## Strict input consistency gates
 
 The tool checks that retained ImageJ object count, summed projected area, summed perimeter, geometric-mean dry MinFeret and dry structural-unit width match the geometry declared by the dynamic-macropore report. It also checks horizon and profile identity, ROI, image resolution and object-size filter. A failed crosswalk is an error, not a warning.
