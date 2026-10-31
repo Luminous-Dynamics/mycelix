@@ -55,6 +55,7 @@ struct ThresholdSummary {
     nsr_pair_count: usize,
     sequential_pair_count: usize,
     ambiguous_pair_count: usize,
+    tied_pair_count: usize,
     comparable_pair_count: usize,
 }
 
@@ -74,6 +75,7 @@ struct PairStability {
     nsr_threshold_count: usize,
     sequential_threshold_count: usize,
     ambiguous_threshold_count: usize,
+    tied_threshold_count: usize,
     absent_pair_threshold_count: usize,
     persistence_status: &'static str,
     threshold_results: Vec<PairThresholdResult>,
@@ -132,10 +134,11 @@ fn is_sequential(ordering: &str) -> bool {
 }
 
 fn is_ambiguous(ordering: &str) -> bool {
-    matches!(
-        ordering,
-        "ambiguous_overlapping_response_intervals" | "simultaneous_exact_onset"
-    )
+    ordering == "ambiguous_overlapping_response_intervals"
+}
+
+fn is_tied(ordering: &str) -> bool {
+    ordering == "simultaneous_exact_onset"
 }
 
 fn validate(input: &Input) -> Result<(), String> {
@@ -281,6 +284,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         let nsr_count = report.pair_results.iter().filter(|pair| is_nsr(&pair.ordering)).count();
         let sequential_count = report.pair_results.iter().filter(|pair| is_sequential(&pair.ordering)).count();
         let ambiguous_count = report.pair_results.iter().filter(|pair| is_ambiguous(&pair.ordering)).count();
+        let tied_count = report.pair_results.iter().filter(|pair| is_tied(&pair.ordering)).count();
         if nsr_count > 0 {
             nsr_detected_threshold_count += 1;
         } else {
@@ -297,6 +301,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             nsr_pair_count: nsr_count,
             sequential_pair_count: sequential_count,
             ambiguous_pair_count: ambiguous_count,
+            tied_pair_count: tied_count,
             comparable_pair_count: report.pair_results.len(),
         });
     }
@@ -326,6 +331,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         let mut nsr_count = 0usize;
         let mut sequential_count = 0usize;
         let mut ambiguous_count = 0usize;
+        let mut tied_count = 0usize;
         let mut absent_count = 0usize;
         let mut threshold_results = Vec::with_capacity(threshold_count);
         for report in &input.profile_reports {
@@ -337,6 +343,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 Some(value) if is_nsr(value) => nsr_count += 1,
                 Some(value) if is_sequential(value) => sequential_count += 1,
                 Some(value) if is_ambiguous(value) => ambiguous_count += 1,
+                Some(value) if is_tied(value) => tied_count += 1,
                 None => absent_count += 1,
                 Some(_) => unreachable!("validation restricts ordering values"),
             }
@@ -356,6 +363,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             "not_evaluable_across_all_thresholds"
         } else if sequential_count == threshold_count {
             "sequential_all_thresholds"
+        } else if tied_count == threshold_count {
+            "simultaneous_all_thresholds"
         } else if ambiguous_count == threshold_count {
             "ambiguous_all_thresholds"
         } else {
@@ -371,6 +380,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             nsr_threshold_count: nsr_count,
             sequential_threshold_count: sequential_count,
             ambiguous_threshold_count: ambiguous_count,
+            tied_threshold_count: tied_count,
             absent_pair_threshold_count: absent_count,
             persistence_status,
             threshold_results,
@@ -387,7 +397,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         .filter(|pair| pair.persistence_status == "not_evaluable_across_all_thresholds" || pair.persistence_status == "partially_evaluable_nsr")
         .count();
 
-    let profile_nsr_persistence_status = if persistent_nsr_pair_count > 0 {
+    let profile_nsr_persistence_status = if persistent_nsr_pair_count > 0 && incomplete_profile_threshold_count > 0 {
+        "nsr_pair_persistent_with_incomplete_profile_coverage"
+    } else if persistent_nsr_pair_count > 0 {
         "nsr_pair_persistent_across_all_thresholds"
     } else if nsr_detected_threshold_count > 0 && nsr_absent_threshold_count > 0 {
         "profile_nsr_threshold_sensitive"
@@ -544,11 +556,11 @@ mod tests {
     fn reports_threshold_sensitive_pair_without_forcing_majority_vote() {
         let report = evaluate(&fixture_input(), "f".repeat(64)).unwrap();
         let pair = report.pair_stability.iter()
-            .find(|pair| pair.shallow_sensor_id == "D10" && pair.deep_sensor_id == "D60")
+            .find(|pair| pair.shallow_sensor_id == "D10" && pair.deep_sensor_id == "D30")
             .unwrap();
         assert_eq!(pair.persistence_status, "threshold_sensitive_ordering");
-        assert_eq!(pair.nsr_threshold_count, 0);
-        assert_eq!(pair.sequential_threshold_count, 2);
+        assert_eq!(pair.nsr_threshold_count, 2);
+        assert_eq!(pair.sequential_threshold_count, 0);
         assert_eq!(pair.ambiguous_threshold_count, 1);
     }
 
@@ -556,12 +568,12 @@ mod tests {
     fn absent_pair_is_not_treated_as_a_negative_result() {
         let report = evaluate(&fixture_input(), "1".repeat(64)).unwrap();
         let pair = report.pair_stability.iter()
-            .find(|pair| pair.shallow_sensor_id == "D10" && pair.deep_sensor_id == "D30")
+            .find(|pair| pair.shallow_sensor_id == "D10" && pair.deep_sensor_id == "D60")
             .unwrap();
-        assert_eq!(pair.persistence_status, "threshold_sensitive_ordering");
-        assert_eq!(pair.nsr_threshold_count, 2);
+        assert_eq!(pair.persistence_status, "not_evaluable_across_all_thresholds");
+        assert_eq!(pair.sequential_threshold_count, 1);
         assert_eq!(pair.ambiguous_threshold_count, 1);
-        assert_eq!(pair.absent_pair_threshold_count, 0);
+        assert_eq!(pair.absent_pair_threshold_count, 1);
     }
 
     #[test]
