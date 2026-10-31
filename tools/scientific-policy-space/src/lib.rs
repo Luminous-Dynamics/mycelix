@@ -6,6 +6,7 @@
 //! Every row remains pending evaluation by the authentic compiled Rust oracle.
 
 use serde::Serialize;
+#[cfg(test)]
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -249,6 +250,7 @@ fn sha256(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+#[cfg(test)]
 fn git_blob_oid(bytes: &[u8]) -> String {
     let mut hasher = Sha1::new();
     hasher.update(format!("blob {}\0", bytes.len()).as_bytes());
