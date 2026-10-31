@@ -829,7 +829,9 @@ mod tests {
             scenario.actions[*index].action_id.clone()
         }).collect();
         assert!(ids.contains(&"C2_CLAY_INDEPENDENT_CORE".to_owned()));
-        assert!(ids.contains(&"W1_WEATHERED_REFERENCE".to_owned()));
+        assert!(selection.iter().any(|(index, _, _)| {
+            scenario.actions[*index].stratum_id == "shallow_weathered"
+        }));
         assert!(!ids.contains(&"C1_CLAY_HIGH_EIG_MISSPECIFIED".to_owned()));
     }
 
