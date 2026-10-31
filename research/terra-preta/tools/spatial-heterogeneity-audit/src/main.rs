@@ -152,7 +152,7 @@ struct Report {
     time_resolution_seconds: u32,
     response_threshold_m3_m3: f64,
     sensor_count: usize,
-    distinct_depth_count: usize,
+    distinct_depth_group_count: usize,
     time_depth_summary_count: usize,
     summaries: Vec<DepthTimeSummary>,
     interpretation_boundary: &'static str,
@@ -642,6 +642,8 @@ mod tests {
     fn sensor(id: &str, x: f64, y: f64, values: [f64; 3]) -> SensorSeries {
         SensorSeries {
             sensor_id: id.to_owned(),
+            plot_id: "P01".to_owned(),
+            depth_group_id: "D20".to_owned(),
             x_m: x,
             y_m: y,
             depth_cm: 20.0,
@@ -659,7 +661,7 @@ mod tests {
             schema_version: "0.1.0".to_owned(),
             study_id: "synthetic".to_owned(),
             site_id: "SYN1".to_owned(),
-            plot_id: "P01".to_owned(),
+            spatial_group_id: "ARRAY1".to_owned(),
             profile_id: "PROF1".to_owned(),
             event_id: "EV1".to_owned(),
             event_start_utc: stamp(0),
@@ -682,11 +684,23 @@ mod tests {
     }
 
     #[test]
+    fn depth_band_groups_sensors_with_slightly_different_measured_depths() {
+        let mut input = fixture();
+        input.sensors[0].depth_cm = 19.5;
+        input.sensors[2].depth_cm = 20.5;
+        let report = evaluate(&input, "j".repeat(64)).unwrap();
+        assert_eq!(report.distinct_depth_group_count, 1);
+        assert_eq!(report.summaries[0].minimum_sensor_depth_cm, 19.5);
+        assert_eq!(report.summaries[0].maximum_sensor_depth_cm, 20.5);
+        assert_eq!(report.summaries[0].median_depth_cm, 20.0);
+    }
+
+    #[test]
     fn reports_event_relative_heterogeneity_and_semivariogram_support() {
         let input = fixture();
         let report = evaluate(&input, "a".repeat(64)).unwrap();
         assert_eq!(report.sensor_count, 4);
-        assert_eq!(report.distinct_depth_count, 1);
+        assert_eq!(report.distinct_depth_group_count, 1);
         assert_eq!(report.time_depth_summary_count, 2);
         let last = &report.summaries[1];
         assert_eq!(last.valid_observed_sensor_count, 4);
