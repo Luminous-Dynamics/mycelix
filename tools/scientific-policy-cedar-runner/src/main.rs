@@ -620,7 +620,16 @@ fn evaluate_policy_pair(
 ) -> Result<(String, String, Vec<String>, String, u128, u128), String> {
     let case: EngineInputCase = match serde_json::from_value(candidate.clone()) {
         Ok(case) => case,
-        Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0)),
+        Err(_) => {
+            return Ok((
+                "invalid".to_owned(),
+                "invalid".to_owned(),
+                Vec::new(),
+                "invalid".to_owned(),
+                0,
+                0,
+            ));
+        }
     };
     if case.case_id != case.cedar.case_id || case.case_id != case.rego.case_id {
         return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), "invalid".to_owned(), 0, 0));
@@ -637,7 +646,16 @@ fn evaluate_policy_pair(
             Err(message) if message.starts_with("Cedar evaluation diagnostic") => {
                 return Err(message);
             }
-            Err(_) => return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), 0, 0)),
+            Err(_) => {
+                return Ok((
+                    "invalid".to_owned(),
+                    "invalid".to_owned(),
+                    Vec::new(),
+                    "invalid".to_owned(),
+                    0,
+                    0,
+                ));
+            }
         };
     let (opa_effect, opa_rule, opa_elapsed_ns) =
         opa_decision(opa_binary, rego_policy_path, &case.rego.input)?;
