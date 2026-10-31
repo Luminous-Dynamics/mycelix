@@ -441,7 +441,7 @@ fn preserves_minimum_coverage(
     let mut reserved_cost = 0u32;
     for stratum in &scenario.strata {
         let already_selected = selected_counts.get(&stratum.stratum_id).copied().unwrap_or(0);
-        let candidate_increment = usize::from(candidate.stratum_id == stratum.stratum_id);
+        let candidate_increment = if candidate.stratum_id == stratum.stratum_id { 1 } else { 0 };
         let still_needed = stratum.minimum_selected_actions
             .saturating_sub(already_selected + candidate_increment);
         if still_needed == 0 {
