@@ -30,4 +30,6 @@ Spatial variability can arise from texture, roots, lateral interflow, sensor sup
 
 ## Metamorphic tests
 
+The v0.1 Rust suite currently checks sensor-order invariance, isotropic translation/rotation invariance, homogeneous matrix-only zero-dispersion behavior, missing/interpolated handling and non-usable sensor exclusion. Spatial map recovery and sparse-layout ablations remain follow-on work in [PF-SPATIAL-001](https://github.com/Luminous-Dynamics/mycelix/issues/5557).
+
 The unit tests require spatial statistics to be invariant to sensor input order and to isotropic translation/rotation. They also verify that missing/interpolated and unusable observations are excluded without zero-filling, and that distance-bin overlap is rejected.
