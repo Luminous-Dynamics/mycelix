@@ -62,7 +62,6 @@ struct DistanceBin {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SensorSeries {
-    sensor_id: String,
     x_m: f64,
     y_m: f64,
     depth_cm: f64,
@@ -102,7 +101,7 @@ struct SemivariogramBin {
     lower_exclusive_m: f64,
     upper_inclusive_m: f64,
     pair_count: usize,
-    semivariance_m6_m6: Option<f64>,
+    semivariance_theta_squared: Option<f64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -323,7 +322,6 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
 
         let baseline = &observations[0];
         parsed_sensors.push(ParsedSensor {
-            sensor_id: sensor.sensor_id.clone(),
             x_m: sensor.x_m,
             y_m: sensor.y_m,
             depth_cm: sensor.depth_cm,
@@ -667,7 +665,7 @@ mod tests {
 
     #[test]
     fn sensor_order_does_not_change_spatial_statistics() {
-        let mut original = fixture();
+        let original = fixture();
         let mut reordered = fixture();
         reordered.sensors.reverse();
         let first = evaluate(&original, "a".repeat(64)).unwrap();
