@@ -1,0 +1,176 @@
+name: Scientific Policy Cedar Runner
+
+on:
+  pull_request:
+    paths:
+      - "tools/scientific-policy-cedar-runner/**"
+      - "tools/scientific-policy-space/**"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json"
+      - ".github/workflows/scientific-policy-cedar-runner.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/scientific-policy-cedar-runner/**"
+      - "tools/scientific-policy-space/**"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json"
+      - ".github/workflows/scientific-policy-cedar-runner.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scientific-policy-cedar-runner-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cedar-runner:
+    name: Cedar 4.14.0 shared-input evaluation (Rust 1.96.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: clippy, rustfmt
+
+      - name: Generate source-pinned input corpus
+        run: |
+          cargo run --manifest-path tools/scientific-policy-space/Cargo.toml --locked -- target/scientific-policy-space
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
+
+      - name: Independently audit corpus cardinality, source pin and paired case IDs
+        run: |
+          jq -e -s '
+            length == 62464 and
+            ([.[].case_id] | unique | length == 62464) and
+            all(.[];
+              .expected_decision == null and
+              .expected_decision_status == "pending_authentic_rust_oracle" and
+              .baseline_revision == "f89b4bcdcfb901961e2ca11a577775acbf53a74d" and
+              .baseline_source_blob_sha == "dd9ea9267cdae2e2c67244e8a90821defaacefb3"
+            )
+          ' target/scientific-policy-space/scientific-policy-decision-space-v0.1.jsonl
+          jq -n             --slurpfile abstract target/scientific-policy-space/scientific-policy-decision-space-v0.1.jsonl             --slurpfile engine target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl             '
+              ($abstract | map(.case_id) | sort) as $a |
+              ($engine | map(.case_id) | sort) as $e |
+              ($abstract | length == 62464) and
+              ($engine | length == 62464) and
+              ($a == $e)
+            '
+
+      - name: Format runner and batch adapter
+        run: cargo fmt --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --all
+
+      - name: Resolve exact Cedar runner dependency lock
+        run: cargo generate-lockfile --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml
+
+      - name: Run Cedar 4.14.0 runner tests and Clippy
+        run: |
+          cargo test --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked
+          cargo clippy --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Evaluate all abstract cases through Cedar
+        run: |
+          cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- target/scientific-policy-space/manifest.json target/cedar-results
+          test "$(wc -l < target/cedar-results/cedar-decisions-v0.1.jsonl)" -eq 62464
+          jq -e '.case_count == 62464 and .indeterminate_count == 0 and .measured_cases == 62208 and (.allow_count + .deny_count) == .case_count' target/cedar-results/cedar-run-manifest-v0.1.json
+
+      - name: Download and verify OPA 1.22.0 static binary
+        run: |
+          curl -fsSL \
+            https://github.com/open-policy-agent/opa/releases/download/v1.22.0/opa_linux_amd64_static \
+            -o /tmp/opa
+          echo "791790254c598a942eb140959bcec9a47f844535a632fd01d11d870ba2a47047  /tmp/opa" | sha256sum -c -
+          chmod +x /tmp/opa
+          /tmp/opa version | tee target/opa-version.txt
+
+      - name: Prepare identical Rego batch inputs
+        run: |
+          jq -s '{cases: map({case_id, input: .rego.input})}' \
+            target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl \
+            > target/opa-input.json
+          jq -e '.cases | length == 62464' target/opa-input.json
+
+      - name: Evaluate all abstract cases through OPA/Rego v1
+        run: |
+          started="$(date +%s%N)"
+          /tmp/opa eval \
+            --strict \
+            --format=json \
+            --input target/opa-input.json \
+            --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+            --data tools/scientific-policy-cedar-runner/opa-batch.rego \
+            'data.mycelix.authz.batch.decisions' \
+            > target/opa-eval.json
+          elapsed_ns="$(( $(date +%s%N) - started ))"
+          jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0", decision:.decision.effect, rule:.decision.rule}' \
+            target/opa-eval.json > target/opa-decisions-v0.1.jsonl
+          test "$(wc -l < target/opa-decisions-v0.1.jsonl)" -eq 62464
+          output_sha="$(sha256sum target/opa-decisions-v0.1.jsonl | cut -d ' ' -f 1)"
+          input_sha="$(sha256sum target/opa-input.json | cut -d ' ' -f 1)"
+          jq -n \
+            --arg version "$(/tmp/opa version | head -n 1)" \
+            --arg input_sha256 "$input_sha" \
+            --arg output_sha256 "$output_sha" \
+            --argjson elapsed_ns "$elapsed_ns" \
+            --argjson case_count 62464 \
+            '{
+              engine:"opa",
+              engine_version:$version,
+              evaluation_method:"one-shot-cli-batch-including-process-startup-and-file-io",
+              input_sha256:$input_sha256,
+              output_sha256:$output_sha256,
+              case_count:$case_count,
+              elapsed_ns:$elapsed_ns,
+              throughput_cases_per_second:($case_count / ($elapsed_ns / 1000000000)),
+              claim_ceiling:"OPA/Rego engine output over the paired abstract inputs; not authentic Rust policy parity"
+            }' > target/opa-run-manifest-v0.1.json
+
+      - name: Compare Cedar and OPA by stable case ID
+        run: |
+          jq -n \
+            --slurpfile cedar target/cedar-results/cedar-decisions-v0.1.jsonl \
+            --slurpfile opa target/opa-decisions-v0.1.jsonl \
+            '
+              def by_id: map({key:.case_id, value:.decision}) | from_entries;
+              ($cedar | by_id) as $c |
+              ($opa | by_id) as $o |
+              ($c | keys) as $ck |
+              ($o | keys) as $ok |
+              {
+                cedar_case_count:($ck|length),
+                opa_case_count:($ok|length),
+                same_case_ids:($ck == $ok),
+                agreement_count:([$ck[] | select($c[.] == $o[.])] | length),
+                divergence_count:([$ck[] | select($c[.] != $o[.])] | length),
+                divergences:[$ck[] | select($c[.] != $o[.]) | {case_id:., cedar:$c[.], opa:$o[.]}],
+                claim_ceiling:"engine-to-engine agreement only; not authentic Rust parity or formal equivalence"
+              }
+            ' > target/engine-agreement-v0.1.json
+          jq -e '.cedar_case_count == 62464 and .opa_case_count == 62464 and .same_case_ids == true and (.agreement_count + .divergence_count) == 62464' target/engine-agreement-v0.1.json
+      - name: Publish exact inputs, decisions, metrics, lockfile and source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-policy-cedar-results-${{ github.sha }}
+          path: |
+            target/scientific-policy-space/
+            target/cedar-results/
+            target/opa-version.txt
+            target/opa-input.json
+            target/opa-eval.json
+            target/opa-decisions-v0.1.jsonl
+            target/opa-run-manifest-v0.1.json
+            target/engine-agreement-v0.1.json
+            tools/scientific-policy-cedar-runner/opa-batch.rego
+            tools/scientific-policy-cedar-runner/Cargo.lock
+            tools/scientific-policy-cedar-runner/Cargo.toml
+            tools/scientific-policy-cedar-runner/README.md
+            tools/scientific-policy-cedar-runner/src/main.rs
+          if-no-files-found: error
+          retention-days: 14
