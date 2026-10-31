@@ -57,7 +57,7 @@ jobs:
           test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
           jq -e '.case_count == 62464 and .expected_decision_status == "pending_authentic_rust_oracle" and .engine_input_count == 62464' target/scientific-policy-space/manifest.json
 
-      - name: Generate four deterministic source-bound metamorphic corpora
+      - name: Generate five deterministic source-bound metamorphic corpora
         run: |
           cargo run --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked -- \
             target/scientific-policy-space/manifest.json \
@@ -357,6 +357,8 @@ jobs:
             tools/scientific-policy-metamorphic/Cargo.toml
             tools/scientific-policy-metamorphic/Cargo.lock
             tools/scientific-policy-metamorphic/README.md
+            tools/scientific-policy-metamorphic/BENCHMARK_PROTOCOL.md
+            tools/scientific-policy-metamorphic/COUNTEREXAMPLE_MINIMIZATION.md
             tools/scientific-policy-metamorphic/src/lib.rs
             tools/scientific-policy-metamorphic/src/shrink.rs
             tools/scientific-policy-metamorphic/src/main.rs
