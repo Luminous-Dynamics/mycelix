@@ -31,3 +31,8 @@ The input contains 2D image summaries (cross-section area, total macropore area/
 ## Tests
 
 Synthetic unit tests cover Eq. 8 geometry, dry-state pore width, moisture-induced pore contraction, saturated conductivity units, the positive Eq. 37 alpha relation, out-of-range moisture, duplicate timestamps and impossible image geometry. These are equation/software tests, not a replication of the Dryad dataset or independent validation.
+
+
+Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545).
+
+The CLI and tests are registered in `.github/workflows/ci.yml` for rustfmt, unit tests, a synthetic end-to-end fixture assertion, and strict Clippy. A queued or superseded run is not counted as a pass.
