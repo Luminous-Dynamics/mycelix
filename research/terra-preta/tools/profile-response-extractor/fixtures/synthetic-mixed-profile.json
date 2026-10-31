@@ -6,7 +6,7 @@
   "profile_id": "PROFILE1",
   "event_id": "EVENT1",
   "event_start_utc": "2026-04-01T00:00:00Z",
-  "observation_window_end_utc": "2026-04-01T00:30:00Z",
+  "observation_window_end_utc": "2026-04-01T00:40:00Z",
   "time_resolution_seconds": 600,
   "source_evidence_ref": "synthetic mixed-profile known-onset fixture only",
   "sensors": [
@@ -38,6 +38,11 @@
         {
           "timestamp_utc": "2026-04-01T00:30:00Z",
           "volumetric_water_content_m3_m3": 0.21200000000000002,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:40:00Z",
+          "volumetric_water_content_m3_m3": 0.212,
           "status": "observed"
         }
       ]
@@ -71,6 +76,11 @@
           "timestamp_utc": "2026-04-01T00:30:00Z",
           "volumetric_water_content_m3_m3": 0.225,
           "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:40:00Z",
+          "volumetric_water_content_m3_m3": 0.225,
+          "status": "observed"
         }
       ]
     },
@@ -102,6 +112,11 @@
         {
           "timestamp_utc": "2026-04-01T00:30:00Z",
           "volumetric_water_content_m3_m3": 0.24000000000000002,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:40:00Z",
+          "volumetric_water_content_m3_m3": 0.24,
           "status": "observed"
         }
       ]
