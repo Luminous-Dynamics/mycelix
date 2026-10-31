@@ -1,4 +1,4 @@
-use gcpn_warning_to_action::{evaluate, parse_fixture, fixture_report, FIXTURE};
+use gcpn_warning_to_action::{parse_fixture, fixture_report, FIXTURE};
 
 fn show_mean(value: Option<f64>) -> String {
     value
