@@ -47,17 +47,19 @@ pub struct Scenario {
 }
 
 impl Scenario {
-    pub fn intended_receivers(&self) -> u32 {
-        self.local_receivers + self.remote_a_receivers + self.remote_b_receivers
+    pub fn intended_receivers(&self) -> u64 {
+        u64::from(self.local_receivers)
+            + u64::from(self.remote_a_receivers)
+            + u64::from(self.remote_b_receivers)
     }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Outcome {
-    pub local_delivered: u32,
-    pub remote_a_delivered: u32,
-    pub remote_b_delivered: u32,
-    pub intended_receivers: u32,
+    pub local_delivered: u64,
+    pub remote_a_delivered: u64,
+    pub remote_b_delivered: u64,
+    pub intended_receivers: u64,
 }
 
 impl Outcome {
@@ -77,7 +79,7 @@ impl Outcome {
         if self.intended_receivers == 0 {
             0.0
         } else {
-            f64::from(self.delivered()) / f64::from(self.intended_receivers)
+            self.delivered() as f64 / self.intended_receivers as f64
         }
     }
 
@@ -85,7 +87,7 @@ impl Outcome {
         if scenario.local_receivers == 0 {
             0.0
         } else {
-            f64::from(self.local_delivered) / f64::from(scenario.local_receivers)
+            self.local_delivered as f64 / f64::from(scenario.local_receivers)
         }
     }
 }
@@ -115,11 +117,11 @@ pub fn evaluate(scenario: &Scenario, architecture: Architecture) -> Outcome {
             // All origin traffic traverses the central hub.
             if scenario.central_hub_up && scenario.origin_to_central_up {
                 if scenario.origin_last_mile_up {
-                    outcome.local_delivered = scenario.local_receivers;
+                    outcome.local_delivered = u64::from(scenario.local_receivers);
                 }
                 if scenario.central_remote_path_up && scenario.remote_last_miles_up {
-                    outcome.remote_a_delivered = scenario.remote_a_receivers;
-                    outcome.remote_b_delivered = scenario.remote_b_receivers;
+                    outcome.remote_a_delivered = u64::from(scenario.remote_a_receivers);
+                    outcome.remote_b_delivered = u64::from(scenario.remote_b_receivers);
                 }
             }
         }
@@ -127,21 +129,21 @@ pub fn evaluate(scenario: &Scenario, architecture: Architecture) -> Outcome {
             // Local and cross-region delivery depend on the origin regional service.
             if scenario.origin_regional_service_up {
                 if scenario.origin_last_mile_up {
-                    outcome.local_delivered = scenario.local_receivers;
+                    outcome.local_delivered = u64::from(scenario.local_receivers);
                 }
                 if scenario.interregional_federation_up
                     && scenario.remote_regional_services_up
                     && scenario.remote_last_miles_up
                 {
-                    outcome.remote_a_delivered = scenario.remote_a_receivers;
-                    outcome.remote_b_delivered = scenario.remote_b_receivers;
+                    outcome.remote_a_delivered = u64::from(scenario.remote_a_receivers);
+                    outcome.remote_b_delivered = u64::from(scenario.remote_b_receivers);
                 }
             }
         }
         Architecture::LocalFirstFederation => {
             // Local continuity is independent of WAN/federation availability.
             if scenario.local_first_local_path_up && scenario.origin_last_mile_up {
-                outcome.local_delivered = scenario.local_receivers;
+                outcome.local_delivered = u64::from(scenario.local_receivers);
             }
             // Cross-region sharing remains dependent on the federation path.
             if scenario.origin_regional_service_up
@@ -149,8 +151,8 @@ pub fn evaluate(scenario: &Scenario, architecture: Architecture) -> Outcome {
                 && scenario.remote_regional_services_up
                 && scenario.remote_last_miles_up
             {
-                outcome.remote_a_delivered = scenario.remote_a_receivers;
-                outcome.remote_b_delivered = scenario.remote_b_receivers;
+                outcome.remote_a_delivered = u64::from(scenario.remote_a_receivers);
+                outcome.remote_b_delivered = u64::from(scenario.remote_b_receivers);
             }
         }
     }
@@ -233,10 +235,7 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Scenario>, String> {
         {
             return Err(format!("line {}: all synthetic receiver cohorts must be non-zero", line_idx + 2));
         }
-        scenario.intended_receivers().checked_add(0)
-            .ok_or_else(|| format!("line {}: receiver total overflow", line_idx + 2))?;
-
-        scenarios.push(scenario);
+scenarios.push(scenario);
     }
 
     if scenarios.is_empty() {
