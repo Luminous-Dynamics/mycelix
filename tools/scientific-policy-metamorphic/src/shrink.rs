@@ -684,7 +684,7 @@ mod tests {
 
     #[test]
     fn numeric_simplification_is_monotone_and_terminates_at_zero() {
-        let input = serde_json::json!({"value": 99});
+        let input = serde_json::json!(99);
         let source_bytes = serde_json::to_vec(&input).unwrap();
         let result = minimize_json(
             &input,
@@ -695,7 +695,7 @@ mod tests {
             |_| Ok(true),
         )
         .unwrap();
-        assert_eq!(result.minimized_value, serde_json::json!({"value": 0}));
+        assert_eq!(result.minimized_value, serde_json::json!(0));
         assert!(result.trace.complete);
         assert!(result.trace.is_one_minimal);
     }
