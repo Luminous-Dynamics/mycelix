@@ -7,6 +7,8 @@
 **CT-informed exchange term:** [Interface-exchange auditor](./tools/interface-exchange-audit/README.md) provides a dimensional audit and gross time integration for a declared wetted-area × macropore-flux series. It is a preprocessing/evidence calculator, not a Richards or dual-permeability solver.
 
 
+**CT parameter-substitution comparator:** include the Lissy et al. (2020) CT-parameterized dual-porosity model as a distinct benchmark variant. The paper reports the classical version fit better overall, although its exchange behavior was deficient; CT parameter substitution did not automatically improve the fit. Keep this separate from the Chaif et al. (2025) wetted-interface exchange-mechanism comparison. See [3D pore-network benchmark](./PORE_NETWORK_3D_CONNECTIVITY_BENCHMARK_V0.1.md).
+
 ## 1. The correct question is not “neural network versus HYDRUS?”
 
 Preferential flow and event-scale transport are served by several established physical model families. They solve different sub-problems, embody different assumptions, and are used in different operational contexts. A fair comparison must pin the exact executable, module, version, parameterization and boundary conditions.
