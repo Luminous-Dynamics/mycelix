@@ -92,6 +92,27 @@ struct MethodSummary {
 }
 
 #[derive(Serialize)]
+struct CrossMethodAgreement {
+    vt_method_id: String,
+    probability_denominator_events: usize,
+    both_positive_events: usize,
+    vt_positive_nsr_negative_events: usize,
+    vt_negative_nsr_positive_events: usize,
+    both_negative_events: usize,
+    vt_positive_nsr_indeterminate_events: usize,
+    vt_indeterminate_nsr_positive_events: usize,
+    vt_negative_nsr_indeterminate_events: usize,
+    vt_indeterminate_nsr_negative_events: usize,
+    both_indeterminate_events: usize,
+    fully_evaluable_pair_events: usize,
+    fully_evaluable_agreement_events: usize,
+    fully_evaluable_agreement_fraction: Option<f64>,
+    both_positive_fraction_of_probability_denominator: Option<f64>,
+    both_negative_fraction_of_probability_denominator: Option<f64>,
+    interpretation_boundary: &'static str,
+}
+
+#[derive(Serialize)]
 struct Report {
     audit_version: &'static str,
     input_sha256: String,
@@ -106,6 +127,7 @@ struct Report {
     soil_moisture_unavailable_event_count: usize,
     site_probability_denominator_event_count: usize,
     methods: Vec<MethodSummary>,
+    vt_nsr_cross_method_agreement: Vec<CrossMethodAgreement>,
     event_audits: Vec<EventAudit>,
     warnings: Vec<String>,
     interpretation_boundary: &'static str,
@@ -291,6 +313,66 @@ fn method_summary(
     }
 }
 
+fn cross_method_agreement(
+    vt_method_id: &str,
+    vt_outcomes: &[EventMethodOutcome],
+    nsr_outcomes: &[EventMethodOutcome],
+    denominator: usize,
+) -> CrossMethodAgreement {
+    let mut both_positive = 0usize;
+    let mut vt_positive_nsr_negative = 0usize;
+    let mut vt_negative_nsr_positive = 0usize;
+    let mut both_negative = 0usize;
+    let mut vt_positive_nsr_indeterminate = 0usize;
+    let mut vt_indeterminate_nsr_positive = 0usize;
+    let mut vt_negative_nsr_indeterminate = 0usize;
+    let mut vt_indeterminate_nsr_negative = 0usize;
+    let mut both_indeterminate = 0usize;
+
+    for (vt, nsr) in vt_outcomes.iter().zip(nsr_outcomes.iter()) {
+        match (*vt, *nsr) {
+            (EventMethodOutcome::Positive, EventMethodOutcome::Positive) => both_positive += 1,
+            (EventMethodOutcome::Positive, EventMethodOutcome::Negative) => vt_positive_nsr_negative += 1,
+            (EventMethodOutcome::Negative, EventMethodOutcome::Positive) => vt_negative_nsr_positive += 1,
+            (EventMethodOutcome::Negative, EventMethodOutcome::Negative) => both_negative += 1,
+            (EventMethodOutcome::Positive, EventMethodOutcome::Indeterminate) => vt_positive_nsr_indeterminate += 1,
+            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Positive) => vt_indeterminate_nsr_positive += 1,
+            (EventMethodOutcome::Negative, EventMethodOutcome::Indeterminate) => vt_negative_nsr_indeterminate += 1,
+            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Negative) => vt_indeterminate_nsr_negative += 1,
+            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Indeterminate) => both_indeterminate += 1,
+            _ => {}
+        }
+    }
+
+    let fully_evaluable = both_positive
+        + vt_positive_nsr_negative
+        + vt_negative_nsr_positive
+        + both_negative;
+    let agreement = both_positive + both_negative;
+    CrossMethodAgreement {
+        vt_method_id: vt_method_id.to_owned(),
+        probability_denominator_events: denominator,
+        both_positive_events: both_positive,
+        vt_positive_nsr_negative_events: vt_positive_nsr_negative,
+        vt_negative_nsr_positive_events: vt_negative_nsr_positive,
+        both_negative_events: both_negative,
+        vt_positive_nsr_indeterminate_events: vt_positive_nsr_indeterminate,
+        vt_indeterminate_nsr_positive_events: vt_indeterminate_nsr_positive,
+        vt_negative_nsr_indeterminate_events: vt_negative_nsr_indeterminate,
+        vt_indeterminate_nsr_negative_events: vt_indeterminate_nsr_negative,
+        both_indeterminate_events: both_indeterminate,
+        fully_evaluable_pair_events: fully_evaluable,
+        fully_evaluable_agreement_events: agreement,
+        fully_evaluable_agreement_fraction: (fully_evaluable > 0)
+            .then_some(agreement as f64 / fully_evaluable as f64),
+        both_positive_fraction_of_probability_denominator: (denominator > 0)
+            .then_some(both_positive as f64 / denominator as f64),
+        both_negative_fraction_of_probability_denominator: (denominator > 0)
+            .then_some(both_negative as f64 / denominator as f64),
+        interpretation_boundary: "Cross-method agreement is agreement between two soil-moisture-derived proxies, not accuracy against independent physical truth. Agreement fractions exclude indeterminate pairs; denominator fractions retain the site probability denominator.",
+    }
+}
+
 fn evaluate(input: &Input, input_sha256: String) -> Report {
     let mut eligible = 0usize;
     let mut ineligible = 0usize;
@@ -347,6 +429,12 @@ fn evaluate(input: &Input, input_sha256: String) -> Report {
         method_summary("nsr", "nonsequential-response profile diagnostic", &nsr, denominator),
     ];
 
+    let cross_method = vec![
+        cross_method_agreement(VT_VARIANTS[0].0, &vt_max, &nsr, denominator),
+        cross_method_agreement(VT_VARIANTS[1].0, &vt_median, &nsr, denominator),
+        cross_method_agreement(VT_VARIANTS[2].0, &vt_median_sd, &nsr, denominator),
+    ];
+
     Report {
         audit_version: "0.1.0",
         input_sha256,
@@ -361,12 +449,14 @@ fn evaluate(input: &Input, input_sha256: String) -> Report {
         soil_moisture_unavailable_event_count: moisture_unavailable,
         site_probability_denominator_event_count: denominator,
         methods,
+        vt_nsr_cross_method_agreement: cross_method,
         event_audits: audits,
         warnings: vec![
             "Each input row must represent one unique site-level rainfall event, not one sensor, depth or plot record. Aggregate multiple profiles/sensors within each storm before running this audit.".to_owned(),
             "A detected positive in at least one valid unit is retained even when other units are unavailable; a negative requires every declared unit to be evaluable and negative.".to_owned(),
             "Indeterminate eligible events remain inside the study's soil-moisture-available denominator and create identification bounds; they are never silently converted to negative.".to_owned(),
             "VT maximum, median and median-plus-standard-deviation Ksat variants are separate estimands, not pooled thresholds.".to_owned(),
+            "VT-versus-NSR agreement is reported as a proxy-method contingency table. Agreement or disagreement does not identify which method is physically correct without an independent reference.".to_owned(),
             "The output is descriptive per-site prevalence, not a confidence interval or causal estimate; events are temporally dependent and site sample size remains the number of sites for site-level transfer.".to_owned(),
         ],
         interpretation_boundary: "This reproduces the event eligibility and site probability denominator of Li et al. (2025) while making method coverage explicit. VT/NSR are soil-moisture-derived proxies, not tracer-confirmed physical pathway truth.",
@@ -531,6 +621,32 @@ mod tests {
         assert_eq!(report.methods[3].positive_event_count, 1);
         assert_eq!(report.event_audits[0].vt_maximum_ksat, EventMethodOutcome::Positive);
         assert_eq!(report.event_audits[3].vt_maximum_ksat, EventMethodOutcome::NotEligible);
+    }
+
+    #[test]
+    fn reports_vt_nsr_joint_contingency_and_preserves_indeterminate_pairs() {
+        let input = fixture();
+        let report = evaluate(&input, "cross-method".repeat(5));
+        let maximum = &report.vt_nsr_cross_method_agreement[0];
+        assert_eq!(maximum.both_positive_events, 1);
+        assert_eq!(maximum.both_negative_events, 1);
+        assert_eq!(maximum.both_indeterminate_events, 1);
+        assert_eq!(maximum.fully_evaluable_pair_events, 2);
+        assert_eq!(maximum.fully_evaluable_agreement_events, 2);
+        assert_eq!(maximum.fully_evaluable_agreement_fraction, Some(1.0));
+        assert!((maximum.both_positive_fraction_of_probability_denominator.unwrap() - 1.0 / 3.0).abs() < 1e-12);
+
+        let median = &report.vt_nsr_cross_method_agreement[1];
+        assert_eq!(median.both_positive_events, 1);
+        assert_eq!(median.vt_positive_nsr_negative_events, 1);
+        assert_eq!(median.vt_positive_nsr_indeterminate_events, 1);
+        assert_eq!(median.fully_evaluable_pair_events, 2);
+        assert_eq!(median.fully_evaluable_agreement_fraction, Some(0.5));
+
+        let median_sd = &report.vt_nsr_cross_method_agreement[2];
+        assert_eq!(median_sd.vt_negative_nsr_positive_events, 1);
+        assert_eq!(median_sd.both_negative_events, 1);
+        assert_eq!(median_sd.both_indeterminate_events, 1);
     }
 
     #[test]
