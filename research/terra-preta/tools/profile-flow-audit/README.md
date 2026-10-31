@@ -1,5 +1,7 @@
 # Profile-level flow audit v0.3
 
+**Upstream extractor:** [profile-response-extractor](../profile-response-extractor/README.md) converts a normalized full multi-depth sensor event into the interval-censored sensor onset records consumed by this tool. It is the preferred path when raw per-depth time series are available; this auditor remains useful for externally derived onset records.
+
 This standalone Rust CLI evaluates profile-level nonsequential-response (NSR) signatures for one event and one sensor profile. It compares every responding sensor pair at distinct depths, retains valid nonresponses and indeterminate observations, and treats each sampled threshold crossing as an interval rather than an exact instant.
 
 ## Run
