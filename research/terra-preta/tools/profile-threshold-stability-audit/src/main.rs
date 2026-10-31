@@ -14,7 +14,6 @@ struct Input {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct ProfileReport {
     audit_version: String,
     input_sha256: String,
@@ -538,6 +537,30 @@ mod tests {
                 ]),
             ],
         }
+    }
+
+    #[test]
+    fn accepts_real_profile_flow_report_with_upstream_diagnostics() {
+        let report = profile(
+            0.01,
+            &"a".repeat(64),
+            vec![pair(
+                "D10",
+                "D30",
+                "nonsequential_deeper_first_interval_separated",
+            )],
+        );
+        let mut value = serde_json::to_value(report).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.insert("detected_sensor_count".to_owned(), serde_json::json!(3));
+        object.insert("not_detected_sensor_count".to_owned(), serde_json::json!(1));
+        object.insert("distinct_detecting_depth_count".to_owned(), serde_json::json!(2));
+        object.insert("comparable_pair_count".to_owned(), serde_json::json!(1));
+        object.insert("tied_pair_count".to_owned(), serde_json::json!(0));
+        object.insert("interpretation_boundary".to_owned(), serde_json::json!("upstream profile response only"));
+        object.insert("warnings".to_owned(), serde_json::json!([]));
+        let parsed: ProfileReport = serde_json::from_value(value).unwrap();
+        assert_eq!(parsed.pair_results.len(), 1);
     }
 
     #[test]
