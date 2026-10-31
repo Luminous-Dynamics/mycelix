@@ -148,7 +148,15 @@
                           "future_outcome",
                           "true_future_state",
                           "oracle_label",
-                          "clairvoyant_state"
+                          "clairvoyant_state",
+                          "regime_id",
+                          "latent_regime",
+                          "latent_regime_id",
+                          "persistent_regime",
+                          "persistent_regime_id",
+                          "hidden_regime",
+                          "hidden_regime_id",
+                          "true_regime"
                         ]
                       }
                     },
