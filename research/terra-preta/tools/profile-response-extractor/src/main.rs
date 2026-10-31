@@ -110,7 +110,6 @@ struct Response {
     status: &'static str,
     onset: Option<String>,
     lower_bound: Option<String>,
-    reason: &'static str,
 }
 
 fn parse_utc(
@@ -293,7 +292,6 @@ fn extract_response(
             status: "indeterminate",
             onset: None,
             lower_bound: None,
-            reason: "missing_pre_event_baseline",
         };
     };
     let Some(baseline_theta) = baseline.theta else {
@@ -309,7 +307,6 @@ fn extract_response(
             status: "indeterminate",
             onset: None,
             lower_bound: None,
-            reason: "pre_event_baseline_not_directly_observed",
         };
     }
 
@@ -325,7 +322,6 @@ fn extract_response(
                     status: "indeterminate",
                     onset: None,
                     lower_bound: None,
-                    reason: "missing_sample_before_threshold_crossing",
                 };
             }
             SampleStatus::LinearInterpolatedGapLt6h => {
@@ -333,7 +329,6 @@ fn extract_response(
                     status: "indeterminate",
                     onset: None,
                     lower_bound: None,
-                    reason: "interpolated_sample_before_threshold_crossing",
                 };
             }
             SampleStatus::Observed => {}
@@ -351,7 +346,6 @@ fn extract_response(
                 status: "detected",
                 onset: Some(sample.time.to_rfc3339()),
                 lower_bound: Some(previous.time.to_rfc3339()),
-                reason: "first_observed_threshold_crossing",
             };
         }
         previous = sample;
@@ -361,7 +355,6 @@ fn extract_response(
         status: "not_detected",
         onset: None,
         lower_bound: None,
-        reason: "complete_observed_window_without_threshold_crossing",
     }
 }
 
