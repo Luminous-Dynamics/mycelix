@@ -68,10 +68,17 @@ const SCHEMA_FIXTURES: &[(&str, &str)] = &[
         "coupled-hydrology-nutrient-event-report",
         include_str!("../../coupled-event-audit/event-audit-report.schema.json"),
     ),
+    (
+        "service-profile-registry",
+        include_str!("../../../service-profile-registry.schema.json"),
+    ),
 ];
 
 #[cfg(test)]
 const SOURCE_REGISTER: &str = include_str!("../../../source-register.v0.1.json");
+
+#[cfg(test)]
+const SERVICE_PROFILE_REGISTRY: &str = include_str!("../../../service-profiles.v0.1.json");
 
 fn validate_schema(schema_bytes: &[u8], label: &str) -> Result<Value, Box<dyn Error>> {
     let schema: Value = serde_json::from_slice(schema_bytes)
@@ -733,5 +740,51 @@ mod tests {
         let mut report = valid_split_report();
         report["input_sha256"] = json!("not-a-sha256");
         assert!(!validator.is_valid(&report));
+    }
+
+    #[test]
+    fn service_profile_registry_conforms_to_its_schema() {
+        let schema: Value = serde_json::from_str(SCHEMA_FIXTURES[14].1).unwrap();
+        let validator = jsonschema::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .unwrap();
+        let registry: Value = serde_json::from_str(SERVICE_PROFILE_REGISTRY).unwrap();
+        assert!(validator.is_valid(&registry));
+        assert_eq!(registry["profiles"].as_array().unwrap().len(), 5);
+    }
+
+    #[test]
+    fn rejects_activation_without_approved_thresholds_and_review() {
+        let schema: Value = serde_json::from_str(SCHEMA_FIXTURES[14].1).unwrap();
+        let validator = jsonschema::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .unwrap();
+        let mut registry: Value = serde_json::from_str(SERVICE_PROFILE_REGISTRY).unwrap();
+        registry["profiles"][0]["status"] = json!("active");
+        assert!(!validator.is_valid(&registry));
+    }
+
+    #[test]
+    fn rejects_service_constraint_without_any_bound() {
+        let schema: Value = serde_json::from_str(SCHEMA_FIXTURES[14].1).unwrap();
+        let validator = jsonschema::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .unwrap();
+        let mut registry: Value = serde_json::from_str(SERVICE_PROFILE_REGISTRY).unwrap();
+        registry["profiles"][0]["status"] = json!("review_pending");
+        registry["profiles"][0]["constraints"] = json!([{
+            "constraint_id": "infiltration-bound",
+            "endpoint": "infiltration",
+            "unit": "mm/h",
+            "lower_bound": null,
+            "upper_bound": null,
+            "hard_constraint": true,
+            "threshold_basis": "expert_approved",
+            "protocol_uri": null
+        }]);
+        assert!(!validator.is_valid(&registry));
     }
 }
