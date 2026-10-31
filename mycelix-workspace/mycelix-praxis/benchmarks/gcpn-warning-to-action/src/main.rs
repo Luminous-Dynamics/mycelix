@@ -47,7 +47,7 @@ fn main() {
                     f64::from(case.unique_people_served) / f64::from(case.intended_people)
                 };
                 println!(
-                    "{},{:?},{},{},{:.4},{},{},{},{},{}",
+                    "{},{:?},{},{},{:.4},{},{},{},{}",
                     case.case_id,
                     case.decision,
                     case.intended_people,
