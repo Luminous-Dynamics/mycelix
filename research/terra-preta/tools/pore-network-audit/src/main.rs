@@ -188,7 +188,7 @@ fn finite_positive(value: f64, label: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, HashMap<String, usize>, f64, f64), String> {
+fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, f64, f64), String> {
     if input.schema_version != "0.1.0" {
         return Err(format!("unsupported schema_version {:?}", input.schema_version));
     }
@@ -248,10 +248,9 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, HashMap<String, usize>
         if pore_index.insert(pore.pore_id.clone(), index).is_some() {
             return Err(format!("duplicate pore_id {:?}", pore.pore_id));
         }
-        for axis in 0..3 {
-            let coordinate = pore.centroid_voxels_xyz[axis];
+        for (axis, coordinate) in pore.centroid_voxels_xyz.iter().enumerate() {
             let upper = (input.image.dimensions_voxels_xyz[axis] - 1) as f64;
-            if !coordinate.is_finite() || coordinate < 0.0 || coordinate > upper {
+            if !coordinate.is_finite() || *coordinate < 0.0 || *coordinate > upper {
                 return Err(format!("pores[{index}].centroid_voxels_xyz[{axis}] lies outside the image volume"));
             }
         }
@@ -323,7 +322,7 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, HashMap<String, usize>
         }
     }
 
-    Ok((indexed, pore_index, sample_volume_um3, pore_volume_total_um3))
+    Ok((indexed, sample_volume_um3, pore_volume_total_um3))
 }
 
 fn adjacency(
@@ -468,7 +467,7 @@ fn shortest_top_bottom_path(input: &Input, graph: &[Vec<(usize, usize)>], throat
 }
 
 fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
-    let (throats, _pore_index, sample_volume_um3, total_pore_volume_um3) = validate(input)?;
+    let (throats, sample_volume_um3, total_pore_volume_um3) = validate(input)?;
     let pore_count = input.network.pores.len();
     let all_graph = adjacency(pore_count, &throats, 0.0);
     let baseline_components = component_metrics(input, &all_graph, total_pore_volume_um3);
