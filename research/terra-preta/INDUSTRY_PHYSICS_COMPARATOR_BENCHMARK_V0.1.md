@@ -3,6 +3,8 @@
 **Status:** Comparator specification and research plan. No head-to-head result is claimed. This document authorizes no field application, amendment recommendation, pesticide registration claim, product certification or regulatory decision.
 
 **Additional stateful comparator:** [Dynamic soil structure/root architecture benchmark](./DYNAMIC_STRUCTURE_ROOT_ARCHITECTURE_BENCHMARK_V0.1.md) specifies a Hirmas-style image-informed dynamic macropore model and a Symtropy state-dependent morphology candidate. This is a new comparator family, not a reported performance win.
+**3D morphology comparator:** [CT pore-network and wetted-interface benchmark](./PORE_NETWORK_3D_CONNECTIVITY_BENCHMARK_V0.1.md) with the [Rust graph auditor](./tools/pore-network-audit/README.md). Its targets are proposed; no CT-informed head-to-head run is claimed.
+
 
 ## 1. The correct question is not “neural network versus HYDRUS?”
 
