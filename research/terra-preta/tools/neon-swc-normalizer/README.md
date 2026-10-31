@@ -6,7 +6,8 @@ This schema-driven Rust CLI converts a one-minute soil-water CSV table into an a
 
     cargo test --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml
     cargo run --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- \
-      config.json SWS_1_minute.csv normalized-profile.json aggregation-report.json
+      config.json SWS_1_minute.csv \
+      normalized-raw-profile.json paper-analysis-profile.json aggregation-report.json
 
 Then feed the normalized profile directly into the existing extractor and profile auditor:
 
@@ -27,7 +28,7 @@ Then feed the normalized profile directly into the existing extractor and profil
 
 Target bins are left-closed/right-open. Each target median is calculated from directly accepted 1-minute values in the bin. A bin is `observed` only when good rows meet `ceil(minimum_good_fraction × expected_rows)`; otherwise it is `missing` with null theta. Missing rows, QA rejects, and values above the configured maximum whole-profile porosity are counted separately. Porosity is applied after source QA filtering and before aggregation. `quality_pass_rows` means passed the configured QA filters; `porosity_pass_rows` are the values actually used in the median. No zero-fill, linear interpolation, or silent removal is performed.
 
-The report records exact config/source SHA-256, source column mapping, all QA filters, sensor coordinate/depth provenance, expected raw rows, present rows, accepted/rejected rows, absent raw rows, valid fraction, median and bin status for each sensor/time bin. The normalized series JSON is shaped to the strict input schema of `profile-response-extractor`.
+The CLI writes two profile series plus an aggregation report. `normalized-raw-profile.json` preserves QA/porosity-qualified medians with missing bins untouched. `paper-analysis-profile.json` is a separate clone in which only interior gaps with observed endpoints less than six hours apart are linearly interpolated; edge gaps and endpoint separations of six hours or more remain missing. The report records original missing, interpolated and still-missing bin counts and the exact config/source SHA-256. Both profile JSONs are shaped to the strict input schema of `profile-response-extractor`. Do not overwrite or discard the raw-normalized series when evaluating the paper-analysis series.
 
 ## Evidence boundary
 
