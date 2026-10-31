@@ -138,6 +138,7 @@ The current version deliberately does not select an “optimal” response thres
 ## 8. Data and implementation links
 
 - NEON event-scale predictor and transfer track: PREFERENTIAL_FLOW_TRANSFER_BENCHMARK_V0.1.md.
+- Raw profile-series onset extraction: tools/profile-response-extractor/README.md; threshold/cadence calibration issue #5554.
 - Derived HydroShare event dataset and raw NEON acquisition: ACQUISITION_V0.1.md.
 - Synthetic mechanism identifiability suite: SYNTHETIC_KNOWN_TRUTH_BENCHMARK_V0.1.md.
 - Industry model parity: INDUSTRY_PHYSICS_COMPARATOR_BENCHMARK_V0.1.md.
