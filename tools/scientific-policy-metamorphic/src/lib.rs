@@ -779,9 +779,9 @@ mod tests {
     fn claim_proposed_contributor_removal_is_a_single_meaning_changing_control() {
         let mut source = sample_case();
         source["cedar"]["request"]["action"] =
-            Value::String("Mycelix::Action::\\"claim_proposed\\"".to_owned());
+            Value::String(r#"Mycelix::Action::"claim_proposed""#.to_owned());
         source["cedar"]["request"]["resource"] =
-            Value::String("Mycelix::Claim::\\"new-claim\\"".to_owned());
+            Value::String(r#"Mycelix::Claim::"new-claim""#.to_owned());
         source["cedar"]["entities"][1]["uid"]["id"] =
             Value::String("new-claim".to_owned());
         source["cedar"]["entities"][1]["attrs"]["exists"] = Value::Bool(false);
