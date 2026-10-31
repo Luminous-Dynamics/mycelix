@@ -1,6 +1,6 @@
 # Sequential non-additive adaptive experiment design v0.1
 
-**Status:** research specification. This is a synthetic known-truth extension to #5600. It confers no experiment, land, material, sample-collection or field-trial authorization.
+**Status:** research specification plus a synthetic pairwise prototype. The prototype is a static pairwise look-ahead extension to #5600, not the full sequential posterior engine. It confers no experiment, land, material, sample-collection or field-trial authorization.
 
 ## 1. Why static additive value is insufficient
 
@@ -135,3 +135,55 @@ Established hydraulic simulators such as HYDRUS DualPerm, MACRO and RZWQM2 remai
 ## 12. Governance boundary
 
 This is a synthetic research benchmark only. It does not authorize any sampling, material handling, amendment, field trial or access to land. All real experiment proposals remain subject to qualified scientific, landholder, institutional, safety, regulatory and community review.
+
+
+## 13. Executed prototype: TERRA-VOI-004
+
+A first executable slice is committed under
+`research/terra-preta/tools/adaptive-pairwise-bakeoff/` with workflow
+`.github/workflows/terra-preta-adaptive-pairwise.yml`.
+
+The v0.1 implementation compares:
+
+- seeded random feasible acquisition;
+- static additive greedy acquisition;
+- pair-aware joint look-ahead over candidate single actions and action pairs;
+- an exact feasible-subset oracle for small known-truth scenarios.
+
+Selector/evaluator separation is enforced by type boundary: selection receives only
+`PolicyContext`, `PolicyAction`, and `SelectorPair`. These contain permitted
+standalone predictions and estimated pair interactions, but no evaluator-only
+standalone truth or pairwise truth. The exact oracle and score evaluator receive
+the full scenario only after selection. A negative-control test mutates every
+truth field and requires selections to remain unchanged.
+
+The designed fixture represents two nearby tracer measurements with high
+standalone predicted values but a negative joint interaction, versus CT pore
+geometry and event tracer measurements with lower standalone values but positive
+joint interaction. Under matched budget and required coverage, the intended
+failure mode is that static additive selection chooses the redundant tracer
+pair while pair-aware look-ahead chooses the complementary CT/tracer pair.
+The exact oracle evaluates the hidden synthetic utility independently.
+
+**Interpretation restriction:** the fixture is a constructed software test.
+It is not a physical model, an instrument recommendation, a measured effect,
+or proof that CT plus tracer is universally superior. No fixture output is
+reported as achieved until the exact-head Rust workflow passes.
+
+## 14. Remaining scientific work after the prototype
+
+This implementation does not yet model observation likelihoods, correlated
+noise covariance matrices, posterior conditioning, parameter recovery,
+simulation-based calibration, model-discrepancy updates, higher-order
+interactions or adaptive stopping. Pairwise interaction estimates are static.
+A policy can therefore select a complementary pair, but it cannot yet simulate
+how the first observation changes the value of the second.
+
+The next engine must make observations first-class simulated data:
+`latent world -> observation operator -> noisy measurement -> posterior /
+model-discrepancy update -> conditional next-action value`. The evaluator must
+retain hidden truth, with independent held-out observation seeds and target
+strata. It must compare greedy conditional EIG, batch/joint design,
+decision-focused EVSI and discrepancy-aware abstention under matched cost,
+coverage and compute budgets. It must report parameter recovery separately from
+predictive calibration and final service-decision regret.
