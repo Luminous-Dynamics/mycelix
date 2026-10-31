@@ -458,7 +458,7 @@ mod tests {
                 case_id: "case-2".to_owned(),
                 request: CedarRequest {
                     principal: "Mycelix::Actor::\"actor:missing\"".to_owned(),
-                    action: "Mycelix::Action::\\"evidence_attached\\"".to_owned(),
+                    action: "Mycelix::Action::\"evidence_attached\"".to_owned(),
                     resource: "Mycelix::Claim::\"claim:2\"".to_owned(),
                     context: serde_json::json!({}),
                 },
