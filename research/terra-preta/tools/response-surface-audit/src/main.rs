@@ -98,6 +98,8 @@ struct SeriesReport {
     dose_points: Vec<DosePoint>,
     common_block_ids_across_all_doses: Vec<String>,
     common_block_count: usize,
+    common_material_batch_ids_across_all_doses: Vec<String>,
+    common_material_batch_count: usize,
     minimum_independent_units_per_dose: usize,
     shape_status: &'static str,
     reversal_detected: bool,
@@ -344,6 +346,18 @@ fn common_blocks(doses: &BTreeMap<u64, Vec<UnitMean>>) -> Vec<String> {
     common.unwrap_or_default().into_iter().collect()
 }
 
+fn common_batches(doses: &BTreeMap<u64, Vec<UnitMean>>) -> Vec<String> {
+    let mut common: Option<BTreeSet<String>> = None;
+    for units in doses.values() {
+        let batches: BTreeSet<String> = units.iter().map(|u| u.batch.clone()).collect();
+        common = Some(match common {
+            Some(previous) => previous.intersection(&batches).cloned().collect(),
+            None => batches,
+        });
+    }
+    common.unwrap_or_default().into_iter().collect()
+}
+
 fn shape(doses: &BTreeMap<u64, Vec<UnitMean>>, floor: usize, tol: f64) -> &'static str {
     if doses.values().any(|units| units.len() < floor) {
         return "insufficient_independent_replication";
@@ -369,9 +383,12 @@ fn shape(doses: &BTreeMap<u64, Vec<UnitMean>>, floor: usize, tol: f64) -> &'stat
 }
 
 fn slope(doses: &BTreeMap<u64, Vec<UnitMean>>, common: &BTreeSet<u64>) -> Option<f64> {
-    let data: Vec<(f64, f64)> = common.iter().flat_map(|bits| {
-        let dose = f64::from_bits(*bits);
-        doses.get(bits).into_iter().flatten().map(move |unit| (dose, unit.value))
+    // Fit to dose-level means so unequal unit counts do not silently change
+    // the weight of a dose level in the descriptive contrast.
+    let data: Vec<(f64, f64)> = common.iter().filter_map(|bits| {
+        let units = doses.get(bits)?;
+        let mean = units.iter().map(|unit| unit.value).sum::<f64>() / units.len() as f64;
+        Some((f64::from_bits(*bits), mean))
     }).collect();
     if data.len() < 2 { return None; }
     let n = data.len() as f64;
@@ -453,6 +470,7 @@ fn audit(bytes: &[u8], label: &str, floor: usize, tolerance: f64) -> Result<Repo
     for (index, item) in aggregates.iter().enumerate() {
         let status = shape(&item.doses, floor, tolerance);
         let blocks = common_blocks(&item.doses);
+        let batches = common_batches(&item.doses);
         let mut points = Vec::new();
         for (dose, units) in &item.doses {
             let values: Vec<f64> = units.iter().map(|u| u.value).collect();
@@ -475,6 +493,8 @@ fn audit(bytes: &[u8], label: &str, floor: usize, tolerance: f64) -> Result<Repo
             dose_points: points,
             common_block_count: blocks.len(),
             common_block_ids_across_all_doses: blocks,
+            common_material_batch_count: batches.len(),
+            common_material_batch_ids_across_all_doses: batches,
             minimum_independent_units_per_dose: floor,
             shape_status: status,
             reversal_detected: status == "non_monotonic_reversal",
@@ -491,6 +511,9 @@ fn audit(bytes: &[u8], label: &str, floor: usize, tolerance: f64) -> Result<Repo
     ];
     if reports.iter().any(|s| s.common_block_count == 0 && s.dose_points.len() > 1) {
         warnings.push("At least one response series has no common block represented at every dose.".to_owned());
+    }
+    if reports.iter().any(|s| s.common_material_batch_count == 0 && s.dose_points.len() > 1) {
+        warnings.push("At least one response series has no material batch represented at every dose; dose and batch effects may be confounded.".to_owned());
     }
     if reports.iter().any(|s| s.shape_status == "insufficient_independent_replication") {
         warnings.push("At least one series abstains because a dose cell is below the independent-unit floor.".to_owned());
