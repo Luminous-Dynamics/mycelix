@@ -15,7 +15,8 @@
       100,
       100
     ],
-    "source_image_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    "source_image_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "vertical_axis": "z"
   },
   "segmentation": {
     "method": "synthetic labelled volume",
