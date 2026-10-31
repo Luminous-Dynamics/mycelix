@@ -80,6 +80,7 @@ impl Latency {
 pub struct Report {
     pub case_count: u32,
     pub missing_lineage: u32,
+    pub unauthorized_decisions: u32,
     pub unauthorized_activations: u32,
     pub unapproved_fund_releases: u32,
     pub unauthorized_action_starts: u32,
@@ -218,7 +219,7 @@ fn evaluate_case(case: &Case, report: &mut Report) {
         report.missing_lineage += 1;
     }
 
-    if case.decision == Decision::Activate {
+    if !case.decision_authorized {\n        report.unauthorized_decisions += 1;\n    }\n\n    if case.decision == Decision::Activate {
         report.activation_count += 1;
         if !case.alert_authorized || !case.decision_authorized {
             report.unauthorized_activations += 1;
@@ -258,7 +259,7 @@ fn evaluate_case(case: &Case, report: &mut Report) {
     if case.unique_people_served > case.intended_people {
         report.population_overclaims += 1;
     }
-    if case.service_records != case.unique_people_served.saturating_add(case.duplicate_service_records) {
+    if u64::from(case.service_records)\n        != u64::from(case.unique_people_served) + u64::from(case.duplicate_service_records) {
         report.service_accounting_mismatches += 1;
     }
 
@@ -348,7 +349,7 @@ mod tests {
                 hash.wrapping_mul(0x100000001b3)
             })
         }
-        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0);
+        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0x39cf52a7a16a3e9a);
         let cases = parse_fixture(FIXTURE).unwrap();
         assert_eq!(cases.len(), 10);
         assert_eq!(cases.iter().map(|case| case.case_id.as_str()).collect::<HashSet<_>>().len(), 10);
@@ -368,7 +369,7 @@ mod tests {
     #[test]
     fn unauthorized_activation_is_rejected() {
         let report = evaluate(&[case("unauthorized-activation")]);
-        assert_eq!(report.unauthorized_activations, 1);
+        assert_eq!(report.unauthorized_decisions, 1);\n        assert_eq!(report.unauthorized_activations, 1);
         assert!(!report.hard_gates_pass());
     }
 
@@ -437,7 +438,7 @@ mod tests {
         let report = evaluate(&[case("valid-complete-chain")]);
         assert_eq!(report.unique_people_served_total, 900);
         assert_eq!(report.intended_people_total, 1_000);
-        assert!(!report.hard_gates_pass() == false);
+        assert!(report.hard_gates_pass());
         assert_eq!(report.impact_overclaims, 0);
     }
 }
