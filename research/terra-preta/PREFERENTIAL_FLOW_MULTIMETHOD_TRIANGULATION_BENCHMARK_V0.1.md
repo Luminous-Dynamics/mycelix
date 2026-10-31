@@ -127,6 +127,14 @@ The value-of-information policy must be evaluated prospectively: compare adaptiv
 
 The Rust [PF triangulation audit](./tools/pf-triangulation-audit/README.md) preserves VT/trajectory proxy concordance per sensor, carries the profile-level NSR signature separately, and binds independent tracer/geophysical references to the exact event/profile. It does not majority-vote proxy labels into physical truth. Upstream file SHA-256 values are recorded but must be independently verified before they are treated as artifact proof. Implementation tracker: [PF-EVIDENCE-001](https://github.com/Luminous-Dynamics/mycelix/issues/5543).
 
+## 7A. End-to-end response extraction and threshold sensitivity
+
+The new [profile response extractor](./tools/profile-response-extractor/README.md) derives threshold-crossing intervals from a complete, aligned multi-depth sensor time series and emits the exact input expected by [profile-flow-audit](./tools/profile-flow-audit/README.md). This removes manual onset timestamp entry from the main NSR pipeline.
+
+The extractor uses the directly observed sample immediately before event onset as baseline, then finds the first directly observed sample whose volumetric water content exceeds the baseline by the declared threshold. The output interval is (last below, first above]. Missing or interpolated bins before crossing and saturated/frozen/faulted sensors are indeterminate, not nonresponses. A complete observed event window without crossing is a valid nonresponse.
+
+The current version deliberately does not select an “optimal” response threshold. Run at least 0.01, 0.02, 0.03 and 0.05 m³/m³ as a preregistered sensitivity grid, then pass each generated profile record through the NSR audit. The 2025 review notes that response thresholds commonly range from 1% to 5% and depend on sensor uncertainty, soil and rainfall context; it also recommends close sensor spacing and high frequency. A later instrument-calibrated threshold is tracked in [PF-RESP-001](https://github.com/Luminous-Dynamics/mycelix/issues/5554).
+
 ## 8. Data and implementation links
 
 - NEON event-scale predictor and transfer track: PREFERENTIAL_FLOW_TRANSFER_BENCHMARK_V0.1.md.
