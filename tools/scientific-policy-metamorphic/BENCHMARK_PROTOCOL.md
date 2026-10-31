@@ -70,7 +70,14 @@ The existing 62,464-row runner reports request/entity construction, authorizatio
 
 The workflow runs OPA 1.22.0 `opa bench` for one source-bound representative input from each of the eight authorization actions. It uses native query benchmarking with metrics, allocation reporting and five independent benchmark repetitions. These measurements target repeated query evaluation rather than process startup or 62,464-case batch I/O.
 
-The action-level OPA bench input is taken from the same paired corpus row used to define the action. Policy SHA-256, OPA binary SHA-256, source corpus SHA-256, tool version, OS, CPU count and raw benchmark JSON are published.
+For each action, the Cedar runner selects the first paired source-corpus
+case, writes the exact Rego input bytes, performs 100 warmups and 2,000 repeated
+Cedar in-process evaluations, and records separate request-construction and
+authorization distributions plus case/projection/input digests. The OPA
+native benchmark consumes that exact input file; CI verifies its SHA-256
+against the Cedar run manifest before benchmarking. Policy SHA-256, OPA binary
+SHA-256, source corpus SHA-256, Cedar case/input digests, tool versions, OS,
+CPU count and raw benchmark JSON are published.
 
 ### OPA one-shot batch
 
