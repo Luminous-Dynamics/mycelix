@@ -40,7 +40,7 @@ struct Input {
     schema_version: String,
     study_id: String,
     site_id: String,
-    plot_id: String,
+    spatial_group_id: String,
     profile_id: String,
     event_id: String,
     event_start_utc: String,
@@ -62,6 +62,9 @@ struct DistanceBin {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SensorSeries {
+    sensor_id: String,
+    plot_id: String,
+    depth_group_id: String,
     x_m: f64,
     y_m: f64,
     depth_cm: f64,
@@ -86,7 +89,8 @@ struct ParsedObservation {
 
 #[derive(Clone, Debug)]
 struct ParsedSensor {
-    sensor_id: String,
+    plot_id: String,
+    depth_group_id: String,
     x_m: f64,
     y_m: f64,
     depth_cm: f64,
@@ -107,8 +111,12 @@ struct SemivariogramBin {
 #[derive(Clone, Debug, Serialize)]
 struct DepthTimeSummary {
     timestamp_utc: String,
-    depth_cm: f64,
+    depth_group_id: String,
+    median_depth_cm: f64,
+    minimum_sensor_depth_cm: f64,
+    maximum_sensor_depth_cm: f64,
     roster_sensor_count: usize,
+    roster_plot_count: usize,
     valid_observed_sensor_count: usize,
     non_usable_condition_count: usize,
     invalid_baseline_count: usize,
@@ -136,7 +144,7 @@ struct Report {
     input_sha256: String,
     study_id: String,
     site_id: String,
-    plot_id: String,
+    spatial_group_id: String,
     profile_id: String,
     event_id: String,
     event_start_utc: String,
@@ -197,7 +205,7 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
     for (value, label) in [
         (&input.study_id, "study_id"),
         (&input.site_id, "site_id"),
-        (&input.plot_id, "plot_id"),
+        (&input.spatial_group_id, "spatial_group_id"),
         (&input.profile_id, "profile_id"),
         (&input.event_id, "event_id"),
         (&input.source_evidence_ref, "source_evidence_ref"),
@@ -275,6 +283,12 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
         if sensor.sensor_id.trim().is_empty() {
             return Err(format!("sensors[{sensor_index}].sensor_id must not be blank"));
         }
+        if sensor.plot_id.trim().is_empty() {
+            return Err(format!("sensors[{sensor_index}].plot_id must not be blank"));
+        }
+        if sensor.depth_group_id.trim().is_empty() {
+            return Err(format!("sensors[{sensor_index}].depth_group_id must not be blank"));
+        }
         if !ids.insert(sensor.sensor_id.as_str()) {
             return Err(format!("duplicate sensor_id {:?}", sensor.sensor_id));
         }
@@ -323,6 +337,8 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
 
         let baseline = &observations[0];
         parsed_sensors.push(ParsedSensor {
+            plot_id: sensor.plot_id.clone(),
+            depth_group_id: sensor.depth_group_id.clone(),
             x_m: sensor.x_m,
             y_m: sensor.y_m,
             depth_cm: sensor.depth_cm,
@@ -394,17 +410,26 @@ fn semivariogram(
 
 fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let (expected_times, sensors) = validate(input)?;
-    let mut depths: Vec<f64> = sensors.iter().map(|sensor| sensor.depth_cm).collect();
-    depths.sort_by(f64::total_cmp);
-    depths.dedup_by(|left, right| left.total_cmp(right).is_eq());
+    let mut depth_groups: Vec<String> = sensors.iter().map(|sensor| sensor.depth_group_id.clone()).collect();
+    depth_groups.sort();
+    depth_groups.dedup();
 
     let mut summaries = Vec::new();
     for time in expected_times.iter().skip(1) {
-        for depth in &depths {
+        for depth_group_id in &depth_groups {
             let depth_sensors: Vec<&ParsedSensor> = sensors
                 .iter()
-                .filter(|sensor| sensor.depth_cm == *depth)
+                .filter(|sensor| sensor.depth_group_id == *depth_group_id)
                 .collect();
+            let mut sorted_depths: Vec<f64> = depth_sensors.iter().map(|sensor| sensor.depth_cm).collect();
+            sorted_depths.sort_by(f64::total_cmp);
+            let median_depth_cm = median(&sorted_depths).expect("depth group has sensor metadata");
+            let minimum_sensor_depth_cm = *sorted_depths.first().expect("depth group has sensor metadata");
+            let maximum_sensor_depth_cm = *sorted_depths.last().expect("depth group has sensor metadata");
+            let mut plot_ids: Vec<&str> = depth_sensors.iter().map(|sensor| sensor.plot_id.as_str()).collect();
+            plot_ids.sort_unstable();
+            plot_ids.dedup();
+            let roster_plot_count = plot_ids.len();
             let mut deltas = Vec::with_capacity(depth_sensors.len());
             let mut valid_values = Vec::new();
             let mut distinct_positions: Vec<(f64, f64)> = Vec::new();
@@ -507,8 +532,12 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
 
             summaries.push(DepthTimeSummary {
                 timestamp_utc: time.to_rfc3339(),
-                depth_cm: *depth,
+                depth_group_id: depth_group_id.clone(),
+                median_depth_cm,
+                minimum_sensor_depth_cm,
+                maximum_sensor_depth_cm,
                 roster_sensor_count: depth_sensors.len(),
+                roster_plot_count,
                 valid_observed_sensor_count: valid_count,
                 non_usable_condition_count: non_usable_count,
                 invalid_baseline_count,
@@ -537,7 +566,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         input_sha256,
         study_id: input.study_id.clone(),
         site_id: input.site_id.clone(),
-        plot_id: input.plot_id.clone(),
+        spatial_group_id: input.spatial_group_id.clone(),
         profile_id: input.profile_id.clone(),
         event_id: input.event_id.clone(),
         event_start_utc: input.event_start_utc.clone(),
@@ -545,7 +574,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         time_resolution_seconds: input.time_resolution_seconds,
         response_threshold_m3_m3: input.response_threshold_m3_m3,
         sensor_count: sensors.len(),
-        distinct_depth_count: depths.len(),
+        distinct_depth_group_count: depth_groups.len(),
         time_depth_summary_count: summaries.len(),
         summaries,
         interpretation_boundary: "event-relative spatial moisture heterogeneity is a sensor signature, not unique proof of macropore connectivity, vertical bypass or measured flux",
