@@ -612,8 +612,10 @@ fn interpolate_short_gaps(profile: &mut NormalizedProfile, target_resolution_sec
             }
 
             let missing_count = right - left - 1;
-            let gap_duration_seconds = (missing_count as u64) * step;
-            if missing_count > 0 && gap_duration_seconds < MAX_GAP_SECONDS {
+            // Define gap duration conservatively as elapsed time between the
+            // two observed endpoint timestamps, not just the missing-bin span.
+            let endpoint_elapsed_seconds = ((right - left) as u64) * step;
+            if missing_count > 0 && endpoint_elapsed_seconds < MAX_GAP_SECONDS {
                 let left_theta = observations[left]
                     .volumetric_water_content_m3_m3
                     .expect("observed status must have a value");
@@ -835,10 +837,12 @@ mod tests {
             }
         };
         let mut observations = vec![make_observation(0, Some(0.2), "observed")];
-        for index in 1..=36 {
+        for index in 1..=35 {
             observations.push(make_observation(index, None, "missing"));
         }
-        observations.push(make_observation(37, Some(0.4), "observed"));
+        // Last observed endpoints are exactly six hours apart (36 × 10 min).
+        observations.push(make_observation(36, Some(0.4), "observed"));
+        observations.push(make_observation(37, None, "missing"));
         observations.push(make_observation(38, None, "missing"));
         let mut profile = NormalizedProfile {
             schema_version: "0.1.0",
@@ -860,7 +864,7 @@ mod tests {
         };
         assert_eq!(interpolate_short_gaps(&mut profile, 600), 0);
         assert_eq!(profile.sensors[0].observations[1].status, "missing");
-        assert_eq!(profile.sensors[0].observations[38].status, "missing");
+        assert_eq!(profile.sensors[0].observations[37].status, "missing");
     }
 
     #[test]
