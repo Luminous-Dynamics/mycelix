@@ -1231,6 +1231,7 @@ mod tests {
             "active_in_curriculum": false,
             "objective_semantics": "minimum-expected-total-cost-subject-to-pathwise-service-floors",
             "risk_confidence_level": alpha,
+            "risk_aversion_lambda": 0.9,
             "horizon_stages": 3,
             "initial_information_state_id": "ROOT",
             "service_floors": {"water":70.0,"power":60.0},
@@ -1388,7 +1389,7 @@ mod tests {
     }
 
     #[test]
-    fn nested_cvar_reverses_static_precommitment_local_action() {
+    fn nested_mean_cvar_reverses_static_precommitment_local_action() {
         let report = evaluate_nested_risk_comparison(&risk_fixture(0.9)).unwrap();
         assert_eq!(report["local_decision_reversal_at_A"]["nested_action"], json!("SAFE"));
         assert_eq!(report["local_decision_reversal_at_A"]["static_precommitment_action"], json!("GAMBLE"));
@@ -1401,7 +1402,7 @@ mod tests {
     }
 
     #[test]
-    fn nested_cvar_keeps_one_action_per_observable_information_state() {
+    fn nested_mean_cvar_keeps_one_action_per_observable_information_state() {
         let report = evaluate_nested_risk_comparison(&risk_fixture(0.9)).unwrap();
         let policy = report["nested"]["policy"].as_object().unwrap();
         assert_eq!(policy.len(), 5);
@@ -1409,13 +1410,20 @@ mod tests {
     }
 
     #[test]
-    fn invalid_nested_cvar_confidence_is_rejected() {
+    fn invalid_nested_risk_parameters_are_rejected() {
         let fixture = risk_fixture(1.0);
         assert!(evaluate_nested_risk_comparison(&fixture).is_err());
     }
 
     #[test]
-    fn terminal_cvar_enumeration_respects_pathwise_service_floors() {
+    fn lambda_one_is_rejected_because_pure_cvar_is_not_strictly_monotone() {
+        let mut fixture = risk_fixture(0.9);
+        fixture["risk_aversion_lambda"] = json!(1.0);
+        assert!(evaluate_nested_risk_comparison(&fixture).is_err());
+    }
+
+    #[test]
+    fn terminal_mean_cvar_enumeration_respects_pathwise_service_floors() {
         let mut fixture = risk_fixture(0.9);
         fixture["information_states"][2]["service_levels"]["water"] = json!(40.0);
         let report = evaluate_nested_risk_comparison(&fixture).unwrap();
