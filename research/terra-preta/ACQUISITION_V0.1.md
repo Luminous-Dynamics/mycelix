@@ -161,6 +161,14 @@ data-use terms at acquisition and preserve attribution.
 **Cross-method validation tracker:** [PF-TRIANG-001](https://github.com/Luminous-Dynamics/mycelix/issues/5538).
 
 ### Soil-water quality package and time-index policy
+### Soil-water depth and sensor-position crosswalk
+
+The June 2026 NEON soil-sensor tutorial explicitly warns that the regular `sensor_positions` table currently reports incorrect `zOffset` depths for DP1.00094.001. Use the corrected `swc_depthsV3.csv` file from the product documentation for actual soil-water sensor depths. The tutorial shows that depth indices are not portable across products or sites: soil-water vertical position 501 is 6 cm in its example, while soil-temperature vertical position 502 is 6 cm.
+
+For spatial positions, retain the sensor-position reference coordinates and offsets, including `xOffset`, `yOffset`, `eastOffset`, `northOffset`, and the position reference metadata. Join records by site, horizontal/vertical position and time-validity interval. The sensor-position table can contain multiple rows for a relocated sensor, with `positionStartDateTime` and `positionEndDateTime`; a join on HOR/VER alone can assign a historical event to the wrong sensor position. Split time series at any position change and report coordinate uncertainty/validity.
+
+NEON also issued a 2023 notice that measurement uncertainty was understated for some locations because the manufacturer-default calibration was in use. A December 2023 notice reports the issue was resolved for provisional data from July 2022 onward and says earlier affected data would be corrected in RELEASE-2024. The selected RELEASE-2026 is later than that correction, but retain the release/ATBD/calibration metadata and verify the actual rows and uncertainty fields before using measurement uncertainty to set detection thresholds or weights.
+
 
 For DP1.00094.001, obtain the **1-minute time index** for event reconstruction. NEON also publishes a 30-minute index, but it is too coarse to reconstruct the 10-minute median/event response series without losing sub-30-minute timing information. Do not feed 30-minute data into the eventizer and label it a 10-minute reproduction.
 
