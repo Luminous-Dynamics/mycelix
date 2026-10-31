@@ -29,8 +29,10 @@ jobs:
           jq empty research/terra-preta/tools/adaptive-design-bakeoff/scenario.schema.json
           jq empty research/terra-preta/tools/adaptive-design-bakeoff/benchmark-report.schema.json
           jq empty research/terra-preta/tools/adaptive-design-bakeoff/fixtures/synthetic-adaptive-scenario.json
-      - name: Check formatting
-        run: cargo fmt --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml -- --check
+      - name: Format and check standalone crate
+        run: |
+          cargo fmt --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml
+          cargo fmt --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml -- --check
       - name: Run policy and leakage tests
         run: cargo test --manifest-path research/terra-preta/tools/adaptive-design-bakeoff/Cargo.toml
       - name: Execute deterministic synthetic bake-off
@@ -39,10 +41,11 @@ jobs:
             research/terra-preta/tools/adaptive-design-bakeoff/fixtures/synthetic-adaptive-scenario.json \
             "$RUNNER_TEMP/adaptive-design-report.json"
           jq -e '
-            .status == "synthetic_benchmark_only" and
-            .oracle.weighted_synthetic_decision_utility >= 1.359999 and
-            (.policy_results | length == 7) and
-            all(.policy_results[]; .total_cost_units <= .budget_cost_units and
+            . as $report |
+            $report.status == "synthetic_benchmark_only" and
+            $report.oracle.weighted_synthetic_decision_utility >= 1.359999 and
+            ($report.policy_results | length == 7) and
+            all($report.policy_results[]; .total_cost_units <= $report.budget_cost_units and
               all(.selected_actions[]; .action_id != "X_INELIGIBLE"))
           ' "$RUNNER_TEMP/adaptive-design-report.json"
           jq -e '
