@@ -630,6 +630,8 @@ mod tests {
                     y_m: 0.0,
                     condition: SensorCondition::Usable,
                     metadata_evidence_ref: "corrected synthetic depth and sensor positions".to_owned(),
+                    position_start_utc: Some("2026-01-01T00:00:00Z".to_owned()),
+                    position_end_utc: None,
                 },
                 SensorMetadata {
                     sensor_key: "001|502".to_owned(),
