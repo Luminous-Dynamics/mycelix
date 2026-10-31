@@ -47,6 +47,7 @@ struct Input {
     event_id: String,
     event_start_utc: String,
     observation_window_end_utc: String,
+    maximum_allowed_interval_seconds: u64,
     profile_depth_mm: f64,
     bulk_sample_volume_m3: f64,
     area_normalization_basis: String,
@@ -108,6 +109,7 @@ struct Report {
     event_id: String,
     event_start_utc: String,
     observation_window_end_utc: String,
+    maximum_allowed_interval_seconds: u64,
     profile_depth_mm: f64,
     bulk_sample_volume_m3: f64,
     area_normalization_basis: &'static str,
@@ -201,6 +203,9 @@ fn validate(input: &Input) -> Result<Vec<ParsedSample>, String> {
     if input.samples.len() < 2 {
         return Err("at least two time samples are required for interval integration".to_owned());
     }
+    if input.maximum_allowed_interval_seconds == 0 {
+        return Err("maximum_allowed_interval_seconds must be greater than zero".to_owned());
+    }
 
     let event_start = parse_utc(&input.event_start_utc, "event_start_utc")?;
     let event_end = parse_utc(&input.observation_window_end_utc, "observation_window_end_utc")?;
@@ -248,6 +253,13 @@ fn validate(input: &Input) -> Result<Vec<ParsedSample>, String> {
     for pair in parsed.windows(2) {
         if pair[1].timestamp <= pair[0].timestamp {
             return Err("sample timestamps must be strictly increasing with no duplicates".to_owned());
+        }
+        let elapsed = (pair[1].timestamp.clone() - pair[0].timestamp.clone()).num_milliseconds() as f64 / 1000.0;
+        if elapsed > input.maximum_allowed_interval_seconds as f64 {
+            return Err(format!(
+                "adjacent sample interval {elapsed} seconds exceeds maximum_allowed_interval_seconds {}",
+                input.maximum_allowed_interval_seconds
+            ));
         }
     }
     if parsed.first().map(|sample| sample.timestamp.clone()) != Some(event_start.clone())
@@ -344,6 +356,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         event_id: input.event_id.clone(),
         event_start_utc: input.event_start_utc.clone(),
         observation_window_end_utc: input.observation_window_end_utc.clone(),
+        maximum_allowed_interval_seconds: input.maximum_allowed_interval_seconds,
         profile_depth_mm: input.profile_depth_mm,
         bulk_sample_volume_m3: input.bulk_sample_volume_m3,
         area_normalization_basis: AREA_BASIS,
@@ -460,6 +473,7 @@ mod tests {
             event_id: "RAIN-01".to_owned(),
             event_start_utc: stamp(0),
             observation_window_end_utc: stamp(3600),
+            maximum_allowed_interval_seconds: 3600,
             profile_depth_mm: 100.0,
             bulk_sample_volume_m3: 0.0001,
             area_normalization_basis: AREA_BASIS.to_owned(),
@@ -521,6 +535,16 @@ mod tests {
         ]);
         data.samples[1].timestamp_utc = stamp(0);
         assert!(validate(&data).unwrap_err().contains("strictly increasing"));
+    }
+
+    #[test]
+    fn rejects_time_gap_above_declared_maximum() {
+        let mut data = input(vec![
+            sample(0, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+            sample(3600, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+        ]);
+        data.maximum_allowed_interval_seconds = 1800;
+        assert!(validate(&data).unwrap_err().contains("exceeds maximum_allowed_interval_seconds"));
     }
 
     #[test]
