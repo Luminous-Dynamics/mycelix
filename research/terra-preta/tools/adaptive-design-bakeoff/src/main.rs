@@ -121,8 +121,8 @@ struct PolicyResult {
     minimum_coverage_met: bool,
     stratum_coverage: Vec<StratumCoverage>,
     weighted_synthetic_decision_utility: f64,
-    oracle_regret: f64,
-    normalized_oracle_regret: f64,
+    oracle_regret: Option<f64>,
+    normalized_oracle_regret: Option<f64>,
     mean_model_disagreement: Option<f64>,
     mean_error_amplification_risk: Option<f64>,
 }
@@ -678,7 +678,19 @@ fn summarize_policy(
         });
     }
     let value = utility(&scenario.actions, &scenario.strata, &indices);
-    let regret = (oracle.weighted_synthetic_decision_utility - value).max(0.0);
+    let minimum_coverage_met = coverage.iter().all(|item| item.minimum_met);
+    // A coverage-infeasible policy is outside the oracle's feasible decision
+    // set. Keep its raw utility, but do not report a misleading zero regret.
+    let regret = minimum_coverage_met.then(|| {
+        (oracle.weighted_synthetic_decision_utility - value).max(0.0)
+    });
+    let normalized_regret = regret.map(|value| {
+        if oracle.weighted_synthetic_decision_utility > 0.0 {
+            value / oracle.weighted_synthetic_decision_utility
+        } else {
+            0.0
+        }
+    });
     let selected: Vec<&Action> = indices.iter().map(|i| &scenario.actions[*i]).collect();
     let mean_disagreement = if selected.is_empty() { None } else {
         Some(selected.iter().map(|action| {
@@ -709,13 +721,11 @@ fn summarize_policy(
         selected_actions,
         total_cost_units: total_cost,
         budget_remaining_units: scenario.budget_cost_units.saturating_sub(total_cost),
-        minimum_coverage_met: coverage.iter().all(|item| item.minimum_met),
+        minimum_coverage_met,
         stratum_coverage: coverage,
         weighted_synthetic_decision_utility: value,
         oracle_regret: regret,
-        normalized_oracle_regret: if oracle.weighted_synthetic_decision_utility > 0.0 {
-            regret / oracle.weighted_synthetic_decision_utility
-        } else { 0.0 },
+        normalized_oracle_regret: normalized_regret,
         mean_model_disagreement: mean_disagreement,
         mean_error_amplification_risk: mean_risk,
     }
@@ -832,8 +842,10 @@ mod tests {
         let eig = report.policy_results.iter().find(|p| p.policy_id == "bayesian_eig_proxy").unwrap();
         let expert = report.policy_results.iter().find(|p| p.policy_id == "expert_fixed").unwrap();
         assert!(robust.minimum_coverage_met);
-        assert!(robust.normalized_oracle_regret < eig.normalized_oracle_regret);
-        assert!(robust.normalized_oracle_regret < expert.normalized_oracle_regret);
+        assert!(robust.normalized_oracle_regret.unwrap() < eig.normalized_oracle_regret.unwrap());
+        assert!(!expert.minimum_coverage_met);
+        assert!(expert.normalized_oracle_regret.is_none());
+        assert!(robust.weighted_synthetic_decision_utility > expert.weighted_synthetic_decision_utility);
     }
 
     #[test]
