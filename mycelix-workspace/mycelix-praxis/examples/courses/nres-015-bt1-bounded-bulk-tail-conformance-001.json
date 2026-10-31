@@ -2,7 +2,7 @@
   "benchmark_id": "PRAXIS-NRES-015-BT1-BOUNDED-BULK-TAIL-CONFORMANCE-001",
   "schema_version": "1.0.0",
   "evaluation_split": "public-development-only",
-  "authored_rust_unit_tests": 12,
+  "authored_rust_unit_tests": 14,
   "invalid_input_controls": [
     "wrong benchmark ID or schema version",
     "non-synthetic status or non-public-development split",
