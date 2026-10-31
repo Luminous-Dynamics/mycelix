@@ -467,7 +467,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             "Hirmas et al. (2025) Eqs. 9-11: rho(theta_m), rho_s, and dynamic COLE",
             "Hirmas et al. (2025) Eqs. 13-16: capped structural swelling and d(theta_m)",
             "Hirmas et al. (2025) Eqs. 20-23: K_sp, K_s, f_p and R_p",
-            "Hirmas et al. (2025) Eq. 37: alpha_2/alpha_ds = beta_0 + beta_1(d/d_ds), when supplied",
+            "Hirmas et al. (2025) Figure 6/Table 1 plotted relation: alpha_2/alpha_ds = beta_0 + beta_1(d/d_ds), when supplied; the printed body Eq. 37 has a minus sign and is inconsistent",
         ],
         image_geometry: ImageGeometryReport {
             image_resolution_um_per_pixel: image.image_resolution_um_per_pixel,
@@ -501,6 +501,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             "The model is not the full unsaturated conductivity function in Hirmas et al. Eq. 38 and does not solve water transport.".to_owned(),
             "The matrix saturated conductivity is supplied as an input, not predicted from these image data.".to_owned(),
             "The original paper's fitted coefficients belong to one Konza APT soil profile; no direct transfer to Terra Preta, African or South African soils is claimed.".to_owned(),
+            "The paper body prints a minus sign in Eq. 37, while Figure 6 and Table 1 show a positive near-1:1 relation with positive beta_1. v0.1 follows the figure/table relationship provisionally; author-code parity is required to resolve this publication inconsistency.".to_owned(),
+            "v0.1 uses a representative average pore width and aggregate projected area/perimeter in Eqs. 22-23. It does not yet implement the per-pore width and area scaling of Eqs. 35-36; this is a coarse average-geometry adaptation, not a full pore-resolved reproduction.".to_owned(),
             "Image object-area threshold and measured scale are recorded as supplied. Verify them against the exact source image/export.".to_owned(),
         ],
     })
