@@ -1,0 +1,71 @@
+{
+  "benchmark_id": "GCPN-CAP-SIDECAR-CONFORMANCE-001",
+  "profile_id": "gcpn-cap-sidecar-v0.1",
+  "status": "synthetic-specification-only",
+  "cap_namespace": "urn:oasis:names:tc:emergency:cap:1.2",
+  "binding": {
+    "identity_fields": ["identifier", "sender", "sent"],
+    "digest_algorithm": "SHA-256",
+    "digest_scope": "exact-xml-octets",
+    "digest_required": true
+  },
+  "preservation_contract": [
+    "alert.identifier",
+    "alert.sender",
+    "alert.sent",
+    "alert.status",
+    "alert.msgType",
+    "alert.scope",
+    "alert.source",
+    "alert.references",
+    "alert.incidents",
+    "info.language",
+    "info.category",
+    "info.event",
+    "info.responseType",
+    "info.urgency",
+    "info.severity",
+    "info.certainty",
+    "info.effective",
+    "info.onset",
+    "info.expires",
+    "info.area",
+    "info.resource",
+    "info.instruction"
+  ],
+  "negative_controls": [
+    "wrong_cap_identifier",
+    "wrong_sender",
+    "wrong_sent_timestamp",
+    "wrong_cap_namespace",
+    "digest_mismatch",
+    "wrong_digest_scope",
+    "replayed_sidecar",
+    "expired_sidecar",
+    "signature_present_but_unverifiable_is_hidden",
+    "authentic_signature_promoted_to_measurement_truth",
+    "authenticated_source_promoted_to_authority",
+    "cap_update_cancel_chain_collapsed",
+    "multi_language_info_segment_dropped",
+    "unknown_profile_extension_silently_dropped",
+    "receiver_receipt_inferred_from_server_send",
+    "sensitive_provenance_copied_into_public_cap_payload"
+  ],
+  "hard_gates": [
+    "zero_declared_cap_semantic_field_loss",
+    "zero_mismatched_or_replayed_sidecar_acceptance",
+    "100_percent_exact_message_binding",
+    "zero_signature_to_measurement_truth_promotion",
+    "zero_evidence_to_warning_authority_promotion",
+    "zero_server_send_to_receiver_receipt_inference"
+  ],
+  "non_claims": [
+    "not a competing alert format",
+    "not a transport protocol",
+    "not a national warning authority",
+    "not a live alerting system",
+    "not physical truth verification",
+    "not human comprehension measurement",
+    "not a missile-defense capability"
+  ]
+}
