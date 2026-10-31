@@ -127,9 +127,11 @@ jobs:
             .complete == true and
             .is_one_minimal == true and
             .candidate_evaluations > 0 and
+            .candidate_evaluations == (.input_rejected_candidate_count + .valid_engine_evaluation_count) and
+            .valid_engine_evaluation_count == .opa_candidate_process_evaluations and
             .opa_candidate_process_evaluations > 0 and
-            .cedar_candidate_latency.count == .opa_candidate_process_evaluations and
-            .opa_cli_candidate_latency.count == .opa_candidate_process_evaluations
+            .cedar_candidate_latency.count == .valid_engine_evaluation_count and
+            .opa_cli_candidate_latency.count == .valid_engine_evaluation_count
           ' target/policy-counterexample-shrink/shrink-summary.json
           jq -e '
             .predicate_provenance.engine_id == "cedar-policy+opa" and
