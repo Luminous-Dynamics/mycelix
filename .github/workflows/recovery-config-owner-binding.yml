@@ -1,0 +1,59 @@
+name: Recovery owner-binding qualification
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-identity/zomes/recovery/integrity/src/lib.rs"
+      - "mycelix-identity/zomes/recovery/coordinator/src/lib.rs"
+      - ".github/workflows/recovery-config-owner-binding.yml"
+      - "mycelix-identity/Cargo.toml"
+      - "mycelix-identity/Cargo.lock"
+  push:
+    branches: [main]
+    paths:
+      - "mycelix-identity/zomes/recovery/integrity/src/lib.rs"
+      - "mycelix-identity/zomes/recovery/coordinator/src/lib.rs"
+      - ".github/workflows/recovery-config-owner-binding.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-owner-binding-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact-head recovery integrity and coordinator tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-identity -> target
+      - name: Assert exact source head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
+            echo "Expected source head $EXPECTED_SHA, checked out $actual" >&2
+            exit 1
+          fi
+      - name: Generate and fingerprint workspace lockfile
+        run: |
+          cargo generate-lockfile --manifest-path mycelix-identity/Cargo.toml
+          sha256sum mycelix-identity/Cargo.lock
+      - name: Format touched recovery zomes
+        run: rustfmt --edition 2024 --check mycelix-identity/zomes/recovery/integrity/src/lib.rs mycelix-identity/zomes/recovery/coordinator/src/lib.rs
+      - name: Run native recovery integrity and coordinator tests
+        run: cargo test --manifest-path mycelix-identity/Cargo.toml --locked -p recovery_integrity -p recovery
+      - name: Run strict Clippy for recovery zomes
+        run: cargo clippy --manifest-path mycelix-identity/Cargo.toml --locked -p recovery_integrity -p recovery --all-targets -- -D warnings
