@@ -89,15 +89,19 @@ The actual Mycelix Rust authorization implementation and canonical v1 input/outp
 ## 9. First Cedar/OPA integration
 
 The current branch adds `--shrink-pair` to the Cedar runner. It consumes one
-paired engine-input JSON object, checks OPA 1.22.0, loads and strictly validates
-Cedar 4.14.0 policy/schema, and first confirms that the source case produces
-different decisions. It then calls the generic shrinker while preserving the
-exact initial decision direction.
+paired engine-input JSON object, parses its raw bytes with the duplicate-aware
+strict JSON parser before any engine evaluation, checks OPA 1.22.0, loads and
+strictly validates Cedar 4.14.0 policy/schema, and first confirms that the
+source case produces different decisions. The evaluation configuration binds
+the exact case ID and source-input digest plus the frozen source revision and
+authorization-source blob SHA. It then calls the generic shrinker while
+preserving the exact initial decision direction.
 
-Every candidate is deserialized into the paired case shape. Invalid schema or
-entity reductions are treated as non-preserving candidates. Cedar policy
-evaluation diagnostics and OPA process failures are indeterminate and stop a
-minimality claim. OPA is invoked via a five-second-bounded one-shot
+Every candidate is deserialized into the paired case shape. Input/schema
+rejections are recorded as `input_rejected_before_engines` with null decision
+fields and cannot be mistaken for Cedar/OPA decisions. Cedar policy evaluation
+diagnostics and OPA process failures are indeterminate and stop a minimality
+claim. OPA is invoked via a five-second-bounded one-shot
 `opa eval --stdin-input` process per valid candidate; Cedar is evaluated
 in-process. The output records these timings separately and labels the OPA
 measurement as including CLI startup and policy loading.
