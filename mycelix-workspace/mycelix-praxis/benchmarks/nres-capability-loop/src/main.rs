@@ -2,7 +2,7 @@ use praxis_nres_capability_loop::{
     evaluate, evaluate_ambiguity_robust_decisions, evaluate_joint_service_forecasts, evaluate_probability_forecasts,
     evaluate_reliability_resolution_decision_value, evaluate_resilience_trajectories,
     evaluate_tail_shift_robustness, evaluate_wasserstein_joint_decisions,
-    evaluate_wasserstein_radius_calibration, evaluate_bulk_tail_credal, evaluate_cluster_max_conformal, evaluate_exact_adaptive_recourse, evaluate_nested_risk_comparison, export_evidence_envelope,
+    evaluate_wasserstein_radius_calibration, evaluate_bulk_tail_credal, evaluate_cluster_max_conformal, evaluate_exact_adaptive_recourse, evaluate_nested_risk_comparison, evaluate_rectangular_tv_robust_recourse, export_evidence_envelope,
 };
 use serde_json::Value;
 use std::process::ExitCode;
@@ -21,6 +21,7 @@ const NRES015_BT1: &str = include_str!("../../../examples/courses/nres-015-bt1-b
 const NRES015_DC1: &str = include_str!("../../../examples/courses/nres-015-dc1-cluster-max-conformal-fixture-001.json");
 const NRES016_EX0: &str = include_str!("../../../examples/courses/nres-016-ex0-exact-adaptive-recourse-fixture-001.json");
 const NRES016_EX1: &str = include_str!("../../../examples/courses/nres-016-ex1-nested-cvar-fixture-001.json");
+const NRES016_EX2: &str = include_str!("../../../examples/courses/nres-016-ex2-rectangular-tv-robust-recourse-fixture-001.json");
 
 fn parse_fixture(contents: &str, label: &str) -> Result<Value, ExitCode> {
     serde_json::from_str(contents).map_err(|error| {
@@ -32,6 +33,13 @@ fn parse_fixture(contents: &str, label: &str) -> Result<Value, ExitCode> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    if args.iter().any(|arg| arg == "--rectangular-tv-ex2") {
+        let fixture = match parse_fixture(NRES016_EX2, "NRES-016-EX2") {
+            Ok(value) => value,
+            Err(code) => return code,
+        };
+        return emit(evaluate_rectangular_tv_robust_recourse(&fixture));
+    }
     if args.iter().any(|arg| arg == "--nested-risk-ex1") {
         let fixture = match parse_fixture(NRES016_EX1, "NRES-016-EX1") {
             Ok(value) => value,
