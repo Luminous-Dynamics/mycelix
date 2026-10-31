@@ -162,7 +162,6 @@ struct BoundaryObservation {
 #[derive(Clone, Debug, Serialize)]
 struct ObservationSet {
     observation_schema_version: &'static str,
-    scenario_id: String,
     dt_seconds: i64,
     truth_manifest_sha256: String,
     observation_operator: &'static str,
@@ -202,7 +201,6 @@ fn boundary_observations(input: &Input, truth: &Report, truth_sha256: String) ->
 
     ObservationSet {
         observation_schema_version: "0.1.0",
-        scenario_id: input.scenario_id.clone(),
         dt_seconds: input.dt_seconds,
         truth_manifest_sha256: truth_sha256,
         observation_operator: "synthetic_boundary_flux_aggregation_v0.1",
@@ -218,7 +216,7 @@ fn boundary_observations(input: &Input, truth: &Report, truth_sha256: String) ->
     }
 }
 
-fn write_new_file(path: &str, bytes: &[u8]) -> Result<(), io::Error> {
+fn write_new_file_exact(path: &str, bytes: &[u8]) -> Result<(), io::Error> {
     let mut output = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -230,7 +228,6 @@ fn write_new_file(path: &str, bytes: &[u8]) -> Result<(), io::Error> {
             )
         })?;
     output.write_all(bytes)?;
-    output.write_all(b"\n")?;
     output.sync_all()
 }
 
@@ -584,13 +581,15 @@ fn run() -> Result<(), Box<dyn Error>> {
     let input: Input = serde_json::from_slice(&bytes)?;
     let report = simulate(&input, input_sha256)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    let truth_encoded = serde_json::to_vec_pretty(&report)?;
+    let mut truth_encoded = serde_json::to_vec_pretty(&report)?;
+    truth_encoded.push(b'\n');
     let truth_sha256 = format!("{:x}", Sha256::digest(&truth_encoded));
     let observations = boundary_observations(&input, &report, truth_sha256);
-    let observations_encoded = serde_json::to_vec_pretty(&observations)?;
+    let mut observations_encoded = serde_json::to_vec_pretty(&observations)?;
+    observations_encoded.push(b'\n');
 
-    write_new_file(&args[2], &truth_encoded)?;
-    if let Err(error) = write_new_file(&args[3], &observations_encoded) {
+    write_new_file_exact(&args[2], &truth_encoded)?;
+    if let Err(error) = write_new_file_exact(&args[3], &observations_encoded) {
         let _ = fs::remove_file(&args[2]);
         return Err(error.into());
     }
@@ -662,6 +661,10 @@ mod tests {
 
         assert!(json_text.contains("perfect_noiseless_boundary_collection"));
         assert!(json_text.contains(&truth_sha256));
+        assert!(!json_text.contains("scenario_id"));
+        assert!(!json_text.contains("scenario_family"));
+        assert!(!json_text.contains("connected_macropore"));
+        assert!(!json_text.contains("true_macropore_path_connected"));
         assert!(!json_text.contains("matrix_water_mm"));
         assert!(!json_text.contains("macropore_water_mm"));
         assert!(!json_text.contains("matrix_deep_drainage_mm"));
@@ -671,6 +674,17 @@ mod tests {
             row.total_boundary_outflow_mm.is_finite()
                 && row.total_boundary_tracer_export_mg_m2.is_finite()
         }));
+    }
+
+    #[test]
+    fn truth_manifest_digest_binds_exact_newline_terminated_artifact_bytes() {
+        let input = base(ScenarioFamily::ConnectedMacropore, 0.3, true, 0.0);
+        let truth = simulate(&input, "a".repeat(64)).unwrap();
+        let mut truth_bytes = serde_json::to_vec_pretty(&truth).unwrap();
+        truth_bytes.push(b'\n');
+        let expected = format!("{:x}", Sha256::digest(&truth_bytes));
+        let observations = boundary_observations(&input, &truth, expected.clone());
+        assert_eq!(observations.truth_manifest_sha256, expected);
     }
 
     #[test]
