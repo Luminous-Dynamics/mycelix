@@ -674,6 +674,8 @@ struct ShrinkPairSummary {
     minimized_cedar_determining_policy_ids: Vec<String>,
     minimized_opa_rule_id: String,
     candidate_evaluations: usize,
+    input_rejected_candidate_count: usize,
+    valid_engine_evaluation_count: usize,
     opa_candidate_process_evaluations: usize,
     cedar_candidate_latency: TimingSummary,
     opa_cli_candidate_latency: TimingSummary,
@@ -1101,6 +1103,14 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         minimized_cedar_determining_policy_ids: minimized_cedar_policy_ids,
         minimized_opa_rule_id: minimized_opa_rule,
         candidate_evaluations: result.trace.candidate_evaluations,
+        input_rejected_candidate_count: candidate_engine_outcomes
+            .iter()
+            .filter(|outcome| outcome.candidate_status == "input_rejected_before_engines")
+            .count(),
+        valid_engine_evaluation_count: candidate_engine_outcomes
+            .iter()
+            .filter(|outcome| outcome.candidate_status == "evaluated")
+            .count(),
         opa_candidate_process_evaluations: opa_candidate_process_evaluations.get(),
         cedar_candidate_latency: timing_summary(&cedar_candidate_times),
         opa_cli_candidate_latency: timing_summary(&opa_cli_candidate_times),
