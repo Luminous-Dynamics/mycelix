@@ -107,3 +107,18 @@ The v0.1 synthetic utility is additive across selected actions and target-stratu
 The next version must add action-pair redundancy/complementarity and sequential observation updates, then compare greedy selection with exact or approximation-aware batch design on small known-truth worlds. It must also test objective-weight sensitivity and target-distribution uncertainty. Do not interpret v0.1 utility rankings as general acquisition-policy superiority.
 
 The authored suite also sweeps 32 deterministic seeds, checks cost and ineligible-action invariants for all policies, and shifts target-stratum weights to verify that the oracle and coverage report are recomputed. This is still one scenario family; independent mechanism families are required before general conclusions.
+
+## 9. Current physical-model comparator scope
+
+The executable v0.1 harness compares acquisition policies using synthetic score vectors; it does not run the physical simulators below. These models must be integrated as separate forward-model comparators only after boundary conditions, parameter support, calibration data and solver configurations are qualified.
+
+- **HYDRUS 6 DualPerm:** official documentation describes a 2D variably saturated dual-permeability add-on with mobile matrix and macropore domains. Water exchange is pressure-head driven; solute transfer includes advective and diffusive components. The documentation recommends the DualPerm module for smaller transport domains. It is not simply a default HYDRUS standard-mode switch.
+- **MACRO 5.2:** the Swedish University of Agricultural Sciences documents a 1D process-oriented dual-permeability model for water and reactive-solute movement. The micropore domain uses Richards flow and convection-dispersion transport; macropore water flow is gravity driven and inter-domain exchange uses approximate first-order physically based expressions.
+- **USDA RZWQM2 4.8:** USDA ARS lists release date 2026-08-28. It is a 1D whole-system soil-plant model with pseudo-2D drainage and water-table movement, macropore/preferential flow, crop-model options, and automated parameter estimation / uncertainty analysis. Water and chemical movement can run at sub-hourly time steps, while the model requires daily or hourly weather inputs.
+
+Fair comparison requires matched observed endpoints and initial/boundary conditions; no model is credited for a process that is not observed or identifiable in the test data. Report model version, configuration, solver tolerance, calibration budget, parameter priors, convergence failures and computational cost. The proposed Symtropy candidate must demonstrate measurable benefit beyond these physical baselines on held-out soils/sites/material batches, not just reproduce the same dual-domain equations with different names.
+
+Official documentation:
+- HYDRUS 6 DualPerm: https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/DualPermModule.html
+- MACRO 5.2: https://www.slu.se/en/about-slu/organisation/collaborative-centres/slu-centre-for-pesticides-in-the-environment/areas-of-operation/macro-models/macro-5.2
+- USDA RZWQM2: https://www.ars.usda.gov/research/software/download/?modecode=30-12-30-25&softwareid=412
