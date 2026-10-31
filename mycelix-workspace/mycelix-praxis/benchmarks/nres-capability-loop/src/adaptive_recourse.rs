@@ -179,8 +179,11 @@ struct Model {
 
 fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
     let mut errors = Vec::new();
-    if string_field(fixture, "benchmark_id") != Some(BENCHMARK_ID) {
-        errors.push("unexpected NRES-016-EX0 benchmark_id".to_owned());
+    let fixture_id = string_field(fixture, "benchmark_id");
+    if fixture_id != Some(BENCHMARK_ID)
+        && fixture_id != Some("PRAXIS-NRES-016-EX1-NESTED-CVAR-COMPARISON-001")
+    {
+        errors.push("unexpected NRES-016 adaptive-recourse benchmark_id".to_owned());
     }
     if string_field(fixture, "schema_version") != Some("1.0.0") {
         errors.push("unsupported NRES-016-EX0 schema_version".to_owned());
