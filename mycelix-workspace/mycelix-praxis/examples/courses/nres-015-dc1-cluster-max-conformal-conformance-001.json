@@ -1,0 +1,44 @@
+{
+  "benchmark_id": "PRAXIS-NRES-015-DC1-CLUSTER-MAX-CONFORMAL-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "authored_rust_unit_tests": 13,
+  "invalid_input_controls": [
+    "wrong benchmark ID or schema version",
+    "non-synthetic or non-public-development fixture status",
+    "curriculum activation set true",
+    "score definition differs from the frozen NRES-014 block W1 score",
+    "miscoverage alpha is non-finite or outside (0,1)",
+    "missing or empty predeclared dependence-cluster definition",
+    "blocks_per_cluster is absent, zero or outside supported range",
+    "calibration or development cluster collection is missing or empty",
+    "duplicate cluster ID across calibration and development",
+    "duplicate block ID across all clusters",
+    "duplicate source-family ID across calibration and development",
+    "unequal cluster sizes or a cluster with missing blocks",
+    "missing block or source-family identity",
+    "negative, null or non-finite W1 block score"
+  ],
+  "boundary_cases": [
+    "rank greater than calibration cluster count yields an unbounded null radius",
+    "rank equal to calibration cluster count uses the largest cluster-max score",
+    "alpha near one uses the first sorted order statistic",
+    "ties at the calibrated radius are included in coverage",
+    "each cluster maximum controls simultaneous coverage of all its member blocks"
+  ],
+  "round_trip_requirements": [
+    "cluster IDs remain stable",
+    "block IDs remain stable",
+    "source-family IDs remain stable",
+    "fixed blocks-per-cluster design remains unchanged",
+    "calibration cluster-max scores remain sorted without treating member blocks as independent samples",
+    "null radius retains explicit unbounded status"
+  ],
+  "non_claims": [
+    "No calibration-conditional guarantee",
+    "No guarantee under non-exchangeable cluster maxima",
+    "No unseen cluster-size or changed cluster-design guarantee",
+    "No within-block population-law correction",
+    "No confirmatory, deployment or SOTA claim"
+  ]
+}

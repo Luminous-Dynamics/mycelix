@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:015:dc1:cluster-max-conformal:v1",
+  "title": "Praxis NRES-015 DC1 Dependence-Cluster Maximum Conformal Calibration",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "schema_version",
+    "status",
+    "evaluation_split",
+    "active_in_curriculum",
+    "score_definition",
+    "target_miscoverage",
+    "blocks_per_cluster",
+    "dependence_cluster_definition",
+    "calibration_clusters",
+    "development_clusters",
+    "guardrails"
+  ],
+  "properties": {
+    "benchmark_id": {"const": "PRAXIS-NRES-015-DC1-CLUSTER-MAX-CONFORMAL-001"},
+    "schema_version": {"const": "1.0.0"},
+    "title": {"type": "string", "minLength": 1},
+    "status": {"const": "synthetic-demonstration-for-review"},
+    "evaluation_split": {"const": "public-development-only"},
+    "active_in_curriculum": {"const": false},
+    "score_definition": {"const": "NRES-014-block-W1-nonconformity-score"},
+    "target_miscoverage": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+    "blocks_per_cluster": {"type": "integer", "minimum": 1, "maximum": 1024},
+    "dependence_cluster_definition": {"type": "string", "minLength": 1},
+    "calibration_clusters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/cluster"}
+    },
+    "development_clusters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/cluster"}
+    },
+    "guardrails": {
+      "type": "array",
+      "minItems": 5,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "cluster": {
+      "type": "object",
+      "required": ["cluster_id", "blocks"],
+      "properties": {
+        "cluster_id": {"type": "string", "minLength": 1},
+        "blocks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["block_id", "source_family_id", "w1_score"],
+            "properties": {
+              "block_id": {"type": "string", "minLength": 1},
+              "source_family_id": {"type": "string", "minLength": 1},
+              "w1_score": {"type": "number", "minimum": 0}
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

@@ -36,6 +36,9 @@ pub use radius_calibration::evaluate_wasserstein_radius_calibration;
 pub mod bulk_tail;
 pub use bulk_tail::evaluate_bulk_tail_credal;
 
+pub mod cluster_calibration;
+pub use cluster_calibration::evaluate_cluster_max_conformal;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {

@@ -1,0 +1,39 @@
+{
+  "benchmark_id": "PRAXIS-NRES-015-DC1-CLUSTER-MAX-CONFORMAL-001",
+  "schema_version": "1.0.0",
+  "title": "NRES-015 DC1 dependence-cluster maximum conformal calibration",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "score_definition": "NRES-014-block-W1-nonconformity-score",
+  "target_miscoverage": 0.20,
+  "blocks_per_cluster": 3,
+  "dependence_cluster_definition": "Synthetic incident-region cohort clusters frozen before scores; within-cluster dependence is unrestricted in this fixture.",
+  "calibration_clusters": [
+    {"cluster_id":"CAL-01","blocks":[{"block_id":"CAL-01-B1","source_family_id":"CAL-01-F1","w1_score":0.20},{"block_id":"CAL-01-B2","source_family_id":"CAL-01-F2","w1_score":0.40},{"block_id":"CAL-01-B3","source_family_id":"CAL-01-F3","w1_score":0.30}]},
+    {"cluster_id":"CAL-02","blocks":[{"block_id":"CAL-02-B1","source_family_id":"CAL-02-F1","w1_score":0.30},{"block_id":"CAL-02-B2","source_family_id":"CAL-02-F2","w1_score":0.50},{"block_id":"CAL-02-B3","source_family_id":"CAL-02-F3","w1_score":0.45}]},
+    {"cluster_id":"CAL-03","blocks":[{"block_id":"CAL-03-B1","source_family_id":"CAL-03-F1","w1_score":0.10},{"block_id":"CAL-03-B2","source_family_id":"CAL-03-F2","w1_score":0.60},{"block_id":"CAL-03-B3","source_family_id":"CAL-03-F3","w1_score":0.55}]},
+    {"cluster_id":"CAL-04","blocks":[{"block_id":"CAL-04-B1","source_family_id":"CAL-04-F1","w1_score":0.25},{"block_id":"CAL-04-B2","source_family_id":"CAL-04-F2","w1_score":0.30},{"block_id":"CAL-04-B3","source_family_id":"CAL-04-F3","w1_score":0.20}]},
+    {"cluster_id":"CAL-05","blocks":[{"block_id":"CAL-05-B1","source_family_id":"CAL-05-F1","w1_score":0.60},{"block_id":"CAL-05-B2","source_family_id":"CAL-05-F2","w1_score":0.80},{"block_id":"CAL-05-B3","source_family_id":"CAL-05-F3","w1_score":0.70}]},
+    {"cluster_id":"CAL-06","blocks":[{"block_id":"CAL-06-B1","source_family_id":"CAL-06-F1","w1_score":0.45},{"block_id":"CAL-06-B2","source_family_id":"CAL-06-F2","w1_score":0.70},{"block_id":"CAL-06-B3","source_family_id":"CAL-06-F3","w1_score":0.65}]},
+    {"cluster_id":"CAL-07","blocks":[{"block_id":"CAL-07-B1","source_family_id":"CAL-07-F1","w1_score":0.35},{"block_id":"CAL-07-B2","source_family_id":"CAL-07-F2","w1_score":0.55},{"block_id":"CAL-07-B3","source_family_id":"CAL-07-F3","w1_score":0.50}]},
+    {"cluster_id":"CAL-08","blocks":[{"block_id":"CAL-08-B1","source_family_id":"CAL-08-F1","w1_score":0.50},{"block_id":"CAL-08-B2","source_family_id":"CAL-08-F2","w1_score":0.65},{"block_id":"CAL-08-B3","source_family_id":"CAL-08-F3","w1_score":0.60}]},
+    {"cluster_id":"CAL-09","blocks":[{"block_id":"CAL-09-B1","source_family_id":"CAL-09-F1","w1_score":0.70},{"block_id":"CAL-09-B2","source_family_id":"CAL-09-F2","w1_score":0.90},{"block_id":"CAL-09-B3","source_family_id":"CAL-09-F3","w1_score":0.75}]},
+    {"cluster_id":"CAL-10","blocks":[{"block_id":"CAL-10-B1","source_family_id":"CAL-10-F1","w1_score":0.75},{"block_id":"CAL-10-B2","source_family_id":"CAL-10-F2","w1_score":1.00},{"block_id":"CAL-10-B3","source_family_id":"CAL-10-F3","w1_score":0.85}]}
+  ],
+  "development_clusters": [
+    {"cluster_id":"DEV-01","blocks":[{"block_id":"DEV-01-B1","source_family_id":"DEV-01-F1","w1_score":0.30},{"block_id":"DEV-01-B2","source_family_id":"DEV-01-F2","w1_score":0.55},{"block_id":"DEV-01-B3","source_family_id":"DEV-01-F3","w1_score":0.70}]},
+    {"cluster_id":"DEV-02","blocks":[{"block_id":"DEV-02-B1","source_family_id":"DEV-02-F1","w1_score":0.40},{"block_id":"DEV-02-B2","source_family_id":"DEV-02-F2","w1_score":0.91},{"block_id":"DEV-02-B3","source_family_id":"DEV-02-F3","w1_score":0.60}]},
+    {"cluster_id":"DEV-03","blocks":[{"block_id":"DEV-03-B1","source_family_id":"DEV-03-F1","w1_score":0.50},{"block_id":"DEV-03-B2","source_family_id":"DEV-03-F2","w1_score":0.49},{"block_id":"DEV-03-B3","source_family_id":"DEV-03-F3","w1_score":0.50}]},
+    {"cluster_id":"DEV-04","blocks":[{"block_id":"DEV-04-B1","source_family_id":"DEV-04-F1","w1_score":0.75},{"block_id":"DEV-04-B2","source_family_id":"DEV-04-F2","w1_score":0.80},{"block_id":"DEV-04-B3","source_family_id":"DEV-04-F3","w1_score":1.00}]},
+    {"cluster_id":"DEV-05","blocks":[{"block_id":"DEV-05-B1","source_family_id":"DEV-05-F1","w1_score":0.70},{"block_id":"DEV-05-B2","source_family_id":"DEV-05-F2","w1_score":0.85},{"block_id":"DEV-05-B3","source_family_id":"DEV-05-F3","w1_score":0.89}]}
+  ],
+  "guardrails": [
+    "All source families and scores are synthetic public-development data.",
+    "The dependence-cluster mapping is predeclared and is the calibration unit.",
+    "Every cluster has exactly three family blocks; cluster size is fixed.",
+    "Calibration and development cluster IDs, block IDs and source-family IDs are disjoint.",
+    "This fixture does not establish exchangeability of any real incident, region or institution.",
+    "No calibration-conditional, population-law, deployment or SOTA claim is made."
+  ]
+}
