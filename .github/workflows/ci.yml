@@ -472,6 +472,8 @@ jobs:
           jq empty research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json
           jq empty research/terra-preta/tools/profile-threshold-stability-audit/fixtures/synthetic-threshold-reports.json
           jq empty research/terra-preta/tools/ks-regime-audit/fixtures/synthetic-regime-predictions.json
+          jq empty research/terra-preta/tools/hirmas-pore-resolved-audit/fixtures/config.json
+          jq empty research/terra-preta/tools/hirmas-pore-resolved-audit/fixtures/dynamic-macropore-input.json
           jq empty research/terra-preta/tools/profile-response-extractor/fixtures/synthetic-mixed-profile.json
           jq empty research/terra-preta/tools/spatial-heterogeneity-audit/fixtures/synthetic-array.json
           jq empty research/terra-preta/tools/neon-swc-normalizer/fixtures/synthetic-config.json
@@ -524,6 +526,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/profile-threshold-stability-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/ks-regime-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/hirmas-pore-resolved-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- --check
@@ -564,6 +567,10 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/ks-regime-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/ks-regime-audit/Cargo.toml -- research/terra-preta/tools/ks-regime-audit/fixtures/synthetic-regime-predictions.json "$RUNNER_TEMP/terra-preta-ks-regime-report.json"
           jq -e '.evaluation_track == "multi_method" and .observation_count == 6 and .independent_group_count == 4 and .rac_boundary_fraction == 0.05 and .total_porosity_boundary_fraction == 0.4 and any(.strata[]; .stratum_id == "rac_lt_5pct" and .observations == 3) and any(.strata[]; .stratum_id == "rac_ge_5pct" and .observations == 3) and any(.strata[]; .stratum_id == "rac_lt_5pct::ks_method::steady_state" and .observations == 2)' "$RUNNER_TEMP/terra-preta-ks-regime-report.json"
+          cargo test --manifest-path research/terra-preta/tools/hirmas-pore-resolved-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml -- research/terra-preta/tools/dynamic-macropore-audit/fixtures/synthetic-konza-like-input.json "$RUNNER_TEMP/terra-preta-hirmas-dynamic-report.json"
+          cargo run --manifest-path research/terra-preta/tools/hirmas-pore-resolved-audit/Cargo.toml -- research/terra-preta/tools/hirmas-pore-resolved-audit/fixtures/imagej-objects.csv "$RUNNER_TEMP/terra-preta-hirmas-dynamic-report.json" research/terra-preta/tools/hirmas-pore-resolved-audit/fixtures/config.json "$RUNNER_TEMP/terra-preta-hirmas-pore-resolved-report.json"
+          jq -e '.geometry_audit.input_object_count == 3 and .geometry_audit.retained_macropore_object_count == 2 and .geometry_audit.excluded_object_count == 1 and .time_state_count == 3 and (.time_states | all(.[]; (.per_pore_retention_curve | length == 2) and .per_pore_volume_fraction_sum >= 0 and .per_pore_minus_aggregate_difference == (.per_pore_volume_fraction_sum - .aggregate_eq22_volume_fraction)))' "$RUNNER_TEMP/terra-preta-hirmas-pore-resolved-report.json"
           cargo test --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml -- research/terra-preta/tools/spatial-heterogeneity-audit/fixtures/synthetic-array.json "$RUNNER_TEMP/terra-preta-spatial-report.json"
           jq -e '.sensor_count == 4 and .distinct_depth_group_count == 1 and .time_depth_summary_count == 2 and .summaries[1].valid_observed_sensor_count == 4 and .summaries[1].roster_plot_count == 2 and (.summaries[1].plot_ids == ["P01","P02"]) and .summaries[1].positive_response_count == 2 and .summaries[1].positive_response_fraction == 0.5 and ([.summaries[1].semivariogram[].pair_count] | add) == 6' "$RUNNER_TEMP/terra-preta-spatial-report.json"
@@ -625,6 +632,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/profile-threshold-stability-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/ks-regime-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/hirmas-pore-resolved-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml --all-targets -- -D warnings
