@@ -167,7 +167,9 @@ fn finite_value(value: f64, scale: ValueScale, label: &str) -> Result<(), String
         return Err(format!("{label} must be finite"));
     }
     if matches!(scale, ValueScale::LinearCmPerDay) && value <= 0.0 {
-        return Err(format!("{label} must be greater than zero on linear cm/day scale"));
+        return Err(format!(
+            "{label} must be greater than zero on linear cm/day scale"
+        ));
     }
     Ok(())
 }
@@ -205,7 +207,10 @@ fn validate(input: &Input) -> Result<(), String> {
         nonblank(value, label)?;
     }
     if input.source_sha256.len() != 64
-        || !input.source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !input
+            .source_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
     {
         return Err("source_sha256 must contain exactly 64 hexadecimal characters".to_owned());
     }
@@ -277,7 +282,9 @@ fn validate(input: &Input) -> Result<(), String> {
         kinds.get(&ThresholdKind::RosettaKsatStdUpper),
     ) {
         if median > upper {
-            return Err("Rosetta median Ksat threshold must not exceed its upper estimate".to_owned());
+            return Err(
+                "Rosetta median Ksat threshold must not exceed its upper estimate".to_owned(),
+            );
         }
     }
     if let (Some(median), Some(p95), Some(p99)) = (
@@ -286,7 +293,9 @@ fn validate(input: &Input) -> Result<(), String> {
         kinds.get(&ThresholdKind::MatrixVelocity99th),
     ) {
         if median > p95 || p95 > p99 {
-            return Err("matrix model velocity thresholds must satisfy median <= 95th <= 99th".to_owned());
+            return Err(
+                "matrix model velocity thresholds must satisfy median <= 95th <= 99th".to_owned(),
+            );
         }
     }
     Ok(())
@@ -338,8 +347,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let rosetta_negative = rosetta_count - rosetta_positive;
     let matrix_model_velocity_negative =
         matrix_model_velocity_count - matrix_model_velocity_positive;
-    let matrix_velocity_99th_negative =
-        matrix_velocity_99th_count - matrix_velocity_99th_positive;
+    let matrix_velocity_99th_negative = matrix_velocity_99th_count - matrix_velocity_99th_positive;
 
     Ok(Report {
         audit_version: AUDIT_VERSION,
@@ -473,16 +481,8 @@ mod tests {
             threshold("ksat_low", ThresholdKind::RosettaKsatLow, 0.70),
             threshold("ksat_max", ThresholdKind::RosettaKsatMax, 1.00),
             threshold("ksat_high", ThresholdKind::RosettaKsatHigh, 1.30),
-            threshold(
-                "ksat_std_median",
-                ThresholdKind::RosettaKsatStdMedian,
-                0.80,
-            ),
-            threshold(
-                "ksat_std_upper",
-                ThresholdKind::RosettaKsatStdUpper,
-                1.10,
-            ),
+            threshold("ksat_std_median", ThresholdKind::RosettaKsatStdMedian, 0.80),
+            threshold("ksat_std_upper", ThresholdKind::RosettaKsatStdUpper, 1.10),
         ]
     }
 
@@ -534,7 +534,11 @@ mod tests {
     fn aggregates_model_median_95th_and_99th_separately_from_rosetta() {
         let mut thresholds = rosetta_thresholds();
         thresholds.extend([
-            threshold("num_velocity_median", ThresholdKind::MatrixVelocityMedian, 0.60),
+            threshold(
+                "num_velocity_median",
+                ThresholdKind::MatrixVelocityMedian,
+                0.60,
+            ),
             threshold("num_velocity_95th", ThresholdKind::MatrixVelocity95th, 1.00),
             threshold("num_velocity_99th", ThresholdKind::MatrixVelocity99th, 1.20),
         ]);
@@ -542,21 +546,33 @@ mod tests {
         assert_eq!(report.matrix_model_velocity_threshold_count, 3);
         assert_eq!(report.matrix_model_velocity_positive_count, 1);
         assert_eq!(report.matrix_model_velocity_negative_count, 2);
-        assert_eq!(report.matrix_model_velocity_proxy_stability, "threshold_sensitive");
-        assert_eq!(report.matrix_velocity_99th_proxy_stability, "single_reference_not_robustness_tested");
+        assert_eq!(
+            report.matrix_model_velocity_proxy_stability,
+            "threshold_sensitive"
+        );
+        assert_eq!(
+            report.matrix_velocity_99th_proxy_stability,
+            "single_reference_not_robustness_tested"
+        );
         assert_eq!(report.rosetta_ksat_proxy_stability, "threshold_sensitive");
     }
 
     #[test]
     fn rejects_inverted_matrix_model_velocity_quantiles() {
         let thresholds = vec![
-            threshold("num_velocity_median", ThresholdKind::MatrixVelocityMedian, 0.9),
+            threshold(
+                "num_velocity_median",
+                ThresholdKind::MatrixVelocityMedian,
+                0.9,
+            ),
             threshold("num_velocity_95th", ThresholdKind::MatrixVelocity95th, 0.8),
             threshold("num_velocity_99th", ThresholdKind::MatrixVelocity99th, 1.2),
         ];
-        assert!(validate(&input(1.0, thresholds))
-            .unwrap_err()
-            .contains("median <= 95th <= 99th"));
+        assert!(
+            validate(&input(1.0, thresholds))
+                .unwrap_err()
+                .contains("median <= 95th <= 99th")
+        );
     }
 
     #[test]
@@ -577,17 +593,22 @@ mod tests {
     fn rejects_mixed_log_and_linear_scales() {
         let mut thresholds = rosetta_thresholds();
         thresholds[0].value_scale = ValueScale::LinearCmPerDay;
-        assert!(validate(&input(0.9, thresholds))
-            .unwrap_err()
-            .contains("implicit scale conversion is forbidden"));
+        assert!(
+            validate(&input(0.9, thresholds))
+                .unwrap_err()
+                .contains("implicit scale conversion is forbidden")
+        );
     }
 
     #[test]
     fn permits_negative_log_values_but_rejects_nonpositive_linear_values() {
-        let mut data = input(-0.3, vec![
-            threshold("ksat_low", ThresholdKind::RosettaKsatLow, -0.8),
-            threshold("ksat_max", ThresholdKind::RosettaKsatMax, -0.4),
-        ]);
+        let mut data = input(
+            -0.3,
+            vec![
+                threshold("ksat_low", ThresholdKind::RosettaKsatLow, -0.8),
+                threshold("ksat_max", ThresholdKind::RosettaKsatMax, -0.4),
+            ],
+        );
         assert!(validate(&data).is_ok());
         data.velocity.value_scale = ValueScale::LinearCmPerDay;
         data.velocity.value = 0.9;
@@ -602,9 +623,11 @@ mod tests {
     fn rejects_inverted_rosetta_low_max_high_bounds() {
         let mut thresholds = rosetta_thresholds();
         thresholds[0].value = 1.1;
-        assert!(validate(&input(1.2, thresholds))
-            .unwrap_err()
-            .contains("low <= max <= high"));
+        assert!(
+            validate(&input(1.2, thresholds))
+                .unwrap_err()
+                .contains("low <= max <= high")
+        );
     }
 
     #[test]
@@ -613,9 +636,11 @@ mod tests {
             threshold("ksat_std_median", ThresholdKind::RosettaKsatStdMedian, 1.2),
             threshold("ksat_std_upper", ThresholdKind::RosettaKsatStdUpper, 1.1),
         ];
-        assert!(validate(&input(1.3, thresholds))
-            .unwrap_err()
-            .contains("median Ksat threshold"));
+        assert!(
+            validate(&input(1.3, thresholds))
+                .unwrap_err()
+                .contains("median Ksat threshold")
+        );
     }
 
     #[test]
@@ -624,16 +649,20 @@ mod tests {
             threshold("same", ThresholdKind::RosettaKsatLow, 0.5),
             threshold("same", ThresholdKind::RosettaKsatMax, 0.7),
         ];
-        assert!(validate(&input(1.0, thresholds))
-            .unwrap_err()
-            .contains("duplicate threshold_id"));
+        assert!(
+            validate(&input(1.0, thresholds))
+                .unwrap_err()
+                .contains("duplicate threshold_id")
+        );
         let thresholds = vec![
             threshold("low_a", ThresholdKind::RosettaKsatLow, 0.5),
             threshold("low_b", ThresholdKind::RosettaKsatLow, 0.6),
         ];
-        assert!(validate(&input(1.0, thresholds))
-            .unwrap_err()
-            .contains("duplicate threshold kind"));
+        assert!(
+            validate(&input(1.0, thresholds))
+                .unwrap_err()
+                .contains("duplicate threshold kind")
+        );
     }
 
     #[test]
