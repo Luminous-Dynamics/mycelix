@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:016:ex1:nested-mean-cvar-conformance:v1",
+  "title": "Praxis NRES-016 EX1 Nested Mean-CVaR Conformance Corpus",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "schema_version",
+    "evaluation_split",
+    "authored_rust_unit_tests",
+    "invalid_input_controls",
+    "boundary_cases",
+    "round_trip_requirements",
+    "non_claims"
+  ],
+  "properties": {
+    "benchmark_id": {"const": "PRAXIS-NRES-016-EX1-NESTED-MEAN-CVAR-CONFORMANCE-001"},
+    "schema_version": {"const": "1.0.0"},
+    "evaluation_split": {"const": "public-development-only"},
+    "authored_rust_unit_tests": {"type": "integer", "minimum": 1},
+    "invalid_input_controls": {"type": "array", "minItems": 10, "items": {"type": "string", "minLength": 1}},
+    "boundary_cases": {"type": "array", "minItems": 6, "items": {"type": "string", "minLength": 1}},
+    "round_trip_requirements": {"type": "array", "minItems": 5, "items": {"type": "string", "minLength": 1}},
+    "non_claims": {"type": "array", "minItems": 5, "items": {"type": "string", "minLength": 1}}
+  },
+  "additionalProperties": false
+}
