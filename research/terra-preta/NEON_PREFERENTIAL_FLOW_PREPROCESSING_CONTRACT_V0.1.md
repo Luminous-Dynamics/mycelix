@@ -55,6 +55,12 @@ The 2026 paper explicitly says it does **not** use NSR for its binary PF label. 
 
 The 2025 Li et al. multi-ecoregion paper is a separate method track: it uses both NSR and velocity-threshold approaches and describes additional analysis choices (including a 2 mm event-rainfall minimum). Do not transfer that 2 mm filter into the 2026 replication unless the 2026 supporting information or author code confirms it.
 
+### 4.1 Companion 2025 site-probability target
+
+Li et al. (2025), DOI [10.1029/2025GL118045](https://doi.org/10.1029/2025GL118045), defines site-level PF occurrence probability separately for VT and NSR as the fraction of qualifying rainfall events (cumulative rainfall at least 2 mm) for which that method reports PF among events with usable soil-moisture data. It uses 40 sites across 17 ecoregions and a 24-site/16-site Random Forest training/testing split. VT uncertainty is represented by maximum, median, and median-plus-one-standard-deviation depth-weighted Rosetta Ksat alternatives.
+
+Preserve the 2 mm eligibility rule, VT/NSR labels and Ksat variants in a separate 2025 reproduction track. It is not the 2026 event-sensor ResNet's 2026 binary target. The 2026 paper explicitly omits NSR from its own binary PF target. Both datasets come from NEON and require source-overlap reconciliation before combined training or external-validation claims.
+
 ## 5. Reproduction versus robustness tracks
 
 | Track | Moisture gaps | Rain bins with fewer than five good observations | Gauge selection | Purpose |
