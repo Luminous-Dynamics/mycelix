@@ -46,13 +46,21 @@ incomplete trace and never claims minimality. The original input must satisfy
 the predicate before shrinking begins. Object traversal and digest
 serialization sort member names explicitly.
 
-Initial tests cover deterministic output, protected identity fields,
-nested resource protection, array-element reduction, exact source/value
-identity separation, mismatched source rejection, duplicate/escaped duplicate
-object keys, invalid UTF-8, unpaired surrogates, hard input/evaluation limits,
-budget exhaustion, predicate errors and numeric convergence. This is a generic
-JSON reducer: it is not yet wired to invoke Cedar/OPA or to minimize the
-62,464-case engine corpus. It makes no Rust authorization parity or
+Initial tests cover deterministic output, protected identity fields and
+ancestors, nested resource protection, array-element reduction, exact
+source/value identity separation, mismatched source rejection,
+duplicate/escaped duplicate object keys, invalid UTF-8, unpaired surrogates,
+hard input/evaluation limits, budget exhaustion, predicate errors, numeric
+convergence and engine-provenance validation.
+
+The Cedar runner now consumes this reducer through `--shrink-pair`: a seeded
+Cedar/OPA decision mismatch is evaluated on each valid candidate using Cedar
+4.14.0 in-process and OPA 1.22.0 through a bounded one-shot CLI invocation.
+The qualification workflow publishes the minimized input, full reduction
+trace, binary/policy/schema/configuration digests and separate Cedar/OPA
+candidate timing distributions. This is a deliberately seeded candidate-policy
+counterexample, not an authentic Rust authorization mismatch or a result from
+all 62,464 corpus rows. It makes no Rust authorization parity or
 policy-correctness claim.
 
 ## Run
