@@ -779,7 +779,7 @@ mod tests {
         let (normalized, _paper_analysis, report) =
             evaluate(&config, csv.as_bytes(), "a".repeat(64), "b".repeat(64)).unwrap();
         assert_eq!(normalized.sensors.len(), 2);
-        assert_eq!(normalized.sensors[0].observations.len(), 2);
+        assert_eq!(normalized.sensors[0].observations.len(), 4);
         assert_eq!(normalized.sensors[0].observations[0].status, "observed");
         assert_eq!(normalized.sensors[0].observations[0].volumetric_water_content_m3_m3, Some(0.20));
         assert_eq!(normalized.sensors[0].observations[1].volumetric_water_content_m3_m3, Some(0.24));
@@ -790,6 +790,33 @@ mod tests {
         assert_eq!(report.bins[1].quality_rejected_rows, 1);
         assert_eq!(report.bins[1].quality_pass_rows, 9);
         assert_eq!(report.bins[1].good_fraction, 0.9);
+    }
+
+    #[test]
+    fn paper_analysis_profile_interpolates_short_interior_gap_and_preserves_raw() {
+        let config = config();
+        let mut rows: Vec<String> = csv_fixture().lines().map(str::to_owned).collect();
+        for row in rows.iter_mut().skip(1) {
+            let fields: Vec<&str> = row.split(',').collect();
+            if fields.len() == 5
+                && fields[0] == "001"
+                && fields[1] == "501"
+                && fields[2].starts_with("2026-06-01T00:1")
+            {
+                *row = format!("{},{},{},{},1", fields[0], fields[1], fields[2], fields[3]);
+            }
+        }
+        let csv = rows.join("\n") + "\n";
+        let (raw_profile, paper_profile, report) =
+            evaluate(&config, csv.as_bytes(), "gap-source".to_owned(), "gap-config".to_owned()).unwrap();
+
+        assert_eq!(raw_profile.sensors[0].observations[1].status, "missing");
+        assert_eq!(raw_profile.sensors[0].observations[1].volumetric_water_content_m3_m3, None);
+        assert_eq!(paper_profile.sensors[0].observations[1].status, "linear_interpolated_gap_lt6h");
+        assert_eq!(paper_profile.sensors[0].observations[1].volumetric_water_content_m3_m3, Some(0.24));
+        assert_eq!(report.missing_bin_count, 1);
+        assert_eq!(report.interpolated_bin_count, 1);
+        assert_eq!(report.remaining_missing_bin_count, 0);
     }
 
     #[test]
