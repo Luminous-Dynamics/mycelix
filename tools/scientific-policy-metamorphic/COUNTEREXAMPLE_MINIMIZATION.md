@@ -32,6 +32,23 @@ Each minimized record includes original corpus revision and case ID, original-in
 
 Never put secrets or production credentials into a corpus, trace, artifact or policy input.
 
+### Implemented generic reducer slice
+
+The follow-on branch now exports a generic deterministic Rust JSON reducer in
+`src/shrink.rs`. The caller supplies exact source bytes, the parsed JSON
+value, a predicate identifier, protected JSON Pointer paths, an evaluation
+budget and a predicate callback. The reducer verifies that the exact bytes
+decode to the supplied value, hashes raw source bytes separately from its
+sorted-object normalized-value encoding, and records every candidate
+evaluation. Its reduction neighborhood and digest-encoding profile are
+explicitly versioned.
+
+The unit tests cover source-byte versus normalized-value identity, byte/value
+mismatch rejection, deterministic traversal/digests, protected PARC identity,
+budget exhaustion, predicate errors and monotone scalar reduction. This is
+not yet an engine-integrated Cedar/OPA shrink run; real engine invocation,
+policy/schema digest binding and per-case artifacts remain open.
+
 ## 5. Semantics and diagnostics
 
 Keep independent dimensions separate:
