@@ -445,7 +445,8 @@ mod tests {
         }));
         assert!(validate_explicit_entities(&case, 0).is_ok());
 
-        case.cedar.entities.push(case.cedar.entities[2].clone());
+        let duplicate = case.cedar.entities[2].clone();
+        case.cedar.entities.push(duplicate);
         assert!(validate_explicit_entities(&case, 0).is_err());
     }
 
