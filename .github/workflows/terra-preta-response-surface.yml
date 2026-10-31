@@ -1,0 +1,46 @@
+name: Terra Preta response-surface qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "research/terra-preta/**"
+      - ".github/workflows/terra-preta-response-surface.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-preta-response-surface-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  response-surface-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Parse report schema
+        run: jq empty research/terra-preta/tools/response-surface-audit/response-surface-report.schema.json
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/response-surface-audit/Cargo.toml -- --check
+      - name: Run synthetic negative controls
+        run: cargo test --manifest-path research/terra-preta/tools/response-surface-audit/Cargo.toml
+      - name: Produce deterministic synthetic response report
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/response-surface-audit/Cargo.toml -- \
+            research/terra-preta/tools/response-surface-audit/fixtures/synthetic-factorial-response.csv \
+            "$RUNNER_TEMP/response-surface-report.json" 3 0.0
+          jq -e '.observation_row_count == 108 and .assignment_unit_count == 36 and .series_count == 8 and .non_monotonic_series_count == 2 and .interaction_contrast_count == 8' "$RUNNER_TEMP/response-surface-report.json"
+          jq -e 'any(.series[]; .context.root_regime == "bare" and .context.wet_dry_cycles == 0 and .context.timepoint_id == "day_1" and .shape_status == "non_monotonic_reversal" and any(.dose_points[]; .dose == 5 and .assignment_unit_count == 3 and .observation_row_count == 6))' "$RUNNER_TEMP/response-surface-report.json"
+      - name: Validate report against schema
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/response-surface-audit/response-surface-report.schema.json \
+            "$RUNNER_TEMP/response-surface-report.json"
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/response-surface-audit/Cargo.toml --all-targets -- -D warnings
