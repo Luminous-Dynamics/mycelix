@@ -32,14 +32,26 @@
               "probability": 0.7,
               "next_information_state_id": "P-QUIET",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 1,
+                "values": {
+                  "observed_event": "quiet"
+                }
+              }
             },
             {
               "outcome_id": "storm",
               "probability": 0.3,
               "next_information_state_id": "P-STORM",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 1,
+                "values": {
+                  "observed_event": "storm"
+                }
+              }
             }
           ]
         },
@@ -53,14 +65,26 @@
               "probability": 0.6,
               "next_information_state_id": "D-QUIET",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 1,
+                "values": {
+                  "observed_event": "quiet"
+                }
+              }
             },
             {
               "outcome_id": "storm",
               "probability": 0.4,
               "next_information_state_id": "D-STORM",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 1,
+                "values": {
+                  "observed_event": "storm"
+                }
+              }
             }
           ]
         }
@@ -96,7 +120,13 @@
               "probability": 1,
               "next_information_state_id": "PQ-END-USE",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "safe"
+                }
+              }
             }
           ]
         },
@@ -110,7 +140,13 @@
               "probability": 1,
               "next_information_state_id": "PQ-END-HOLD",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "held"
+                }
+              }
             }
           ]
         }
@@ -154,7 +190,13 @@
               "probability": 1,
               "next_information_state_id": "PS-END-REPAIR",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "repaired"
+                }
+              }
             }
           ]
         },
@@ -168,7 +210,13 @@
               "probability": 1,
               "next_information_state_id": "PS-END-HOLD",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "held"
+                }
+              }
             }
           ]
         }
@@ -212,7 +260,13 @@
               "probability": 1,
               "next_information_state_id": "DQ-END-USE",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "safe"
+                }
+              }
             }
           ]
         },
@@ -226,7 +280,13 @@
               "probability": 1,
               "next_information_state_id": "DQ-END-HOLD",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "held"
+                }
+              }
             }
           ]
         }
@@ -270,7 +330,13 @@
               "probability": 1,
               "next_information_state_id": "DS-END-RECOVER",
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": {
+                "stage": 2,
+                "values": {
+                  "observed_event": "recovery-failed"
+                }
+              }
             }
           ]
         }
@@ -314,7 +380,8 @@
               "probability": 1,
               "next_information_state_id": null,
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": null
             }
           ]
         }
@@ -365,7 +432,8 @@
               "probability": 1,
               "next_information_state_id": null,
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": null
             }
           ]
         }
@@ -416,7 +484,8 @@
               "probability": 1,
               "next_information_state_id": null,
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": null
             }
           ]
         }
@@ -467,7 +536,8 @@
               "probability": 1,
               "next_information_state_id": null,
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": null
             }
           ]
         }
@@ -518,7 +588,8 @@
               "probability": 1,
               "next_information_state_id": null,
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": null
             }
           ]
         }
@@ -569,7 +640,8 @@
               "probability": 1,
               "next_information_state_id": null,
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": null
             }
           ]
         }
@@ -620,7 +692,8 @@
               "probability": 1,
               "next_information_state_id": null,
               "stage_cost": 0,
-              "resources_replenished": 0
+              "resources_replenished": 0,
+              "observation": null
             }
           ]
         }
