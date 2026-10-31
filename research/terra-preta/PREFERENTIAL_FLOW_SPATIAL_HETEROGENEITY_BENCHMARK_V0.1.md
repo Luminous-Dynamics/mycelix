@@ -9,6 +9,8 @@ Point sensors can miss narrow or laterally displaced flow paths. A localized pat
 The scientific target is therefore **spatially localized transient wetting**, not an unqualified PF Boolean. A heterogeneous response is a useful signature that must be triangulated with profile order, velocity, flow balance, geophysical imaging and tracer evidence.
 
 ## 2. Required observation geometry
+For NEON DP1.00094.001 specifically, use `swc_depthsV3.csv` rather than the ordinary `sensor_positions` zOffset for depth. Join `sensor_positions` by HOR/VER and temporal validity; sensor relocations must split the spatial record. Use coordinate offsets with their reference metadata and uncertainty, not raw degree differences. See [NEON soil-sensor tutorial](https://www.neonscience.org/resources/learning-hub/tutorials/soil-sensors-intro) and [NEON geolocation tutorial](https://www.neonscience.org/resources/learning-hub/tutorials/neon-spatial-data-basics).
+
 
 Each event record should identify:
 
