@@ -472,6 +472,7 @@ jobs:
           jq empty research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json
           jq empty research/terra-preta/tools/profile-response-extractor/fixtures/synthetic-mixed-profile.json
           jq empty research/terra-preta/tools/spatial-heterogeneity-audit/fixtures/synthetic-array.json
+          jq empty research/terra-preta/tools/neon-swc-normalizer/fixtures/synthetic-config.json
           jq empty research/terra-preta/tools/pf-threshold-audit/fixtures/synthetic-threshold-sensitive.json
           jq empty research/terra-preta/tools/trajectory-signature-audit/fixtures/synthetic-multi-peak.json
           jq empty research/terra-preta/tools/pf-triangulation-audit/fixtures/synthetic-method-evidence.json
@@ -519,6 +520,7 @@ jobs:
           cargo fmt --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/pf-threshold-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/trajectory-signature-audit/Cargo.toml -- --check
           cargo fmt --manifest-path research/terra-preta/tools/pf-triangulation-audit/Cargo.toml -- --check
@@ -551,6 +553,12 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml
           cargo run --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml -- research/terra-preta/tools/spatial-heterogeneity-audit/fixtures/synthetic-array.json "$RUNNER_TEMP/terra-preta-spatial-report.json"
           jq -e '.sensor_count == 4 and .distinct_depth_count == 1 and .time_depth_summary_count == 2 and .summaries[1].valid_observed_sensor_count == 4 and .summaries[1].positive_response_count == 2 and .summaries[1].positive_response_fraction == 0.5 and ([.summaries[1].semivariogram[].pair_count] | add) == 6' "$RUNNER_TEMP/terra-preta-spatial-report.json"
+          cargo test --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- research/terra-preta/tools/neon-swc-normalizer/fixtures/synthetic-config.json research/terra-preta/tools/neon-swc-normalizer/fixtures/synthetic-one-minute.csv "$RUNNER_TEMP/terra-preta-neon-profile.json" "$RUNNER_TEMP/terra-preta-neon-aggregation-report.json"
+          jq -e '.observed_bin_count == 8 and .missing_bin_count == 0 and .bins[1].quality_rejected_rows == 1 and .bins[1].quality_pass_rows == 9 and (.sensor_metadata | length == 2)' "$RUNNER_TEMP/terra-preta-neon-aggregation-report.json"
+          cargo run --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- "$RUNNER_TEMP/terra-preta-neon-profile.json" "$RUNNER_TEMP/terra-preta-neon-profile-response.json" 0.01
+          cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- "$RUNNER_TEMP/terra-preta-neon-profile-response.json" "$RUNNER_TEMP/terra-preta-neon-nsr-report.json"
+          jq -e '.profile_classification == "sequential_response_only" and .sequential_pair_count == 1 and .detected_sensor_count == 2' "$RUNNER_TEMP/terra-preta-neon-nsr-report.json"
           cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json "$RUNNER_TEMP/terra-preta-profile-report.json"
           jq -e '.profile_classification == "mixed_response_ordering" and .nsr_pair_count == 2 and .sequential_pair_count == 1 and .profile_coverage_status == "complete_for_declared_sensor_roster" and .response_threshold_m3_m3 == 0.01' "$RUNNER_TEMP/terra-preta-profile-report.json"
           cargo test --manifest-path research/terra-preta/tools/pf-threshold-audit/Cargo.toml
@@ -594,6 +602,7 @@ jobs:
           cargo clippy --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/pf-threshold-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/trajectory-signature-audit/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path research/terra-preta/tools/pf-triangulation-audit/Cargo.toml --all-targets -- -D warnings
