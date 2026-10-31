@@ -1,0 +1,54 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX4-JOINT-MULTIMODAL-DDRO-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "invalid_input_controls": [
+    "wrong EX4 benchmark ID/schema version or non-synthetic status",
+    "fewer than two persistent modes or duplicate mode IDs",
+    "mode probability vector missing a mode or containing an undeclared mode",
+    "mode probabilities negative, non-finite or not summing to one",
+    "within-mode kernel missing for a declared mode",
+    "within-mode kernel contains duplicate or misaligned outcome IDs",
+    "conditional outcome probabilities negative/non-finite or not summing to one",
+    "joint candidate missing candidate ID, family ID, freeze digest or coupling basis",
+    "mode weights and conditional kernels originate from different joint candidate provenance",
+    "candidate tuple silently factorized into independent mode and kernel choices",
+    "action uses another action's ambiguity family or candidate list",
+    "action-dependent candidate family is changed after confirmatory freeze",
+    "collapsed mixture reported as preserving mode-specific tails without proof",
+    "latent mode ID appears in observable history or policy input",
+    "observation likelihoods are detached from their joint candidate",
+    "same observable history maps to different actions across latent modes",
+    "transition observation does not match successor history",
+    "resource ledger is not conserved",
+    "pathwise service floor is violated",
+    "factorized set is labelled a relaxation without set-containment evidence",
+    "price of factorization is negative despite claimed containment",
+    "static terminal CVaR is mislabeled as nested dynamic risk"
+  ],
+  "boundary_cases": [
+    "single-mode input is rejected for a multimodal benchmark",
+    "mode probability is exactly zero or one while other mode kernel remains valid",
+    "two modes have identical within-mode kernels and collapsing modes preserves the mixture law",
+    "joint candidate family contains only one candidate",
+    "lambda=0 reduces mean-CVaR to expectation",
+    "lambda=1 is rejected"
+  ],
+  "round_trip_requirements": [
+    "joint candidate IDs and family IDs remain stable",
+    "mode probability vector remains paired with the same within-mode kernels",
+    "within-mode outcome IDs/costs/next states remain aligned",
+    "action-specific candidate set remains attached to the same action",
+    "freeze digest and coupling basis remain unchanged",
+    "policy keys remain observable-history IDs, never mode IDs",
+    "joint, factorized and collapsed ambiguity values remain separately reported"
+  ],
+  "non_claims": [
+    "No solver or trained ambiguity set is implemented by this protocol PR",
+    "No real-world calibrated mode probabilities or within-mode kernels",
+    "No causal action-effect or intervention identification",
+    "No confirmatory hidden dataset or population coverage guarantee",
+    "No reproduction or superiority claim over Yu & Basciftci (2026)",
+    "No deployment, readiness, emergency command or certification claim"
+  ]
+}

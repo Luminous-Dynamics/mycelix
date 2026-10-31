@@ -1,0 +1,633 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX4-JOINT-MULTIMODAL-DDRO-001",
+  "schema_version": "1.0.0",
+  "title": "NRES-016 EX4 protocol template for joint multimodal decision-dependent ambiguity",
+  "status": "protocol-template-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "horizon_stages": 2,
+  "persistent_modes": [
+    "NORMAL",
+    "STRESS"
+  ],
+  "risk_contract": {
+    "risk_confidence_level": 0.9,
+    "risk_aversion_lambda": 0.9,
+    "one_period_map": "(1-lambda)*Expectation+lambda*CVaR_alpha",
+    "nesting": "nested-conditional-by-observable-information-state"
+  },
+  "information_contract": {
+    "policy_input": "observable-history-only",
+    "observable_history": "Explicit observations and prior actions; hidden mode identifiers are excluded.",
+    "hidden_mode_handling": "not-directly-observed-unless-emitted-by-an-observation",
+    "nonanticipativity_rule": "Two histories with identical observations and prior actions must select the same action, independent of latent mode."
+  },
+  "information_states": [
+    {
+      "information_state_id": "ROOT",
+      "stage": 0,
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          }
+        ],
+        "prior_actions": []
+      },
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "resource_balances": {
+        "spares": 4
+      },
+      "actions": [
+        {
+          "action_id": "HARDEN",
+          "fixed_cost": 40,
+          "resource_use": {
+            "spares": 1
+          },
+          "ambiguity_family_id": "HARDEN-JOINT-FAMILY",
+          "joint_ambiguity_candidates": [
+            {
+              "candidate_id": "HARDEN-CANDIDATE-01",
+              "mode_probability_vector": {
+                "NORMAL": 0.85,
+                "STRESS": 0.15000000000000002
+              },
+              "within_mode_kernels": {
+                "NORMAL": [
+                  {
+                    "outcome_id": "success",
+                    "probability": 0.99,
+                    "stage_cost": 0,
+                    "next_information_state_id": "POST-HARDEN-SUCCESS",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "success"
+                      }
+                    }
+                  },
+                  {
+                    "outcome_id": "failure",
+                    "probability": 0.01,
+                    "stage_cost": 500,
+                    "next_information_state_id": "POST-HARDEN-FAILURE",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "failure"
+                      }
+                    }
+                  }
+                ],
+                "STRESS": [
+                  {
+                    "outcome_id": "success",
+                    "probability": 0.9,
+                    "stage_cost": 0,
+                    "next_information_state_id": "POST-HARDEN-SUCCESS",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "success"
+                      }
+                    }
+                  },
+                  {
+                    "outcome_id": "failure",
+                    "probability": 0.1,
+                    "stage_cost": 500,
+                    "next_information_state_id": "POST-HARDEN-FAILURE",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "failure"
+                      }
+                    }
+                  }
+                ]
+              },
+              "joint_coupling_basis": "Joint empirical candidate family H-01: mode weights and within-mode kernels are retained as one indivisible resample.",
+              "candidate_family_id": "HARDEN",
+              "freeze_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+            },
+            {
+              "candidate_id": "HARDEN-CANDIDATE-02",
+              "mode_probability_vector": {
+                "NORMAL": 0.75,
+                "STRESS": 0.25
+              },
+              "within_mode_kernels": {
+                "NORMAL": [
+                  {
+                    "outcome_id": "success",
+                    "probability": 0.995,
+                    "stage_cost": 0,
+                    "next_information_state_id": "POST-HARDEN-SUCCESS",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "success"
+                      }
+                    }
+                  },
+                  {
+                    "outcome_id": "failure",
+                    "probability": 0.005,
+                    "stage_cost": 500,
+                    "next_information_state_id": "POST-HARDEN-FAILURE",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "failure"
+                      }
+                    }
+                  }
+                ],
+                "STRESS": [
+                  {
+                    "outcome_id": "success",
+                    "probability": 0.94,
+                    "stage_cost": 0,
+                    "next_information_state_id": "POST-HARDEN-SUCCESS",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "success"
+                      }
+                    }
+                  },
+                  {
+                    "outcome_id": "failure",
+                    "probability": 0.06,
+                    "stage_cost": 500,
+                    "next_information_state_id": "POST-HARDEN-FAILURE",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "failure"
+                      }
+                    }
+                  }
+                ]
+              },
+              "joint_coupling_basis": "Joint empirical candidate family H-02: mode weights and within-mode kernels co-occur in the same cluster bootstrap.",
+              "candidate_family_id": "HARDEN",
+              "freeze_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          ]
+        },
+        {
+          "action_id": "DEFER",
+          "fixed_cost": 0,
+          "resource_use": {
+            "spares": 0
+          },
+          "ambiguity_family_id": "DEFER-JOINT-FAMILY",
+          "joint_ambiguity_candidates": [
+            {
+              "candidate_id": "DEFER-CANDIDATE-01",
+              "mode_probability_vector": {
+                "NORMAL": 0.65,
+                "STRESS": 0.35
+              },
+              "within_mode_kernels": {
+                "NORMAL": [
+                  {
+                    "outcome_id": "success",
+                    "probability": 0.98,
+                    "stage_cost": 0,
+                    "next_information_state_id": "POST-DEFER-SUCCESS",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "success"
+                      }
+                    }
+                  },
+                  {
+                    "outcome_id": "failure",
+                    "probability": 0.02,
+                    "stage_cost": 500,
+                    "next_information_state_id": "POST-DEFER-FAILURE",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "failure"
+                      }
+                    }
+                  }
+                ],
+                "STRESS": [
+                  {
+                    "outcome_id": "success",
+                    "probability": 0.75,
+                    "stage_cost": 0,
+                    "next_information_state_id": "POST-DEFER-SUCCESS",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "success"
+                      }
+                    }
+                  },
+                  {
+                    "outcome_id": "failure",
+                    "probability": 0.25,
+                    "stage_cost": 500,
+                    "next_information_state_id": "POST-DEFER-FAILURE",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "failure"
+                      }
+                    }
+                  }
+                ]
+              },
+              "joint_coupling_basis": "Joint empirical candidate family D-01: weights and conditional kernels from the same declared regime sample.",
+              "candidate_family_id": "DEFER",
+              "freeze_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+            },
+            {
+              "candidate_id": "DEFER-CANDIDATE-02",
+              "mode_probability_vector": {
+                "NORMAL": 0.7,
+                "STRESS": 0.30000000000000004
+              },
+              "within_mode_kernels": {
+                "NORMAL": [
+                  {
+                    "outcome_id": "success",
+                    "probability": 0.99,
+                    "stage_cost": 0,
+                    "next_information_state_id": "POST-DEFER-SUCCESS",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "success"
+                      }
+                    }
+                  },
+                  {
+                    "outcome_id": "failure",
+                    "probability": 0.01,
+                    "stage_cost": 500,
+                    "next_information_state_id": "POST-DEFER-FAILURE",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "failure"
+                      }
+                    }
+                  }
+                ],
+                "STRESS": [
+                  {
+                    "outcome_id": "success",
+                    "probability": 0.8,
+                    "stage_cost": 0,
+                    "next_information_state_id": "POST-DEFER-SUCCESS",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "success"
+                      }
+                    }
+                  },
+                  {
+                    "outcome_id": "failure",
+                    "probability": 0.2,
+                    "stage_cost": 500,
+                    "next_information_state_id": "POST-DEFER-FAILURE",
+                    "observation": {
+                      "stage": 1,
+                      "values": {
+                        "observed_event": "failure"
+                      }
+                    }
+                  }
+                ]
+              },
+              "joint_coupling_basis": "Joint empirical candidate family D-02: mode and kernel estimates remain paired.",
+              "candidate_family_id": "DEFER",
+              "freeze_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "POST-HARDEN-SUCCESS",
+      "stage": 1,
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "success"
+            }
+          }
+        ],
+        "prior_actions": [
+          "HARDEN"
+        ]
+      },
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "resource_balances": {
+        "spares": 3
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": {
+            "spares": 0
+          },
+          "ambiguity_family_id": "TERMINAL",
+          "joint_ambiguity_candidates": [
+            {
+              "candidate_id": "TERMINAL-POST-HARDEN-SUCCESS",
+              "mode_probability_vector": {
+                "NORMAL": 0.8,
+                "STRESS": 0.19999999999999996
+              },
+              "within_mode_kernels": {
+                "NORMAL": [
+                  {
+                    "outcome_id": "done",
+                    "probability": 1,
+                    "stage_cost": 0,
+                    "next_information_state_id": null,
+                    "observation": null
+                  }
+                ],
+                "STRESS": [
+                  {
+                    "outcome_id": "done",
+                    "probability": 1,
+                    "stage_cost": 0,
+                    "next_information_state_id": null,
+                    "observation": null
+                  }
+                ]
+              },
+              "joint_coupling_basis": "Terminal continuation contains no additional stochastic transition; mode distribution is carried for schema completeness only.",
+              "candidate_family_id": "TERMINAL",
+              "freeze_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "POST-HARDEN-FAILURE",
+      "stage": 1,
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "failure"
+            }
+          }
+        ],
+        "prior_actions": [
+          "HARDEN"
+        ]
+      },
+      "service_levels": {
+        "water": 75,
+        "power": 80
+      },
+      "resource_balances": {
+        "spares": 3
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": {
+            "spares": 0
+          },
+          "ambiguity_family_id": "TERMINAL",
+          "joint_ambiguity_candidates": [
+            {
+              "candidate_id": "TERMINAL-POST-HARDEN-FAILURE",
+              "mode_probability_vector": {
+                "NORMAL": 0.8,
+                "STRESS": 0.19999999999999996
+              },
+              "within_mode_kernels": {
+                "NORMAL": [
+                  {
+                    "outcome_id": "done",
+                    "probability": 1,
+                    "stage_cost": 0,
+                    "next_information_state_id": null,
+                    "observation": null
+                  }
+                ],
+                "STRESS": [
+                  {
+                    "outcome_id": "done",
+                    "probability": 1,
+                    "stage_cost": 0,
+                    "next_information_state_id": null,
+                    "observation": null
+                  }
+                ]
+              },
+              "joint_coupling_basis": "Terminal continuation contains no additional stochastic transition; mode distribution is carried for schema completeness only.",
+              "candidate_family_id": "TERMINAL",
+              "freeze_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "POST-DEFER-SUCCESS",
+      "stage": 1,
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "success"
+            }
+          }
+        ],
+        "prior_actions": [
+          "DEFER"
+        ]
+      },
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "resource_balances": {
+        "spares": 4
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": {
+            "spares": 0
+          },
+          "ambiguity_family_id": "TERMINAL",
+          "joint_ambiguity_candidates": [
+            {
+              "candidate_id": "TERMINAL-POST-DEFER-SUCCESS",
+              "mode_probability_vector": {
+                "NORMAL": 0.675,
+                "STRESS": 0.32499999999999996
+              },
+              "within_mode_kernels": {
+                "NORMAL": [
+                  {
+                    "outcome_id": "done",
+                    "probability": 1,
+                    "stage_cost": 0,
+                    "next_information_state_id": null,
+                    "observation": null
+                  }
+                ],
+                "STRESS": [
+                  {
+                    "outcome_id": "done",
+                    "probability": 1,
+                    "stage_cost": 0,
+                    "next_information_state_id": null,
+                    "observation": null
+                  }
+                ]
+              },
+              "joint_coupling_basis": "Terminal continuation contains no additional stochastic transition; mode distribution is carried for schema completeness only.",
+              "candidate_family_id": "TERMINAL",
+              "freeze_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "POST-DEFER-FAILURE",
+      "stage": 1,
+      "observable_history": {
+        "observations": [
+          {
+            "stage": 0,
+            "values": {
+              "observed_event": "initial"
+            }
+          },
+          {
+            "stage": 1,
+            "values": {
+              "observed_event": "failure"
+            }
+          }
+        ],
+        "prior_actions": [
+          "DEFER"
+        ]
+      },
+      "service_levels": {
+        "water": 75,
+        "power": 80
+      },
+      "resource_balances": {
+        "spares": 4
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": {
+            "spares": 0
+          },
+          "ambiguity_family_id": "TERMINAL",
+          "joint_ambiguity_candidates": [
+            {
+              "candidate_id": "TERMINAL-POST-DEFER-FAILURE",
+              "mode_probability_vector": {
+                "NORMAL": 0.675,
+                "STRESS": 0.32499999999999996
+              },
+              "within_mode_kernels": {
+                "NORMAL": [
+                  {
+                    "outcome_id": "done",
+                    "probability": 1,
+                    "stage_cost": 0,
+                    "next_information_state_id": null,
+                    "observation": null
+                  }
+                ],
+                "STRESS": [
+                  {
+                    "outcome_id": "done",
+                    "probability": 1,
+                    "stage_cost": 0,
+                    "next_information_state_id": null,
+                    "observation": null
+                  }
+                ]
+              },
+              "joint_coupling_basis": "Terminal continuation contains no additional stochastic transition; mode distribution is carried for schema completeness only.",
+              "candidate_family_id": "TERMINAL",
+              "freeze_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "candidate_integrity_contract": {
+    "candidate_is_indivisible": true,
+    "mode_probability_vector": "Nonnegative mode probabilities summing to one.",
+    "within_mode_kernels": "Each mode has a nonnegative conditional kernel summing to one over aligned outcome IDs.",
+    "coupling_provenance": "The mode probability vector and all conditional kernels must come from the same joint candidate family/custody record.",
+    "action_dependence_freeze": "before-confirmatory-evaluation"
+  },
+  "guardrails": [
+    "This is a schema/protocol template only, not a solved optimization result.",
+    "All costs and probabilities are synthetic.",
+    "Candidate tuples are indivisible; do not independently mix weights and kernels.",
+    "Actions have separate ambiguity families, demonstrating decision dependence.",
+    "Latent mode IDs are never passed to the policy.",
+    "Factorized and collapsed-mode comparators must be reported separately.",
+    "No real-world intervention effect or causal claim is supplied.",
+    "No calibration, deployment, readiness, certification or SOTA claim is made.",
+    "All freeze_sha256 values in this protocol template are syntactic placeholders; recompute canonical SHA-256 digests from the complete joint-candidate bytes before any actual benchmark freeze or evaluation."
+  ]
+}

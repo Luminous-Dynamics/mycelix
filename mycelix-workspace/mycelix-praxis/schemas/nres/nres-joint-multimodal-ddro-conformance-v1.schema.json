@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mycelix:praxis:nres:016:ex4:joint-multimodal-ddro-conformance:v1",
+  "title": "Praxis NRES-016 EX4 Joint Multimodal DDRO Conformance Corpus",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "schema_version",
+    "evaluation_split",
+    "invalid_input_controls",
+    "boundary_cases",
+    "round_trip_requirements",
+    "non_claims"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "PRAXIS-NRES-016-EX4-JOINT-MULTIMODAL-DDRO-CONFORMANCE-001"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "evaluation_split": {
+      "const": "public-development-only"
+    },
+    "invalid_input_controls": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "boundary_cases": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "round_trip_requirements": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": false
+}
