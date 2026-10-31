@@ -1349,7 +1349,7 @@ fn solve_rectangular_tv_nested_risk(
             Some(current) if candidate.robust_risk < current.robust_risk - TOLERANCE => true,
             Some(current)
                 if (candidate.robust_risk - current.robust_risk).abs() <= TOLERANCE
-                    && candidate.nominal_expected_cost < current.nominal_expected_cost - TOLERANCE => true,
+                    && candidate.worst_local_regime_expected_cost < current.worst_local_regime_expected_cost - TOLERANCE => true,
             Some(current)
                 if (candidate.robust_risk - current.robust_risk).abs() <= TOLERANCE
                     && (candidate.nominal_expected_cost - current.nominal_expected_cost).abs() <= TOLERANCE =>
@@ -1454,7 +1454,7 @@ struct SharedRegimePolicy {
 #[derive(Clone)]
 struct RectangularRegimePlan {
     robust_risk: f64,
-    nominal_expected_cost: f64,
+    worst_local_regime_expected_cost: f64,
     policy: BTreeMap<String, String>,
     worst_local_regime_by_action: BTreeMap<String, String>,
     local_regime_risk_by_action: BTreeMap<String, f64>,
@@ -1502,7 +1502,7 @@ fn validate_regime_kernels(model: &Model, regime_ids: &[String]) -> Result<(), V
                         Some(probability)
                             if probability.is_finite() && *probability >= 0.0 && *probability <= 1.0 =>
                         {
-                            regime_mass += probability;
+                            regime_mass += *probability;
                         }
                         _ => errors.push(format!(
                             "{}:{}:{}: invalid or missing probability under regime {regime}",
@@ -1522,7 +1522,7 @@ fn validate_regime_kernels(model: &Model, regime_ids: &[String]) -> Result<(), V
             // reference distribution used only for policy enumeration.
             for outcome in &action.outcomes {
                 let regime_average = regime_ids.iter()
-                    .filter_map(|regime| outcome.regime_probabilities.get(regime))
+                    .filter_map(|regime| outcome.regime_probabilities.get(regime).copied())
                     .sum::<f64>() / regime_ids.len() as f64;
                 if (outcome.probability - regime_average).abs() > TOLERANCE {
                     errors.push(format!(
@@ -1702,7 +1702,7 @@ fn solve_rectangular_regime_recursion(
 
         let candidate = RectangularRegimePlan {
             robust_risk: worst_action_risk,
-            nominal_expected_cost: selected_mean,
+            worst_local_regime_expected_cost: selected_mean,
             policy,
             worst_local_regime_by_action: local_regimes,
             local_regime_risk_by_action: local_risks,
@@ -1819,7 +1819,7 @@ pub fn evaluate_shared_regime_nonrectangular(fixture: &Value) -> Result<Value, V
     }));
     let rectangular_report = rectangular.map(|plan| json!({
         "rectangular_regime_relaxation_nested_mean_cvar": plan.robust_risk,
-        "policy_nominal_expected_cost": plan.nominal_expected_cost,
+        "worst_local_regime_expected_cost": plan.worst_local_regime_expected_cost,
         "policy": plan.policy,
         "worst_local_regime_by_state_action": plan.worst_local_regime_by_action,
         "local_robust_risk_by_state_action": plan.local_regime_risk_by_action
