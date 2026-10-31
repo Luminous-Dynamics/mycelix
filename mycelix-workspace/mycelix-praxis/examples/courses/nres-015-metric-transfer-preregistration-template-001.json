@@ -1,0 +1,197 @@
+{
+  "benchmark_id": "PRAXIS-NRES-015-METRIC-TRANSFER-PREREG-001",
+  "schema_version": "1.0.0",
+  "title": "Loss-aware transport geometry and bulk-tail ambiguity preregistration",
+  "status": "protocol-template-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "research_question": "Determine whether a transport geometry learned on training source families and training loss profiles improves realized decision regret on independently custodied shift families and held-out decision cost profiles without invalidating ambiguity calibration.",
+  "split_roles": [
+    {
+      "role": "training",
+      "purpose": "Fit forecaster and loss-aware metric learner.",
+      "source_family_disjoint": true,
+      "outcome_visibility": "visible_to_training_team"
+    },
+    {
+      "role": "validation",
+      "purpose": "Select architecture, regularization, optimization settings and hyperparameters.",
+      "source_family_disjoint": true,
+      "outcome_visibility": "visible_to_training_team"
+    },
+    {
+      "role": "calibration",
+      "purpose": "Compute frozen block nonconformity scores and radii after metric/model freeze.",
+      "source_family_disjoint": true,
+      "outcome_visibility": "visible_to_training_team"
+    },
+    {
+      "role": "public_development",
+      "purpose": "Debug adapters, schema, arithmetic oracles and conformance only; never confirmatory.",
+      "source_family_disjoint": true,
+      "outcome_visibility": "visible_for_public_development"
+    },
+    {
+      "role": "confirmatory_hidden",
+      "purpose": "Evaluate frozen artifacts on independent shift families and unseen loss profiles.",
+      "source_family_disjoint": true,
+      "outcome_visibility": "custodian_only_until_lock"
+    }
+  ],
+  "custody_protocol": {
+    "unit_of_partition": "independent-source-family",
+    "family_id_policy": "Use random opaque IDs with custodian-held mapping. Do not publish direct identifiers or unsalted hashes of low-entropy private IDs. Every transformed or augmented row inherits its source family's split.",
+    "manifest_commitment": [
+      "schema/version and split-role mapping",
+      "opaque source-family references and family counts",
+      "canonical source-envelope SHA-256 digests and split Merkle roots",
+      "custodian role, signing-key fingerprint, detached signature and freeze timestamp",
+      "block size, horizon, source independence and canonicalization rules"
+    ],
+    "hidden_outcome_policy": "Confirmatory outcome bytes remain custodian-only until model, metric, calibration artifact, evaluator and analysis-plan digests are frozen. Public repository stores commitments and authorized aggregates only.",
+    "freeze_record": [
+      "forecaster source/model digest and parameter digest",
+      "metric family, parameters, unit scale and optimizer configuration",
+      "calibration score definition, alpha, fitted radius and calibration manifest commitment",
+      "policy-selection rule, cost profiles, evaluator digest and primary analysis plan"
+    ],
+    "limits": [
+      "A digest proves byte integrity after commitment, not source truth, completeness or independent sampling.",
+      "A signature identifies a signing key, not legal authority or truthful sampling."
+    ]
+  },
+  "candidate_methods": [
+    {
+      "method_id": "nominal",
+      "description": "Expected loss under the forecast joint-state distribution.",
+      "trainable": false,
+      "requires_calibration": false
+    },
+    {
+      "method_id": "bernoulli_tv",
+      "description": "NRES-012 TV policy where a binary event projection is predeclared.",
+      "trainable": false,
+      "requires_calibration": false
+    },
+    {
+      "method_id": "fixed_w1",
+      "description": "NRES-013 exact finite-support fixed weighted-Hamming W1.",
+      "trainable": false,
+      "requires_calibration": true
+    },
+    {
+      "method_id": "conformal_w1",
+      "description": "NRES-014 block split-conformal fixed-metric W1 radius.",
+      "trainable": false,
+      "requires_calibration": true
+    },
+    {
+      "method_id": "loss_aware_trainable_ot",
+      "description": "Learn transport geometry on training families, tune on validation, calibrate only after freezing.",
+      "trainable": true,
+      "requires_calibration": true
+    },
+    {
+      "method_id": "bulk_tail_credal",
+      "description": "Separate high-mass bulk contamination from explicit bounded tail contribution.",
+      "trainable": true,
+      "requires_calibration": true
+    },
+    {
+      "method_id": "cvar",
+      "description": "CVaR/expected-shortfall policy objective as a separate risk comparator.",
+      "trainable": false,
+      "requires_calibration": false
+    },
+    {
+      "method_id": "perfect_information_reference",
+      "description": "Infeasible statewise oracle lower bound; never a deployable method.",
+      "trainable": false,
+      "requires_calibration": false
+    }
+  ],
+  "metric_learning_protocol": {
+    "allowed_metric_families": [
+      "Strictly-positive weighted Hamming with fixed diameter normalization.",
+      "Connected undirected graph shortest-path metric with strictly-positive edge costs."
+    ],
+    "metric_validity_properties": [
+      "finite non-negative distances",
+      "identity of indiscernibles",
+      "symmetry",
+      "triangle inequality",
+      "connected graph where applicable"
+    ],
+    "normalization_rule": "Normalize to a preregistered fixed support diameter; never tune radius units by rescaling the learned metric after calibration.",
+    "training_loss_profile_count_min": 2,
+    "heldout_loss_profile_count_min": 2,
+    "freeze_before_calibration": true,
+    "forbidden_leakage": [
+      "No metric or alpha selection using calibration or confirmatory outcomes.",
+      "No checkpoint, cost profile or subgroup selection after hidden evaluation.",
+      "No repeated observation, radius, seed or service from one family counted as an independent family."
+    ]
+  },
+  "bulk_tail_protocol": {
+    "bulk_definition": "Freeze a high-mass bulk region using training/validation only.",
+    "contamination_model": "Declare bulk contamination fraction and which within-bulk perturbations are admissible.",
+    "tail_bound_requirement": "Predeclare support or tail-loss bound, tail mass estimator and uncertainty allowance separately from the bulk.",
+    "unbounded_loss_rule": "If arbitrary contamination can reach unbounded loss without a support/tail bound, report infinite or vacuous risk; do not silently clip.",
+    "vacuity_reporting": true
+  },
+  "calibration_protocol": {
+    "calibration_unit": "source-family-block",
+    "block_dependence_rule": "Cluster or mixing dependence inside a source family must be modelled; row-wise iid resampling is prohibited unless justified.",
+    "population_law_assumption": "State conditional-iid, mixing or other sampling assumptions explicitly. Empirical-block coverage is not population-law coverage.",
+    "coverage_outputs": [
+      "forecast marginal/proper-score calibration",
+      "block empirical-distribution ambiguity coverage",
+      "calibration-conditional coverage diagnostic where available",
+      "population-law correction and vacuity flag"
+    ],
+    "importance_weight_outputs": [
+      "effective sample size",
+      "maximum/quantile importance weight and truncation policy"
+    ],
+    "federated_privacy_rule": "Score sketches and aggregation are not automatically differential privacy. Declare secure aggregation and/or a formal privacy budget, and report client-level and pooled coverage."
+  },
+  "shift_families": [
+    "common-mode joint service shifts",
+    "component-specific service shifts",
+    "temporal/seasonal shifts",
+    "covariate/base-rate shifts",
+    "dependency-structure changes",
+    "evidence degradation and source conflict",
+    "institution/client joint shift",
+    "decision-cost profile shift"
+  ],
+  "reporting_metrics": [
+    "joint and marginal proper forecast scores",
+    "ambiguity score coverage and radius distribution",
+    "calibration-conditional coverage diagnostic",
+    "realized decision cost and regret",
+    "worst-case expected-loss upper bound",
+    "worst-case regret upper bound",
+    "CVaR95 / expected shortfall",
+    "action counts and policy disagreement",
+    "resource and per-service constraint violations",
+    "abstention and reviewer-deferral cost",
+    "effective sample size and importance-weight concentration"
+  ],
+  "confirmatory_targets": {
+    "primary_estimand": "paired relative reduction in mean realized statewise decision regret on independent confirmatory source families under predeclared shift families, comparing to the strongest frozen NRES-013/NRES-014 baseline.",
+    "minimum_regret_improvement": 0.05,
+    "paired_confidence_level": 0.95,
+    "nominal_cost_noninferiority": 0.02,
+    "familywise_source_custody": true,
+    "no_composite_score": true
+  },
+  "guardrails": [
+    "Protocol template and all NRES synthetic fixtures remain inactive in the curriculum.",
+    "No personal suitability, political belief, identity, loyalty, enlistment interest or natural-person fields.",
+    "No single composite resilience or robustness score.",
+    "No operational instruction, legal authority or institutional readiness certification.",
+    "A hash/signature does not prove truth or source independence.",
+    "All profile and shift results, failures and vacuity events must be reported."
+  ]
+}

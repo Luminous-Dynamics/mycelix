@@ -1,0 +1,223 @@
+{
+  "benchmark_id": "PRAXIS-NRES-015-METRIC-TRANSFER-PREREG-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "invalid_input_controls": [
+    {
+      "id": "N015-NEG-001",
+      "condition": "wrong benchmark ID or schema version"
+    },
+    {
+      "id": "N015-NEG-002",
+      "condition": "status not protocol-template-for-review"
+    },
+    {
+      "id": "N015-NEG-003",
+      "condition": "curriculum activation set true"
+    },
+    {
+      "id": "N015-NEG-004",
+      "condition": "missing one of five split roles"
+    },
+    {
+      "id": "N015-NEG-005",
+      "condition": "duplicate split role"
+    },
+    {
+      "id": "N015-NEG-006",
+      "condition": "split role not source-family disjoint"
+    },
+    {
+      "id": "N015-NEG-007",
+      "condition": "source family overlaps two split roles"
+    },
+    {
+      "id": "N015-NEG-008",
+      "condition": "augmented/derived row inherits a different split from its parent family"
+    },
+    {
+      "id": "N015-NEG-009",
+      "condition": "random seeds counted as independent source families"
+    },
+    {
+      "id": "N015-NEG-010",
+      "condition": "raw personal identifier or unsalted low-entropy identifier hash in manifest"
+    },
+    {
+      "id": "N015-NEG-011",
+      "condition": "missing canonicalization rule or digest algorithm"
+    },
+    {
+      "id": "N015-NEG-012",
+      "condition": "manifest digest missing or Merkle root missing"
+    },
+    {
+      "id": "N015-NEG-013",
+      "condition": "custodian signature/key fingerprint missing"
+    },
+    {
+      "id": "N015-NEG-014",
+      "condition": "claim that signature proves source truth or independence"
+    },
+    {
+      "id": "N015-NEG-015",
+      "condition": "hidden challenge outcomes included in public repository"
+    },
+    {
+      "id": "N015-NEG-016",
+      "condition": "hidden outcomes inspected before freeze record"
+    },
+    {
+      "id": "N015-NEG-017",
+      "condition": "metric or model changed after calibration"
+    },
+    {
+      "id": "N015-NEG-018",
+      "condition": "metric selection uses confirmatory loss-profile outcomes"
+    },
+    {
+      "id": "N015-NEG-019",
+      "condition": "held-out loss profile absent or reused for tuning"
+    },
+    {
+      "id": "N015-NEG-020",
+      "condition": "less than two training profiles"
+    },
+    {
+      "id": "N015-NEG-021",
+      "condition": "less than two held-out profiles"
+    },
+    {
+      "id": "N015-NEG-022",
+      "condition": "weighted-Hamming weight zero, negative, NaN or infinite"
+    },
+    {
+      "id": "N015-NEG-023",
+      "condition": "weighted-Hamming metric diameter changes after radius calibration"
+    },
+    {
+      "id": "N015-NEG-024",
+      "condition": "graph metric is disconnected"
+    },
+    {
+      "id": "N015-NEG-025",
+      "condition": "graph edge weight is zero, negative or non-finite"
+    },
+    {
+      "id": "N015-NEG-026",
+      "condition": "metric symmetry violation"
+    },
+    {
+      "id": "N015-NEG-027",
+      "condition": "metric triangle inequality violation"
+    },
+    {
+      "id": "N015-NEG-028",
+      "condition": "metric identity-of-indiscernibles violation"
+    },
+    {
+      "id": "N015-NEG-029",
+      "condition": "bulk tail contribution has no declared support/loss bound"
+    },
+    {
+      "id": "N015-NEG-030",
+      "condition": "unbounded arbitrary contamination silently clipped"
+    },
+    {
+      "id": "N015-NEG-031",
+      "condition": "infinite/vacuous robust risk not reported"
+    },
+    {
+      "id": "N015-NEG-032",
+      "condition": "calibration score rows counted as independent despite shared source family"
+    },
+    {
+      "id": "N015-NEG-033",
+      "condition": "within-block dependence assumption omitted"
+    },
+    {
+      "id": "N015-NEG-034",
+      "condition": "population-law claim without a declared within-block sampling assumption"
+    },
+    {
+      "id": "N015-NEG-035",
+      "condition": "federated sketch described as differential privacy without a privacy mechanism/budget"
+    },
+    {
+      "id": "N015-NEG-036",
+      "condition": "pooled client coverage reported without client-level diagnostics"
+    },
+    {
+      "id": "N015-NEG-037",
+      "condition": "importance weights supplied without ESS and concentration diagnostics"
+    },
+    {
+      "id": "N015-NEG-038",
+      "condition": "no source-family clustered inference plan"
+    },
+    {
+      "id": "N015-NEG-039",
+      "condition": "no paired confidence interval or primary estimand"
+    },
+    {
+      "id": "N015-NEG-040",
+      "condition": "multiple confirmatory comparisons have no adjustment or hierarchy"
+    },
+    {
+      "id": "N015-NEG-041",
+      "condition": "composite resilience/robustness score present"
+    },
+    {
+      "id": "N015-NEG-042",
+      "condition": "political, identity, loyalty or personal-suitability field present"
+    }
+  ],
+  "boundary_cases": [
+    {
+      "id": "N015-BOUNDARY-001",
+      "condition": "conformal order-statistic rank exceeds calibration-family count",
+      "expected": "Record no finite radius; do not substitute sample maximum."
+    },
+    {
+      "id": "N015-BOUNDARY-002",
+      "condition": "bulk contamination allows unbounded loss and no tail/support bound is declared",
+      "expected": "Worst-case risk is infinite or the ambiguity result is explicitly vacuous."
+    },
+    {
+      "id": "N015-BOUNDARY-003",
+      "condition": "learned transport metric becomes disconnected or violates metric axioms",
+      "expected": "Reject the candidate metric before calibration."
+    },
+    {
+      "id": "N015-BOUNDARY-004",
+      "condition": "candidate metric is modified after calibration data is used",
+      "expected": "Invalidate calibration artifact and require a fresh untouched calibration split."
+    }
+  ],
+  "round_trip_requirements": [
+    "Preserve all five split roles and source-family partition semantics.",
+    "Preserve opaque family IDs and the custodian-held identity mapping boundary.",
+    "Preserve digests, Merkle roots, signatures and freeze-record fields.",
+    "Preserve candidate method families and the distinction between trainable and calibrated components.",
+    "Preserve metric constraints, normalization and held-out loss-profile assignments.",
+    "Preserve calibration assumptions separately from forecast calibration claims.",
+    "Preserve bulk and tail bounds independently.",
+    "Preserve shift-family definitions, paired analysis plan and primary estimand.",
+    "Preserve client-level coverage and privacy claims separately from pooled summaries.",
+    "Preserve all disaggregated metrics without deriving a composite score."
+  ],
+  "conformance_targets": {
+    "split_family_overlap_allowed": 0,
+    "metric_validity_failures_accepted": 0,
+    "hidden_outcomes_in_public_repo": 0,
+    "heldout_profiles_used_for_tuning": 0,
+    "composite_scores_accepted": 0,
+    "source_custody_claims_without_attestation": 0
+  },
+  "limitations": [
+    "This is a protocol template, not an implemented loss-aware learner or bulk-tail optimizer.",
+    "No confirmatory source-family manifest or hidden outcomes are included.",
+    "The protocol cannot prove independence, truth or exchangeability from manifest IDs alone.",
+    "No SOTA performance claim is made."
+  ]
+}
