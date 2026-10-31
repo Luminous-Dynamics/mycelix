@@ -8,6 +8,12 @@ Krueger et al. (2026, Vadose Zone Journal, DOI 10.1002/vzj2.70100) provide a use
 
 These are valuable storage-monitoring baselines. They are **not preferential-flow optima**. A layout that reconstructs the profile mean can still miss a narrow, disconnected, lateral or rapidly transmitting pathway. Conversely, additional sensors may improve pathway detection while adding little to profile-average storage accuracy. Never transfer the Krueger depth recommendations into PF recommendations without testing the PF objective.
 
+### Reusable industry storage-layout reference
+
+Krueger et al. provide a public [Soil Moisture Sensor Layout Explorer](https://soilwater.github.io/soil-moisture-sensor-depths/). Its reference profiles are 1-m cores sliced at 5-cm intervals; a hypothetical sensor reading is simulated as the average of the adjacent 1-cm layers, and storage is estimated by assigning each sensor a vertical layer bounded by midpoints to neighboring sensors. The tool reports relative/signed storage error and optionally shows a ±0.03 m³/m³ sensor-accuracy band.
+
+This is a useful reproducible comparator for *storage representation*. It does not measure event response, pathway continuity, tracer breakthrough or event boundary mass. Its idealized sensor readings should be kept separate from a realistic PF sensor observation model with spatial support, noise, drift, saturation and event timing. Use the tool as a reference, not as a PF validation or a substitute for our independent candidate-layout experiment.
+
 ## 2. Paradigm shift: place sensors to distinguish mechanisms, not merely represent an average
 
 The design target should be a distribution of physically plausible mechanisms and fluxes, not one spatial mean:
