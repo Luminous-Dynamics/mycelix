@@ -11,7 +11,7 @@
 //! and enforces service floors pathwise. It has no learned transitions,
 //! calibrated ambiguity set, nested CVaR or real-world operational authority.
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 const BENCHMARK_ID: &str = "PRAXIS-NRES-016-EX0-EXACT-ADAPTIVE-RECOURSE-001";
@@ -739,13 +739,10 @@ mod tests {
     #[test]
     fn no_feasible_policy_returns_explicit_infeasibility() {
         let mut fixture = small_fixture();
-        fixture["information_states"][0]["actions"][0]["outcomes"][0]["next_information_state_id"] = json!("D-STORM");
-        fixture["information_states"][0]["actions"][0]["outcomes"][0]["probability"] = json!(0.7);
-        fixture["information_states"][0]["actions"][0]["outcomes"][1]["next_information_state_id"] = json!("D-STORM");
-        fixture["information_states"][0]["actions"][0]["outcomes"][1]["probability"] = json!(0.3);
-        // The action now fails the resource balance on its first transition;
-        // the validator returns an explicit error rather than silently relaxing it.
-        assert!(evaluate_exact_adaptive_recourse(&fixture).is_err());
+        fixture["information_states"][2]["service_levels"]["water"] = json!(60.0);
+        let report = evaluate_exact_adaptive_recourse(&fixture).unwrap();
+        assert_eq!(report["status"], json!("infeasible"));
+        assert!(report["expected_total_cost"].is_null());
     }
 
     #[test]
