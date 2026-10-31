@@ -45,6 +45,17 @@ A high score on one claim does not establish the others. In particular, the Li e
 - Hirmas et al. (2025), **image-informed dynamic macroporosity model**: https://doi.org/10.1029/2024WR039836
 - Guthrie et al. (2025), **deep root loss/regeneration and soil structure dataset study**: https://doi.org/10.1029/2025EF006326
 
+### Published machine-learning comparators
+
+The benchmark also needs to pin the two published NEON learning baselines as distinct tasks:
+
+- **Li et al. (2025) Random Forest:** predicts site-level PF occurrence probabilities separately for VT and NSR; uses 40 sites/17 ecoregions and a random 24-site training / 16-site testing split. Event eligibility is at least 2 mm cumulative precipitation. The VT target is evaluated under maximum, median and median-plus-standard-deviation depth-weighted Rosetta Ksat variants.
+- **Li et al. (2026) ResNet ensemble:** predicts event-sensor apparent response velocity and the Ksat-threshold binary proxy; uses 33 sites, 586 sensors, 15,554 samples, a chronological within-sensor split and 50 bootstrap model realizations.
+
+These cannot be ranked by a common headline F1: the 2025 output is site-level PF probability while the 2026 F1 is event-sensor proxy classification. A common site-held-out retest must use identical outer-site folds and report both target units separately. Both papers draw on NEON and are not independent external validation from each other.
+
+References: Li et al. (2025), https://doi.org/10.1029/2025GL118045; Li et al. (2026), https://doi.org/10.1029/2026EF008296.
+
 ## 3. Head-to-head parity protocol
 
 ### 3.1 Exact executable and model configuration
