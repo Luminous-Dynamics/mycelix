@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-last-mile"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Synthetic multi-channel civilian warning and accessibility conformance benchmark"
+
+# Keep this benchmark isolated from the parent Praxis workspace.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-last-mile"
+path = "src/main.rs"
