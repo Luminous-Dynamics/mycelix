@@ -2,7 +2,7 @@ use praxis_nres_capability_loop::{
     evaluate, evaluate_ambiguity_robust_decisions, evaluate_joint_service_forecasts, evaluate_probability_forecasts,
     evaluate_reliability_resolution_decision_value, evaluate_resilience_trajectories,
     evaluate_tail_shift_robustness, evaluate_wasserstein_joint_decisions,
-    evaluate_wasserstein_radius_calibration, export_evidence_envelope,
+    evaluate_wasserstein_radius_calibration, evaluate_bulk_tail_credal, export_evidence_envelope,
 };
 use serde_json::Value;
 use std::process::ExitCode;
@@ -17,6 +17,7 @@ const NRES011: &str = include_str!("../../../examples/courses/civic-resilience-r
 const NRES012: &str = include_str!("../../../examples/courses/civic-resilience-ambiguity-robust-decision-fixture-001.json");
 const NRES013: &str = include_str!("../../../examples/courses/civic-resilience-wasserstein-joint-decision-fixture-001.json");
 const NRES014: &str = include_str!("../../../examples/courses/civic-resilience-wasserstein-radius-calibration-fixture-001.json");
+const NRES015_BT1: &str = include_str!("../../../examples/courses/nres-015-bt1-bounded-bulk-tail-fixture-001.json");
 
 fn parse_fixture(contents: &str, label: &str) -> Result<Value, ExitCode> {
     serde_json::from_str(contents).map_err(|error| {
@@ -28,6 +29,13 @@ fn parse_fixture(contents: &str, label: &str) -> Result<Value, ExitCode> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    if args.iter().any(|arg| arg == "--bulk-tail") {
+        let fixture = match parse_fixture(NRES015_BT1, "NRES-015-BT1") {
+            Ok(value) => value,
+            Err(code) => return code,
+        };
+        return emit(evaluate_bulk_tail_credal(&fixture));
+    }
     if args.iter().any(|arg| arg == "--calibrate-wasserstein-radius") {
         let nres009 = match parse_fixture(NRES009, "NRES-009") {
             Ok(value) => value,
