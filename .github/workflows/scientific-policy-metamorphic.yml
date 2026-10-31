@@ -162,6 +162,45 @@ jobs:
             '{engine:"opa",engine_version:"1.22.0",evaluation_method:"one-shot-cli-batch-including-process-startup-and-file-io",case_count:62464,input_sha256:$input_sha256,output_sha256:$output_sha256,elapsed_ns:$elapsed_ns,claim_ceiling:"OPA result over frozen abstract input corpus; not Rust authorization parity"}' \
             > target/metamorphic-engine-results/baseline-opa/opa-run-manifest.json
 
+      - name: Benchmark OPA in-process query evaluation by authorization action
+        run: |
+          set -euo pipefail
+          mkdir -p target/opa-native-bench
+          actions=(
+            claim_proposed
+            legacy_claim_imported
+            evidence_attached
+            attestation_recorded
+            attestation_corrected
+            attestation_withdrawn
+            claim_superseded
+            claim_retracted
+          )
+          for action in "\${actions[@]}"; do
+            input_file="target/opa-native-bench/$action-input.json"
+            output_file="target/opa-native-bench/$action-bench.json"
+            jq -sc --arg action "$action" \
+              '[.[] | select(.rego.input.action == $action) | .rego.input][0]' \
+              target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl \
+              > "$input_file"
+            jq -e --arg action "$action" '.action == $action' "$input_file"
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$input_file" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+              'data.mycelix.authz.decision' \
+              > "$output_file"
+            test -s "$output_file"
+          done
+          {
+            printf 'evaluation_method=opa bench; repeated in-process query evaluation; input loading/policy compilation/process startup excluded by engine benchmark\n'
+            printf 'opa_version='; /tmp/opa version
+            printf 'opa_binary_sha256='; sha256sum /tmp/opa
+            printf 'policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego
+            printf 'source_input_sha256='; sha256sum target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl
+            uname -a
+            printf 'logical_cpus=%s\n' "$(nproc)"
+          } > target/opa-native-bench/reproducibility.txt
+
       - name: Evaluate each metamorphic corpus through Cedar and OPA
         run: |
           set -euo pipefail
