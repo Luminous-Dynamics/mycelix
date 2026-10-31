@@ -50,5 +50,7 @@
       "position_start_utc": "2026-01-01T00:00:00Z",
       "position_end_utc": null
     }
-  ]
+  ],
+  "maximum_profile_porosity_m3_m3": 0.35,
+  "maximum_profile_porosity_evidence_ref": "synthetic whole-profile porosity fixture"
 }
