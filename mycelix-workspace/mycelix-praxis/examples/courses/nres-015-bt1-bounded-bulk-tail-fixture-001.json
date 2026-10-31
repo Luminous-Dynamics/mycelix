@@ -1,0 +1,50 @@
+{
+  "benchmark_id": "PRAXIS-NRES-015-BT1-BOUNDED-BULK-TAIL-001",
+  "schema_version": "1.0.0",
+  "title": "NRES-015 BT1 bounded bulk-tail credal reference",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "support_state_count": 16,
+  "bulk_state_ids": [0, 1, 2, 3, 4, 5, 6, 7],
+  "bulk_selection_basis": "Synthetic frozen low-index partition for evaluator conformance only; not fitted to confirmatory outcomes.",
+  "profiles": [
+    {
+      "profile_id": "LOW-COST-BOUNDED-TAIL",
+      "bulk_conditional_probabilities": [0.22, 0.16, 0.14, 0.12, 0.10, 0.10, 0.09, 0.07],
+      "bulk_state_losses": [1.0, 3.0, 4.0, 6.0, 7.0, 9.0, 10.0, 12.0],
+      "bulk_tv_radius": 0.10,
+      "tail_mass_lower": 0.05,
+      "tail_mass_upper": 0.12,
+      "tail_loss_upper_bound": 40.0,
+      "tail_bound_basis": "Synthetic declared cap used only to test bounded-tail arithmetic; not a real operational limit."
+    },
+    {
+      "profile_id": "MODERATE-COST-BOUNDED-TAIL",
+      "bulk_conditional_probabilities": [0.12, 0.14, 0.16, 0.12, 0.12, 0.10, 0.12, 0.10],
+      "bulk_state_losses": [2.0, 5.0, 6.0, 8.0, 9.0, 12.0, 15.0, 18.0],
+      "bulk_tv_radius": 0.18,
+      "tail_mass_lower": 0.10,
+      "tail_mass_upper": 0.22,
+      "tail_loss_upper_bound": 30.0,
+      "tail_bound_basis": "Synthetic declared cap used only to test bounded-tail arithmetic; not a real operational limit."
+    },
+    {
+      "profile_id": "HIGH-COST-UNBOUNDED-TAIL",
+      "bulk_conditional_probabilities": [0.09, 0.10, 0.10, 0.12, 0.13, 0.15, 0.15, 0.16],
+      "bulk_state_losses": [0.0, 5.0, 8.0, 11.0, 15.0, 20.0, 25.0, 32.0],
+      "bulk_tv_radius": 0.25,
+      "tail_mass_lower": 0.15,
+      "tail_mass_upper": 0.35,
+      "tail_loss_upper_bound": null,
+      "tail_bound_basis": "No finite tail cap is supplied; the evaluator must preserve infinite robust risk."
+    }
+  ],
+  "guardrails": [
+    "All probabilities and costs are synthetic.",
+    "The bulk partition and all bounds are predeclared in this public fixture.",
+    "No calibration or coverage guarantee is supplied by this evaluator.",
+    "A missing finite tail bound produces infinite risk whenever positive tail mass is admissible.",
+    "No real-world operational, legal, readiness or institutional conclusion is intended."
+  ]
+}
