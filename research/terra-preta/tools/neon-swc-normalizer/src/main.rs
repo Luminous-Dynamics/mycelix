@@ -162,6 +162,8 @@ struct AggregationReport {
     total_bin_count: usize,
     observed_bin_count: usize,
     missing_bin_count: usize,
+    interpolated_bin_count: usize,
+    remaining_missing_bin_count: usize,
     bins: Vec<BinAudit>,
     interpretation_boundary: &'static str,
     warnings: Vec<String>,
@@ -343,7 +345,7 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
     Ok((start, end, bin_starts))
 }
 
-fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha256: String) -> Result<(NormalizedProfile, AggregationReport), String> {
+fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha256: String) -> Result<(NormalizedProfile, NormalizedProfile, AggregationReport), String> {
     let (_event_start, _event_end, bin_starts) = validate_config(config)?;
     let raw_headers;
     let mut csv_reader = csv::ReaderBuilder::new()
@@ -522,6 +524,18 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         source_evidence_ref: format!("{}; raw_file={}; see aggregation report for raw/config digests", config.source_evidence_ref, config.raw_file_label),
         sensors: normalized_sensors,
     };
+    let mut paper_analysis_profile = normalized.clone();
+    let interpolated_bin_count = interpolate_short_gaps(
+        &mut paper_analysis_profile,
+        config.target_resolution_seconds,
+    );
+    let remaining_missing_bin_count = paper_analysis_profile
+        .sensors
+        .iter()
+        .flat_map(|sensor| &sensor.observations)
+        .filter(|observation| observation.status == "missing")
+        .count();
+
     let report = AggregationReport {
         audit_version: "0.1.0",
         config_sha256,
@@ -560,18 +574,65 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         total_bin_count: bin_audits.len(),
         observed_bin_count: observed_bins,
         missing_bin_count: missing_bins,
+        interpolated_bin_count,
+        remaining_missing_bin_count,
         bins: bin_audits,
         interpretation_boundary: "quality-filtered median observation series only; QA and aggregation do not establish preferential flow or a unique pore pathway",
         warnings: vec![
             "The column mapping and accepted quality values are explicit configuration inputs; verify them against the pinned NEON variables file, ATBD, release and issue log.".to_owned(),
             "The input must be the one-minute soil-water table. Do not use 30-minute source data for this event reconstruction.".to_owned(),
             "After source QA filtering, observations above the declared maximum whole-profile porosity across all soil pits are separately rejected; preserve the porosity source/crosswalk and cutoff evidence.".to_owned(),
-            "A target bin is observed only when the configured minimum good-row fraction is met; no interpolation or zero-fill is performed.".to_owned(),
+            "The normalized-profile output preserves the original missing bins. A second paper-analysis profile linearly interpolates only interior gaps whose missing-bin duration is strictly less than six hours; edge gaps and gaps of six hours or longer remain missing.".to_owned(),
             "Depth and x/y metadata are supplied separately in the sensor roster. For NEON DP1.00094.001 use swc_depthsV3.csv for corrected depth and a time-valid sensor-position join for coordinates.".to_owned(),
             "This tool does not establish the scientific validity of the quality filters or resolve calibration uncertainty; it faithfully applies the declared rule.".to_owned(),
         ],
     };
-    Ok((normalized, report))
+    Ok((normalized, paper_analysis_profile, report))
+}
+
+fn interpolate_short_gaps(profile: &mut NormalizedProfile, target_resolution_seconds: u32) -> usize {
+    const MAX_GAP_SECONDS: u64 = 6 * 60 * 60;
+    let step = u64::from(target_resolution_seconds);
+    let mut total_interpolated = 0usize;
+
+    for sensor in &mut profile.sensors {
+        let observations = &mut sensor.observations;
+        let mut left = 0usize;
+        while left < observations.len() {
+            if observations[left].status != "observed" {
+                left += 1;
+                continue;
+            }
+            let mut right = left + 1;
+            while right < observations.len() && observations[right].status == "missing" {
+                right += 1;
+            }
+            if right >= observations.len() || observations[right].status != "observed" {
+                break;
+            }
+
+            let missing_count = right - left - 1;
+            let gap_duration_seconds = (missing_count as u64) * step;
+            if missing_count > 0 && gap_duration_seconds < MAX_GAP_SECONDS {
+                let left_theta = observations[left]
+                    .volumetric_water_content_m3_m3
+                    .expect("observed status must have a value");
+                let right_theta = observations[right]
+                    .volumetric_water_content_m3_m3
+                    .expect("observed status must have a value");
+                let span = (right - left) as f64;
+                for index in left + 1..right {
+                    let fraction = (index - left) as f64 / span;
+                    observations[index].volumetric_water_content_m3_m3 =
+                        Some(left_theta + fraction * (right_theta - left_theta));
+                    observations[index].status = "linear_interpolated_gap_lt6h";
+                    total_interpolated += 1;
+                }
+            }
+            left = right;
+        }
+    }
+    total_interpolated
 }
 
 fn write_new_file(path: &str, bytes: &[u8]) -> Result<(), io::Error> {
@@ -584,10 +645,10 @@ fn write_new_file(path: &str, bytes: &[u8]) -> Result<(), io::Error> {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 5 {
+    if args.len() != 6 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "usage: neon-swc-normalizer <config.json> <raw-one-minute.csv> <new-profile-series.json> <new-audit-report.json>",
+            "usage: neon-swc-normalizer <config.json> <raw-one-minute.csv> <new-raw-profile.json> <new-paper-analysis-profile.json> <new-audit-report.json>",
         ).into());
     }
     let config_bytes = fs::read(&args[1])?;
@@ -595,16 +656,21 @@ fn run() -> Result<(), Box<dyn Error>> {
     let config_sha256 = format!("{:x}", Sha256::digest(&config_bytes));
     let source_sha256 = format!("{:x}", Sha256::digest(&source_bytes));
     let config: Config = serde_json::from_slice(&config_bytes)?;
-    let (normalized, report) = evaluate(&config, &source_bytes, source_sha256, config_sha256)?;
+    let (normalized, paper_analysis_profile, report) =
+        evaluate(&config, &source_bytes, source_sha256, config_sha256)?;
     let normalized_bytes = serde_json::to_vec_pretty(&normalized)?;
+    let paper_analysis_bytes = serde_json::to_vec_pretty(&paper_analysis_profile)?;
     let report_bytes = serde_json::to_vec_pretty(&report)?;
     write_new_file(&args[3], &normalized_bytes)?;
-    write_new_file(&args[4], &report_bytes)?;
+    write_new_file(&args[4], &paper_analysis_bytes)?;
+    write_new_file(&args[5], &report_bytes)?;
     println!(
-        "NEON soil-water normalization complete: sensors={}; observed_bins={}; missing_bins={}; unknown_sensor_rows_ignored={}; source_csv_sha256={}",
+        "NEON soil-water normalization complete: sensors={}; observed_bins={}; original_missing_bins={}; interpolated_bins={}; remaining_missing_bins={}; unknown_sensor_rows_ignored={}; source_csv_sha256={}",
         report.selected_sensor_count,
         report.observed_bin_count,
         report.missing_bin_count,
+        report.interpolated_bin_count,
+        report.remaining_missing_bin_count,
         report.unknown_sensor_rows_ignored,
         report.source_csv_sha256
     );
@@ -708,7 +774,7 @@ mod tests {
     fn aggregates_one_minute_rows_to_audited_ten_minute_medians() {
         let config = config();
         let csv = csv_fixture();
-        let (normalized, report) =
+        let (normalized, _paper_analysis, report) =
             evaluate(&config, csv.as_bytes(), "a".repeat(64), "b".repeat(64)).unwrap();
         assert_eq!(normalized.sensors.len(), 2);
         assert_eq!(normalized.sensors[0].observations.len(), 2);
@@ -722,6 +788,79 @@ mod tests {
         assert_eq!(report.bins[1].quality_rejected_rows, 1);
         assert_eq!(report.bins[1].quality_pass_rows, 9);
         assert_eq!(report.bins[1].good_fraction, 0.9);
+    }
+
+    #[test]
+    fn interpolates_short_interior_gaps_without_overwriting_raw_profile() {
+        let mut profile = NormalizedProfile {
+            schema_version: "0.1.0",
+            study_id: "synthetic".to_owned(),
+            site_id: "SYN1".to_owned(),
+            plot_id: "P01".to_owned(),
+            profile_id: "PROFILE1".to_owned(),
+            event_id: "EVENT1".to_owned(),
+            event_start_utc: stamp(10),
+            observation_window_end_utc: stamp(40),
+            time_resolution_seconds: 600,
+            source_evidence_ref: "synthetic".to_owned(),
+            sensors: vec![NormalizedSensor {
+                sensor_id: "S1".to_owned(),
+                depth_cm: 6.0,
+                condition: SensorCondition::Usable,
+                observations: vec![
+                    NormalizedObservation { timestamp_utc: stamp(0), volumetric_water_content_m3_m3: Some(0.20), status: "observed" },
+                    NormalizedObservation { timestamp_utc: stamp(10), volumetric_water_content_m3_m3: None, status: "missing" },
+                    NormalizedObservation { timestamp_utc: stamp(20), volumetric_water_content_m3_m3: None, status: "missing" },
+                    NormalizedObservation { timestamp_utc: stamp(30), volumetric_water_content_m3_m3: Some(0.40), status: "observed" },
+                ],
+            }],
+        };
+        let raw = profile.clone();
+        let count = interpolate_short_gaps(&mut profile, 600);
+        assert_eq!(count, 2);
+        assert_eq!(profile.sensors[0].observations[1].status, "linear_interpolated_gap_lt6h");
+        assert!((profile.sensors[0].observations[1].volumetric_water_content_m3_m3.unwrap() - 0.2666666667).abs() < 1e-9);
+        assert!((profile.sensors[0].observations[2].volumetric_water_content_m3_m3.unwrap() - 0.3333333333).abs() < 1e-9);
+        assert_eq!(raw.sensors[0].observations[1].status, "missing");
+        assert_eq!(raw.sensors[0].observations[1].volumetric_water_content_m3_m3, None);
+    }
+
+    #[test]
+    fn does_not_interpolate_six_hour_or_longer_gaps_or_edge_gaps() {
+        let make_observation = |index: usize, value: Option<f64>, status: &'static str| {
+            NormalizedObservation {
+                timestamp_utc: format!("bin-{index}"),
+                volumetric_water_content_m3_m3: value,
+                status,
+            }
+        };
+        let mut observations = vec![make_observation(0, Some(0.2), "observed")];
+        for index in 1..=36 {
+            observations.push(make_observation(index, None, "missing"));
+        }
+        observations.push(make_observation(37, Some(0.4), "observed"));
+        observations.push(make_observation(38, None, "missing"));
+        let mut profile = NormalizedProfile {
+            schema_version: "0.1.0",
+            study_id: "synthetic".to_owned(),
+            site_id: "SYN1".to_owned(),
+            plot_id: "P01".to_owned(),
+            profile_id: "PROFILE1".to_owned(),
+            event_id: "EVENT1".to_owned(),
+            event_start_utc: stamp(10),
+            observation_window_end_utc: stamp(40),
+            time_resolution_seconds: 600,
+            source_evidence_ref: "synthetic".to_owned(),
+            sensors: vec![NormalizedSensor {
+                sensor_id: "S1".to_owned(),
+                depth_cm: 6.0,
+                condition: SensorCondition::Usable,
+                observations,
+            }],
+        };
+        assert_eq!(interpolate_short_gaps(&mut profile, 600), 0);
+        assert_eq!(profile.sensors[0].observations[1].status, "missing");
+        assert_eq!(profile.sensors[0].observations[38].status, "missing");
     }
 
     #[test]
