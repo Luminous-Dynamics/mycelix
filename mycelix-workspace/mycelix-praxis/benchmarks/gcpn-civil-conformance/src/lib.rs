@@ -1,9 +1,12 @@
 //! Synthetic conformance oracle for civilian-warning records.
 //! No live feeds, alert dispatch, threat modelling, or real-world warning policy.
+//!
+//! v0.1.1 extends the original frozen v0.1 fixture without modifying it.
 
 use std::collections::HashSet;
 
-pub const FIXTURE: &str = include_str!("../fixtures/gcpn-001-v0.1.csv");
+pub const FIXTURE_V0_1: &str = include_str!("../fixtures/gcpn-001-v0.1.csv");
+pub const FIXTURE: &str = include_str!("../fixtures/gcpn-001-v0.1.1.csv");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecordAuthenticity { Authenticated, Invalid, Unknown }
@@ -73,6 +76,9 @@ pub struct Case {
     pub source_record_count: u32,
     pub unauthorized_remote_change_attempted: bool,
     pub unauthorized_remote_change_accepted: bool,
+    pub authority_assertion_id: String,
+    pub uncertainty_disclosed: bool,
+    pub sensitive_provenance_in_public_payload: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -82,6 +88,9 @@ pub struct Report {
     pub measurement_state_coercions: u32,
     pub authenticity_measurement_conflations: u32,
     pub unauthorized_alerts: u32,
+    pub authority_unbound_alerts: u32,
+    pub uncertainty_hidden_alerts: u32,
+    pub sensitive_provenance_leaks: u32,
     pub local_partition_cases: u32,
     pub local_partition_deliveries: u32,
     pub untraceable_alerts: u32,
@@ -98,6 +107,9 @@ impl Report {
             && self.measurement_state_coercions == 0
             && self.authenticity_measurement_conflations == 0
             && self.unauthorized_alerts == 0
+            && self.authority_unbound_alerts == 0
+            && self.uncertainty_hidden_alerts == 0
+            && self.sensitive_provenance_leaks == 0
             && self.local_partition_cases == self.local_partition_deliveries
             && self.untraceable_alerts == 0
             && self.unauthorized_remote_mutations == 0
@@ -128,13 +140,13 @@ fn parse_u32(s: &str, name: &str) -> Result<u32, String> {
     s.parse().map_err(|_| format!("{name} must be an unsigned integer, got {s}"))
 }
 
-/// Parse the fixed CSV contract. Quoted fields are deliberately unsupported;
+/// Parse the fixed v0.1.1 CSV contract. Quoted fields are deliberately unsupported;
 /// fixture cells are restricted to enumerations, integers, booleans and IDs.
 pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
-    const HEADER: &str = "profile_id,scenario_id,record_authenticity,measurement_state,reported_measurement_state,source_reports,source_families,reported_independence,authority_authorized,alert_issued,wan_available,local_fallback_available,local_authority_available,local_issue_expected,local_alert_issued,recipients,receipts,accessible_receivers,traceable,source_record_count,unauthorized_remote_change_attempted,unauthorized_remote_change_accepted";
+    const HEADER: &str = "profile_id,scenario_id,record_authenticity,measurement_state,reported_measurement_state,source_reports,source_families,reported_independence,authority_authorized,alert_issued,wan_available,local_fallback_available,local_authority_available,local_issue_expected,local_alert_issued,recipients,receipts,accessible_receivers,traceable,source_record_count,unauthorized_remote_change_attempted,unauthorized_remote_change_accepted,authority_assertion_id,uncertainty_disclosed,sensitive_provenance_in_public_payload";
     let mut lines = input.lines();
     if lines.next() != Some(HEADER) {
-        return Err("fixture header does not match frozen v0.1 contract".into());
+        return Err("fixture header does not match frozen v0.1.1 contract".into());
     }
 
     let mut cases = Vec::new();
@@ -142,8 +154,8 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
     for (line_no, line) in lines.enumerate() {
         if line.trim().is_empty() { continue; }
         let f: Vec<&str> = line.split(',').collect();
-        if f.len() != 22 {
-            return Err(format!("line {}: expected 22 fields, got {}", line_no + 2, f.len()));
+        if f.len() != 25 {
+            return Err(format!("line {}: expected 25 fields, got {}", line_no + 2, f.len()));
         }
         let c = Case {
             profile_id: f[0].to_owned(),
@@ -168,6 +180,9 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
             source_record_count: parse_u32(f[19], "source_record_count")?,
             unauthorized_remote_change_attempted: parse_bool(f[20], "unauthorized_remote_change_attempted")?,
             unauthorized_remote_change_accepted: parse_bool(f[21], "unauthorized_remote_change_accepted")?,
+            authority_assertion_id: f[22].to_owned(),
+            uncertainty_disclosed: parse_bool(f[23], "uncertainty_disclosed")?,
+            sensitive_provenance_in_public_payload: parse_bool(f[24], "sensitive_provenance_in_public_payload")?,
         };
 
         if c.profile_id.is_empty() || c.scenario_id.is_empty() {
@@ -182,10 +197,16 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
         if c.receipts > c.recipients || c.accessible_receivers > c.recipients {
             return Err(format!("line {}: receiver counts exceed recipients", line_no + 2));
         }
+        if !c.alert_issued && (c.recipients > 0 || c.receipts > 0 || c.accessible_receivers > 0) {
+            return Err(format!("line {}: receiver counts require an issued alert", line_no + 2));
+        }
         if c.local_issue_expected
             && (c.wan_available || !c.local_fallback_available || !c.local_authority_available)
         {
             return Err(format!("line {}: local_issue_expected requires WAN partition, local authority and fallback", line_no + 2));
+        }
+        if c.local_alert_issued && (!c.local_issue_expected || !c.alert_issued || !c.local_authority_available) {
+            return Err(format!("line {}: local alert requires expected local issue, issued alert and local authority", line_no + 2));
         }
         cases.push(c);
     }
@@ -198,10 +219,8 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
 pub fn evaluate(cases: &[Case]) -> Report {
     let mut r = Report { cases: cases.len() as u32, ..Report::default() };
     for c in cases {
-        if c.source_reports > 1
-            && c.source_families < 2
-            && c.reported_independence == IndependenceClaim::Independent
-        {
+        // An independence claim requires at least two genuinely distinct source families.
+        if c.reported_independence == IndependenceClaim::Independent && c.source_families < 2 {
             r.independence_promotions += 1;
         }
         if c.reported_measurement_state != c.measurement_state {
@@ -215,6 +234,19 @@ pub fn evaluate(cases: &[Case]) -> Report {
         }
         if c.alert_issued && !c.authority_authorized {
             r.unauthorized_alerts += 1;
+        }
+        if c.alert_issued && c.authority_assertion_id.trim().is_empty() {
+            r.authority_unbound_alerts += 1;
+        }
+        // Precautionary warnings remain possible, but uncertainty must be visible.
+        if c.alert_issued
+            && c.measurement_state != MeasurementState::Validated
+            && !c.uncertainty_disclosed
+        {
+            r.uncertainty_hidden_alerts += 1;
+        }
+        if c.sensitive_provenance_in_public_payload {
+            r.sensitive_provenance_leaks += 1;
         }
         if c.local_issue_expected {
             r.local_partition_cases += 1;
@@ -244,7 +276,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn frozen_fixture_parses_with_unique_scenario_ids() {
+    fn frozen_v0_1_fixture_matches_pinned_fingerprint() {
+        fn fnv1a64(bytes: &[u8]) -> u64 {
+            bytes.iter().fold(0xcbf29ce484222325u64, |mut hash, byte| {
+                hash ^= u64::from(*byte);
+                hash.wrapping_mul(0x100000001b3)
+            })
+        }
+        assert_eq!(FIXTURE_V0_1.lines().count(), 10);
+        assert_eq!(fnv1a64(FIXTURE_V0_1.as_bytes()), 0x4b6a3d7a1ba31dd1);
+    }
+
+    #[test]
+    fn frozen_v0_1_1_fixture_parses_with_unique_scenario_ids() {
         let cases = parse_fixture(FIXTURE).expect("fixture should parse");
         assert_eq!(cases.len(), 9);
         let ids: HashSet<_> = cases.iter().map(|c| c.scenario_id.as_str()).collect();
@@ -259,6 +303,9 @@ mod tests {
         assert_eq!(r.measurement_state_coercions, 0);
         assert_eq!(r.authenticity_measurement_conflations, 0);
         assert_eq!(r.unauthorized_alerts, 0);
+        assert_eq!(r.authority_unbound_alerts, 0);
+        assert_eq!(r.uncertainty_hidden_alerts, 0);
+        assert_eq!(r.sensitive_provenance_leaks, 0);
         assert_eq!((r.local_partition_deliveries, r.local_partition_cases), (1, 1));
         assert_eq!(r.untraceable_alerts, 0);
         assert_eq!(r.unauthorized_remote_mutations, 0);
@@ -270,6 +317,18 @@ mod tests {
         assert_eq!((r.recipients, r.receipts, r.accessible_receivers), (24, 24, 22));
         assert!((r.receiver_delivery_ratio() - 1.0).abs() < 1e-12);
         assert!((r.accessibility_coverage_ratio() - (22.0 / 24.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn one_source_cannot_claim_independent_corroboration() {
+        let mut cases = parse_fixture(FIXTURE).unwrap();
+        let c = cases.iter_mut().find(|c| c.scenario_id == "gcpn-normal").unwrap();
+        c.reported_independence = IndependenceClaim::Independent;
+        c.source_reports = 1;
+        c.source_families = 1;
+        let r = evaluate(&cases);
+        assert_eq!(r.independence_promotions, 1);
+        assert!(!r.conformance_passes());
     }
 
     #[test]
@@ -306,15 +365,61 @@ mod tests {
     }
 
     #[test]
+    fn alert_requires_a_bound_authority_assertion() {
+        let mut cases = parse_fixture(FIXTURE).unwrap();
+        let c = cases.iter_mut().find(|c| c.scenario_id == "gcpn-normal").unwrap();
+        c.authority_assertion_id.clear();
+        let r = evaluate(&cases);
+        assert_eq!(r.authority_unbound_alerts, 1);
+        assert!(!r.conformance_passes());
+    }
+
+    #[test]
+    fn precautionary_alert_must_disclose_unverified_evidence() {
+        let mut cases = parse_fixture(FIXTURE).unwrap();
+        let c = cases.iter_mut().find(|c| c.scenario_id == "gcpn-authentic-not-accurate").unwrap();
+        c.uncertainty_disclosed = false;
+        let r = evaluate(&cases);
+        assert_eq!(r.uncertainty_hidden_alerts, 1);
+        assert!(!r.conformance_passes());
+    }
+
+    #[test]
+    fn sensitive_provenance_must_not_enter_public_payload() {
+        let mut cases = parse_fixture(FIXTURE).unwrap();
+        let c = cases.iter_mut().find(|c| c.scenario_id == "gcpn-normal").unwrap();
+        c.sensitive_provenance_in_public_payload = true;
+        let r = evaluate(&cases);
+        assert_eq!(r.sensitive_provenance_leaks, 1);
+        assert!(!r.conformance_passes());
+    }
+
+    #[test]
+    fn stale_missing_and_contradictory_alerts_must_disclose_uncertainty() {
+        let mut cases = parse_fixture(FIXTURE).unwrap();
+        for id in ["gcpn-contradictory"] {
+            let c = cases.iter_mut().find(|c| c.scenario_id == id).unwrap();
+            c.uncertainty_disclosed = false;
+        }
+        let r = evaluate(&cases);
+        assert_eq!(r.uncertainty_hidden_alerts, 1);
+        assert!(!r.conformance_passes());
+    }
+
+    #[test]
     fn unauthorized_alerts_untraceable_alerts_and_remote_writes_fail() {
         let mut cases = parse_fixture(FIXTURE).unwrap();
         let c = cases.iter_mut().find(|c| c.scenario_id == "gcpn-unauthorized-cross-member-write").unwrap();
         c.alert_issued = true;
+        c.recipients = 0;
+        c.receipts = 0;
+        c.accessible_receivers = 0;
         c.traceable = false;
         c.source_record_count = 0;
         c.unauthorized_remote_change_accepted = true;
+        c.authority_assertion_id.clear();
         let r = evaluate(&cases);
-        assert_eq!((r.unauthorized_alerts, r.untraceable_alerts, r.unauthorized_remote_mutations), (1, 1, 1));
+        assert_eq!((r.unauthorized_alerts, r.authority_unbound_alerts, r.untraceable_alerts, r.unauthorized_remote_mutations), (1, 1, 1, 1));
         assert!(!r.conformance_passes());
     }
 
@@ -330,8 +435,14 @@ mod tests {
     }
 
     #[test]
-    fn malformed_receiver_counts_are_rejected() {
-        let invalid = FIXTURE.replace("4,4,4,true,3,false,false", "4,5,4,true,3,false,false");
+    fn malformed_receiver_counts_and_unissued_alert_receipts_are_rejected() {
+        let invalid = FIXTURE.replace("4,4,4,true,3,false,false,true,false,false", "4,5,4,true,3,false,false,true,false,false");
         assert!(parse_fixture(&invalid).is_err());
+
+        let stale_row = "reference,gcpn-stale,authenticated,stale,stale,2,2,independent,true,false,true,true,true,false,false,0,0,0,true,2,false,false,false,false,false";
+        let stale_with_receipt = "reference,gcpn-stale,authenticated,stale,stale,2,2,independent,true,false,true,true,true,false,false,4,1,1,true,2,false,false,false,false,false";
+        let unissued_with_receipt = FIXTURE.replace(stale_row, stale_with_receipt);
+        assert_ne!(unissued_with_receipt, FIXTURE);
+        assert!(parse_fixture(&unissued_with_receipt).is_err());
     }
 }
