@@ -1,0 +1,238 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX5-ACTIVE-EVIDENCE-ACQUISITION-001",
+  "schema_version": "1.0.0",
+  "title": "NRES-016 EX5 exact active evidence acquisition micro-oracle",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "objective_semantics": "minimum-expected-total-acquisition-plus-terminal-decision-cost",
+  "prior": {
+    "latent_states": [
+      {
+        "simulation_only_state": "H",
+        "probability": 0.2
+      },
+      {
+        "simulation_only_state": "L",
+        "probability": 0.8
+      }
+    ],
+    "policy_must_not_receive_latent_state": true
+  },
+  "timing": {
+    "acquisition_stage": 0,
+    "signal_available_stage": 1,
+    "terminal_decision_stage": 1,
+    "late_or_missing_signal_policy": "fallback-to-no-information-history"
+  },
+  "resources": {
+    "inspection_units_available": 2,
+    "accounting": "persistent-across-acquisition-actions",
+    "service_floors": {
+      "water": 70
+    }
+  },
+  "terminal_actions": [
+    {
+      "action_id": "PROTECT",
+      "fixed_cost": 30,
+      "cost_by_latent_state": {
+        "H": 30,
+        "L": 30
+      },
+      "service_level_by_latent_state": {
+        "H": 90,
+        "L": 90
+      }
+    },
+    {
+      "action_id": "DEFER",
+      "fixed_cost": 0,
+      "cost_by_latent_state": {
+        "H": 100,
+        "L": 0
+      },
+      "service_level_by_latent_state": {
+        "H": 75,
+        "L": 100
+      }
+    }
+  ],
+  "acquisition_actions": [
+    {
+      "action_id": "NONE",
+      "acquisition_cost": 0,
+      "inspection_units": 0,
+      "signal_emission": "NO_SIGNAL",
+      "kernel_by_simulation_only_state": {
+        "H": [
+          {
+            "signal": "NO_SIGNAL",
+            "probability": 1
+          }
+        ],
+        "L": [
+          {
+            "signal": "NO_SIGNAL",
+            "probability": 1
+          }
+        ]
+      },
+      "evidence_record": "none"
+    },
+    {
+      "action_id": "BASIC",
+      "acquisition_cost": 5,
+      "inspection_units": 1,
+      "sensitivity": 0.8,
+      "specificity": 0.9,
+      "signal_emission": "ALERT_OR_CLEAR",
+      "kernel_by_simulation_only_state": {
+        "H": [
+          {
+            "signal": "ALERT",
+            "probability": 0.8
+          },
+          {
+            "signal": "CLEAR",
+            "probability": 0.2
+          }
+        ],
+        "L": [
+          {
+            "signal": "ALERT",
+            "probability": 0.1
+          },
+          {
+            "signal": "CLEAR",
+            "probability": 0.9
+          }
+        ]
+      },
+      "evidence_record": {
+        "source_integrity_status": "verified",
+        "available_at_stage": 1,
+        "use_requires_integrity_verification": true,
+        "integrity_is_not_measurement_accuracy": true
+      }
+    },
+    {
+      "action_id": "ADVANCED",
+      "acquisition_cost": 12,
+      "inspection_units": 2,
+      "sensitivity": 0.95,
+      "specificity": 0.95,
+      "signal_emission": "ALERT_OR_CLEAR",
+      "kernel_by_simulation_only_state": {
+        "H": [
+          {
+            "signal": "ALERT",
+            "probability": 0.95
+          },
+          {
+            "signal": "CLEAR",
+            "probability": 0.05
+          }
+        ],
+        "L": [
+          {
+            "signal": "ALERT",
+            "probability": 0.05
+          },
+          {
+            "signal": "CLEAR",
+            "probability": 0.95
+          }
+        ]
+      },
+      "evidence_record": {
+        "source_integrity_status": "verified",
+        "available_at_stage": 1,
+        "use_requires_integrity_verification": true,
+        "integrity_is_not_measurement_accuracy": true
+      }
+    }
+  ],
+  "policy_observable_fields": [
+    "acquisition_action_id",
+    "accepted_signal",
+    "available_at_stage",
+    "source_integrity_status"
+  ],
+  "forbidden_policy_fields": [
+    "simulation_only_state",
+    "latent_condition",
+    "true_future_state",
+    "oracle_label",
+    "future_outcome"
+  ],
+  "expected_reference": {
+    "no_information": {
+      "selected_action_by_signal": {
+        "NO_SIGNAL": "DEFER"
+      },
+      "expected_terminal_decision_cost": 20,
+      "acquisition_cost": 0,
+      "total_expected_cost": 20
+    },
+    "basic": {
+      "signal_probability": {
+        "ALERT": 0.24,
+        "CLEAR": 0.76
+      },
+      "posterior_high_probability": {
+        "ALERT": 0.6666666666666666,
+        "CLEAR": 0.05263157894736842
+      },
+      "selected_action_by_signal": {
+        "ALERT": "PROTECT",
+        "CLEAR": "DEFER"
+      },
+      "expected_terminal_decision_cost": 11.2,
+      "acquisition_cost": 5,
+      "total_expected_cost": 16.2,
+      "gross_evsi": 8.8,
+      "net_evsi": 3.8
+    },
+    "advanced": {
+      "signal_probability": {
+        "ALERT": 0.23,
+        "CLEAR": 0.77
+      },
+      "posterior_high_probability": {
+        "ALERT": 0.8260869565217391,
+        "CLEAR": 0.012987012987012986
+      },
+      "selected_action_by_signal": {
+        "ALERT": "PROTECT",
+        "CLEAR": "DEFER"
+      },
+      "expected_terminal_decision_cost": 7.9,
+      "acquisition_cost": 12,
+      "total_expected_cost": 19.9,
+      "gross_evsi": 12.1,
+      "net_evsi": 0.1
+    },
+    "perfect_information_non_deployable_lower_bound": {
+      "expected_cost": 6,
+      "eligible_policy": false
+    },
+    "selected_acquisition_action": "BASIC"
+  },
+  "guardrails": [
+    "All state probabilities, costs, accuracies and service levels are synthetic.",
+    "Latent condition labels are simulation-only and never become policy observations.",
+    "Source integrity verification does not prove measurement accuracy.",
+    "Signals are usable only after integrity acceptance and availability time.",
+    "No acquisition cost or inspection unit may be charged more than once.",
+    "Late, missing, stale or unauthenticated signals use the predeclared no-information fallback.",
+    "The perfect-information value is an infeasible lower-bound reference, not a deployable policy.",
+    "Information acquisition may have negative net value."
+  ],
+  "non_claims": [
+    "No real sensor accuracy or real-world EVSI claim.",
+    "No causal effect or calibrated uncertainty guarantee.",
+    "No deployment, readiness, emergency authority or certification.",
+    "No SOTA superiority claim."
+  ]
+}
