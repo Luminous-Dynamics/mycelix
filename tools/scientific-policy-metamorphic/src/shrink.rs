@@ -37,8 +37,9 @@ pub struct CandidateTrace {
 pub struct ShrinkTrace {
     pub schema_version: String,
     pub predicate_id: String,
-    pub original_sha256: String,
-    pub minimized_sha256: String,
+    pub source_input_sha256: String,
+    pub original_value_sha256: String,
+    pub minimized_value_sha256: String,
     pub reduction_profile: String,
     pub input_encoding_profile: String,
     pub protected_paths: Vec<String>,
@@ -103,10 +104,14 @@ fn stable_json_bytes(value: &Value, output: &mut Vec<u8>) -> Result<(), ShrinkEr
     Ok(())
 }
 
+fn sha256_bytes(bytes: &[u8]) -> String {
+    hex::encode(Sha256::digest(bytes))
+}
+
 fn sha256(value: &Value) -> Result<String, ShrinkError> {
     let mut bytes = Vec::new();
     stable_json_bytes(value, &mut bytes)?;
-    Ok(hex::encode(Sha256::digest(bytes)))
+    Ok(sha256_bytes(&bytes))
 }
 
 fn escape_pointer_token(token: &str) -> String {
@@ -247,6 +252,7 @@ fn encode_reductions(
 /// defined by collect_reductions, not a claim of global minimum.
 pub fn minimize_json<P>(
     input: &Value,
+    source_input_bytes: &[u8],
     predicate_id: &str,
     protected_paths: &BTreeSet<String>,
     max_candidate_evaluations: usize,
@@ -255,6 +261,13 @@ pub fn minimize_json<P>(
 where
     P: FnMut(&Value) -> Result<bool, String>,
 {
+    let decoded_source: Value = serde_json::from_slice(source_input_bytes)
+        .map_err(|error| ShrinkError(format!("parse exact source input bytes: {error}")))?;
+    if decoded_source != *input {
+        return Err(ShrinkError(
+            "exact source input bytes do not decode to the supplied JSON value".to_owned(),
+        ));
+    }
     if predicate_id.trim().is_empty() {
         return Err(ShrinkError("predicate_id must not be empty".to_owned()));
     }
@@ -271,7 +284,8 @@ where
         ));
     }
 
-    let original_sha256 = sha256(input)?;
+    let source_input_sha256 = sha256_bytes(source_input_bytes);
+    let original_value_sha256 = sha256(input)?;
     let mut current = input.clone();
     let mut candidates = Vec::new();
     let mut accepted_reductions = 0usize;
@@ -325,14 +339,15 @@ where
         break;
     }
 
-    let minimized_sha256 = sha256(&current)?;
+    let minimized_value_sha256 = sha256(&current)?;
     Ok(ShrinkResult {
         minimized_value: current,
         trace: ShrinkTrace {
             schema_version: "mycelix-policy-counterexample-shrink-v0.1".to_owned(),
             predicate_id: predicate_id.to_owned(),
-            original_sha256,
-            minimized_sha256,
+            source_input_sha256,
+            original_value_sha256,
+            minimized_value_sha256,
             reduction_profile: "json-object-array-scalar-v0.1".to_owned(),
             input_encoding_profile: "serde-json-sorted-objects-v0.1".to_owned(),
             protected_paths: protected_paths.iter().cloned().collect(),
@@ -389,8 +404,10 @@ mod tests {
                 {"uid": "actor:noise-2", "roles": ["reader"]}
             ]
         });
+        let source_bytes = serde_json::to_vec(&input).unwrap();
         let result = minimize_json(
             &input,
+            &source_bytes,
             "test-policy-decision-divergence",
             &protected_request_paths(),
             10_000,
@@ -417,9 +434,11 @@ mod tests {
             "resource": "claim:fixed",
             "context": {"required": true, "unused": [1, 2, 3]}
         });
+        let source_bytes = serde_json::to_vec(&input).unwrap();
         let run = || {
             minimize_json(
                 &input,
+                &source_bytes,
                 "deterministic-predicate",
                 &protected_request_paths(),
                 10_000,
@@ -441,8 +460,10 @@ mod tests {
             "resource": "claim:fixed",
             "context": {"required": true, "noise": true}
         });
+        let source_bytes = serde_json::to_vec(&input).unwrap();
         let result = minimize_json(
             &input,
+            &source_bytes,
             "budget-control",
             &protected_request_paths(),
             1,
@@ -462,8 +483,10 @@ mod tests {
             "context": {"required": true, "noise": true}
         });
         let mut calls = 0usize;
+        let source_bytes = serde_json::to_vec(&input).unwrap();
         let result = minimize_json(
             &input,
+            &source_bytes,
             "error-control",
             &protected_request_paths(),
             100,
@@ -496,8 +519,10 @@ mod tests {
     #[test]
     fn numeric_simplification_is_monotone_and_terminates_at_zero() {
         let input = serde_json::json!({"value": 99});
+        let source_bytes = serde_json::to_vec(&input).unwrap();
         let result = minimize_json(
             &input,
+            &source_bytes,
             "numeric-reduction",
             &BTreeSet::new(),
             100,
@@ -512,8 +537,10 @@ mod tests {
     #[test]
     fn accepts_only_inputs_that_initially_satisfy_predicate() {
         let input = serde_json::json!({"principal": "wrong"});
+        let source_bytes = serde_json::to_vec(&input).unwrap();
         assert!(minimize_json(
             &input,
+            &source_bytes,
             "initial-false-control",
             &BTreeSet::new(),
             100,
@@ -540,7 +567,8 @@ mod tests {
                 && value["resource"]["exists"] == false
                 && value["context"]["required"] == true)
         };
-        let result = minimize_json(&input, "nested-resource-guard", &protected, 10_000, predicate)
+        let source_bytes = serde_json::to_vec(&input).unwrap();
+        let result = minimize_json(&input, &source_bytes, "nested-resource-guard", &protected, 10_000, predicate)
             .unwrap();
         assert_eq!(result.minimized_value["resource"], input["resource"]);
         assert!(result.trace.is_one_minimal);
