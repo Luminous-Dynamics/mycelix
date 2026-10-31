@@ -13,6 +13,7 @@ use std::{
 const AUDIT_VERSION: &str = "0.1.0";
 const GEOMETRY_TOLERANCE: f64 = 1.0e-6;
 const ZERO_WIDTH_TOLERANCE_MM: f64 = 1.0e-12;
+const MIN_RETENTION_FIT_POINTS: usize = 5;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -94,6 +95,10 @@ struct DynamicTimePoint {
     structural_unit_width_mm: f64,
     macropore_width_mm: f64,
     macropore_volume_fraction: f64,
+    structural_alpha_per_m: Option<f64>,
+    structural_alpha_figure_table_plus_per_m: Option<f64>,
+    structural_alpha_printed_eq37_minus_per_m: Option<f64>,
+    structural_n: Option<f64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -119,7 +124,26 @@ struct TimeStateAudit {
     aggregate_eq22_volume_fraction: f64,
     per_pore_minus_aggregate_difference: f64,
     per_pore_retention_curve: Vec<PoreRetentionPoint>,
+    retention_curve_fit: RetentionCurveFit,
     maximum_macropore_volume_fraction_at_wilting_point: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct RetentionCurveFit {
+    status: &'static str,
+    input_point_count: usize,
+    alpha2_fit_per_m: Option<f64>,
+    n2_fit: Option<f64>,
+    rmse_m3_m3: Option<f64>,
+    maximum_absolute_error_m3_m3: Option<f64>,
+    near_optimal_alpha_min_per_m: Option<f64>,
+    near_optimal_alpha_max_per_m: Option<f64>,
+    near_optimal_n_min: Option<f64>,
+    near_optimal_n_max: Option<f64>,
+    near_optimality_rule: &'static str,
+    figure_table_alpha_rmse_m3_m3: Option<f64>,
+    printed_eq37_minus_alpha_rmse_m3_m3: Option<f64>,
+    upstream_n2: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -490,6 +514,13 @@ fn per_pore_state(
         per_pore_minus_aggregate_difference:
             per_pore_volume_fraction_sum - point.macropore_volume_fraction,
         per_pore_retention_curve,
+        retention_curve_fit: fit_van_genuchten_retention_curve(
+            &per_pore_retention_curve,
+            per_pore_volume_fraction_sum,
+            point.structural_alpha_figure_table_plus_per_m,
+            point.structural_alpha_printed_eq37_minus_per_m,
+            point.structural_n,
+        ),
         maximum_macropore_volume_fraction_at_wilting_point:
             report.maximum_macropore_volume_fraction_at_wilting_point,
     })
