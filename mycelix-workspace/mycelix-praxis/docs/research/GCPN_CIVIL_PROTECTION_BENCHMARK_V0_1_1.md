@@ -16,7 +16,7 @@ v0.1.1 adds explicit fields and independent counters for those failures.
 
 ## New fixture fields
 
-- `authority_assertion_bound`: an issued alert must bind to the actual authority assertion/credential reference; the boolean authorization result alone is insufficient.
+- `authority_assertion_id`: every issued alert must carry a non-empty opaque reference to the authority assertion/credential that authorized it; the boolean authorization result alone is insufficient.
 - `uncertainty_disclosed`: if the evidence state is not `validated`, an issued public alert must explicitly disclose the uncertainty state. This does not prohibit precautionary alerts and does not define hazard thresholds.
 - `sensitive_provenance_in_public_payload`: must remain false. Restricted provenance belongs in a protected evidence channel, not public CAP message content.
 
