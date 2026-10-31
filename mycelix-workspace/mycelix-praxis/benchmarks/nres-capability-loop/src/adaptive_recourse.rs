@@ -1416,6 +1416,25 @@ mod tests {
     }
 
     #[test]
+    fn lambda_zero_reduces_to_risk_neutral_expectation() {
+        let mut fixture = risk_fixture(0.9);
+        fixture["risk_aversion_lambda"] = json!(0.0);
+        let report = evaluate_nested_risk_comparison(&fixture).unwrap();
+        assert_eq!(report["local_decision_reversal_at_A"]["nested_action"], json!("GAMBLE"));
+        assert_eq!(report["local_decision_reversal_at_A"]["static_precommitment_action"], json!("GAMBLE"));
+        assert!((report["nested"]["nested_mean_cvar_objective"].as_f64().unwrap() - 5025.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn lambda_just_below_one_remains_admissible() {
+        let mut fixture = risk_fixture(0.9);
+        fixture["risk_aversion_lambda"] = json!(0.999999);
+        let report = evaluate_nested_risk_comparison(&fixture).unwrap();
+        assert_eq!(report["local_decision_reversal_at_A"]["nested_action"], json!("SAFE"));
+        assert_eq!(report["local_decision_reversal_at_A"]["static_precommitment_action"], json!("GAMBLE"));
+    }
+
+    #[test]
     fn lambda_one_is_rejected_because_pure_cvar_is_not_strictly_monotone() {
         let mut fixture = risk_fixture(0.9);
         fixture["risk_aversion_lambda"] = json!(1.0);
