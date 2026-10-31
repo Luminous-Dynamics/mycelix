@@ -513,9 +513,13 @@ jobs:
             tools/scientific-policy-metamorphic/README.md
             tools/scientific-policy-metamorphic/BENCHMARK_PROTOCOL.md
             tools/scientific-policy-metamorphic/COUNTEREXAMPLE_MINIMIZATION.md
+            tools/scientific-policy-metamorphic/INDEXED_ROLE_BENCHMARK.md
             tools/scientific-policy-metamorphic/src/lib.rs
             tools/scientific-policy-metamorphic/src/shrink.rs
+            tools/scientific-policy-metamorphic/src/role_index.rs
             tools/scientific-policy-metamorphic/src/main.rs
+            tools/scientific-policy-metamorphic/src/bin/role_index_projection.rs
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego
             tools/scientific-policy-cedar-runner/Cargo.toml
             tools/scientific-policy-cedar-runner/Cargo.lock
             tools/scientific-policy-cedar-runner/README.md
