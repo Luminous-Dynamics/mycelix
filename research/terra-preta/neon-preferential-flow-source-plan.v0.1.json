@@ -1,0 +1,316 @@
+{
+  "manifest_version": "0.1.0",
+  "reviewed_on": "2026-10-30",
+  "purpose": "Candidate source plan for reproducing and extending the Li et al. (2026) event-scale preferential-flow benchmark. Metadata review only; no raw data are declared acquired.",
+  "interpretation_boundary": "A product landing page or release citation does not prove that a site-month file was downloaded, that its QA flags match the paper, or that a product is suitable for confirmatory validation. No local SHA-256, file count, site roster or row count is asserted.",
+  "reference_study": {
+    "study_id": "li_et_al_2026_earths_future",
+    "title": "Dominant Controls on Preferential Flow and Their Implications for Future Soil Water Fluxes",
+    "doi": "10.1029/2026EF008296",
+    "uri": "https://doi.org/10.1029/2026EF008296",
+    "reported_sites": 33,
+    "reported_ecoregions": 16,
+    "reported_sensors": 586,
+    "reported_event_sensor_samples": 15554,
+    "reported_temporal_split": {
+      "train": 11498,
+      "validation": 1837,
+      "test": 2219
+    },
+    "reported_test_metrics": {
+      "pf_f1": 0.91,
+      "pf_accuracy": 0.85,
+      "apparent_velocity_r2": 0.31
+    },
+    "split_semantics": "Chronological within each sensor location; sensors with fewer than 20 samples were assigned to training. This is not a leave-site-out split.",
+    "label_semantics": "PF proxy is derived from sensor response velocity exceeding a Rosetta3-derived maximum matrix-flow Ksat threshold; it is not independent tracer ground truth.",
+    "data_availability_statement_legacy_products": [
+      "DP1.00094.001",
+      "DP1.00006.001"
+    ],
+    "acquisition_status": "paper_metadata_reviewed_dataset_not_acquired"
+  },
+  "products": [
+    {
+      "source_id": "neon_soil_water_content_release_2026",
+      "product_code": "DP1.00094.001",
+      "product_name": "Soil water content and water salinity",
+      "release": "RELEASE-2026",
+      "uri": "https://data.neonscience.org/data-products/DP1.00094.001/RELEASE-2026",
+      "doi": "10.48443/h349-2y77",
+      "reported_date_range": {
+        "start": "2016-04",
+        "end": "2025-06"
+      },
+      "reported_resolution": [
+        "1-minute",
+        "30-minute"
+      ],
+      "metadata_reviewed": {
+        "plots_per_terrestrial_site": 5,
+        "maximum_sensor_depths_per_plot": 8,
+        "approximate_shallow_depths_cm": [
+          6,
+          16,
+          26
+        ]
+      },
+      "role": "Current RELEASE-2026 data for a separate current-release extension and cross-release sensitivity analysis; not a substitute for the 2023 dataset DOI cited by Li et al. until the DOI-to-release crosswalk is reconciled.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition",
+      "recommended_data_strategy": {
+        "primary_time_index": "1-minute",
+        "not_for_event_reconstruction": "30-minute",
+        "package_for_full_qa_review": "expanded",
+        "parity_package": "basic",
+        "reason": "Current NEON tutorial documents 1-minute and 30-minute time indices; basic package includes finalQF while expanded package includes detailed quality flags and metrics. Preserve both package variants to audit the QA policy.",
+        "processing_boundary": "Do not assume 1-minute rows are already valid. Apply release-specific quality-flag logic before aggregation, preserve the raw flags, and emit 5-30 minute median series with per-bin completeness metadata."
+      },
+      "release_specific_qa_notes": [
+        "NEON RELEASE-2023 reprocessing removed calDefaultQM from affecting VSWCFinalQF while retaining calDefaultQM and calNEONQM as informational metrics in the expanded package.",
+        "Do not assume finalQF semantics are identical across releases. Pin the release-specific ATBD and issue log."
+      ],
+      "spatial_metadata": {
+        "corrected_depth_reference_file": "swc_depthsV3.csv",
+        "depth_semantics": "NEON's June 2026 soil-sensor tutorial explicitly warns that the standard sensor_positions zOffset is not currently correct for DP1.00094.001; use the corrected swc_depthsV3.csv keyed by siteID, horizontalPosition.HOR and verticalPosition.VER.",
+        "position_coordinates": "Use sensor_positions coordinate fields only after joining with sensor ID/HOR.VER and the applicable positionStartDateTime/positionEndDateTime validity interval; retain xOffset/yOffset/eastOffset/northOffset and the reference location metadata.",
+        "temporal_position_validity": "A sensor may have multiple position rows after relocation. Split the time series at position validity boundaries; never join by HOR.VER alone when multiple historical positions exist.",
+        "expected_table_names": [
+          "SWS_1_minute",
+          "SWS_30_minute"
+        ],
+        "field_crosswalk_to_verify_at_acquisition": {
+          "time": "startDateTime / endDateTime",
+          "plot": "horizontalPosition",
+          "depth_index": "verticalPosition",
+          "soil_water_content": "VSWCMean",
+          "final_quality_flag": "VSWCFinalQF"
+        },
+        "note": "Confirm exact table/column presence against the actual pinned package variables file before parsing; the June 2026 tutorial demonstrates the 30-minute table names/fields and the product page documents the 1-minute and 30-minute time indices."
+      },
+      "calibration_uncertainty_history": [
+        {
+          "notification": "2023-11-01",
+          "issue": "measurement uncertainty for many DP1.00094.001 locations was understated because the reported calibration uncertainty did not reflect use of default manufacturer calibration",
+          "source_uri": "https://www.neonscience.org/impact/observatory-blog/incorrect-measurement-uncertainty-reported-many-soil-water-content"
+        },
+        {
+          "notification": "2023-12-20",
+          "status": "resolved by reprocessing",
+          "detail": "NEON reports the issue resolved for provisional data from July 2022 onward and states earlier affected data would be corrected in RELEASE-2024. Verify the pinned release's uncertainty and calibration metadata before use.",
+          "source_uri": "https://www.neonscience.org/impact/observatory-blog/resolved-incorrect-measurement-uncertainty-reported-many-soil-water-content"
+        }
+      ]
+    },
+    {
+      "source_id": "neon_precipitation_legacy",
+      "product_code": "DP1.00006.001",
+      "product_name": "Precipitation (retired legacy product)",
+      "release": "historical release required; pin exact release used by the paper",
+      "uri": "https://data.neonscience.org/data-products/DP1.00006.001",
+      "role": "Faithful reproduction of the precipitation input cited by Li et al. (2026), using a prior release where the product remains available.",
+      "lifecycle_status": "deprecated; no new data published after product split",
+      "acquisition_status": "metadata_reviewed_historical_release_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    },
+    {
+      "source_id": "neon_precipitation_weighing_gauge",
+      "product_code": "DP1.00044.001",
+      "product_name": "Precipitation - weighing gauge",
+      "uri": "https://data.neonscience.org/data-products/DP1.00044.001",
+      "reported_resolution": [
+        "hourly",
+        "daily"
+      ],
+      "role": "Independent precipitation-volume cross-check where coverage permits; not a substitute for minute-scale rainfall intensity.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    },
+    {
+      "source_id": "neon_precipitation_tipping_bucket",
+      "product_code": "DP1.00045.001",
+      "product_name": "Precipitation - tipping bucket",
+      "uri": "https://data.neonscience.org/data-products/DP1.00045.001",
+      "reported_resolution": [
+        "1-minute",
+        "30-minute"
+      ],
+      "role": "Candidate high-frequency rainfall event/intensity input for current-product extension. Must be crosswalked against the legacy product over overlapping sites and periods.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    },
+    {
+      "source_id": "neon_precipitation_throughfall",
+      "product_code": "DP1.00046.001",
+      "product_name": "Precipitation - throughfall",
+      "uri": "https://data.neonscience.org/data-products/DP1.00046.001",
+      "reported_resolution": [
+        "1-minute",
+        "30-minute"
+      ],
+      "role": "Separate under-canopy water-input pathway only; never pool with open precipitation as if the measurements were interchangeable.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "exact_site_list": null,
+      "exact_site_month_inventory": null,
+      "file_count": null,
+      "expected_rows": null,
+      "publisher_checksum": null,
+      "local_sha256": null,
+      "license_status": "verify applicable NEON data-use terms at acquisition"
+    }
+  ],
+  "acquisition_gates": [
+    "Resolve exact NEON release tags for paper-cited dataset DOIs before claiming historical reproduction.",
+    "Keep RELEASE-2026 soil-water files in a separate release-extension track; do not treat them as the exact data identified by the paper's 2023 DOI citation.",
+    "Fetch product availability by site and month and save exact API responses.",
+    "Pin the NEON release tag and retrieve every selected file's publisher checksum, byte size and filename before download.",
+    "Acquire raw files outside Git, recompute SHA-256 locally and preserve a read-only raw copy.",
+    "Reconcile soil-water sensor IDs, plots, depths, calibration/QA flags and precipitation gauge type to the paper's 33-site/586-sensor source crosswalk.",
+    "Keep DP1.00044.001, DP1.00045.001 and DP1.00046.001 as separate inputs with explicit measurement semantics.",
+    "Reproduce the legacy eventizer and historical split before making any new-model comparison.",
+    "Do not treat the 2025 17-ecoregion NEON paper as an independent external dataset; reconcile overlapping sites/sensors/events.",
+    "Acquire and audit the HydroShare v1.1 NEON Soil Preferential Flow Database as a derived fast-start benchmark, recording external file URLs, exact filenames, publisher checksums, local SHA-256 and file-level license notices.",
+    "Reconcile HydroShare v1.1 source lineage and event/sensor/site fields against Li et al. (2026); do not treat it as an independent site holdout or independent reference method.",
+    "For DP1.00094.001, acquire 1-minute observations and expanded-package QA fields; acquire the basic package for finalQF parity comparison. Do not use 30-minute averages for the 10-minute event detector.",
+    "Generate a versioned 5/10/15/20/30-minute median aggregator report with bin coverage and QA counts; see TERRA-NEON-QA-001.",
+    "For DP1.00094.001, use swc_depthsV3.csv as the corrected depth reference; do not use the standard sensor_positions zOffset for soil-water sensor depths.",
+    "Join soil-water time series to sensor_positions using site, HOR/VER, and time-valid positionStartDateTime/positionEndDateTime; retain relocations and split records at position changes.",
+    "Preserve calibration and measurement-uncertainty history. The 2023 uncertainty issue was reprocessed/resolved in provisional data and RELEASE-2024; verify the exact pinned release before using reported uncertainty for response-threshold calibration or weighting."
+  ],
+  "derived_datasets": [
+    {
+      "source_id": "neon_soil_preferential_flow_database_hydroshare_v1_1",
+      "title": "NEON Soil Preferential Flow Database",
+      "version": "v1.1",
+      "doi": "10.4211/hs.847b15cd15524b78acd58a2a8be242c1",
+      "uri": "https://hydroshare.cuahsi.org/resource/847b15cd15524b78acd58a2a8be242c1/",
+      "published_date": "2025-09-30",
+      "reported_resource_size_mb": 1015.6,
+      "license": "CC BY 4.0",
+      "source_lineage": [
+        "NEON DP1.00094.001 RELEASE-2023",
+        "NEON DP1.00094.001 provisional data",
+        "NEON DP1.00096.001 RELEASE-2023",
+        "NEON DP1.10047.001",
+        "NEON field-site metadata"
+      ],
+      "declared_contents": [
+        "event-level precipitation and soil-moisture response records",
+        "sensor-depth-specific apparent velocity",
+        "Rosetta Ksat estimates including max/low/high and median-based variants",
+        "soil texture, porosity, root density and site climate/topographic metadata",
+        "Rosetta Ksat thresholds (low, maximum, high, median, and median plus standard deviation upper estimate) plus separate modelled matrix-flow velocity thresholds (median, 95th and 99th percentiles)."
+      ],
+      "site_caveats": {
+        "not_recommended": [
+          "BONA",
+          "DEJU",
+          "HEAL",
+          "TOOL",
+          "BARR"
+        ],
+        "excluded_from_analysis": [
+          "KONA"
+        ],
+        "exclusion_note": "HydroShare readme says Alaska sites listed are not recommended and KONA was excluded because it is closer to KONZ; do not transfer these source-specific exclusions to the 2026 paper cohort without reconciliation."
+      },
+      "role": "Fast-start derived-event comparison and data-dictionary crosswalk. Not independent field validation, not a replacement for raw NEON release-specific reconstruction, and not proof of the exact 2026 article cohort or split.",
+      "acquisition_status": "metadata_reviewed_external_content_not_acquired",
+      "content_hosting_note": "HydroShare landing page states that resource content contains external links and is not stored by HydroShare; confirm the actual downloadable file host, filenames, hashes and availability before acquisition.",
+      "exact_file_list": null,
+      "exact_checksums": null,
+      "local_sha256": null,
+      "row_count": null,
+      "license_status": "publisher page declares CC BY 4.0; retain attribution and verify file-level notices",
+      "methodology_notes": [
+        "Readme describes fields including stormStartTime, stormEndTime, stormSum, stormPeakIntensity, smBeforePrecip, smOnsetTime, flowTypes, flowPosition and velocity_computed.",
+        "Version 1.1 adds multiple Rosetta Ksat estimate fields including ksat, ksat_low, ksat_high, ksat_std_median and ksat_std_upper.",
+        "Do not treat the database's Ksat-derived PF flag as tracer ground truth.",
+        "Resolve version and field semantics against the Li et al. 2026 paper's specific target-construction method before claiming exact reproduction.",
+        "The published README describes velocity and Ksat values as log scale, but the log base must be reconciled from the exact codebook/author workflow; do not assume log10 or exponentiate automatically.",
+        "The modelled 99th-percentile matrix-flow velocity threshold is a distinct reference from Rosetta Ksat low/max/high/median/std-upper estimates; compare these threshold families separately.",
+        "The HydroShare v1.1 landing page declares content externally hosted. The actual v1.1 file host and per-file checksums remain unverified; the known Box folder link in v1.0 documentation must not be presumed to contain v1.1.",
+        "HydroShare v1.1 README maps PF_velocity_metric_50X to the Rosetta Ksat maximum threshold, but PF_ksat_metric_50X to the modelled 99th-percentile matrix velocity threshold; the column naming is not a reliable substitute for following each documented comparison."
+      ]
+    }
+  ],
+  "external_datasets": [
+    {
+      "source_id": "hirmas_2025_dryad_dynamic_macroporosity",
+      "doi": "10.5061/dryad.zs7h44jkn",
+      "url": "https://datadryad.org/dataset/doi:10.5061/dryad.zs7h44jkn",
+      "published": "2025-08-14",
+      "license": "CC0 1.0 Universal",
+      "reported_size_mb": 4.6,
+      "location": "Konza Prairie Biological Station, Kansas, USA",
+      "period": "2018-10 to 2021-08",
+      "scope": "One Konza APT agricultural soil profile; supporting measurements include other Kansas pedons but are not a multi-site PF validation cohort",
+      "files": [
+        "Data_Analysis.zip (4.59 MB)",
+        "README.md (15.89 KB)"
+      ],
+      "measurements": [
+        "10/40/120 cm soil moisture",
+        "0.18 mm MLT/ImageJ macropore geometry for Ap1, Bt and Btkss2 horizons",
+        "bulk density, porosity and retention parameters",
+        "COLE shrink-swell data",
+        "daily weather",
+        "R scripts, functions and model outputs"
+      ],
+      "role": "Reproducible dynamic-morphology case and method crosswalk, not external cross-site validation",
+      "status": "metadata_reviewed_file_endpoint_403_not_acquired",
+      "local_sha256": null,
+      "file_checksums": null
+    }
+  ],
+  "paper_cited_datasets": [
+    {
+      "product_code": "DP1.00094.001",
+      "citation_year": 2023,
+      "doi": "10.48443/7EXD-N727",
+      "exact_neon_release_tag": "unresolved"
+    },
+    {
+      "product_code": "DP1.00006.001",
+      "citation_year": 2023,
+      "doi": "10.48443/DXDR-W376",
+      "exact_neon_release_tag": "unresolved"
+    },
+    {
+      "product_code": "DP1.00096.001",
+      "citation_year": 2023,
+      "doi": "10.48443/T70Z-NP08",
+      "exact_neon_release_tag": "unresolved"
+    },
+    {
+      "product_code": "DP1.10047.001",
+      "citation_year": 2024,
+      "doi": "10.48443/r517-kg13",
+      "exact_neon_release_tag": "unresolved"
+    }
+  ]
+}

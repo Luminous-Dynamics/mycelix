@@ -1,0 +1,56 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "synthetic-neon-rainfall",
+  "site_id": "SYN1",
+  "start_utc": "2026-01-01T00:00:00Z",
+  "end_utc": "2026-01-01T00:20:00Z",
+  "target_resolution_seconds": 600,
+  "paper_minimum_good_observations": 5,
+  "coverage_aware_minimum_good_fraction": 0.5,
+  "primary": {
+    "source_kind": "primary_weighing",
+    "product_code": "DP1.00006.001",
+    "release": "RELEASE-2024",
+    "gauge_id": "PRI-01",
+    "gauge_id_column": "gauge_id",
+    "timestamp_column": "timestamp_utc",
+    "timestamp_convention": "interval_start",
+    "interval_seconds": 300,
+    "precipitation_column": "precipitation_mm",
+    "quality_filters": [
+      {
+        "column": "finalQF",
+        "accepted_values": [
+          "0"
+        ]
+      }
+    ],
+    "source_evidence_ref": "synthetic-primary"
+  },
+  "secondary": {
+    "source_kind": "secondary_tipping",
+    "product_code": "DP1.00006.001",
+    "release": "RELEASE-2024",
+    "gauge_id": "SEC-01",
+    "gauge_id_column": "gauge_id",
+    "timestamp_column": "timestamp_utc",
+    "timestamp_convention": "interval_start",
+    "interval_seconds": 60,
+    "precipitation_column": "precipitation_mm",
+    "quality_filters": [
+      {
+        "column": "rangeQF",
+        "accepted_values": [
+          "0"
+        ]
+      },
+      {
+        "column": "scienceQF",
+        "accepted_values": [
+          "0"
+        ]
+      }
+    ],
+    "source_evidence_ref": "synthetic-secondary"
+  }
+}

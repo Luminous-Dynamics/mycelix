@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/biochar-audit/audit-report.schema.json",
+  "title": "Biochar CSV structural audit report",
+  "description": "Machine-readable structural inventory only. A valid report is not a scientific quality certificate and does not establish causal identifiability, agricultural efficacy, safety, or regulatory approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "input_label",
+    "input_sha256",
+    "published_reference_row_count",
+    "row_count_matches_published_description",
+    "row_count",
+    "column_count",
+    "blank_header_columns",
+    "duplicate_normalized_headers",
+    "ragged_rows",
+    "rows_with_more_fields_than_header",
+    "rows_with_fewer_fields_than_header",
+    "exact_duplicate_rows_after_first_occurrence",
+    "total_missing_cells",
+    "missing_cell_rate",
+    "study_group_key_candidate_found",
+    "study_group_key_has_variation",
+    "treatment_group_key_candidate_found",
+    "treatment_group_key_has_variation",
+    "study_group_candidates",
+    "treatment_group_candidates",
+    "columns",
+    "warnings",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": { "const": "0.1.0" },
+    "input_label": { "type": "string" },
+    "input_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "published_reference_row_count": { "const": 2439 },
+    "row_count_matches_published_description": { "type": "boolean" },
+    "row_count": { "type": "integer", "minimum": 0 },
+    "column_count": { "type": "integer", "minimum": 1 },
+    "blank_header_columns": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0 },
+      "uniqueItems": true
+    },
+    "duplicate_normalized_headers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["normalized_name", "column_indices"],
+        "properties": {
+          "normalized_name": { "type": "string", "minLength": 1 },
+          "column_indices": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "integer", "minimum": 0 },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "ragged_rows": { "type": "integer", "minimum": 0 },
+    "rows_with_more_fields_than_header": { "type": "integer", "minimum": 0 },
+    "rows_with_fewer_fields_than_header": { "type": "integer", "minimum": 0 },
+    "exact_duplicate_rows_after_first_occurrence": { "type": "integer", "minimum": 0 },
+    "total_missing_cells": { "type": "integer", "minimum": 0 },
+    "missing_cell_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "study_group_key_candidate_found": { "type": "boolean" },
+    "study_group_key_has_variation": { "type": "boolean" },
+    "treatment_group_key_candidate_found": { "type": "boolean" },
+    "treatment_group_key_has_variation": { "type": "boolean" },
+    "study_group_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/candidateColumn" }
+    },
+    "treatment_group_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/candidateColumn" }
+    },
+    "columns": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/columnStats" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "interpretation_boundary": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "candidateColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "name", "normalized_name", "unique_non_empty_values", "missing_cells"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string" },
+        "normalized_name": { "type": "string" },
+        "unique_non_empty_values": { "type": "integer", "minimum": 0 },
+        "missing_cells": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "columnStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "name",
+        "normalized_name",
+        "missing_cells",
+        "unique_non_empty_values",
+        "numeric_looking_non_empty_values",
+        "numeric_looking_rate"
+      ],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string" },
+        "normalized_name": { "type": "string" },
+        "missing_cells": { "type": "integer", "minimum": 0 },
+        "unique_non_empty_values": { "type": "integer", "minimum": 0 },
+        "numeric_looking_non_empty_values": { "type": "integer", "minimum": 0 },
+        "numeric_looking_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

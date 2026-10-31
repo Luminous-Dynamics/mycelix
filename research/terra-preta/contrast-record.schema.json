@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/contrast-record.schema.json",
+  "title": "Terra Preta literature contrast record",
+  "description": "Auditable treatment-versus-comparator record. It does not itself prove causal identification or agricultural efficacy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contrast_id",
+    "source",
+    "context",
+    "treatment_arm",
+    "comparator_arm",
+    "endpoint",
+    "contrast_class",
+    "nutrient_program_match",
+    "estimand_status",
+    "review_state",
+    "model_use",
+    "effect_estimate",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "contrast_id": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_name",
+        "dataset_version",
+        "source_record_locator",
+        "source_study_id",
+        "source_citation",
+        "crosswalk_reviewer"
+      ],
+      "properties": {
+        "dataset_name": { "type": "string", "minLength": 1 },
+        "dataset_version": { "type": "string", "minLength": 1 },
+        "source_record_locator": { "type": "string", "minLength": 1 },
+        "source_study_id": { "type": ["string", "null"] },
+        "source_citation": { "type": "string", "minLength": 1 },
+        "crosswalk_reviewer": { "type": ["string", "null"] },
+        "doi": { "type": ["string", "null"] },
+        "original_source_locator": { "type": ["string", "null"] },
+        "original_source_hash": { "type": ["string", "null"], "pattern": "^[a-fA-F0-9]{64}$" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crop", "soil_context", "site_context", "study_design", "time_since_application"],
+      "properties": {
+        "crop": { "type": ["string", "null"] },
+        "soil_context": { "type": ["string", "null"] },
+        "site_context": { "type": ["string", "null"] },
+        "study_design": { "enum": ["field", "pot", "laboratory", "incubation", "greenhouse", "other", "unknown"] },
+        "time_since_application": { "type": ["number", "null"], "minimum": 0 },
+        "time_unit": { "type": ["string", "null"] },
+        "season_or_followup": { "type": ["string", "null"] },
+        "climate_context": { "type": ["string", "null"] }
+      }
+    },
+    "treatment_arm": { "$ref": "#/$defs/arm" },
+    "comparator_arm": { "$ref": "#/$defs/arm" },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "unit", "value_domain", "measurement_or_extraction_method"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "value_domain": { "enum": ["strictly_positive", "zero_or_negative_possible", "proportion", "count", "other", "unknown"] },
+        "measurement_or_extraction_method": { "type": "string", "minLength": 1 },
+        "primary_endpoint": { "type": ["boolean", "null"] },
+        "sampling_depth_cm": { "type": ["number", "null"], "minimum": 0 },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+    "contrast_class": {
+      "enum": [
+        "incremental_biochar_under_matched_fertilizer",
+        "biochar_plus_input_package_vs_other_baseline",
+        "biochar_vs_untreated_control",
+        "nutrient_matched_substitution_comparison",
+        "unclassifiable"
+      ]
+    },
+    "nutrient_program_match": {
+      "enum": ["confirmed", "not_matched", "unknown", "not_applicable"]
+    },
+    "estimand_status": {
+      "enum": ["identifiable_from_source", "not_identifiable_from_source", "needs_source_review"]
+    },
+    "review_state": {
+      "enum": ["not_reviewed", "in_review", "approved_for_exploratory", "eligible_for_study_heldout", "rejected", "superseded"]
+    },
+    "model_use": {
+      "enum": ["blocked", "exploratory_only", "eligible_after_independent_review"]
+    },
+    "effect_estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "value", "variance_or_se", "derivation_note"],
+      "properties": {
+        "metric": { "enum": ["log_response_ratio", "absolute_mean_difference", "standardized_mean_difference", "not_calculated"] },
+        "value": { "type": ["number", "null"] },
+        "variance_or_se": { "type": ["number", "null"], "minimum": 0 },
+        "derivation_note": { "type": "string", "minLength": 1 },
+        "independent_unit": { "type": ["string", "null"] },
+        "confidence_interval": {
+          "type": ["array", "null"],
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "review_state": { "const": "eligible_for_study_heldout" } },
+        "required": ["review_state"]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "source_study_id": { "type": "string", "minLength": 1 },
+              "crosswalk_reviewer": { "type": "string", "minLength": 1 }
+            }
+          },
+          "contrast_class": {
+            "enum": [
+              "incremental_biochar_under_matched_fertilizer",
+              "biochar_plus_input_package_vs_other_baseline",
+              "biochar_vs_untreated_control",
+              "nutrient_matched_substitution_comparison"
+            ]
+          },
+          "estimand_status": { "const": "identifiable_from_source" },
+          "model_use": { "enum": ["exploratory_only", "eligible_after_independent_review"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "contrast_class": { "const": "incremental_biochar_under_matched_fertilizer" } },
+        "required": ["contrast_class"]
+      },
+      "then": {
+        "properties": { "nutrient_program_match": { "const": "confirmed" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "contrast_class": { "const": "nutrient_matched_substitution_comparison" } },
+        "required": ["contrast_class"]
+      },
+      "then": {
+        "properties": { "nutrient_program_match": { "const": "confirmed" } }
+      }
+    }
+  ],
+  "$defs": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component_type", "presence_status", "dose_value", "dose_unit", "description"],
+      "properties": {
+        "component_type": { "enum": ["biochar", "mineral_n", "mineral_p", "mineral_k", "manure", "compost", "lime", "other"] },
+        "presence_status": { "enum": ["present", "absent", "unknown"] },
+        "dose_value": { "type": ["number", "null"], "minimum": 0 },
+        "dose_unit": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "feedstock": { "type": ["string", "null"] },
+        "pyrolysis_temperature_c": { "type": ["number", "null"] },
+        "material_batch_id": { "type": ["string", "null"] }
+      }
+    },
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "components",
+        "component_reporting",
+        "outcome_mean",
+        "outcome_sd",
+        "sample_size",
+        "variance_source",
+        "management_notes"
+      ],
+      "properties": {
+        "description": { "type": "string", "minLength": 1 },
+        "components": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/component" }
+        },
+        "component_reporting": { "enum": ["complete_as_reported", "partial", "not_reported"] },
+        "outcome_mean": { "type": ["number", "null"] },
+        "outcome_sd": { "type": ["number", "null"], "minimum": 0 },
+        "sample_size": { "type": ["integer", "null"], "minimum": 1 },
+        "variance_source": { "enum": ["reported_sd", "derived_from_se", "derived_from_cv", "study_level_rule", "missing"] },
+        "management_notes": { "type": ["string", "null"] },
+        "reported_se": { "type": ["number", "null"], "minimum": 0 },
+        "reported_cv": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

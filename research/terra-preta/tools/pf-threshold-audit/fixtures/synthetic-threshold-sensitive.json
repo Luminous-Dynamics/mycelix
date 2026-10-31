@@ -1,0 +1,82 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "SYNTHETIC",
+  "site_id": "SYN1",
+  "profile_id": "P01",
+  "event_id": "E001",
+  "sensor_id": "S30",
+  "sensor_depth_cm": 30,
+  "velocity": {
+    "value": 0.9,
+    "value_scale": "stored_log_scale_cm_per_day",
+    "source_column": "velocity_computed_50X"
+  },
+  "thresholds": [
+    {
+      "threshold_id": "ksat_low",
+      "kind": "rosetta_ksat_low",
+      "value": 0.7,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "ksat_low_50X",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
+      "threshold_id": "ksat_max",
+      "kind": "rosetta_ksat_max",
+      "value": 1,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "ksat_50X",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
+      "threshold_id": "ksat_high",
+      "kind": "rosetta_ksat_high",
+      "value": 1.3,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "ksat_high_50X",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
+      "threshold_id": "ksat_std_median",
+      "kind": "rosetta_ksat_std_median",
+      "value": 0.8,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "ksat_std_median_50X",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
+      "threshold_id": "ksat_std_upper",
+      "kind": "rosetta_ksat_std_upper",
+      "value": 1.1,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "ksat_std_upper_50X",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
+      "threshold_id": "num_velocity_median",
+      "kind": "matrix_velocity_median",
+      "value": 0.6,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "num_velocity_50X_median",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
+      "threshold_id": "num_velocity_95th",
+      "kind": "matrix_velocity_95th",
+      "value": 1,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "num_velocity_50X_95th",
+      "evidence_ref": "HydroShare v1.1 README field"
+    },
+    {
+      "threshold_id": "num_velocity_99th",
+      "kind": "matrix_velocity_99th",
+      "value": 1.2,
+      "value_scale": "stored_log_scale_cm_per_day",
+      "source_column": "num_velocity_50X_99th",
+      "evidence_ref": "HydroShare v1.1 README field"
+    }
+  ],
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_evidence_ref": "synthetic fixture only; no real NEON row"
+}

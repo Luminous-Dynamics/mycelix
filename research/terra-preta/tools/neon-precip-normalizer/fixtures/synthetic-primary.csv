@@ -1,0 +1,5 @@
+gauge_id,timestamp_utc,precipitation_mm,finalQF
+PRI-01,2026-01-01T00:00:00Z,0.2,0
+PRI-01,2026-01-01T00:05:00Z,0.3,0
+PRI-01,2026-01-01T00:10:00Z,0.7,0
+PRI-01,2026-01-01T00:15:00Z,0.8,0

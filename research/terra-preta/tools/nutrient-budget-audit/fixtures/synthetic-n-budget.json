@@ -1,0 +1,136 @@
+{
+  "schema_version": "0.1.0",
+  "record_id": "synthetic-n-budget-01",
+  "study_id": "synthetic-study",
+  "site_id": "synthetic-site",
+  "experimental_unit_id": "plot-01",
+  "treatment_arm_id": "treatment-a",
+  "comparator_arm_id": "local-practice",
+  "element": "N",
+  "unit_basis": "kg_element_per_ha",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "period": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-12-31"
+  },
+  "control_volume": {
+    "area_ha": 0.25,
+    "top_depth_cm": 0,
+    "bottom_depth_cm": 30,
+    "boundary_description": "Synthetic soil plus standing crop and retained residues; harvested biomass is exported; lower boundary is 30 cm."
+  },
+  "inputs": [
+    {
+      "flow_id": "fertilizer-n",
+      "category": "fertilizer",
+      "amount_kg_element_per_ha": 40,
+      "standard_uncertainty_kg_element_per_ha": 0.4,
+      "method": "synthetic known-input fixture",
+      "evidence_ref": "synthetic-fixture"
+    },
+    {
+      "flow_id": "deposition-n",
+      "category": "atmospheric_deposition",
+      "amount_kg_element_per_ha": 10,
+      "standard_uncertainty_kg_element_per_ha": 0.2,
+      "method": "synthetic known-input fixture",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "outputs": [
+    {
+      "flow_id": "harvest-n",
+      "category": "harvest_export",
+      "amount_kg_element_per_ha": 20,
+      "standard_uncertainty_kg_element_per_ha": 0.3,
+      "method": "synthetic known-output fixture",
+      "evidence_ref": "synthetic-fixture"
+    },
+    {
+      "flow_id": "leaching-n",
+      "category": "leaching",
+      "amount_kg_element_per_ha": 5,
+      "standard_uncertainty_kg_element_per_ha": 0.2,
+      "method": "synthetic known-output fixture",
+      "evidence_ref": "synthetic-fixture"
+    },
+    {
+      "flow_id": "gaseous-n",
+      "category": "gaseous_loss",
+      "amount_kg_element_per_ha": 3,
+      "standard_uncertainty_kg_element_per_ha": 0.5,
+      "method": "synthetic known-output fixture",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "storage_start": [
+    {
+      "pool_id": "soil-n",
+      "compartment": "soil",
+      "stock_kg_element_per_ha": 80,
+      "standard_uncertainty_kg_element_per_ha": 1,
+      "method": "synthetic known-stock fixture",
+      "evidence_ref": "synthetic-fixture"
+    },
+    {
+      "pool_id": "biomass-n",
+      "compartment": "standing_biomass",
+      "stock_kg_element_per_ha": 20,
+      "standard_uncertainty_kg_element_per_ha": 0.5,
+      "method": "synthetic known-stock fixture",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "storage_end": [
+    {
+      "pool_id": "soil-n",
+      "compartment": "soil",
+      "stock_kg_element_per_ha": 90,
+      "standard_uncertainty_kg_element_per_ha": 1.2,
+      "method": "synthetic known-stock fixture",
+      "evidence_ref": "synthetic-fixture"
+    },
+    {
+      "pool_id": "biomass-n",
+      "compartment": "standing_biomass",
+      "stock_kg_element_per_ha": 32,
+      "standard_uncertainty_kg_element_per_ha": 0.8,
+      "method": "synthetic known-stock fixture",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "availability_indicators": [
+    {
+      "indicator_id": "mineral-n",
+      "name": "extractable mineral nitrogen",
+      "value": 18,
+      "unit": "mg N kg-1 dry soil",
+      "depth_top_cm": 0,
+      "depth_bottom_cm": 30,
+      "method": "synthetic extraction fixture; method is illustrative only",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ],
+  "stock_pool_partition_review": {
+    "mutually_exclusive": true,
+    "boundary_stocks_covered": true,
+    "review_ref": "synthetic-stock-partition-review"
+  },
+  "boundary_flux_review": {
+    "all_relevant_fluxes_accounted_for": true,
+    "review_ref": "synthetic-boundary-flux-review",
+    "unmeasured_pathways": []
+  },
+  "internal_transfers": [
+    {
+      "transfer_id": "root-uptake-n",
+      "category": "root_uptake",
+      "source_pool_id": "soil-n",
+      "destination_pool_id": "biomass-n",
+      "amount_kg_element_per_ha": 12,
+      "standard_uncertainty_kg_element_per_ha": 0.35,
+      "method": "synthetic pool-to-pool transfer fixture",
+      "evidence_ref": "synthetic-fixture"
+    }
+  ]
+}

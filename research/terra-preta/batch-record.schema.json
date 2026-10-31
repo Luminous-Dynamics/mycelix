@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/batch-record.schema.json",
+  "title": "Terra Preta batch and experiment record",
+  "description": "Provenance and evidence metadata only. A valid record does not establish safety, efficacy, or regulatory approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "record_type",
+    "protocol_version",
+    "created_at",
+    "status",
+    "material",
+    "provenance",
+    "evidence",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "record_id": { "type": "string", "minLength": 1, "description": "Stable opaque identifier; do not embed personal data." },
+    "record_type": { "enum": ["batch", "sample", "lab_result", "trial", "model_run", "claim"] },
+    "protocol_version": { "const": "0.1" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "status": {
+      "enum": ["proposed", "quarantined", "characterization_pending", "characterized", "trial_authorized", "trial_in_progress", "trial_complete", "independently_reviewed", "registered", "rejected", "withdrawn", "superseded"]
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["formulation_id", "batch_id", "feedstock_class"],
+      "properties": {
+        "formulation_id": { "type": "string", "minLength": 1 },
+        "batch_id": { "type": "string", "minLength": 1 },
+        "feedstock_class": { "type": "string", "minLength": 1 },
+        "feedstock_source_ref": { "type": ["string", "null"] },
+        "process_record_ref": { "type": ["string", "null"] },
+        "batch_mass_kg": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "composition_summary": { "type": ["string", "null"] }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["custody_events", "artifacts"],
+      "properties": {
+        "custody_events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["timestamp", "event", "actor_ref"],
+            "properties": {
+              "timestamp": { "type": "string", "format": "date-time" },
+              "event": { "type": "string", "minLength": 1 },
+              "actor_ref": { "type": "string", "minLength": 1 },
+              "location_ref": { "type": ["string", "null"] },
+              "notes": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["artifact_type", "uri_or_identifier", "sha256"],
+            "properties": {
+              "artifact_type": { "enum": ["protocol", "lab_certificate", "raw_data", "analysis_code", "model_config", "approval", "photo", "deviation_log", "review"] },
+              "uri_or_identifier": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+              "media_type": { "type": ["string", "null"] },
+              "access_conditions": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "context": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "Study context such as soil, crop, site, season, units, methods, and experimental-unit identifiers. Keep personal data out of this field."
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "value", "unit", "method_ref", "measured_at"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "value": { "type": ["number", "null"] },
+          "unit": { "type": "string", "minLength": 1 },
+          "method_ref": { "type": "string", "minLength": 1 },
+          "measured_at": { "type": "string", "format": "date-time" },
+          "detection_limit": { "type": ["number", "null"] },
+          "quantification_limit": { "type": ["number", "null"] },
+          "uncertainty": { "type": ["number", "null"] },
+          "qualifier": { "enum": ["measured", "below_detection", "below_quantification", "estimated", "missing"] }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_status", "review_state", "claim_scope"],
+      "properties": {
+        "gate_status": { "enum": ["blocked", "pending", "passed_for_stated_scope", "failed"] },
+        "review_state": { "enum": ["not_reviewed", "in_review", "reviewed", "rejected"] },
+        "claim_scope": { "type": "string", "minLength": 1 },
+        "regulatory_reference": { "type": ["string", "null"] },
+        "reviewer_refs": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "adverse_findings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "model_run": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["code_commit", "config_sha256", "dataset_sha256", "seed", "applicability_domain"],
+      "properties": {
+        "code_commit": { "type": "string", "minLength": 7 },
+        "config_sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "dataset_sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "applicability_domain": { "type": "string", "minLength": 1 },
+        "uncertainty_summary": { "type": ["string", "null"] },
+        "baseline_results_ref": { "type": ["string", "null"] }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Must explicitly state relevant known uncertainty and missing evidence."
+    }
+  }
+}

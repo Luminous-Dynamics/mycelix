@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      terra_preta_audit: ${{ steps.filter.outputs.terra_preta_audit }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,9 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            terra_preta_audit:
+              - 'research/terra-preta/**'
+              - '.github/workflows/ci.yml'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -434,6 +438,186 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
+  # Focused executable tests for the independent Terra Preta research audit tool.
+  test-terra-preta-audit:
+    needs: changes
+    if: needs.changes.outputs.terra_preta_audit == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Parse Terra Preta JSON syntax
+        run: |
+          jq empty research/terra-preta/batch-record.schema.json
+          jq empty research/terra-preta/contrast-record.schema.json
+          jq empty research/terra-preta/split-manifest.schema.json
+          jq empty research/terra-preta/tools/biochar-audit/audit-report.schema.json
+          jq empty research/terra-preta/tools/prediction-audit/prediction-report.schema.json
+          jq empty research/terra-preta/tools/split-audit/split-audit-report.schema.json
+          jq empty research/terra-preta/source-register.schema.json
+          jq empty research/terra-preta/tools/dependency-audit/dependency-audit-report.schema.json
+          jq empty research/terra-preta/tools/water-retention-audit/curve-input.schema.json
+          jq empty research/terra-preta/tools/water-retention-audit/water-retention-audit-report.schema.json
+          jq empty research/terra-preta/tools/nutrient-budget-audit/nutrient-budget-input.schema.json
+          jq empty research/terra-preta/tools/nutrient-budget-audit/nutrient-budget-audit-report.schema.json
+          jq empty research/terra-preta/tools/coupled-event-audit/event-record.schema.json
+          jq empty research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event.json
+          jq empty research/terra-preta/tools/coupled-event-audit/event-audit-report.schema.json
+          jq empty research/terra-preta/tools/coupled-event-audit/fixtures/synthetic-event-report.json
+          jq empty research/terra-preta/neon-preferential-flow-source-plan.v0.1.json
+          jq empty research/terra-preta/tools/preferential-flow-eventizer/fixtures/synthetic-one-event.json
+          jq empty research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json
+          jq empty research/terra-preta/tools/profile-response-extractor/fixtures/synthetic-mixed-profile.json
+          jq empty research/terra-preta/tools/spatial-heterogeneity-audit/fixtures/synthetic-array.json
+          jq empty research/terra-preta/tools/neon-swc-normalizer/fixtures/synthetic-config.json
+          jq empty research/terra-preta/tools/pf-threshold-audit/fixtures/synthetic-threshold-sensitive.json
+          jq empty research/terra-preta/tools/trajectory-signature-audit/fixtures/synthetic-multi-peak.json
+          jq empty research/terra-preta/tools/pf-triangulation-audit/fixtures/synthetic-method-evidence.json
+          jq empty research/terra-preta/tools/pore-network-audit/fixtures/synthetic-connected-network.json
+          jq empty research/terra-preta/tools/interface-exchange-audit/fixtures/synthetic-constant-exchange.json
+          jq empty research/terra-preta/tools/neon-precip-normalizer/fixtures/synthetic-config.json
+          bash -n research/terra-preta/tools/acquire-public-sources.sh
+          bash -n research/terra-preta/tools/acquire-neon-data.sh
+          bash -n research/terra-preta/tools/inventory-neon-data.sh
+          bash research/terra-preta/tools/inventory-neon-data.sh --help
+      - name: Test NEON metadata inventory month guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/neon-inventory-month-tests"
+          mkdir -p "$work"
+          printf '%s\n' 'SRER' > "$work/sites.txt"
+          if NEON_API_TOKEN=ci-test bash research/terra-preta/tools/inventory-neon-data.sh \
+            --product DP1.00094.001 --sites-file "$work/sites.txt" \
+            --start 2021-02 --end 2021-01 --release RELEASE-2026 \
+            --output "$work/reversed" >"$work/reversed.log" 2>&1; then
+            echo "reversed month range was unexpectedly accepted" >&2
+            exit 1
+          fi
+          grep -q "start month is after end month" "$work/reversed.log"
+          : > "$work/empty-sites.txt"
+          if NEON_API_TOKEN=ci-test bash research/terra-preta/tools/inventory-neon-data.sh \
+            --product DP1.00094.001 --sites-file "$work/empty-sites.txt" \
+            --start 2021-01 --end 2021-01 --release RELEASE-2026 \
+            --output "$work/equal-month" >"$work/equal.log" 2>&1; then
+            echo "empty site list was unexpectedly accepted" >&2
+            exit 1
+          fi
+          grep -q "sites file contained no site codes" "$work/equal.log"
+      - name: Format standalone audit tools
+        run: |
+          cargo fmt --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/prediction-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/split-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/dependency-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/nutrient-budget-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/pf-threshold-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/trajectory-signature-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/pf-triangulation-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/interface-exchange-audit/Cargo.toml -- --check
+          cargo fmt --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml -- --check
+      - name: Test standalone audit tools and JSON Schema conformance
+        run: |
+          cargo test --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/prediction-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/split-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/dependency-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/nutrient-budget-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml
+          cargo test --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml -- research/terra-preta/tools/preferential-flow-eventizer/fixtures/synthetic-one-event.json "$RUNNER_TEMP/terra-preta-pf-report.json"
+          jq -e '.event_count == 1 and .response_detected_count == 1 and .proxy_classified_count == 1 and .events[0].response_lag_minutes == 20' "$RUNNER_TEMP/terra-preta-pf-report.json"
+          cargo test --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- research/terra-preta/tools/profile-response-extractor/fixtures/synthetic-mixed-profile.json "$RUNNER_TEMP/terra-preta-profile-audit-input.json" 0.01
+          jq -e '.schema_version == "0.3.0" and .response_threshold_m3_m3 == 0.01 and (.sensors | length == 3) and .sensors[0].response_status == "detected" and (.sensors[0].response_onset_utc | contains("00:20:00")) and (.sensors[0].response_onset_lower_bound_utc | contains("00:10:00"))' "$RUNNER_TEMP/terra-preta-profile-audit-input.json"
+          cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- "$RUNNER_TEMP/terra-preta-profile-audit-input.json" "$RUNNER_TEMP/terra-preta-profile-audit-report.json"
+          jq -e '.profile_classification == "mixed_response_ordering" and .nsr_pair_count == 1 and .sequential_pair_count == 2 and .profile_coverage_status == "complete_for_declared_sensor_roster"' "$RUNNER_TEMP/terra-preta-profile-audit-report.json"
+          cargo run --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- research/terra-preta/tools/profile-response-extractor/fixtures/synthetic-mixed-profile.json "$RUNNER_TEMP/terra-preta-profile-audit-input-003.json" 0.03
+          cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- "$RUNNER_TEMP/terra-preta-profile-audit-input-003.json" "$RUNNER_TEMP/terra-preta-profile-audit-report-003.json"
+          jq -e '.profile_classification == "not_applicable_insufficient_responders" and .detected_sensor_count == 1 and .not_detected_sensor_count == 2' "$RUNNER_TEMP/terra-preta-profile-audit-report-003.json"
+          cargo test --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml -- research/terra-preta/tools/spatial-heterogeneity-audit/fixtures/synthetic-array.json "$RUNNER_TEMP/terra-preta-spatial-report.json"
+          jq -e '.sensor_count == 4 and .distinct_depth_group_count == 1 and .time_depth_summary_count == 2 and .summaries[1].valid_observed_sensor_count == 4 and .summaries[1].roster_plot_count == 2 and (.summaries[1].plot_ids == ["P01","P02"]) and .summaries[1].positive_response_count == 2 and .summaries[1].positive_response_fraction == 0.5 and ([.summaries[1].semivariogram[].pair_count] | add) == 6' "$RUNNER_TEMP/terra-preta-spatial-report.json"
+          cargo test --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- research/terra-preta/tools/neon-swc-normalizer/fixtures/synthetic-config.json research/terra-preta/tools/neon-swc-normalizer/fixtures/synthetic-one-minute.csv "$RUNNER_TEMP/terra-preta-neon-profile.json" "$RUNNER_TEMP/terra-preta-neon-aggregation-report.json"
+          jq -e '.observed_bin_count == 8 and .missing_bin_count == 0 and .bins[1].quality_rejected_rows == 1 and .bins[1].quality_pass_rows == 9 and (.sensor_metadata | length == 2)' "$RUNNER_TEMP/terra-preta-neon-aggregation-report.json"
+          cargo run --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- "$RUNNER_TEMP/terra-preta-neon-profile.json" "$RUNNER_TEMP/terra-preta-neon-profile-response.json" 0.01
+          cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- "$RUNNER_TEMP/terra-preta-neon-profile-response.json" "$RUNNER_TEMP/terra-preta-neon-nsr-report.json"
+          jq -e '.profile_classification == "sequential_response_only" and .sequential_pair_count == 1 and .detected_sensor_count == 2' "$RUNNER_TEMP/terra-preta-neon-nsr-report.json"
+          cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- research/terra-preta/tools/profile-flow-audit/fixtures/synthetic-mixed-profile.json "$RUNNER_TEMP/terra-preta-profile-report.json"
+          jq -e '.profile_classification == "mixed_response_ordering" and .nsr_pair_count == 2 and .sequential_pair_count == 1 and .profile_coverage_status == "complete_for_declared_sensor_roster" and .response_threshold_m3_m3 == 0.01' "$RUNNER_TEMP/terra-preta-profile-report.json"
+          cargo test --manifest-path research/terra-preta/tools/pf-threshold-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/pf-threshold-audit/Cargo.toml -- research/terra-preta/tools/pf-threshold-audit/fixtures/synthetic-threshold-sensitive.json "$RUNNER_TEMP/terra-preta-pf-threshold-report.json"
+          jq -e '.rosetta_ksat_proxy_stability == "threshold_sensitive" and .rosetta_ksat_positive_count == 2 and .rosetta_ksat_negative_count == 3 and .matrix_model_velocity_threshold_count == 3 and .matrix_model_velocity_positive_count == 1 and .matrix_model_velocity_negative_count == 2 and .matrix_model_velocity_proxy_stability == "threshold_sensitive" and .matrix_velocity_99th_proxy_stability == "single_reference_not_robustness_tested"' "$RUNNER_TEMP/terra-preta-pf-threshold-report.json"
+          cargo test --manifest-path research/terra-preta/tools/trajectory-signature-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/trajectory-signature-audit/Cargo.toml -- research/terra-preta/tools/trajectory-signature-audit/fixtures/synthetic-multi-peak.json "$RUNNER_TEMP/terra-preta-trajectory-report.json"
+          jq -e '.maximum_rate_of_rise_m3_m3_per_hour > 0.089 and .maximum_rate_of_rise_m3_m3_per_hour < 0.091 and .trajectory_threshold_status == "above_declared_rate_threshold_proxy_only" and .coverage_status == "complete_observed_only"' "$RUNNER_TEMP/terra-preta-trajectory-report.json"
+          cargo test --manifest-path research/terra-preta/tools/pf-triangulation-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/pf-triangulation-audit/Cargo.toml -- research/terra-preta/tools/pf-triangulation-audit/fixtures/synthetic-method-evidence.json "$RUNNER_TEMP/terra-preta-triangulation-report.json"
+          jq -e '.proxy_agree_positive_count == 1 and .proxy_disagreement_count == 1 and .velocity_only_evaluated_count == 1 and .independent_reference_count == 1 and .eligible_independent_reference_count == 0 and .unverified_review_claim_count == 1 and .physical_claim_status == "not_adjudicated_external_attestation_verifier_required" and .nsr_profile_signature == "nonsequential_response_detected"' "$RUNNER_TEMP/terra-preta-triangulation-report.json"
+          cargo test --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml -- research/terra-preta/tools/morphology-audit/fixtures/synthetic-imagej-export.csv "$RUNNER_TEMP/terra-preta-morphology-report.json" --horizon Ap1 --resolution-um 180 --area-col Area --perimeter-col 'Perim.' --min-feret-col MinFeret --feret-col Feret --angle-col FeretAngle --cross-section-area-mm2 100 --min-area-mm2 0
+          jq -e '.input_object_count == 2 and .detected_object_count == 2 and .excluded_below_minimum_area_count == 0 and .summed_projected_pore_area_mm2 == 6 and .projected_pore_area_fraction == 0.06 and .feret_aspect_ratio.mean == 2 and .orientation_histogram_10deg_bins[0] == 1 and .orientation_histogram_10deg_bins[9] == 1' "$RUNNER_TEMP/terra-preta-morphology-report.json"
+          cargo test --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml -- research/terra-preta/tools/known-truth-generator/fixtures/connected-macropore.json "$RUNNER_TEMP/terra-preta-known-truth-manifest.json" "$RUNNER_TEMP/terra-preta-model-visible-observations.json"
+          jq -e '.scenario_family == "connected_macropore" and .true_macropore_path_connected == true and .total_macropore_deep_drainage_mm > 0 and .total_macropore_deep_tracer_mg_m2 > 0 and .max_abs_water_balance_residual_mm < 1e-10 and .max_abs_tracer_balance_residual_mg_m2 < 1e-10' "$RUNNER_TEMP/terra-preta-known-truth-manifest.json"
+          jq -e '.observation_schema_version == "0.1.0" and .observation_operator == "synthetic_boundary_flux_aggregation_v0.1" and .measurement_model == "perfect_noiseless_boundary_collection" and (.observations | length == 12) and (.observations | all(has("matrix_water_mm") | not)) and (.observations | all(has("macropore_water_mm") | not))' "$RUNNER_TEMP/terra-preta-model-visible-observations.json"
+          cargo test --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml -- research/terra-preta/tools/dynamic-macropore-audit/fixtures/synthetic-konza-like-input.json "$RUNNER_TEMP/terra-preta-dynamic-macropore-report.json"
+          jq -e '.time_point_count == 3 and (.derived_geometry.dry_structural_unit_width_mm == 18) and (.time_points[0].macropore_width_mm == 2) and (.time_points[2].macropore_width_mm < .time_points[0].macropore_width_mm) and (.time_points[2].macropore_volume_fraction < .time_points[0].macropore_volume_fraction) and (.time_points | all(.[]; .whole_soil_transient_saturated_conductivity_m_s > 0)) and (.unsaturated_conductivity_status == "not_implemented_v0.1; no unsaturated conductivity claim")' "$RUNNER_TEMP/terra-preta-dynamic-macropore-report.json"
+          cargo test --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml -- research/terra-preta/tools/pore-network-audit/fixtures/synthetic-connected-network.json "$RUNNER_TEMP/terra-preta-pore-network-report.json"
+          jq -e '.top_bottom_percolates_at_zero_threshold == true and .widest_top_bottom_path_bottleneck_radius_um == 50 and .shortest_top_bottom_path_length_um == 9900 and .shortest_path_tortuosity == 1 and .threshold_analysis[0].top_bottom_percolates == true and .threshold_analysis[1].top_bottom_percolates == true and .threshold_analysis[2].top_bottom_percolates == false' "$RUNNER_TEMP/terra-preta-pore-network-report.json"
+          cargo test --manifest-path research/terra-preta/tools/interface-exchange-audit/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/interface-exchange-audit/Cargo.toml -- research/terra-preta/tools/interface-exchange-audit/fixtures/synthetic-constant-exchange.json "$RUNNER_TEMP/terra-preta-interface-exchange-report.json"
+          jq -e '.sample_count == 2 and (.peak_exchange_rate_per_s > 0.00000999 and .peak_exchange_rate_per_s < 0.00001001) and (.cumulative_gross_exchange_m3_per_m3_bulk > 0.035999 and .cumulative_gross_exchange_m3_per_m3_bulk < 0.036001) and (.cumulative_gross_exchange_depth_mm > 3.599 and .cumulative_gross_exchange_depth_mm < 3.601) and .measured_interface_area_sample_count == 2 and .modelled_flux_density_sample_count == 2' "$RUNNER_TEMP/terra-preta-interface-exchange-report.json"
+          cargo test --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml
+          cargo run --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml -- research/terra-preta/tools/neon-precip-normalizer/fixtures/synthetic-config.json research/terra-preta/tools/neon-precip-normalizer/fixtures/synthetic-primary.csv research/terra-preta/tools/neon-precip-normalizer/fixtures/synthetic-secondary.csv "$RUNNER_TEMP/terra-preta-neon-precip-report.json"
+          jq -e '.paper_reproduction.bin_count == 2 and .paper_reproduction.observed_bin_count == 0 and .paper_reproduction.zero_imputed_bin_count == 2 and .paper_reproduction.selected_primary_bin_count == 1 and .paper_reproduction.selected_secondary_bin_count == 1 and .coverage_aware_sensitivity.observed_bin_count == 1 and .coverage_aware_sensitivity.missing_bin_count == 1 and .coverage_aware_sensitivity.bins[1].precipitation_mm_per_10min == 1.5 and .coverage_aware_sensitivity.bins[0].status == "missing_below_coverage_threshold"' "$RUNNER_TEMP/terra-preta-neon-precip-report.json"
+      - name: Test grouped split manifest fail-closed checks
+        run: bash research/terra-preta/tools/test-split-manifest.sh
+      - name: Lint standalone audit tools
+        run: |
+          cargo clippy --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/prediction-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/split-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/dependency-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/water-retention-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/nutrient-budget-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/coupled-event-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/preferential-flow-eventizer/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/spatial-heterogeneity-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/pf-threshold-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/trajectory-signature-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/pf-triangulation-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/morphology-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/known-truth-generator/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/dynamic-macropore-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/pore-network-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/interface-exchange-audit/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml --all-targets -- -D warnings
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
@@ -452,6 +636,7 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-terra-preta-audit
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +657,10 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "Terra Preta audit: ${{ needs.test-terra-preta-audit.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-terra-preta-audit.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
