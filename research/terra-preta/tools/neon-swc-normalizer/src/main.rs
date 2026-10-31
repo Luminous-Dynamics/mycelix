@@ -69,6 +69,8 @@ struct SensorMetadata {
     y_m: f64,
     condition: SensorCondition,
     metadata_evidence_ref: String,
+    position_start_utc: Option<String>,
+    position_end_utc: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -87,6 +89,19 @@ struct NormalizedSensor {
 }
 
 #[derive(Clone, Debug, Serialize)]
+struct SensorProvenance {
+    sensor_key: String,
+    sensor_id: String,
+    depth_cm: f64,
+    x_m: f64,
+    y_m: f64,
+    condition: SensorCondition,
+    metadata_evidence_ref: String,
+    position_start_utc: Option<String>,
+    position_end_utc: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct NormalizedProfile {
     schema_version: &'static str,
     study_id: String,
@@ -98,8 +113,6 @@ struct NormalizedProfile {
     observation_window_end_utc: String,
     time_resolution_seconds: u32,
     source_evidence_ref: String,
-    source_csv_sha256: String,
-    config_sha256: String,
     sensors: Vec<NormalizedSensor>,
 }
 
@@ -137,6 +150,7 @@ struct AggregationReport {
     theta_column: String,
     quality_filters: Vec<QualityFilter>,
     selected_sensor_count: usize,
+    sensor_metadata: Vec<SensorProvenance>,
     unknown_sensor_rows_ignored: usize,
     total_bin_count: usize,
     observed_bin_count: usize,
@@ -292,6 +306,20 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
         }
         if sensor.depth_cm <= 0.0 {
             return Err(format!("sensors[{index}].depth_cm must be greater than zero"));
+        }
+        if let Some(position_start_text) = &sensor.position_start_utc {
+            let position_start = DateTime::parse_from_rfc3339(position_start_text)
+                .map_err(|error| format!("sensors[{index}].position_start_utc is not RFC3339: {error}"))?;
+            if position_start.offset().local_minus_utc() != 0 || start < position_start {
+                return Err(format!("sensors[{index}] position is not valid at event start"));
+            }
+        }
+        if let Some(position_end_text) = &sensor.position_end_utc {
+            let position_end = DateTime::parse_from_rfc3339(position_end_text)
+                .map_err(|error| format!("sensors[{index}].position_end_utc is not RFC3339: {error}"))?;
+            if position_end.offset().local_minus_utc() != 0 || end > position_end {
+                return Err(format!("sensors[{index}] position is not valid through event end"));
+            }
         }
     }
     Ok((start, end, bin_starts))
@@ -465,9 +493,7 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         event_start_utc: config.event_start_utc.clone(),
         observation_window_end_utc: config.observation_window_end_utc.clone(),
         time_resolution_seconds: config.target_resolution_seconds,
-        source_evidence_ref: format!("{}; QA mapping in config {}", config.source_evidence_ref, config.raw_file_label),
-        source_csv_sha256: source_sha256.clone(),
-        config_sha256: config_sha256.clone(),
+        source_evidence_ref: format!("{}; raw_file={}; see aggregation report for raw/config digests", config.source_evidence_ref, config.raw_file_label),
         sensors: normalized_sensors,
     };
     let report = AggregationReport {
@@ -491,6 +517,17 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
             accepted_values: filter.accepted_values.clone(),
         }).collect(),
         selected_sensor_count: config.sensors.len(),
+        sensor_metadata: config.sensors.iter().map(|sensor| SensorProvenance {
+            sensor_key: sensor.sensor_key.clone(),
+            sensor_id: sensor.sensor_id.clone(),
+            depth_cm: sensor.depth_cm,
+            x_m: sensor.x_m,
+            y_m: sensor.y_m,
+            condition: sensor.condition,
+            metadata_evidence_ref: sensor.metadata_evidence_ref.clone(),
+            position_start_utc: sensor.position_start_utc.clone(),
+            position_end_utc: sensor.position_end_utc.clone(),
+        }).collect(),
         unknown_sensor_rows_ignored: unknown_sensor_rows,
         total_bin_count: bin_audits.len(),
         observed_bin_count: observed_bins,
