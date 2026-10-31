@@ -94,3 +94,8 @@ This is a sampling-policy research claim, not an automatic field instrumentation
 
 - Nimmo, J. R. et al. (2025). Identifying preferential flow from soil moisture time series: Review of methodologies. *Vadose Zone Journal*, 24(2), e70017. https://doi.org/10.1002/vzj2.70017
 - Li, B. et al. (2026). Dominant Controls on Preferential Flow and Their Implications for Future Soil Water Fluxes. *Earth's Future*. https://doi.org/10.1029/2026EF008296
+
+
+## Next research track: decision-aware placement
+
+The cadence and leave-one-sensor-out runner diagnoses fragility in an existing layout; it does not optimize new depths or spatial positions. The separate [PF sensor-placement benchmark](./PREFERENTIAL_FLOW_SENSOR_PLACEMENT_BENCHMARK_V0.1.md) compares storage-oriented industry layouts with PF-specific mechanism-discrimination designs and requires decision-risk reduction per fully loaded lifecycle cost. Implementation is tracked in [PF-DESIGN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5579).
