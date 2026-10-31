@@ -35,7 +35,7 @@ Dataset: https://data.mendeley.com/datasets/kdffpwdbdv/2
 
 ### 2.2 Independent transport / tracer reference
 
-Asadollahi et al. (2020), DOI 10.1029/2019WR025539, provide a public EPFL vegetated lysimeter dataset at Zenodo DOI 10.5281/zenodo.3457960. The record describes a 1 m long, 1.2 m diameter lysimeter, a one-hour simultaneous injection of five fluorobenzoate tracers, hourly precipitation / irrigation / evapotranspiration / bottom drainage, and time-stamped bottom tracer concentrations. It is a transport and water-age reference, not a treatment-randomization dataset or an independent macropore-geometry label.
+Asadollahi et al. (2020), DOI 10.1029/2019WR025539, provide a public EPFL vegetated lysimeter dataset at Zenodo DOI 10.5281/zenodo.3457960. The record describes a 1 m long, 1.2 m diameter lysimeter, a one-hour simultaneous injection of five fluorobenzoate tracers, hourly precipitation / irrigation / evapotranspiration / bottom drainage, and irregularly sampled bottom tracer concentrations. The publisher-native hydrologic file labels the drainage column Leakage (mm/h); preserve that source label until the paper and collection method are reconciled. A direct inspection of the publisher-served tracer file shows that the first post-injection sample is 2016-03-06 09:13 (UTC+1), about 67.2 hours after the stated 2016-03-03 14:00 injection. Therefore this dataset cannot resolve sub-day first arrival immediately after injection; report the first observed concentration / interval censoring, not a precise arrival time. It is a transport and water-age reference, not a treatment-randomization dataset or an independent macropore-geometry label.
 
 Dataset: https://zenodo.org/records/3457960
 
