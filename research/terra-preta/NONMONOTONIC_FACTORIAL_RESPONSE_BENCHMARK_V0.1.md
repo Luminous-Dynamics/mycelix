@@ -24,6 +24,23 @@ Jiang et al. (2025) synthesized field experiments spanning 1–10 years and foun
 
 These papers are not interchangeable and must not be pooled without a source-level design and endpoint reconciliation.
 
+
+
+## 2.1 New crack-cycle synthesis: morphology is not transport
+
+Zhou et al. (2026), *Effect of Biochar on Soil Shrinkage and Cracks and Its Evolution Under Dry and Wet Cycles: A Meta-Analysis*, synthesizes 278 paired observations from 44 peer-reviewed articles using article-clustered robust variance estimation. It reports average reductions in crack intensity factor and mean crack width, but the main article-clustered estimate for crack length density is not statistically significant. Heterogeneity exceeds 98% and all three article-clustered prediction intervals cross zero. Application rate explains only about 12.6–15.8% of variation; evidence beyond six drying-wetting cycles is sparse. DOI: 10.3390/agriculture16161722.
+
+This evidence adds a necessary separation to the response-surface benchmark:
+
+- Crack intensity factor, crack length density and mean crack width remain separate endpoints.
+- Morphology change must not be treated as a hydraulic-connectivity or transport measurement.
+- Where feasible, pair crack imaging with event infiltration, drainage, tracer recovery, nutrient export or depth-resolved water response.
+- Preserve paper/article clustering and paired-observation lineage. A pooled paired-record count is not the number of independent studies or treatment assignments.
+- Treat later-cycle persistence as unidentifiable when the independent article count and event support are inadequate.
+- The meta-analysis' particle/interface explanations are hypotheses; it does not directly observe the proposed mechanisms with micro-CT.
+
+This supports dose × cycle, dose × root and material-batch interaction tests, but does not supply a universal dose or field recommendation.
+
 ## 3. Connection to existing work
 
 This benchmark connects without replacing:
