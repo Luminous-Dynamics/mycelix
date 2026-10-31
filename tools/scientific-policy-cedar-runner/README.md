@@ -27,15 +27,22 @@ by Cedar 4.14.0 in-process and OPA 1.22.0 through a one-shot
 Cedar evaluation diagnostics or OPA process failures make the run
 indeterminate rather than being converted to Deny.
 
-The output directory receives the minimized case, complete candidate trace and
-summary. The trace binds exact source bytes, normalized JSON, runner/OPA binary
-bytes, Cedar/Rego policy bytes, Cedar schema and evaluation configuration.
-Compound provenance components use length-prefixed framing. Protected paths
-preserve PARC identity, the request-referenced Cedar entities, action, and the
-specific Rego fields that define the seeded mismatch. Each OPA invocation has
-a five-second timeout. The summary reports candidate counts, Cedar in-process
-p50/p95/p99, OPA one-shot CLI p50/p95/p99, and total minimization wall time
-separately; the per-candidate distributions exclude initial/final confirmation.
+The output directory receives the minimized case, complete candidate
+trace, per-candidate engine outcome JSONL and summary. Each sidecar row binds
+the candidate digest to its Cedar decision/determining-policy IDs and OPA
+decision/rule ID, the preserved-predicate outcome and any engine error. The
+workflow verifies the sidecar row count against the reducer trace and checks
+that accepted outcomes equal the recorded accepted reductions.
+
+The trace binds exact source bytes, normalized JSON, runner/OPA binary bytes,
+Cedar/Rego policy bytes, Cedar schema and evaluation configuration. Compound
+provenance components use length-prefixed framing. Protected paths preserve
+PARC identity, the request-referenced Cedar entities, action, and the specific
+Rego fields that define the seeded mismatch. Each OPA invocation has a
+five-second timeout. The summary reports candidate counts, original and
+minimized determining reasons, Cedar in-process p50/p95/p99, OPA one-shot CLI
+p50/p95/p99, and total minimization wall time separately; the per-candidate
+distributions exclude initial/final confirmation.
 
 This measures counterexample-minimization behavior, not comparative Cedar/OPA
 latency. Cedar evaluator time and OPA one-shot process wall time must remain
