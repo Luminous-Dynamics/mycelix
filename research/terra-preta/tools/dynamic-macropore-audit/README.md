@@ -36,3 +36,10 @@ Synthetic unit tests cover Eq. 8 geometry, dry-state pore width, moisture-induce
 Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545).
 
 The CLI and tests are registered in `.github/workflows/ci.yml` for rustfmt, unit tests, a synthetic end-to-end fixture assertion, and strict Clippy. A queued or superseded run is not counted as a pass.
+
+
+## v0.1 reproduction boundaries
+
+This version uses a representative average macropore width and aggregate projected pore area/perimeter in Eqs. 22–23. It does not yet implement the per-pore width and area scaling in Eqs. 35–36. It is therefore an equation-level average-geometry implementation, not a full pore-resolved reproduction.
+
+The paper body prints a minus sign in Eq. 37, but Figure 6 shows a positive near-1:1 line and Table 1 reports positive beta_1 values. v0.1 follows the figure/table relationship provisionally. This must be checked against the authors' R scripts before exact reproduction is claimed.
