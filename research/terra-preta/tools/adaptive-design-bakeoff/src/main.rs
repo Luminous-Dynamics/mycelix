@@ -832,6 +832,47 @@ mod tests {
     }
 
     #[test]
+    fn information_only_policy_is_attracted_to_high_information_misspecified_actions() {
+        let scenario: Scenario = serde_json::from_str(FIXTURE).unwrap();
+        let scoring = scoring_actions(&scenario);
+        let selection = select(&scenario, Policy::InformationGainOnly, &scoring);
+        let ids: Vec<String> = selection.iter().map(|(index, _, _)| {
+            scenario.actions[*index].action_id.clone()
+        }).collect();
+        assert!(ids.contains(&"S3_SANDY_HIGH_EIG_MISSPECIFIED".to_owned()));
+        assert!(ids.contains(&"C1_CLAY_HIGH_EIG_MISSPECIFIED".to_owned()));
+    }
+
+    #[test]
+    fn expert_priority_can_leave_a_target_stratum_uncovered() {
+        let report = report();
+        let expert = report.policy_results.iter()
+            .find(|policy| policy.policy_id == "expert_fixed").unwrap();
+        assert!(!expert.minimum_coverage_met);
+        assert_eq!(expert.weighted_synthetic_decision_utility, 0.99);
+    }
+
+    #[test]
+    fn evaluator_truth_changes_do_not_change_policy_selections() {
+        let mut scenario: Scenario = serde_json::from_str(FIXTURE).unwrap();
+        let original_actions = scoring_actions(&scenario);
+        for policy in Policy::ALL {
+            let original: Vec<usize> = select(&scenario, policy, &original_actions)
+                .iter().map(|(index, _, _)| *index).collect();
+            for action in &mut scenario.actions {
+                action.synthetic_truth_decision_value =
+                    1.0 - action.synthetic_truth_decision_value;
+            }
+            let changed_actions = scoring_actions(&scenario);
+            let changed: Vec<usize> = select(&scenario, policy, &changed_actions)
+                .iter().map(|(index, _, _)| *index).collect();
+            assert_eq!(original, changed, "truth leaked into policy {:?}", policy.id());
+            // Restore the known truth before checking the next policy.
+            scenario = serde_json::from_str(FIXTURE).unwrap();
+        }
+    }
+
+    #[test]
     fn random_policy_is_reproducible_for_fixed_seed() {
         let a = report();
         let b = report();
