@@ -272,11 +272,11 @@ mod tests {
                 hash.wrapping_mul(0x100000001b3)
             })
         }
-        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0x0cf24a2151b682ad);
+        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0xe6f6679f94c93e31);
         let scenarios = parse_fixture(FIXTURE).unwrap();
-        assert_eq!(scenarios.len(), 10);
+        assert_eq!(scenarios.len(), 11);
         let ids: HashSet<_> = scenarios.iter().map(|s| s.scenario_id.as_str()).collect();
-        assert_eq!(ids.len(), 10);
+        assert_eq!(ids.len(), 11);
         assert!(scenarios.iter().all(|s| s.intended_receivers() == 2_000));
     }
 
@@ -297,6 +297,18 @@ mod tests {
         assert_eq!(get(&s, Architecture::CentralizedHubSpoke).delivered(), 0);
         assert_eq!(get(&s, Architecture::RegionalFederation).delivered(), 2_000);
         assert_eq!(get(&s, Architecture::LocalFirstFederation).delivered(), 2_000);
+    }
+
+    #[test]
+    fn central_remote_path_failure_preserves_local_and_federated_paths() {
+        let s = scenario("central-remote-path-outage");
+        let c = get(&s, Architecture::CentralizedHubSpoke);
+        let r = get(&s, Architecture::RegionalFederation);
+        let l = get(&s, Architecture::LocalFirstFederation);
+        assert_eq!(c.local_delivered, 1_000);
+        assert_eq!(c.remote_delivered(), 0);
+        assert_eq!(r.delivered(), 2_000);
+        assert_eq!(l.delivered(), 2_000);
     }
 
     #[test]
