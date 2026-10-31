@@ -31,6 +31,7 @@ with the transformed-input SHA-256, and a separate `transform-manifest.json`.
 | `json-whitespace-expanded` | Decision invariant | Re-serialize each JSONL record with insignificant whitespace |
 | `cedar-entity-order-reversed` | Decision invariant | Reverse the explicit Cedar entity array without changing its members |
 | `cedar-irrelevant-actor-added` | Decision invariant under stated precondition | Add a schema-shaped Actor with a unique, unreferenced UID and no parents |
+| `claim-proposed-contributor-removed` | Exactly one allow-to-deny transition | In the unique source case with an absent claim and contributor-only role, remove that role from Cedar and Rego while preserving the case ID and every other field |
 
 All variants preserve the case IDs, action, actor, resource, context and Rego input.
 The extra-entity transformation changes only the Cedar entity set and records
@@ -42,12 +43,15 @@ recorded.
 
 Generation alone is not a metamorphic evaluation result. The dedicated
 `.github/workflows/scientific-policy-metamorphic.yml` workflow runs both the
-baseline and all four variants through Cedar 4.14.0 and OPA 1.22.0. It compares
-each engine against its own baseline using stable case IDs, decision values,
-and determining-policy identifiers (Cedar `Diagnostics::reason()`; OPA rule
-IDs). Any case-set change, decision drift, determining-policy drift, parser or
-schema error, Cedar evaluation diagnostic, OPA failure, or incomplete output
-fails the qualification.
+baseline and all four variants through Cedar 4.14.0 and OPA 1.22.0. It compares each engine against its own baseline using stable case IDs,
+decision values, and determining-policy identifiers (Cedar
+`Diagnostics::reason()`; OPA rule IDs). The four invariance transformations
+must produce zero decision and policy-ID changes. The targeted negative control
+must produce exactly one allow-to-deny transition, with exactly one
+determining-policy change, and every other case must remain unchanged. Any
+unexpected case-set change, decision drift, policy-ID drift, parser/schema
+error, Cedar evaluation diagnostic, OPA failure, or incomplete output fails
+qualification.
 
 The Cedar runner requires the requested principal Actor and exactly one
 resource Claim, unique UIDs, and schema-valid attributes. Additional unique
@@ -66,9 +70,9 @@ that expectation rather than assuming it.
 ## Claim ceiling
 
 The generator proves deterministic transformation and byte-level provenance;
-the dedicated workflow additionally tests invariance relative to each pinned
-engine over these four preconditioned transformations. Neither establishes
-Cedar/OPA policy equivalence, authentic Rust policy parity, credential-registry
-correctness, or production authorization safety. A fifth class of
-meaning-changing negative controls remains future work and must be interpreted
-against an explicit policy-semantic oracle rather than assumed outcomes.
+the dedicated workflow tests four preconditioned invariance transformations
+plus one narrowly defined candidate-policy negative control against each
+pinned engine's own baseline. The negative control is derived from the explicit
+pure-policy rule for claim creation and is not an authentic Rust oracle result.
+Neither establishes Cedar/OPA policy equivalence, authentic Rust policy parity,
+credential-registry correctness, or production authorization safety.
