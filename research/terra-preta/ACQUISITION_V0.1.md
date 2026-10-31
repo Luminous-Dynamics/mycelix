@@ -224,6 +224,23 @@ unset NEON_API_TOKEN
 
 The metadata-only preflight makes one authenticated query per site and writes the exact response JSON under metadata/, a query manifest with a digest for each response, and a normalized file inventory containing site/month/package, filename, publisher byte size, MD5, optional CRC32C and query-response SHA-256. It downloads no raw product files and does not claim that an observation row is valid or that a site is part of the paper's analysed cohort. The supplied example site is illustrative, not an endorsed paper site. Empty site/month availability is retained in the query manifest. Output files are created with restrictive permissions; the directory should still be protected as local research metadata.
 
+### NEON precipitation normalization
+
+The precipitation normalizer is separate from acquisition and consumes raw CSV tables after their source variables/QA semantics have been reviewed:
+
+```sh
+cargo test --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml
+cargo run --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml -- \
+  /path/to/release-pinned-config.json \
+  /path/to/primary-weighing.csv \
+  /path/to/secondary-tipping.csv \
+  /path/to/new-report.json
+```
+
+Use `-` for a missing optional source. The report records config/source CSV SHA-256, each source's product/release/gauge identity, exact QA rules, source counts, and per-bin selection. It emits (1) the paper's literal five-good-row rule and (2) a missing-preserving coverage-aware sensitivity track. The literal rule can zero-impute every 5-minute primary bin because only two source samples fit into ten minutes; this is a disclosed ambiguity pending author-code resolution, not a silent reinterpretation. The tool rejects DP1.00046 throughfall as open rainfall and does not silently use primary data when a secondary row exists but fails QA.
+
+This normalizer is a configured CSV executor, not a raw NEON package parser. It does not decide the scientifically correct flags, timestamp semantics, or the paper's unresolved aggregation operator. Preserve the selected release variables table, ATBD, issue log and configuration beside the report.
+
 ### NEON acquisition command
 
 The NEON-specific downloader is separate from the Figshare/Zenodo helper. It queries the authenticated NEON Data Query endpoint, stores its query response, verifies publisher byte size and MD5 for every file, computes local SHA-256, makes files read-only and refuses to overwrite existing artifacts:
