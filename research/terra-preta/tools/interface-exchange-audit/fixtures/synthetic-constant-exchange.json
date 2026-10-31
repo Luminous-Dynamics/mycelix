@@ -1,0 +1,39 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "SYNTHETIC",
+  "site_id": "SYN1",
+  "sample_id": "CORE-01",
+  "horizon_id": "0-10cm",
+  "event_id": "RAIN-01",
+  "event_start_utc": "2026-01-01T00:00:00Z",
+  "observation_window_end_utc": "2026-01-01T01:00:00Z",
+  "profile_depth_mm": 100,
+  "bulk_sample_volume_m3": 0.0001,
+  "area_normalization_basis": "m2_interface_per_m3_bulk_soil",
+  "flux_density_basis": "m3_water_per_m2_interface_per_s",
+  "sign_convention": "positive_macropore_to_matrix",
+  "equation_reference": "Chaif et al. (2025) candidate formulation; synthetic software fixture, not equation reproduction",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "interface_area_source_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "flux_density_source_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "samples": [
+    {
+      "timestamp_utc": "2026-01-01T00:00:00Z",
+      "specific_wetted_interface_area_m2_per_m3_bulk": 10,
+      "macropore_to_matrix_flux_density_m_s": 0.000001,
+      "interface_area_status": "ct_measured",
+      "flux_density_status": "modelled",
+      "interface_area_evidence_ref": "synthetic",
+      "flux_density_evidence_ref": "synthetic"
+    },
+    {
+      "timestamp_utc": "2026-01-01T01:00:00Z",
+      "specific_wetted_interface_area_m2_per_m3_bulk": 10,
+      "macropore_to_matrix_flux_density_m_s": 0.000001,
+      "interface_area_status": "ct_measured",
+      "flux_density_status": "modelled",
+      "interface_area_evidence_ref": "synthetic",
+      "flux_density_evidence_ref": "synthetic"
+    }
+  ]
+}
