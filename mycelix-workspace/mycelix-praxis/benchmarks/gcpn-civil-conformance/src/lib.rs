@@ -276,11 +276,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn frozen_v0_1_fixture_remains_unchanged() {
-        // A 22-field legacy parser is not reimplemented here; this locks the original bytes
-        // into the crate and verifies its defining first-line contract remains present.
-        assert!(FIXTURE_V0_1.starts_with("profile_id,scenario_id,record_authenticity,measurement_state,reported_measurement_state,"));
+    fn frozen_v0_1_fixture_matches_pinned_fingerprint() {
+        fn fnv1a64(bytes: &[u8]) -> u64 {
+            bytes.iter().fold(0xcbf29ce484222325u64, |mut hash, byte| {
+                hash ^= u64::from(*byte);
+                hash.wrapping_mul(0x100000001b3)
+            })
+        }
         assert_eq!(FIXTURE_V0_1.lines().count(), 10);
+        assert_eq!(fnv1a64(FIXTURE_V0_1.as_bytes()), 0x4b6a3d7a1ba31dd1);
     }
 
     #[test]
