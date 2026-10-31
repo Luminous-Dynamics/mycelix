@@ -429,14 +429,19 @@ fn shortest_top_bottom_path(input: &Input, graph: &[Vec<(usize, usize)>], throat
         }
     }
 
+    let mut best_boundary_path = f64::INFINITY;
     while let Some(Reverse(state)) = heap.pop() {
         if state.score > distance[state.node] {
             continue;
         }
+        if state.score >= best_boundary_path {
+            break;
+        }
         let pore = &input.network.pores[state.node];
         if pore.touches_bottom_boundary {
             let bottom_offset = ((input.image.dimensions_voxels_xyz[2] - 1) as f64 - pore.centroid_voxels_xyz[2]) * spacing_z;
-            return Some(state.score + bottom_offset);
+            best_boundary_path = best_boundary_path.min(state.score + bottom_offset);
+            continue;
         }
         for &(neighbor, edge_index) in &graph[state.node] {
             let candidate = state.score + throats[edge_index].length_um;
@@ -446,7 +451,7 @@ fn shortest_top_bottom_path(input: &Input, graph: &[Vec<(usize, usize)>], throat
             }
         }
     }
-    None
+    best_boundary_path.is_finite().then_some(best_boundary_path)
 }
 
 fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
@@ -689,16 +694,16 @@ mod tests {
         );
         let report = evaluate(&input, "f".repeat(64)).unwrap();
         assert_eq!(report.widest_top_bottom_path_bottleneck_radius_um, Some(30.0));
-        assert_eq!(report.shortest_top_bottom_path_length_um, Some(9900.0));
+        assert_eq!(report.shortest_top_bottom_path_length_um, Some(5900.0));
     }
 
     #[test]
     fn reports_pore_volume_percolation_fraction_separately_from_total_porosity() {
         let input = base(
             vec![
-                pore("top", 0.0, 50.0, true, false),
-                pore("bottom", 99.0, 50.0, false, true),
-                pore("dead-end", 40.0, 100.0, false, false),
+                pore("top", 0.0, 50_000_000.0, true, false),
+                pore("bottom", 99.0, 50_000_000.0, false, true),
+                pore("dead-end", 40.0, 100_000_000.0, false, false),
             ],
             vec![throat("path", "top", "bottom", 9900.0, 40.0)],
             vec![0.0],
