@@ -250,6 +250,10 @@ jobs:
             printf 'logical_cpus=%s\n' "$(nproc)"
           } > target/opa-native-bench/reproducibility.txt
 
+      - name: Build indexed-role projection binary outside benchmark timing
+        run: |
+          cargo build --release --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked --bin role_index_projection
+
       - name: Generate and qualify indexed-role Rego projection
         run: |
           set -euo pipefail
@@ -258,7 +262,7 @@ jobs:
           source_sha="$(jq -r '.engine_inputs_sha256' target/scientific-policy-space/manifest.json)"
           test -s "$source_file"
           projection_started="$(date +%s%N)"
-          cargo run --release --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked --bin role_index_projection -- \
+          tools/scientific-policy-metamorphic/target/release/role_index_projection \
             "$source_file" "$source_sha" target/scientific-policy-indexed-role
           projection_elapsed_ns="$(( $(date +%s%N) - projection_started ))"
           indexed_file="target/scientific-policy-indexed-role/indexed-engine-inputs-v0.1.jsonl"
