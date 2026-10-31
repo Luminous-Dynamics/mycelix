@@ -38,11 +38,14 @@ incomplete trace and never claims minimality. The original input must satisfy
 the predicate before shrinking begins. Object traversal and digest
 serialization sort member names explicitly.
 
-Initial tests cover deterministic output, protected identity fields, nested
-resource protection, budget exhaustion, predicate errors and removal of
-irrelevant context/entities. This is a generic JSON reducer: it is not yet
-wired to invoke Cedar/OPA or to minimize the 62,464-case engine corpus. It
-makes no Rust authorization parity or policy-correctness claim.
+Initial tests cover deterministic output, protected identity fields,
+nested resource protection, array-element reduction, exact source/value
+identity separation, mismatched source rejection, duplicate/escaped duplicate
+object keys, invalid UTF-8, unpaired surrogates, hard input/evaluation limits,
+budget exhaustion, predicate errors and numeric convergence. This is a generic
+JSON reducer: it is not yet wired to invoke Cedar/OPA or to minimize the
+62,464-case engine corpus. It makes no Rust authorization parity or
+policy-correctness claim.
 
 ## Run
 
