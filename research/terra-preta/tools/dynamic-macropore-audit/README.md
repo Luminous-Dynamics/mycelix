@@ -34,6 +34,21 @@ The end-to-end replication acceptance criteria are in [HIRMAS_DYNAMIC_MORPHOLOGY
 - The area threshold is recorded from input metadata; select the Hirmas paper's `pi mm2` macropore cutoff only for that reproduction, not as a universal soil threshold.
 - Hirmas coefficients were fitted on one Konza APT soil profile. This tool does not claim transfer to other soils, Terra Preta or South African soils.
 
+## Eq. 37 ambiguity audit
+
+The 2025 article body prints the minus branch
+`alpha_2(theta_m) = alpha_ds * (beta0 - beta1 * d(theta_m)/d_ds)`,
+while Figure 6 and Table 1 support a positive relation. The CLI now emits both
+`structural_alpha_figure_table_plus_per_m` and
+`structural_alpha_printed_eq37_minus_per_m` for each state. The legacy
+`structural_alpha_per_m` remains an alias for the positive figure/table
+branch, explicitly marked provisional in the report.
+
+Do not use either branch for confirmatory predictions until the archived
+author R scripts and published fitted outputs establish which expression was
+actually used. This is a source ambiguity to resolve, not an opportunity to
+select whichever sign gives the better fit.
+
 ## Tests
 
 Synthetic unit tests cover Eq. 8 geometry, dry-state pore width, moisture-induced pore contraction, saturated conductivity units, the positive Figure 6/Table 1 alpha relationship (with the printed Eq. 37 sign discrepancy retained), out-of-range moisture, duplicate timestamps and impossible image geometry. These are equation/software tests, not a replication of the Dryad dataset or independent validation.
