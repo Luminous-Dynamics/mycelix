@@ -1,0 +1,179 @@
+{
+  "benchmark_id": "PRAXIS-NRES-014-SPLIT-CONFORMAL-WASSERSTEIN-RADIUS-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "invalid_input_controls": [
+    {
+      "id": "N014-NEG-001",
+      "condition": "wrong benchmark ID"
+    },
+    {
+      "id": "N014-NEG-002",
+      "condition": "unsupported schema version"
+    },
+    {
+      "id": "N014-NEG-003",
+      "condition": "synthetic status absent"
+    },
+    {
+      "id": "N014-NEG-004",
+      "condition": "public-development-only split absent"
+    },
+    {
+      "id": "N014-NEG-005",
+      "condition": "curriculum activation set true"
+    },
+    {
+      "id": "N014-NEG-006",
+      "condition": "pinned source Git blob SHA differs"
+    },
+    {
+      "id": "N014-NEG-007",
+      "condition": "source benchmark ID or path differs"
+    },
+    {
+      "id": "N014-NEG-008",
+      "condition": "service catalog differs from NRES-009"
+    },
+    {
+      "id": "N014-NEG-009",
+      "condition": "invalid service dimension or state count"
+    },
+    {
+      "id": "N014-NEG-010",
+      "condition": "metric has wrong number of weights"
+    },
+    {
+      "id": "N014-NEG-011",
+      "condition": "metric weight is zero, negative or non-finite"
+    },
+    {
+      "id": "N014-NEG-012",
+      "condition": "alpha is not strictly between zero and one"
+    },
+    {
+      "id": "N014-NEG-013",
+      "condition": "target coverage does not equal 1-alpha"
+    },
+    {
+      "id": "N014-NEG-014",
+      "condition": "block size is zero or inconsistent"
+    },
+    {
+      "id": "N014-NEG-015",
+      "condition": "declared calibration block count differs from array"
+    },
+    {
+      "id": "N014-NEG-016",
+      "condition": "declared development block count differs from array"
+    },
+    {
+      "id": "N014-NEG-017",
+      "condition": "duplicate or empty block ID"
+    },
+    {
+      "id": "N014-NEG-018",
+      "condition": "duplicate or empty source-family ID"
+    },
+    {
+      "id": "N014-NEG-019",
+      "condition": "source-family ID overlaps calibration and development"
+    },
+    {
+      "id": "N014-NEG-020",
+      "condition": "forecast template ID is missing or unknown"
+    },
+    {
+      "id": "N014-NEG-021",
+      "condition": "forecast distribution differs from pinned NRES-009 template"
+    },
+    {
+      "id": "N014-NEG-022",
+      "condition": "forecast does not enumerate every state exactly once"
+    },
+    {
+      "id": "N014-NEG-023",
+      "condition": "forecast probability outside [0,1] or non-finite"
+    },
+    {
+      "id": "N014-NEG-024",
+      "condition": "forecast probability mass differs from one"
+    },
+    {
+      "id": "N014-NEG-025",
+      "condition": "observed outcome count differs from fixed block size"
+    },
+    {
+      "id": "N014-NEG-026",
+      "condition": "observed state mask outside support"
+    },
+    {
+      "id": "N014-NEG-027",
+      "condition": "declared empirical distribution differs from observed counts"
+    },
+    {
+      "id": "N014-NEG-028",
+      "condition": "declared W1 score differs from recomputation"
+    },
+    {
+      "id": "N014-NEG-029",
+      "condition": "calibration sample count or order-statistic rank is altered"
+    },
+    {
+      "id": "N014-NEG-030",
+      "condition": "sorted calibration scores or calibrated radius are altered"
+    },
+    {
+      "id": "N014-NEG-031",
+      "condition": "development diagnostic is altered"
+    },
+    {
+      "id": "N014-NEG-032",
+      "condition": "prohibited aggregate, political, identity or personal-suitability field is present"
+    }
+  ],
+  "boundary_cases": [
+    {
+      "id": "N014-BOUNDARY-001",
+      "condition": "m=19 and alpha=0.10",
+      "expected": "rank=ceil(20*0.90)=18; calibrated radius is the 18th smallest score."
+    },
+    {
+      "id": "N014-BOUNDARY-002",
+      "condition": "m=8 and alpha=0.10",
+      "expected": "rank=ceil(9*0.90)=9>m; no finite conformal radius exists; return +infinity/null rather than silently using the sample maximum."
+    },
+    {
+      "id": "N014-BOUNDARY-003",
+      "condition": "calibration scores contain ties",
+      "expected": "Use the inclusive score<=radius rule and the ordinary conservative order statistic."
+    }
+  ],
+  "round_trip_requirements": [
+    "Preserve source fixture blob SHA metadata, service catalog and state encoding.",
+    "Preserve alpha, target coverage, block size, score definition and metric weights.",
+    "Preserve each calibration and development block identifier and unique source-family ID.",
+    "Preserve each forecast template reference and complete forecast distribution.",
+    "Preserve every observed state mask and recomputed empirical distribution.",
+    "Preserve every block nonconformity score and calibration rank.",
+    "Preserve the unbounded-radius/null state when the conformal rank exceeds calibration sample count.",
+    "Preserve the guarantee boundary and exchangeability assumptions.",
+    "Preserve separate calibration and development splits without moving any block.",
+    "Preserve unknown namespaced extension fields losslessly."
+  ],
+  "conformance_targets": {
+    "valid_fixture_acceptance": "100 percent",
+    "listed_negative_case_rejection": "100 percent",
+    "score_absolute_tolerance": 1e-10,
+    "probability_mass_tolerance": 1e-12,
+    "split_overlap_allowed": 0,
+    "composite_scores_accepted": 0
+  },
+  "limitations": [
+    "Fixture values are synthetic, public-development-only and not independently custodied.",
+    "Block exchangeability is a protocol assumption, not something the evaluator can prove from IDs.",
+    "Coverage is marginal over calibration and the future block; it is not conditional on the realized calibration sample.",
+    "The calibrated score concerns an empirical block distribution, not the unknown population distribution.",
+    "Arbitrary temporal, structural or evidence shift can invalidate exchangeability.",
+    "This module calibrates a radius; it does not train a forecasting model or loss-aware transport metric."
+  ]
+}

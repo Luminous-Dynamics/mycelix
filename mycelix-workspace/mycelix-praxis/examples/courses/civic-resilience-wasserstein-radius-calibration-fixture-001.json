@@ -1,0 +1,3341 @@
+{
+  "benchmark_id": "PRAXIS-NRES-014-SPLIT-CONFORMAL-WASSERSTEIN-RADIUS-001",
+  "schema_version": "1.0.0",
+  "title": "Split-conformal calibration of finite-support Wasserstein ambiguity radii",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "source": {
+    "benchmark_id": "PRAXIS-NRES-009-JOINT-SERVICE-FORECAST-001",
+    "fixture_path": "mycelix-workspace/mycelix-praxis/examples/courses/civic-resilience-joint-service-forecast-fixture-001.json",
+    "fixture_git_blob_sha1": "799799f8a315d4c0f06a43b5dce5ab2e15ccefb5",
+    "service_catalog_note": "The service catalog is checked structurally against the pinned NRES-009 source. The Rust evaluator does not recompute a Git object SHA-1."
+  },
+  "service_catalog": [
+    {
+      "service_id": "electricity_supply",
+      "bit_index": 0,
+      "unit": "binary-breach-indicator"
+    },
+    {
+      "service_id": "communications_access",
+      "bit_index": 1,
+      "unit": "binary-breach-indicator"
+    },
+    {
+      "service_id": "water_service_continuity",
+      "bit_index": 2,
+      "unit": "binary-breach-indicator"
+    },
+    {
+      "service_id": "health_logistics_continuity",
+      "bit_index": 3,
+      "unit": "binary-breach-indicator"
+    }
+  ],
+  "protocol": {
+    "method": "split-conformal block calibration using W1 between each block's empirical joint-state outcome distribution and its frozen candidate forecast distribution",
+    "target_miscoverage": 0.1,
+    "target_marginal_coverage": 0.9,
+    "calibration_unit": "one source-family block; repeated outcomes inside a block form one empirical joint-state distribution and count as one calibration unit",
+    "calibration_block_count": 19,
+    "development_block_count": 12,
+    "block_size": 12,
+    "state_count": 16,
+    "quantile_rule": "k=ceil((m+1)*(1-alpha)); one-based kth order statistic. If k>m the radius is +infinity (serialized as null) and no finite radius is available.",
+    "tie_rule": "Inclusive coverage: score <= calibrated radius.",
+    "score_definition": "score_b=W1(empirical distribution of observed joint states in block b, frozen forecast distribution for block b), using the declared weighted-Hamming ground metric.",
+    "coverage_claim": "If calibration source-family blocks and one future source-family block are exchangeable, conditional on the separately fitted/frozen forecast model and predeclared metric, split-conformal rank calibration gives marginal P(score_future <= radius) >= 1-alpha jointly over calibration blocks and the future block.",
+    "coverage_limit": "This guarantee concerns the future block's empirical outcome distribution relative to its block forecast. It does not establish that the unknown population distribution lies in the ball, provide coverage conditional on the realized calibration sample, or survive arbitrary distribution shift.",
+    "assumptions": [
+      "Forecast model, state encoding, ground metric, block-size rule, miscoverage level and calibration split are frozen before calibration outcomes are inspected.",
+      "Calibration source-family blocks and one future block are exchangeable at the block level.",
+      "Each source family contributes exactly one block to the calibration split.",
+      "Calibration and evaluation blocks use the same predeclared block size and forecast horizon.",
+      "No source family or observation is duplicated across calibration and evaluation splits."
+    ],
+    "ground_metric": {
+      "name": "weighted_hamming",
+      "service_change_weights": [
+        1,
+        1,
+        1.25,
+        1.5
+      ],
+      "definition": "d(s,t)=sum_i w_i*1[s_i!=t_i], with finite strictly-positive weights."
+    },
+    "numerical_method": "Successive-shortest-augmenting-path min-cost flow on a finite bipartite transport graph with residual reverse arcs."
+  },
+  "calibration_blocks": [
+    {
+      "block_id": "CALIBRATION-01",
+      "source_family_id": "synthetic-family-calibration-01",
+      "forecast_template_source_case_id": "JOINT-03",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        1,
+        1,
+        2,
+        3,
+        7,
+        9,
+        6,
+        5,
+        9,
+        12,
+        14,
+        4
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0
+      ],
+      "nonconformity_score_w1": 0.4878396525053075
+    },
+    {
+      "block_id": "CALIBRATION-02",
+      "source_family_id": "synthetic-family-calibration-02",
+      "forecast_template_source_case_id": "JOINT-08",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        2,
+        6,
+        5,
+        4,
+        4,
+        12,
+        14,
+        6,
+        3,
+        11,
+        15,
+        5
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.16666666666666666,
+        0.16666666666666666,
+        0,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.43702154370417856
+    },
+    {
+      "block_id": "CALIBRATION-03",
+      "source_family_id": "synthetic-family-calibration-03",
+      "forecast_template_source_case_id": "JOINT-05",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.014881273602768
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.055738420747586
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.05341598654977
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.19961809140393
+        }
+      ],
+      "observed_breach_masks": [
+        5,
+        13,
+        11,
+        10,
+        1,
+        15,
+        6,
+        11,
+        13,
+        13,
+        0,
+        8
+      ],
+      "evaluator_empirical_distribution": [
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.16666666666666666,
+        0,
+        0.25,
+        0,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.6585761530929339
+    },
+    {
+      "block_id": "CALIBRATION-04",
+      "source_family_id": "synthetic-family-calibration-04",
+      "forecast_template_source_case_id": "JOINT-02",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.046564575850989
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.082290845253903
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.082290845253903
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.174409529049483
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.027682640343413
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.103566039392717
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.027682640343413
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.103566039392717
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.018914670404399
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033387964999555
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.033387964999555
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.070685026141801
+        }
+      ],
+      "observed_breach_masks": [
+        3,
+        15,
+        11,
+        7,
+        11,
+        0,
+        8,
+        6,
+        2,
+        7,
+        1,
+        3
+      ],
+      "evaluator_empirical_distribution": [
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.16666666666666666,
+        0,
+        0,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.08333333333333333,
+        0,
+        0,
+        0.16666666666666666,
+        0,
+        0,
+        0,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.3377302923739336
+    },
+    {
+      "block_id": "CALIBRATION-05",
+      "source_family_id": "synthetic-family-calibration-05",
+      "forecast_template_source_case_id": "JOINT-07",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047138338460932
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028023742215024
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.028023742215024
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.019980244693404
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083304822280095
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.035268904836469
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.083304822280095
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035268904836469
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.169201972923825
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.100473742969529
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100473742969529
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071555997783694
+        }
+      ],
+      "observed_breach_masks": [
+        7,
+        5,
+        15,
+        12,
+        10,
+        4,
+        0,
+        10,
+        13,
+        10,
+        3,
+        8
+      ],
+      "evaluator_empirical_distribution": [
+        0.08333333333333333,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.25,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.6083129962174492
+    },
+    {
+      "block_id": "CALIBRATION-06",
+      "source_family_id": "synthetic-family-calibration-06",
+      "forecast_template_source_case_id": "JOINT-04",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.026452944632976
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.099080589291171
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.082567157742642
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.082567157742642
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.174895949898207
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.015726275584304
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.027775591864625
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.027775591864625
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.058834997545757
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.031941930644319
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.056383539314684
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.056383539314684
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.119368519479363
+        }
+      ],
+      "observed_breach_masks": [
+        6,
+        7,
+        3,
+        13,
+        3,
+        4,
+        6,
+        7,
+        3,
+        6,
+        3,
+        6
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.3333333333333333,
+        0.08333333333333333,
+        0,
+        0.3333333333333333,
+        0.16666666666666666,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0
+      ],
+      "nonconformity_score_w1": 0.991734066712051
+    },
+    {
+      "block_id": "CALIBRATION-07",
+      "source_family_id": "synthetic-family-calibration-07",
+      "forecast_template_source_case_id": "JOINT-01",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.147524506561722
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.062530327449278
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.037131103966309
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.037131103966309
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.059924897138891
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.03558397463438
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.03558397463438
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.025342410214029
+        }
+      ],
+      "observed_breach_masks": [
+        5,
+        10,
+        3,
+        14,
+        0,
+        4,
+        10,
+        6,
+        10,
+        3,
+        1,
+        4
+      ],
+      "evaluator_empirical_distribution": [
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0.25,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0
+      ],
+      "nonconformity_score_w1": 0.6220618627600472
+    },
+    {
+      "block_id": "CALIBRATION-08",
+      "source_family_id": "synthetic-family-calibration-08",
+      "forecast_template_source_case_id": "JOINT-06",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.04738367397412
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156044
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        10,
+        2,
+        10,
+        2,
+        12,
+        10,
+        2,
+        10,
+        6,
+        7,
+        6,
+        9
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0.25,
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.3333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0
+      ],
+      "nonconformity_score_w1": 0.766818865454873
+    },
+    {
+      "block_id": "CALIBRATION-09",
+      "source_family_id": "synthetic-family-calibration-09",
+      "forecast_template_source_case_id": "JOINT-03",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        8,
+        5,
+        12,
+        3,
+        6,
+        9,
+        7,
+        7,
+        12,
+        4,
+        5,
+        7
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.25,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0,
+        0.16666666666666666,
+        0,
+        0,
+        0
+      ],
+      "nonconformity_score_w1": 0.5940778463144225
+    },
+    {
+      "block_id": "CALIBRATION-10",
+      "source_family_id": "synthetic-family-calibration-10",
+      "forecast_template_source_case_id": "JOINT-08",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        10,
+        9,
+        15,
+        6,
+        4,
+        12,
+        14,
+        7,
+        5,
+        3,
+        6,
+        7
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.16666666666666666,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.4266740597633199
+    },
+    {
+      "block_id": "CALIBRATION-11",
+      "source_family_id": "synthetic-family-calibration-11",
+      "forecast_template_source_case_id": "JOINT-05",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.014881273602768
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.055738420747586
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.05341598654977
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.19961809140393
+        }
+      ],
+      "observed_breach_masks": [
+        14,
+        15,
+        5,
+        11,
+        15,
+        15,
+        7,
+        12,
+        14,
+        3,
+        10,
+        12
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.16666666666666666,
+        0,
+        0.16666666666666666,
+        0.25
+      ],
+      "nonconformity_score_w1": 0.4927345316900845
+    },
+    {
+      "block_id": "CALIBRATION-12",
+      "source_family_id": "synthetic-family-calibration-12",
+      "forecast_template_source_case_id": "JOINT-02",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.046564575850989
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.082290845253903
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.082290845253903
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.174409529049483
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.027682640343413
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.103566039392717
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.027682640343413
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.103566039392717
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.018914670404399
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033387964999555
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.033387964999555
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.070685026141801
+        }
+      ],
+      "observed_breach_masks": [
+        11,
+        3,
+        5,
+        8,
+        11,
+        0,
+        9,
+        8,
+        3,
+        1,
+        7,
+        7
+      ],
+      "evaluator_empirical_distribution": [
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0.16666666666666666,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0,
+        0,
+        0,
+        0
+      ],
+      "nonconformity_score_w1": 0.5218277161386614
+    },
+    {
+      "block_id": "CALIBRATION-13",
+      "source_family_id": "synthetic-family-calibration-13",
+      "forecast_template_source_case_id": "JOINT-07",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047138338460932
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028023742215024
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.028023742215024
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.019980244693404
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083304822280095
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.035268904836469
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.083304822280095
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035268904836469
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.169201972923825
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.100473742969529
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100473742969529
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071555997783694
+        }
+      ],
+      "observed_breach_masks": [
+        14,
+        10,
+        12,
+        13,
+        10,
+        4,
+        1,
+        12,
+        14,
+        15,
+        11,
+        12
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.25,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.561215324223441
+    },
+    {
+      "block_id": "CALIBRATION-14",
+      "source_family_id": "synthetic-family-calibration-14",
+      "forecast_template_source_case_id": "JOINT-04",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.026452944632976
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.099080589291171
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.082567157742642
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.082567157742642
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.174895949898207
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.015726275584304
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.027775591864625
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.027775591864625
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.058834997545757
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.031941930644319
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.056383539314684
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.056383539314684
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.119368519479363
+        }
+      ],
+      "observed_breach_masks": [
+        15,
+        13,
+        13,
+        14,
+        4,
+        4,
+        6,
+        9,
+        5,
+        15,
+        7,
+        9
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.16666666666666666
+      ],
+      "nonconformity_score_w1": 0.8567758644362073
+    },
+    {
+      "block_id": "CALIBRATION-15",
+      "source_family_id": "synthetic-family-calibration-15",
+      "forecast_template_source_case_id": "JOINT-01",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.147524506561722
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.062530327449278
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.037131103966309
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.037131103966309
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.059924897138891
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.03558397463438
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.03558397463438
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.025342410214029
+        }
+      ],
+      "observed_breach_masks": [
+        0,
+        0,
+        0,
+        0,
+        15,
+        3,
+        11,
+        8,
+        12,
+        12,
+        8,
+        8
+      ],
+      "evaluator_empirical_distribution": [
+        0.3333333333333333,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        0,
+        0,
+        0.08333333333333333,
+        0.16666666666666666,
+        0,
+        0,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.9211372893629722
+    },
+    {
+      "block_id": "CALIBRATION-16",
+      "source_family_id": "synthetic-family-calibration-16",
+      "forecast_template_source_case_id": "JOINT-06",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.04738367397412
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156044
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        2,
+        8,
+        4,
+        3,
+        11,
+        10,
+        3,
+        11,
+        8,
+        13,
+        11,
+        11
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0,
+        0.08333333333333333,
+        0.3333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0
+      ],
+      "nonconformity_score_w1": 0.731068685623243
+    },
+    {
+      "block_id": "CALIBRATION-17",
+      "source_family_id": "synthetic-family-calibration-17",
+      "forecast_template_source_case_id": "JOINT-03",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        3,
+        9,
+        5,
+        4,
+        6,
+        8,
+        7,
+        10,
+        14,
+        11,
+        12,
+        11
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0
+      ],
+      "nonconformity_score_w1": 0.8093590956357295
+    },
+    {
+      "block_id": "CALIBRATION-18",
+      "source_family_id": "synthetic-family-calibration-18",
+      "forecast_template_source_case_id": "JOINT-08",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        3,
+        14,
+        8,
+        6,
+        3,
+        11,
+        15,
+        10,
+        6,
+        10,
+        13,
+        12
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0,
+        0,
+        0.16666666666666666,
+        0,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.7079765006273988
+    },
+    {
+      "block_id": "CALIBRATION-19",
+      "source_family_id": "synthetic-family-calibration-19",
+      "forecast_template_source_case_id": "JOINT-05",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.014881273602768
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.055738420747586
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.05341598654977
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.19961809140393
+        }
+      ],
+      "observed_breach_masks": [
+        7,
+        6,
+        15,
+        11,
+        15,
+        15,
+        8,
+        14,
+        15,
+        12,
+        15,
+        14
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0.4166666666666667
+      ],
+      "nonconformity_score_w1": 0.7288730127398655
+    }
+  ],
+  "development_evaluation_blocks": [
+    {
+      "block_id": "DEVELOPMENT-24",
+      "source_family_id": "synthetic-family-development-24",
+      "forecast_template_source_case_id": "JOINT-06",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.04738367397412
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156044
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        11,
+        0,
+        15,
+        11,
+        14,
+        9,
+        5,
+        15,
+        15,
+        12,
+        8,
+        15
+      ],
+      "evaluator_empirical_distribution": [
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.3333333333333333
+      ],
+      "nonconformity_score_w1": 0.9150771798853111
+    },
+    {
+      "block_id": "DEVELOPMENT-25",
+      "source_family_id": "synthetic-family-development-25",
+      "forecast_template_source_case_id": "JOINT-03",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        4,
+        5,
+        12,
+        5,
+        4,
+        6,
+        5,
+        12,
+        3,
+        4,
+        8,
+        9
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.25,
+        0.25,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0,
+        0.16666666666666666,
+        0,
+        0,
+        0
+      ],
+      "nonconformity_score_w1": 0.8265038625269441
+    },
+    {
+      "block_id": "DEVELOPMENT-26",
+      "source_family_id": "synthetic-family-development-26",
+      "forecast_template_source_case_id": "JOINT-08",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        13,
+        9,
+        7,
+        1,
+        7,
+        6,
+        6,
+        7,
+        6,
+        12,
+        14,
+        5
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.25,
+        0.25,
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0
+      ],
+      "nonconformity_score_w1": 0.6734592005504965
+    },
+    {
+      "block_id": "DEVELOPMENT-27",
+      "source_family_id": "synthetic-family-development-27",
+      "forecast_template_source_case_id": "JOINT-05",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.014881273602768
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.055738420747586
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.05341598654977
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.19961809140393
+        }
+      ],
+      "observed_breach_masks": [
+        9,
+        15,
+        8,
+        14,
+        15,
+        11,
+        10,
+        7,
+        12,
+        7,
+        3,
+        1
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.16666666666666666
+      ],
+      "nonconformity_score_w1": 0.4451960029788318
+    },
+    {
+      "block_id": "DEVELOPMENT-28",
+      "source_family_id": "synthetic-family-development-28",
+      "forecast_template_source_case_id": "JOINT-02",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.046564575850989
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.082290845253903
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.082290845253903
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.174409529049483
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.027682640343413
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.103566039392717
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.027682640343413
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.048892804643538
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.103566039392717
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.018914670404399
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033387964999555
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.033387964999555
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.070685026141801
+        }
+      ],
+      "observed_breach_masks": [
+        15,
+        3,
+        2,
+        5,
+        3,
+        6,
+        7,
+        1,
+        13,
+        12,
+        3,
+        10
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.25,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.41157540482680594
+    },
+    {
+      "block_id": "DEVELOPMENT-29",
+      "source_family_id": "synthetic-family-development-29",
+      "forecast_template_source_case_id": "JOINT-07",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047138338460932
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028023742215024
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.028023742215024
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.019980244693404
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083304822280095
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.035268904836469
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.083304822280095
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.049495255383978
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035268904836469
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.169201972923825
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.100473742969529
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100473742969529
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071555997783694
+        }
+      ],
+      "observed_breach_masks": [
+        12,
+        12,
+        15,
+        4,
+        12,
+        10,
+        12,
+        14,
+        3,
+        8,
+        12,
+        9
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.4166666666666667,
+        0,
+        0.08333333333333333,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.6370269701384327
+    },
+    {
+      "block_id": "DEVELOPMENT-30",
+      "source_family_id": "synthetic-family-development-30",
+      "forecast_template_source_case_id": "JOINT-04",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.026452944632976
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.099080589291171
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.046748738360001
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.082567157742642
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.082567157742642
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.174895949898207
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.015726275584304
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.027775591864625
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.027775591864625
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.058834997545757
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.031941930644319
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.056383539314684
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.056383539314684
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.119368519479363
+        }
+      ],
+      "observed_breach_masks": [
+        3,
+        15,
+        13,
+        13,
+        15,
+        7,
+        11,
+        9,
+        5,
+        15,
+        13,
+        2
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0,
+        0.25,
+        0,
+        0.25
+      ],
+      "nonconformity_score_w1": 0.8349802125741124
+    },
+    {
+      "block_id": "DEVELOPMENT-31",
+      "source_family_id": "synthetic-family-development-31",
+      "forecast_template_source_case_id": "JOINT-01",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.147524506561722
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.062530327449278
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.037131103966309
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.087703319150944
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.052108606207732
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.037131103966309
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.059924897138891
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.03558397463438
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.03558397463438
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.025342410214029
+        }
+      ],
+      "observed_breach_masks": [
+        10,
+        1,
+        8,
+        5,
+        2,
+        6,
+        10,
+        4,
+        6,
+        4,
+        0,
+        11
+      ],
+      "evaluator_empirical_distribution": [
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.16666666666666666,
+        0,
+        0.08333333333333333,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0
+      ],
+      "nonconformity_score_w1": 0.6279093008734694
+    },
+    {
+      "block_id": "DEVELOPMENT-32",
+      "source_family_id": "synthetic-family-development-32",
+      "forecast_template_source_case_id": "JOINT-06",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.04738367397412
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156044
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        7,
+        10,
+        8,
+        3,
+        11,
+        10,
+        14,
+        4,
+        12,
+        15,
+        5,
+        9
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.4027995327664021
+    },
+    {
+      "block_id": "DEVELOPMENT-33",
+      "source_family_id": "synthetic-family-development-33",
+      "forecast_template_source_case_id": "JOINT-03",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        14,
+        13,
+        3,
+        13,
+        15,
+        7,
+        15,
+        0,
+        0,
+        5,
+        6,
+        3
+      ],
+      "evaluator_empirical_distribution": [
+        0.16666666666666666,
+        0,
+        0,
+        0.16666666666666666,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.16666666666666666
+      ],
+      "nonconformity_score_w1": 0.6292517124629946
+    },
+    {
+      "block_id": "DEVELOPMENT-34",
+      "source_family_id": "synthetic-family-development-34",
+      "forecast_template_source_case_id": "JOINT-08",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.047383673974119
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.059703429207391
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.083738389350815
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.147897912225997
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.105387826597611
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.028169594177614
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.016736861321138
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.049752857672825
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.035452464867436
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.057215786323749
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.033975278831293
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.100996667156043
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.071928417092713
+        }
+      ],
+      "observed_breach_masks": [
+        7,
+        3,
+        1,
+        7,
+        5,
+        7,
+        0,
+        13,
+        4,
+        15,
+        11,
+        14
+      ],
+      "evaluator_empirical_distribution": [
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333,
+        0,
+        0.25,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0.08333333333333333,
+        0.08333333333333333,
+        0.08333333333333333
+      ],
+      "nonconformity_score_w1": 0.5314767065032145
+    },
+    {
+      "block_id": "DEVELOPMENT-35",
+      "source_family_id": "synthetic-family-development-35",
+      "forecast_template_source_case_id": "JOINT-05",
+      "forecast_distribution": [
+        {
+          "state_mask": 0,
+          "probability": 0.014881273602768
+        },
+        {
+          "state_mask": 1,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 2,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 3,
+          "probability": 0.055738420747586
+        },
+        {
+          "state_mask": 4,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 5,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 6,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 7,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 8,
+          "probability": 0.026298802487651
+        },
+        {
+          "state_mask": 9,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 10,
+          "probability": 0.046448683956322
+        },
+        {
+          "state_mask": 11,
+          "probability": 0.098388837937036
+        },
+        {
+          "state_mask": 12,
+          "probability": 0.05341598654977
+        },
+        {
+          "state_mask": 13,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 14,
+          "probability": 0.094289303022993
+        },
+        {
+          "state_mask": 15,
+          "probability": 0.19961809140393
+        }
+      ],
+      "observed_breach_masks": [
+        3,
+        10,
+        15,
+        7,
+        13,
+        12,
+        3,
+        12,
+        10,
+        11,
+        15,
+        12
+      ],
+      "evaluator_empirical_distribution": [
+        0,
+        0,
+        0,
+        0.16666666666666666,
+        0,
+        0,
+        0,
+        0.08333333333333333,
+        0,
+        0,
+        0.16666666666666666,
+        0.08333333333333333,
+        0.25,
+        0.08333333333333333,
+        0,
+        0.16666666666666666
+      ],
+      "nonconformity_score_w1": 0.6792762358710599
+    }
+  ],
+  "expected_calibration": {
+    "score_count": 19,
+    "target_marginal_coverage": 0.9,
+    "one_based_order_statistic_rank": 18,
+    "sorted_scores": [
+      0.3377302923739336,
+      0.4266740597633199,
+      0.43702154370417856,
+      0.4878396525053075,
+      0.4927345316900845,
+      0.5218277161386614,
+      0.561215324223441,
+      0.5940778463144225,
+      0.6083129962174492,
+      0.6220618627600472,
+      0.6585761530929339,
+      0.7079765006273988,
+      0.7288730127398655,
+      0.731068685623243,
+      0.766818865454873,
+      0.8093590956357295,
+      0.8567758644362073,
+      0.9211372893629722,
+      0.991734066712051
+    ],
+    "calibrated_radius": 0.9211372893629722,
+    "radius_is_finite": true
+  },
+  "expected_development_diagnostic": {
+    "evaluation_blocks": 12,
+    "covered_blocks": 12,
+    "empirical_coverage": 1,
+    "interpretation": "Public synthetic development diagnostic only; not a confirmatory coverage estimate."
+  },
+  "interpretation_guardrails": [
+    "All blocks, forecasts, outcomes and scores are fictional public-development inputs.",
+    "NRES-009 distributions are used as forecast templates only; synthetic block outcomes are separately generated and are not real service outcomes.",
+    "Synthetic source-family IDs demonstrate contract checks, not independent custody.",
+    "The split-conformal statement requires block exchangeability and applies only to the declared block empirical-distribution score.",
+    "No population-law coverage, calibration-conditional guarantee or shift-invariant guarantee is claimed.",
+    "The calibrated radius is not evidence of operational coverage.",
+    "No decision optimizer, learned loss-aware transport metric or production policy is certified.",
+    "No political beliefs, identity, loyalty, personal suitability or natural-person attributes are collected or scored."
+  ]
+}
