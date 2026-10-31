@@ -583,7 +583,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             "The audit uses only directly observed samples from usable sensors; missing and interpolated observations are excluded rather than imputed.".to_owned(),
             "Semivariograms are descriptive and require adequate spatial layout; pair counts are emitted and no variogram model is fitted.".to_owned(),
             "Spatial heterogeneity can reflect texture, roots, lateral flow, sensor support, calibration or drift; it is not a preferential-flow certificate.".to_owned(),
-            "Semivariance has units of (m3/m3)^2; field name uses the equivalent m6/m6 dimensional notation.".to_owned(),
+            "Semivariance is expressed in squared volumetric water-content units, (m³/m³)².".to_owned(),
             "The sensor roster defines the sampled support. Results must not be extrapolated to unobserved space without a declared spatial model.".to_owned(),
         ],
     })
@@ -615,7 +615,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     output.write_all(b"\n")?;
     output.sync_all()?;
     println!(
-        "spatial audit complete: {} sensors; {} depths; {} time-depth summaries; input_sha256={}",
+        "spatial audit complete: {} sensors; {} depth groups; {} time-depth summaries; input_sha256={}",
         report.sensor_count,
         report.distinct_depth_group_count,
         report.time_depth_summary_count,
@@ -746,7 +746,7 @@ mod tests {
             assert_eq!(left.semivariogram.len(), right.semivariogram.len());
             for (a, b) in left.semivariogram.iter().zip(&right.semivariogram) {
                 assert_eq!(a.pair_count, b.pair_count);
-                assert!((a.semivariance_m6_m6.unwrap_or(0.0) - b.semivariance_m6_m6.unwrap_or(0.0)).abs() < 1e-12);
+                assert!((a.semivariance_theta_squared.unwrap_or(0.0) - b.semivariance_theta_squared.unwrap_or(0.0)).abs() < 1e-12);
             }
         }
     }
@@ -766,7 +766,7 @@ mod tests {
         for (left, right) in first.summaries.iter().zip(&second.summaries) {
             for (a, b) in left.semivariogram.iter().zip(&right.semivariogram) {
                 assert_eq!(a.pair_count, b.pair_count);
-                assert!((a.semivariance_m6_m6.unwrap_or(0.0) - b.semivariance_m6_m6.unwrap_or(0.0)).abs() < 1e-12);
+                assert!((a.semivariance_theta_squared.unwrap_or(0.0) - b.semivariance_theta_squared.unwrap_or(0.0)).abs() < 1e-12);
             }
         }
     }
