@@ -787,4 +787,25 @@ mod tests {
         }]);
         assert!(!validator.is_valid(&registry));
     }
+
+    #[test]
+    fn rejects_numeric_limits_before_threshold_review() {
+        let schema: Value = serde_json::from_str(SCHEMA_FIXTURES[14].1).unwrap();
+        let validator = jsonschema::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .unwrap();
+        let mut registry: Value = serde_json::from_str(SERVICE_PROFILE_REGISTRY).unwrap();
+        registry["profiles"][0]["constraints"] = json!([{
+            "constraint_id": "infiltration-upper",
+            "endpoint": "infiltration",
+            "unit": "mm/h",
+            "lower_bound": null,
+            "upper_bound": 25.0,
+            "hard_constraint": true,
+            "threshold_basis": "expert_approved",
+            "protocol_uri": null
+        }]);
+        assert!(!validator.is_valid(&registry));
+    }
 }
