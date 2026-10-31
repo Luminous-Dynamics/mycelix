@@ -272,18 +272,10 @@ fn extract_response(
     threshold: f64,
 ) -> Response {
     if sensor.condition != SensorCondition::Usable {
-        let reason = match sensor.condition {
-            SensorCondition::Saturated => "sensor_condition_saturated",
-            SensorCondition::Frozen => "sensor_condition_frozen",
-            SensorCondition::SensorFault => "sensor_condition_fault",
-            SensorCondition::Unknown => "sensor_condition_unknown",
-            SensorCondition::Usable => unreachable!(),
-        };
         return Response {
             status: "indeterminate",
             onset: None,
             lower_bound: None,
-            reason,
         };
     }
 
@@ -338,7 +330,6 @@ fn extract_response(
                 status: "indeterminate",
                 onset: None,
                 lower_bound: None,
-                reason: "missing_sample_before_threshold_crossing",
             };
         };
         if theta - baseline_theta >= threshold {
@@ -373,7 +364,7 @@ fn evaluate(
     let mut output_sensors = Vec::with_capacity(sensors.len());
 
     for sensor in &sensors {
-        let response = extract_response(sensor, event_start, threshold);
+        let response = extract_response(sensor, event_start.clone(), threshold);
         match response.status {
             "detected" => detected += 1,
             "not_detected" => not_detected += 1,
