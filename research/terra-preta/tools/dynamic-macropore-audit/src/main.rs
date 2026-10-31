@@ -81,6 +81,8 @@ struct TimePoint {
     macropore_saturated_conductivity_m_s: f64,
     whole_soil_transient_saturated_conductivity_m_s: f64,
     structural_alpha_per_m: Option<f64>,
+    structural_alpha_figure_table_plus_per_m: Option<f64>,
+    structural_alpha_printed_eq37_minus_per_m: Option<f64>,
     structural_n: Option<f64>,
 }
 
@@ -92,6 +94,7 @@ struct Report {
     profile_id: String,
     horizon_label: String,
     equations: Vec<&'static str>,
+    structural_alpha_relation_selection: &'static str,
     image_geometry: ImageGeometryReport,
     soil_properties: SoilProperties,
     fluid_properties: FluidProperties,
@@ -432,14 +435,17 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             return Err("whole-soil transient saturated conductivity became invalid".to_owned());
         }
 
-        let (alpha2, n2) = if let Some(parameters) = &input.structural_retention {
-            let width_ratio = macropore_width / dry_mean_macropore_width_mm;
-            let alpha = parameters.alpha_dry_per_m
-                * (parameters.beta0 + parameters.beta1 * width_ratio);
-            (Some(alpha), Some(parameters.n_dry))
-        } else {
-            (None, None)
-        };
+        let (alpha2, alpha2_plus, alpha2_minus, n2) =
+            if let Some(parameters) = &input.structural_retention {
+                let width_ratio = macropore_width / dry_mean_macropore_width_mm;
+                let alpha_plus = parameters.alpha_dry_per_m
+                    * (parameters.beta0 + parameters.beta1 * width_ratio);
+                let alpha_minus = parameters.alpha_dry_per_m
+                    * (parameters.beta0 - parameters.beta1 * width_ratio);
+                (Some(alpha_plus), Some(alpha_plus), Some(alpha_minus), Some(parameters.n_dry))
+            } else {
+                (None, None, None, None)
+            };
 
         time_points.push(TimePoint {
             timestamp_utc: observation.timestamp_utc.clone(),
@@ -452,6 +458,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             macropore_saturated_conductivity_m_s: ksp,
             whole_soil_transient_saturated_conductivity_m_s: ks,
             structural_alpha_per_m: alpha2,
+            structural_alpha_figure_table_plus_per_m: alpha2_plus,
+            structural_alpha_printed_eq37_minus_per_m: alpha2_minus,
             structural_n: n2,
         });
     }
@@ -467,8 +475,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             "Hirmas et al. (2025) Eqs. 9-11: rho(theta_m), rho_s, and dynamic COLE",
             "Hirmas et al. (2025) Eqs. 13-16: capped structural swelling and d(theta_m)",
             "Hirmas et al. (2025) Eqs. 20-23: K_sp, K_s, f_p and R_p",
-            "Hirmas et al. (2025) Figure 6/Table 1 plotted relation: alpha_2/alpha_ds = beta_0 + beta_1(d/d_ds), when supplied; the printed body Eq. 37 has a minus sign and is inconsistent",
+            "Hirmas et al. (2025) Eq. 37 printed minus branch and Figure 6/Table 1 positive branch are both reported when structural_retention is supplied",
         ],
+        structural_alpha_relation_selection: "figure_table_positive_branch_provisional; both branches reported for sensitivity; author R-script parity required",
         image_geometry: ImageGeometryReport {
             image_resolution_um_per_pixel: image.image_resolution_um_per_pixel,
             cross_section_area_mm2: image.cross_section_area_mm2,
@@ -501,7 +510,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             "The model is not the full unsaturated conductivity function in Hirmas et al. Eq. 38 and does not solve water transport.".to_owned(),
             "The matrix saturated conductivity is supplied as an input, not predicted from these image data.".to_owned(),
             "The original paper's fitted coefficients belong to one Konza APT soil profile; no direct transfer to Terra Preta, African or South African soils is claimed.".to_owned(),
-            "The paper body prints a minus sign in Eq. 37, while Figure 6 and Table 1 show a positive near-1:1 relation with positive beta_1. v0.1 follows the figure/table relationship provisionally; author-code parity is required to resolve this publication inconsistency.".to_owned(),
+            "The paper body prints a minus sign in Eq. 37, while Figure 6 and Table 1 show a positive near-1:1 relation with positive beta_1. Both candidate alpha_2 branches are emitted; the positive figure/table branch remains the provisional selected value until author R-script parity resolves the inconsistency.".to_owned(),
             "v0.1 uses a representative average pore width and aggregate projected area/perimeter in Eqs. 22-23. It does not yet implement the per-pore width and area scaling of Eqs. 35-36; this is a coarse average-geometry adaptation, not a full pore-resolved reproduction.".to_owned(),
             "Image object-area threshold and measured scale are recorded as supplied. Verify them against the exact source image/export.".to_owned(),
         ],
@@ -638,12 +647,23 @@ mod tests {
     }
 
     #[test]
-    fn alpha_two_follows_positive_figure_table_relationship_despite_printed_eq37_sign() {
+    fn reports_both_printed_eq37_and_figure_table_alpha_branches() {
         let report = evaluate(&base(), "e".repeat(64)).unwrap();
-        assert!(report.time_points[0].structural_alpha_per_m.unwrap()
-            > report.time_points[2].structural_alpha_per_m.unwrap());
+        assert_eq!(
+            report.structural_alpha_relation_selection,
+            "figure_table_positive_branch_provisional; both branches reported for sensitivity; author R-script parity required"
+        );
+        let first = &report.time_points[0];
+        assert_eq!(
+            first.structural_alpha_per_m,
+            first.structural_alpha_figure_table_plus_per_m
+        );
+        assert!(first.structural_alpha_figure_table_plus_per_m.unwrap()
+            > first.structural_alpha_printed_eq37_minus_per_m.unwrap());
         assert!(report.time_points.iter().all(|point| {
             point.structural_n == Some(2.78)
+                && point.structural_alpha_figure_table_plus_per_m.is_some()
+                && point.structural_alpha_printed_eq37_minus_per_m.is_some()
         }));
     }
 
