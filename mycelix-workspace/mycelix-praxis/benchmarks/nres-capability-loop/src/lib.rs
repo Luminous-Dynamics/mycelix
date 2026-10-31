@@ -33,6 +33,9 @@ pub use wasserstein::evaluate_wasserstein_joint_decisions;
 pub mod radius_calibration;
 pub use radius_calibration::evaluate_wasserstein_radius_calibration;
 
+pub mod bulk_tail;
+pub use bulk_tail::evaluate_bulk_tail_credal;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn str_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
