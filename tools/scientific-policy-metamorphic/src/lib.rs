@@ -340,7 +340,7 @@ fn append_irrelevant_actor(case: &mut Value) -> Result<(), MetamorphicError> {
 }
 
 fn remove_contributor_from_claim_proposed(case: &mut Value) -> Result<(), MetamorphicError> {
-    let (action, resource) = {
+    let (action, principal, resource) = {
         let request = case
             .get("cedar")
             .and_then(|cedar| cedar.get("request"))
@@ -348,6 +348,7 @@ fn remove_contributor_from_claim_proposed(case: &mut Value) -> Result<(), Metamo
             .ok_or_else(|| error("Cedar request must be an object"))?;
         (
             required_string_value(request, "action")?.to_owned(),
+            required_string_value(request, "principal")?.to_owned(),
             required_string_value(request, "resource")?.to_owned(),
         )
     };
@@ -386,16 +387,19 @@ fn remove_contributor_from_claim_proposed(case: &mut Value) -> Result<(), Metamo
                 .ok_or_else(|| error("Cedar entity is missing uid"))?;
             let entity_type = uid.get("type").and_then(Value::as_str).unwrap_or_default();
             let entity_id = uid.get("id").and_then(Value::as_str).unwrap_or_default();
-            if entity_type == "Mycelix::Actor" {
+            let quoted_id = serde_json::to_string(entity_id)
+                .map_err(|serialize_error| error(format!("serialize Cedar entity UID: {serialize_error}")))?;
+            let qualified_uid = format!("{entity_type}::{quoted_id}");
+            if entity_type == "Mycelix::Actor" && qualified_uid == principal {
                 let roles = entity
                     .get("attrs")
                     .and_then(|attrs| attrs.get("roles"))
                     .and_then(Value::as_array)
-                    .ok_or_else(|| error("Cedar Actor roles must be an array"))?;
+                    .ok_or_else(|| error("referenced Cedar Actor roles must be an array"))?;
                 if roles.as_slice() == [Value::String("contributor".to_owned())] {
                     actor_index = Some(index);
                 }
-            } else if entity_type == "Mycelix::Claim" && entity_id == resource {
+            } else if entity_type == "Mycelix::Claim" && qualified_uid == resource {
                 absent_claim = entity
                     .get("attrs")
                     .and_then(|attrs| attrs.get("exists"))
