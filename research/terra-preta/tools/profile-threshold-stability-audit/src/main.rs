@@ -37,7 +37,6 @@ struct ProfileReport {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct PairResult {
     shallow_sensor_id: String,
     shallow_depth_cm: f64,
