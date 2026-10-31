@@ -41,6 +41,8 @@ Dataset: https://zenodo.org/records/3457960
 
 The measured tracer samples are irregularly spaced. Reconstructing breakthrough mass therefore requires explicit treatment of sample timing, measured drainage, interpolation uncertainty, detection limits, and recovery. Concentration alone is not exported mass.
 
+The Zenodo landing page lists these publisher MD5 values: additional_data.dat = 5056e4736a639c1d4abdef52b5514276; hydrologic_data.dat = a53c9a41b604d3b35ac51ba271c35970; tracer_data.dat = 5a858e4a8383506a3beb692844a1a541. These are publisher-provided values, not locally recomputed checksums. The current runtime could inspect the publisher-served text but could not resolve Zenodo for byte acquisition; therefore no local file, SHA-256 digest, or successful acquisition receipt is claimed. The source file header declares UTC+1 wall time and also supplies a UTC epoch; the parser must validate their conversion and daylight-saving assumptions. The tracer file has 215 lines including its header (214 sample rows) and observations continue through 2016-08-07, while the hourly hydrologic series extends to 2016-09-01.
+
 ### 2.3 Stable-isotope profile evidence
 
 Pyschik and Weiler (2026), HESS 30, 485–501, DOI 10.5194/hess-30-485-2026, describe stable-water-isotope depth profiles across four catchments, with approximately 100 soil cores per catchment, cores 1–3 m deep, and sampling at 10–20 cm depth intervals. The paper uses deviations from seasonal matrix-infiltration reference profiles as indicators of vertical or lateral preferential-flow influence.
