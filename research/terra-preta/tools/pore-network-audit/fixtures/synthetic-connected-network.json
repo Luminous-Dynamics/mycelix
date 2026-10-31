@@ -1,0 +1,94 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "SYNTHETIC",
+  "site_id": "SYN1",
+  "sample_id": "CORE-01",
+  "horizon_id": "0-10cm",
+  "image": {
+    "dimensions_voxels_xyz": [
+      10,
+      10,
+      100
+    ],
+    "voxel_spacing_um_xyz": [
+      100,
+      100,
+      100
+    ],
+    "source_image_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "segmentation": {
+    "method": "synthetic labelled volume",
+    "threshold_description": "known truth",
+    "software_name": "synthetic",
+    "software_version": "0.1",
+    "output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "network": {
+    "extractor": "synthetic graph",
+    "extractor_version": "0.1",
+    "parameter_summary": "explicit test network",
+    "source_network_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "pores": [
+      {
+        "pore_id": "top",
+        "centroid_voxels_xyz": [
+          5,
+          5,
+          0
+        ],
+        "volume_um3": 100,
+        "inscribed_radius_um": 20,
+        "touches_top_boundary": true,
+        "touches_bottom_boundary": false
+      },
+      {
+        "pore_id": "mid",
+        "centroid_voxels_xyz": [
+          5,
+          5,
+          50
+        ],
+        "volume_um3": 100,
+        "inscribed_radius_um": 20,
+        "touches_top_boundary": false,
+        "touches_bottom_boundary": false
+      },
+      {
+        "pore_id": "bottom",
+        "centroid_voxels_xyz": [
+          5,
+          5,
+          99
+        ],
+        "volume_um3": 100,
+        "inscribed_radius_um": 20,
+        "touches_top_boundary": false,
+        "touches_bottom_boundary": true
+      }
+    ],
+    "throats": [
+      {
+        "throat_id": "t1",
+        "pore_a": "top",
+        "pore_b": "mid",
+        "total_length_um": 5000,
+        "direct_length_um": 5000,
+        "inscribed_radius_um": 80
+      },
+      {
+        "throat_id": "t2",
+        "pore_a": "mid",
+        "pore_b": "bottom",
+        "total_length_um": 4900,
+        "direct_length_um": 4900,
+        "inscribed_radius_um": 50
+      }
+    ]
+  },
+  "threshold_sweep_um": [
+    0,
+    40,
+    60
+  ]
+}
