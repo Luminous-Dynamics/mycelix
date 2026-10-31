@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub const TOOL_ID: &str = "mycelix-scientific-policy-metamorphic";
 pub const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -163,7 +163,10 @@ fn validate_generator_manifest(manifest: &Value) -> Result<(), MetamorphicError>
     Ok(())
 }
 
-fn validate_case_shape(case: &Value) -> Result<(), MetamorphicError> {
+fn validate_case_shape(
+    case: &Value,
+    allow_irrelevant_actor: bool,
+) -> Result<(), MetamorphicError> {
     let case_id = required_string(case, "case_id")?;
     let cedar = case
         .get("cedar")
@@ -196,9 +199,10 @@ fn validate_case_shape(case: &Value) -> Result<(), MetamorphicError> {
         .get("entities")
         .and_then(Value::as_array)
         .ok_or_else(|| error("Cedar entities must be an array"))?;
-    if entities.len() != 2 {
+    let expected_entity_count = if allow_irrelevant_actor { 3 } else { 2 };
+    if entities.len() != expected_entity_count {
         return Err(error(format!(
-            "frozen source corpus expects exactly two explicit Cedar entities, found {}",
+            "expected {expected_entity_count} explicit Cedar entities for this transform, found {}",
             entities.len()
         )));
     }
@@ -281,15 +285,15 @@ fn append_irrelevant_actor(case: &mut Value) -> Result<(), MetamorphicError> {
         .get("request")
         .and_then(Value::as_object)
         .ok_or_else(|| error("Cedar request must be an object"))?;
-    let principal = required_string_value(request, "principal")?;
-    let action = required_string_value(request, "action")?;
-    let resource = required_string_value(request, "resource")?;
+    let principal = required_string_value(request, "principal")?.to_owned();
+    let action = required_string_value(request, "action")?.to_owned();
+    let resource = required_string_value(request, "resource")?.to_owned();
     let irrelevant_uid = format!(
         "Mycelix::Actor::{}",
         serde_json::to_string(IRRELEVANT_ACTOR_ID)
             .map_err(|serialize_error| error(format!("serialize irrelevant UID: {serialize_error}")))?
     );
-    if [principal, action, resource].contains(&irrelevant_uid.as_str()) {
+    if [principal.as_str(), action.as_str(), resource.as_str()].contains(&irrelevant_uid.as_str()) {
         return Err(error("irrelevant Actor UID unexpectedly matches a request reference"));
     }
 
@@ -327,7 +331,7 @@ pub fn transform_case(
     source: &Value,
     transform: TransformId,
 ) -> Result<(Value, Vec<u8>), MetamorphicError> {
-    validate_case_shape(source)?;
+    validate_case_shape(source, false)?;
     let mut transformed = source.clone();
 
     match transform {
@@ -370,7 +374,7 @@ pub fn transform_case(
     if reparsed != transformed {
         return Err(error("transformed JSON bytes do not preserve the intended Value"));
     }
-    validate_case_shape(&transformed)?;
+    validate_case_shape(&transformed, transform == TransformId::CedarIrrelevantActorAdded)?;
     Ok((transformed, bytes))
 }
 
