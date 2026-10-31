@@ -1,0 +1,47 @@
+{
+  "benchmark_id": "PRAXIS-NRES-015-BT1-BOUNDED-BULK-TAIL-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "authored_rust_unit_tests": 12,
+  "invalid_input_controls": [
+    "wrong benchmark ID or schema version",
+    "non-synthetic status or non-public-development split",
+    "curriculum activation set true",
+    "missing, empty, duplicated or out-of-range bulk state IDs",
+    "invalid support state count",
+    "bulk probability vector length mismatch",
+    "bulk loss vector length mismatch",
+    "probability outside [0,1] or non-unit probability mass",
+    "negative or non-finite loss",
+    "bulk TV radius outside [0,1]",
+    "tail mass interval outside 0 <= lower <= upper <= 1",
+    "missing tail_loss_upper_bound field",
+    "negative or non-finite finite tail cap",
+    "missing tail-bound basis statement",
+    "duplicate profile identifiers",
+    "forbidden aggregate or personal-suitability fields"
+  ],
+  "boundary_cases": [
+    "zero TV radius returns nominal bulk expectation",
+    "unit TV radius reaches maximum bulk support loss",
+    "zero admissible tail mass remains finite even when tail cap is null",
+    "positive admissible tail mass with null cap yields explicit infinite risk",
+    "tail cap above bulk risk selects upper tail-mass endpoint",
+    "tail cap below bulk risk selects lower tail-mass endpoint"
+  ],
+  "round_trip_requirements": [
+    "profile identifiers remain stable",
+    "bulk and tail state partitions remain disjoint and cover support",
+    "bulk probability mass remains one",
+    "finite tail cap remains numeric and unchanged",
+    "null tail cap remains null and never becomes zero",
+    "risk status is preserved for finite and unbounded cases"
+  ],
+  "non_claims": [
+    "No calibration or conformal coverage claim",
+    "No equivalence claim to a published bulk-calibrated credal algorithm",
+    "No confirmatory or real-world data",
+    "No readiness, safety, legal compliance or deployment certification",
+    "No SOTA superiority claim"
+  ]
+}
