@@ -1,0 +1,80 @@
+{
+  "benchmark_id": "NRVDEF-EVIDENCE-CUSTODY-CONFORMANCE-001",
+  "version": "0.1.0",
+  "status": "synthetic-specification-only",
+  "data_scope": "generic-aggregate-non-sensitive",
+  "required_separations": [
+    "record_integrity",
+    "declarant_identity",
+    "protocol_authority",
+    "digital_custody_completeness",
+    "physical_inspection_status",
+    "dispute_status",
+    "treaty_legal_determination"
+  ],
+  "allowed_external_transition_sources": {
+    "inspection_attested": "authorized_inspector_attestation",
+    "inspection_rejected": "authorized_inspector_or_institution_attestation",
+    "treaty_determined": "authorized_treaty_institution_decision"
+  },
+  "prohibited_software_only_transitions": [
+    "declared_to_inspection_attested",
+    "evidence_received_to_treaty_determined",
+    "custody_complete_to_treaty_determined",
+    "disputed_to_treaty_determined_without_resolution"
+  ],
+  "negative_controls": [
+    "valid_declarant_signature_without_inspection_attestation",
+    "complete_custody_without_physical_verification",
+    "missing_evidence_reference",
+    "duplicate_evidence_reference",
+    "stale_evidence_reference",
+    "contradictory_evidence_reference",
+    "broken_predecessor_digest",
+    "reordered_custody_event",
+    "replayed_event_id",
+    "revoked_authority",
+    "expired_authority",
+    "out_of_scope_authority",
+    "protocol_version_mismatch",
+    "claimant_attempts_inspector_attestation",
+    "software_attempts_treaty_determination",
+    "unresolved_dispute_suppressed",
+    "unauthorized_evidence_disclosure",
+    "partial_participation_history_erasure",
+    "inspection_attestation_without_treaty_decision",
+    "treaty_decision_wrong_claim_binding"
+  ],
+  "hard_gates": [
+    "100_percent_accepted_record_provenance",
+    "zero_replay_acceptance",
+    "zero_incomplete_custody_accepted_as_complete",
+    "zero_revoked_or_out_of_scope_authority_acceptance",
+    "zero_software_only_physical_verification_or_treaty_determination",
+    "zero_unresolved_dispute_suppression",
+    "zero_unauthorized_disclosure",
+    "zero_event_history_overwrite"
+  ],
+  "metrics": [
+    "false_acceptance",
+    "false_rejection",
+    "custody_completeness",
+    "replay_rejection",
+    "authority_scope_rejection",
+    "illegal_transition_count",
+    "unresolved_dispute_visibility",
+    "protocol_mismatch_detection",
+    "unauthorized_disclosure_count",
+    "dispute_resolution_latency",
+    "audit_completeness",
+    "independent_reproduction"
+  ],
+  "non_claims": [
+    "no_physical_dismantlement_verification",
+    "no_treaty_compliance_certification",
+    "no_inspection_authority",
+    "no_weapon_or_facility_model",
+    "no_delivery_or_command_system_data",
+    "no_diplomatic_or_legal_determination"
+  ]
+}
