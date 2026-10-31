@@ -1,0 +1,57 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX2-RECTANGULAR-TV-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "authored_rust_unit_tests": 29,
+  "invalid_input_controls": [
+    "wrong EX2 benchmark ID or schema version",
+    "non-synthetic/public-development status or curriculum activation",
+    "missing, non-finite or out-of-range CVaR confidence alpha",
+    "missing, non-finite or out-of-range mean-CVaR lambda",
+    "lambda=1 accepted despite loss of strict monotonicity",
+    "action transition TV radius missing in EX2 schema",
+    "action transition TV radius is negative, non-finite or greater than one",
+    "nominal action probabilities do not sum to one",
+    "nominal probability is negative or non-finite",
+    "finite loss is non-finite",
+    "worst-case TV probabilities are negative or do not sum to one",
+    "worst-case distribution exceeds declared half-L1 radius",
+    "TV mass transfer exceeds eta because half-L1 convention was confused with L1",
+    "robust objective is computed using nominal probabilities instead of worst-case probabilities",
+    "cross-stage coupled ambiguity is silently treated as rectangular",
+    "non-anticipativity/history invariants are violated",
+    "transition-emitted observation differs from the successor history",
+    "resource ledger fails conservation",
+    "action successor violates hard service floor",
+    "robust evaluator reports a finite policy when all feasible continuations are excluded"
+  ],
+  "boundary_cases": [
+    "zero TV radius preserves the nominal distribution exactly",
+    "TV radius one can move all probability mass to a maximum-loss outcome",
+    "two-outcome p=[0.95,0.05], eta=0.10 produces q=[0.85,0.15]",
+    "alpha=0 makes CVaR equal expectation under the implemented convention",
+    "lambda=0 reduces mean-CVaR to expectation",
+    "lambda just below one remains admissible",
+    "lambda=1 is rejected",
+    "zero-mass adversarial outcomes remain valid inputs to CVaR",
+    "robust value is no lower than nominal value for the same fixed action and losses"
+  ],
+  "round_trip_requirements": [
+    "action-specific TV radius remains attached to the same action ID",
+    "nominal probability vector is preserved alongside the worst-case vector",
+    "outcome IDs, costs and continuation values remain aligned with adversarial probabilities",
+    "selected policy retains one action per canonical observable history",
+    "reported worst-case TV distance remains within eta",
+    "selected-policy adversarial transition laws are emitted in the result",
+    "rejected feasible action diagnostics remain auditable",
+    "resource/service/history invariants remain unchanged"
+  ],
+  "non_claims": [
+    "eta=0.10 is illustrative and not calibrated",
+    "no real-world outcome/causal evidence",
+    "rectangularity is an assumption, not an established property of a real system",
+    "no coupled/non-rectangular ambiguity result",
+    "no hidden confirmatory data or population coverage claim",
+    "no SOTA superiority/deployment/readiness/certification claim"
+  ]
+}

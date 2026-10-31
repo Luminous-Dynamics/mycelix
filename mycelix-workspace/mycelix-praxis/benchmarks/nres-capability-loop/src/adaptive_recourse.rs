@@ -155,6 +155,7 @@ struct Action {
     action_id: String,
     fixed_cost: f64,
     resource_use: f64,
+    transition_tv_radius: f64,
     outcomes: Vec<Outcome>,
 }
 
@@ -182,6 +183,7 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
     let fixture_id = string_field(fixture, "benchmark_id");
     if fixture_id != Some(BENCHMARK_ID)
         && fixture_id != Some("PRAXIS-NRES-016-EX1-NESTED-CVAR-COMPARISON-001")
+        && fixture_id != Some("PRAXIS-NRES-016-EX2-RECTANGULAR-TV-ROBUST-RECOURSE-001")
     {
         errors.push("unexpected NRES-016 adaptive-recourse benchmark_id".to_owned());
     }
@@ -315,6 +317,16 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
                 errors.push(format!("{state_id}/{action_id}: resource_use exceeds available resources or is invalid"));
                 continue;
             };
+            let transition_tv_radius = match raw_action.get("transition_tv_radius") {
+                None => 0.0,
+                Some(value) => match value.as_f64() {
+                    Some(radius) if radius.is_finite() && (0.0..=1.0).contains(&radius) => radius,
+                    _ => {
+                        errors.push(format!("{state_id}/{action_id}: transition_tv_radius must be finite and in [0,1]"));
+                        continue;
+                    }
+                }
+            };
             let Some(raw_outcomes) = raw_action.get("outcomes").and_then(Value::as_array) else {
                 errors.push(format!("{state_id}/{action_id}: outcomes must be a non-empty array"));
                 continue;
@@ -421,6 +433,7 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
                 action_id,
                 fixed_cost,
                 resource_use,
+                transition_tv_radius,
                 outcomes,
             });
         }
@@ -1118,6 +1131,291 @@ pub fn evaluate_nested_risk_comparison(fixture: &Value) -> Result<Value, Vec<Str
     }))
 }
 
+#[derive(Clone)]
+struct NestedRobustRiskPlan {
+    robust_risk: f64,
+    nominal_expected_cost: f64,
+    policy: BTreeMap<String, String>,
+    adversarial_transition_laws: BTreeMap<String, Vec<Value>>,
+    action_diagnostics: BTreeMap<String, Value>,
+}
+
+/// Construct the exact FOSD-maximal distribution in a finite-support TV ball.
+///
+/// TV is half-L1, so a radius eta permits moving at most eta total probability
+/// mass. The construction transfers mass from lowest-loss donors to a
+/// maximum-loss receiver. This distribution maximizes every upper-tail event
+/// probability simultaneously and therefore maximizes any increasing
+/// law-invariant risk functional, including the rho_hat map used by EX2.
+fn tv_worst_case_distribution(
+    losses: &[f64],
+    probabilities: &[f64],
+    radius: f64,
+) -> Result<Vec<f64>, String> {
+    if losses.is_empty() || losses.len() != probabilities.len() {
+        return Err("TV ambiguity requires aligned non-empty loss/probability vectors".to_owned());
+    }
+    if !radius.is_finite() || !(0.0..=1.0).contains(&radius) {
+        return Err("TV radius must be finite and in [0,1]".to_owned());
+    }
+    if losses.iter().any(|loss| !loss.is_finite())
+        || probabilities.iter().any(|probability| !probability.is_finite() || *probability < 0.0)
+    {
+        return Err("TV losses must be finite and probabilities finite/non-negative".to_owned());
+    }
+    let probability_mass: f64 = probabilities.iter().sum();
+    if (probability_mass - 1.0).abs() > TOLERANCE {
+        return Err(format!("TV nominal probabilities must sum to one (found {probability_mass})"));
+    }
+
+    let receiver = losses.iter().enumerate()
+        .max_by(|left, right| left.1.total_cmp(right.1))
+        .map(|(index, _)| index)
+        .ok_or_else(|| "TV loss vector cannot be empty".to_owned())?;
+    let mut donors: Vec<usize> = (0..losses.len()).filter(|index| *index != receiver).collect();
+    donors.sort_by(|left, right| losses[*left].total_cmp(&losses[*right]).then_with(|| left.cmp(right)));
+
+    let mut worst_case = probabilities.to_vec();
+    let mut remaining = radius;
+    for donor in donors {
+        if remaining <= TOLERANCE {
+            break;
+        }
+        let transfer = worst_case[donor].min(remaining);
+        worst_case[donor] -= transfer;
+        worst_case[receiver] += transfer;
+        remaining -= transfer;
+    }
+
+    let worst_mass: f64 = worst_case.iter().sum();
+    if (worst_mass - 1.0).abs() > TOLERANCE
+        || worst_case.iter().any(|probability| *probability < -TOLERANCE)
+    {
+        return Err("TV worst-case distribution failed simplex invariants".to_owned());
+    }
+    let tv_distance: f64 = worst_case.iter()
+        .zip(probabilities)
+        .map(|(left, right)| (left - right).abs())
+        .sum::<f64>() * 0.5;
+    if tv_distance > radius + TOLERANCE {
+        return Err("TV worst-case distribution exceeds declared radius".to_owned());
+    }
+    Ok(worst_case)
+}
+
+fn solve_rectangular_tv_nested_risk(
+    state_id: &str,
+    model: &Model,
+    alpha: f64,
+    lambda: f64,
+    memo: &mut HashMap<String, Option<NestedRobustRiskPlan>>,
+    visiting: &mut BTreeSet<String>,
+) -> Result<Option<NestedRobustRiskPlan>, String> {
+    if let Some(cached) = memo.get(state_id) {
+        return Ok(cached.clone());
+    }
+    if !visiting.insert(state_id.to_owned()) {
+        return Err(format!("cycle detected at information state {state_id}"));
+    }
+
+    let state = model.states.get(state_id)
+        .ok_or_else(|| format!("unknown information state {state_id}"))?;
+    let floor_ok = model.service_floors.iter().all(|(service, floor)| {
+        state.service_levels.get(service).is_some_and(|level| *level + TOLERANCE >= *floor)
+    });
+    if !floor_ok {
+        visiting.remove(state_id);
+        memo.insert(state_id.to_owned(), None);
+        return Ok(None);
+    }
+
+    let mut best: Option<NestedRobustRiskPlan> = None;
+    let mut all_action_diagnostics = BTreeMap::new();
+    for action in &state.actions {
+        let mut future_losses = Vec::new();
+        let mut nominal_probabilities = Vec::new();
+        let mut nominal_expected_cost = action.fixed_cost;
+        let mut policy = BTreeMap::new();
+        let mut adversarial_transition_laws = BTreeMap::new();
+        policy.insert(state_id.to_owned(), action.action_id.clone());
+        let mut feasible = true;
+
+        let mut futures = Vec::new();
+        for outcome in &action.outcomes {
+            let future = match &outcome.next_state_id {
+                Some(next_id) => match solve_rectangular_tv_nested_risk(next_id, model, alpha, lambda, memo, visiting)? {
+                    Some(plan) => Some(plan),
+                    None => {
+                        feasible = false;
+                        None
+                    }
+                },
+                None => None,
+            };
+            if outcome.next_state_id.is_some() && future.is_none() {
+                feasible = false;
+                break;
+            }
+
+            let future_risk = future.as_ref().map(|plan| plan.robust_risk).unwrap_or(0.0);
+            let future_mean = future.as_ref().map(|plan| plan.nominal_expected_cost).unwrap_or(0.0);
+            future_losses.push(outcome.stage_cost + future_risk);
+            nominal_probabilities.push(outcome.probability);
+            nominal_expected_cost += outcome.probability * (outcome.stage_cost + future_mean);
+            futures.push(future);
+        }
+        if !feasible {
+            continue;
+        }
+
+        let worst_probabilities = tv_worst_case_distribution(
+            &future_losses,
+            &nominal_probabilities,
+            action.transition_tv_radius,
+        )?;
+        let worst_distribution: Vec<(f64, f64)> = future_losses.iter()
+            .copied()
+            .zip(worst_probabilities.iter().copied())
+            .collect();
+        let robust_mean: f64 = worst_distribution.iter()
+            .map(|(loss, probability)| loss * probability)
+            .sum();
+        let robust_cvar = upper_cvar(&worst_distribution, alpha)?;
+        let robust_risk = action.fixed_cost
+            + (1.0 - lambda) * robust_mean
+            + lambda * robust_cvar;
+
+        let action_key = format!("{state_id}/{}", action.action_id);
+        let law = action.outcomes.iter().enumerate().map(|(index, outcome)| json!({
+            "outcome_id": outcome.outcome_id,
+            "nominal_probability": outcome.probability,
+            "worst_case_probability": worst_probabilities[index],
+            "loss_plus_robust_continuation": future_losses[index]
+        })).collect::<Vec<_>>();
+        adversarial_transition_laws.insert(action_key.clone(), law.clone());
+
+        let mut action_diagnostics = BTreeMap::new();
+        for future in futures.into_iter().flatten() {
+            for (future_state, future_action) in future.policy {
+                if let Some(previous) = policy.insert(future_state.clone(), future_action.clone()) {
+                    if previous != future_action {
+                        return Err(format!("non-anticipativity conflict at information state {future_state}"));
+                    }
+                }
+            }
+            adversarial_transition_laws.extend(future.adversarial_transition_laws);
+            action_diagnostics.extend(future.action_diagnostics);
+        }
+        action_diagnostics.insert(action_key.clone(), json!({
+            "transition_tv_radius": action.transition_tv_radius,
+            "nominal_expected_cost_at_this_action": action.fixed_cost
+                + action.outcomes.iter().map(|outcome| outcome.probability * outcome.stage_cost).sum::<f64>(),
+            "conditional_robust_mean_cvar_value": robust_risk,
+            "nominal_probabilities": nominal_probabilities,
+            "worst_case_probabilities": worst_probabilities,
+            "outcome_losses_including_robust_continuation": future_losses,
+            "adversarial_law": law
+        }));
+        all_action_diagnostics.extend(action_diagnostics.clone());
+
+        let candidate = NestedRobustRiskPlan {
+            robust_risk,
+            nominal_expected_cost,
+            policy,
+            adversarial_transition_laws,
+            action_diagnostics,
+        };
+        let replace = match &best {
+            None => true,
+            Some(current) if candidate.robust_risk < current.robust_risk - TOLERANCE => true,
+            Some(current)
+                if (candidate.robust_risk - current.robust_risk).abs() <= TOLERANCE
+                    && candidate.nominal_expected_cost < current.nominal_expected_cost - TOLERANCE => true,
+            Some(current)
+                if (candidate.robust_risk - current.robust_risk).abs() <= TOLERANCE
+                    && (candidate.nominal_expected_cost - current.nominal_expected_cost).abs() <= TOLERANCE =>
+            {
+                candidate.policy.get(state_id).cmp(&current.policy.get(state_id)).is_lt()
+            }
+            _ => false,
+        };
+        if replace {
+            best = Some(candidate);
+        }
+    }
+
+    visiting.remove(state_id);
+    let best = best.map(|mut plan| {
+        plan.action_diagnostics.extend(all_action_diagnostics);
+        plan
+    });
+    memo.insert(state_id.to_owned(), best.clone());
+    Ok(best)
+}
+
+/// Optimize a nested, stagewise-rectangular TV-robust mean-CVaR policy.
+///
+/// The adversary independently selects a conditional transition law from
+/// each action's finite-support TV ball. This is a rectangular ambiguity
+/// assumption; cross-stage coupled uncertainty is outside EX2's scope.
+pub fn evaluate_rectangular_tv_robust_recourse(fixture: &Value) -> Result<Value, Vec<String>> {
+    let model = parse_model(fixture)?;
+    let alpha = number_field(fixture, "risk_confidence_level")
+        .filter(|value| value.is_finite() && (0.0..1.0).contains(value))
+        .ok_or_else(|| vec!["risk_confidence_level must be finite and in [0,1)".to_owned()])?;
+    let lambda = number_field(fixture, "risk_aversion_lambda")
+        .filter(|value| value.is_finite() && (0.0..1.0).contains(value))
+        .ok_or_else(|| vec!["risk_aversion_lambda must be finite and in [0,1)".to_owned()])?;
+
+    let nominal = evaluate_nested_risk_comparison(fixture)?;
+    let mut memo = HashMap::new();
+    let mut visiting = BTreeSet::new();
+    let robust = solve_rectangular_tv_nested_risk(
+        &model.initial_state_id,
+        &model,
+        alpha,
+        lambda,
+        &mut memo,
+        &mut visiting,
+    ).map_err(|error| vec![error])?;
+
+    let robust_report = robust.map(|plan| json!({
+        "nested_rectangular_tv_mean_cvar_objective": plan.robust_risk,
+        "nominal_expected_cost_under_selected_policy": plan.nominal_expected_cost,
+        "policy": plan.policy,
+        "worst_case_transition_laws_by_selected_information_state_action": plan.adversarial_transition_laws,
+        "all_feasible_action_diagnostics": plan.action_diagnostics
+    }));
+    let nominal_a = nominal["nested"]["policy"].get("A").and_then(Value::as_str);
+    let robust_a = robust_report.as_ref().and_then(|report| report["policy"].get("A").and_then(Value::as_str));
+
+    Ok(json!({
+        "benchmark_id": "PRAXIS-NRES-016-EX2-RECTANGULAR-TV-ROBUST-RECOURSE-001",
+        "status": "synthetic-public-development-evaluated",
+        "evaluation_split": "public-development-only",
+        "active_in_curriculum": false,
+        "risk_confidence_level": alpha,
+        "risk_aversion_lambda": lambda,
+        "ambiguity_metric": "total_variation_equals_half_l1",
+        "ambiguity_radius_contract": "action-specific TV balls; exact mass transfer no greater than eta",
+        "rectangularity_assumption": "conditional transition ambiguity sets are independently selectable across observable state/action stages",
+        "nested_risk_map": "rho_hat=(1-lambda)*Expectation+lambda*upper_CVaR_alpha",
+        "nominal_nested_reference": nominal,
+        "robust": robust_report,
+        "local_action_change_at_A": {
+            "nominal_nested_action": nominal_a,
+            "rectangular_tv_robust_action": robust_a,
+            "different": nominal_a != robust_a
+        },
+        "nonanticipativity_semantics": "one policy action per canonical observable information state",
+        "calibration_claim": "none; fixture radii are illustrative",
+        "distributional_robustness_claim": "exact only for declared finite-support rectangular TV balls",
+        "deployment_claim": "none",
+        "interpretation": "The robust recursion protects against action-conditioned transition laws inside declared TV balls. The fixture is not evidence that its illustrative TV radius is calibrated or that rectangularity holds in an operational system."
+    }))
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1153,6 +1451,23 @@ mod tests {
                 }]
             }]
         })
+    }
+
+    fn robust_fixture() -> Value {
+        let mut fixture = risk_fixture(0.9);
+        fixture["benchmark_id"] = json!("PRAXIS-NRES-016-EX2-RECTANGULAR-TV-ROBUST-RECOURSE-001");
+        for state in fixture["information_states"].as_array_mut().unwrap() {
+            for action in state["actions"].as_array_mut().unwrap() {
+                action["transition_tv_radius"] = json!(0.0);
+                if state["information_state_id"] == "A" && action["action_id"] == "SAFE" {
+                    action["fixed_cost"] = json!(460.0);
+                }
+                if state["information_state_id"] == "A" && action["action_id"] == "GAMBLE" {
+                    action["transition_tv_radius"] = json!(0.1);
+                }
+            }
+        }
+        fixture
     }
 
     fn risk_fixture(alpha: f64) -> Value {
@@ -1380,6 +1695,64 @@ mod tests {
             "service_floors": {"water":70.0,"power":60.0},
             "information_states": states
         })
+    }
+
+    #[test]
+    fn tv_worst_case_probability_moves_exact_declared_mass() {
+        let worst = tv_worst_case_distribution(&[0.0, 1000.0], &[0.95, 0.05], 0.1).unwrap();
+        assert!((worst[0] - 0.85).abs() < 1e-12);
+        assert!((worst[1] - 0.15).abs() < 1e-12);
+        assert!((0.5 * ((worst[0] - 0.95).abs() + (worst[1] - 0.05).abs()) - 0.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn zero_tv_radius_preserves_nominal_transition_distribution() {
+        let nominal = vec![0.7, 0.2, 0.1];
+        let worst = tv_worst_case_distribution(&[0.0, 10.0, 100.0], &nominal, 0.0).unwrap();
+        assert_eq!(worst, nominal);
+    }
+
+    #[test]
+    fn tv_radius_one_can_move_all_mass_to_maximum_loss() {
+        let worst = tv_worst_case_distribution(&[0.0, 5.0, 10.0], &[0.2, 0.3, 0.5], 1.0).unwrap();
+        assert_eq!(worst, vec![0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn tv_worst_case_rejects_invalid_radii_and_probability_mass() {
+        assert!(tv_worst_case_distribution(&[0.0, 1.0], &[0.95, 0.05], 1.01).is_err());
+        assert!(tv_worst_case_distribution(&[0.0, 1.0], &[0.8, 0.1], 0.1).is_err());
+    }
+
+    #[test]
+    fn rectangular_tv_robustness_reverses_nominal_gamble() {
+        let report = evaluate_rectangular_tv_robust_recourse(&robust_fixture()).unwrap();
+        assert_eq!(report["local_action_change_at_A"]["nominal_nested_action"], json!("GAMBLE"));
+        assert_eq!(report["local_action_change_at_A"]["rectangular_tv_robust_action"], json!("SAFE"));
+        assert_eq!(report["local_action_change_at_A"]["different"], json!(true));
+        assert!(report["robust"]["nested_rectangular_tv_mean_cvar_objective"].as_f64().unwrap()
+            + 1e-10 >= report["nominal_nested_reference"]["nested"]["nested_mean_cvar_objective"].as_f64().unwrap());
+        assert!((report["robust"]["nominal_expected_cost_under_selected_policy"].as_f64().unwrap() - 5230.0).abs() < 1e-10);
+        let gamble = &report["robust"]["all_feasible_action_diagnostics"]["A/GAMBLE"];
+        assert!((gamble["worst_case_probabilities"][0].as_f64().unwrap() - 0.85).abs() < 1e-12);
+        assert!((gamble["worst_case_probabilities"][1].as_f64().unwrap() - 0.15).abs() < 1e-12);
+        assert!((gamble["conditional_robust_mean_cvar_value"].as_f64().unwrap() - 915.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn rectangular_tv_radius_increase_cannot_reduce_fixed_action_risk() {
+        let low = tv_worst_case_distribution(&[0.0, 1000.0], &[0.95, 0.05], 0.02).unwrap();
+        let high = tv_worst_case_distribution(&[0.0, 1000.0], &[0.95, 0.05], 0.10).unwrap();
+        let low_risk = 0.1 * low[1] * 1000.0 + 0.9 * upper_cvar(&[(0.0, low[0]), (1000.0, low[1])], 0.9).unwrap();
+        let high_risk = 0.1 * high[1] * 1000.0 + 0.9 * upper_cvar(&[(0.0, high[0]), (1000.0, high[1])], 0.9).unwrap();
+        assert!(high_risk + 1e-12 >= low_risk);
+    }
+
+    #[test]
+    fn invalid_action_tv_radius_is_rejected_by_model_parser() {
+        let mut fixture = robust_fixture();
+        fixture["information_states"][1]["actions"][1]["transition_tv_radius"] = json!(1.1);
+        assert!(evaluate_rectangular_tv_robust_recourse(&fixture).is_err());
     }
 
     #[test]
