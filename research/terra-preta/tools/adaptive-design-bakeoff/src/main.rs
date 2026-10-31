@@ -836,7 +836,7 @@ mod tests {
     }
 
     #[test]
-    fn robust_policy_meets_target_coverage_and_beats_information_only_and_expert_on_fixture() {
+    fn robust_policy_beats_coverage_feasible_baseline_and_exposes_infeasible_baselines() {
         let report = report();
         let robust = report.policy_results.iter().find(|p| p.policy_id == "robust_decision_focused").unwrap();
         let eig = report.policy_results.iter().find(|p| p.policy_id == "bayesian_eig_proxy").unwrap();
@@ -849,6 +849,23 @@ mod tests {
         assert!(!expert.minimum_coverage_met);
         assert!(expert.normalized_oracle_regret.is_none());
         assert!(robust.weighted_synthetic_decision_utility > expert.weighted_synthetic_decision_utility);
+    }
+
+    #[test]
+    fn coverage_infeasible_policy_never_receives_zero_oracle_regret_by_utility_clipping() {
+        let mut scenario: Scenario = serde_json::from_str(FIXTURE).unwrap();
+        for action in &mut scenario.actions {
+            action.synthetic_truth_decision_value = 1.0;
+        }
+        let bytes = serde_json::to_vec(&scenario).unwrap();
+        let report = run_benchmark(&bytes).unwrap();
+        let eig = report.policy_results.iter()
+            .find(|policy| policy.policy_id == "bayesian_eig_proxy").unwrap();
+        assert!(!eig.minimum_coverage_met);
+        assert!(eig.weighted_synthetic_decision_utility
+            > report.oracle.weighted_synthetic_decision_utility);
+        assert!(eig.oracle_regret.is_none());
+        assert!(eig.normalized_oracle_regret.is_none());
     }
 
     #[test]
