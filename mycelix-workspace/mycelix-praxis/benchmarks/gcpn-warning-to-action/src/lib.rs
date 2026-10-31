@@ -141,10 +141,14 @@ impl Report {
             && self.actions_completed_count == 6
             && self.intended_people_total == 10_000
             && self.unique_people_served_total == 3_790
-            && self.warning_to_decision == Latency { observations: 10, total_ticks: 980 }
-            && self.decision_to_finance == Latency { observations: 8, total_ticks: 800 }
-            && self.finance_to_action == Latency { observations: 6, total_ticks: 800 }
-            && self.action_to_completion == Latency { observations: 4, total_ticks: 2_000 }
+            && self.warning_to_decision.observations == 10
+            && self.warning_to_decision.total_ticks == 980
+            && self.decision_to_finance.observations == 8
+            && self.decision_to_finance.total_ticks == 800
+            && self.finance_to_action.observations == 6
+            && self.finance_to_action.total_ticks == 800
+            && self.action_to_completion.observations == 4
+            && self.action_to_completion.total_ticks == 2_000
     }
 }
 
@@ -308,7 +312,7 @@ fn evaluate_case(case: &Case, report: &mut Report) {
     }
 
     if case.funds_released {
-        if case.finance_time == 0 || case.finance_time < case.decision_time {
+        if case.decision_time == 0 || case.finance_time == 0 || case.finance_time < case.decision_time {
             report.chronology_violations += 1;
         } else {
             report.decision_to_finance.record(case.decision_time, case.finance_time);
@@ -316,7 +320,7 @@ fn evaluate_case(case: &Case, report: &mut Report) {
     }
 
     if case.action_started {
-        if case.action_start_time == 0 || case.action_start_time < case.finance_time {
+        if case.finance_time == 0 || case.action_start_time == 0 || case.action_start_time < case.finance_time {
             report.chronology_violations += 1;
         } else {
             report.finance_to_action.record(case.finance_time, case.action_start_time);
@@ -324,7 +328,7 @@ fn evaluate_case(case: &Case, report: &mut Report) {
     }
 
     if case.action_completed && case.action_started {
-        if case.action_complete_time == 0 || case.action_complete_time < case.action_start_time {
+        if case.action_start_time == 0 || case.action_complete_time == 0 || case.action_complete_time < case.action_start_time {
             report.chronology_violations += 1;
         } else {
             report.action_to_completion.record(case.action_start_time, case.action_complete_time);
