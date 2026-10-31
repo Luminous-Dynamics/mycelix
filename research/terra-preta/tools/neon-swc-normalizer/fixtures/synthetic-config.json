@@ -1,0 +1,50 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "synthetic",
+  "site_id": "SYN1",
+  "plot_id": "P01",
+  "profile_id": "PROFILE1",
+  "event_id": "EVENT1",
+  "event_start_utc": "2026-06-01T00:10:00Z",
+  "observation_window_end_utc": "2026-06-01T00:10:00Z",
+  "raw_resolution_seconds": 60,
+  "target_resolution_seconds": 600,
+  "minimum_good_fraction": 0.8,
+  "response_threshold_m3_m3": 0.01,
+  "raw_file_label": "SWS_1_minute synthetic fixture",
+  "source_evidence_ref": "synthetic fixture only",
+  "timestamp_column": "startDateTime",
+  "sensor_key_columns": [
+    "horizontalPosition",
+    "verticalPosition"
+  ],
+  "theta_column": "VSWCMean",
+  "quality_filters": [
+    {
+      "column": "VSWCFinalQF",
+      "accepted_values": [
+        "0"
+      ]
+    }
+  ],
+  "sensors": [
+    {
+      "sensor_key": "001|501",
+      "sensor_id": "S1",
+      "depth_cm": 6,
+      "x_m": 0,
+      "y_m": 0,
+      "condition": "usable",
+      "metadata_evidence_ref": "synthetic corrected depth/position"
+    },
+    {
+      "sensor_key": "001|502",
+      "sensor_id": "S2",
+      "depth_cm": 16,
+      "x_m": 0,
+      "y_m": 0,
+      "condition": "usable",
+      "metadata_evidence_ref": "synthetic corrected depth/position"
+    }
+  ]
+}
