@@ -94,6 +94,42 @@ jobs:
           chmod +x /tmp/opa
           /tmp/opa version | tee target/opa-version.txt
 
+      - name: Seed and minimize a deliberate Cedar/OPA authorization counterexample
+        run: |
+          set -euo pipefail
+          target_case_id="$(jq -r '.changed_case_ids[0]' target/scientific-policy-metamorphic/claim-proposed-contributor-removed/transform-manifest.json)"
+          test -n "$target_case_id"
+          jq -c --arg case_id "$target_case_id" \
+            'select(.case_id == $case_id) | .rego.input.actor.roles = []' \
+            target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl \
+            > target/policy-counterexample-seed.json
+          test -s target/policy-counterexample-seed.json
+          test "$(wc -l < target/policy-counterexample-seed.json)" -eq 1
+          cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- \
+            --shrink-pair \
+            target/policy-counterexample-seed.json \
+            /tmp/opa \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json \
+            target/policy-counterexample-shrink \
+            2000
+          jq -e '
+            .initial_case_id == .minimized_case_id and
+            .initial_cedar_decision == "allow" and
+            .initial_opa_decision == "deny" and
+            .minimized_cedar_decision == "allow" and
+            .minimized_opa_decision == "deny" and
+            .complete == true and
+            .is_one_minimal == true and
+            .candidate_evaluations > 0
+          ' target/policy-counterexample-shrink/shrink-summary.json
+          jq -e '
+            .predicate_provenance.engine_id == "cedar-policy+opa" and
+            .predicate_provenance.engine_version == "cedar-sdk=4.14.0;opa=1.22.0" and
+            .source_input_sha256 | length == 64
+          ' target/policy-counterexample-shrink/shrink-trace.json
+
       - name: Evaluate baseline corpus through Cedar
         run: |
           cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- \
