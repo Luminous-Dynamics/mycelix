@@ -221,7 +221,9 @@ pub fn evaluate(scenario: &Scenario, cohorts: &[Cohort]) -> Evaluation {
     };
 
     for cohort in cohorts {
-        evaluation.intended_receivers += cohort.recipients;
+        let recipients = u64::from(cohort.recipients);
+        evaluation.intended_receivers += recipients;
+
         let mut active_channels = 0u64;
         let mut has_accessible_delivery = false;
         let mut channel_receipts = [0u64; 4];
@@ -229,8 +231,8 @@ pub fn evaluate(scenario: &Scenario, cohorts: &[Cohort]) -> Evaluation {
         for i in 0..4 {
             if cohort.channel_access[i] && scenario.channel_up[i] {
                 active_channels += 1;
-                channel_receipts[i] = cohort.recipients;
-                evaluation.channel_receipts[i] += cohort.recipients;
+                channel_receipts[i] = recipients;
+                evaluation.channel_receipts[i] += recipients;
                 if cohort.accessible_format[i] {
                     has_accessible_delivery = true;
                 }
@@ -239,6 +241,7 @@ pub fn evaluate(scenario: &Scenario, cohorts: &[Cohort]) -> Evaluation {
 
         let unique_delivered = if active_channels > 0 { recipients } else { 0 };
         let accessible_delivered = if has_accessible_delivery { recipients } else { 0 };
+        // A u32 cohort size multiplied by at most three extra channel receipts fits u64.
         let duplicate_deliveries = if active_channels > 1 {
             recipients * (active_channels - 1)
         } else {
