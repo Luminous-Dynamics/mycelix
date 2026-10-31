@@ -1,0 +1,11 @@
+profile,case_id,record_integrity,declarant_authority,custody_status,inspection_attestation,treaty_decision,dispute_open,expected_acceptance,expected_public_state
+v0.1,normal-declared,valid,in-scope,complete,absent,absent,false,true,custody_complete
+v0.1,signed-not-verified,valid,in-scope,complete,absent,absent,false,true,custody_complete
+v0.1,revoked-authority,valid,revoked,complete,absent,absent,false,false,rejected
+v0.1,broken-custody,valid,in-scope,broken,absent,absent,false,false,evidence_incomplete
+v0.1,claimant-forged-inspection,valid,in-scope,complete,claimant-issued,absent,false,false,rejected
+v0.1,unresolved-dispute,valid,in-scope,complete,absent,absent,true,true,disputed
+v0.1,software-treaty-promotion,valid,in-scope,complete,absent,software-issued,false,false,rejected
+v0.1,authorized-inspection-only,valid,in-scope,complete,authorized-inspector,absent,false,true,inspection_attested
+v0.1,wrong-claim-treaty-decision,valid,in-scope,complete,authorized-inspector,wrong-claim-binding,false,false,rejected
+v0.1,authorized-external-determination,valid,in-scope,complete,authorized-inspector,authorized-treaty-body,false,true,treaty_determined
