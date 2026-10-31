@@ -391,6 +391,11 @@ fn component_metrics(input: &Input, graph: &[Vec<(usize, usize)>], total_pore_vo
 }
 
 fn widest_path_bottleneck(input: &Input, graph: &[Vec<(usize, usize)>], throats: &[IndexedThroat]) -> Option<f64> {
+    // A single pore spanning both faces has no finite throat bottleneck; its
+    // presence makes the maximum-minimum-throat-radius metric undefined.
+    if input.network.pores.iter().any(|pore| pore.touches_top_boundary && pore.touches_bottom_boundary) {
+        return None;
+    }
     let n = input.network.pores.len();
     let mut best = vec![0.0f64; n];
     let mut heap = BinaryHeap::new();
@@ -406,12 +411,9 @@ fn widest_path_bottleneck(input: &Input, graph: &[Vec<(usize, usize)>], throats:
         if state.score < best[state.node] {
             continue;
         }
-        if input.network.pores[state.node].touches_bottom_boundary && state.score.is_finite() {
+        if input.network.pores[state.node].touches_bottom_boundary {
             return Some(state.score);
         }
-        // A single pore may be labelled as touching both sample faces. That is
-        // topological percolation but has no throat bottleneck radius; keep
-        // exploring for any finite, throat-bearing alternative path.
 
         for &(neighbor, edge_index) in &graph[state.node] {
             let candidate = state.score.min(throats[edge_index].radius_um);
