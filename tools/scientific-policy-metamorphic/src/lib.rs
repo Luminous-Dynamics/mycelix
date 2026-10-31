@@ -827,3 +827,6 @@ mod tests {
         assert!(transform_case(&mismatch, TransformId::JsonWhitespaceExpanded).is_err());
     }
 }
+
+
+pub mod shrink;
