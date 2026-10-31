@@ -1,6 +1,8 @@
 # Dynamic Macropore Morphology–Hydrology Coupling Benchmark v0.1
 
-**Status:** reproducibility and validation plan. The Hirmas et al. Dryad dataset has been identified but not acquired or rerun in this work. All acceptance thresholds below are proposed targets, not achieved performance. No field treatment or hydraulic recommendation is authorized.
+**Status:** reproducibility and validation plan. The Hirmas et al. Dryad dataset has been identified but not acquired or rerun in this work. An independent Rust equation-level audit now exists at [tools/dynamic-macropore-audit](./tools/dynamic-macropore-audit/README.md); it is covered by PR CI but its tests have not yet been verified on the current exact head. All acceptance thresholds below are proposed targets, not achieved performance. No field treatment or hydraulic recommendation is authorized.
+
+**Implementation tracker:** [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545).
 
 ## 1. Paradigm shift: pore geometry is a state, not just a static soil attribute
 
