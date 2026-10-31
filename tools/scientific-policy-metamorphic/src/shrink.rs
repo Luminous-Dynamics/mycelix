@@ -315,6 +315,13 @@ fn is_protected(path: &str, protected_paths: &BTreeSet<String>) -> bool {
     })
 }
 
+fn contains_protected_descendant(path: &str, protected_paths: &BTreeSet<String>) -> bool {
+    !path.is_empty()
+        && protected_paths
+            .iter()
+            .any(|protected| protected.strip_prefix(path).is_some_and(|suffix| suffix.starts_with('/')))
+}
+
 fn push_reduction(
     output: &mut Vec<Reduction>,
     reduction: Reduction,
@@ -344,7 +351,9 @@ fn collect_reductions(
             keys.sort();
             for key in &keys {
                 let child_path = format!("{path}/{}", escape_pointer_token(key));
-                if is_protected(&child_path, protected_paths) {
+                if is_protected(&child_path, protected_paths)
+                    || contains_protected_descendant(&child_path, protected_paths)
+                {
                     continue;
                 }
                 if !push_reduction(
@@ -370,10 +379,16 @@ fn collect_reductions(
         }
         Value::Array(values) => {
             for index in (0..values.len()).rev() {
+                let child_path = format!("{path}/{index}");
+                if is_protected(&child_path, protected_paths)
+                    || contains_protected_descendant(&child_path, protected_paths)
+                {
+                    continue;
+                }
                 if !push_reduction(
                     output,
                     Reduction {
-                        path: format!("{path}/{index}"),
+                        path: child_path,
                         operation: "remove_array_element".to_owned(),
                         kind: ReductionKind::RemoveArrayElement,
                     },
@@ -1096,6 +1111,38 @@ mod tests {
         )
         .unwrap();
         assert_eq!(result.minimized_value["array"], serde_json::json!([1]));
+        assert!(result.trace.is_one_minimal);
+    }
+
+    #[test]
+    fn protected_descendant_blocks_parent_removal_but_allows_sibling_shrinking() {
+        let input = serde_json::json!({
+            "request": {
+                "principal": "actor:fixed",
+                "unused": {"nested": true}
+            },
+            "noise": {"value": true}
+        });
+        let protected = ["/request/principal"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>();
+        let source_bytes = serde_json::to_vec(&input).unwrap();
+        let predicate = |value: &Value| {
+            Ok(value["request"]["principal"] == "actor:fixed")
+        };
+        let result = minimize_json(
+            &input,
+            &source_bytes,
+            "protected-descendant-control",
+            &protected,
+            100,
+            predicate,
+        )
+        .unwrap();
+        assert_eq!(result.minimized_value["request"]["principal"], "actor:fixed");
+        assert!(result.minimized_value.get("request").is_some());
+        assert!(result.minimized_value.get("noise").is_none());
         assert!(result.trace.is_one_minimal);
     }
 
