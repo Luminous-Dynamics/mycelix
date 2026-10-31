@@ -1,0 +1,61 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX5-CONFORMANCE-001",
+  "schema_version": "1.0.0",
+  "evaluation_split": "public-development-only",
+  "authored_rust_unit_tests": 0,
+  "invalid_input_controls": [
+    "unknown or duplicate acquisition action ID",
+    "inspection resource use exceeds available capacity",
+    "negative or non-finite acquisition cost",
+    "observation probabilities fail to sum to one by latent simulation state",
+    "sensitivity or specificity outside [0,1]",
+    "signal kernel omits a declared latent simulation state",
+    "latent condition field is injected into observable history",
+    "future outcome or oracle label is injected into policy information",
+    "signal is used before available_at",
+    "evidence marked accepted with missing integrity verification",
+    "evidence is accepted after declared expiry",
+    "event_time, received_at and available_at silently conflated",
+    "acquisition cost charged more than once",
+    "inspection units reset between stages",
+    "terminal action differs for identical accepted observable histories",
+    "missing signal is silently converted to a negative signal",
+    "source authenticity is treated as physical sensor accuracy",
+    "hard service floor is bypassed by a weighted objective",
+    "perfect-information lower bound is admitted as an eligible policy",
+    "policy uses latent truth when sensor evidence is missing"
+  ],
+  "boundary_cases": [
+    "no-information baseline",
+    "perfectly informative sensor",
+    "uninformative sensor with sensitivity equal to false-positive rate",
+    "inverted sensor with sensitivity below false-positive rate",
+    "signal delayed until after decision deadline",
+    "zero inspection resource budget",
+    "inspection cost makes all acquisition net-negative",
+    "higher-accuracy sensor is dominated by lower-cost alternative"
+  ],
+  "metamorphic_requirements": [
+    "permuting signal labels while permuting kernels and policy labels leaves objective unchanged",
+    "splitting one outcome into identical sub-outcomes leaves objective unchanged",
+    "adding a constant to all terminal action costs shifts all feasible policy objectives by that constant",
+    "increasing acquisition cost cannot improve the minimum total objective for that same acquisition action"
+  ],
+  "reference_targets_not_results": {
+    "no_information_total_cost": 20,
+    "basic_total_cost": 16.2,
+    "advanced_total_cost": 19.9,
+    "perfect_information_lower_bound": 6,
+    "selected_acquisition": "BASIC",
+    "absolute_error": 1e-10
+  },
+  "non_claims": [
+    "All fixture values are synthetic.",
+    "Authored test counts are not test execution evidence.",
+    "No guarantee of positive EVSI under shift or model error.",
+    "No causal intervention or sensor-calibration guarantee.",
+    "No deployment, operational readiness, certification or SOTA claim."
+  ],
+  "proposed_test_cases": 32,
+  "test_execution_status": "not-implemented-not-run"
+}
