@@ -1,3 +1,4 @@
+use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -289,6 +290,15 @@ fn parse_pores(bytes: &[u8], config: &Config) -> Result<(usize, Vec<Pore>), Stri
     Ok((input_count, retained))
 }
 
+fn parse_utc(value: &str, label: &str) -> Result<DateTime<FixedOffset>, String> {
+    let timestamp = DateTime::parse_from_rfc3339(value)
+        .map_err(|error| format!("{label}: invalid RFC3339 timestamp: {error}"))?;
+    if timestamp.offset().local_minus_utc() != 0 {
+        return Err(format!("{label}: timestamp must use a zero UTC offset"));
+    }
+    Ok(timestamp)
+}
+
 fn validate_dynamic(config: &Config, report: &DynamicReport) -> Result<(), String> {
     if report.study_id != config.study_id
         || report.profile_id != config.profile_id
@@ -309,6 +319,22 @@ fn validate_dynamic(config: &Config, report: &DynamicReport) -> Result<(), Strin
     if report.time_points.is_empty() {
         return Err("dynamic report contains no time points".to_owned());
     }
+    if !report.image_geometry.projected_macropore_area_mm2.is_finite()
+        || report.image_geometry.projected_macropore_area_mm2 <= 0.0
+        || !report.image_geometry.total_macropore_perimeter_mm.is_finite()
+        || report.image_geometry.total_macropore_perimeter_mm <= 0.0
+        || !report.derived_geometry.dry_structural_unit_width_mm.is_finite()
+        || report.derived_geometry.dry_structural_unit_width_mm <= 0.0
+        || !report.derived_geometry.dry_mean_macropore_width_mm.is_finite()
+        || report.derived_geometry.dry_mean_macropore_width_mm <= 0.0
+        || !report.derived_geometry.total_dry_repeat_width_mm.is_finite()
+        || report.derived_geometry.total_dry_repeat_width_mm <= 0.0
+    {
+        return Err("dynamic report contains non-positive or non-finite pore geometry".to_owned());
+    }
+    if report.image_geometry.included_macropore_object_count == 0 {
+        return Err("dynamic report included_macropore_object_count must be positive".to_owned());
+    }
     finite_positive(report.fluid_properties.surface_tension_n_m, "dynamic report surface tension")?;
     finite_positive(report.fluid_properties.water_density_kg_m3, "dynamic report water density")?;
     finite_positive(report.fluid_properties.gravity_m_s2, "dynamic report gravity")?;
@@ -317,11 +343,33 @@ fn validate_dynamic(config: &Config, report: &DynamicReport) -> Result<(), Strin
         "maximum macropore volume fraction",
     )?;
 
+    let mut previous_time: Option<DateTime<FixedOffset>> = None;
     for (index, point) in report.time_points.iter().enumerate() {
+        let timestamp = parse_utc(
+            &point.timestamp_utc,
+            &format!("time_points[{index}].timestamp_utc"),
+        )?;
+        if let Some(previous) = &previous_time {
+            if timestamp <= *previous {
+                return Err("dynamic report time points must be strictly chronological with no duplicate timestamps".to_owned());
+            }
+        }
+        previous_time = Some(timestamp);
         finite_nonnegative(point.matrix_water_content_m3_m3, &format!("time_points[{index}].matrix_water_content"))?;
         finite_positive(point.structural_unit_width_mm, &format!("time_points[{index}].structural_unit_width_mm"))?;
         finite_nonnegative(point.macropore_width_mm, &format!("time_points[{index}].macropore_width_mm"))?;
         finite_nonnegative(point.macropore_volume_fraction, &format!("time_points[{index}].macropore_volume_fraction"))?;
+        if !near(
+            point.structural_unit_width_mm + point.macropore_width_mm,
+            report.derived_geometry.total_dry_repeat_width_mm,
+        ) {
+            return Err(format!("time_points[{index}] violates the declared structural repeat width"));
+        }
+        if point.macropore_volume_fraction
+            > report.maximum_macropore_volume_fraction_at_wilting_point + 1.0e-8
+        {
+            return Err(format!("time_points[{index}] aggregate macro fraction exceeds the wilting-point maximum"));
+        }
     }
     Ok(())
 }
@@ -558,8 +606,13 @@ fn run() -> Result<(), Box<dyn Error>> {
     let dynamic_path = Path::new(&args[2]);
     let config_path = Path::new(&args[3]);
     let output_path = Path::new(&args[4]);
-    if output_path.exists() && fs::canonicalize(output_path).ok().as_ref() == Some(&fs::canonicalize(csv_path)?) {
-        return Err("output path resolves to morphology source; refusing overwrite".into());
+    if output_path.exists() {
+        for input_path in [csv_path, dynamic_path, config_path] {
+            if fs::canonicalize(output_path)? == fs::canonicalize(input_path)? {
+                return Err(format!("output path resolves to input {}; refusing overwrite", input_path.display()).into());
+            }
+        }
+        return Err(format!("output path already exists: {}", output_path.display()).into());
     }
 
     let csv_bytes = fs::read(csv_path)?;
