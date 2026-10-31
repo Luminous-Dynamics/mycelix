@@ -32,7 +32,7 @@ struct ImageGeometry {
     included_macropore_object_count: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct SoilProperties {
     particle_density_kg_m3: f64,
@@ -44,7 +44,7 @@ struct SoilProperties {
     matrix_saturated_hydraulic_conductivity_m_s: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct FluidProperties {
     surface_tension_n_m: f64,
@@ -393,7 +393,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     )?;
 
     let mut time_points = Vec::with_capacity(input.matrix_water_content_observations.len());
-    for (observation, _timestamp) in input.matrix_water_content_observations.iter().zip(validate(input)?) {
+    for observation in &input.matrix_water_content_observations {
         let theta_m = observation.matrix_water_content_m3_m3;
         let rho = bulk_density_at_matrix_water_content(theta_m, soil)?;
         let cole = (soil.oven_dry_bulk_density_kg_m3 / rho).cbrt() - 1.0;
@@ -411,7 +411,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         }
         let macropore_width = macropore_width.max(0.0);
 
-        let (rp, fp) = macropore_fraction(
+        let (_rp, fp) = macropore_fraction(
             macropore_width,
             structural_width,
             image.projected_macropore_area_mm2,
@@ -454,7 +454,6 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             structural_alpha_per_m: alpha2,
             structural_n: n2,
         });
-        let _ = rp;
     }
 
     Ok(Report {
