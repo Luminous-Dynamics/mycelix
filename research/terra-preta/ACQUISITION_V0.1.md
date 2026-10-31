@@ -96,7 +96,9 @@ The source paper uses an area cutoff of π mm² for defining included macropore 
 
 **Transfer boundary:** the paper applies to one particular Konza Prairie APT soil profile with shrink–swell behavior. Its fitted coefficients cannot be applied directly to Terra Preta or South African soils. 2D geometry does not establish 3D connectivity; the paper's comparison to a prior transient-conductivity model is not equivalent to independent tracer validation at every time point.
 
-Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545). The benchmark is [DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md](./DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md).
+Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545).
+
+**Executable model:** [Dynamic macropore audit Rust crate](./tools/dynamic-macropore-audit/README.md) implements a limited equation-level saturated-conductivity core; it is not the full Hirmas unsaturated transport model and has not been run against the raw Dryad archive. The benchmark is [DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md](./DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md).
 
 ## 6. NEON event-scale preferential-flow benchmark sources
 
