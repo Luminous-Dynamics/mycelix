@@ -232,11 +232,17 @@
           "minimum": 0
         },
         "oracle_regret": {
-          "type": "number",
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0
         },
         "normalized_oracle_regret": {
-          "type": "number",
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0
         },
         "mean_model_disagreement": {
