@@ -2,7 +2,7 @@
   "benchmark_id": "PRAXIS-NRES-016-EX0-CONFORMANCE-001",
   "schema_version": "1.0.0",
   "evaluation_split": "public-development-only",
-  "authored_rust_unit_tests": 12,
+  "authored_rust_unit_tests": 14,
   "invalid_input_controls": [
     "wrong benchmark ID, schema version or synthetic status",
     "non-public-development split or curriculum activation",
@@ -28,7 +28,10 @@
     "terminal outcome points to a next state",
     "next information state is undeclared or has the wrong stage",
     "resource conservation equation does not hold",
-    "declared information state is unreachable from the initial state"
+    "declared information state is unreachable from the initial state",
+    "non-terminal transition omits an observation object or terminal transition supplies a non-null observation",
+    "transition-emitted observation differs from the final observation appended to the successor history",
+    "reserved hidden/future scenario identifier appears in a transition observation"
   ],
   "boundary_cases": [
     "resource balance reaches exactly zero",
@@ -36,7 +39,8 @@
     "a future state falls below one service floor and makes its predecessor action infeasible",
     "action-conditioned probabilities differ between actions",
     "terminal-stage outcomes use explicit null next-state IDs",
-    "all root actions infeasible returns explicit infeasibility, not silent relaxation"
+    "all root actions infeasible returns explicit infeasibility, not silent relaxation",
+    "successor's final observation must exactly equal the observation emitted by the selected transition"
   ],
   "round_trip_requirements": [
     "information-state IDs and canonical observation/prior-action histories remain stable",
@@ -46,7 +50,8 @@
     "resource balances are conserved after action use and replenishment",
     "service levels remain keyed to the same service-floor IDs",
     "selected policy contains one action per observable information state",
-    "expected cost remains in the declared cost units"
+    "expected cost remains in the declared cost units",
+    "every successor observation remains bound to its incoming transition outcome"
   ],
   "non_claims": [
     "The solver is exact only for the supplied finite information-state DAG and expected-cost objective.",
