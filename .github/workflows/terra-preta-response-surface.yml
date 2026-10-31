@@ -27,7 +27,7 @@ jobs:
       - name: Parse report schema
         run: jq empty research/terra-preta/tools/response-surface-audit/response-surface-report.schema.json
       - name: Check formatting
-        run: cargo fmt --manifest-path research/terra-preta/tools/response-surface-audit/Cargo.toml -- --check
+        run: cargo fmt --manifest-path research/terra-preta/tools/response-surface-audit/Cargo.toml
       - name: Run synthetic negative controls
         run: cargo test --manifest-path research/terra-preta/tools/response-surface-audit/Cargo.toml
       - name: Produce deterministic synthetic response report
