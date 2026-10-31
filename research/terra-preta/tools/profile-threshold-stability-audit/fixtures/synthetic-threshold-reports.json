@@ -118,6 +118,13 @@
           "deep_sensor_id": "D60",
           "deep_depth_cm": 60,
           "ordering": "sequential_shallower_first_interval_separated"
+        },
+        {
+          "shallow_sensor_id": "D30",
+          "shallow_depth_cm": 30,
+          "deep_sensor_id": "D90",
+          "deep_depth_cm": 90,
+          "ordering": "nonsequential_deeper_first_interval_separated"
         }
       ]
     }
