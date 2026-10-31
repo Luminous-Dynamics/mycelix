@@ -1108,6 +1108,121 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn history_from_events(events: &[&str], actions: &[&str]) -> Value {
+        json!({
+            "observations": events.iter().enumerate().map(|(stage, event)| {
+                json!({"stage": stage, "values": {"observed_event": event}})
+            }).collect::<Vec<_>>(),
+            "prior_actions": actions
+        })
+    }
+
+    fn risk_terminal_state(id: &str, events: &[&str], actions: &[&str]) -> Value {
+        json!({
+            "information_state_id": id,
+            "observable_history": history_from_events(events, actions),
+            "stage": 2,
+            "resource_units_available": 0.0,
+            "service_levels": {"water": 100.0, "power": 100.0},
+            "actions": [{
+                "action_id": "END",
+                "fixed_cost": 0.0,
+                "resource_use": 0.0,
+                "outcomes": [{
+                    "outcome_id": "end",
+                    "probability": 1.0,
+                    "next_information_state_id": null,
+                    "observation": null,
+                    "stage_cost": 0.0,
+                    "resources_replenished": 0.0
+                }]
+            }]
+        })
+    }
+
+    fn risk_fixture(alpha: f64) -> Value {
+        let mut states = vec![
+            json!({
+                "information_state_id": "ROOT",
+                "observable_history": history_from_events(&["initial"], &[]),
+                "stage": 0,
+                "resource_units_available": 0.0,
+                "service_levels": {"water": 100.0, "power": 100.0},
+                "actions": [{
+                    "action_id": "START",
+                    "fixed_cost": 0.0,
+                    "resource_use": 0.0,
+                    "outcomes": [
+                        {"outcome_id":"branch-a","probability":0.5,"next_information_state_id":"A","observation":{"stage":1,"values":{"branch":"A"}},"stage_cost":0.0,"resources_replenished":0.0},
+                        {"outcome_id":"branch-b","probability":0.5,"next_information_state_id":"B","observation":{"stage":1,"values":{"branch":"B"}},"stage_cost":0.0,"resources_replenished":0.0}
+                    ]
+                }]
+            }),
+            json!({
+                "information_state_id": "A",
+                "observable_history": history_from_events(&["initial", "A"], &["START"]),
+                "stage": 1,
+                "resource_units_available": 0.0,
+                "service_levels": {"water": 100.0, "power": 100.0},
+                "actions": [
+                    {"action_id":"SAFE","fixed_cost":150.0,"resource_use":0.0,"outcomes":[{"outcome_id":"safe","probability":1.0,"next_information_state_id":"A-SAFE","observation":{"stage":2,"values":{"result":"safe"}},"stage_cost":0.0,"resources_replenished":0.0}]},
+                    {"action_id":"GAMBLE","fixed_cost":0.0,"resource_use":0.0,"outcomes":[
+                        {"outcome_id":"good","probability":0.95,"next_information_state_id":"A-GOOD","observation":{"stage":2,"values":{"result":"good"}},"stage_cost":0.0,"resources_replenished":0.0},
+                        {"outcome_id":"bad","probability":0.05,"next_information_state_id":"A-BAD","observation":{"stage":2,"values":{"result":"bad"}},"stage_cost":1000.0,"resources_replenished":0.0}
+                    ]}
+                ]
+            }),
+            json!({
+                "information_state_id": "B",
+                "observable_history": history_from_events(&["initial", "B"], &["START"]),
+                "stage": 1,
+                "resource_units_available": 0.0,
+                "service_levels": {"water": 100.0, "power": 100.0},
+                "actions": [{
+                    "action_id":"HOLD",
+                    "fixed_cost":0.0,
+                    "resource_use":0.0,
+                    "outcomes":[{"outcome_id":"catastrophe","probability":1.0,"next_information_state_id":"B-END","observation":{"stage":2,"values":{"result":"catastrophe"}},"stage_cost":10000.0,"resources_replenished":0.0}]
+                }]
+            })
+        ];
+        states.push(risk_terminal_state("A-SAFE", &["initial", "A", "safe"], &["START", "SAFE"]));
+        states.push(risk_terminal_state("A-GOOD", &["initial", "A", "good"], &["START", "GAMBLE"]));
+        states.push(risk_terminal_state("A-BAD", &["initial", "A", "bad"], &["START", "GAMBLE"]));
+        states.push(risk_terminal_state("B-END", &["initial", "B", "catastrophe"], &["START", "HOLD"]));
+
+        let last_observations: HashMap<String, Value> = states.iter().map(|state| {
+            let id = state["information_state_id"].as_str().unwrap().to_owned();
+            let observation = state["observable_history"]["observations"].as_array().unwrap().last().unwrap().clone();
+            (id, observation)
+        }).collect();
+        for state in &mut states {
+            for action in state["actions"].as_array_mut().unwrap() {
+                for outcome in action["outcomes"].as_array_mut().unwrap() {
+                    let next_id = outcome.get("next_information_state_id").and_then(Value::as_str).map(str::to_owned);
+                    outcome["observation"] = match next_id {
+                        Some(next_id) => last_observations[&next_id].clone(),
+                        None => Value::Null
+                    };
+                }
+            }
+        }
+
+        json!({
+            "benchmark_id": BENCHMARK_ID,
+            "schema_version": "1.0.0",
+            "status": "synthetic-demonstration-for-review",
+            "evaluation_split": "public-development-only",
+            "active_in_curriculum": false,
+            "objective_semantics": "minimum-expected-total-cost-subject-to-pathwise-service-floors",
+            "risk_confidence_level": alpha,
+            "horizon_stages": 3,
+            "initial_information_state_id": "ROOT",
+            "service_floors": {"water":70.0,"power":60.0},
+            "information_states": states
+        })
+    }
+
     fn observed_history(observations: &[&str], prior_actions: &[&str]) -> Value {
         json!({
             "observations": observations.iter().enumerate().map(|(stage, value)| {
@@ -1249,6 +1364,46 @@ mod tests {
             "service_floors": {"water":70.0,"power":60.0},
             "information_states": states
         })
+    }
+
+    #[test]
+    fn finite_distribution_cvar_matches_hand_calculation() {
+        let risk = upper_cvar(&[(0.0, 0.95), (1000.0, 0.05)], 0.9).unwrap();
+        assert!((risk - 500.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn nested_cvar_reverses_static_precommitment_local_action() {
+        let report = evaluate_nested_cvar_comparison(&risk_fixture(0.9)).unwrap();
+        assert_eq!(report["local_decision_reversal_at_A"]["nested_action"], json!("SAFE"));
+        assert_eq!(report["local_decision_reversal_at_A"]["static_precommitment_action"], json!("GAMBLE"));
+        assert_eq!(report["local_decision_reversal_at_A"]["different"], json!(true));
+        assert!((report["nested"]["nested_conditional_cvar"].as_f64().unwrap() - 10000.0).abs() < 1e-10);
+        assert!((report["static_terminal"]["static_terminal_cvar"].as_f64().unwrap() - 10000.0).abs() < 1e-10);
+        assert!((report["nested"]["policy_expected_cost"].as_f64().unwrap() - 5075.0).abs() < 1e-10);
+        assert!((report["static_terminal"]["policy_expected_cost"].as_f64().unwrap() - 5025.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn nested_cvar_keeps_one_action_per_observable_information_state() {
+        let report = evaluate_nested_cvar_comparison(&risk_fixture(0.9)).unwrap();
+        let policy = report["nested"]["policy"].as_object().unwrap();
+        assert_eq!(policy.len(), 7);
+        assert_eq!(report["nonanticipativity_semantics"], json!("both optimizers choose one action per explicit observable information state"));
+    }
+
+    #[test]
+    fn invalid_nested_cvar_confidence_is_rejected() {
+        let fixture = risk_fixture(1.0);
+        assert!(evaluate_nested_cvar_comparison(&fixture).is_err());
+    }
+
+    #[test]
+    fn terminal_cvar_enumeration_respects_pathwise_service_floors() {
+        let mut fixture = risk_fixture(0.9);
+        fixture["information_states"][2]["service_levels"]["water"] = json!(40.0);
+        let report = evaluate_nested_cvar_comparison(&fixture).unwrap();
+        assert_eq!(report["nested"]["policy"]["B"], Value::Null);
     }
 
     #[test]
