@@ -248,6 +248,25 @@ mod tests {
     }
 
     #[test]
+    fn role_projection_is_independent_of_source_array_order() {
+        let first = serde_json::json!({
+            "action": "attestation_recorded",
+            "actor": {"id": "actor:1", "roles": ["reviewer", "contributor"]}
+        });
+        let second = serde_json::json!({
+            "action": "attestation_recorded",
+            "actor": {"id": "actor:1", "roles": ["contributor", "reviewer"]}
+        });
+        let first_indexed = index_role_projection(&first).unwrap();
+        let second_indexed = index_role_projection(&second).unwrap();
+        assert_eq!(first_indexed, second_indexed);
+        assert_eq!(
+            serde_json::to_vec(&first_indexed).unwrap(),
+            serde_json::to_vec(&second_indexed).unwrap()
+        );
+    }
+
+    #[test]
     fn role_projection_accepts_empty_set_and_rejects_duplicate_or_invalid_roles() {
         let empty = serde_json::json!({"actor":{"roles":[]}});
         assert_eq!(
