@@ -1,0 +1,143 @@
+{
+  "schema_version": "0.1.0",
+  "study_label": "synthetic regime-stratified fixture",
+  "evaluation_track": "multi_method",
+  "split_role": "held_out_test",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "split_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "source_evidence_ref": "synthetic fixture only; no measured soil samples",
+  "split_evidence_ref": "synthetic fixture split only",
+  "models": [
+    {
+      "model_id": "brooks_corey_integral",
+      "model_family": "pore_spectrum_integral",
+      "model_version": "fixture-0.1",
+      "configuration_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "implementation_evidence_ref": "synthetic implementation label only"
+    },
+    {
+      "model_id": "van_genuchten_integral",
+      "model_family": "pore_spectrum_integral",
+      "model_version": "fixture-0.1",
+      "configuration_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "implementation_evidence_ref": "synthetic implementation label only"
+    },
+    {
+      "model_id": "rosetta3",
+      "model_family": "pedotransfer_function",
+      "model_version": "fixture-0.1",
+      "configuration_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "implementation_evidence_ref": "synthetic implementation label only"
+    }
+  ],
+  "observations": [
+    {
+      "sample_id": "S1",
+      "group_id": "SITE-A",
+      "ks_measurement_method": "falling_head",
+      "ks_measurement_protocol_id": "KS-FH-v1",
+      "water_retention_method": "pressure_plate",
+      "water_retention_protocol_id": "WR-PP-v1",
+      "rac_fraction": 0.08,
+      "rac_method": "synthetic rac",
+      "rac_evidence_ref": "fixture only",
+      "total_porosity_fraction": 0.5,
+      "actual_ks_m_per_s": 0.00001,
+      "predictions_m_per_s": {
+        "brooks_corey_integral": 0.000008,
+        "van_genuchten_integral": 0.000011,
+        "rosetta3": 0.00001
+      }
+    },
+    {
+      "sample_id": "S2",
+      "group_id": "SITE-A",
+      "ks_measurement_method": "falling_head",
+      "ks_measurement_protocol_id": "KS-FH-v1",
+      "water_retention_method": "pressure_plate",
+      "water_retention_protocol_id": "WR-PP-v1",
+      "rac_fraction": 0.03,
+      "rac_method": "synthetic rac",
+      "rac_evidence_ref": "fixture only",
+      "total_porosity_fraction": 0.4,
+      "actual_ks_m_per_s": 0.000001,
+      "predictions_m_per_s": {
+        "brooks_corey_integral": 5e-7,
+        "van_genuchten_integral": 0.0000012,
+        "rosetta3": 0.0000011
+      }
+    },
+    {
+      "sample_id": "S3",
+      "group_id": "SITE-B",
+      "ks_measurement_method": "steady_state",
+      "ks_measurement_protocol_id": "KS-SS-v1",
+      "water_retention_method": "hanging_column",
+      "water_retention_protocol_id": "WR-HC-v1",
+      "rac_fraction": 0.1,
+      "rac_method": "synthetic rac",
+      "rac_evidence_ref": "fixture only",
+      "total_porosity_fraction": 0.35,
+      "actual_ks_m_per_s": 0.00002,
+      "predictions_m_per_s": {
+        "brooks_corey_integral": 0.000018,
+        "van_genuchten_integral": 0.000015,
+        "rosetta3": 0.000021
+      }
+    },
+    {
+      "sample_id": "S4",
+      "group_id": "SITE-B",
+      "ks_measurement_method": "steady_state",
+      "ks_measurement_protocol_id": "KS-SS-v1",
+      "water_retention_method": "hanging_column",
+      "water_retention_protocol_id": "WR-HC-v1",
+      "rac_fraction": 0.01,
+      "rac_method": "synthetic rac",
+      "rac_evidence_ref": "fixture only",
+      "total_porosity_fraction": 0.3,
+      "actual_ks_m_per_s": 8e-7,
+      "predictions_m_per_s": {
+        "brooks_corey_integral": 4e-7,
+        "van_genuchten_integral": 7e-7,
+        "rosetta3": 8e-7
+      }
+    },
+    {
+      "sample_id": "S5",
+      "group_id": "SITE-C",
+      "ks_measurement_method": "falling_head",
+      "ks_measurement_protocol_id": "KS-FH-v1",
+      "water_retention_method": "pressure_plate",
+      "water_retention_protocol_id": "WR-PP-v1",
+      "rac_fraction": 0.07,
+      "rac_method": "synthetic rac",
+      "rac_evidence_ref": "fixture only",
+      "total_porosity_fraction": 0.45,
+      "actual_ks_m_per_s": 0.000004,
+      "predictions_m_per_s": {
+        "brooks_corey_integral": 0.0000041,
+        "van_genuchten_integral": 0.0000035,
+        "rosetta3": 0.0000045
+      }
+    },
+    {
+      "sample_id": "S6",
+      "group_id": "SITE-D",
+      "ks_measurement_method": "steady_state",
+      "ks_measurement_protocol_id": "KS-SS-v1",
+      "water_retention_method": "hanging_column",
+      "water_retention_protocol_id": "WR-HC-v1",
+      "rac_fraction": 0.02,
+      "rac_method": "synthetic rac",
+      "rac_evidence_ref": "fixture only",
+      "total_porosity_fraction": 0.42,
+      "actual_ks_m_per_s": 0.000003,
+      "predictions_m_per_s": {
+        "brooks_corey_integral": 0.0000021,
+        "van_genuchten_integral": 0.0000031,
+        "rosetta3": 0.000003
+      }
+    }
+  ]
+}
