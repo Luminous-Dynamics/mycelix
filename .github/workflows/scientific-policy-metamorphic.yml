@@ -286,6 +286,8 @@ jobs:
             target/scientific-policy-space/
             target/scientific-policy-metamorphic/
             target/metamorphic-engine-results/
+            target/policy-counterexample-seed.json
+            target/policy-counterexample-shrink/
             target/opa-version.txt
             tools/scientific-policy-metamorphic/Cargo.toml
             tools/scientific-policy-metamorphic/Cargo.lock
