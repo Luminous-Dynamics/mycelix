@@ -44,7 +44,6 @@ fn object_numbers(value: Option<&Value>, label: &str, errors: &mut Vec<String>) 
 
 #[derive(Clone)]
 struct Outcome {
-    outcome_id: String,
     probability: f64,
     next_state_id: Option<String>,
     stage_cost: f64,
@@ -270,7 +269,6 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
                     .map(str::to_owned);
                 probability_sum += probability;
                 outcomes.push(Outcome {
-                    outcome_id,
                     probability,
                     next_state_id,
                     stage_cost,
