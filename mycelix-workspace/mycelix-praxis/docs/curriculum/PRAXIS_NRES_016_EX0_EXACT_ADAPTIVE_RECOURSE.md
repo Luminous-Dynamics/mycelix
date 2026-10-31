@@ -14,7 +14,7 @@ It is an exact dynamic-programming solver over a finite information-state DAG, m
 ## State and transition contract
 
 Each information state contains:
-- a unique state ID and unique canonical observable-history key;
+- a unique state ID and a canonical event history containing only observations and prior actions;
 - a stage index;
 - currently available resource units;
 - current service levels keyed by service;
@@ -30,7 +30,7 @@ Every action's conditional outcome probabilities must sum to one. A non-terminal
 
 ## Non-anticipativity by construction
 
-The policy is a mapping from unique observable information-state IDs to actions. The fixture does not provide a latent scenario label as a policy input. A duplicate observable-history key is rejected: two copies of the same observed history cannot become separate decision variables and cannot increase the sample count.
+The policy is a mapping from unique observable information-state IDs to actions. The fixture represents the information set as an explicit sequence of observed records plus prior actions. Hidden/future scenario identifiers are rejected from observation fields. Each child must preserve the full prior observation sequence and append exactly the selected action and one new observation. Canonically identical event histories cannot become separate decision variables or increase the sample count.
 
 This is a deliberately explicit information-state DAG rather than a scenario-indexed policy file. When a future stochastic-programming backend is added, it must reproduce this policy's non-anticipativity constraints and pass negative controls that permute hidden future outcomes without changing current actions.
 
@@ -77,13 +77,13 @@ The module authors 10 Rust tests covering:
 - selection of actions at multiple stages;
 - pruning an action whose future branch violates a service floor;
 - one action per observable information state;
-- duplicate observable-history rejection;
+- duplicate canonical histories, hidden future labels and invalid child-history extension;
 - resource conservation and resource-overdraw rejection;
 - conditional probability normalization;
 - explicit infeasibility;
 - stage-transition validation.
 
-The conformance corpus separately records 23 invalid-input controls, six boundary cases and eight round-trip requirements. These tests are authored, not confirmed passing; compilation and execution require an actual Rust toolchain/CI run.
+The conformance corpus separately records 25 invalid-input controls, six boundary cases and eight round-trip requirements. These tests are authored, not confirmed passing; compilation and execution require an actual Rust toolchain/CI run.
 
 ## Scope boundaries and next work
 
