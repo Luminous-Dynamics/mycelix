@@ -47,7 +47,7 @@ struct InputManifest {
     encoding: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct EngineInputCase {
     case_id: String,
@@ -55,7 +55,7 @@ struct EngineInputCase {
     rego: RegoCase,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct CedarCase {
     case_id: String,
@@ -63,7 +63,7 @@ struct CedarCase {
     entities: Vec<Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct CedarRequest {
     principal: String,
@@ -72,7 +72,7 @@ struct CedarRequest {
     context: Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct RegoCase {
     case_id: String,
@@ -96,6 +96,35 @@ struct TimingSummary {
     max_ns: u128,
     mean_ns: u128,
 }
+
+#[derive(Debug, Serialize)]
+struct ActionBenchmarkSummary {
+    action: String,
+    case_id: String,
+    case_sha256: String,
+    cedar_case_sha256: String,
+    rego_input_sha256: String,
+    warmup_iterations: usize,
+    measured_iterations: usize,
+    decision: String,
+    determining_policy_ids: Vec<String>,
+    construction_latency: TimingSummary,
+    authorization_latency: TimingSummary,
+    evaluation_method: &'static str,
+}
+
+const ACTION_BENCHMARK_ACTIONS: [&str; 8] = [
+    "claim_proposed",
+    "legacy_claim_imported",
+    "evidence_attached",
+    "attestation_recorded",
+    "attestation_corrected",
+    "attestation_withdrawn",
+    "claim_superseded",
+    "claim_retracted",
+];
+const ACTION_BENCHMARK_WARMUP_ITERATIONS: usize = 100;
+const ACTION_BENCHMARK_MEASURED_ITERATIONS: usize = 2_000;
 
 #[derive(Debug, Serialize)]
 struct RunManifest {
@@ -124,6 +153,7 @@ struct RunManifest {
     construction_latency: TimingSummary,
     authorization_latency: TimingSummary,
     end_to_end_latency: TimingSummary,
+    action_benchmarks: Vec<ActionBenchmarkSummary>,
     total_wall_ns: u128,
     throughput_cases_per_second: f64,
     peak_rss_kib: Option<u64>,
@@ -404,6 +434,92 @@ fn evaluate_case(
         .collect::<Vec<_>>();
     determining_policy_ids.sort();
     Ok((decision, determining_policy_ids, construction_ns, authorization_ns))
+}
+
+fn benchmark_cedar_actions(
+    cases: &[EngineInputCase],
+    authorizer: &Authorizer,
+    policy_set: &PolicySet,
+    schema: &Schema,
+    output_directory: &Path,
+) -> Result<Vec<ActionBenchmarkSummary>, String> {
+    let input_directory = output_directory.join("opa-action-inputs");
+    fs::create_dir_all(&input_directory)
+        .map_err(|error| format!("create OPA action benchmark inputs: {error}"))?;
+    let mut summaries = Vec::with_capacity(ACTION_BENCHMARK_ACTIONS.len());
+
+    for action in ACTION_BENCHMARK_ACTIONS {
+        let case = cases
+            .iter()
+            .find(|case| {
+                case.rego.input
+                    .get("action")
+                    .and_then(Value::as_str)
+                    == Some(action)
+            })
+            .ok_or_else(|| format!("source-pinned corpus contains no case for action {action}"))?;
+
+        let case_bytes = serde_json::to_vec(case)
+            .map_err(|error| format!("serialize Cedar action benchmark case: {error}"))?;
+        let cedar_case_bytes = serde_json::to_vec(&case.cedar)
+            .map_err(|error| format!("serialize Cedar action benchmark projection: {error}"))?;
+        let rego_input_bytes = serde_json::to_vec(&case.rego.input)
+            .map_err(|error| format!("serialize Rego action benchmark input: {error}"))?;
+        fs::write(input_directory.join(format!("{action}.json")), &rego_input_bytes)
+            .map_err(|error| format!("write exact OPA action benchmark input for {action}: {error}"))?;
+
+        let mut expected_decision: Option<&'static str> = None;
+        let mut expected_policy_ids: Option<Vec<String>> = None;
+        for _ in 0..ACTION_BENCHMARK_WARMUP_ITERATIONS {
+            let (decision, policy_ids, _, _) =
+                evaluate_case(authorizer, policy_set, schema, case)?;
+            if let Some(expected) = expected_decision {
+                if decision != expected || expected_policy_ids.as_ref() != Some(&policy_ids) {
+                    return Err(format!(
+                        "Cedar decision/reason changed during warmup for action {action}"
+                    ));
+                }
+            } else {
+                expected_decision = Some(decision);
+                expected_policy_ids = Some(policy_ids);
+            }
+        }
+
+        let mut construction_times = Vec::with_capacity(ACTION_BENCHMARK_MEASURED_ITERATIONS);
+        let mut authorization_times = Vec::with_capacity(ACTION_BENCHMARK_MEASURED_ITERATIONS);
+        for _ in 0..ACTION_BENCHMARK_MEASURED_ITERATIONS {
+            let (decision, policy_ids, construction_ns, authorization_ns) =
+                evaluate_case(authorizer, policy_set, schema, case)?;
+            if Some(decision) != expected_decision
+                || expected_policy_ids.as_ref() != Some(&policy_ids)
+            {
+                return Err(format!(
+                    "Cedar decision/reason changed during measurement for action {action}"
+                ));
+            }
+            construction_times.push(construction_ns);
+            authorization_times.push(authorization_ns);
+        }
+
+        summaries.push(ActionBenchmarkSummary {
+            action: action.to_owned(),
+            case_id: case.case_id.clone(),
+            case_sha256: sha256(&case_bytes),
+            cedar_case_sha256: sha256(&cedar_case_bytes),
+            rego_input_sha256: sha256(&rego_input_bytes),
+            warmup_iterations: ACTION_BENCHMARK_WARMUP_ITERATIONS,
+            measured_iterations: ACTION_BENCHMARK_MEASURED_ITERATIONS,
+            decision: expected_decision
+                .ok_or_else(|| format!("missing warmup decision for action {action}"))?
+                .to_owned(),
+            determining_policy_ids: expected_policy_ids
+                .ok_or_else(|| format!("missing warmup policy IDs for action {action}"))?,
+            construction_latency: timing_summary(&construction_times),
+            authorization_latency: timing_summary(&authorization_times),
+            evaluation_method: "Cedar 4.14.0 in-process request/entity construction and pure authorization; 100 warmups then 2000 repeated evaluations of the exact source-pinned representative case",
+        });
+    }
+    Ok(summaries)
 }
 
 #[cfg(test)]
@@ -1087,6 +1203,8 @@ fn run() -> Result<(), String> {
     writer.flush().map_err(|error| format!("flush Cedar decision output: {error}"))?;
     let total_wall_ns = wall_start.elapsed().as_nanos();
     let output_sha256 = hex::encode(output_hasher.finalize());
+    let action_benchmarks =
+        benchmark_cedar_actions(&cases, &authorizer, &policy_set, &schema, &output_directory)?;
     let peak_rss = peak_rss_kib();
     let logical_cpus = std::thread::available_parallelism().map_or(1, usize::from);
     let throughput = if total_wall_ns == 0 {
@@ -1121,6 +1239,7 @@ fn run() -> Result<(), String> {
         construction_latency: timing_summary(&construction_times),
         authorization_latency: timing_summary(&authorization_times),
         end_to_end_latency: timing_summary(&end_to_end_times),
+        action_benchmarks,
         total_wall_ns,
         throughput_cases_per_second: throughput,
         peak_rss_kib: peak_rss,
