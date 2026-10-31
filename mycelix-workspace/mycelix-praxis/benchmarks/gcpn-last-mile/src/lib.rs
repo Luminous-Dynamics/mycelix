@@ -101,10 +101,16 @@ fn parse_bool(value: &str, field: &str) -> Result<bool, String> {
     }
 }
 
-fn parse_u64(value: &str, field: &str) -> Result<u64, String> {
-    value
+fn parse_recipient_count(value: &str, field: &str) -> Result<u64, String> {
+    // Bound individual synthetic cohort sizes to u32 so aggregate u64 sums
+    // and duplicate-delivery multiplication remain overflow-safe.
+    let count: u32 = value
         .parse()
-        .map_err(|_| format!("{field} must be an unsigned integer, got {value}"))
+        .map_err(|_| format!("{field} must be an unsigned 32-bit integer, got {value}"))?;
+    if count == 0 {
+        return Err(format!("{field} must be greater than zero"));
+    }
+    Ok(u64::from(count))
 }
 
 pub fn parse_cohorts(input: &str) -> Result<Vec<Cohort>, String> {
@@ -127,7 +133,7 @@ pub fn parse_cohorts(input: &str) -> Result<Vec<Cohort>, String> {
 
         let cohort = Cohort {
             cohort_id: f[0].to_owned(),
-            recipients: parse_u64(f[1], "recipients")?,
+            recipients: parse_recipient_count(f[1], "recipients")?,
             channel_access: [
                 parse_bool(f[2], "cell_broadcast_access")?,
                 parse_bool(f[3], "radio_tv_access")?,
