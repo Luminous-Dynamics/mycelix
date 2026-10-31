@@ -162,6 +162,13 @@ jobs:
           test "$(wc -l < target/metamorphic-engine-results/baseline-cedar/cedar-decisions-v0.1.jsonl)" -eq 62464
           jq -e '.case_count == 62464 and .indeterminate_count == 0 and .measured_cases == 62208' \
             target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json
+          jq -e '
+            .action_benchmarks | length == 8 and
+            all(.[]; .warmup_iterations == 100 and
+                     .measured_iterations == 2000 and
+                     (.rego_input_sha256 | length == 64) and
+                     (.cedar_case_sha256 | length == 64))
+          ' target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json
 
       - name: Evaluate baseline corpus through OPA/Rego v1
         run: |
