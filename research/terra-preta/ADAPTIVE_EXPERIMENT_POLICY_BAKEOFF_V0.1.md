@@ -127,3 +127,5 @@ Official documentation:
 ### Feasible-set regret reporting
 
 Oracle regret is reported only for policies that meet every hard target-stratum coverage minimum. An infeasible policy retains its raw synthetic utility and coverage failure report, but its `oracle_regret` and `normalized_oracle_regret` are null; a high utility cannot erase a hard-constraint violation. Comparative regret assertions therefore compare only coverage-feasible policies (the robust policy versus OFAT in the committed fixture). Raw synthetic utility is displayed separately for all policies.
+
+The regression suite includes a case where an infeasible policy's raw synthetic utility exceeds the coverage-constrained oracle; its oracle regret must still be null, never clipped to zero. The latest inventory is 14 authored test functions.
