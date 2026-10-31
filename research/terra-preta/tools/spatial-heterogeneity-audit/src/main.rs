@@ -402,7 +402,7 @@ fn semivariogram(
                 lower_exclusive_m: bin.lower_exclusive_m,
                 upper_inclusive_m: bin.upper_inclusive_m,
                 pair_count: count,
-                semivariance_m6_m6: (count > 0).then_some(sum / count as f64),
+                semivariance_theta_squared: (count > 0).then_some(sum / count as f64),
             }
         })
         .collect()
@@ -579,6 +579,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         summaries,
         interpretation_boundary: "event-relative spatial moisture heterogeneity is a sensor signature, not unique proof of macropore connectivity, vertical bypass or measured flux",
         warnings: vec![
+            "All x/y coordinates must already be transformed into one common site/array metric coordinate reference; plot-local offsets from different reference origins must not be compared directly.".to_owned(),
             "The audit uses only directly observed samples from usable sensors; missing and interpolated observations are excluded rather than imputed.".to_owned(),
             "Semivariograms are descriptive and require adequate spatial layout; pair counts are emitted and no variogram model is fitted.".to_owned(),
             "Spatial heterogeneity can reflect texture, roots, lateral flow, sensor support, calibration or drift; it is not a preferential-flow certificate.".to_owned(),
@@ -616,7 +617,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     println!(
         "spatial audit complete: {} sensors; {} depths; {} time-depth summaries; input_sha256={}",
         report.sensor_count,
-        report.distinct_depth_count,
+        report.distinct_depth_group_count,
         report.time_depth_summary_count,
         report.input_sha256
     );
@@ -671,14 +672,14 @@ mod tests {
             source_evidence_ref: "synthetic fixture; not field data".to_owned(),
             distance_bins: vec![
                 DistanceBin { lower_exclusive_m: 0.0, upper_inclusive_m: 1.1 },
-                DistanceBin { lower_exclusive_m: 1.1, upper_inclusive_m: 2.1 },
-                DistanceBin { lower_exclusive_m: 2.1, upper_inclusive_m: 3.0 },
+                DistanceBin { lower_exclusive_m: 9.0, upper_inclusive_m: 11.0 },
+                DistanceBin { lower_exclusive_m: 11.0, upper_inclusive_m: 12.0 },
             ],
             sensors: vec![
                 sensor("A", 0.0, 0.0, [0.20, 0.20, 0.22]),
                 sensor("B", 1.0, 0.0, [0.20, 0.20, 0.20]),
-                sensor("C", 0.0, 1.0, [0.20, 0.20, 0.21]),
-                sensor("D", 1.0, 1.0, [0.20, 0.20, 0.20]),
+                SensorSeries { plot_id: "P02".to_owned(), x_m: 10.0, ..sensor("C", 0.0, 1.0, [0.20, 0.20, 0.21]) },
+                SensorSeries { plot_id: "P02".to_owned(), x_m: 11.0, ..sensor("D", 1.0, 1.0, [0.20, 0.20, 0.20]) },
             ],
         }
     }
@@ -704,6 +705,7 @@ mod tests {
         assert_eq!(report.time_depth_summary_count, 2);
         let last = &report.summaries[1];
         assert_eq!(last.valid_observed_sensor_count, 4);
+        assert_eq!(last.roster_plot_count, 2);
         assert_eq!(last.positive_response_count, 2);
         assert_eq!(last.positive_response_fraction, Some(0.5));
         assert_eq!(last.semivariogram.iter().map(|bin| bin.pair_count).sum::<usize>(), 6);
