@@ -741,6 +741,17 @@ mod tests {
     }
 
     #[test]
+    fn invalid_pre_event_baselines_are_counted_not_treated_as_zero() {
+        let mut input = fixture();
+        input.sensors[0].observations[0].status = SampleStatus::LinearInterpolatedGapLt6h;
+        let report = evaluate(&input, "i".repeat(64)).unwrap();
+        let last = &report.summaries[1];
+        assert_eq!(last.valid_observed_sensor_count, 3);
+        assert_eq!(last.invalid_baseline_count, 1);
+        assert_eq!(last.missing_sample_count, 0);
+    }
+
+    #[test]
     fn nonusable_sensors_are_explicitly_excluded() {
         let mut input = fixture();
         input.sensors[0].condition = SensorCondition::Saturated;
