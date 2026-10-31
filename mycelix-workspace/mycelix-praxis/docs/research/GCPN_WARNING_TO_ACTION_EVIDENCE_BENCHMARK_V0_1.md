@@ -103,6 +103,32 @@ The benchmark uses arbitrary synthetic ticks. They are not hours or days. The fr
 
 Do not make a composite score that lets high delivery or action throughput conceal an authority, finance, protection, inclusion, grievance or evidence-integrity failure.
 
+
+## 6.1 Frozen fixture oracle (expected negative-control counts)
+
+The ten-row fixture should produce these exact counters:
+
+| Counter | Expected |
+|---|---:|
+| Missing CAP/protocol lineage | 0 |
+| Unauthorized decisions | 1 |
+| Unauthorized activations | 1 |
+| Unapproved fund releases | 1 |
+| Unauthorized action starts | 1 |
+| False completions | 1 |
+| Population overclaims | 1 |
+| Service-record accounting mismatches | 0 |
+| Grievance suppression | 1 |
+| Grievance resolution overcounts | 0 |
+| Unsupported impact claims | 1 |
+| Chronology violations | 1 |
+
+It should also produce nine activation decisions, eight funding-release records, six action starts and six action-completed assertions. The last number includes one deliberately false completion, which is why completed assertions must be distinguished from valid completion latency.
+
+The arithmetic sums across the ten test rows are 10,000 intended-person slots and 3,790 unique-person service records. These are not a unique population, programme reach, or coverage rate: fixture cases represent different fictional scenarios and deliberately include a population-overclaim negative control.
+
+Mean synthetic timing ticks are expected to be 98 from warning to decision, 100 from decision to finance release, approximately 133.33 from finance release to action start, and 500 from action start to validly ordered completion. These are test-vector arithmetic, not real-world time measurements.
+
 ## 6. Reproduction
 
 From the Mycelix repository root:
