@@ -1,6 +1,6 @@
 # Authorization Counterexample Minimization v0.1
 
-Status: design contract for issue #5553. This file specifies a follow-on experiment; it does not claim the shrinker exists or that the Rust oracle is available.
+Status: contract plus a generic deterministic JSON reducer implementation in src/shrink.rs. Engine-integrated Cedar/OPA minimization and Rust-oracle parity remain unimplemented.
 
 ## 1. Why minimize?
 
