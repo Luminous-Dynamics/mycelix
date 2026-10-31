@@ -30,6 +30,10 @@ A missing or interpolated sample before a crossing makes that sensor indetermina
 
 Run the extractor separately at 0.01, 0.02, 0.03 and 0.05 m3/m3 (or a preregistered instrument/site-specific range), then feed every generated file into `profile-flow-audit`. Compare the resulting profile classes, pair counts, coverage and interval bounds. Do not choose the threshold after seeing which one produces the desired NSR class. The synthetic fixture intentionally changes classification as the threshold rises.
 
+## Next research gate
+
+Instrument-calibrated thresholds and cadence robustness are tracked in [PF-RESP-001](https://github.com/Luminous-Dynamics/mycelix/issues/5554). The current v0.1 extractor is a deterministic first-crossing tool, not a noise-calibrated detector.
+
 ## Evidence boundary
 
 The output is a sensor response-order input, not proof of preferential flow, a unique macropore, flux partition, vertical connectivity or tracer-confirmed bypass. Sensor spacing can miss narrow paths; lateral flow and heterogeneity can produce nonsequential responses. Keep proxy labels separate from tracer/geophysical adjudication.
