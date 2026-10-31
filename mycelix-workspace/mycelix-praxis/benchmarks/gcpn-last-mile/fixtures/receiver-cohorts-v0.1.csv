@@ -1,0 +1,6 @@
+cohort_id,recipients,cell_broadcast_access,radio_tv_access,mobile_data_access,community_relay_access,cell_broadcast_accessible,radio_tv_accessible,mobile_data_accessible,community_relay_accessible
+urban-general,1000,true,true,true,false,true,true,true,false
+rural-radio-community,800,false,true,false,true,false,true,false,true
+low-connectivity-community,500,false,false,false,true,false,false,false,true
+screen-reader-mobile,250,true,true,true,false,false,false,true,false
+sign-language-community,150,true,true,true,true,false,false,true,true
