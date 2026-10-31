@@ -9,6 +9,8 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
+use crate::shrink::parse_unique_json_bytes;
+
 pub const ROLE_INDEX_PROFILE: &str = "mycelix-rego-role-index-v0.1";
 pub const MAX_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -67,6 +69,14 @@ pub fn index_role_projection(input: &Value) -> Result<Value, RoleIndexError> {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ActionInputDigest {
+    pub action: String,
+    pub case_id: String,
+    pub sha256: String,
+    pub byte_length: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct RoleIndexManifest {
     pub schema_version: String,
     pub projection_profile: String,
@@ -76,6 +86,7 @@ pub struct RoleIndexManifest {
     pub indexed_case_count: usize,
     pub action_count: usize,
     pub action_inputs: Vec<String>,
+    pub action_input_digests: Vec<ActionInputDigest>,
     pub claim_ceiling: String,
 }
 
@@ -122,6 +133,7 @@ pub fn generate_indexed_role_corpus(
         "claim_retracted",
     ];
     let mut action_inputs = BTreeSet::new();
+    let mut action_input_digests = Vec::with_capacity(expected_actions.len());
     let mut action_count = 0usize;
     let mut case_count = 0usize;
 
@@ -131,8 +143,8 @@ pub fn generate_indexed_role_corpus(
         if line.trim().is_empty() {
             return Err(role_index_error(format!("blank source JSONL record at line {}", line_index + 1)));
         }
-        let row: Value = serde_json::from_str(&line)
-            .map_err(|error| role_index_error(format!("parse source JSONL line {}: {error}", line_index + 1)))?;
+        let row = parse_unique_json_bytes(line.as_bytes())
+            .map_err(|error| role_index_error(format!("strictly parse source JSONL line {}: {error}", line_index + 1)))?;
         let case_id = row
             .get("case_id")
             .and_then(Value::as_str)
@@ -156,6 +168,12 @@ pub fn generate_indexed_role_corpus(
                 .map_err(|error| role_index_error(format!("serialize indexed action input: {error}")))?;
             fs::write(&action_path, &bytes)
                 .map_err(|error| role_index_error(format!("write indexed action input: {error}")))?;
+            action_input_digests.push(ActionInputDigest {
+                action: action.to_owned(),
+                case_id: case_id.to_owned(),
+                sha256: sha256(&bytes),
+                byte_length: bytes.len(),
+            });
             action_count += 1;
         }
 
@@ -193,6 +211,7 @@ pub fn generate_indexed_role_corpus(
         indexed_case_count: case_count,
         action_count,
         action_inputs: action_inputs.into_iter().collect(),
+        action_input_digests,
         claim_ceiling: concat!(
             "deterministic role-array to boolean-keyed-object input projection over the frozen paired corpus; ",
             "no policy decision, Cedar result, or authentic Rust authorization parity is inferred"
