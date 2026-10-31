@@ -32,6 +32,12 @@ The API caps source records at 4 MiB and candidate predicate evaluations at
 100,000; exhaustion remains explicitly incomplete rather than claiming
 1-minimality.
 
+For engine-backed use, `minimize_json_with_provenance` requires a pinned
+engine ID/version, engine-binary SHA-256, policy SHA-256, schema SHA-256 and
+evaluation-configuration SHA-256. These values are validated and embedded in
+the trace. The base generic API leaves engine provenance absent; do not use
+that form to publish an engine-specific counterexample.
+
 A complete trace claims only 1-minimality in that exact reduction
 neighborhood. Candidate-budget exhaustion or an evaluation error returns an
 incomplete trace and never claims minimality. The original input must satisfy
