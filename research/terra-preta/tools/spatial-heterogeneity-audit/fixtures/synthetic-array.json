@@ -2,7 +2,6 @@
   "schema_version": "0.1.0",
   "study_id": "synthetic",
   "site_id": "SYN1",
-  "plot_id": "P01",
   "profile_id": "PROF1",
   "event_id": "EV1",
   "event_start_utc": "2026-05-01T00:00:00Z",
@@ -47,7 +46,9 @@
           "volumetric_water_content_m3_m3": 0.22,
           "status": "observed"
         }
-      ]
+      ],
+      "plot_id": "P01",
+      "depth_group_id": "D20"
     },
     {
       "sensor_id": "B",
@@ -71,7 +72,9 @@
           "volumetric_water_content_m3_m3": 0.2,
           "status": "observed"
         }
-      ]
+      ],
+      "plot_id": "P01",
+      "depth_group_id": "D20"
     },
     {
       "sensor_id": "C",
@@ -95,7 +98,9 @@
           "volumetric_water_content_m3_m3": 0.21,
           "status": "observed"
         }
-      ]
+      ],
+      "plot_id": "P01",
+      "depth_group_id": "D20"
     },
     {
       "sensor_id": "D",
@@ -119,7 +124,10 @@
           "volumetric_water_content_m3_m3": 0.2,
           "status": "observed"
         }
-      ]
+      ],
+      "plot_id": "P01",
+      "depth_group_id": "D20"
     }
-  ]
+  ],
+  "spatial_group_id": "ARRAY1"
 }
