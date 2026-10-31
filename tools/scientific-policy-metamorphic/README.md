@@ -62,10 +62,15 @@ candidate's digest, engine decisions/reasons, predicate result and any error.
 The qualification workflow reconciles sidecar rows and accepted outcomes
 against the reducer trace, and publishes the minimized input, full reduction
 trace, engine/policy/schema/configuration digests and separate Cedar/OPA
-candidate timing distributions. This is a deliberately seeded candidate-policy
-counterexample, not an authentic Rust authorization mismatch or a result from
-all 62,464 corpus rows. It makes no Rust authorization parity or
-policy-correctness claim.
+candidate timing distributions. It also benchmarks Cedar and OPA on the
+identical source-bound representative Rego input for each of the eight actions:
+Cedar performs 100 warmups and 2,000 in-process evaluations and records request
+construction and authorization separately; OPA native `opa bench` consumes
+the exact same input bytes after a manifest SHA-256 check. The full 62,464-case
+OPA batch remains separately measured. This is a deliberately seeded
+candidate-policy counterexample, not an authentic Rust authorization mismatch
+or a result from all 62,464 corpus rows. It makes no Rust authorization parity
+or policy-correctness claim.
 
 ## Run
 
