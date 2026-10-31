@@ -1137,6 +1137,7 @@ struct NestedRobustRiskPlan {
     nominal_expected_cost: f64,
     policy: BTreeMap<String, String>,
     adversarial_transition_laws: BTreeMap<String, Vec<Value>>,
+    action_diagnostics: BTreeMap<String, Value>,
 }
 
 /// Construct the exact FOSD-maximal distribution in a finite-support TV ball.
@@ -1229,6 +1230,7 @@ fn solve_rectangular_tv_nested_risk(
     }
 
     let mut best: Option<NestedRobustRiskPlan> = None;
+    let mut all_action_diagnostics = BTreeMap::new();
     for action in &state.actions {
         let mut future_losses = Vec::new();
         let mut nominal_probabilities = Vec::new();
@@ -1290,8 +1292,9 @@ fn solve_rectangular_tv_nested_risk(
             "worst_case_probability": worst_probabilities[index],
             "loss_plus_robust_continuation": future_losses[index]
         })).collect::<Vec<_>>();
-        adversarial_transition_laws.insert(action_key, law);
+        adversarial_transition_laws.insert(action_key.clone(), law.clone());
 
+        let mut action_diagnostics = BTreeMap::new();
         for future in futures.into_iter().flatten() {
             for (future_state, future_action) in future.policy {
                 if let Some(previous) = policy.insert(future_state.clone(), future_action.clone()) {
@@ -1301,13 +1304,26 @@ fn solve_rectangular_tv_nested_risk(
                 }
             }
             adversarial_transition_laws.extend(future.adversarial_transition_laws);
+            action_diagnostics.extend(future.action_diagnostics);
         }
+        action_diagnostics.insert(action_key.clone(), json!({
+            "transition_tv_radius": action.transition_tv_radius,
+            "nominal_expected_cost_at_this_action": action.fixed_cost
+                + action.outcomes.iter().map(|outcome| outcome.probability * outcome.stage_cost).sum::<f64>(),
+            "conditional_robust_mean_cvar_value": robust_risk,
+            "nominal_probabilities": nominal_probabilities,
+            "worst_case_probabilities": worst_probabilities,
+            "outcome_losses_including_robust_continuation": future_losses,
+            "adversarial_law": law
+        }));
+        all_action_diagnostics.extend(action_diagnostics.clone());
 
         let candidate = NestedRobustRiskPlan {
             robust_risk,
             nominal_expected_cost,
             policy,
             adversarial_transition_laws,
+            action_diagnostics,
         };
         let replace = match &best {
             None => true,
@@ -1329,6 +1345,10 @@ fn solve_rectangular_tv_nested_risk(
     }
 
     visiting.remove(state_id);
+    let best = best.map(|mut plan| {
+        plan.action_diagnostics.extend(all_action_diagnostics);
+        plan
+    });
     memo.insert(state_id.to_owned(), best.clone());
     Ok(best)
 }
@@ -1363,7 +1383,8 @@ pub fn evaluate_rectangular_tv_robust_recourse(fixture: &Value) -> Result<Value,
         "nested_rectangular_tv_mean_cvar_objective": plan.robust_risk,
         "nominal_expected_cost_under_selected_policy": plan.nominal_expected_cost,
         "policy": plan.policy,
-        "worst_case_transition_laws_by_information_state_and_action": plan.adversarial_transition_laws
+        "worst_case_transition_laws_by_selected_information_state_action": plan.adversarial_transition_laws,
+        "all_feasible_action_diagnostics": plan.action_diagnostics
     }));
     let nominal_a = nominal["nested"]["policy"].get("A").and_then(Value::as_str);
     let robust_a = robust_report.as_ref().and_then(|report| report["policy"].get("A").and_then(Value::as_str));
