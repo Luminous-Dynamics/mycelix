@@ -110,7 +110,7 @@ jobs:
             'data.mycelix.authz.batch.decisions' \
             > target/metamorphic-engine-results/baseline-opa/opa-eval.json
           elapsed_ns="$(( $(date +%s%N) - started ))"
-          jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0", decision:.decision.effect, rule:.decision.rule}' \
+          jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0", decision:.decision.effect, determining_policy_ids:[.decision.rule]}' \
             target/metamorphic-engine-results/baseline-opa/opa-eval.json \
             > target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl
           test "$(wc -l < target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl)" -eq 62464
@@ -130,7 +130,7 @@ jobs:
             local candidate_file="$3"
             local output_file="$4"
             jq -n --arg engine "$engine" --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
-              def by_id: map({key:.case_id,value:{decision:.decision,rule:(.rule // "")}}) | from_entries;
+              def by_id: map({key:.case_id,value:{decision:.decision,determining_policy_ids:(.determining_policy_ids // [])}}) | from_entries;
               ($baseline | by_id) as $b |
               ($candidate | by_id) as $c |
               ($b | keys) as $bk |
@@ -141,12 +141,12 @@ jobs:
                 candidate_case_count:($ck|length),
                 same_case_ids:($bk == $ck),
                 decision_divergence_count:([$bk[] | select($b[.].decision != $c[.].decision)] | length),
-                rule_divergence_count:([$bk[] | select($b[.].rule != $c[.].rule)] | length),
-                divergence_samples:([$bk[] | select($b[.].decision != $c[.].decision or $b[.].rule != $c[.].rule) | {case_id:.,baseline:$b[.],candidate:$c[.]}] | .[0:20]),
+                determining_policy_divergence_count:([$bk[] | select($b[.].determining_policy_ids != $c[.].determining_policy_ids)] | length),
+                divergence_samples:([$bk[] | select($b[.].decision != $c[.].decision or $b[.].determining_policy_ids != $c[.].determining_policy_ids) | {case_id:.,baseline:$b[.],candidate:$c[.]}] | .[0:20]),
                 claim_ceiling:"metamorphic invariance relative to this pinned engine and exact inputs; not Rust parity or policy correctness"
               }
             ' > "$output_file"
-            jq -e '.baseline_case_count == 62464 and .candidate_case_count == 62464 and .same_case_ids == true and .decision_divergence_count == 0 and .rule_divergence_count == 0' "$output_file"
+            jq -e '.baseline_case_count == 62464 and .candidate_case_count == 62464 and .same_case_ids == true and .decision_divergence_count == 0 and .determining_policy_divergence_count == 0' "$output_file"
           }
 
           for transform in \
@@ -173,7 +173,7 @@ jobs:
               --data tools/scientific-policy-cedar-runner/opa-batch.rego \
               'data.mycelix.authz.batch.decisions' > "$result_dir/opa-eval.json"
             elapsed_ns="$(( $(date +%s%N) - started ))"
-            jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0", decision:.decision.effect, rule:.decision.rule}' \
+            jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0", decision:.decision.effect, determining_policy_ids:[.decision.rule]}' \
               "$result_dir/opa-eval.json" > "$result_dir/opa-decisions-v0.1.jsonl"
             test "$(wc -l < "$result_dir/opa-decisions-v0.1.jsonl")" -eq 62464
             output_sha="$(sha256sum "$result_dir/opa-decisions-v0.1.jsonl" | cut -d ' ' -f 1)"
@@ -199,7 +199,7 @@ jobs:
 
       - name: Build engine metamorphic qualification summary
         run: |
-          jq -s '{transform_count:length,transforms:map({transform,cedar_decision_divergences:.cedar.decision_divergence_count,cedar_rule_divergences:.cedar.rule_divergence_count,opa_decision_divergences:.opa.decision_divergence_count,opa_rule_divergences:.opa.rule_divergence_count}),all_engine_invariances_hold:all(.[];.cedar.same_case_ids and .opa.same_case_ids and .cedar.decision_divergence_count == 0 and .cedar.rule_divergence_count == 0 and .opa.decision_divergence_count == 0 and .opa.rule_divergence_count == 0),claim_ceiling:"Cedar/OPA invariance over four defined transformations only; no authentic Rust oracle parity"}' \
+          jq -s '{transform_count:length,transforms:map({transform,cedar_decision_divergences:.cedar.decision_divergence_count,cedar_rule_divergences:.cedar.rule_divergence_count,opa_decision_divergences:.opa.decision_divergence_count,opa_rule_divergences:.opa.rule_divergence_count}),all_engine_invariances_hold:all(.[];.cedar.same_case_ids and .opa.same_case_ids and .cedar.decision_divergence_count == 0 and .cedar.determining_policy_divergence_count == 0 and .opa.decision_divergence_count == 0 and .opa.determining_policy_divergence_count == 0),claim_ceiling:"Cedar/OPA invariance over four defined transformations only; no authentic Rust oracle parity"}' \
             target/metamorphic-engine-results/*/metamorphic-result.json \
             > target/metamorphic-engine-results/qualification-summary.json
           jq -e '.transform_count == 4 and .all_engine_invariances_hold == true' \
