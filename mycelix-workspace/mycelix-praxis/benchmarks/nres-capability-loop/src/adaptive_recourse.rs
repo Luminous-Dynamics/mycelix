@@ -713,6 +713,396 @@ pub fn evaluate_exact_adaptive_recourse(fixture: &Value) -> Result<Value, Vec<St
     }))
 }
 
+#[derive(Clone)]
+struct PathDistributionPlan {
+    outcomes: Vec<(f64, f64)>,
+    policy: BTreeMap<String, String>,
+}
+
+#[derive(Clone)]
+struct NestedRiskPlan {
+    nested_cvar: f64,
+    expected_cost: f64,
+    policy: BTreeMap<String, String>,
+}
+
+/// Exact upper-tail CVaR for a finite probability distribution.
+///
+/// Uses the Rockafellar-Uryasev representation:
+/// min_eta [ eta + E[(X-eta)+] / (1-alpha) ].
+/// For finite support, an optimum exists at a support value.
+fn upper_cvar(distribution: &[(f64, f64)], alpha: f64) -> Result<f64, String> {
+    if distribution.is_empty() {
+        return Err("CVaR distribution cannot be empty".to_owned());
+    }
+    if !alpha.is_finite() || !(0.0..1.0).contains(&alpha) {
+        return Err("CVaR confidence level must be finite and in [0,1)".to_owned());
+    }
+    let total_probability: f64 = distribution.iter().map(|(_, probability)| probability).sum();
+    if (total_probability - 1.0).abs() > TOLERANCE {
+        return Err(format!("CVaR probabilities must sum to one (found {total_probability})"));
+    }
+    if distribution.iter().any(|(loss, probability)| {
+        !loss.is_finite() || *probability <= 0.0 || !probability.is_finite()
+    }) {
+        return Err("CVaR losses must be finite and probabilities positive".to_owned());
+    }
+
+    let mut candidates: Vec<f64> = distribution.iter().map(|(loss, _)| *loss).collect();
+    candidates.sort_by(f64::total_cmp);
+    candidates.dedup_by(|left, right| (*left - *right).abs() <= TOLERANCE);
+
+    let mut best = f64::INFINITY;
+    for eta in candidates {
+        let excess: f64 = distribution
+            .iter()
+            .map(|(loss, probability)| probability * (loss - eta).max(0.0))
+            .sum();
+        let value = eta + excess / (1.0 - alpha);
+        best = best.min(value);
+    }
+    Ok(best)
+}
+
+fn mean_cost(distribution: &[(f64, f64)]) -> f64 {
+    distribution.iter().map(|(loss, probability)| loss * probability).sum()
+}
+
+fn combine_path_plans(
+    state_id: &str,
+    action: &Action,
+    outcomes: &[Outcome],
+    child_ids: &[String],
+    child_options: &BTreeMap<String, Vec<PathDistributionPlan>>,
+    index: usize,
+    chosen: &mut BTreeMap<String, PathDistributionPlan>,
+    output: &mut Vec<PathDistributionPlan>,
+) {
+    if index < child_ids.len() {
+        let child_id = &child_ids[index];
+        if let Some(options) = child_options.get(child_id) {
+            for option in options {
+                chosen.insert(child_id.clone(), option.clone());
+                combine_path_plans(
+                    state_id,
+                    action,
+                    outcomes,
+                    child_ids,
+                    child_options,
+                    index + 1,
+                    chosen,
+                    output,
+                );
+            }
+            chosen.remove(child_id);
+        }
+        return;
+    }
+
+    let mut policy = BTreeMap::new();
+    policy.insert(state_id.to_owned(), action.action_id.clone());
+    for plan in chosen.values() {
+        for (child_state, child_action) in &plan.policy {
+            if let Some(previous) = policy.insert(child_state.clone(), child_action.clone()) {
+                if previous != *child_action {
+                    return;
+                }
+            }
+        }
+    }
+
+    let mut distribution = Vec::new();
+    for outcome in outcomes {
+        match &outcome.next_state_id {
+            Some(next_id) => {
+                let Some(child) = chosen.get(next_id) else {
+                    return;
+                };
+                for (future_cost, future_probability) in &child.outcomes {
+                    distribution.push((
+                        action.fixed_cost + outcome.stage_cost + future_cost,
+                        outcome.probability * future_probability,
+                    ));
+                }
+            }
+            None => distribution.push((action.fixed_cost + outcome.stage_cost, outcome.probability)),
+        }
+    }
+
+    output.push(PathDistributionPlan {
+        outcomes: distribution,
+        policy,
+    });
+}
+
+fn enumerate_terminal_cvar_policies(
+    state_id: &str,
+    model: &Model,
+    memo: &mut HashMap<String, Vec<PathDistributionPlan>>,
+    visiting: &mut BTreeSet<String>,
+) -> Result<Vec<PathDistributionPlan>, String> {
+    if let Some(cached) = memo.get(state_id) {
+        return Ok(cached.clone());
+    }
+    if !visiting.insert(state_id.to_owned()) {
+        return Err(format!("cycle detected at information state {state_id}"));
+    }
+
+    let state = model
+        .states
+        .get(state_id)
+        .ok_or_else(|| format!("unknown information state {state_id}"))?;
+    let floor_ok = model.service_floors.iter().all(|(service, floor)| {
+        state.service_levels.get(service).is_some_and(|level| *level + TOLERANCE >= *floor)
+    });
+    if !floor_ok {
+        visiting.remove(state_id);
+        memo.insert(state_id.to_owned(), Vec::new());
+        return Ok(Vec::new());
+    }
+
+    let mut all_plans = Vec::new();
+    for action in &state.actions {
+        let child_ids: Vec<String> = action
+            .outcomes
+            .iter()
+            .filter_map(|outcome| outcome.next_state_id.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+
+        let mut child_options = BTreeMap::new();
+        let mut action_feasible = true;
+        for child_id in &child_ids {
+            let options = enumerate_terminal_cvar_policies(child_id, model, memo, visiting)?;
+            if options.is_empty() {
+                action_feasible = false;
+                break;
+            }
+            child_options.insert(child_id.clone(), options);
+        }
+        if !action_feasible {
+            continue;
+        }
+
+        let mut chosen = BTreeMap::new();
+        combine_path_plans(
+            state_id,
+            action,
+            &action.outcomes,
+            &child_ids,
+            &child_options,
+            0,
+            &mut chosen,
+            &mut all_plans,
+        );
+    }
+
+    visiting.remove(state_id);
+    memo.insert(state_id.to_owned(), all_plans.clone());
+    Ok(all_plans)
+}
+
+fn solve_nested_cvar(
+    state_id: &str,
+    model: &Model,
+    alpha: f64,
+    memo: &mut HashMap<String, Option<NestedRiskPlan>>,
+    visiting: &mut BTreeSet<String>,
+) -> Result<Option<NestedRiskPlan>, String> {
+    if let Some(cached) = memo.get(state_id) {
+        return Ok(cached.clone());
+    }
+    if !visiting.insert(state_id.to_owned()) {
+        return Err(format!("cycle detected at information state {state_id}"));
+    }
+
+    let state = model
+        .states
+        .get(state_id)
+        .ok_or_else(|| format!("unknown information state {state_id}"))?;
+    let floor_ok = model.service_floors.iter().all(|(service, floor)| {
+        state.service_levels.get(service).is_some_and(|level| *level + TOLERANCE >= *floor)
+    });
+    if !floor_ok {
+        visiting.remove(state_id);
+        memo.insert(state_id.to_owned(), None);
+        return Ok(None);
+    }
+
+    let mut best: Option<NestedRiskPlan> = None;
+    for action in &state.actions {
+        let mut risk_outcomes = Vec::new();
+        let mut expected_cost = action.fixed_cost;
+        let mut policy = BTreeMap::new();
+        policy.insert(state_id.to_owned(), action.action_id.clone());
+        let mut feasible = true;
+
+        for outcome in &action.outcomes {
+            let future = match &outcome.next_state_id {
+                Some(next_id) => match solve_nested_cvar(next_id, model, alpha, memo, visiting)? {
+                    Some(plan) => Some(plan),
+                    None => {
+                        feasible = false;
+                        None
+                    }
+                },
+                None => None,
+            };
+            if outcome.next_state_id.is_some() && future.is_none() {
+                feasible = false;
+                break;
+            }
+
+            let future_risk = future.as_ref().map(|plan| plan.nested_cvar).unwrap_or(0.0);
+            let future_mean = future.as_ref().map(|plan| plan.expected_cost).unwrap_or(0.0);
+            risk_outcomes.push((outcome.stage_cost + future_risk, outcome.probability));
+            expected_cost += outcome.probability * (outcome.stage_cost + future_mean);
+
+            if let Some(plan) = future {
+                for (future_state, future_action) in plan.policy {
+                    if let Some(previous) = policy.insert(future_state.clone(), future_action.clone()) {
+                        if previous != future_action {
+                            return Err(format!("non-anticipativity conflict at information state {future_state}"));
+                        }
+                    }
+                }
+            }
+        }
+        if !feasible {
+            continue;
+        }
+
+        let nested_cvar = action.fixed_cost + upper_cvar(&risk_outcomes, alpha)?;
+        let candidate = NestedRiskPlan {
+            nested_cvar,
+            expected_cost,
+            policy,
+        };
+        let replace = match &best {
+            None => true,
+            Some(current) if candidate.nested_cvar < current.nested_cvar - TOLERANCE => true,
+            Some(current)
+                if (candidate.nested_cvar - current.nested_cvar).abs() <= TOLERANCE
+                    && candidate.expected_cost < current.expected_cost - TOLERANCE => true,
+            Some(current)
+                if (candidate.nested_cvar - current.nested_cvar).abs() <= TOLERANCE
+                    && (candidate.expected_cost - current.expected_cost).abs() <= TOLERANCE =>
+            {
+                candidate.policy.get(state_id).cmp(&current.policy.get(state_id)).is_lt()
+            }
+            _ => false,
+        };
+        if replace {
+            best = Some(candidate);
+        }
+    }
+
+    visiting.remove(state_id);
+    memo.insert(state_id.to_owned(), best.clone());
+    Ok(best)
+}
+
+/// Compare nested conditional CVaR with a precommitment terminal-CVaR policy.
+///
+/// Nested CVaR is optimized recursively at every information state. The
+/// terminal-CVaR comparator enumerates non-anticipative policies and minimizes
+/// terminal path CVaR, breaking exact CVaR ties by expected cost. The latter
+/// is intentionally a precommitment benchmark, not a time-consistent policy.
+pub fn evaluate_nested_cvar_comparison(fixture: &Value) -> Result<Value, Vec<String>> {
+    let model = parse_model(fixture)?;
+    let alpha = number_field(fixture, "risk_confidence_level")
+        .filter(|value| value.is_finite() && (0.0..1.0).contains(value))
+        .ok_or_else(|| vec!["risk_confidence_level must be finite and in [0,1)".to_owned()])?;
+
+    let mut nested_memo = HashMap::new();
+    let mut nested_visiting = BTreeSet::new();
+    let nested = solve_nested_cvar(
+        &model.initial_state_id,
+        &model,
+        alpha,
+        &mut nested_memo,
+        &mut nested_visiting,
+    )
+    .map_err(|error| vec![error])?;
+
+    let mut static_memo = HashMap::new();
+    let mut static_visiting = BTreeSet::new();
+    let static_plans = enumerate_terminal_cvar_policies(
+        &model.initial_state_id,
+        &model,
+        &mut static_memo,
+        &mut static_visiting,
+    )
+    .map_err(|error| vec![error])?;
+
+    let mut static_best: Option<(f64, f64, PathDistributionPlan)> = None;
+    for plan in static_plans {
+        let terminal_cvar = upper_cvar(&plan.outcomes, alpha).map_err(|error| vec![error])?;
+        let expected = mean_cost(&plan.outcomes);
+        let replace = match &static_best {
+            None => true,
+            Some((best_cvar, best_mean, best_plan))
+                if terminal_cvar < *best_cvar - TOLERANCE => true,
+            Some((best_cvar, best_mean, _))
+                if (terminal_cvar - *best_cvar).abs() <= TOLERANCE
+                    && expected < *best_mean - TOLERANCE => true,
+            Some((best_cvar, best_mean, best_plan))
+                if (terminal_cvar - *best_cvar).abs() <= TOLERANCE
+                    && (expected - *best_mean).abs() <= TOLERANCE =>
+            {
+                plan.policy.get(&model.initial_state_id).cmp(&best_plan.policy.get(&model.initial_state_id)).is_lt()
+            }
+            _ => false,
+        };
+        if replace {
+            static_best = Some((terminal_cvar, expected, plan));
+        }
+    }
+
+    let nested_report = nested.map(|plan| json!({
+        "nested_conditional_cvar": plan.nested_cvar,
+        "policy_expected_cost": plan.expected_cost,
+        "policy": plan.policy
+    }));
+    let static_report = static_best.map(|(risk, expected, plan)| json!({
+        "static_terminal_cvar": risk,
+        "policy_expected_cost": expected,
+        "policy": plan.policy,
+        "terminal_cost_distribution": plan.outcomes.iter().map(|(cost, probability)| json!({
+            "total_cost": cost,
+            "probability": probability
+        })).collect::<Vec<_>>()
+    }));
+
+    let nested_a = nested_report.as_ref().and_then(|report| report["policy"].get("A").and_then(Value::as_str));
+    let static_a = static_report.as_ref().and_then(|report| report["policy"].get("A").and_then(Value::as_str));
+
+    Ok(json!({
+        "benchmark_id": "PRAXIS-NRES-016-EX1-NESTED-CVAR-COMPARISON-001",
+        "status": "synthetic-public-development-evaluated",
+        "evaluation_split": "public-development-only",
+        "active_in_curriculum": false,
+        "risk_confidence_level": alpha,
+        "nested_method": "recursive conditional upper-CVaR at each observable information state",
+        "static_method": "precommitment CVaR of total terminal path cost; exact CVaR ties broken by lower expected cost",
+        "nested": nested_report,
+        "static_terminal": static_report,
+        "local_decision_reversal_at_A": {
+            "nested_action": nested_a,
+            "static_precommitment_action": static_a,
+            "different": nested_a != static_a
+        },
+        "nonanticipativity_semantics": "both optimizers choose one action per explicit observable information state",
+        "risk_semantics": "fixed action cost is translated outside the conditional CVaR; stage cost plus continuation risk is inside each conditional risk operator",
+        "calibration_claim": "none",
+        "distributional_robustness_claim": "none",
+        "deployment_claim": "none",
+        "interpretation": "The terminal objective can be indifferent to a local action because another branch already dominates the global tail; its expected-cost tie-break may then choose an action that is locally inferior under conditional CVaR. The nested objective evaluates each information state under its own conditional tail."
+    }))
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
