@@ -1,6 +1,6 @@
 {
   "register_version": "0.1.0",
-  "reviewed_on": "2026-10-30",
+  "reviewed_on": "2026-10-31",
   "interpretation_boundary": "Source acquisition tracking only. An entry in this register is not evidence that the artifact was downloaded, that its data are correct, that its license permits redistribution, or that it is suitable for a confirmatory model.",
   "sources": [
     {
@@ -166,6 +166,133 @@
           "acquisition_status": "not_downloaded",
           "license_status": "CC BY 4.0 reported for the article and by a third-party dataset catalogue; verify at the original Zenodo record.",
           "source_uri": "https://doi.org/10.5281/zenodo.17510653"
+        }
+      ]
+    },
+    {
+      "source_id": "wen_biochar_root_wagp_cycles_2026",
+      "title": "Effects of biochar amendment and root density on water and gas permeability of unsaturated soils under wetting and drying cycles",
+      "source_uri": "https://doi.org/10.1016/j.jrmge.2026.06.041",
+      "paper_uri": "https://doi.org/10.1016/j.jrmge.2026.06.041",
+      "version": "Online publication 2026-09-11; full-text version and supplements to be pinned during acquisition",
+      "source_class": "literature_extracted_biochar_response",
+      "license_status": "Open-access article indicated by publisher; exact Creative Commons license and redistribution terms must be reconfirmed before acquisition or redistribution.",
+      "permitted_research_use": "Separate engineered landfill-cover evidence stratum for methods audit and literature response extraction only; not an agricultural field-effect label or transferable design recommendation.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "limitations": [
+        "The abstract describes compacted unsaturated landfill-cover soils, 0/5/10 percent biochar, vetiver root densities of 0/3/6 clumps, and three wetting-drying cycles; full design, material basis, independent units, uncertainty and statistical contrasts require paper-level audit.",
+        "Reported reductions in water and gas permeability are desirable only relative to the engineered cover objective; they must not be relabelled as agricultural soil benefits.",
+        "The abstract reports a non-monotonic response in which 5 percent biochar produced greater permeability reductions than 10 percent; reproduce from full methods and tables before treating as a quantitative benchmark.",
+        "No raw data, supplement, publisher checksum or local SHA-256 has been acquired."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "wen_2026_article_record",
+          "role": "publisher_article_and_method_reference",
+          "filename": null,
+          "expected_size_bytes": null,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "metadata_reviewed_not_downloaded",
+          "license_status": "open_access_article_exact_license_recheck",
+          "source_uri": "https://doi.org/10.1016/j.jrmge.2026.06.041"
+        }
+      ]
+    },
+    {
+      "source_id": "biochar_clayey_sand_cracking_cycles_2026",
+      "title": "Influence of biochar addition to clayey sand on desiccation cracks formation and water infiltration under wetting and drying",
+      "source_uri": "https://doi.org/10.1016/j.sandf.2026.101806",
+      "paper_uri": "https://doi.org/10.1016/j.sandf.2026.101806",
+      "version": "2026 publication; exact final publisher version to be pinned during acquisition",
+      "source_class": "literature_extracted_biochar_response",
+      "license_status": "Open-access article indicated by publisher; exact Creative Commons license and redistribution terms must be reconfirmed before acquisition or redistribution.",
+      "permitted_research_use": "Separate compacted clayey-sand slope/barrier evidence stratum for methods audit and literature response extraction; not an agricultural rate or treatment recommendation.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "limitations": [
+        "The abstract describes one-dimensional compacted clayey-sand columns with rice-husk and wood-chip biochar, 0/10/30 percent by bulk volume, under successive wetting-drying cycles; verify experimental-unit structure and treatment assignment from the full paper.",
+        "The paper reports effective conductivity and pore-pressure response influenced by desiccation cracks; these are not interchangeable with intact-core saturated conductivity.",
+        "The reported 10 percent volume condition is specific to the tested slope/barrier setup and is not a field application recommendation.",
+        "No raw data, supplement, publisher checksum or local SHA-256 has been acquired."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "clayey_sand_2026_article_record",
+          "role": "publisher_article_and_method_reference",
+          "filename": null,
+          "expected_size_bytes": null,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "metadata_reviewed_not_downloaded",
+          "license_status": "open_access_article_exact_license_recheck",
+          "source_uri": "https://doi.org/10.1016/j.sandf.2026.101806"
+        }
+      ]
+    },
+    {
+      "source_id": "jiang_biochar_hydraulic_meta_2025",
+      "title": "Long-term effects of biochar on the hydraulic properties of soil: A meta-analysis based on 1-10 years field experiments",
+      "source_uri": "https://doi.org/10.1016/j.geoderma.2025.117318",
+      "paper_uri": "https://doi.org/10.1016/j.geoderma.2025.117318",
+      "version": "Geoderma 458, June 2025, article 117318; supplementary data version to be pinned",
+      "source_class": "longitudinal_literature_synthesis",
+      "license_status": "Open-access article indicated by publisher; confirm exact article license and supplementary-data terms.",
+      "permitted_research_use": "Time-dependent agricultural hydraulic-response context and source-study crosswalk after full artifact, dependency and overlap audit; not an independent prospective validation set.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "limitations": [
+        "The abstract reports a synthesis of 61 field studies published from 2009 to 2023; counts and effect estimates must be reconciled from extracted records and supplements.",
+        "The paper reports time-, texture- and feedstock-dependent effects, including available-water-capacity effects peaking around year two and then declining; this is a pooled result, not a universal trajectory.",
+        "Underlying data are reported as available on request; no downloadable row-level dataset, publisher checksum or local SHA-256 has been acquired.",
+        "Study overlap with BiocharDS and other long-term biochar syntheses must be resolved before pooled modelling or independence claims."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "jiang_2025_article_record",
+          "role": "publisher_article_and_meta_analysis_reference",
+          "filename": null,
+          "expected_size_bytes": null,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "metadata_reviewed_not_downloaded",
+          "license_status": "open_access_article_supplement_terms_to_verify",
+          "source_uri": "https://doi.org/10.1016/j.geoderma.2025.117318"
+        }
+      ]
+    },
+    {
+      "source_id": "shahmansouri_biochar_growing_media_cycles_2026",
+      "title": "Stability of physical and hydraulic characteristics of biochar- and rockwool-based growing media under wetting and drying processes",
+      "source_uri": "https://doi.org/10.1016/j.jhydrol.2026.136082",
+      "paper_uri": "https://doi.org/10.1016/j.jhydrol.2026.136082",
+      "version": "Journal of Hydrology 679, October 2026, article 136082; final publisher version to be pinned",
+      "source_class": "literature_extracted_biochar_response",
+      "license_status": "Access and reuse terms require confirmation from the final publisher record.",
+      "permitted_research_use": "Separate horticultural substrate evidence stratum only; must not be pooled with field mineral-soil or Terra Preta response data without an explicit measurement and population crosswalk.",
+      "acquisition_status": "metadata_reviewed_not_downloaded",
+      "limitations": [
+        "The abstract describes biochar- and rockwool-based growing media rather than a field mineral-soil trial.",
+        "Reported wetting-drying changes in water retention, air content, conductivity, tortuosity and water repellency require full-paper methods and substrate composition audit.",
+        "No raw data, supplement, publisher checksum or local SHA-256 has been acquired."
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "shahmansouri_2026_article_record",
+          "role": "publisher_article_and_method_reference",
+          "filename": null,
+          "expected_size_bytes": null,
+          "expected_rows": null,
+          "expected_columns": null,
+          "publisher_md5": null,
+          "sha256": null,
+          "acquisition_status": "metadata_reviewed_not_downloaded",
+          "license_status": "terms_to_verify",
+          "source_uri": "https://doi.org/10.1016/j.jhydrol.2026.136082"
         }
       ]
     }
