@@ -143,6 +143,7 @@ fn object_numbers(value: Option<&Value>, label: &str, errors: &mut Vec<String>) 
 #[derive(Clone)]
 struct Outcome {
     outcome_id: String,
+    observation: Option<Value>,
     probability: f64,
     next_state_id: Option<String>,
     stage_cost: f64,
@@ -356,17 +357,53 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
                     errors.push(format!("{state_id}/{action_id}/{outcome_id}: resources_replenished must be finite and non-negative"));
                     continue;
                 };
-                if raw_outcome.get("next_information_state_id").is_none() {
+                let Some(raw_next_state_id) = raw_outcome.get("next_information_state_id") else {
                     errors.push(format!("{state_id}/{action_id}/{outcome_id}: next_information_state_id must be present or null"));
                     continue;
+                };
+                let next_state_id = match raw_next_state_id {
+                    Value::String(next_id) if !next_id.trim().is_empty() => Some(next_id.clone()),
+                    Value::Null => None,
+                    _ => {
+                        errors.push(format!("{state_id}/{action_id}/{outcome_id}: next_information_state_id must be a non-empty string or null"));
+                        continue;
+                    }
+                };
+                if raw_outcome.get("observation").is_none() {
+                    errors.push(format!("{state_id}/{action_id}/{outcome_id}: observation must be present as an object or null"));
+                    continue;
                 }
-                let next_state_id = raw_outcome
-                    .get("next_information_state_id")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned);
+                let observation = match (&next_state_id, raw_outcome.get("observation").unwrap()) {
+                    (Some(_), Value::Object(object)) => {
+                        if object.len() != 2 || object.get("stage").and_then(Value::as_u64) != Some((stage + 1) as u64) {
+                            errors.push(format!("{state_id}/{action_id}/{outcome_id}: transition observation must contain the next stage index"));
+                            continue;
+                        }
+                        match object.get("values").and_then(Value::as_object) {
+                            Some(values) if !values.is_empty() => {
+                                scan_hidden_history_fields(raw_outcome.get("observation").unwrap(), &format!("{state_id}/{action_id}/{outcome_id}/observation"), &mut errors);
+                                Some(raw_outcome.get("observation").unwrap().clone())
+                            }
+                            _ => {
+                                errors.push(format!("{state_id}/{action_id}/{outcome_id}: transition observation requires non-empty values"));
+                                continue;
+                            }
+                        }
+                    }
+                    (Some(_), _) => {
+                        errors.push(format!("{state_id}/{action_id}/{outcome_id}: non-terminal transition requires an observation object"));
+                        continue;
+                    }
+                    (None, Value::Null) => None,
+                    (None, _) => {
+                        errors.push(format!("{state_id}/{action_id}/{outcome_id}: terminal transition observation must be null"));
+                        continue;
+                    }
+                };
                 probability_sum += probability;
                 outcomes.push(Outcome {
                     outcome_id,
+                    observation,
                     probability,
                     next_state_id,
                     stage_cost,
@@ -430,6 +467,9 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
                                     || !next_state.observations.starts_with(&state.observations)
                                 {
                                     errors.push(format!("{}:{}:{}: next observable history must preserve all prior observations and append exactly one new observation", state.state_id, action.action_id, outcome.outcome_id));
+                                }
+                                if next_state.observations.last() != outcome.observation.as_ref() {
+                                    errors.push(format!("{}:{}:{}: appended child observation must exactly match the observation emitted by this transition", state.state_id, action.action_id, outcome.outcome_id));
                                 }
                                 let expected_resources = state.resource_units_available - action.resource_use + outcome.resources_replenished;
                                 if (next_state.resource_units_available - expected_resources).abs() > TOLERANCE {
@@ -709,6 +749,7 @@ mod tests {
                     "outcome_id": "end",
                     "probability": 1.0,
                     "next_information_state_id": null,
+                    "observation": null,
                     "stage_cost": 0.0,
                     "resources_replenished": 0.0
                 }]
@@ -783,6 +824,25 @@ mod tests {
         states.push(terminal_state("DQ-END-HOLD", 2.0, 100.0, 100.0, &["initial", "quiet", "held"], &["DEFER", "HOLD"]));
         states.push(terminal_state("DS-END-RECOVER", 1.0, 60.0, 50.0, &["initial", "storm", "recovery-failed"], &["DEFER", "RECOVER"]));
 
+        let next_observations: HashMap<String, Value> = states
+            .iter()
+            .map(|state| {
+                let id = state["information_state_id"].as_str().unwrap().to_owned();
+                let observation = state["observable_history"]["observations"].as_array().unwrap().last().unwrap().clone();
+                (id, observation)
+            })
+            .collect();
+        for state in &mut states {
+            for action in state["actions"].as_array_mut().unwrap() {
+                for outcome in action["outcomes"].as_array_mut().unwrap() {
+                    match outcome["next_information_state_id"].as_str() {
+                        Some(next_id) => outcome["observation"] = next_observations[next_id].clone(),
+                        None => outcome["observation"] = Value::Null,
+                    }
+                }
+            }
+        }
+
         json!({
             "benchmark_id": BENCHMARK_ID,
             "schema_version": "1.0.0",
@@ -842,6 +902,23 @@ mod tests {
     fn hidden_future_scenario_field_is_rejected_from_observations() {
         let mut fixture = small_fixture();
         fixture["information_states"][0]["observable_history"]["observations"][0]["values"]["latent_scenario_id"] = json!("HIDDEN");
+        assert!(evaluate_exact_adaptive_recourse(&fixture).is_err());
+    }
+
+    #[test]
+    fn transition_observation_must_match_child_history_exactly() {
+        let mut fixture = small_fixture();
+        fixture["information_states"][0]["actions"][0]["outcomes"][0]["observation"]["values"]["observed_event"] = json!("storm");
+        assert!(evaluate_exact_adaptive_recourse(&fixture).is_err());
+    }
+
+    #[test]
+    fn terminal_transition_requires_null_observation() {
+        let mut fixture = small_fixture();
+        fixture["information_states"][5]["actions"][0]["outcomes"][0]["observation"] = json!({
+            "stage": 3,
+            "values": {"observed_event": "phantom"}
+        });
         assert!(evaluate_exact_adaptive_recourse(&fixture).is_err());
     }
 
