@@ -120,9 +120,16 @@ jobs:
             .initial_opa_decision == "deny" and
             .minimized_cedar_decision == "allow" and
             .minimized_opa_decision == "deny" and
+            .initial_opa_rule_id == "DEFAULT_DENY" and
+            .minimized_opa_rule_id == "DEFAULT_DENY" and
+            (.initial_cedar_determining_policy_ids | length) > 0 and
+            .initial_cedar_determining_policy_ids == .minimized_cedar_determining_policy_ids and
             .complete == true and
             .is_one_minimal == true and
-            .candidate_evaluations > 0
+            .candidate_evaluations > 0 and
+            .opa_candidate_process_evaluations > 0 and
+            .cedar_candidate_latency.count == .opa_candidate_process_evaluations and
+            .opa_cli_candidate_latency.count == .opa_candidate_process_evaluations
           ' target/policy-counterexample-shrink/shrink-summary.json
           jq -e '
             .predicate_provenance.engine_id == "cedar-policy+opa" and
