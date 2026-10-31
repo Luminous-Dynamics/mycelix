@@ -367,7 +367,7 @@ mod tests {
         let rows = compare(&scenarios);
         assert_eq!(rows.len(), scenarios.len() * 3);
         for s in &scenarios {
-            assert_eq!(rows.iter().filter(|r| r.scenario_id == s.scenario_id).count(), 3);
+            assert_eq!(rows.iter().filter(|r| r.scenario_id.as_str() == s.scenario_id.as_str()).count(), 3);
         }
     }
 
