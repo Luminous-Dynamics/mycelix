@@ -209,6 +209,9 @@ fn validate_source(source: &SourceConfig, expected_kind: SourceKind) -> Result<(
     ] {
         nonblank(value, label)?;
     }
+    if source.product_code == "DP1.00046.001" {
+        return Err("throughfall DP1.00046.001 is an under-canopy water input, not open precipitation; keep it as a separate input pathway".to_owned());
+    }
     if source.interval_seconds != 60 && source.interval_seconds != 300 {
         return Err(format!(
             "{} interval_seconds must be 60 (secondary) or 300 (primary)",
@@ -813,7 +816,9 @@ mod tests {
     fn rejects_throughfall_as_open_rainfall() {
         let mut config = config();
         config.secondary.as_mut().unwrap().product_code = "DP1.00046.001".to_owned();
-        assert!(validate_config(&config).unwrap_err().contains("DP1.00045.001"));
+        assert!(validate_config(&config)
+            .unwrap_err()
+            .contains("not open precipitation"));
     }
 
     #[test]
