@@ -471,11 +471,11 @@ fn apply_reduction(
 /// predicate. A complete result is 1-minimal in the finite neighborhood
 /// defined by collect_reductions, not a claim of global minimum.
 ///
-/// The caller must validate the original source bytes against its strict
-/// parsing/schema boundary before calling this function. This function verifies
-/// that the bytes decode to the supplied Value, hashes the exact bytes, and
-/// keeps that digest separate from the normalized Value digest; it is not a
-/// duplicate-key or authorization-input validator.
+/// This function parses source bytes with a duplicate-key-aware JSON visitor,
+/// rejects trailing content, and verifies that the parsed value equals the
+/// supplied Value. The caller remains responsible for schema and engine-specific
+/// authorization-input validation. Raw source and normalized Value digests are
+/// recorded separately.
 pub fn minimize_json<P>(
     input: &Value,
     source_input_bytes: &[u8],
