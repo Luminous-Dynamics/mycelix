@@ -799,6 +799,13 @@ mod tests {
     }
 
     #[test]
+    fn strict_source_parser_rejects_invalid_utf8_and_unpaired_surrogates() {
+        assert!(parse_unique_json(&[0xff, 0x7b, 0x7d]).is_err());
+        assert!(parse_unique_json(br#"{"bad":"\uD800"}"#).is_err());
+        assert!(parse_unique_json(br#"{"bad":"\uDC00"}"#).is_err());
+    }
+
+    #[test]
     fn accepts_unique_json_with_nested_arrays_and_unicode() {
         let parsed = parse_unique_json(
             br#"{"outer":[{"music":"\uD834\uDD1E"}],"plain":"é"}"#,
