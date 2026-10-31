@@ -14,6 +14,10 @@ The output path must not already exist. The report records exact SHA-256 digests
 
 Config pins study/profile/horizon/scan identity, raw image digest and evidence references, pixel size, cross-section ROI area, strict minimum object area and exact ImageJ column headings. The Dryad Hirmas protocol reports an MLT grid of 180 μm and excludes gap objects with area less than or equal to π mm²; the filter is explicit and not a universal threshold.
 
+## Pipeline entry point
+
+Run [dynamic-macropore-audit](../dynamic-macropore-audit/README.md) on the same ImageJ-derived dry geometry and matrix-water series first. The output report is a required input to this per-pore audit. The config must declare the identical horizon, image scale, ROI and minimum-object-area filter.
+
 ## Implemented equations
 
 For each dynamic matrix-water state, this tool uses the upstream mean pore width d(theta_m) and structural-unit width w(theta_m). Each object's dry MinFeret is scaled by the mean width ratio: d_i(theta_m) = d_i,ds * d(theta_m)/d_ds. This proportional per-object scaling is the implementation of the paper's stated pore-width rescaling and must be verified against the authors' R scripts before claiming exact parity.
