@@ -122,3 +122,8 @@ Official documentation:
 - HYDRUS 6 DualPerm: https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/DualPermModule.html
 - MACRO 5.2: https://www.slu.se/en/about-slu/organisation/collaborative-centres/slu-centre-for-pesticides-in-the-environment/areas-of-operation/macro-models/macro-5.2
 - USDA RZWQM2: https://www.ars.usda.gov/research/software/download/?modecode=30-12-30-25&softwareid=412
+
+
+### Feasible-set regret reporting
+
+Oracle regret is reported only for policies that meet every hard target-stratum coverage minimum. An infeasible policy retains its raw synthetic utility and coverage failure report, but its `oracle_regret` and `normalized_oracle_regret` are null; a high utility cannot erase a hard-constraint violation. Comparative regret assertions therefore compare only coverage-feasible policies (the robust policy versus OFAT in the committed fixture). Raw synthetic utility is displayed separately for all policies.
