@@ -109,6 +109,10 @@ These are planning goals. They are not results and should be frozen only after a
 | Method robustness | Publish performance by soil structure, antecedent moisture, event intensity, sensor layout and site; no pooled-only headline score |
 | Experiment value | Sensor or tracer additions must yield measurable reduction in decision-relevant uncertainty per cost against a fixed baseline design |
 
+## 7A. Sensor placement and value-of-information
+
+Profile/cadence reliability does not tell us where to deploy the next sensor. Use the separate [PF sensor-placement benchmark](./PREFERENTIAL_FLOW_SENSOR_PLACEMENT_BENCHMARK_V0.1.md) to compare fixed storage-monitoring layouts with PF-specific mechanism-discrimination layouts. The placement policy must be evaluated against tracer/boundary evidence, include full lifecycle cost, and be tested prospectively against randomized fixed-layout controls. Implementation: [issue #5579](https://github.com/Luminous-Dynamics/mycelix/issues/5579).
+
 ## 7. Design-of-experiment paradigm shift
 
 Do not instrument every plot identically by default. Use a staged, adaptive design:
