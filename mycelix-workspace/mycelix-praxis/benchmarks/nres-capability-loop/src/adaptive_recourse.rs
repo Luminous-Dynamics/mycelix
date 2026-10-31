@@ -25,6 +25,104 @@ fn number_field(value: &Value, key: &str) -> Option<f64> {
     value.get(key).and_then(Value::as_f64)
 }
 
+fn scan_hidden_history_fields(value: &Value, path: &str, errors: &mut Vec<String>) {
+    const FORBIDDEN: &[&str] = &[
+        "scenario_id",
+        "scenario_label",
+        "latent_scenario_id",
+        "future_scenario_id",
+        "future_shock",
+        "hidden_outcome",
+        "future_outcome",
+        "true_future_state",
+        "oracle_label",
+        "clairvoyant_state",
+    ];
+    match value {
+        Value::Object(object) => {
+            for (key, child) in object {
+                if FORBIDDEN.contains(&key.as_str()) {
+                    errors.push(format!("hidden/future field is not admissible in observable history at {path}/{key}"));
+                }
+                scan_hidden_history_fields(child, &format!("{path}/{key}"), errors);
+            }
+        }
+        Value::Array(items) => {
+            for (index, child) in items.iter().enumerate() {
+                scan_hidden_history_fields(child, &format!("{path}/{index}"), errors);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn parse_observable_history(
+    raw_state: &Value,
+    state_id: &str,
+    stage: usize,
+    errors: &mut Vec<String>,
+) -> (String, Vec<Value>, Vec<String>) {
+    let Some(history) = raw_state.get("observable_history").and_then(Value::as_object) else {
+        errors.push(format!("{state_id}: observable_history must be an object"));
+        return (String::new(), Vec::new(), Vec::new());
+    };
+    if history.len() != 2 || !history.contains_key("observations") || !history.contains_key("prior_actions") {
+        errors.push(format!("{state_id}: observable_history must contain only observations and prior_actions"));
+    }
+
+    let mut observations = Vec::new();
+    match history.get("observations").and_then(Value::as_array) {
+        Some(items) => {
+            if items.len() != stage + 1 {
+                errors.push(format!("{state_id}: stage {stage} requires exactly {} observed records", stage + 1));
+            }
+            for (index, item) in items.iter().enumerate() {
+                let Some(object) = item.as_object() else {
+                    errors.push(format!("{state_id}: observation {index} must be an object"));
+                    continue;
+                };
+                if object.len() != 2 || !object.contains_key("stage") || !object.contains_key("values") {
+                    errors.push(format!("{state_id}: observation {index} must contain only stage and values"));
+                }
+                if object.get("stage").and_then(Value::as_u64) != Some(index as u64) {
+                    errors.push(format!("{state_id}: observation stages must be contiguous from zero"));
+                }
+                match object.get("values").and_then(Value::as_object) {
+                    Some(values) if !values.is_empty() => {
+                        scan_hidden_history_fields(item, &format!("{state_id}/observable_history/observations/{index}"), errors);
+                    }
+                    _ => errors.push(format!("{state_id}: observation {index} requires non-empty values")),
+                }
+                observations.push(item.clone());
+            }
+        }
+        None => errors.push(format!("{state_id}: observable_history.observations must be an array")),
+    }
+
+    let mut prior_actions = Vec::new();
+    match history.get("prior_actions").and_then(Value::as_array) {
+        Some(items) => {
+            if items.len() != stage {
+                errors.push(format!("{state_id}: stage {stage} requires exactly {stage} prior actions"));
+            }
+            for (index, item) in items.iter().enumerate() {
+                match item.as_str().filter(|action| !action.trim().is_empty()) {
+                    Some(action) => prior_actions.push(action.to_owned()),
+                    None => errors.push(format!("{state_id}: prior_actions[{index}] must be a non-empty action ID")),
+                }
+            }
+        }
+        None => errors.push(format!("{state_id}: observable_history.prior_actions must be an array")),
+    }
+
+    let canonical = json!({
+        "observations": observations,
+        "prior_actions": prior_actions
+    });
+    let identity = serde_json::to_string(&canonical).unwrap_or_default();
+    (identity, observations, prior_actions)
+}
+
 fn object_numbers(value: Option<&Value>, label: &str, errors: &mut Vec<String>) -> BTreeMap<String, f64> {
     let mut output = BTreeMap::new();
     let Some(object) = value.and_then(Value::as_object) else {
@@ -61,7 +159,9 @@ struct Action {
 #[derive(Clone)]
 struct InformationState {
     state_id: String,
-    history_key: String,
+    history_identity: String,
+    observations: Vec<Value>,
+    prior_actions: Vec<String>,
     stage: usize,
     resource_units_available: f64,
     service_levels: BTreeMap<String, f64>,
@@ -147,16 +247,6 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
             continue;
         }
 
-        let history_key = string_field(raw_state, "observable_history_key")
-            .unwrap_or("")
-            .trim()
-            .to_owned();
-        if history_key.is_empty() {
-            errors.push(format!("{state_id}: observable_history_key is required"));
-        } else if !history_keys.insert(history_key.clone()) {
-            errors.push(format!("duplicate observable_history_key: {history_key}"));
-        }
-
         let stage = raw_state
             .get("stage")
             .and_then(Value::as_u64)
@@ -165,6 +255,13 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
             errors.push(format!("{state_id}: stage must be in [0,horizon_stages)"));
             continue;
         };
+        let (history_identity, observations, prior_actions) =
+            parse_observable_history(raw_state, &state_id, stage, &mut errors);
+        if history_identity.is_empty() {
+            errors.push(format!("{state_id}: canonical observable-history identity could not be formed"));
+        } else if !history_keys.insert(history_identity.clone()) {
+            errors.push(format!("duplicate canonical observable history at information state {state_id}"));
+        }
         let resource_units_available = number_field(raw_state, "resource_units_available");
         let Some(resource_units_available) =
             resource_units_available.filter(|number| number.is_finite() && *number >= 0.0)
@@ -291,7 +388,9 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
             state_id.clone(),
             InformationState {
                 state_id,
-                history_key,
+                history_identity,
+                observations,
+                prior_actions,
                 stage,
                 resource_units_available,
                 service_levels,
@@ -321,6 +420,16 @@ fn parse_model(fixture: &Value) -> Result<Model, Vec<String>> {
                             Some(next_state) => {
                                 if next_state.stage != state.stage + 1 {
                                     errors.push(format!("{}:{}:{}: next state must be at stage {}", state.state_id, action.action_id, outcome.outcome_id, state.stage + 1));
+                                }
+                                let mut expected_prior_actions = state.prior_actions.clone();
+                                expected_prior_actions.push(action.action_id.clone());
+                                if next_state.prior_actions != expected_prior_actions {
+                                    errors.push(format!("{}:{}:{}: next observable history must append the selected prior action", state.state_id, action.action_id, outcome.outcome_id));
+                                }
+                                if next_state.observations.len() != state.observations.len() + 1
+                                    || !next_state.observations.starts_with(&state.observations)
+                                {
+                                    errors.push(format!("{}:{}:{}: next observable history must preserve all prior observations and append exactly one new observation", state.state_id, action.action_id, outcome.outcome_id));
                                 }
                                 let expected_resources = state.resource_units_available - action.resource_use + outcome.resources_replenished;
                                 if (next_state.resource_units_available - expected_resources).abs() > TOLERANCE {
@@ -529,7 +638,7 @@ pub fn evaluate_exact_adaptive_recourse(fixture: &Value) -> Result<Value, Vec<St
             let state = &model.states[state_id];
             json!({
                 "information_state_id": state_id,
-                "observable_history_key": state.history_key,
+                "observable_history_event_count": state.observations.len() + state.prior_actions.len(),
                 "stage": state.stage,
                 "action_id": action_id,
                 "resource_units_available": state.resource_units_available
