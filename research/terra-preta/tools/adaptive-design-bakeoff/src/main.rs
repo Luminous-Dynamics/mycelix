@@ -63,6 +63,21 @@ struct ModelScore {
     error_amplification_risk: f64,
 }
 
+#[derive(Clone, Debug)]
+struct PolicyStratum {
+    stratum_id: String,
+    minimum_selected_actions: usize,
+}
+
+// The selector context contains only target-coverage constraints, budget and
+// random seed. It cannot reach Scenario.actions or evaluator-only truth.
+#[derive(Clone, Debug)]
+struct PolicyContext {
+    seed: u64,
+    budget_cost_units: u32,
+    strata: Vec<PolicyStratum>,
+}
+
 // This is the only representation passed into acquisition scoring. It has no
 // field for synthetic_truth_decision_value by construction.
 #[derive(Clone, Debug)]
@@ -308,6 +323,17 @@ fn minimum_coverage_feasible(scenario: &Scenario) -> bool {
     minimum_cost <= scenario.budget_cost_units
 }
 
+fn policy_context(scenario: &Scenario) -> PolicyContext {
+    PolicyContext {
+        seed: scenario.seed,
+        budget_cost_units: scenario.budget_cost_units,
+        strata: scenario.strata.iter().map(|stratum| PolicyStratum {
+            stratum_id: stratum.stratum_id.clone(),
+            minimum_selected_actions: stratum.minimum_selected_actions,
+        }).collect(),
+    }
+}
+
 fn scoring_actions(scenario: &Scenario) -> Vec<PolicyAction> {
     let weights: BTreeMap<&str, f64> = scenario.strata.iter()
         .map(|s| (s.stratum_id.as_str(), s.target_weight))
@@ -428,7 +454,7 @@ fn selection_reason(policy: Policy, coverage_reservation: bool) -> String {
 }
 
 fn preserves_minimum_coverage(
-    scenario: &Scenario,
+    context: &PolicyContext,
     actions: &[PolicyAction],
     selected_ids: &BTreeSet<String>,
     selected_counts: &BTreeMap<String, usize>,
@@ -439,7 +465,7 @@ fn preserves_minimum_coverage(
         return false;
     };
     let mut reserved_cost = 0u32;
-    for stratum in &scenario.strata {
+    for stratum in &context.strata {
         let already_selected = selected_counts.get(&stratum.stratum_id).copied().unwrap_or(0);
         let candidate_increment = if candidate.stratum_id == stratum.stratum_id { 1 } else { 0 };
         let still_needed = stratum.minimum_selected_actions
@@ -470,18 +496,18 @@ fn preserves_minimum_coverage(
 }
 
 fn select(
-    scenario: &Scenario,
+    context: &PolicyContext,
     policy: Policy,
     actions: &[PolicyAction],
 ) -> Vec<(usize, f64, String)> {
     let mut selected = Vec::<(usize, f64, String)>::new();
     let mut selected_ids = BTreeSet::<String>::new();
     let mut counts = BTreeMap::<String, usize>::new();
-    let mut remaining = scenario.budget_cost_units;
+    let mut remaining = context.budget_cost_units;
 
     let mut random_order = actions.to_vec();
     random_order.sort_by(|a, b| a.action_id.cmp(&b.action_id));
-    deterministic_shuffle(&mut random_order, scenario.seed);
+    deterministic_shuffle(&mut random_order, context.seed);
 
     loop {
         let fitting: Vec<&PolicyAction> = actions.iter()
@@ -491,7 +517,7 @@ fn select(
             break;
         }
 
-        let deficient: Vec<&Stratum> = scenario.strata.iter()
+        let deficient: Vec<&PolicyStratum> = context.strata.iter()
             .filter(|s| counts.get(&s.stratum_id).copied().unwrap_or(0) < s.minimum_selected_actions)
             .collect();
         let (candidate_pool, coverage_reservation): (Vec<&PolicyAction>, bool) =
@@ -501,7 +527,7 @@ fn select(
                     .filter(|a| {
                         deficit_ids.contains(a.stratum_id.as_str())
                             && preserves_minimum_coverage(
-                                scenario, actions, &selected_ids, &counts, a, remaining
+                                context, actions, &selected_ids, &counts, a, remaining
                             )
                     })
                     .collect();
@@ -703,7 +729,8 @@ fn run_benchmark(bytes: &[u8]) -> Result<Report, Box<dyn Error>> {
     let mut results = Vec::new();
 
     for policy in Policy::ALL {
-        let selection = select(&scenario, policy, &score_actions);
+        let selector_context = policy_context(&scenario);
+        let selection = select(&selector_context, policy, &score_actions);
         results.push(summarize_policy(&scenario, policy, selection, &oracle_result));
     }
 
@@ -824,7 +851,8 @@ mod tests {
         }
         validate_scenario(&scenario).unwrap();
         let scoring = scoring_actions(&scenario);
-        let selection = select(&scenario, Policy::RobustDecisionFocused, &scoring);
+        let selector_context = policy_context(&scenario);
+        let selection = select(&selector_context, Policy::RobustDecisionFocused, &scoring);
         let ids: Vec<String> = selection.iter().map(|(index, _, _)| {
             scenario.actions[*index].action_id.clone()
         }).collect();
@@ -839,7 +867,8 @@ mod tests {
     fn information_only_policy_is_attracted_to_high_information_misspecified_actions() {
         let scenario: Scenario = serde_json::from_str(FIXTURE).unwrap();
         let scoring = scoring_actions(&scenario);
-        let selection = select(&scenario, Policy::InformationGainOnly, &scoring);
+        let selector_context = policy_context(&scenario);
+        let selection = select(&selector_context, Policy::InformationGainOnly, &scoring);
         let ids: Vec<String> = selection.iter().map(|(index, _, _)| {
             scenario.actions[*index].action_id.clone()
         }).collect();
@@ -861,14 +890,15 @@ mod tests {
         let mut scenario: Scenario = serde_json::from_str(FIXTURE).unwrap();
         let original_actions = scoring_actions(&scenario);
         for policy in Policy::ALL {
-            let original: Vec<usize> = select(&scenario, policy, &original_actions)
+            let selector_context = policy_context(&scenario);
+            let original: Vec<usize> = select(&selector_context, policy, &original_actions)
                 .iter().map(|(index, _, _)| *index).collect();
             for action in &mut scenario.actions {
                 action.synthetic_truth_decision_value =
                     1.0 - action.synthetic_truth_decision_value;
             }
             let changed_actions = scoring_actions(&scenario);
-            let changed: Vec<usize> = select(&scenario, policy, &changed_actions)
+            let changed: Vec<usize> = select(&selector_context, policy, &changed_actions)
                 .iter().map(|(index, _, _)| *index).collect();
             assert_eq!(original, changed, "truth leaked into policy {:?}", policy.id());
             // Restore the known truth before checking the next policy.
