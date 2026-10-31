@@ -143,6 +143,8 @@ struct RetentionCurveFit {
     near_optimality_rule: &'static str,
     figure_table_alpha_rmse_m3_m3: Option<f64>,
     printed_eq37_minus_alpha_rmse_m3_m3: Option<f64>,
+    upstream_figure_table_alpha_per_m: Option<f64>,
+    upstream_printed_eq37_minus_alpha_per_m: Option<f64>,
     upstream_n2: Option<f64>,
 }
 
@@ -411,6 +413,239 @@ fn conversion_factor_rp(w_mm: f64, pore_width_mm: f64) -> Result<f64, String> {
     Ok(result)
 }
 
+fn van_genuchten_theta_p(
+    maximum_fraction: f64,
+    matric_head_m: f64,
+    alpha_per_m: f64,
+    n: f64,
+) -> Option<f64> {
+    if !maximum_fraction.is_finite()
+        || maximum_fraction <= 0.0
+        || !matric_head_m.is_finite()
+        || matric_head_m >= 0.0
+        || !alpha_per_m.is_finite()
+        || alpha_per_m <= 0.0
+        || !n.is_finite()
+        || n <= 1.0
+    {
+        return None;
+    }
+    let log_term = n * (alpha_per_m.ln() + (-matric_head_m).ln());
+    if !log_term.is_finite() {
+        return None;
+    }
+    let powered_term = if log_term > 700.0 {
+        f64::INFINITY
+    } else if log_term < -745.0 {
+        0.0
+    } else {
+        log_term.exp()
+    };
+    let value = if powered_term.is_infinite() {
+        0.0
+    } else {
+        maximum_fraction / (1.0 + powered_term).powf(1.0 - 1.0 / n)
+    };
+    (value.is_finite() && value >= 0.0).then_some(value)
+}
+
+fn retention_curve_rmse(
+    samples: &[(f64, f64)],
+    maximum_fraction: f64,
+    alpha_per_m: f64,
+    n: f64,
+) -> Option<f64> {
+    if samples.is_empty() {
+        return None;
+    }
+    let mut squared_error = 0.0;
+    for (head, observed) in samples {
+        let predicted = van_genuchten_theta_p(maximum_fraction, *head, alpha_per_m, n)?;
+        squared_error += (predicted - observed).powi(2);
+    }
+    let rmse = (squared_error / samples.len() as f64).sqrt();
+    rmse.is_finite().then_some(rmse)
+}
+
+fn fit_van_genuchten_retention_curve(
+    points: &[PoreRetentionPoint],
+    maximum_fraction: f64,
+    figure_table_alpha: Option<f64>,
+    printed_eq37_minus_alpha: Option<f64>,
+    upstream_n: Option<f64>,
+) -> RetentionCurveFit {
+    let samples: Vec<(f64, f64)> = points
+        .iter()
+        .filter_map(|point| {
+            point
+                .matric_head_m
+                .map(|head| (head, point.cumulative_macropore_water_content_m3_m3))
+        })
+        .filter(|(head, theta)| {
+            head.is_finite() && *head < 0.0 && theta.is_finite() && *theta >= 0.0
+        })
+        .collect();
+
+    let branch_rmse = |alpha: Option<f64>| {
+        match (alpha, upstream_n) {
+            (Some(alpha), Some(n)) => {
+                retention_curve_rmse(&samples, maximum_fraction, alpha, n)
+            }
+            _ => None,
+        }
+    };
+
+    let figure_table_rmse = branch_rmse(figure_table_alpha);
+    let printed_minus_rmse = branch_rmse(printed_eq37_minus_alpha);
+
+    let empty = |status: &'static str| RetentionCurveFit {
+        status,
+        input_point_count: samples.len(),
+        alpha2_fit_per_m: None,
+        n2_fit: None,
+        rmse_m3_m3: None,
+        maximum_absolute_error_m3_m3: None,
+        near_optimal_alpha_min_per_m: None,
+        near_optimal_alpha_max_per_m: None,
+        near_optimal_n_min: None,
+        near_optimal_n_max: None,
+        near_optimality_rule: "grid points within max(5% of minimum SSE, 1e-12 absolute SSE); sensitivity region only, not a confidence interval",
+        figure_table_alpha_rmse_m3_m3: figure_table_rmse,
+        printed_eq37_minus_alpha_rmse_m3_m3: printed_minus_rmse,
+        upstream_figure_table_alpha_per_m: figure_table_alpha,
+        upstream_printed_eq37_minus_alpha_per_m: printed_eq37_minus_alpha,
+        upstream_n2,
+    };
+
+    if !maximum_fraction.is_finite() || maximum_fraction <= 0.0 {
+        return empty("not_fitted_no_positive_macropore_fraction");
+    }
+    if samples.len() < MIN_RETENTION_FIT_POINTS {
+        return empty("not_fitted_insufficient_retention_points");
+    }
+    let unique_heads: BTreeSet<i64> = samples
+        .iter()
+        .map(|(head, _)| (head.abs().log10() * 1.0e9).round() as i64)
+        .collect();
+    if unique_heads.len() < MIN_RETENTION_FIT_POINTS {
+        return empty("not_fitted_insufficient_distinct_matric_heads");
+    }
+
+    let original_log_alpha_min = -2.0_f64;
+    let original_log_alpha_max = 8.0_f64;
+    let original_n_min = 1.01_f64;
+    let original_n_max = 10.0_f64;
+    let mut log_alpha_min = original_log_alpha_min;
+    let mut log_alpha_max = original_log_alpha_max;
+    let mut n_min = original_n_min;
+    let mut n_max = original_n_max;
+    let mut best: Option<(f64, f64, f64)> = None;
+    let mut final_candidates: Vec<(f64, f64, f64)> = Vec::new();
+
+    for stage in 0..6 {
+        let divisions = 48usize;
+        let log_alpha_step = (log_alpha_max - log_alpha_min) / divisions as f64;
+        let n_step = (n_max - n_min) / divisions as f64;
+        let mut stage_candidates = Vec::with_capacity((divisions + 1) * (divisions + 1));
+
+        for alpha_index in 0..=divisions {
+            let log_alpha = log_alpha_min + alpha_index as f64 * log_alpha_step;
+            let alpha = 10.0_f64.powf(log_alpha);
+            for n_index in 0..=divisions {
+                let n = n_min + n_index as f64 * n_step;
+                if let Some(rmse) = retention_curve_rmse(
+                    &samples,
+                    maximum_fraction,
+                    alpha,
+                    n,
+                ) {
+                    let sse = rmse.powi(2);
+                    stage_candidates.push((sse, log_alpha, n));
+                    if best.map(|current| sse < current.0).unwrap_or(true) {
+                        best = Some((sse, log_alpha, n));
+                    }
+                }
+            }
+        }
+
+        if stage == 5 {
+            final_candidates = stage_candidates;
+            break;
+        }
+        let Some((_, best_log_alpha, best_n)) = best else {
+            return empty("not_fitted_nonfinite_objective");
+        };
+        let alpha_span = log_alpha_step * 2.0;
+        let n_span = n_step * 2.0;
+        log_alpha_min = (best_log_alpha - alpha_span).max(original_log_alpha_min);
+        log_alpha_max = (best_log_alpha + alpha_span).min(original_log_alpha_max);
+        n_min = (best_n - n_span).max(original_n_min);
+        n_max = (best_n + n_span).min(original_n_max);
+    }
+
+    let Some((best_sse, best_log_alpha, best_n)) = best else {
+        return empty("not_fitted_no_valid_parameter_pair");
+    };
+    let threshold = best_sse + (best_sse * 0.05).max(1.0e-12);
+    let near_optimal: Vec<_> = final_candidates
+        .iter()
+        .filter(|(sse, _, _)| *sse <= threshold)
+        .collect();
+    let alpha_min = near_optimal
+        .iter()
+        .map(|(_, log_alpha, _)| 10.0_f64.powf(*log_alpha))
+        .fold(f64::INFINITY, f64::min);
+    let alpha_max = near_optimal
+        .iter()
+        .map(|(_, log_alpha, _)| 10.0_f64.powf(*log_alpha))
+        .fold(0.0_f64, f64::max);
+    let n_min_range = near_optimal
+        .iter()
+        .map(|(_, _, n)| *n)
+        .fold(f64::INFINITY, f64::min);
+    let n_max_range = near_optimal
+        .iter()
+        .map(|(_, _, n)| *n)
+        .fold(0.0_f64, f64::max);
+
+    let alpha = 10.0_f64.powf(best_log_alpha);
+    let fitted_rmse = best_sse.sqrt();
+    let maximum_absolute_error = samples
+        .iter()
+        .filter_map(|(head, observed)| {
+            van_genuchten_theta_p(maximum_fraction, *head, alpha, best_n)
+                .map(|predicted| (predicted - observed).abs())
+        })
+        .fold(0.0_f64, f64::max);
+    let boundary_limited = (best_log_alpha - original_log_alpha_min).abs() < 1.0e-8
+        || (best_log_alpha - original_log_alpha_max).abs() < 1.0e-8
+        || (best_n - original_n_min).abs() < 1.0e-8
+        || (best_n - original_n_max).abs() < 1.0e-8;
+
+    RetentionCurveFit {
+        status: if boundary_limited {
+            "fit_boundary_limited_exploratory"
+        } else {
+            "fitted_descriptive_no_uncertainty_interval"
+        },
+        input_point_count: samples.len(),
+        alpha2_fit_per_m: Some(alpha),
+        n2_fit: Some(best_n),
+        rmse_m3_m3: Some(fitted_rmse),
+        maximum_absolute_error_m3_m3: Some(maximum_absolute_error),
+        near_optimal_alpha_min_per_m: Some(alpha_min),
+        near_optimal_alpha_max_per_m: Some(alpha_max),
+        near_optimal_n_min: Some(n_min_range),
+        near_optimal_n_max: Some(n_max_range),
+        near_optimality_rule: "grid points within max(5% of minimum SSE, 1e-12 absolute SSE); sensitivity region only, not a confidence interval",
+        figure_table_alpha_rmse_m3_m3: figure_table_rmse,
+        printed_eq37_minus_alpha_rmse_m3_m3: printed_minus_rmse,
+        upstream_figure_table_alpha_per_m: figure_table_alpha,
+        upstream_printed_eq37_minus_alpha_per_m: printed_eq37_minus_alpha,
+        upstream_n2,
+    }
+}
+
 fn per_pore_state(
     pores: &[Pore],
     config: &Config,
@@ -517,7 +752,7 @@ fn per_pore_state(
         retention_curve_fit: fit_van_genuchten_retention_curve(
             &per_pore_retention_curve,
             per_pore_volume_fraction_sum,
-            point.structural_alpha_figure_table_plus_per_m,
+            point.structural_alpha_figure_table_plus_per_m.or(point.structural_alpha_per_m),
             point.structural_alpha_printed_eq37_minus_per_m,
             point.structural_n,
         ),
