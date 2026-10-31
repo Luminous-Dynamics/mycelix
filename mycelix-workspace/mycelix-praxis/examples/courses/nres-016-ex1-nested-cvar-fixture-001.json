@@ -46,7 +46,7 @@
               "observation": {
                 "stage": 1,
                 "values": {
-                  "branch": "A"
+                  "observed_event": "A"
                 }
               },
               "stage_cost": 0,
@@ -59,7 +59,7 @@
               "observation": {
                 "stage": 1,
                 "values": {
-                  "branch": "B"
+                  "observed_event": "B"
                 }
               },
               "stage_cost": 0,
@@ -109,7 +109,7 @@
               "observation": {
                 "stage": 2,
                 "values": {
-                  "result": "safe"
+                  "observed_event": "safe"
                 }
               },
               "stage_cost": 0,
@@ -129,7 +129,7 @@
               "observation": {
                 "stage": 2,
                 "values": {
-                  "result": "good"
+                  "observed_event": "good"
                 }
               },
               "stage_cost": 0,
@@ -142,7 +142,7 @@
               "observation": {
                 "stage": 2,
                 "values": {
-                  "result": "bad"
+                  "observed_event": "bad"
                 }
               },
               "stage_cost": 1000,
@@ -192,7 +192,7 @@
               "observation": {
                 "stage": 2,
                 "values": {
-                  "result": "catastrophe"
+                  "observed_event": "catastrophe"
                 }
               },
               "stage_cost": 10000,
