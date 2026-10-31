@@ -131,7 +131,7 @@ The output includes risk and expected cost by complete regime, the shared-regime
 
 ## 6. Conformance and tests
 
-The module authors 35 Rust unit tests, including:
+The module authors 36 Rust unit tests, including:
 - shared regime values and rectangular price of rectangularity;
 - proof by fixture that the local worst-regime choices switch across nodes;
 - ensuring the policy does not contain hidden regime IDs;
@@ -139,7 +139,7 @@ The module authors 35 Rust unit tests, including:
 - missing-regime-map and nominal-average rejection;
 - all earlier EX0/EX1/EX2 history, observation, resource and TV robustness controls.
 
-The conformance artifact separately records invalid regime maps, non-unit conditional probabilities, nominal-average mismatch, forbidden hidden-regime policy access, rectangularity-gap sign, and round-trip requirements. Tests are authored, not confirmed passing until an actual Rust toolchain/CI run executes them.
+The conformance artifact separately records 23 invalid-input controls, six boundary cases and eight round-trip requirements, including invalid regime maps, non-unit conditional probabilities, nominal-average mismatch, forbidden hidden-regime policy access and rectangularity-gap sign. Tests are authored, not confirmed passing until an actual Rust toolchain/CI run executes them.
 
 ## 7. Research positioning
 
