@@ -57,6 +57,9 @@ struct Report {
     horizon_label: String,
     image_resolution_um_per_pixel: f64,
     cross_section_area_mm2: Option<f64>,
+    minimum_object_area_mm2: f64,
+    input_object_count: usize,
+    excluded_below_minimum_area_count: usize,
     detected_object_count: usize,
     summed_projected_pore_area_mm2: f64,
     projected_pore_area_fraction: Option<f64>,
@@ -65,7 +68,14 @@ struct Report {
     min_feret_mm: Distribution,
     feret_mm: Distribution,
     feret_angle_degrees: Distribution,
+    circularity_4pi_area_over_perimeter_squared: Distribution,
+    feret_aspect_ratio: Distribution,
+    circularity_above_one_count: usize,
     orientation_histogram_10deg_bins: [usize; ORIENTATION_BIN_COUNT],
+    orientation_nematic_order_x: f64,
+    orientation_nematic_order_y: f64,
+    orientation_nematic_strength: f64,
+    dominant_orientation_degrees: Option<f64>,
     column_mapping: ColumnMapping,
     dimensionality_boundary: &'static str,
     warnings: Vec<String>,
@@ -182,6 +192,7 @@ fn summarize(
     horizon_label: String,
     image_resolution_um_per_pixel: f64,
     cross_section_area_mm2: Option<f64>,
+    minimum_object_area_mm2: f64,
     column_mapping: ColumnMapping,
 ) -> Result<Report, String> {
     if horizon_label.trim().is_empty() {
@@ -195,19 +206,55 @@ fn summarize(
             return Err("cross-section area must be finite and positive".to_owned());
         }
     }
+    if !minimum_object_area_mm2.is_finite() || minimum_object_area_mm2 < 0.0 {
+        return Err("minimum object area must be finite and non-negative".to_owned());
+    }
 
-    let areas: Vec<_> = pores.iter().map(|pore| pore.area_mm2).collect();
-    let perimeters: Vec<_> = pores.iter().map(|pore| pore.perimeter_mm).collect();
-    let min_ferets: Vec<_> = pores.iter().map(|pore| pore.min_feret_mm).collect();
-    let ferets: Vec<_> = pores.iter().map(|pore| pore.feret_mm).collect();
-    let angles: Vec<_> = pores.iter().map(|pore| pore.feret_angle_degrees).collect();
+    let input_object_count = pores.len();
+    let retained: Vec<_> = pores
+        .iter()
+        .filter(|pore| pore.area_mm2 >= minimum_object_area_mm2)
+        .collect();
+    if retained.is_empty() {
+        return Err("no macropore objects remain after the minimum-area filter".to_owned());
+    }
+
+    let areas: Vec<_> = retained.iter().map(|pore| pore.area_mm2).collect();
+    let perimeters: Vec<_> = retained.iter().map(|pore| pore.perimeter_mm).collect();
+    let min_ferets: Vec<_> = retained.iter().map(|pore| pore.min_feret_mm).collect();
+    let ferets: Vec<_> = retained.iter().map(|pore| pore.feret_mm).collect();
+    let angles: Vec<_> = retained.iter().map(|pore| pore.feret_angle_degrees).collect();
+    let circularities: Vec<_> = retained
+        .iter()
+        .map(|pore| 4.0 * std::f64::consts::PI * pore.area_mm2
+            / (pore.perimeter_mm * pore.perimeter_mm))
+        .collect();
+    let aspect_ratios: Vec<_> = retained
+        .iter()
+        .map(|pore| pore.feret_mm / pore.min_feret_mm)
+        .collect();
+    let circularity_above_one_count = circularities.iter().filter(|&&value| value > 1.0).count();
     let summed_projected_pore_area_mm2: f64 = areas.iter().sum();
 
     let mut orientation_histogram = [0usize; ORIENTATION_BIN_COUNT];
+    let mut orientation_nematic_order_x = 0.0;
+    let mut orientation_nematic_order_y = 0.0;
     for angle in &angles {
         let index = (*angle / ORIENTATION_BIN_DEGREES).floor() as usize;
         orientation_histogram[index.min(ORIENTATION_BIN_COUNT - 1)] += 1;
+        let radians = angle.to_radians() * 2.0;
+        orientation_nematic_order_x += radians.cos();
+        orientation_nematic_order_y += radians.sin();
     }
+    orientation_nematic_order_x /= angles.len() as f64;
+    orientation_nematic_order_y /= angles.len() as f64;
+    let orientation_nematic_strength = orientation_nematic_order_x.hypot(orientation_nematic_order_y);
+    let dominant_orientation_degrees = if orientation_nematic_strength > 1.0e-12 {
+        let degrees = 0.5 * orientation_nematic_order_y.atan2(orientation_nematic_order_x).to_degrees();
+        Some(degrees.rem_euclid(180.0))
+    } else {
+        None
+    };
 
     let projected_pore_area_fraction = cross_section_area_mm2
         .map(|section_area| summed_projected_pore_area_mm2 / section_area);
@@ -224,7 +271,10 @@ fn summarize(
         horizon_label,
         image_resolution_um_per_pixel,
         cross_section_area_mm2,
-        detected_object_count: pores.len(),
+        minimum_object_area_mm2,
+        input_object_count,
+        excluded_below_minimum_area_count: input_object_count - retained.len(),
+        detected_object_count: retained.len(),
         summed_projected_pore_area_mm2,
         projected_pore_area_fraction,
         area_mm2: distribution(&areas)?,
@@ -232,7 +282,14 @@ fn summarize(
         min_feret_mm: distribution(&min_ferets)?,
         feret_mm: distribution(&ferets)?,
         feret_angle_degrees: distribution(&angles)?,
+        circularity_4pi_area_over_perimeter_squared: distribution(&circularities)?,
+        feret_aspect_ratio: distribution(&aspect_ratios)?,
+        circularity_above_one_count,
         orientation_histogram_10deg_bins: orientation_histogram,
+        orientation_nematic_order_x,
+        orientation_nematic_order_y,
+        orientation_nematic_strength,
+        dominant_orientation_degrees,
         column_mapping,
         dimensionality_boundary: "2D segmented cross-section morphology only; these measurements do not establish 3D pore connectivity, hydraulic conductance or preferential-flow truth",
         warnings: vec![
@@ -250,7 +307,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     if args.len() < 15 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "usage: morphology-audit <input.csv> <new-report.json> --horizon LABEL --resolution-um VALUE --area-col NAME --perimeter-col NAME --min-feret-col NAME --feret-col NAME --angle-col NAME [--cross-section-area-mm2 VALUE]",
+            "usage: morphology-audit <input.csv> <new-report.json> --horizon LABEL --resolution-um VALUE --area-col NAME --perimeter-col NAME --min-feret-col NAME --feret-col NAME --angle-col NAME [--cross-section-area-mm2 VALUE] [--min-area-mm2 VALUE]",
         ).into());
     }
     let input_path = &args[1];
@@ -288,6 +345,11 @@ fn run() -> Result<(), Box<dyn Error>> {
         .get("--cross-section-area-mm2")
         .map(|value| value.parse::<f64>())
         .transpose()?;
+    let minimum_object_area = options
+        .get("--min-area-mm2")
+        .map(|value| value.parse::<f64>())
+        .transpose()?
+        .unwrap_or(0.0);
 
     for key in options.keys() {
         if ![
@@ -299,6 +361,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             "--feret-col",
             "--angle-col",
             "--cross-section-area-mm2",
+            "--min-area-mm2",
         ].contains(&key.as_str()) {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unknown option {key}")).into());
         }
@@ -315,6 +378,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         horizon,
         resolution,
         cross_section_area,
+        minimum_object_area,
         mapping,
     ).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let serialized = serde_json::to_vec_pretty(&report)?;
@@ -371,6 +435,7 @@ mod tests {
             "Ap1".to_owned(),
             180.0,
             Some(100.0),
+            0.0,
             mapping(),
         ).unwrap();
         assert_eq!(report.detected_object_count, 2);
@@ -379,6 +444,52 @@ mod tests {
         assert_eq!(report.area_mm2.median, 3.0);
         assert_eq!(report.orientation_histogram_10deg_bins[0], 1);
         assert_eq!(report.orientation_histogram_10deg_bins[9], 1);
+    }
+
+    #[test]
+    fn area_filter_excludes_objects_below_published_threshold_without_losing_them_silently() {
+        let pores = parse_pores(Cursor::new(CSV), &mapping()).unwrap();
+        let report = summarize(
+            &pores,
+            "d".repeat(64),
+            "Ap1".to_owned(),
+            180.0,
+            Some(100.0),
+            std::f64::consts::PI,
+            mapping(),
+        ).unwrap();
+        assert_eq!(report.input_object_count, 2);
+        assert_eq!(report.excluded_below_minimum_area_count, 1);
+        assert_eq!(report.detected_object_count, 1);
+        assert_eq!(report.summed_projected_pore_area_mm2, 4.0);
+    }
+
+    #[test]
+    fn computes_shape_descriptors_and_nematic_orientation_without_directing_flow_claims() {
+        let pores = parse_pores(Cursor::new(CSV), &mapping()).unwrap();
+        let report = summarize(
+            &pores,
+            "e".repeat(64),
+            "Ap1".to_owned(),
+            180.0,
+            None,
+            0.0,
+            mapping(),
+        ).unwrap();
+        assert_eq!(report.feret_aspect_ratio.mean, 2.0);
+        assert_eq!(report.orientation_histogram_10deg_bins[0], 1);
+        assert_eq!(report.orientation_histogram_10deg_bins[9], 1);
+        assert!(report.orientation_nematic_strength < 1.0e-10);
+        assert_eq!(report.dominant_orientation_degrees, None);
+        assert!(report.dimensionality_boundary.contains("2D"));
+    }
+
+    #[test]
+    fn rejects_negative_minimum_area_filter() {
+        let pores = parse_pores(Cursor::new(CSV), &mapping()).unwrap();
+        assert!(summarize(
+            &pores, "f".repeat(64), "Ap1".to_owned(), 180.0, None, -1.0, mapping()
+        ).unwrap_err().contains("minimum object area"));
     }
 
     #[test]
@@ -426,6 +537,7 @@ mod tests {
             "Ap1".to_owned(),
             180.0,
             Some(5.0),
+            0.0,
             mapping(),
         ).unwrap_err();
         assert!(error.contains("exceeds declared cross-section area"));
@@ -448,6 +560,7 @@ mod tests {
             "Bt".to_owned(),
             180.0,
             None,
+            0.0,
             mapping(),
         ).unwrap();
         assert_eq!(report.input_sha256, "c".repeat(64));
