@@ -4,8 +4,9 @@
 //! It does not interpret authorization policy semantics or claim that a
 //! minimized input is correct for any particular policy engine.
 
+use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::Serialize;
-use serde_json::{Number, Value};
+use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fmt;
@@ -112,6 +113,105 @@ fn stable_json_bytes(value: &Value, output: &mut Vec<u8>) -> Result<(), ShrinkEr
         }
     }
     Ok(())
+}
+
+struct StrictJsonSeed;
+
+impl<'de> DeserializeSeed<'de> for StrictJsonSeed {
+    type Value = Value;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(StrictJsonValueVisitor)
+    }
+}
+
+struct StrictJsonValueVisitor;
+
+impl<'de> Visitor<'de> for StrictJsonValueVisitor {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON value with unique object member names")
+    }
+
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
+        Ok(Value::Bool(value))
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
+        Ok(Value::Number(Number::from(value)))
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
+        Ok(Value::Number(Number::from(value)))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Number::from_f64(value)
+            .map(Value::Number)
+            .ok_or_else(|| E::custom("JSON number is not finite IEEE-754 binary64"))
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+        Ok(Value::String(value.to_owned()))
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
+        Ok(Value::String(value))
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut values = Vec::new();
+        while let Some(value) = sequence.next_element_seed(StrictJsonSeed)? {
+            values.push(value);
+        }
+        Ok(Value::Array(values))
+    }
+
+    fn visit_map<A>(self, mut object: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut values = Map::new();
+        while let Some(key) = object.next_key::<String>()? {
+            if values.contains_key(&key) {
+                return Err(de::Error::custom(format!(
+                    "duplicate JSON object member name {key:?}"
+                )));
+            }
+            let value = object.next_value_seed(StrictJsonSeed)?;
+            values.insert(key, value);
+        }
+        Ok(Value::Object(values))
+    }
+}
+
+fn parse_unique_json(input: &[u8]) -> Result<Value, ShrinkError> {
+    let mut deserializer = serde_json::Deserializer::from_slice(input);
+    let value = StrictJsonSeed
+        .deserialize(&mut deserializer)
+        .map_err(|error| ShrinkError(format!("strictly parse source JSON: {error}")))?;
+    deserializer
+        .end()
+        .map_err(|error| ShrinkError(format!("trailing source JSON content: {error}")))?;
+    Ok(value)
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {
@@ -376,8 +476,7 @@ where
             "candidate evaluation budget exceeds {MAX_CANDIDATE_EVALUATIONS}"
         )));
     }
-    let decoded_source: Value = serde_json::from_slice(source_input_bytes)
-        .map_err(|error| ShrinkError(format!("parse exact source input bytes: {error}")))?;
+    let decoded_source = parse_unique_json(source_input_bytes)?;
     if decoded_source != *input {
         return Err(ShrinkError(
             "exact source input bytes do not decode to the supplied JSON value".to_owned(),
@@ -665,6 +764,27 @@ mod tests {
             first.trace.original_value_sha256,
             second.trace.original_value_sha256
         );
+    }
+
+    #[test]
+    fn rejects_duplicate_source_object_keys_at_any_depth() {
+        for input in [
+            br#"{"a":1,"a":2}"#.as_slice(),
+            br#"{"outer":{"a":1,"a":2}}"#.as_slice(),
+            br#"{"a":1,"\u0061":2}"#.as_slice(),
+        ] {
+            assert!(parse_unique_json(input).is_err());
+        }
+    }
+
+    #[test]
+    fn accepts_unique_json_with_nested_arrays_and_unicode() {
+        let parsed = parse_unique_json(
+            br#"{"outer":[{"music":"\uD834\uDD1E"}],"plain":"é"}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed["plain"], "é");
+        assert!(parsed["outer"][0]["music"].as_str().is_some());
     }
 
     #[test]
