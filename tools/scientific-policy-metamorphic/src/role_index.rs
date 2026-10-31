@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fmt;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 use crate::shrink::parse_unique_json_bytes;
@@ -100,11 +100,25 @@ pub fn generate_indexed_role_corpus(
 ) -> Result<RoleIndexManifest, RoleIndexError> {
     let metadata = fs::metadata(source_jsonl_path)
         .map_err(|error| role_index_error(format!("stat source engine inputs: {error}")))?;
+    if !metadata.file_type().is_file() {
+        return Err(role_index_error("source engine inputs must be a regular file"));
+    }
     if metadata.len() > MAX_SOURCE_BYTES {
         return Err(role_index_error(format!("source engine inputs exceed {MAX_SOURCE_BYTES} bytes")));
     }
-    let source_bytes = fs::read(source_jsonl_path)
-        .map_err(|error| role_index_error(format!("read source engine inputs: {error}")))?;
+    let initial_capacity = usize::try_from(metadata.len().min(MAX_SOURCE_BYTES))
+        .map_err(|error| role_index_error(format!("source engine input size does not fit memory index: {error}")))?;
+    let mut source_bytes = Vec::with_capacity(initial_capacity);
+    File::open(source_jsonl_path)
+        .map_err(|error| role_index_error(format!("open source engine inputs: {error}")))?
+        .take(MAX_SOURCE_BYTES + 1)
+        .read_to_end(&mut source_bytes)
+        .map_err(|error| role_index_error(format!("bounded-read source engine inputs: {error}")))?;
+    // Metadata is an early rejection only. The read cap and post-read check
+    // protect against a source file that grows or is replaced after stat.
+    if source_bytes.len() as u64 > MAX_SOURCE_BYTES {
+        return Err(role_index_error(format!("source engine inputs exceed {MAX_SOURCE_BYTES} bytes")));
+    }
     let source_sha256 = sha256(&source_bytes);
     if source_sha256 != expected_source_sha256 {
         return Err(role_index_error("source engine input SHA-256 differs from its pinned manifest"));
