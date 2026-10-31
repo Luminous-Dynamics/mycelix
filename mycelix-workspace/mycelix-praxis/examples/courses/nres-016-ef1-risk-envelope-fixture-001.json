@@ -1,0 +1,83 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EF1-SCENARIO-TREE-RISK-ENVELOPE-001",
+  "schema_version": "1.0.0",
+  "title": "NRES-016 EF1 independent scenario-tree risk-envelope oracle",
+  "status": "specification-only-awaiting-implementation",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "source_fixtures": [
+    "nres-016-ex0-exact-adaptive-recourse-fixture-001.json",
+    "nres-016-ex1-nested-cvar-fixture-001.json"
+  ],
+  "risk_functional": {
+    "name": "strictly-monotone-mean-cvar",
+    "alpha": 0.9,
+    "lambda": 0.9,
+    "admissible_lambda": "0 <= lambda < 1",
+    "cvar_tail": "upper",
+    "conditional_semantics": "nested-at-observable-information-states"
+  },
+  "solution_method": {
+    "outer_policy_search": "enumerate-feasible-deterministic-nonanticipative-policies",
+    "fixed_policy_adversary": "scenario-tree-risk-envelope-linear-program",
+    "independent_small_instance_method": "local-risk-envelope-vertex-enumeration-and-flow-propagation",
+    "forbidden_reuse": [
+      "EX0 recursive evaluator",
+      "EX1 recursive evaluator",
+      "EX1 Rockafellar-Uryasev support-scan helper"
+    ]
+  },
+  "required_reference_results": {
+    "ex0": {
+      "lambda": 0,
+      "objective": 2.3,
+      "policy": {
+        "root": "PREVENT",
+        "after_quiet": "USE-SPARE",
+        "after_storm": "REPAIR"
+      },
+      "infeasible_action": "DEFER"
+    },
+    "ex1_nested": {
+      "alpha": 0.9,
+      "lambda": 0.9,
+      "policy_at_A": "SAFE",
+      "objective": 9507.5,
+      "fixed_gamble_policy_objective": 9522.75
+    },
+    "ex1_terminal_precommitment": {
+      "alpha": 0.9,
+      "lambda": 0.9,
+      "policy_at_A": "GAMBLE",
+      "objective": 9502.5
+    }
+  },
+  "conformance_requirements": [
+    "Nominal transition vectors are finite, non-negative and sum to one.",
+    "Risk-envelope flows satisfy local lower and upper bounds.",
+    "Outgoing flow equals node arrival mass.",
+    "Child arrival mass equals total incoming edge flow.",
+    "One action is selected per canonical observable history.",
+    "No hidden-state, latent-regime, future-observation or oracle-label leakage.",
+    "Service floors and resource conservation remain hard constraints.",
+    "Emitted observations equal the corresponding successor-history observations.",
+    "Outcome permutation leaves the objective unchanged.",
+    "Probability-splitting of an identical outcome leaves the objective unchanged.",
+    "lambda=0 and alpha=0 reduce to nominal expectation.",
+    "lambda=1 is rejected under the strict-monotonicity benchmark contract.",
+    "Explicit infeasibility is preserved."
+  ],
+  "proposed_targets_not_results": {
+    "objective_absolute_error": 1e-10,
+    "selected_policy_agreement": "100% on exhaustive tiny instances",
+    "invariant_violations": 0,
+    "independent_lp_vertex_objective_error": 1e-10
+  },
+  "non_claims": [
+    "No code implementation or Rust test execution is included in this specification-only increment.",
+    "Synthetic reference values are not real-world performance results.",
+    "No calibration or distributional coverage guarantee is claimed.",
+    "No SDDP-scale performance or SOTA superiority claim is made.",
+    "No operational readiness, emergency authority or certification is conferred."
+  ]
+}
