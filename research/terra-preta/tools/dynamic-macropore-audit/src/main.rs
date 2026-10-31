@@ -479,8 +479,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             minimum_object_area_threshold_mm2: image.minimum_object_area_threshold_mm2,
             included_macropore_object_count: image.included_macropore_object_count,
         },
-        soil_properties: soil.clone(),
-        fluid_properties: fluid.clone(),
+        soil_properties: (*soil).clone(),
+        fluid_properties: (*fluid).clone(),
         derived_geometry: DerivedGeometry {
             dry_structural_unit_width_mm,
             dry_mean_macropore_width_mm,
