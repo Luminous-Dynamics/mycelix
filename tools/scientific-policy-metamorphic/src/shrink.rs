@@ -171,13 +171,6 @@ fn collect_reductions(
                 Value::Number(Number::from(0)),
                 current,
             );
-            push_if_changed(
-                output,
-                path.to_owned(),
-                "replace_number_with_one",
-                Value::Number(Number::from(1)),
-                current,
-            );
         }
         Value::Bool(value) => {
             if *value {
