@@ -63,15 +63,15 @@ pub struct Outcome {
 }
 
 impl Outcome {
-    pub fn delivered(&self) -> u32 {
+    pub fn delivered(&self) -> u64 {
         self.local_delivered + self.remote_a_delivered + self.remote_b_delivered
     }
 
-    pub fn missed(&self) -> u32 {
+    pub fn missed(&self) -> u64 {
         self.intended_receivers - self.delivered()
     }
 
-    pub fn remote_delivered(&self) -> u32 {
+    pub fn remote_delivered(&self) -> u64 {
         self.remote_a_delivered + self.remote_b_delivered
     }
 
@@ -235,7 +235,7 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Scenario>, String> {
         {
             return Err(format!("line {}: all synthetic receiver cohorts must be non-zero", line_idx + 2));
         }
-scenarios.push(scenario);
+        scenarios.push(scenario);
     }
 
     if scenarios.is_empty() {
