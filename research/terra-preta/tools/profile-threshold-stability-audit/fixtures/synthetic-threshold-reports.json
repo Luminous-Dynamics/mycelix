@@ -1,0 +1,125 @@
+{
+  "schema_version": "0.1.0",
+  "source_evidence_ref": "synthetic fixture only; no field data",
+  "profile_reports": [
+    {
+      "audit_version": "0.3.0",
+      "input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "study_id": "SYNTHETIC",
+      "site_id": "SYN1",
+      "plot_id": "P01",
+      "profile_id": "PROFILE-01",
+      "event_id": "E001",
+      "event_start_utc": "2026-01-01T00:00:00Z",
+      "observation_window_end_utc": "2026-01-01T03:00:00Z",
+      "time_resolution_seconds": 600,
+      "response_threshold_m3_m3": 0.01,
+      "response_onset_method": "first_observed_crossing",
+      "sensor_count": 4,
+      "indeterminate_sensor_count": 0,
+      "profile_coverage_status": "complete_for_declared_sensor_roster",
+      "profile_classification": "mixed_response_ordering",
+      "pair_results": [
+        {
+          "shallow_sensor_id": "D10",
+          "shallow_depth_cm": 10,
+          "deep_sensor_id": "D30",
+          "deep_depth_cm": 30,
+          "ordering": "nonsequential_deeper_first_interval_separated"
+        },
+        {
+          "shallow_sensor_id": "D10",
+          "shallow_depth_cm": 10,
+          "deep_sensor_id": "D60",
+          "deep_depth_cm": 60,
+          "ordering": "sequential_shallower_first_interval_separated"
+        },
+        {
+          "shallow_sensor_id": "D30",
+          "shallow_depth_cm": 30,
+          "deep_sensor_id": "D90",
+          "deep_depth_cm": 90,
+          "ordering": "nonsequential_deeper_first_interval_separated"
+        }
+      ]
+    },
+    {
+      "audit_version": "0.3.0",
+      "input_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "study_id": "SYNTHETIC",
+      "site_id": "SYN1",
+      "plot_id": "P01",
+      "profile_id": "PROFILE-01",
+      "event_id": "E001",
+      "event_start_utc": "2026-01-01T00:00:00Z",
+      "observation_window_end_utc": "2026-01-01T03:00:00Z",
+      "time_resolution_seconds": 600,
+      "response_threshold_m3_m3": 0.02,
+      "response_onset_method": "first_observed_crossing",
+      "sensor_count": 4,
+      "indeterminate_sensor_count": 0,
+      "profile_coverage_status": "complete_for_declared_sensor_roster",
+      "profile_classification": "mixed_response_ordering",
+      "pair_results": [
+        {
+          "shallow_sensor_id": "D10",
+          "shallow_depth_cm": 10,
+          "deep_sensor_id": "D30",
+          "deep_depth_cm": 30,
+          "ordering": "nonsequential_deeper_first_interval_separated"
+        },
+        {
+          "shallow_sensor_id": "D10",
+          "shallow_depth_cm": 10,
+          "deep_sensor_id": "D60",
+          "deep_depth_cm": 60,
+          "ordering": "ambiguous_overlapping_response_intervals"
+        },
+        {
+          "shallow_sensor_id": "D30",
+          "shallow_depth_cm": 30,
+          "deep_sensor_id": "D90",
+          "deep_depth_cm": 90,
+          "ordering": "nonsequential_deeper_first_interval_separated"
+        }
+      ]
+    },
+    {
+      "audit_version": "0.3.0",
+      "input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "study_id": "SYNTHETIC",
+      "site_id": "SYN1",
+      "plot_id": "P01",
+      "profile_id": "PROFILE-01",
+      "event_id": "E001",
+      "event_start_utc": "2026-01-01T00:00:00Z",
+      "observation_window_end_utc": "2026-01-01T03:00:00Z",
+      "time_resolution_seconds": 600,
+      "response_threshold_m3_m3": 0.03,
+      "response_onset_method": "first_observed_crossing",
+      "sensor_count": 4,
+      "indeterminate_sensor_count": 0,
+      "profile_coverage_status": "complete_for_declared_sensor_roster",
+      "profile_classification": "ambiguous_response_ordering_due_to_sampling_interval",
+      "pair_results": [
+        {
+          "shallow_sensor_id": "D10",
+          "shallow_depth_cm": 10,
+          "deep_sensor_id": "D30",
+          "deep_depth_cm": 30,
+          "ordering": "ambiguous_overlapping_response_intervals"
+        },
+        {
+          "shallow_sensor_id": "D10",
+          "shallow_depth_cm": 10,
+          "deep_sensor_id": "D60",
+          "deep_depth_cm": 60,
+          "ordering": "sequential_shallower_first_interval_separated"
+        }
+      ]
+    }
+  ]
+}
