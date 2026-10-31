@@ -125,10 +125,14 @@ Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynami
 
 ## v0.1 model parity note
 
-The new Rust crate currently uses average macropore width and aggregate projected pore area/perimeter in the whole-soil saturated-conductivity calculations. It does not yet implement per-pore area/width corrections (Hirmas Eqs. 35–36). It should be treated as an equation-level average-geometry prototype until that per-pore path and the authors' R-code outputs are reproduced.
+The Rust tools now separate the model into two linked stages:
 
-The paper body prints a minus sign in Eq. 37, while Figure 6 and Table 1 support the positive near-1:1 relationship. This sign discrepancy is explicitly recorded in the implementation; v0.1 follows figure/table provisionally and requires author-script parity before claiming exact reproduction.
+- [Dynamic average-geometry audit](./tools/dynamic-macropore-audit/README.md) covers the current equation-level average-geometry/saturated-conductivity calculation.
+- [Per-pore morphology/retention audit](./tools/hirmas-pore-resolved-audit/README.md) consumes the exact ImageJ object table and the dynamic report, implements Hirmas Eqs. 33, 35–36 and 46, and reports per-pore sums next to aggregate Eq. 22 rather than forcing equality.
 
+This staged implementation is not yet a full reproduction. The per-pore dynamic MinFeret scaling is an explicit assumption that must be checked against the authors' R scripts; the full matrix-water partition and unsaturated conductivity function are not yet implemented. The paper's Eq. 37 sign discrepancy remains unresolved pending author-code parity.
+
+Use the [Hirmas Dynamic Morphology Reproduction Benchmark](./HIRMAS_DYNAMIC_MORPHOLOGY_REPRODUCTION_BENCHMARK_V0.1.md) as the acceptance contract. The Dryad archive has been identified but is not yet acquired or run.
 ## 3D CT pore-network bridge
 
 The next morphology layer is a provenance-bearing 3D pore/throat graph rather than another scalar from a 2D section. See the [3D pore-network connectivity and CT-informed exchange benchmark](./PORE_NETWORK_3D_CONNECTIVITY_BENCHMARK_V0.1.md), [Rust pore-network auditor](./tools/pore-network-audit/README.md), and implementation [issue #5548](https://github.com/Luminous-Dynamics/mycelix/issues/5548). The first tool audits extracted graph topology and percolation sensitivity only; it does not segment CT or model dynamic wetting/exchange.
