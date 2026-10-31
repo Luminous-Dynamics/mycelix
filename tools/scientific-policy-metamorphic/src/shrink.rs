@@ -39,6 +39,8 @@ pub struct ShrinkTrace {
     pub predicate_id: String,
     pub original_sha256: String,
     pub minimized_sha256: String,
+    pub reduction_profile: String,
+    pub protected_paths: Vec<String>,
     pub max_candidate_evaluations: usize,
     pub candidate_evaluations: usize,
     pub accepted_reductions: usize,
@@ -108,7 +110,9 @@ fn collect_reductions(
 
     match current {
         Value::Object(object) => {
-            for key in object.keys() {
+            let mut keys = object.keys().cloned().collect::<Vec<_>>();
+            keys.sort();
+            for key in &keys {
                 let child_path = format!("{path}/{}", escape_pointer_token(key));
                 if is_protected(&child_path, protected_paths) {
                     continue;
@@ -123,9 +127,11 @@ fn collect_reductions(
                     current,
                 );
             }
-            for (key, value) in object {
-                let child_path = format!("{path}/{}", escape_pointer_token(key));
-                collect_reductions(value, &child_path, protected_paths, output);
+            for key in &keys {
+                if let Some(value) = object.get(key) {
+                    let child_path = format!("{path}/{}", escape_pointer_token(key));
+                    collect_reductions(value, &child_path, protected_paths, output);
+                }
             }
         }
         Value::Array(values) => {
@@ -287,6 +293,8 @@ where
             predicate_id: predicate_id.to_owned(),
             original_sha256,
             minimized_sha256,
+            reduction_profile: "json-object-array-scalar-v0.1".to_owned(),
+            protected_paths: protected_paths.iter().cloned().collect(),
             max_candidate_evaluations,
             candidate_evaluations: candidates.len(),
             accepted_reductions,
