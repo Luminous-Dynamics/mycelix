@@ -1435,6 +1435,431 @@ pub fn evaluate_rectangular_tv_robust_recourse(fixture: &Value) -> Result<Value,
 }
 
 
+#[derive(Clone)]
+struct RegimeRiskValue {
+    nested_risk: f64,
+    expected_cost: f64,
+}
+
+#[derive(Clone)]
+struct SharedRegimePolicy {
+    worst_regime_risk: f64,
+    worst_regime_expected_cost: f64,
+    policy: BTreeMap<String, String>,
+    risk_by_regime: BTreeMap<String, f64>,
+    expected_cost_by_regime: BTreeMap<String, f64>,
+    worst_regime_id: String,
+}
+
+#[derive(Clone)]
+struct RectangularRegimePlan {
+    robust_risk: f64,
+    nominal_expected_cost: f64,
+    policy: BTreeMap<String, String>,
+    worst_local_regime_by_action: BTreeMap<String, String>,
+    local_regime_risk_by_action: BTreeMap<String, f64>,
+}
+
+fn parse_regime_ids(fixture: &Value) -> Result<Vec<String>, Vec<String>> {
+    let Some(raw_regimes) = fixture.get("persistent_regimes").and_then(Value::as_array) else {
+        return Err(vec!["persistent_regimes must be a non-empty array".to_owned()]);
+    };
+    let mut regimes = Vec::new();
+    let mut unique = BTreeSet::new();
+    for raw in raw_regimes {
+        let Some(regime) = raw.as_str().map(str::trim).filter(|regime| !regime.is_empty()) else {
+            return Err(vec!["persistent_regimes entries must be non-empty strings".to_owned()]);
+        };
+        if !unique.insert(regime.to_owned()) {
+            return Err(vec![format!("duplicate persistent regime ID: {regime}")]);
+        }
+        regimes.push(regime.to_owned());
+    }
+    if regimes.len() < 2 {
+        return Err(vec!["EX3 requires at least two persistent regimes".to_owned()]);
+    }
+    Ok(regimes)
+}
+
+fn validate_regime_kernels(model: &Model, regime_ids: &[String]) -> Result<(), Vec<String>> {
+    let mut errors = Vec::new();
+    for state in model.states.values() {
+        for action in &state.actions {
+            for outcome in &action.outcomes {
+                if outcome.regime_probabilities.len() != regime_ids.len()
+                    || regime_ids.iter().any(|regime| !outcome.regime_probabilities.contains_key(regime))
+                {
+                    errors.push(format!(
+                        "{}:{}:{}: regime probability map must contain exactly the declared regime IDs",
+                        state.state_id, action.action_id, outcome.outcome_id
+                    ));
+                }
+            }
+            for regime in regime_ids {
+                let mut regime_mass = 0.0;
+                for outcome in &action.outcomes {
+                    match outcome.regime_probabilities.get(regime) {
+                        Some(probability)
+                            if probability.is_finite() && *probability >= 0.0 && *probability <= 1.0 =>
+                        {
+                            regime_mass += probability;
+                        }
+                        _ => errors.push(format!(
+                            "{}:{}:{}: invalid or missing probability under regime {regime}",
+                            state.state_id, action.action_id, outcome.outcome_id
+                        )),
+                    }
+                }
+                if (regime_mass - 1.0).abs() > TOLERANCE {
+                    errors.push(format!(
+                        "{}:{}: conditional probabilities under regime {regime} sum to {regime_mass}, not 1",
+                        state.state_id, action.action_id
+                    ));
+                }
+            }
+
+            // The scalar probability field is the equal-weight regime-average
+            // reference distribution used only for policy enumeration.
+            for outcome in &action.outcomes {
+                let regime_average = regime_ids.iter()
+                    .filter_map(|regime| outcome.regime_probabilities.get(regime))
+                    .sum::<f64>() / regime_ids.len() as f64;
+                if (outcome.probability - regime_average).abs() > TOLERANCE {
+                    errors.push(format!(
+                        "{}:{}:{}: nominal probability must equal the unweighted mean across persistent regimes",
+                        state.state_id, action.action_id, outcome.outcome_id
+                    ));
+                }
+            }
+        }
+    }
+    if errors.is_empty() { Ok(()) } else { Err(errors) }
+}
+
+fn evaluate_fixed_policy_under_regime(
+    state_id: &str,
+    policy: &BTreeMap<String, String>,
+    model: &Model,
+    regime_id: &str,
+    alpha: f64,
+    lambda: f64,
+    memo: &mut HashMap<String, Option<RegimeRiskValue>>,
+    visiting: &mut BTreeSet<String>,
+) -> Result<Option<RegimeRiskValue>, String> {
+    if let Some(cached) = memo.get(state_id) {
+        return Ok(cached.clone());
+    }
+    if !visiting.insert(state_id.to_owned()) {
+        return Err(format!("cycle detected in shared-regime evaluation at {state_id}"));
+    }
+    let state = model.states.get(state_id)
+        .ok_or_else(|| format!("unknown information state {state_id}"))?;
+    let floor_ok = model.service_floors.iter().all(|(service, floor)| {
+        state.service_levels.get(service).is_some_and(|level| *level + TOLERANCE >= *floor)
+    });
+    if !floor_ok {
+        visiting.remove(state_id);
+        memo.insert(state_id.to_owned(), None);
+        return Ok(None);
+    }
+
+    let action_id = policy.get(state_id)
+        .ok_or_else(|| format!("shared-regime policy omits information state {state_id}"))?;
+    let action = state.actions.iter()
+        .find(|action| &action.action_id == action_id)
+        .ok_or_else(|| format!("shared-regime policy names undeclared action {action_id} at {state_id}"))?;
+
+    let mut risk_outcomes = Vec::new();
+    let mut expected_cost = action.fixed_cost;
+    for outcome in &action.outcomes {
+        let probability = *outcome.regime_probabilities.get(regime_id)
+            .ok_or_else(|| format!("missing regime {regime_id} probability at {state_id}/{}", action.action_id))?;
+        let future = match &outcome.next_state_id {
+            Some(next_id) => match evaluate_fixed_policy_under_regime(
+                next_id, policy, model, regime_id, alpha, lambda, memo, visiting
+            )? {
+                Some(value) => Some(value),
+                None => {
+                    visiting.remove(state_id);
+                    memo.insert(state_id.to_owned(), None);
+                    return Ok(None);
+                }
+            },
+            None => None,
+        };
+        let future_risk = future.as_ref().map(|value| value.nested_risk).unwrap_or(0.0);
+        let future_mean = future.as_ref().map(|value| value.expected_cost).unwrap_or(0.0);
+        risk_outcomes.push((outcome.stage_cost + future_risk, probability));
+        expected_cost += probability * (outcome.stage_cost + future_mean);
+    }
+
+    let conditional_mean: f64 = risk_outcomes.iter()
+        .map(|(loss, probability)| loss * probability)
+        .sum();
+    let conditional_cvar = upper_cvar(&risk_outcomes, alpha)?;
+    let nested_risk = action.fixed_cost
+        + (1.0 - lambda) * conditional_mean
+        + lambda * conditional_cvar;
+    let value = RegimeRiskValue { nested_risk, expected_cost };
+    visiting.remove(state_id);
+    memo.insert(state_id.to_owned(), Some(value.clone()));
+    Ok(Some(value))
+}
+
+fn solve_rectangular_regime_recursion(
+    state_id: &str,
+    model: &Model,
+    regime_ids: &[String],
+    alpha: f64,
+    lambda: f64,
+    memo: &mut HashMap<String, Option<RectangularRegimePlan>>,
+    visiting: &mut BTreeSet<String>,
+) -> Result<Option<RectangularRegimePlan>, String> {
+    if let Some(cached) = memo.get(state_id) {
+        return Ok(cached.clone());
+    }
+    if !visiting.insert(state_id.to_owned()) {
+        return Err(format!("cycle detected in regime-rectangular recursion at {state_id}"));
+    }
+    let state = model.states.get(state_id)
+        .ok_or_else(|| format!("unknown information state {state_id}"))?;
+    let floor_ok = model.service_floors.iter().all(|(service, floor)| {
+        state.service_levels.get(service).is_some_and(|level| *level + TOLERANCE >= *floor)
+    });
+    if !floor_ok {
+        visiting.remove(state_id);
+        memo.insert(state_id.to_owned(), None);
+        return Ok(None);
+    }
+
+    let mut best: Option<RectangularRegimePlan> = None;
+    for action in &state.actions {
+        let mut child_plans = Vec::new();
+        let mut feasible = true;
+        for outcome in &action.outcomes {
+            let child = match &outcome.next_state_id {
+                Some(next_id) => match solve_rectangular_regime_recursion(
+                    next_id, model, regime_ids, alpha, lambda, memo, visiting
+                )? {
+                    Some(plan) => Some(plan),
+                    None => {
+                        feasible = false;
+                        None
+                    }
+                },
+                None => None,
+            };
+            if outcome.next_state_id.is_some() && child.is_none() {
+                feasible = false;
+                break;
+            }
+            child_plans.push(child);
+        }
+        if !feasible {
+            continue;
+        }
+
+        let mut worst_action_risk = f64::NEG_INFINITY;
+        let mut selected_regime = String::new();
+        let mut selected_mean = 0.0;
+        for regime in regime_ids {
+            let mut distribution = Vec::new();
+            let mut expected = action.fixed_cost;
+            for (index, outcome) in action.outcomes.iter().enumerate() {
+                let probability = *outcome.regime_probabilities.get(regime)
+                    .ok_or_else(|| format!("missing regime {regime} probability at {state_id}/{}", action.action_id))?;
+                let child_risk = child_plans[index].as_ref().map(|plan| plan.robust_risk).unwrap_or(0.0);
+                let child_mean = child_plans[index].as_ref().map(|plan| plan.nominal_expected_cost).unwrap_or(0.0);
+                distribution.push((outcome.stage_cost + child_risk, probability));
+                expected += probability * (outcome.stage_cost + child_mean);
+            }
+            let mean: f64 = distribution.iter().map(|(loss, probability)| loss * probability).sum();
+            let cvar = upper_cvar(&distribution, alpha)?;
+            let value = action.fixed_cost + (1.0 - lambda) * mean + lambda * cvar;
+            if value > worst_action_risk + TOLERANCE
+                || ((value - worst_action_risk).abs() <= TOLERANCE && expected > selected_mean + TOLERANCE)
+            {
+                worst_action_risk = value;
+                selected_regime = regime.clone();
+                selected_mean = expected;
+            }
+        }
+
+        let mut policy = BTreeMap::new();
+        policy.insert(state_id.to_owned(), action.action_id.clone());
+        let mut local_regimes = BTreeMap::new();
+        let mut local_risks = BTreeMap::new();
+        let action_key = format!("{state_id}/{}", action.action_id);
+        local_regimes.insert(action_key.clone(), selected_regime);
+        local_risks.insert(action_key, worst_action_risk);
+        for child in child_plans.into_iter().flatten() {
+            for (child_state, child_action) in child.policy {
+                policy.insert(child_state, child_action);
+            }
+            local_regimes.extend(child.worst_local_regime_by_action);
+            local_risks.extend(child.local_regime_risk_by_action);
+        }
+
+        let candidate = RectangularRegimePlan {
+            robust_risk: worst_action_risk,
+            nominal_expected_cost: selected_mean,
+            policy,
+            worst_local_regime_by_action: local_regimes,
+            local_regime_risk_by_action: local_risks,
+        };
+        let replace = match &best {
+            None => true,
+            Some(current) if candidate.robust_risk < current.robust_risk - TOLERANCE => true,
+            Some(current)
+                if (candidate.robust_risk - current.robust_risk).abs() <= TOLERANCE
+                    && candidate.nominal_expected_cost < current.nominal_expected_cost - TOLERANCE => true,
+            Some(current)
+                if (candidate.robust_risk - current.robust_risk).abs() <= TOLERANCE
+                    && (candidate.nominal_expected_cost - current.nominal_expected_cost).abs() <= TOLERANCE =>
+            {
+                candidate.policy.get(state_id).cmp(&current.policy.get(state_id)).is_lt()
+            }
+            _ => false,
+        };
+        if replace {
+            best = Some(candidate);
+        }
+    }
+    visiting.remove(state_id);
+    memo.insert(state_id.to_owned(), best.clone());
+    Ok(best)
+}
+
+/// Compare a single persistent hidden regime against independent local
+/// regime-specific conditional kernels at every observable state/action node.
+pub fn evaluate_shared_regime_nonrectangular(fixture: &Value) -> Result<Value, Vec<String>> {
+    let model = parse_model(fixture)?;
+    let regime_ids = parse_regime_ids(fixture)?;
+    validate_regime_kernels(&model, &regime_ids)?;
+    let alpha = number_field(fixture, "risk_confidence_level")
+        .filter(|value| value.is_finite() && (0.0..1.0).contains(value))
+        .ok_or_else(|| vec!["risk_confidence_level must be finite and in [0,1)".to_owned()])?;
+    let lambda = number_field(fixture, "risk_aversion_lambda")
+        .filter(|value| value.is_finite() && (0.0..1.0).contains(value))
+        .ok_or_else(|| vec!["risk_aversion_lambda must be finite and in [0,1)".to_owned()])?;
+
+    let mut enumeration_memo = HashMap::new();
+    let mut enumeration_visiting = BTreeSet::new();
+    let policies = enumerate_terminal_cvar_policies(
+        &model.initial_state_id, &model, &mut enumeration_memo, &mut enumeration_visiting
+    ).map_err(|error| vec![error])?;
+
+    let mut best_shared: Option<SharedRegimePolicy> = None;
+    for candidate in policies {
+        let mut risk_by_regime = BTreeMap::new();
+        let mut expected_by_regime = BTreeMap::new();
+        for regime in &regime_ids {
+            let mut memo = HashMap::new();
+            let mut visiting = BTreeSet::new();
+            let value = evaluate_fixed_policy_under_regime(
+                &model.initial_state_id, &candidate.policy, &model, regime,
+                alpha, lambda, &mut memo, &mut visiting
+            ).map_err(|error| vec![error])?;
+            let Some(value) = value else {
+                risk_by_regime.clear();
+                break;
+            };
+            risk_by_regime.insert(regime.clone(), value.nested_risk);
+            expected_by_regime.insert(regime.clone(), value.expected_cost);
+        }
+        if risk_by_regime.len() != regime_ids.len() {
+            continue;
+        }
+        let (worst_regime_id, worst_regime_risk) = risk_by_regime.iter()
+            .max_by(|left, right| left.1.total_cmp(right.1))
+            .map(|(regime, risk)| (regime.clone(), *risk))
+            .ok_or_else(|| vec!["no shared-regime values were computed".to_owned()])?;
+        let worst_regime_expected_cost = expected_by_regime.values().copied().fold(0.0, f64::max);
+        let candidate_policy = SharedRegimePolicy {
+            worst_regime_risk,
+            worst_regime_expected_cost,
+            policy: candidate.policy,
+            risk_by_regime,
+            expected_cost_by_regime: expected_by_regime,
+            worst_regime_id,
+        };
+        let replace = match &best_shared {
+            None => true,
+            Some(current) if candidate_policy.worst_regime_risk < current.worst_regime_risk - TOLERANCE => true,
+            Some(current)
+                if (candidate_policy.worst_regime_risk - current.worst_regime_risk).abs() <= TOLERANCE
+                    && candidate_policy.worst_regime_expected_cost < current.worst_regime_expected_cost - TOLERANCE => true,
+            Some(current)
+                if (candidate_policy.worst_regime_risk - current.worst_regime_risk).abs() <= TOLERANCE
+                    && (candidate_policy.worst_regime_expected_cost - current.worst_regime_expected_cost).abs() <= TOLERANCE =>
+            {
+                candidate_policy.policy.get(&model.initial_state_id).cmp(&current.policy.get(&model.initial_state_id)).is_lt()
+            }
+            _ => false,
+        };
+        if replace {
+            best_shared = Some(candidate_policy);
+        }
+    }
+
+    let mut rectangular_memo = HashMap::new();
+    let mut rectangular_visiting = BTreeSet::new();
+    let rectangular = solve_rectangular_regime_recursion(
+        &model.initial_state_id, &model, &regime_ids, alpha, lambda,
+        &mut rectangular_memo, &mut rectangular_visiting
+    ).map_err(|error| vec![error])?;
+
+    let shared_report = best_shared.map(|plan| json!({
+        "shared_regime_minimax_nested_mean_cvar": plan.worst_regime_risk,
+        "policy_worst_regime_expected_cost": plan.worst_regime_expected_cost,
+        "policy": plan.policy,
+        "worst_regime_id": plan.worst_regime_id,
+        "nested_risk_by_persistent_regime": plan.risk_by_regime,
+        "expected_cost_by_persistent_regime": plan.expected_cost_by_regime
+    }));
+    let rectangular_report = rectangular.map(|plan| json!({
+        "rectangular_regime_relaxation_nested_mean_cvar": plan.robust_risk,
+        "policy_nominal_expected_cost": plan.nominal_expected_cost,
+        "policy": plan.policy,
+        "worst_local_regime_by_state_action": plan.worst_local_regime_by_action,
+        "local_robust_risk_by_state_action": plan.local_regime_risk_by_action
+    }));
+    let shared_value = shared_report.as_ref().and_then(|report| report["shared_regime_minimax_nested_mean_cvar"].as_f64());
+    let rectangular_value = rectangular_report.as_ref().and_then(|report| report["rectangular_regime_relaxation_nested_mean_cvar"].as_f64());
+    let price = match (shared_value, rectangular_value) {
+        (Some(shared), Some(rectangular)) => Some(rectangular - shared),
+        _ => None,
+    };
+    let relative_price = match (shared_value, price) {
+        (Some(shared), Some(price)) if shared.abs() > TOLERANCE => Some(price / shared),
+        _ => None,
+    };
+
+    Ok(json!({
+        "benchmark_id": "PRAXIS-NRES-016-EX3-SHARED-REGIME-NONRECTANGULAR-001",
+        "status": "synthetic-public-development-evaluated",
+        "evaluation_split": "public-development-only",
+        "active_in_curriculum": false,
+        "persistent_regimes": regime_ids,
+        "risk_confidence_level": alpha,
+        "risk_aversion_lambda": lambda,
+        "shared_regime_contract": "one latent regime ID is fixed for the complete horizon",
+        "rectangular_relaxation_contract": "the adversary may select a different regime-specific conditional kernel independently at every observable state/action node",
+        "shared_regime": shared_report,
+        "rectangular_relaxation": rectangular_report,
+        "price_of_rectangularity": {
+            "absolute": price,
+            "relative_to_shared_regime": relative_price
+        },
+        "rectangularity_is_strict": price.is_some_and(|value| value > TOLERANCE),
+        "nonanticipativity_semantics": "the shared-regime policy is enumerated once and held identical across all hidden regimes; regime IDs are used only for adversarial evaluation",
+        "calibration_claim": "none; all regime kernels are synthetic",
+        "deployment_claim": "none",
+        "interpretation": "The rectangular relaxation contains every persistent-regime law but may combine local kernels from incompatible regimes. Its value must be at least the shared-regime minimax value when model, policy space and nested risk map are aligned."
+    }))
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
