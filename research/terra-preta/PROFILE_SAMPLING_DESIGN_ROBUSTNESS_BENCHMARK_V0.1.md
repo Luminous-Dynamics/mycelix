@@ -51,6 +51,17 @@ A transition from `mixed_response_ordering` at 5 minutes to an ambiguous or sequ
 
 The committed 1-minute fixture encodes response changes at 35, 45 and 65 minutes after midnight for the 30-, 10- and 60-cm sensors, respectively; event onset is 00:30 UTC. At 5-minute bins the 30-cm response interval (00:30, 00:35] is strictly earlier than the 10-cm interval (00:40, 00:45], so one deeper-first pair is resolvable. At 10-, 15- and 30-minute aggregation the relevant intervals touch or overlap under the profile auditor's strict interval-ordering rule; they must not be counted as robust NSR. A leave-one-sensor-out design should lose that pair when either 10- or 30-cm sensor is removed, but preserve it when the 60-cm sensor is removed. These are analytically predicted fixture outcomes, not a successful Rust or CI run.
 
+For the fixture's 0.01 m³/m³ threshold, independent median-bin arithmetic gives the following first response-bin start times:
+
+| Target cadence | 10 cm sensor | 30 cm sensor | 60 cm sensor | Expected profile-level implication |
+|---|---:|---:|---:|---|
+| 5 min | 00:45 | 00:35 | 01:05 | 30 cm is robustly earlier than 10 cm at this grid |
+| 10 min | 00:40 | 00:30 | 01:00 | 30/10 onset intervals touch; not a robust NSR pair |
+| 15 min | 00:45 | 00:30 | 01:00 | 30/10 onset intervals touch; not a robust NSR pair |
+| 30 min | 00:30 | 00:30 | 01:00 | 10/30 are simultaneous within the 30-minute sampling resolution |
+
+Times are UTC on 1 June 2026. The table predicts the bin timestamp that crosses the declared threshold; it does not estimate true physical flow arrival time. The profile auditor must use the entire onset interval `(last below threshold, first above threshold]`; different reported bin starts do not automatically imply a strictly ordered pair.
+
 ## 4. Benchmark matrix
 
 | Dimension | Required strata | Reported measure |
