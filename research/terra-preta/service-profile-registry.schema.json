@@ -1,0 +1,343 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/service-profile-registry.schema.json",
+  "title": "Terra Preta function-conditioned service profile registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "registry_version",
+    "reviewed_on",
+    "interpretation_boundary",
+    "profiles"
+  ],
+  "properties": {
+    "registry_version": {
+      "const": "0.1.0"
+    },
+    "reviewed_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    }
+  },
+  "$defs": {
+    "constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "constraint_id",
+        "endpoint",
+        "unit",
+        "lower_bound",
+        "upper_bound",
+        "hard_constraint",
+        "threshold_basis",
+        "protocol_uri"
+      ],
+      "properties": {
+        "constraint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lower_bound": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "upper_bound": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "hard_constraint": {
+          "const": true
+        },
+        "threshold_basis": {
+          "enum": [
+            "expert_approved",
+            "applicable_standard",
+            "validated_domain_reference",
+            "preregistered_study_specific"
+          ]
+        },
+        "protocol_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "lower_bound": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "properties": {
+            "upper_bound": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement_id",
+        "endpoint",
+        "method",
+        "unit",
+        "state_condition",
+        "sampling_support",
+        "protocol_uri",
+        "required_for_activation"
+      ],
+      "properties": {
+        "measurement_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state_condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sampling_support": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "required_for_activation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "application_context",
+        "title",
+        "status",
+        "primary_service",
+        "description",
+        "constraints",
+        "measurement_requirements",
+        "applicability_scope",
+        "expected_failure_modes",
+        "governance"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "application_context": {
+          "enum": [
+            "cropped_root_zone",
+            "dryland_water_resilience",
+            "engineered_low_permeability_cover",
+            "vegetated_slope",
+            "horticultural_substrate"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "thresholds_pending",
+            "review_pending",
+            "active",
+            "retired"
+          ]
+        },
+        "primary_service": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/constraint"
+          }
+        },
+        "measurement_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/measurement"
+          }
+        },
+        "applicability_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "soil_domain",
+            "climate_domain",
+            "management_system"
+          ],
+          "properties": {
+            "soil_domain": {
+              "type": "string",
+              "minLength": 1
+            },
+            "climate_domain": {
+              "type": "string",
+              "minLength": 1
+            },
+            "management_system": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "expected_failure_modes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "governance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "review_status",
+            "reviewer_role",
+            "evidence_uri"
+          ],
+          "properties": {
+            "review_status": {
+              "enum": [
+                "not_reviewed",
+                "pending",
+                "approved"
+              ]
+            },
+            "reviewer_role": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence_uri": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uri"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "thresholds_pending"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "constraints": {
+                "maxItems": 0
+              },
+              "governance": {
+                "properties": {
+                  "review_status": {
+                    "const": "not_reviewed"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "active"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "constraints": {
+                "minItems": 1
+              },
+              "measurement_requirements": {
+                "minItems": 1
+              },
+              "governance": {
+                "properties": {
+                  "review_status": {
+                    "const": "approved"
+                  },
+                  "evidence_uri": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
