@@ -645,6 +645,19 @@ mod tests {
     }
 
     #[test]
+    fn transport_solver_can_reassign_mass_through_residual_reverse_arcs() {
+        let distances = vec![
+            vec![0.0, 1.0, 2.0],
+            vec![1.0, 0.0, 1.0],
+            vec![2.0, 1.0, 0.0],
+        ];
+        let supply = [0.5, 0.5, 0.0];
+        let demand = [0.0, 0.5, 0.5];
+        let value = min_cost_transport(&supply, &demand, &distances).unwrap();
+        assert!(close(value, 1.0, 1e-12));
+    }
+
+    #[test]
     fn identical_distributions_have_zero_wasserstein_distance() {
         let p = [0.25, 0.75];
         assert!(close(min_cost_transport(&p, &p, &binary_distances(1.0)).unwrap(), 0.0, 1e-12));
