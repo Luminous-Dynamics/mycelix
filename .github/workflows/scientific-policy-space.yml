@@ -1,0 +1,69 @@
+name: Scientific Policy Decision Space
+
+on:
+  pull_request:
+    paths:
+      - "tools/scientific-policy-space/**"
+      - "mycelix-desci/src/core/src/scientific_governance.rs"
+      - ".github/workflows/scientific-policy-space.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/scientific-policy-space/**"
+      - "mycelix-desci/src/core/src/scientific_governance.rs"
+      - ".github/workflows/scientific-policy-space.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scientific-policy-space-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  abstract-domain:
+    name: Source-pinned decision space generator (Rust 1.96.0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: clippy, rustfmt
+
+      - name: Format standalone decision-space generator
+        run: cargo fmt --manifest-path tools/scientific-policy-space/Cargo.toml --all
+
+      - name: Verify committed standalone dependency lock
+        run: cargo metadata --manifest-path tools/scientific-policy-space/Cargo.toml --format-version 1 --locked > /dev/null
+
+      - name: Run domain cardinality, source-binding and no-fabricated-oracle tests
+        run: cargo test --manifest-path tools/scientific-policy-space/Cargo.toml --locked
+
+      - name: Run warning-denied Clippy
+        run: cargo clippy --manifest-path tools/scientific-policy-space/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Generate stable JSONL abstract corpus
+        run: |
+          cargo run --manifest-path tools/scientific-policy-space/Cargo.toml -- target/scientific-policy-space
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-decision-space-v0.1.jsonl)" -eq 62464
+          test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
+          jq -e '.case_count == 62464 and .empty_stream_cases == 1024 and .existing_stream_cases == 61440 and .distinct_role_subsets == 128 and .expected_decision_status == "pending_authentic_rust_oracle" and .engine_input_count == 62464 and .engine_input_format == "case_id+cedar_native_request+rego_input"' target/scientific-policy-space/manifest.json
+          jq -s -e 'length == 62464 and all(.[]; .case_id == .cedar.case_id and .case_id == .rego.case_id and (.cedar.entities | length) == 2 and (.cedar.request.action | type) == "string" and (.rego.input.action | type) == "string")' target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl
+
+      - name: Publish generated corpus and source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-policy-decision-space-${{ github.sha }}
+          path: |
+            target/scientific-policy-space/
+            tools/scientific-policy-space/Cargo.lock
+            tools/scientific-policy-space/Cargo.toml
+            tools/scientific-policy-space/README.md
+            tools/scientific-policy-space/src/lib.rs
+            tools/scientific-policy-space/src/main.rs
+          if-no-files-found: error
+          retention-days: 14
