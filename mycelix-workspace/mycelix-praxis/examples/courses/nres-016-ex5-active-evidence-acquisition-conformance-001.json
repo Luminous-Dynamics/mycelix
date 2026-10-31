@@ -2,7 +2,7 @@
   "benchmark_id": "PRAXIS-NRES-016-EX5-CONFORMANCE-001",
   "schema_version": "1.0.0",
   "evaluation_split": "public-development-only",
-  "authored_rust_unit_tests": 24,
+  "authored_rust_unit_tests": 0,
   "invalid_input_controls": [
     "unknown or duplicate acquisition action ID",
     "inspection resource use exceeds available capacity",
@@ -55,5 +55,7 @@
     "No guarantee of positive EVSI under shift or model error.",
     "No causal intervention or sensor-calibration guarantee.",
     "No deployment, operational readiness, certification or SOTA claim."
-  ]
+  ],
+  "proposed_test_cases": 32,
+  "test_execution_status": "not-implemented-not-run"
 }
