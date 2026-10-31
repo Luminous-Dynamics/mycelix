@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-civil-conformance"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Synthetic, non-operational conformance oracle for federated civilian warning and resilience records"
+
+# Keep this benchmark isolated from the parent Praxis workspace.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-civil-conformance"
+path = "src/main.rs"
