@@ -1,0 +1,408 @@
+{
+  "benchmark_id": "PRAXIS-NRES-016-EX0-EXACT-ADAPTIVE-RECOURSE-001",
+  "schema_version": "1.0.0",
+  "title": "NRES-016 EX0 exact adaptive recourse micro-instance",
+  "status": "synthetic-demonstration-for-review",
+  "evaluation_split": "public-development-only",
+  "active_in_curriculum": false,
+  "objective_semantics": "minimum-expected-total-cost-subject-to-pathwise-service-floors",
+  "horizon_stages": 3,
+  "initial_information_state_id": "ROOT",
+  "service_floors": {
+    "water": 70,
+    "power": 60
+  },
+  "information_states": [
+    {
+      "information_state_id": "ROOT",
+      "observable_history_key": "history-root",
+      "stage": 0,
+      "resource_units_available": 2,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "PREVENT",
+          "fixed_cost": 1,
+          "resource_use": 1,
+          "outcomes": [
+            {
+              "outcome_id": "quiet",
+              "probability": 0.7,
+              "next_information_state_id": "P-QUIET",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            },
+            {
+              "outcome_id": "storm",
+              "probability": 0.3,
+              "next_information_state_id": "P-STORM",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        },
+        {
+          "action_id": "DEFER",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "quiet",
+              "probability": 0.6,
+              "next_information_state_id": "D-QUIET",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            },
+            {
+              "outcome_id": "storm",
+              "probability": 0.4,
+              "next_information_state_id": "D-STORM",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "P-QUIET",
+      "observable_history_key": "history-p-quiet",
+      "stage": 1,
+      "resource_units_available": 1,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "USE-SPARE",
+          "fixed_cost": 1,
+          "resource_use": 1,
+          "outcomes": [
+            {
+              "outcome_id": "done",
+              "probability": 1,
+              "next_information_state_id": "PQ-END-USE",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        },
+        {
+          "action_id": "HOLD",
+          "fixed_cost": 4,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "done",
+              "probability": 1,
+              "next_information_state_id": "PQ-END-HOLD",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "P-STORM",
+      "observable_history_key": "history-p-storm",
+      "stage": 1,
+      "resource_units_available": 1,
+      "service_levels": {
+        "water": 70,
+        "power": 80
+      },
+      "actions": [
+        {
+          "action_id": "REPAIR",
+          "fixed_cost": 2,
+          "resource_use": 1,
+          "outcomes": [
+            {
+              "outcome_id": "done",
+              "probability": 1,
+              "next_information_state_id": "PS-END-REPAIR",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        },
+        {
+          "action_id": "HOLD",
+          "fixed_cost": 5,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "done",
+              "probability": 1,
+              "next_information_state_id": "PS-END-HOLD",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "D-QUIET",
+      "observable_history_key": "history-d-quiet",
+      "stage": 1,
+      "resource_units_available": 2,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "USE-SPARE",
+          "fixed_cost": 1,
+          "resource_use": 1,
+          "outcomes": [
+            {
+              "outcome_id": "done",
+              "probability": 1,
+              "next_information_state_id": "DQ-END-USE",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        },
+        {
+          "action_id": "HOLD",
+          "fixed_cost": 3,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "done",
+              "probability": 1,
+              "next_information_state_id": "DQ-END-HOLD",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "D-STORM",
+      "observable_history_key": "history-d-storm",
+      "stage": 1,
+      "resource_units_available": 2,
+      "service_levels": {
+        "water": 40,
+        "power": 50
+      },
+      "actions": [
+        {
+          "action_id": "RECOVER",
+          "fixed_cost": 3,
+          "resource_use": 1,
+          "outcomes": [
+            {
+              "outcome_id": "done",
+              "probability": 1,
+              "next_information_state_id": "DS-END-RECOVER",
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "PQ-END-USE",
+      "observable_history_key": "history-PQ-END-USE",
+      "stage": 2,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "PQ-END-HOLD",
+      "observable_history_key": "history-PQ-END-HOLD",
+      "stage": 2,
+      "resource_units_available": 1,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "PS-END-REPAIR",
+      "observable_history_key": "history-PS-END-REPAIR",
+      "stage": 2,
+      "resource_units_available": 0,
+      "service_levels": {
+        "water": 80,
+        "power": 90
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "PS-END-HOLD",
+      "observable_history_key": "history-PS-END-HOLD",
+      "stage": 2,
+      "resource_units_available": 1,
+      "service_levels": {
+        "water": 70,
+        "power": 80
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "DQ-END-USE",
+      "observable_history_key": "history-DQ-END-USE",
+      "stage": 2,
+      "resource_units_available": 1,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "DQ-END-HOLD",
+      "observable_history_key": "history-DQ-END-HOLD",
+      "stage": 2,
+      "resource_units_available": 2,
+      "service_levels": {
+        "water": 100,
+        "power": 100
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "information_state_id": "DS-END-RECOVER",
+      "observable_history_key": "history-DS-END-RECOVER",
+      "stage": 2,
+      "resource_units_available": 1,
+      "service_levels": {
+        "water": 60,
+        "power": 50
+      },
+      "actions": [
+        {
+          "action_id": "END",
+          "fixed_cost": 0,
+          "resource_use": 0,
+          "outcomes": [
+            {
+              "outcome_id": "end",
+              "probability": 1,
+              "next_information_state_id": null,
+              "stage_cost": 0,
+              "resources_replenished": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "guardrails": [
+    "All state values, probabilities, resource units and costs are synthetic.",
+    "Actions are selected by observable information state, never by hidden scenario label.",
+    "Transition probabilities are action-conditioned but frozen for this fixture.",
+    "Resource conservation is checked on every declared action/outcome transition.",
+    "Service floors are non-compensatory and enforced pathwise.",
+    "The exact objective is expected total cost under the supplied finite transition law.",
+    "No calibration, robust ambiguity, nested CVaR or real-world deployment claim is made."
+  ]
+}
