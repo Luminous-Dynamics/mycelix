@@ -714,7 +714,9 @@ mod tests {
         assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "rac_ge_5pct" && stratum.observations == 3));
         assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "porosity_le_40pct" && stratum.observations == 3));
         assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "ks_method::falling_head" && stratum.observations == 3));
+        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "ks_protocol::falling_head::KS-falling_head" && stratum.observations == 3));
         assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "rac_lt_5pct::ks_method::steady_state" && stratum.observations == 2));
+        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "rac_lt_5pct::ks_protocol::steady_state::KS-steady_state" && stratum.observations == 2));
     }
 
     #[test]
@@ -765,6 +767,21 @@ mod tests {
     fn uniform_method_track_requires_one_protocol_family_per_method() {
         let mut input = fixture();
         input.evaluation_track = EvaluationTrack::UniformMethod;
+        assert!(validate(&input).unwrap_err().contains("one Ks measurement method/protocol"));
+    }
+
+    #[test]
+    fn uniform_method_rejects_multiple_protocols_even_when_method_label_matches() {
+        let mut input = fixture();
+        input.evaluation_track = EvaluationTrack::UniformMethod;
+        for row in &mut input.observations {
+            row.ks_measurement_method = "falling_head".to_owned();
+            row.water_retention_method = "pressure_plate".to_owned();
+        }
+        for row in &mut input.observations[3..] {
+            row.ks_measurement_protocol_id = "KS-FH-different-rig".to_owned();
+            row.water_retention_protocol_id = "WR-PP-different-plate".to_owned();
+        }
         assert!(validate(&input).unwrap_err().contains("one Ks measurement method/protocol"));
     }
 
