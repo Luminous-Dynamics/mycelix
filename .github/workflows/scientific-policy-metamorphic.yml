@@ -325,6 +325,7 @@ jobs:
             target/scientific-policy-space/
             target/scientific-policy-metamorphic/
             target/metamorphic-engine-results/
+            target/opa-native-bench/
             target/policy-counterexample-seed.json
             target/policy-counterexample-shrink/
             target/opa-version.txt
