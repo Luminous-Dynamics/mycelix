@@ -129,6 +129,22 @@
     {
       "id": "N014-NEG-032",
       "condition": "prohibited aggregate, political, identity or personal-suitability field is present"
+    },
+    {
+      "id": "N014-NEG-033",
+      "condition": "population correction delta is not strictly between zero and one"
+    },
+    {
+      "id": "N014-NEG-034",
+      "condition": "declared population TV sampling-error bound differs from the finite-state concentration formula"
+    },
+    {
+      "id": "N014-NEG-035",
+      "condition": "declared W1 sampling-error bound, corrected radius or vacuity flag differs"
+    },
+    {
+      "id": "N014-NEG-036",
+      "condition": "combined marginal population-coverage lower bound is altered"
     }
   ],
   "boundary_cases": [
@@ -146,6 +162,11 @@
       "id": "N014-BOUNDARY-003",
       "condition": "calibration scores contain ties",
       "expected": "Use the inclusive score<=radius rule and the ordinary conservative order statistic."
+    },
+    {
+      "id": "N014-BOUNDARY-004",
+      "condition": "finite-block population correction reaches or exceeds the metric support diameter",
+      "expected": "Declare the population ambiguity set vacuous (all distributions on the finite support); do not report a meaningful finite population radius."
     }
   ],
   "round_trip_requirements": [
@@ -158,7 +179,9 @@
     "Preserve the unbounded-radius/null state when the conformal rank exceeds calibration sample count.",
     "Preserve the guarantee boundary and exchangeability assumptions.",
     "Preserve separate calibration and development splits without moving any block.",
-    "Preserve unknown namespaced extension fields losslessly."
+    "Preserve unknown namespaced extension fields losslessly.",
+    "Preserve the within-block sampling assumption, delta, finite-state TV bound, W1 correction and combined confidence lower bound.",
+    "Preserve the explicit vacuity result when the corrected population radius reaches the support diameter."
   ],
   "conformance_targets": {
     "valid_fixture_acceptance": "100 percent",
@@ -166,7 +189,8 @@
     "score_absolute_tolerance": 1e-10,
     "probability_mass_tolerance": 1e-12,
     "split_overlap_allowed": 0,
-    "composite_scores_accepted": 0
+    "composite_scores_accepted": 0,
+    "population_correction": "finite-state TV concentration plus metric-diameter conversion; population-level correction must report vacuity at or above support diameter"
   },
   "limitations": [
     "Fixture values are synthetic, public-development-only and not independently custodied.",

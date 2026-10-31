@@ -64,7 +64,8 @@
       ],
       "definition": "d(s,t)=sum_i w_i*1[s_i!=t_i], with finite strictly-positive weights."
     },
-    "numerical_method": "Successive-shortest-augmenting-path min-cost flow on a finite bipartite transport graph with residual reverse arcs."
+    "numerical_method": "Successive-shortest-augmenting-path min-cost flow on a finite bipartite transport graph with residual reverse arcs.",
+    "population_correction_delta": 0.05
   },
   "calibration_blocks": [
     {
@@ -3337,5 +3338,15 @@
     "The calibrated radius is not evidence of operational coverage.",
     "No decision optimizer, learned loss-aware transport metric or production policy is certified.",
     "No political beliefs, identity, loyalty, personal suitability or natural-person attributes are collected or scored."
-  ]
+  ],
+  "expected_population_correction": {
+    "delta": 0.05,
+    "tv_sampling_error_upper_bound": 0.9123188172753531,
+    "metric_diameter": 4.75,
+    "w1_sampling_error_upper_bound": 4.333514382057928,
+    "corrected_population_radius": 5.2546516714209,
+    "is_vacuous": true,
+    "combined_marginal_coverage_lower_bound": 0.85,
+    "interpretation": "Under a conditional-iid-within-block assumption, add a distribution-free finite-state sampling-error allowance to the conformal empirical-block radius. The resulting population-law ball reaches the complete support diameter in this small-block fixture and is therefore vacuous."
+  }
 }

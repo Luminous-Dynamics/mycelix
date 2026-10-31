@@ -16,7 +16,8 @@
     "development_evaluation_blocks",
     "expected_calibration",
     "expected_development_diagnostic",
-    "interpretation_guardrails"
+    "interpretation_guardrails",
+    "expected_population_correction"
   ],
   "properties": {
     "benchmark_id": {
@@ -106,7 +107,8 @@
         "coverage_limit",
         "assumptions",
         "ground_metric",
-        "numerical_method"
+        "numerical_method",
+        "population_correction_delta"
       ],
       "properties": {
         "method": {
@@ -202,6 +204,11 @@
         "numerical_method": {
           "type": "string",
           "minLength": 1
+        },
+        "population_correction_delta": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
         }
       },
       "additionalProperties": true
@@ -303,6 +310,59 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "expected_population_correction": {
+      "type": "object",
+      "required": [
+        "delta",
+        "tv_sampling_error_upper_bound",
+        "metric_diameter",
+        "w1_sampling_error_upper_bound",
+        "corrected_population_radius",
+        "is_vacuous",
+        "combined_marginal_coverage_lower_bound",
+        "interpretation"
+      ],
+      "properties": {
+        "delta": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "tv_sampling_error_upper_bound": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "metric_diameter": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "w1_sampling_error_upper_bound": {
+          "type": "number",
+          "minimum": 0
+        },
+        "corrected_population_radius": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "is_vacuous": {
+          "type": "boolean"
+        },
+        "combined_marginal_coverage_lower_bound": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "interpretation": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
     }
   },
   "$defs": {

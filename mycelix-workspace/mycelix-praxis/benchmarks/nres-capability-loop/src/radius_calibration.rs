@@ -416,6 +416,27 @@ fn compare_score_vectors(actual: &[f64], expected_value: Option<&Value>, label: 
     }
 }
 
+/// Distribution-free TV deviation bound for an empirical distribution over K states.
+///
+/// E[TV(Qhat,Q)] <= 0.5*sqrt((K-1)/n) by a second-moment/Cauchy-Schwarz
+/// bound. Changing one observation changes TV by at most 1/n, so McDiarmid
+/// adds sqrt(log(1/delta)/(2n)) with probability at least 1-delta.
+fn empirical_tv_sampling_error_bound(
+    state_count: usize,
+    sample_count: usize,
+    delta: f64,
+) -> Result<f64, String> {
+    if state_count < 2 || sample_count == 0 {
+        return Err("population sampling correction requires at least two states and one observation".to_owned());
+    }
+    if !delta.is_finite() || delta <= 0.0 || delta >= 1.0 {
+        return Err("population correction delta must be finite and strictly between zero and one".to_owned());
+    }
+    let expectation_bound = 0.5 * (((state_count - 1) as f64) / sample_count as f64).sqrt();
+    let concentration_slack = ((1.0 / delta).ln() / (2.0 * sample_count as f64)).sqrt();
+    Ok((expectation_bound + concentration_slack).min(1.0))
+}
+
 /// Evaluate split-conformal calibration of a Wasserstein radius on block scores.
 /// The source fixture supplies the service catalog and forecast templates.
 pub fn evaluate_wasserstein_radius_calibration(
@@ -483,12 +504,14 @@ pub fn evaluate_wasserstein_radius_calibration(
     let alpha = num_field(protocol, "target_miscoverage");
     let target_coverage = num_field(protocol, "target_marginal_coverage");
     let block_size = protocol.get("block_size").and_then(Value::as_u64).map(|value| value as usize);
+    let population_delta = num_field(protocol, "population_correction_delta");
     let Some(weights_value) = protocol.pointer("/ground_metric/service_change_weights").and_then(Value::as_array) else {
         return Err(vec!["NRES-014 ground metric weights are missing".to_owned()]);
     };
     if alpha.is_none_or(|value| !value.is_finite() || value <= 0.0 || value >= 1.0)
         || target_coverage.zip(alpha).is_none_or(|(coverage, alpha)| !close(coverage, 1.0 - alpha, 1e-12))
         || block_size.is_none_or(|size| size == 0)
+        || population_delta.is_none_or(|value| !value.is_finite() || value <= 0.0 || value >= 1.0)
         || protocol.get("state_count").and_then(Value::as_u64) != Some(state_count as u64)
         || str_field(protocol.get("ground_metric").unwrap_or(&Value::Null), "name") != Some("weighted_hamming")
         || weights_value.len() != dimension
@@ -501,6 +524,10 @@ pub fn evaluate_wasserstein_radius_calibration(
     }
     let block_size = block_size.unwrap();
     let weights: Vec<f64> = weights_value.iter().filter_map(Value::as_f64).collect();
+    let metric_diameter = weights.iter().sum::<f64>();
+    if !metric_diameter.is_finite() || metric_diameter <= 0.0 {
+        return Err(vec!["weighted-Hamming metric diameter must be finite and positive".to_owned()]);
+    }
     let distances = distance_matrix(state_count, &weights);
     let Some(source_case_values) = array_field(source_joint, "evaluation_cases") else {
         return Err(vec!["NRES-009 source cases are missing".to_owned()]);
@@ -599,6 +626,36 @@ pub fn evaluate_wasserstein_radius_calibration(
     {
         errors.push("development diagnostic differs from recomputed holdout coverage".to_owned());
     }
+    let population_delta = population_delta.unwrap();
+    let tv_sampling_bound = empirical_tv_sampling_error_bound(
+        state_count,
+        block_size,
+        population_delta,
+    ).map_err(|error| vec![error])?;
+    let w1_sampling_error_bound = metric_diameter * tv_sampling_bound;
+    let corrected_population_radius = radius.map(|value| value + w1_sampling_error_bound);
+    let population_correction_vacuous = corrected_population_radius
+        .is_none_or(|value| value >= metric_diameter);
+    let combined_population_coverage_lower_bound =
+        (1.0 - alpha.unwrap() - population_delta).max(0.0);
+    let expected_population = fixture.get("expected_population_correction").unwrap_or(&Value::Null);
+    if num_field(expected_population, "delta").is_none_or(|value| !close(value, population_delta, 1e-12))
+        || num_field(expected_population, "tv_sampling_error_upper_bound")
+            .is_none_or(|value| !close(value, tv_sampling_bound, TOLERANCE))
+        || num_field(expected_population, "w1_sampling_error_upper_bound")
+            .is_none_or(|value| !close(value, w1_sampling_error_bound, TOLERANCE))
+        || match (num_field(expected_population, "corrected_population_radius"), corrected_population_radius) {
+            (Some(actual), Some(expected)) => !close(actual, expected, TOLERANCE),
+            (None, None) => false,
+            _ => true,
+        }
+        || expected_population.get("is_vacuous").and_then(Value::as_bool)
+            != Some(population_correction_vacuous)
+        || num_field(expected_population, "combined_marginal_coverage_lower_bound")
+            .is_none_or(|value| !close(value, combined_population_coverage_lower_bound, 1e-12))
+    {
+        errors.push("population-distribution correction diagnostic differs from recomputation".to_owned());
+    }
     if !errors.is_empty() {
         return Err(errors);
     }
@@ -616,6 +673,17 @@ pub fn evaluate_wasserstein_radius_calibration(
         "sorted_calibration_scores": sorted_scores,
         "calibrated_wasserstein_radius": radius,
         "radius_is_finite": radius.is_some(),
+        "population_distribution_correction": {
+            "assumption": "within each future block, observations are conditionally iid from that block\u0027s population joint-state distribution",
+            "delta": population_delta,
+            "tv_sampling_error_upper_bound": tv_sampling_bound,
+            "metric_diameter": metric_diameter,
+            "w1_sampling_error_upper_bound": w1_sampling_error_bound,
+            "corrected_population_radius": corrected_population_radius,
+            "is_vacuous": population_correction_vacuous,
+            "combined_marginal_coverage_lower_bound": combined_population_coverage_lower_bound,
+            "interpretation": "Union of the block-conformal empirical-distribution event and a finite-state within-block sampling bound; this conservative correction can be vacuous."
+        },
         "development_diagnostic": {
             "evaluation_blocks": development_scores.len(),
             "covered_blocks": development_covered,
@@ -755,6 +823,10 @@ mod tests {
         assert_eq!(report["development_block_count"], json!(12));
         assert_eq!(report["one_based_order_statistic_rank"], json!(18));
         assert!((report["calibrated_wasserstein_radius"].as_f64().unwrap() - 0.9211372893629722).abs() < 1e-10);
+        assert_eq!(report["population_distribution_correction"]["is_vacuous"], json!(true));
+        assert!((report["population_distribution_correction"]["tv_sampling_error_upper_bound"].as_f64().unwrap() - 0.9123188172753531).abs() < 1e-12);
+        assert!((report["population_distribution_correction"]["corrected_population_radius"].as_f64().unwrap() - 5.2546516714209).abs() < 1e-10);
+        assert!((report["population_distribution_correction"]["combined_marginal_coverage_lower_bound"].as_f64().unwrap() - 0.85).abs() < 1e-12);
     }
 
     #[test]
@@ -805,4 +877,18 @@ mod tests {
         fixture["expected_calibration"]["calibrated_radius"] = json!(0.1);
         assert!(evaluate_wasserstein_radius_calibration(&source, &fixture).is_err());
     }
+    #[test]
+    fn finite_state_tv_bound_matches_closed_form() {
+        let actual = empirical_tv_sampling_error_bound(16, 12, 0.05).unwrap();
+        assert!((actual - 0.9123188172753531).abs() < 1e-12);
+    }
+
+    #[test]
+    fn invalid_population_correction_delta_is_rejected() {
+        for delta in [0.0, 1.0, -0.1, f64::NAN, f64::INFINITY] {
+            assert!(empirical_tv_sampling_error_bound(16, 12, delta).is_err());
+        }
+    }
+
+
 }

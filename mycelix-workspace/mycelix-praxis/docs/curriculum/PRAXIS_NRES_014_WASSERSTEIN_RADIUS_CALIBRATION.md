@@ -41,6 +41,30 @@ This is **marginal block-score coverage**, not coverage conditional on the parti
 
 NRES-014's public development fixture does not prove block exchangeability or provide confirmatory coverage evidence. It demonstrates the rank calculation, exact finite-state transport, split separation and fail-closed conformance behavior.
 
+### Optional population-law sampling correction
+
+When (and only when) observations inside each future block are conditionally iid from a fixed block population Q over K states, a finite-state concentration allowance can be added. A distribution-free bound is:
+
+    TV(Qhat, Q) <= min(1,
+        0.5 * sqrt((K - 1) / n)
+        + sqrt(log(1/delta) / (2*n))
+    )
+
+with probability at least 1-delta. Since the ground metric has diameter D:
+
+    W1(Qhat, Q) <= D * TV(Qhat, Q).
+
+By the triangle inequality and a union bound, the combined marginal lower bound for the population distribution is at least 1-alpha-delta, under both the block-exchangeability and within-block conditional-iid assumptions.
+
+For this fixture, K=16, n=12, delta=0.05 and D=4.75:
+- TV sampling-error upper bound: 0.9123188173.
+- W1 sampling-error allowance: 4.3335143821.
+- Corrected population radius: 5.2546516714.
+- Full support diameter: 4.75.
+- Combined marginal lower bound: 85%.
+
+The corrected radius exceeds the full support diameter. **The population-level ambiguity set is therefore vacuous**: it contains every distribution on the 16-state support. This is an informative negative result. Twelve observations per block are insufficient for this conservative population correction at 16 joint states. The finite conformal radius remains informative only for the block empirical-distribution target.
+
 ## 4. Fixture design
 
 - 19 synthetic calibration blocks, each with 12 observations.
@@ -50,8 +74,9 @@ NRES-014's public development fixture does not prove block exchangeability or pr
 - Conformal rank: ceil((19+1)*0.90) = 18.
 - Calibrated synthetic radius: 0.9211372893629722 weighted-Hamming units.
 - Development diagnostic: 12/12 blocks fall within the radius (100% on this tiny fictional holdout).
+- Conformance: 36 invalid-input controls, 4 boundary cases and 12 round-trip requirements.
 
-The development diagnostic is not a coverage guarantee, a real-world estimate or a reason to change alpha. The 19+12 synthetic family identifiers are fixture bookkeeping, not independently custodied scenarios.
+The development diagnostic is not a coverage guarantee, a real-world estimate or a reason to change alpha. The separate population-law correction is vacuous at this block size. The 19+12 synthetic family identifiers are fixture bookkeeping, not independently custodied scenarios.
 
 ## 5. Why the 19-block minimum matters
 
