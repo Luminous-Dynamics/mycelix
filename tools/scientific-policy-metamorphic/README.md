@@ -19,8 +19,10 @@ SHA-256, predicate outcome and any evaluation error. The trace also pins the
 reduction profile, sorted-object JSON digest-encoding profile and protected
 JSON Pointer set. It stores both the exact raw source-input SHA-256 and the
 normalized parsed-value SHA-256; the supplied source bytes must parse to the
-exact value being minimized. Callers must perform strict duplicate-key,
-schema and engine-specific validation before calling the reducer. Thus
+exact value being minimized. The reducer rejects duplicate object
+member names (including escaped-equivalent names), invalid UTF-8, unpaired
+surrogates and trailing JSON content. Callers remain responsible for
+schema-specific and engine-specific authorization validation. Thus
 whitespace/property-order changes alter the source digest but preserve the
 normalized-value digest. This local encoding is not an RFC 8785/JCS claim.
 
