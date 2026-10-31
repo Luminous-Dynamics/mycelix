@@ -257,7 +257,7 @@ pub fn evaluate_bulk_tail_credal(fixture: &Value) -> Result<Value, Vec<String>> 
             || tail_upper > 0.5
             || tail_lower > tail_upper
         {
-            errors.push(format!("{profile_id}: tail mass interval must satisfy 0 <= lower <= upper <= 1"));
+            errors.push(format!("{profile_id}: tail mass interval must satisfy 0 <= lower <= upper <= 0.5"));
             continue;
         }
         if profile.get("tail_loss_upper_bound").is_none() {
@@ -471,6 +471,12 @@ mod tests {
     fn duplicate_bulk_state_ids_are_rejected() {
         let mut fixture = tiny_fixture(profile(0.0, 0.0, 0.0, Value::Null));
         fixture["bulk_state_ids"] = json!([0, 0]);
+        assert!(evaluate_bulk_tail_credal(&fixture).is_err());
+    }
+
+    #[test]
+    fn tail_mass_above_half_is_rejected_for_high_mass_bulk_contract() {
+        let fixture = tiny_fixture(profile(0.0, 0.1, 0.6, json!(20.0)));
         assert!(evaluate_bulk_tail_credal(&fixture).is_err());
     }
 
