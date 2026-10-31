@@ -30,3 +30,9 @@ The fixture contains an attractive but ineligible action, high-information/missp
 ## Interpretation boundary
 
 The R-IDeA-inspired score is a transparent local comparator; it is not Tang et al.'s published algorithm. One fixture cannot establish general superiority. Repeat on versioned, preregistered known-truth scenario families and seeds before comparing policies. No real sample, material, field trial or experiment is authorized by this tool.
+
+
+## Acquisition scores
+
+The implementation's exact v0.1 score definitions and oracle objective are documented in `research/terra-preta/ADAPTIVE_EXPERIMENT_POLICY_BAKEOFF_V0.1.md`. All greedy scores are divided by action cost. The robust policy reserves budget for the remaining target-stratum minimums before accepting a candidate. The R-IDeA-inspired score is not the published R-IDeA algorithm.
+
