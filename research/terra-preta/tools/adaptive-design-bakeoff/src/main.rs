@@ -217,7 +217,6 @@ fn validate_scenario(scenario: &Scenario) -> Result<(), Box<dyn Error>> {
     }
 
     let mut action_ids = BTreeSet::new();
-    let mut expert_orders = BTreeSet::new();
     let mut ofat_orders = BTreeSet::new();
     let mut expected_model_ids: Option<Vec<String>> = None;
     for action in &scenario.actions {
@@ -328,16 +327,14 @@ fn scoring_actions(scenario: &Scenario) -> Vec<PolicyAction> {
         .collect()
 }
 
-fn model_summary(action: &PolicyAction) -> (f64, f64, f64, f64) {
-    let values: Vec<f64> = action.model_scores.iter().map(|m| m.decision_value).collect();
-    let information: f64 = action.model_scores.iter().map(|m| m.information_gain).sum::<f64>()
-        / action.model_scores.len() as f64;
-    let risk: f64 = action.model_scores.iter().map(|m| m.error_amplification_risk).sum::<f64>()
-        / action.model_scores.len() as f64;
-    let min_decision = values.iter().copied().fold(f64::INFINITY, f64::min);
-    let max_decision = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let mean_decision = values.iter().sum::<f64>() / values.len() as f64;
-    (min_decision, mean_decision, information, (max_decision - min_decision).max(risk))
+fn minimum_model_decision_value(action: &PolicyAction) -> f64 {
+    action.model_scores.iter().map(|m| m.decision_value)
+        .fold(f64::INFINITY, f64::min)
+}
+
+fn mean_information_gain(action: &PolicyAction) -> f64 {
+    action.model_scores.iter().map(|m| m.information_gain).sum::<f64>()
+        / action.model_scores.len() as f64
 }
 
 fn disagreement(action: &PolicyAction) -> f64 {
@@ -357,7 +354,8 @@ fn representation_score(action: &PolicyAction, selected_counts: &BTreeMap<String
 }
 
 fn robust_score(action: &PolicyAction, selected_counts: &BTreeMap<String, usize>) -> f64 {
-    let (min_decision, _mean_decision, information, _unused) = model_summary(action);
+    let min_decision = minimum_model_decision_value(action);
+    let information = mean_information_gain(action);
     let risk = mean_risk(action);
     let rep = representation_score(action, selected_counts);
     let disagreement = disagreement(action);
@@ -373,7 +371,7 @@ fn robust_score(action: &PolicyAction, selected_counts: &BTreeMap<String, usize>
 }
 
 fn ridea_inspired_score(action: &PolicyAction, selected_counts: &BTreeMap<String, usize>) -> f64 {
-    let (_, _, information, _) = model_summary(action);
+    let information = mean_information_gain(action);
     let representativeness = representation_score(action, selected_counts);
     let deamplification = 1.0 - mean_risk(action);
     (0.30 * representativeness + 0.40 * information + 0.30 * deamplification)
@@ -403,8 +401,7 @@ fn policy_score(
         Policy::ExpertFixed => action.expert_priority / action.cost_units as f64,
         Policy::OneFactorAtATime => -(action.ofat_order as f64),
         Policy::InformationGainOnly => {
-            let (_, _, information, _) = model_summary(action);
-            information / action.cost_units as f64
+            mean_information_gain(action) / action.cost_units as f64
         }
         Policy::RepresentativeOnly => {
             representation_score(action, selected_counts) / action.cost_units as f64
