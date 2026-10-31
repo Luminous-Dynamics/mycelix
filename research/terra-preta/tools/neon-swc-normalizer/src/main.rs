@@ -43,6 +43,8 @@ struct Config {
     target_resolution_seconds: u32,
     minimum_good_fraction: f64,
     response_threshold_m3_m3: f64,
+    maximum_profile_porosity_m3_m3: f64,
+    maximum_profile_porosity_evidence_ref: String,
     raw_file_label: String,
     source_evidence_ref: String,
     timestamp_column: String,
@@ -124,6 +126,9 @@ struct BinAudit {
     raw_rows_present: usize,
     quality_pass_rows: usize,
     quality_rejected_rows: usize,
+    porosity_rejected_rows: usize,
+    porosity_pass_rows: usize,
+    maximum_profile_porosity_m3_m3: f64,
     absent_raw_rows: usize,
     good_fraction: f64,
     minimum_good_rows_required: usize,
@@ -145,6 +150,8 @@ struct AggregationReport {
     target_resolution_seconds: u32,
     minimum_good_fraction: f64,
     response_threshold_m3_m3: f64,
+    maximum_profile_porosity_m3_m3: f64,
+    maximum_profile_porosity_evidence_ref: String,
     timestamp_column: String,
     sensor_key_columns: Vec<String>,
     theta_column: String,
@@ -163,7 +170,9 @@ struct AggregationReport {
 #[derive(Clone, Debug)]
 struct BinAccumulator {
     raw_rows_present: usize,
+    quality_pass_rows: usize,
     quality_rejected_rows: usize,
+    porosity_rejected_rows: usize,
     values: Vec<f64>,
 }
 
@@ -171,7 +180,9 @@ impl BinAccumulator {
     fn new() -> Self {
         Self {
             raw_rows_present: 0,
+            quality_pass_rows: 0,
             quality_rejected_rows: 0,
+            porosity_rejected_rows: 0,
             values: Vec::new(),
         }
     }
@@ -213,6 +224,7 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
         (&config.plot_id, "plot_id"),
         (&config.profile_id, "profile_id"),
         (&config.event_id, "event_id"),
+        (&config.maximum_profile_porosity_evidence_ref, "maximum_profile_porosity_evidence_ref"),
         (&config.raw_file_label, "raw_file_label"),
         (&config.source_evidence_ref, "source_evidence_ref"),
         (&config.timestamp_column, "timestamp_column"),
@@ -241,6 +253,12 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
         || config.response_threshold_m3_m3 > 1.0
     {
         return Err("response_threshold_m3_m3 must be finite and in (0, 1]".to_owned());
+    }
+    if !config.maximum_profile_porosity_m3_m3.is_finite()
+        || config.maximum_profile_porosity_m3_m3 <= 0.0
+        || config.maximum_profile_porosity_m3_m3 > 1.0
+    {
+        return Err("maximum_profile_porosity_m3_m3 must be finite and within (0, 1]".to_owned());
     }
     if config.sensor_key_columns.is_empty() {
         return Err("sensor_key_columns must not be empty".to_owned());
@@ -424,12 +442,17 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
             accumulator.quality_rejected_rows += 1;
             continue;
         }
+        accumulator.quality_pass_rows += 1;
 
         let theta_text = row.get(theta_index).unwrap_or("").trim();
         let theta: f64 = theta_text.parse()
             .map_err(|error| format!("CSV row {} accepted theta value {theta_text:?} is not numeric: {error}", row_index + 2))?;
         if !theta.is_finite() || !(0.0..=1.0).contains(&theta) {
             return Err(format!("CSV row {} accepted theta must be finite and within [0, 1]", row_index + 2));
+        }
+        if theta > config.maximum_profile_porosity_m3_m3 {
+            accumulator.porosity_rejected_rows += 1;
+            continue;
         }
         accumulator.values.push(theta);
     }
@@ -454,7 +477,7 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
                 (median(&accumulator.values), "observed", "observed")
             } else {
                 missing_bins += 1;
-                (None, "missing", "insufficient_quality_coverage")
+                (None, "missing", "insufficient_qa_or_porosity_coverage")
             };
             observations.push(NormalizedObservation {
                 timestamp_utc: bin_start.to_rfc3339(),
@@ -466,8 +489,11 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
                 timestamp_utc: bin_start.to_rfc3339(),
                 expected_raw_rows: expected_rows,
                 raw_rows_present: accumulator.raw_rows_present,
-                quality_pass_rows: good_count,
+                quality_pass_rows: accumulator.quality_pass_rows,
                 quality_rejected_rows: accumulator.quality_rejected_rows,
+                porosity_rejected_rows: accumulator.porosity_rejected_rows,
+                porosity_pass_rows: good_count,
+                maximum_profile_porosity_m3_m3: config.maximum_profile_porosity_m3_m3,
                 absent_raw_rows: absent_count,
                 good_fraction,
                 minimum_good_rows_required: minimum_good_rows,
@@ -509,6 +535,8 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         target_resolution_seconds: config.target_resolution_seconds,
         minimum_good_fraction: config.minimum_good_fraction,
         response_threshold_m3_m3: config.response_threshold_m3_m3,
+        maximum_profile_porosity_m3_m3: config.maximum_profile_porosity_m3_m3,
+        maximum_profile_porosity_evidence_ref: config.maximum_profile_porosity_evidence_ref.clone(),
         timestamp_column: config.timestamp_column.clone(),
         sensor_key_columns: config.sensor_key_columns.clone(),
         theta_column: config.theta_column.clone(),
@@ -537,6 +565,7 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         warnings: vec![
             "The column mapping and accepted quality values are explicit configuration inputs; verify them against the pinned NEON variables file, ATBD, release and issue log.".to_owned(),
             "The input must be the one-minute soil-water table. Do not use 30-minute source data for this event reconstruction.".to_owned(),
+            "After source QA filtering, observations above the declared maximum whole-profile porosity across all soil pits are separately rejected; preserve the porosity source/crosswalk and cutoff evidence.".to_owned(),
             "A target bin is observed only when the configured minimum good-row fraction is met; no interpolation or zero-fill is performed.".to_owned(),
             "Depth and x/y metadata are supplied separately in the sensor roster. For NEON DP1.00094.001 use swc_depthsV3.csv for corrected depth and a time-valid sensor-position join for coordinates.".to_owned(),
             "This tool does not establish the scientific validity of the quality filters or resolve calibration uncertainty; it faithfully applies the declared rule.".to_owned(),
@@ -612,6 +641,8 @@ mod tests {
             target_resolution_seconds: 600,
             minimum_good_fraction: 0.8,
             response_threshold_m3_m3: 0.01,
+            maximum_profile_porosity_m3_m3: 0.35,
+            maximum_profile_porosity_evidence_ref: "synthetic whole-profile porosity fixture".to_owned(),
             raw_file_label: "SWS_1_minute synthetic fixture".to_owned(),
             source_evidence_ref: "synthetic one-minute CSV only".to_owned(),
             timestamp_column: "startDateTime".to_owned(),
