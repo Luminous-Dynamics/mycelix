@@ -43,7 +43,7 @@ cd "$ROOT_DIR"
 [[ -f "$RAW_CSV" ]] || { echo "raw one-minute CSV not found: $RAW_CSV" >&2; exit 2; }
 [[ ! -e "$OUTPUT_DIR" ]] || { echo "output path already exists; refusing overwrite: $OUTPUT_DIR" >&2; exit 2; }
 
-for command_name in cargo jq sha256sum; do
+for command_name in cargo jq sha256sum awk; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "missing required command: $command_name" >&2
     exit 2
@@ -54,8 +54,8 @@ CADENCE_TEXT="${TERRA_PRETA_CADENCES_SECONDS:-300 600 900 1800}"
 THRESHOLD_TEXT="${TERRA_PRETA_RESPONSE_THRESHOLDS:-0.01 0.02 0.03 0.05}"
 REFERENCE_CADENCE="${TERRA_PRETA_REFERENCE_CADENCE_SECONDS:-300}"
 DEPTH_ABLATION_THRESHOLD="${TERRA_PRETA_DEPTH_ABLATION_THRESHOLD:-0.01}"
-read -r -a CADENCES <<< "$CADENCE_TEXT"
-read -r -a THRESHOLDS <<< "$THRESHOLD_TEXT"
+IFS=' ' read -r -a CADENCES <<< "$CADENCE_TEXT"
+IFS=' ' read -r -a THRESHOLDS <<< "$THRESHOLD_TEXT"
 
 contains_value() {
   local needle="$1"
@@ -258,8 +258,8 @@ jq -n \
   --argjson reference_threshold "$REFERENCE_THRESHOLD" \
   --slurpfile cadence_runs "$CADENCE_JSONL" \
   --slurpfile depth_runs "$ABLATION_JSONL" \
-  '($cadence_runs[0] // []) as $runs
-   | ($depth_runs[0] // []) as $ablations
+  '($cadence_runs // []) as $runs
+   | ($depth_runs // []) as $ablations
    | {
        audit_version: "0.1.0",
        raw_csv_sha256: $raw_csv_sha256,
