@@ -48,12 +48,12 @@ At alpha = 0.20, the rank is ceil(11 * 0.8) = 9 and the radius is 0.90. In the t
 
 ## Conformance and tests
 
-The module authors 12 Rust tests for:
+The module authors 13 Rust tests for:
 - cluster-max rather than member-block calibration;
 - one-based conformal rank on clusters;
 - simultaneous coverage logic;
 - unbounded radius when cluster count is insufficient;
-- explicit unbounded-radius development behavior;
+- explicit unbounded-radius development behavior and a vacuity label when all clusters mechanically fall inside an infinite threshold;
 - duplicate cluster IDs and source-family IDs;
 - unequal cluster sizes;
 - negative, null or missing scores;
