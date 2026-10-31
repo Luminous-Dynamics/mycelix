@@ -201,10 +201,10 @@ fn validate_scenario(scenario: &Scenario) -> Result<(), Box<dyn Error>> {
         return Err("at least one target stratum is required".into());
     }
 
-    let mut stratum_ids = BTreeSet::new();
+    let mut stratum_ids = BTreeSet::<String>::new();
     let mut weight_sum = 0.0;
     for stratum in &scenario.strata {
-        if stratum.stratum_id.trim().is_empty() || !stratum_ids.insert(&stratum.stratum_id) {
+        if stratum.stratum_id.trim().is_empty() || !stratum_ids.insert(stratum.stratum_id.clone()) {
             return Err("stratum identifiers must be non-empty and unique".into());
         }
         if !in_unit_interval(stratum.target_weight) {
@@ -216,11 +216,11 @@ fn validate_scenario(scenario: &Scenario) -> Result<(), Box<dyn Error>> {
         return Err(format!("target stratum weights must sum to 1.0; found {weight_sum}").into());
     }
 
-    let mut action_ids = BTreeSet::new();
+    let mut action_ids = BTreeSet::<String>::new();
     let mut ofat_orders = BTreeSet::new();
     let mut expected_model_ids: Option<Vec<String>> = None;
     for action in &scenario.actions {
-        if action.action_id.trim().is_empty() || !action_ids.insert(&action.action_id) {
+        if action.action_id.trim().is_empty() || !action_ids.insert(action.action_id.clone()) {
             return Err("action identifiers must be non-empty and unique".into());
         }
         if !stratum_ids.contains(&action.stratum_id) {
