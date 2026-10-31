@@ -386,7 +386,7 @@ fn deterministic_shuffle<T>(items: &mut [T], seed: u64) {
         state ^= state << 25;
         state ^= state >> 27;
         let random = state.wrapping_mul(0x2545f4914f6cdd1d);
-        let swap_index = (random as usize) % (index + 1);
+        let swap_index = (random % ((index + 1) as u64)) as usize;
         items.swap(index, swap_index);
     }
 }
