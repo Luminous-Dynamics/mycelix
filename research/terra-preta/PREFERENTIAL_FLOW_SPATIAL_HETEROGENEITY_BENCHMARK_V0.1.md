@@ -14,13 +14,14 @@ For NEON DP1.00094.001 specifically, use `swc_depthsV3.csv` rather than the ordi
 
 Each event record should identify:
 
-- site, plot, event, profile/array and time window;
-- sensor ID, x/y position in a shared coordinate reference, depth, measurement volume/support, sensor type, calibration and installation metadata;
+- site-level spatial_group_id, event and time window, with multiple nested plot IDs allowed;
+- sensor ID, plot ID, depth_group_id (a declared physical-depth band), corrected measured depth, and the mapping evidence defining that band;
+- sensor x/y in one common site-level projected coordinate reference, measurement volume/support, sensor type, calibration and installation metadata;
 - common event-time grid, source sampling interval and aggregation rule;
 - directly observed, interpolated, missing, flagged, saturated/frozen and sensor-fault states;
 - pre-event baseline, event forcing, and depth-specific theta response.
 
-Do not pool unlike sensor types or depth layers without a measurement-support crosswalk. Arrays should include at least three spatial locations per assessed depth for a basic dispersion estimate; variogram or two-dimensional spatial structure requires broader spatial support and meaningful separation distances. Report the actual layout rather than asserting that three sensors are sufficient to map a pathway.
+Do not pool unlike sensor types or depth layers without a measurement-support crosswalk. For a multi-plot network, compare sensors within predeclared depth_group_id bands while preserving actual min/median/max corrected depth and per-plot sensor counts. Plot-local offsets must be transformed using each position's reference origin into a shared projected site frame before computing cross-plot distances; raw x/y offsets from different reference origins are not comparable. Arrays should include at least three spatial locations per assessed depth for a basic dispersion estimate; variogram or two-dimensional spatial structure requires broader spatial support and meaningful separation distances. Report the actual plot/depth layout rather than asserting that three sensors are sufficient to map a pathway.
 
 ## 3. Event-relative spatial features
 
@@ -97,7 +98,7 @@ Use expected reduction in decision-relevant uncertainty (pathway localization, l
 
 ## 8. Implementation sequence
 
-The v0.1 executable computes per-depth/time event-relative dispersion and distance-binned empirical semivariograms, preserves pair support, and tests sensor-order and translation/rotation invariance plus a homogeneous matrix-only null. It is a descriptive statistic engine; localized-path classification, layout ablation, and ERT/GPR/tracer validation remain open.
+The v0.1 executable computes per-depth-group/time event-relative dispersion and distance-binned empirical semivariograms across a site-level spatial group that may contain several plots. It preserves actual depth ranges, per-plot sensor counts and pair support, and tests sensor-order and translation/rotation invariance plus a homogeneous matrix-only null. It is a descriptive statistic engine; localized-path classification, layout ablation, and ERT/GPR/tracer validation remain open.
 
 1. Build a deterministic spatial observation-operator generator with homogeneous, localized, disconnected and lateral-flow truth patterns.
 2. Implement per-depth spatial dispersion and distance-binned semivariogram reports with strict support and missingness checks.
