@@ -232,7 +232,7 @@ fn parse_and_validate(
         let times: Vec<_> = observations.iter().map(|sample| sample.timestamp.clone()).collect();
         let mut cadence = None;
         for pair in times.windows(2) {
-            let delta = (pair[1] - pair[0]).num_seconds();
+            let delta = (pair[1].clone() - pair[0].clone()).num_seconds();
             if delta <= 0 || delta % 60 != 0 {
                 return Err(format!("sensor {} timestamps must increase at whole-minute cadence", sensor.sensor_id));
             }
@@ -257,7 +257,7 @@ fn parse_and_validate(
             common_cadence = Some(cadence);
         }
         if let Some(expected_times) = &common_times {
-            if *expected_times != times {
+            if expected_times != &times {
                 return Err("all sensors must share identical timestamps for a comparable profile event".to_owned());
             }
         } else {
@@ -265,13 +265,13 @@ fn parse_and_validate(
         }
 
         let baseline_time = event_start - Duration::minutes(cadence);
-        if !times.iter().any(|timestamp| *timestamp == baseline_time) {
+        if !times.iter().any(|timestamp| timestamp == &baseline_time) {
             return Err(format!("sensor {} lacks the immediately preceding baseline timestamp", sensor.sensor_id));
         }
-        if !times.iter().any(|timestamp| *timestamp == event_start) {
+        if !times.iter().any(|timestamp| timestamp == &event_start) {
             return Err(format!("sensor {} lacks a sample at event onset", sensor.sensor_id));
         }
-        if observations.last().map(|sample| sample.timestamp < event_end).unwrap_or(true) {
+        if observations.last().map(|sample| sample.timestamp.clone() < event_end.clone()).unwrap_or(true) {
             return Err(format!("sensor {} does not cover the complete event observation window", sensor.sensor_id));
         }
         parsed_sensors.push(observations);
@@ -308,7 +308,7 @@ fn analyse_sensor(
 
     let event_samples: Vec<_> = observations
         .iter()
-        .filter(|sample| sample.timestamp >= *event_start && sample.timestamp <= *event_end)
+        .filter(|sample| sample.timestamp.clone() >= event_start.clone() && sample.timestamp.clone() <= event_end.clone())
         .collect();
     for sample in &event_samples {
         if matches!(sample.status, ObservationStatus::Missing) {
@@ -356,8 +356,8 @@ fn analyse_sensor(
     let mut valid_rise_intervals = 0usize;
 
     for pair in observations.windows(2) {
-        let start_in_event = pair[0].timestamp >= *event_start && pair[0].timestamp < *event_end;
-        let end_in_event = pair[1].timestamp > *event_start && pair[1].timestamp <= *event_end;
+        let start_in_event = pair[0].timestamp.clone() >= event_start.clone() && pair[0].timestamp.clone() < event_end.clone();
+        let end_in_event = pair[1].timestamp.clone() > event_start.clone() && pair[1].timestamp.clone() <= event_end.clone();
         if !start_in_event || !end_in_event {
             continue;
         }
@@ -473,13 +473,13 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             sensor_id: sensor.sensor_id.clone(),
             depth_cm: sensor.depth_cm,
             response_status: sensor.response_status.to_owned(),
-            response_onset_utc: sensor.response_onset.as_ref().map(DateTime::to_rfc3339),
+            response_onset_utc: sensor.response_onset.as_ref().map(|timestamp| timestamp.to_rfc3339()),
             response_lag_minutes: sensor.response_lag_minutes,
             baseline_theta_m3_m3: sensor.baseline_theta,
             maximum_event_increase_m3_m3: sensor.maximum_event_increase,
             maximum_rise_rate_m3_m3_per_h: sensor.maximum_rise_rate,
-            maximum_rise_interval_start_utc: sensor.maximum_rise_start.as_ref().map(DateTime::to_rfc3339),
-            maximum_rise_interval_end_utc: sensor.maximum_rise_end.as_ref().map(DateTime::to_rfc3339),
+            maximum_rise_interval_start_utc: sensor.maximum_rise_start.as_ref().map(|timestamp| timestamp.to_rfc3339()),
+            maximum_rise_interval_end_utc: sensor.maximum_rise_end.as_ref().map(|timestamp| timestamp.to_rfc3339()),
             valid_rise_intervals: sensor.valid_rise_intervals,
             missing_event_bins: sensor.missing_event_bins,
         })
