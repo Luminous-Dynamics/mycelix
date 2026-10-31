@@ -62,16 +62,22 @@ jobs:
           cargo run --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked -- \
             target/scientific-policy-space/manifest.json \
             target/scientific-policy-metamorphic
-          test "$(find target/scientific-policy-metamorphic -name transform-manifest.json | wc -l)" -eq 4
+          test "$(find target/scientific-policy-metamorphic -name transform-manifest.json | wc -l)" -eq 5
           for transform in \
             json-object-key-order-reversed \
             json-whitespace-expanded \
             cedar-entity-order-reversed \
-            cedar-irrelevant-actor-added; do
+            cedar-irrelevant-actor-added \
+            claim-proposed-contributor-removed; do
             folder="target/scientific-policy-metamorphic/$transform"
             test "$(wc -l < "$folder/scientific-policy-engine-inputs-v0.1.jsonl")" -eq 62464
-            jq -e '.source_case_count == 62464 and .transformed_case_count == 62464 and .source_engine_inputs_sha256 != .transformed_engine_inputs_sha256' \
+            jq -e '.source_case_count == 62464 and .transformed_case_count == 62464 and .source_engine_inputs_sha256 != .transformed_engine_inputs_sha256 and .expected_changed_case_count == .changed_case_count' \
               "$folder/transform-manifest.json"
+            if [ "$transform" = "claim-proposed-contributor-removed" ]; then
+              jq -e '.expected_relation == "one_targeted_claim_proposed_case_changes_from_allow_to_deny" and .changed_case_count == 1 and (.changed_case_ids|length) == 1' "$folder/transform-manifest.json"
+            else
+              jq -e '.changed_case_count == .expected_changed_case_count' "$folder/transform-manifest.json"
+            fi
             jq -e '.expected_decision_status == "pending_authentic_rust_oracle" and .engine_input_count == 62464' \
               "$folder/manifest.json"
             actual_sha="$(sha256sum "$folder/scientific-policy-engine-inputs-v0.1.jsonl" | cut -d ' ' -f 1)"
