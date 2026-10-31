@@ -1,0 +1,11 @@
+case_id,cap_message_id,protocol_version,alert_authorized,decision,decision_authorized,alert_time,decision_time,finance_prearranged,finance_authorized,funds_released,finance_time,action_authorized,action_started,action_completed,action_start_time,action_complete_time,intended_people,service_records,unique_people_served,duplicate_service_records,grievances_reported,grievances_recorded,grievances_resolved,outcome_observed,outcome_independent,counterfactual_identified,impact_claim_submitted
+valid-complete-chain,CAP-001,AA-PROTOCOL-1,true,activate,true,1000,1100,true,true,true,1200,true,true,true,1300,1800,1000,920,900,20,2,2,1,true,true,true,false
+unauthorized-activation,CAP-002,AA-PROTOCOL-1,true,activate,false,1000,1100,false,false,false,0,false,false,false,0,0,1000,0,0,0,0,0,0,false,false,false,false
+unapproved-fund-release,CAP-003,AA-PROTOCOL-1,true,activate,true,1000,1100,false,false,true,1200,false,false,false,0,0,1000,0,0,0,0,0,0,false,false,false,false
+unauthorized-action-start,CAP-004,AA-PROTOCOL-1,true,activate,true,1000,1100,true,true,true,1200,false,true,false,1300,0,1000,100,100,0,0,0,0,false,false,false,false
+false-completion,CAP-005,AA-PROTOCOL-1,true,activate,true,1000,1100,true,true,true,1200,true,false,true,0,1400,1000,0,0,0,0,0,0,false,false,false,false
+population-overclaim,CAP-006,AA-PROTOCOL-1,true,activate,true,1000,1100,true,true,true,1200,true,true,true,1300,1800,1000,1200,1050,150,0,0,0,false,false,false,false
+grievance-suppression,CAP-007,AA-PROTOCOL-1,true,activate,true,1000,1100,true,true,true,1200,true,true,true,1300,1800,1000,500,480,20,3,2,1,false,false,false,false
+unsupported-impact-claim,CAP-008,AA-PROTOCOL-1,true,activate,true,1000,1100,true,true,true,1200,true,true,true,1300,1800,1000,700,680,20,0,0,0,false,false,false,true
+legitimate-abstention,CAP-009,AA-PROTOCOL-1,true,abstain,true,1000,1080,false,false,false,0,false,false,false,0,0,1000,0,0,0,0,0,0,false,false,false,false
+chronology-violation,CAP-010,AA-PROTOCOL-1,true,activate,true,1000,1100,true,true,true,1200,true,true,true,1500,1400,1000,600,580,20,1,1,0,false,false,false,false

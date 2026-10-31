@@ -1,0 +1,82 @@
+{
+  "benchmark_id": "GCPN-WARNING-TO-ACTION-EVIDENCE-001",
+  "version": "0.1.0",
+  "status": "synthetic-negative-control-suite",
+  "scope": "civilian-early-warning-and-anticipatory-action-evidence",
+  "chain_stages": [
+    "authorized_cap_warning",
+    "protocol_decision",
+    "prearranged_finance",
+    "authorized_action_start",
+    "action_completion",
+    "unique_population_service",
+    "community_grievance_accountability",
+    "independent_outcome_evidence",
+    "after_action_learning"
+  ],
+  "authority_constraints": [
+    "gcpn_does_not_issue_or_cancel_public_alerts",
+    "gcpn_does_not_set_trigger_thresholds",
+    "gcpn_does_not_activate_early_action_protocols",
+    "gcpn_does_not_release_or_transfer_funds",
+    "gcpn_does_not_direct_responders",
+    "gcpn_does_not_select_real_people_for_assistance",
+    "gcpn_does_not_certify_causal_impact"
+  ],
+  "hard_gates": [
+    "decision_authority_required",
+    "activation_requires_authorized_warning",
+    "fund_release_requires_prearranged_and_authorized_finance",
+    "action_start_requires_authority_and_eligible_activation",
+    "completion_requires_action_start",
+    "unique_people_served_cannot_exceed_intended_denominator",
+    "service_records_equal_unique_people_plus_explicit_duplicates",
+    "reported_grievances_remain_recorded",
+    "resolved_grievances_cannot_exceed_recorded",
+    "impact_claim_requires_outcome_independent_evaluation_and_identified_counterfactual",
+    "event_timestamps_are_monotonic",
+    "cap_and_protocol_lineage_is_present"
+  ],
+  "metrics": [
+    "warning_to_decision_latency",
+    "decision_to_finance_release_latency",
+    "finance_to_action_start_latency",
+    "action_start_to_completion_latency",
+    "unauthorized_decisions",
+    "unauthorized_activations",
+    "unapproved_fund_releases",
+    "unauthorized_action_starts",
+    "false_completions",
+    "unique_population_overclaims",
+    "service_record_accounting_mismatches",
+    "grievance_suppression",
+    "grievance_resolution_overcounts",
+    "impact_claim_overclaims",
+    "chronology_violations",
+    "unique_people_served",
+    "duplicate_service_records",
+    "outcome_and_counterfactual_evidence_status"
+  ],
+  "negative_controls": [
+    "unauthorized_activation",
+    "unapproved_fund_release",
+    "unauthorized_action_start",
+    "false_completion_without_action_start",
+    "unique_population_overclaim",
+    "grievance_suppression",
+    "impact_claim_without_outcome_counterfactual",
+    "completion_before_action_start"
+  ],
+  "valid_controls": [
+    "fully_authorized_complete_chain",
+    "authorized_abstention_without_action_or_funding"
+  ],
+  "non_claims": [
+    "no_operational_trigger",
+    "no_live_alert_dispatch",
+    "no_fund_movement",
+    "no_population_targeting_or_eligibility",
+    "no_causal_lives_saved_claim",
+    "no_real_world_coverage_or_cost_effectiveness_claim"
+  ]
+}
