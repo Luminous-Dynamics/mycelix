@@ -75,15 +75,23 @@ loading/compilation and input-file preparation according to OPA's benchmark
 model. They are a more appropriate comparison point for Cedar's in-process
 `authorization_latency` than the full one-shot OPA batch wall time.
 
-The workflow still records three distinct measurements:
-- Cedar request/entity construction and pure authorization separately.
-- OPA native per-query evaluation with allocations.
+For a closer same-input comparison, the Cedar baseline runner also selects
+the first source-pinned case for each action, writes its exact Rego input bytes
+under `opa-action-inputs/`, performs 100 warmups and 2,000 repeated Cedar
+in-process evaluations, and records request-construction and authorization
+latencies separately. The action summary includes the case ID, Cedar-projection
+digest and Rego-input digest. The OPA benchmark consumes those exact files and
+CI verifies the file digest against the Cedar manifest before benchmarking.
+
+The workflow therefore records three distinct measurements:
+- Cedar repeated in-process per-action construction and authorization over the exact representative case.
+- OPA native per-query evaluation with allocations on the identical Rego input bytes.
 - OPA one-shot 62,464-case batch including process startup, input/output conversion and file I/O.
 
-The per-action inputs and raw benchmark outputs are uploaded with exact policy,
-input, binary and host provenance. The benchmark set is intentionally bounded
-and representative; it is not a universal authorization workload or an
-apples-to-apples end-to-end product comparison.
+The per-action input files and raw benchmark outputs are uploaded with exact
+policy, input, binary and host provenance. The benchmark set is intentionally
+bounded and representative; it is not a universal authorization workload or
+an apples-to-apples end-to-end product comparison.
 
 ## Claim ceiling
 
