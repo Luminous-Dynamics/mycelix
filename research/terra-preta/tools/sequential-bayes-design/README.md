@@ -60,6 +60,26 @@ DIAGNOSE_FIRST at the preregistered synthetic threshold. This is sensitivity
 analysis for an author-specified state, not empirical prior calibration.
 
 
+## Executable conditional CT–tracer information bake-off
+
+The `conditional-information-bakeoff` binary exercises the stable measurement
+layout, retained observation history, multivariate conditional Gaussian
+mixture, and seeded conditional information-gain estimator together. Its
+synthetic two-model fixture has equal CT and tracer marginals but opposite
+cross-modal correlations. It evaluates CT-only, tracer-only and joint
+acquisition from the prior, then evaluates tracer after the CT coordinate has
+been observed.
+
+The focused workflow requires:
+- zero model information for either individual modality under the prior;
+- positive model information and top rank for the joint CT–tracer action;
+- positive conditional information for tracer after observing CT;
+- Monte Carlo standard errors and budget/eligibility checks;
+- input and report schema validation and report artifact upload.
+
+This is an executable synthetic action-selection reference, not the full
+categorical policy engine, decision EVSI or physical CT/tracer validation.
+
 ## Executable covariance-identifiability bake-off
 
 The `covariance-identifiability-bakeoff` binary reads a strict synthetic JSON
