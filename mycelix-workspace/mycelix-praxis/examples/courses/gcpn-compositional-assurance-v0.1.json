@@ -1,0 +1,33 @@
+{
+  "document_id": "GCPN-COMPOSITIONAL-ASSURANCE",
+  "version": "0.1.0",
+  "status": "deterministic-synthetic-research-contract",
+  "stages": ["forecast", "observation", "cap_lifecycle", "population_reach", "decision", "after_event_review"],
+  "claim_dispositions": ["supports", "refutes", "indeterminate", "out_of_scope", "unavailable"],
+  "evidence_validity": ["current", "stale", "revoked", "invalid"],
+  "required_fault_families": [
+    "common_cause_lineage",
+    "outcome_dependent_missingness",
+    "stale_cap_receipt",
+    "source_version_mismatch",
+    "late_forecast",
+    "population_denominator_unknown",
+    "population_undercoverage",
+    "post_cutoff_evidence",
+    "unsupported_causal_claim",
+    "postprocessing_leakage"
+  ],
+  "metamorphic_controls": [
+    "record_order_invariance",
+    "consistent_opaque_identifier_renaming",
+    "irrelevant_out_of_scope_insertion",
+    "same_input_replay_fingerprint_stability"
+  ],
+  "claim_ceiling": [
+    "no_forecast_generation",
+    "no_operational_warning_authority",
+    "no_causal_impact_identification",
+    "no_real_world_system_certification",
+    "no_cryptographic_attestation_claim_from_noncryptographic_fingerprint"
+  ]
+}
