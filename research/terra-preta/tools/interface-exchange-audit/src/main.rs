@@ -147,7 +147,9 @@ fn nonblank(value: &str, label: &str) -> Result<(), String> {
 
 fn valid_sha256(value: &str, label: &str) -> Result<(), String> {
     if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(format!("{label} must contain exactly 64 hexadecimal characters"));
+        return Err(format!(
+            "{label} must contain exactly 64 hexadecimal characters"
+        ));
     }
     Ok(())
 }
@@ -170,7 +172,10 @@ fn parse_utc(value: &str, label: &str) -> Result<DateTime<FixedOffset>, String> 
 
 fn validate(input: &Input) -> Result<Vec<ParsedSample>, String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     for (value, label) in [
         (&input.study_id, "study_id"),
@@ -183,8 +188,14 @@ fn validate(input: &Input) -> Result<Vec<ParsedSample>, String> {
         nonblank(value, label)?;
     }
     valid_sha256(&input.source_sha256, "source_sha256")?;
-    valid_sha256(&input.interface_area_source_sha256, "interface_area_source_sha256")?;
-    valid_sha256(&input.flux_density_source_sha256, "flux_density_source_sha256")?;
+    valid_sha256(
+        &input.interface_area_source_sha256,
+        "interface_area_source_sha256",
+    )?;
+    valid_sha256(
+        &input.flux_density_source_sha256,
+        "flux_density_source_sha256",
+    )?;
 
     if input.area_normalization_basis != AREA_BASIS {
         return Err(format!("area_normalization_basis must be {AREA_BASIS}"));
@@ -208,16 +219,24 @@ fn validate(input: &Input) -> Result<Vec<ParsedSample>, String> {
     }
 
     let event_start = parse_utc(&input.event_start_utc, "event_start_utc")?;
-    let event_end = parse_utc(&input.observation_window_end_utc, "observation_window_end_utc")?;
+    let event_end = parse_utc(
+        &input.observation_window_end_utc,
+        "observation_window_end_utc",
+    )?;
     if event_start >= event_end {
         return Err("observation_window_end_utc must be after event_start_utc".to_owned());
     }
 
     let mut parsed = Vec::with_capacity(input.samples.len());
     for (index, sample) in input.samples.iter().enumerate() {
-        let timestamp = parse_utc(&sample.timestamp_utc, &format!("samples[{index}].timestamp_utc"))?;
+        let timestamp = parse_utc(
+            &sample.timestamp_utc,
+            &format!("samples[{index}].timestamp_utc"),
+        )?;
         if timestamp < event_start || timestamp > event_end {
-            return Err(format!("samples[{index}] timestamp lies outside the event window"));
+            return Err(format!(
+                "samples[{index}] timestamp lies outside the event window"
+            ));
         }
         finite_nonnegative(
             sample.specific_wetted_interface_area_m2_per_m3_bulk,
@@ -252,9 +271,13 @@ fn validate(input: &Input) -> Result<Vec<ParsedSample>, String> {
 
     for pair in parsed.windows(2) {
         if pair[1].timestamp <= pair[0].timestamp {
-            return Err("sample timestamps must be strictly increasing with no duplicates".to_owned());
+            return Err(
+                "sample timestamps must be strictly increasing with no duplicates".to_owned(),
+            );
         }
-        let elapsed = (pair[1].timestamp.clone() - pair[0].timestamp.clone()).num_milliseconds() as f64 / 1000.0;
+        let elapsed = (pair[1].timestamp.clone() - pair[0].timestamp.clone()).num_milliseconds()
+            as f64
+            / 1000.0;
         if elapsed > input.maximum_allowed_interval_seconds as f64 {
             return Err(format!(
                 "adjacent sample interval {elapsed} seconds exceeds maximum_allowed_interval_seconds {}",
@@ -265,7 +288,10 @@ fn validate(input: &Input) -> Result<Vec<ParsedSample>, String> {
     if parsed.first().map(|sample| sample.timestamp.clone()) != Some(event_start.clone())
         || parsed.last().map(|sample| sample.timestamp.clone()) != Some(event_end.clone())
     {
-        return Err("first and last sample timestamps must equal the declared event window boundaries".to_owned());
+        return Err(
+            "first and last sample timestamps must equal the declared event window boundaries"
+                .to_owned(),
+        );
     }
     Ok(parsed)
 }
@@ -306,7 +332,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             specific_wetted_interface_area_m2_per_m3_bulk: sample.area_m2_per_m3,
             macropore_to_matrix_flux_density_m_s: sample.flux_m_s,
             exchange_rate_per_s: sample.exchange_rate_s_inv,
-            exchange_rate_depth_equivalent_mm_per_s: sample.exchange_rate_s_inv * input.profile_depth_mm,
+            exchange_rate_depth_equivalent_mm_per_s: sample.exchange_rate_s_inv
+                * input.profile_depth_mm,
             interface_area_status: sample.interface_area_status.as_str(),
             flux_density_status: sample.flux_density_status.as_str(),
             interface_area_evidence_ref: input.samples[index].interface_area_evidence_ref.clone(),
@@ -315,7 +342,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     }
 
     for pair in parsed.windows(2) {
-        let elapsed_seconds = (pair[1].timestamp - pair[0].timestamp).num_milliseconds() as f64 / 1000.0;
+        let elapsed_seconds =
+            (pair[1].timestamp - pair[0].timestamp).num_milliseconds() as f64 / 1000.0;
         if !elapsed_seconds.is_finite() || elapsed_seconds <= 0.0 {
             return Err("time interval must be finite and positive".to_owned());
         }
@@ -330,17 +358,20 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
 
     let cumulative_gross_exchange_volume_m3 =
         integrated_exchange_fraction * input.bulk_sample_volume_m3;
-    let cumulative_gross_exchange_depth_mm =
-        integrated_exchange_fraction * input.profile_depth_mm;
+    let cumulative_gross_exchange_depth_mm = integrated_exchange_fraction * input.profile_depth_mm;
     let duration_seconds = (parsed.last().unwrap().timestamp.clone()
-        - parsed.first().unwrap().timestamp.clone()).num_milliseconds() as f64 / 1000.0;
+        - parsed.first().unwrap().timestamp.clone())
+    .num_milliseconds() as f64
+        / 1000.0;
     let mean_exchange_rate_per_s = integrated_exchange_fraction / duration_seconds;
 
     if !cumulative_gross_exchange_volume_m3.is_finite()
         || !cumulative_gross_exchange_depth_mm.is_finite()
         || !mean_exchange_rate_per_s.is_finite()
     {
-        return Err("derived integrated exchange output overflowed or became non-finite".to_owned());
+        return Err(
+            "derived integrated exchange output overflowed or became non-finite".to_owned(),
+        );
     }
 
     Ok(Report {
@@ -398,7 +429,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "usage: interface-exchange-audit <exchange-series-input.json> <new-report.json>",
-        ).into());
+        )
+        .into());
     }
     let bytes = fs::read(&args[1])?;
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
@@ -479,7 +511,8 @@ mod tests {
             area_normalization_basis: AREA_BASIS.to_owned(),
             flux_density_basis: FLUX_BASIS.to_owned(),
             sign_convention: SIGN_CONVENTION.to_owned(),
-            equation_reference: "Chaif et al. (2025) candidate formulation; synthetic test only".to_owned(),
+            equation_reference: "Chaif et al. (2025) candidate formulation; synthetic test only"
+                .to_owned(),
             source_sha256: "a".repeat(64),
             interface_area_source_sha256: "b".repeat(64),
             flux_density_source_sha256: "c".repeat(64),
@@ -490,8 +523,20 @@ mod tests {
     #[test]
     fn constant_area_and_flux_have_analytic_integral() {
         let data = input(vec![
-            sample(0, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
-            sample(3600, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+            sample(
+                0,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                3600,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
         ]);
         let report = evaluate(&data, "d".repeat(64)).unwrap();
         assert!((report.peak_exchange_rate_per_s - 1.0e-5).abs() < 1.0e-15);
@@ -503,9 +548,27 @@ mod tests {
     #[test]
     fn time_varying_area_and_flux_use_trapezoidal_quadrature() {
         let data = input(vec![
-            sample(0, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
-            sample(1800, 20.0, 2.0e-6, EvidenceStatus::DerivedFromCt, EvidenceStatus::Modelled),
-            sample(3600, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+            sample(
+                0,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                1800,
+                20.0,
+                2.0e-6,
+                EvidenceStatus::DerivedFromCt,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                3600,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
         ]);
         let report = evaluate(&data, "e".repeat(64)).unwrap();
         assert!((report.cumulative_gross_exchange_m3_per_m3_bulk - 0.09).abs() < 1.0e-12);
@@ -516,9 +579,27 @@ mod tests {
     #[test]
     fn irregular_time_intervals_use_actual_elapsed_seconds() {
         let mut data = input(vec![
-            sample(0, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
-            sample(900, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
-            sample(3600, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+            sample(
+                0,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                900,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                3600,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
         ]);
         data.samples[1].timestamp_utc = stamp(1200);
         let report = evaluate(&data, "f".repeat(64)).unwrap();
@@ -530,8 +611,20 @@ mod tests {
     #[test]
     fn rejects_duplicate_or_reversed_timestamps() {
         let mut data = input(vec![
-            sample(0, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
-            sample(3600, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+            sample(
+                0,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                3600,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
         ]);
         data.samples[1].timestamp_utc = stamp(0);
         assert!(validate(&data).unwrap_err().contains("strictly increasing"));
@@ -540,24 +633,64 @@ mod tests {
     #[test]
     fn rejects_time_gap_above_declared_maximum() {
         let mut data = input(vec![
-            sample(0, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
-            sample(3600, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+            sample(
+                0,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                3600,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
         ]);
         data.maximum_allowed_interval_seconds = 1800;
-        assert!(validate(&data).unwrap_err().contains("exceeds maximum_allowed_interval_seconds"));
+        assert!(
+            validate(&data)
+                .unwrap_err()
+                .contains("exceeds maximum_allowed_interval_seconds")
+        );
     }
 
     #[test]
     fn rejects_negative_area_and_nonfinite_flux() {
         let data = input(vec![
-            sample(0, -1.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
-            sample(3600, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+            sample(
+                0,
+                -1.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                3600,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
         ]);
         assert!(validate(&data).unwrap_err().contains("non-negative"));
 
         let data = input(vec![
-            sample(0, 10.0, f64::INFINITY, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
-            sample(3600, 10.0, 1.0e-6, EvidenceStatus::CtMeasured, EvidenceStatus::Modelled),
+            sample(
+                0,
+                10.0,
+                f64::INFINITY,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
+            sample(
+                3600,
+                10.0,
+                1.0e-6,
+                EvidenceStatus::CtMeasured,
+                EvidenceStatus::Modelled,
+            ),
         ]);
         assert!(validate(&data).unwrap_err().contains("non-negative"));
     }
