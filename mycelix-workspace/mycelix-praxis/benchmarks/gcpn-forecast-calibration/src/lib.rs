@@ -700,7 +700,7 @@ mod tests {
 
     #[test]
     fn frozen_fixture_has_unique_schema_and_expected_rows() {
-        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0xb47e33e9576a7b6a);
+        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0x81af0b6779196770);
         let records = parse_fixture(FIXTURE).unwrap();
         assert_eq!(records.len(), 65);
         assert_eq!(
@@ -751,13 +751,13 @@ mod tests {
     }
 
     #[test]
-    fn persistence_reference_is_scored_alongside_climatology_and_candidate() {
+    fn lead_conditioned_reference_is_scored_alongside_climatology_and_candidate() {
         let report = fixture_report().unwrap();
-        let persistence = report.model_summary("persistence", Partition::Evaluation).unwrap();
+        let persistence = report.model_summary("lead_reference", Partition::Evaluation).unwrap();
         let climatology = report.model_summary("climatology", Partition::Evaluation).unwrap();
         assert_eq!(persistence.sample_count, 12);
-        assert!((persistence.brier_score - 0.19668333333333334).abs() < 1e-12);
-        assert!((persistence.brier_skill_score.unwrap() - 0.21326666666666664).abs() < 1e-12);
+        assert!((persistence.brier_score - 0.04).abs() < 1e-12);
+        assert!((persistence.brier_skill_score.unwrap() - 0.84).abs() < 1e-12);
         assert_eq!(climatology.sample_count, 12);
         assert!((climatology.brier_score - 0.25).abs() < 1e-12);
     }
