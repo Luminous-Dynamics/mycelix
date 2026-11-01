@@ -56,6 +56,39 @@ separate. A completed trace claims 1-minimality only in the declared JSON
 reduction neighborhood; it is not global minimality, policy correctness or
 Rust authorization parity.
 
+
+## Input and execution-subject boundaries
+
+The runner treats every file contributing to a qualification result as a
+bounded input. It opens each path first, checks regular-file metadata on the
+opened handle, then reads at most the declared ceiling plus one byte and
+rejects any over-limit result. Current limits are:
+
+| Input | Maximum |
+|---|---:|
+| Generator manifest | 1 MiB |
+| Abstract and paired engine-input corpora | 256 MiB each |
+| Original shrinker counterexample | 4 MiB |
+| Pinned Rust authorization source | 8 MiB |
+| Cedar policy, Cedar schema and Rego policy | 4 MiB each |
+| OPA and runner executable provenance bytes | 512 MiB each |
+
+For the engine-backed shrinker, the OPA binary and Rego policy are not
+re-opened through their caller-supplied paths after their bytes are hashed.
+The runner materializes those exact bytes into private, create-new temporary
+files, checks the OPA version by running the pinned executable, and uses the
+pinned executable and policy paths for the initial, candidate and final
+evaluations. The temporary artifacts are removed when the run exits. This
+binds the evaluator execution to the bytes represented in the recorded
+provenance, rather than merely recording a digest for a mutable path.
+
+These controls establish bounded ingress and exact experiment-subject
+identity for this runner. They do not authenticate who supplied the inputs,
+prove the source corpus is scientifically representative, or establish
+policy correctness or parity with the unavailable authentic Rust oracle.
+No test-pass claim follows from the presence of these checks; use exact-head
+workflow evidence and retain all source/build/corpus digests with results.
+
 ## Method
 
 - Parse Cedar policy and schema once.
