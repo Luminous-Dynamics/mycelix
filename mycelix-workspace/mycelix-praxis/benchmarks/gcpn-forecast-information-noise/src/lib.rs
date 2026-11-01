@@ -10,7 +10,7 @@
 //!   NE = ||F - projection_T(F)||_w
 //!
 //! Under the same normalized weighted inner product:
-//!   debiased_RMSE^2 = IE^2 + NE^2.
+//!   anomaly_centered_error_std^2 = IE^2 + NE^2.
 //!
 //! FI is deliberately not clipped to [-1, 1]. A zero truth-anomaly norm makes
 //! projection diagnostics unavailable, not zero. This package does not fit or
@@ -87,15 +87,18 @@ pub struct CaseMetrics {
     pub independent_system_id: String,
     pub cells: usize,
     pub total_weight: f64,
-    /// Weighted mean forecast minus verifying value, before debiasing.
+    /// Weighted mean forecast minus verifying value.
     pub raw_bias: f64,
-    /// RMSE of forecast values against verifying values, before debiasing.
+    /// RMSE of forecast values against verifying values, including bias.
     pub raw_rmse: f64,
-    /// RMSE after removing the declared case-mean bias.
-    pub debiased_rmse: f64,
-    /// Weighted RMS amplitude of the bias-adjusted forecast anomaly.
+    /// Separate weighted means removed from forecast and verifying anomalies.
+    pub forecast_anomaly_mean: f64,
+    pub truth_anomaly_mean: f64,
+    /// Weighted standard deviation of forecast error after anomaly centering.
+    pub anomaly_centered_error_std: f64,
+    /// Weighted RMS amplitude of the mean-centered forecast anomaly.
     pub forecast_activity: f64,
-    /// Weighted RMS amplitude of the verifying anomaly.
+    /// Weighted RMS amplitude of the mean-centered verifying anomaly.
     pub truth_activity: f64,
     /// Signed projection information. It may be negative or exceed one.
     pub forecast_information: Option<f64>,
@@ -423,8 +426,11 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
 
     let mut raw_bias_sum = 0.0;
     let mut raw_squared_error_sum = 0.0;
-    let mut truth_activity_squared_sum = 0.0;
+    let mut forecast_anomaly_sum = 0.0;
+    let mut truth_anomaly_sum = 0.0;
 
+    // First preserve total error/bias, while separately computing the means
+    // used to center forecast and verifying anomalies.
     for (((weight, forecast), observed), climatology) in case
         .weights
         .iter()
@@ -435,21 +441,21 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         let raw_error = forecast - observed;
         raw_bias_sum += weight * raw_error;
         raw_squared_error_sum += weight * raw_error * raw_error;
-
-        let truth_anomaly = observed - climatology;
-        truth_activity_squared_sum += weight * truth_anomaly * truth_anomaly;
+        forecast_anomaly_sum += weight * (forecast - climatology);
+        truth_anomaly_sum += weight * (observed - climatology);
     }
 
     let raw_bias = raw_bias_sum / total_weight;
     let raw_rmse = (raw_squared_error_sum / total_weight).sqrt();
+    let forecast_anomaly_mean = forecast_anomaly_sum / total_weight;
+    let truth_anomaly_mean = truth_anomaly_sum / total_weight;
 
-    // Remove only the declared case-mean forecast bias. Reliability or
-    // calibration gains are not silently folded into this intrinsic diagnostic.
-    let truth_activity = (truth_activity_squared_sum / total_weight).sqrt();
-
+    // Information/noise diagnostics use separately mean-corrected anomalies.
+    // Bias remains visible in raw_bias and raw_rmse, not folded into IE or NE.
     let mut forecast_activity_squared_sum = 0.0;
+    let mut truth_activity_squared_sum = 0.0;
     let mut dot_product = 0.0;
-    let mut debiased_squared_error_sum = 0.0;
+    let mut anomaly_centered_squared_error_sum = 0.0;
 
     for (((weight, forecast), observed), climatology) in case
         .weights
@@ -458,20 +464,34 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         .zip(&case.verification_values)
         .zip(&case.climatology_values)
     {
-        let truth_anomaly = observed - climatology;
-        let forecast_anomaly = forecast - climatology;
+        let forecast_anomaly = forecast - climatology - forecast_anomaly_mean;
+        let truth_anomaly = observed - climatology - truth_anomaly_mean;
 
-        // Remove the case-mean raw bias; its value remains a separate output.
-        let debiased_forecast_anomaly = forecast_anomaly - raw_bias;
-        forecast_activity_squared_sum +=
-            weight * debiased_forecast_anomaly * debiased_forecast_anomaly;
-        dot_product += weight * debiased_forecast_anomaly * truth_anomaly;
-        let error = debiased_forecast_anomaly - truth_anomaly;
-        debiased_squared_error_sum += weight * error * error;
+        forecast_activity_squared_sum += weight * forecast_anomaly * forecast_anomaly;
+        truth_activity_squared_sum += weight * truth_anomaly * truth_anomaly;
+        dot_product += weight * forecast_anomaly * truth_anomaly;
+
+        let centered_error = forecast_anomaly - truth_anomaly;
+        anomaly_centered_squared_error_sum += weight * centered_error * centered_error;
     }
 
     let forecast_activity = (forecast_activity_squared_sum / total_weight).sqrt();
-    let debiased_rmse = (debiased_squared_error_sum / total_weight).sqrt();
+    let truth_activity = (truth_activity_squared_sum / total_weight).sqrt();
+    let anomaly_centered_error_std =
+        (anomaly_centered_squared_error_sum / total_weight).sqrt();
+
+    // Raw RMSE includes the separate mean bias; its centered-error identity
+    // is an independent negative-control invariant.
+    let reconstructed_raw_rmse = (raw_bias * raw_bias
+        + anomaly_centered_error_std * anomaly_centered_error_std)
+        .sqrt();
+    let raw_identity_tolerance = 1e-10 * raw_rmse.max(1.0);
+    if (reconstructed_raw_rmse - raw_rmse).abs() > raw_identity_tolerance {
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::DecompositionIdentityFailure,
+        ));
+    }
 
     let (forecast_information, information_error, noise_error, decomposition_status) =
         if truth_activity_squared_sum <= 0.0 {
@@ -486,6 +506,8 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
             let forecast_information = projection / truth_activity;
             let information_error = (truth_activity - projection).abs();
 
+            // Orthogonal residual norm from Pythagoras in the same weighted
+            // inner product. Never clip FI or IE; only guard roundoff in NE².
             let orthogonal_squared =
                 forecast_activity * forecast_activity - projection * projection;
             let tolerance = 1e-12 * forecast_activity.max(1.0).powi(2);
@@ -499,8 +521,8 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
 
             let reconstructed =
                 (information_error * information_error + noise_error * noise_error).sqrt();
-            let identity_tolerance = 1e-10 * debiased_rmse.max(1.0);
-            if (reconstructed - debiased_rmse).abs() > identity_tolerance {
+            let identity_tolerance = 1e-10 * anomaly_centered_error_std.max(1.0);
+            if (reconstructed - anomaly_centered_error_std).abs() > identity_tolerance {
                 return Err(ContractError::new(
                     case_id,
                     ContractViolation::DecompositionIdentityFailure,
@@ -518,7 +540,9 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
     for value in [
         raw_bias,
         raw_rmse,
-        debiased_rmse,
+        forecast_anomaly_mean,
+        truth_anomaly_mean,
+        anomaly_centered_error_std,
         forecast_activity,
         truth_activity,
     ] {
@@ -547,7 +571,9 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         total_weight,
         raw_bias,
         raw_rmse,
-        debiased_rmse,
+        forecast_anomaly_mean,
+        truth_anomaly_mean,
+        anomaly_centered_error_std,
         forecast_activity,
         truth_activity,
         forecast_information,
@@ -627,7 +653,7 @@ mod tests {
         let result = evaluate(&contract(), &[record]).unwrap();
         let metrics = &result.cases[0];
         near(metrics.raw_rmse, 0.0);
-        near(metrics.debiased_rmse, 0.0);
+        near(metrics.anomaly_centered_error_std, 0.0);
         near(metrics.forecast_information.unwrap(), 1.0);
         near(metrics.information_error.unwrap(), 0.0);
         near(metrics.noise_error.unwrap(), 0.0);
@@ -734,7 +760,7 @@ mod tests {
         let metrics = &evaluate(&contract(), &[record]).unwrap().cases[0];
         near(metrics.raw_bias, 2.0);
         near(metrics.raw_rmse, 2.0);
-        near(metrics.debiased_rmse, 0.0);
+        near(metrics.anomaly_centered_error_std, 0.0);
         near(metrics.forecast_information.unwrap(), 1.0);
         near(metrics.information_error.unwrap(), 0.0);
     }
@@ -756,7 +782,7 @@ mod tests {
         assert_eq!(metrics.forecast_information, None);
         assert_eq!(metrics.information_error, None);
         assert_eq!(metrics.noise_error, None);
-        assert!(metrics.debiased_rmse.is_finite());
+        assert!(metrics.anomaly_centered_error_std.is_finite());
     }
 
     #[test]
@@ -769,7 +795,24 @@ mod tests {
             vec![1.0, 3.0],
         );
         let metrics = &evaluate(&contract(), &[record]).unwrap().cases[0];
-        near(metrics.forecast_information.unwrap(), 1.375);
+        near(metrics.forecast_information.unwrap(), 1.5);
+    }
+
+    #[test]
+    fn weighted_means_are_removed_from_forecast_and_truth_separately() {
+        let record = case(
+            "different-anomaly-means",
+            vec![1.0, -2.0],
+            vec![1.0, -1.0],
+            vec![0.0, 0.0],
+            vec![1.0, 3.0],
+        );
+        let metrics = &evaluate(&contract(), &[record]).unwrap().cases[0];
+        near(metrics.forecast_anomaly_mean, -1.25);
+        near(metrics.truth_anomaly_mean, -0.5);
+        near(metrics.raw_bias, -0.75);
+        near(metrics.forecast_information.unwrap(), 1.5);
+        near(metrics.noise_error.unwrap(), 0.0);
     }
 
     #[test]
@@ -786,7 +829,7 @@ mod tests {
         let first = &evaluate(&contract(), &[base]).unwrap().cases[0];
         let second = &evaluate(&contract(), &[scaled]).unwrap().cases[0];
         near(first.raw_rmse, second.raw_rmse);
-        near(first.debiased_rmse, second.debiased_rmse);
+        near(first.anomaly_centered_error_std, second.anomaly_centered_error_std);
         near(
             first.forecast_information.unwrap(),
             second.forecast_information.unwrap(),
