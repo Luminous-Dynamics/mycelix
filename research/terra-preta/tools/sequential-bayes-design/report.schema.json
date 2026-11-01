@@ -78,7 +78,16 @@
           "selected_action_frequency",
           "mean_heldout_validation_log_score",
           "mean_heldout_validation_brier_score",
-          "validation_by_stratum"
+          "validation_by_stratum",
+          "decision_regret_standard_error",
+          "decision_regret_ci95_lower",
+          "decision_regret_ci95_upper",
+          "heldout_validation_log_score_standard_error",
+          "heldout_validation_log_score_ci95_lower",
+          "heldout_validation_log_score_ci95_upper",
+          "heldout_validation_brier_score_standard_error",
+          "heldout_validation_brier_score_ci95_lower",
+          "heldout_validation_brier_score_ci95_upper"
         ],
         "properties": {
           "policy_id": {
@@ -184,6 +193,46 @@
                 }
               }
             }
+          },
+          "decision_regret_standard_error": {
+            "type": "number",
+            "minimum": 0
+          },
+          "decision_regret_ci95_lower": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "decision_regret_ci95_upper": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "heldout_validation_log_score_standard_error": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heldout_validation_log_score_ci95_lower": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heldout_validation_log_score_ci95_upper": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heldout_validation_brier_score_standard_error": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heldout_validation_brier_score_ci95_lower": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "heldout_validation_brier_score_ci95_upper": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
           }
         }
       }
