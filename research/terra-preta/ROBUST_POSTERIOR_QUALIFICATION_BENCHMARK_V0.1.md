@@ -229,3 +229,12 @@ It remains a deterministic one-step selector; stochastic policy optimization, ad
 Added a second calculation path for the finite Sibson objective. For each nonzero-probability outcome, `conditional_renyi_information` computes (D_\alpha[p(M\mid x)\|p(M)]) using the **ordinary nominal posterior**, as in Proposition 3 of Abdulsamad et al. (2026). `sibson_from_conditional_renyi` reconstructs (I_\alpha^S) as the risk-sensitive exponential average of these conditional gains under the nominal outcome marginal.
 
 An exact cross-check requires agreement with the direct Sibson formula to (10^{-10}) at alpha values 0.1, 0.2, 0.4, 0.6, 0.7, 0.8, 0.95 and 0.999. Additional controls cover uninformative outcomes, zero likelihood support and invalid indices/alpha values. This is an internal mathematical identity check, not independent physical validation.
+
+
+## 16. Per-design KL-radius selector — 2026-11-01
+
+Added `robust_information_at_kl_radius` and `select_discrete_design_at_kl_radius`. For every fixed finite candidate design, the implementation computes the q* ambiguity cost as a function of alpha, solves for alpha at a requested KL radius by bisection, then compares the resulting Sibson objective. It enforces the hard action budget and eligibility before selection and reports the requested/effective radius, alpha and whether the alpha range was clamped.
+
+The zero-radius control exactly recovers Shannon MI (alpha=1). An uninformative design remains zero-information under positive requested radius because its q* divergence is zero. Tests also verify recovery of a known radius generated at alpha=0.5, feasibility handling and high-radius clamping.
+
+**Important mathematical boundary:** this selector treats each candidate as its own fixed-design KL ambiguity problem. The paper's stochastic-policy formulation uses one shared *average* KL budget over the policy distribution and optimizes the common dual parameter with the corresponding (-\\beta\\rho) term. That stochastic-policy optimization is not implemented; this finite per-design selector must not be described as a faithful reproduction of it.
