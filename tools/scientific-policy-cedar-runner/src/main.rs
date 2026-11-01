@@ -71,11 +71,14 @@ fn create_pinned_temp_artifact(
         .open(&path)
         .map_err(|error| format!("create private pinned artifact {}: {error}", path.display()))?;
     let artifact = TempArtifact { path };
-    file.write_all(bytes)
-        .map_err(|error| format!("write private pinned artifact {}: {error}", artifact.path.display()))?;
-    file.sync_all()
-        .map_err(|error| format!("sync private pinned artifact {}: {error}", artifact.path.display()))?;
+    let write_result = (|| {
+        file.write_all(bytes)
+            .map_err(|error| format!("write private pinned artifact {}: {error}", artifact.path.display()))?;
+        file.sync_all()
+            .map_err(|error| format!("sync private pinned artifact {}: {error}", artifact.path.display()))
+    })();
     drop(file);
+    write_result?;
     Ok(artifact)
 }
 
