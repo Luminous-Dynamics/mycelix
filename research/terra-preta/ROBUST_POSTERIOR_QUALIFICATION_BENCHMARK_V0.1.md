@@ -213,3 +213,12 @@ q*(m,x) ∝ [p(m) p_alpha(x)]^(1-alpha) [p(m,x)]^alpha
 It returns the alpha-tilted outcome marginal, q* model/outcome marginals and joint weights, plus (D_{KL}(q^*\|p)). It verifies the conditional identity (q^*(m\mid x)\propto p(m)p(x\mid m)^\alpha). A bisection routine numerically inverts the single-design KL cost to find alpha for a declared ambiguity radius, checking monotonicity across a grid and refusing radii beyond the configured minimum-alpha range.
 
 Independent analytical calculations for the complementary CT–tracer finite fixture give KL radius 0.092332 nats at alpha 0.5, decreasing toward zero at alpha 1. This is a deterministic single-design reference, not the paper's average-radius stochastic-policy optimization. The paper's PAC-Bayes bound and nested estimator remain unimplemented; no robust policy superiority is claimed.
+
+
+## 14. One-step finite robust design selector — 2026-11-01
+
+The finite robust reference now includes `select_discrete_design`, comparing candidate actions under either nominal Shannon MI or Sibson-α MI. It rejects duplicate/empty action IDs, validates the complete candidate pool, enforces eligibility and action cost ≤ hard budget before objective ranking, uses a deterministic lexicographic action-ID tie break, and returns no selection when no action is feasible.
+
+A synthetic ranking-reversal control has nominal Shannon MI 0.569802 vs 0.476391 nats for two candidates, while at α=0.3 the Sibson values are 0.292592 vs 0.329155 nats. The nominal selector chooses `nominal_sharp`; the robust selector chooses `robust_balanced`. This is a designed finite reference fixture, not evidence that Sibson universally improves real soil experiments.
+
+It remains a deterministic one-step selector; stochastic policy optimization, adaptive multi-step robust trees, PAC-Bayes bounds and physical action/observation integration are not implemented.
