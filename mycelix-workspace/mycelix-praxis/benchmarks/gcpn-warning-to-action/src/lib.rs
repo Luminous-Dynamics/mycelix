@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 
-pub const FIXTURE: &str = include_str!("../fixtures/action-chain-v0.1.csv");
+pub const FIXTURE: &str = include_str!("../fixtures/action-chain-v0.1.1.csv");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Decision {
@@ -33,6 +33,7 @@ pub struct Case {
     pub decision_authorized: bool,
     pub alert_time: u64,
     pub decision_time: u64,
+    pub finance_required: bool,
     pub finance_prearranged: bool,
     pub finance_authorized: bool,
     pub funds_released: bool,
@@ -100,12 +101,14 @@ pub struct Report {
     pub warning_to_decision: Latency,
     pub decision_to_finance: Latency,
     pub finance_to_action: Latency,
+    pub decision_to_action: Latency,
     pub action_to_completion: Latency,
 }
 
 impl Report {
     pub fn hard_gates_pass(&self) -> bool {
         self.missing_lineage == 0
+            && self.unauthorized_decisions == 0
             && self.unauthorized_activations == 0
             && self.unapproved_fund_releases == 0
             && self.unauthorized_action_starts == 0
@@ -122,7 +125,7 @@ impl Report {
     /// the exact independently calculated violation counts and timing totals.
     /// This is a benchmark self-check, not a claim that the fixture is compliant.
     pub fn fixture_oracle_matches(&self) -> bool {
-        self.case_count == 10
+        self.case_count == 11
             && self.missing_lineage == 0
             && self.unauthorized_decisions == 1
             && self.unauthorized_activations == 1
@@ -135,20 +138,22 @@ impl Report {
             && self.grievance_resolution_overcounts == 0
             && self.impact_overclaims == 1
             && self.chronology_violations == 1
-            && self.activation_count == 9
+            && self.activation_count == 10
             && self.funds_released_count == 8
-            && self.actions_started_count == 6
-            && self.actions_completed_count == 6
-            && self.intended_people_total == 10_000
-            && self.unique_people_served_total == 3_790
-            && self.warning_to_decision.observations == 10
-            && self.warning_to_decision.total_ticks == 980
+            && self.actions_started_count == 7
+            && self.actions_completed_count == 7
+            && self.intended_people_total == 10_200
+            && self.unique_people_served_total == 3_970
+            && self.warning_to_decision.observations == 11
+            && self.warning_to_decision.total_ticks == 1_030
             && self.decision_to_finance.observations == 8
             && self.decision_to_finance.total_ticks == 800
             && self.finance_to_action.observations == 6
             && self.finance_to_action.total_ticks == 800
             && self.action_to_completion.observations == 4
-            && self.action_to_completion.total_ticks == 2_000
+            && self.action_to_completion.total_ticks == 2_130
+            && self.decision_to_action.observations == 1
+            && self.decision_to_action.total_ticks == 20
     }
 }
 
@@ -173,7 +178,7 @@ fn parse_u64(value: &str, field: &str) -> Result<u64, String> {
 }
 
 pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
-    const HEADER: &str = "case_id,cap_message_id,protocol_version,alert_authorized,decision,decision_authorized,alert_time,decision_time,finance_prearranged,finance_authorized,funds_released,finance_time,action_authorized,action_started,action_completed,action_start_time,action_complete_time,intended_people,service_records,unique_people_served,duplicate_service_records,grievances_reported,grievances_recorded,grievances_resolved,outcome_observed,outcome_independent,counterfactual_identified,impact_claim_submitted";
+    const HEADER: &str = "case_id,cap_message_id,protocol_version,alert_authorized,decision,decision_authorized,alert_time,decision_time,finance_required,finance_prearranged,finance_authorized,funds_released,finance_time,action_authorized,action_started,action_completed,action_start_time,action_complete_time,intended_people,service_records,unique_people_served,duplicate_service_records,grievances_reported,grievances_recorded,grievances_resolved,outcome_observed,outcome_independent,counterfactual_identified,impact_claim_submitted";
     let mut lines = input.lines();
     if lines.next() != Some(HEADER) {
         return Err("warning-to-action fixture header does not match frozen v0.1 contract".into());
@@ -199,26 +204,27 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
             decision_authorized: parse_bool(f[5], "decision_authorized")?,
             alert_time: parse_u64(f[6], "alert_time")?,
             decision_time: parse_u64(f[7], "decision_time")?,
-            finance_prearranged: parse_bool(f[8], "finance_prearranged")?,
-            finance_authorized: parse_bool(f[9], "finance_authorized")?,
-            funds_released: parse_bool(f[10], "funds_released")?,
-            finance_time: parse_u64(f[11], "finance_time")?,
-            action_authorized: parse_bool(f[12], "action_authorized")?,
-            action_started: parse_bool(f[13], "action_started")?,
-            action_completed: parse_bool(f[14], "action_completed")?,
-            action_start_time: parse_u64(f[15], "action_start_time")?,
-            action_complete_time: parse_u64(f[16], "action_complete_time")?,
-            intended_people: parse_u32(f[17], "intended_people")?,
-            service_records: parse_u32(f[18], "service_records")?,
-            unique_people_served: parse_u32(f[19], "unique_people_served")?,
-            duplicate_service_records: parse_u32(f[20], "duplicate_service_records")?,
-            grievances_reported: parse_u32(f[21], "grievances_reported")?,
-            grievances_recorded: parse_u32(f[22], "grievances_recorded")?,
-            grievances_resolved: parse_u32(f[23], "grievances_resolved")?,
-            outcome_observed: parse_bool(f[24], "outcome_observed")?,
-            outcome_independent: parse_bool(f[25], "outcome_independent")?,
-            counterfactual_identified: parse_bool(f[26], "counterfactual_identified")?,
-            impact_claim_submitted: parse_bool(f[27], "impact_claim_submitted")?,
+            finance_required: parse_bool(f[8], "finance_required")?,
+            finance_prearranged: parse_bool(f[9], "finance_prearranged")?,
+            finance_authorized: parse_bool(f[10], "finance_authorized")?,
+            funds_released: parse_bool(f[11], "funds_released")?,
+            finance_time: parse_u64(f[12], "finance_time")?,
+            action_authorized: parse_bool(f[13], "action_authorized")?,
+            action_started: parse_bool(f[14], "action_started")?,
+            action_completed: parse_bool(f[15], "action_completed")?,
+            action_start_time: parse_u64(f[16], "action_start_time")?,
+            action_complete_time: parse_u64(f[17], "action_complete_time")?,
+            intended_people: parse_u32(f[18], "intended_people")?,
+            service_records: parse_u32(f[19], "service_records")?,
+            unique_people_served: parse_u32(f[20], "unique_people_served")?,
+            duplicate_service_records: parse_u32(f[21], "duplicate_service_records")?,
+            grievances_reported: parse_u32(f[22], "grievances_reported")?,
+            grievances_recorded: parse_u32(f[23], "grievances_recorded")?,
+            grievances_resolved: parse_u32(f[24], "grievances_resolved")?,
+            outcome_observed: parse_bool(f[25], "outcome_observed")?,
+            outcome_independent: parse_bool(f[26], "outcome_independent")?,
+            counterfactual_identified: parse_bool(f[27], "counterfactual_identified")?,
+            impact_claim_submitted: parse_bool(f[28], "impact_claim_submitted")?,
         };
 
         if case.case_id.trim().is_empty() {
@@ -244,7 +250,11 @@ fn evaluate_case(case: &Case, report: &mut Report) {
         report.missing_lineage += 1;
     }
 
-    if !case.decision_authorized {\n        report.unauthorized_decisions += 1;\n    }\n\n    if case.decision == Decision::Activate {
+    if !case.decision_authorized {
+        report.unauthorized_decisions += 1;
+    }
+
+    if case.decision == Decision::Activate {
         report.activation_count += 1;
         if !case.alert_authorized || !case.decision_authorized {
             report.unauthorized_activations += 1;
@@ -253,7 +263,8 @@ fn evaluate_case(case: &Case, report: &mut Report) {
 
     if case.funds_released {
         report.funds_released_count += 1;
-        if case.decision != Decision::Activate
+        if !case.finance_required
+            || case.decision != Decision::Activate
             || !case.alert_authorized
             || !case.decision_authorized
             || !case.finance_prearranged
@@ -265,10 +276,16 @@ fn evaluate_case(case: &Case, report: &mut Report) {
 
     if case.action_started {
         report.actions_started_count += 1;
+        let finance_gate_fails = if case.finance_required {
+            !case.funds_released
+        } else {
+            case.funds_released
+        };
         if case.decision != Decision::Activate
+            || !case.alert_authorized
             || !case.decision_authorized
             || !case.action_authorized
-            || !case.funds_released
+            || finance_gate_fails
         {
             report.unauthorized_action_starts += 1;
         }
@@ -284,7 +301,9 @@ fn evaluate_case(case: &Case, report: &mut Report) {
     if case.unique_people_served > case.intended_people {
         report.population_overclaims += 1;
     }
-    if u64::from(case.service_records)\n        != u64::from(case.unique_people_served) + u64::from(case.duplicate_service_records) {
+    if u64::from(case.service_records)
+        != u64::from(case.unique_people_served) + u64::from(case.duplicate_service_records)
+    {
         report.service_accounting_mismatches += 1;
     }
 
@@ -301,18 +320,14 @@ fn evaluate_case(case: &Case, report: &mut Report) {
         report.impact_overclaims += 1;
     }
 
-    if case.decision_time > 0 && case.alert_time > 0 {
-        if case.decision_time < case.alert_time {
-            report.chronology_violations += 1;
-        } else {
-            report.warning_to_decision.record(case.alert_time, case.decision_time);
-        }
-    } else if case.decision == Decision::Activate || case.decision == Decision::NoAction || case.decision == Decision::Abstain {
+    if case.alert_time == 0 || case.decision_time == 0 || case.decision_time < case.alert_time {
         report.chronology_violations += 1;
+    } else {
+        report.warning_to_decision.record(case.alert_time, case.decision_time);
     }
 
-    if case.funds_released {
-        if case.decision_time == 0 || case.finance_time == 0 || case.finance_time < case.decision_time {
+    if case.finance_required && case.funds_released {
+        if case.finance_time == 0 || case.finance_time < case.decision_time {
             report.chronology_violations += 1;
         } else {
             report.decision_to_finance.record(case.decision_time, case.finance_time);
@@ -320,10 +335,18 @@ fn evaluate_case(case: &Case, report: &mut Report) {
     }
 
     if case.action_started {
-        if case.finance_time == 0 || case.action_start_time == 0 || case.action_start_time < case.finance_time {
+        if case.action_start_time == 0 {
+            report.chronology_violations += 1;
+        } else if case.finance_required {
+            if !case.funds_released || case.finance_time == 0 || case.action_start_time < case.finance_time {
+                report.chronology_violations += 1;
+            } else {
+                report.finance_to_action.record(case.finance_time, case.action_start_time);
+            }
+        } else if case.action_start_time < case.decision_time {
             report.chronology_violations += 1;
         } else {
-            report.finance_to_action.record(case.finance_time, case.action_start_time);
+            report.decision_to_action.record(case.decision_time, case.action_start_time);
         }
     }
 
@@ -374,10 +397,10 @@ mod tests {
                 hash.wrapping_mul(0x100000001b3)
             })
         }
-        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0x39cf52a7a16a3e9a);
+        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0x4084062a6c04598f);
         let cases = parse_fixture(FIXTURE).unwrap();
-        assert_eq!(cases.len(), 10);
-        assert_eq!(cases.iter().map(|case| case.case_id.as_str()).collect::<HashSet<_>>().len(), 10);
+        assert_eq!(cases.len(), 11);
+        assert_eq!(cases.iter().map(|case| case.case_id.as_str()).collect::<HashSet<_>>().len(), 11);
     }
 
     #[test]
@@ -462,6 +485,34 @@ mod tests {
     fn out_of_order_action_timestamps_are_rejected() {
         let report = evaluate(&[case("chronology-violation")]);
         assert_eq!(report.chronology_violations, 1);
+        assert!(!report.hard_gates_pass());
+    }
+
+    #[test]
+    fn unfunded_action_is_valid_when_protocol_does_not_require_separate_finance() {
+        let report = evaluate(&[case("authorized-unfunded-action")]);
+        assert!(report.hard_gates_pass(), "{report:?}");
+        assert_eq!(report.funds_released_count, 0);
+        assert_eq!(report.actions_started_count, 1);
+        assert_eq!(report.actions_completed_count, 1);
+        assert_eq!(report.decision_to_action.observations, 1);
+        assert_eq!(report.decision_to_action.total_ticks, 20);
+    }
+
+    #[test]
+    fn funding_is_required_only_when_declared_by_the_action_protocol() {
+        let mut funded = case("valid-complete-chain");
+        funded.funds_released = false;
+        funded.finance_time = 0;
+        let report = evaluate(&[funded]);
+        assert_eq!(report.unauthorized_action_starts, 1);
+        assert!(!report.hard_gates_pass());
+
+        let mut unfunded = case("authorized-unfunded-action");
+        unfunded.funds_released = true;
+        let report = evaluate(&[unfunded]);
+        assert_eq!(report.unapproved_fund_releases, 1);
+        assert_eq!(report.unauthorized_action_starts, 1);
         assert!(!report.hard_gates_pass());
     }
 
