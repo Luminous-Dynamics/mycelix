@@ -25,7 +25,7 @@ fn main() {
         recorded_at: 201,
         wire_bytes: b"<alert>synthetic-v2</alert>".to_vec(),
         declared_digest: "sha256:externally-verified-update-digest".into(),
-        digest_verification: DigestVerification::VerifiedByExternalAdapter,
+        digest_verification: DigestVerification::FixtureOracleAccepted,
     };
 
     let audit = validate_cap_lifecycle(&[alert, update]);
