@@ -60,6 +60,28 @@ DIAGNOSE_FIRST at the preregistered synthetic threshold. This is sensitivity
 analysis for an author-specified state, not empirical prior calibration.
 
 
+## Covariance-component identifiability
+
+The `covariance_identifiability` module builds exact upper-triangle covariance
+basis matrices for shared physical support, preparation batch, instrument and
+independent residual effects. It computes the weighted design rank, a Gram
+spectral condition diagnostic, and whether each component is individually
+identifiable. It also provides a noiseless exact-recovery oracle for synthetic
+covariance matrices, which refuses to estimate when the decomposition is
+structurally rank-deficient.
+
+The controls demonstrate:
+- one CT–tracer pair sharing support, batch and instrument has rank 2/4 and
+  cannot attribute its shared covariance;
+- a crossed support × batch × instrument × modality design reaches rank 4/4;
+- a batch-only CT/tracer pair identifies batch dependence but cannot certify
+  a physical shared-support variance component.
+
+This is structural identifiability of the declared linear covariance basis,
+not finite-sample precision, posterior calibration or empirical covariance
+estimation. Support equality must be explicitly declared; overlap does not
+automatically become a correlation coefficient.
+
 ## Conditional information gain
 
 The `information_gain` module estimates model-identity information in a
@@ -161,6 +183,28 @@ the policy distribution; that problem needs a common dual parameter and the
 This is **not** the full maximin policy optimizer, nested Monte Carlo estimator
 or PAC-Bayes lower-bound optimizer. The exact finite component is not a
 decision-EVSI calculation or a physical-data result.
+## Shared-KL stochastic policy and PAC-Bayes Gibbs algebra
+
+The `stochastic_policy` module implements the finite shared-average-KL dual
+for a **fixed stochastic policy**:
+`sup_beta { E_pi[I^S_{beta/(1+beta)}(action)] - beta * rho }`.
+One common beta is used across all actions. It is not inverted separately for
+each action. The zero-radius limit returns the policy-averaged Shannon MI.
+
+It also implements the finite Gibbs policy
+`pi*(action) ∝ pi0(action) exp(lambda * reward(action))`, which exactly
+maximizes the reward-minus-KL variational objective for supplied rewards, and
+the arithmetic of the paper's PAC-Bayes lower-bound formula. The latter
+requires external justification of the paper's regularity/boundedness
+assumptions and constants; the code checks sample-size and numeric conditions
+but does not certify them. The nested Monte Carlo estimator is not yet
+implemented.
+
+The shared-KL dual is the correct policy-level comparator for the
+maximin-robust paper. The earlier fixed per-design KL selector remains a
+separate finite comparator and must not be presented as the shared-policy
+algorithm.
+
 ## Posterior-SBC reference control
 
 The library test suite includes a separate **conditional posterior-SBC** test
