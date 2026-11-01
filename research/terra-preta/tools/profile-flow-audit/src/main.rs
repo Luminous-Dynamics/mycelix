@@ -240,7 +240,9 @@ fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
                         &format!("sensors[{index}].response_onset_lower_bound_utc"),
                         input.time_resolution_seconds,
                     )?,
-                    None => upper - chrono::Duration::seconds(i64::from(input.time_resolution_seconds)),
+                    None => {
+                        upper - chrono::Duration::seconds(i64::from(input.time_resolution_seconds))
+                    },
                 };
                 let interval_seconds = (upper - lower).num_seconds();
                 if interval_seconds < 0
@@ -250,7 +252,10 @@ fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
                         "sensors[{index}] response-onset interval must be ordered and no wider than one sampling interval"
                     ));
                 }
-                if lower < event_start - chrono::Duration::seconds(i64::from(input.time_resolution_seconds)) {
+                if lower
+                    < event_start
+                        - chrono::Duration::seconds(i64::from(input.time_resolution_seconds))
+                {
                     return Err(format!(
                         "sensors[{index}] response-onset lower bound is more than one sampling interval before event start"
                     ));
@@ -262,7 +267,9 @@ fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
                     "sensors[{index}] detected response requires response_onset_utc"
                 ));
             }
-            (ResponseStatus::NotDetected | ResponseStatus::Indeterminate, None, None) => (None, None),
+            (ResponseStatus::NotDetected | ResponseStatus::Indeterminate, None, None) => {
+                (None, None)
+            }
             (ResponseStatus::NotDetected | ResponseStatus::Indeterminate, _, _) => {
                 return Err(format!(
                     "sensors[{index}] status {} must not have response-onset bounds",
@@ -322,15 +329,28 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             } else {
                 (right, left)
             };
-            let shallow_lower = shallow.onset_lower.as_ref().expect("detected sensor has lower bound");
-            let shallow_upper = shallow.onset_upper.as_ref().expect("detected sensor has upper bound");
-            let deep_lower = deep.onset_lower.as_ref().expect("detected sensor has lower bound");
-            let deep_upper = deep.onset_upper.as_ref().expect("detected sensor has upper bound");
+            let shallow_lower = shallow
+                .onset_lower
+                .as_ref()
+                .expect("detected sensor has lower bound");
+            let shallow_upper = shallow
+                .onset_upper
+                .as_ref()
+                .expect("detected sensor has upper bound");
+            let deep_lower = deep
+                .onset_lower
+                .as_ref()
+                .expect("detected sensor has lower bound");
+            let deep_upper = deep
+                .onset_upper
+                .as_ref()
+                .expect("detected sensor has upper bound");
 
             // Positive means the deeper sensor definitely responds first. Overlap is ambiguous.
             let deep_advance_min_seconds = shallow_lower.timestamp() - deep_upper.timestamp();
             let deep_advance_max_seconds = shallow_upper.timestamp() - deep_lower.timestamp();
-            let observed_detection_bin_advance_seconds = shallow_upper.timestamp() - deep_upper.timestamp();
+            let observed_detection_bin_advance_seconds =
+                shallow_upper.timestamp() - deep_upper.timestamp();
             let both_exact = shallow_lower == shallow_upper && deep_lower == deep_upper;
 
             let ordering = if deep_advance_min_seconds > 0 {
@@ -616,9 +636,11 @@ mod tests {
             Some(30),
         )]);
         data.sensors[0].response_onset_lower_bound_utc = Some(stamp(10));
-        assert!(validate(&data)
-            .unwrap_err()
-            .contains("no wider than one sampling interval"));
+        assert!(
+            validate(&data)
+                .unwrap_err()
+                .contains("no wider than one sampling interval")
+        );
     }
 
     #[test]
@@ -630,9 +652,7 @@ mod tests {
             Some(30),
         )]);
         data.sensors[0].response_onset_lower_bound_utc = Some(stamp(40));
-        assert!(validate(&data)
-            .unwrap_err()
-            .contains("must be ordered"));
+        assert!(validate(&data).unwrap_err().contains("must be ordered"));
     }
 
     #[test]
