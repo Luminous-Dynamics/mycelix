@@ -395,14 +395,21 @@ pub struct CapLifecycleReport {
 }
 
 impl CapLifecycleReport {
+    /// Core structural conformance. CAP 1.2 requires earlier-message
+    /// references for Update/Cancel; expiry policy is a separate profile rule.
     pub fn is_conformant(&self) -> bool {
         self.conflicting_identifiers == 0
             && self.missing_references == 0
             && self.unknown_references == 0
             && self.non_prior_references == 0
-            && self.expired_references == 0
             && self.unverified_digests == 0
             && self.digest_mismatches == 0
+    }
+
+    /// Optional stricter profile: all referenced messages must still be active.
+    /// This is not asserted as a universal CAP 1.2 core requirement.
+    pub fn is_conformant_under_active_reference_profile(&self) -> bool {
+        self.is_conformant() && self.expired_references == 0
     }
 }
 
@@ -845,6 +852,8 @@ mod tests {
         let report = audit.report;
         assert_eq!(report.expired_references, 1);
         assert_eq!(report.unknown_references, 1);
+        assert!(report.is_conformant());
+        assert!(!report.is_conformant_under_active_reference_profile());
     }
 
     #[test]
