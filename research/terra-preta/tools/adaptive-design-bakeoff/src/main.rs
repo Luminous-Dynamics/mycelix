@@ -790,7 +790,7 @@ fn main_run() -> Result<(), Box<dyn Error>> {
     );
     for result in &report.policy_results {
         println!(
-            "{}: utility {:.4}, normalized regret {:.4}, coverage={}, cost={}",
+            "{}: utility {:.4}, normalized regret {:?}, coverage={}, cost={}",
             result.policy_id, result.weighted_synthetic_decision_utility,
             result.normalized_oracle_regret, result.minimum_coverage_met, result.total_cost_units
         );
