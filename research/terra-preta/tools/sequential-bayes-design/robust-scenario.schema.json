@@ -4,44 +4,120 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "data_class", "scenario_id", "model_ids", "prior_weights",
-    "candidates", "budget_units", "sibson_alpha", "kl_radius_nats",
-    "minimum_alpha", "alpha_bisection_iterations"
+    "schema_version",
+    "data_class",
+    "scenario_id",
+    "model_ids",
+    "prior_weights",
+    "candidates",
+    "budget_units",
+    "sibson_alpha",
+    "kl_radius_nats",
+    "minimum_alpha",
+    "alpha_bisection_iterations",
+    "gibbs_precision_lambda"
   ],
   "properties": {
-    "schema_version": { "const": "0.1.0" },
-    "data_class": { "const": "synthetic-known-truth" },
-    "scenario_id": { "type": "string", "minLength": 1 },
-    "model_ids": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-    "prior_weights": { "type": "array", "minItems": 1, "items": { "type": "number", "minimum": 0 } },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "data_class": {
+      "const": "synthetic-known-truth"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "prior_weights": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
     "candidates": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["action_id", "cost_units", "eligible", "outcome_ids", "likelihoods"],
+        "required": [
+          "action_id",
+          "cost_units",
+          "eligible",
+          "outcome_ids",
+          "likelihoods"
+        ],
         "properties": {
-          "action_id": { "type": "string", "minLength": 1 },
-          "cost_units": { "type": "integer", "minimum": 0 },
-          "eligible": { "type": "boolean" },
-          "outcome_ids": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "action_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cost_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "outcome_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "likelihoods": {
             "type": "array",
             "minItems": 1,
             "items": {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "number", "minimum": 0, "maximum": 1 }
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
             }
           }
         }
       }
     },
-    "budget_units": { "type": "integer", "minimum": 0 },
-    "sibson_alpha": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
-    "kl_radius_nats": { "type": "number", "minimum": 0 },
-    "minimum_alpha": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 0.99999999 },
-    "alpha_bisection_iterations": { "type": "integer", "minimum": 1 }
+    "budget_units": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sibson_alpha": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1
+    },
+    "kl_radius_nats": {
+      "type": "number",
+      "minimum": 0
+    },
+    "minimum_alpha": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 0.99999999
+    },
+    "alpha_bisection_iterations": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "gibbs_precision_lambda": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    }
   }
 }
