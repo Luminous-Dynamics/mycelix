@@ -43,17 +43,15 @@
       "fixtures": [
         {
           "name": "forecast-cases-v0.1.csv",
-          "fnv1a64": "0x81af0b6779196770"
+          "fnv1a64": "0x81af0b6779196770",
+          "rows": 65,
+          "scored_records": 54
         },
         {
           "name": "forecast-drift-v0.1.csv",
-          "record_count": 90,
+          "rows": 90,
           "profiles": 3,
-          "first_cusum_crossings": {
-            "stable_control": null,
-            "gradual_calibration_drift": 28,
-            "abrupt_calibration_shift": 19
-          }
+          "chronological": true
         }
       ]
     },
@@ -121,16 +119,19 @@
     "note": "Synthetic staffing assumptions; no wage or salary rate is inferred."
   },
   "forecast_verification_v0_2": {
-    "brier_decomposition": "murphy-exact-distinct-issued-probability",
-    "terms": [
-      "reliability",
-      "resolution",
-      "uncertainty",
-      "reconstruction_residual"
-    ],
-    "fixed_bin_ece_remains_separate": true,
-    "drift_diagnostics": {
-      "window_size": 5,
+    "brier_decomposition": {
+      "method": "murphy-decomposition-by-distinct-issued-probability",
+      "terms": [
+        "reliability",
+        "resolution",
+        "uncertainty",
+        "reconstruction_residual"
+      ],
+      "fixed_bin_ece_is_separate": true,
+      "acceptance": "Brier = reliability - resolution + uncertainty within 1e-12"
+    },
+    "chronological_drift": {
+      "rolling_window_size": 5,
       "cusum_allowance": 0.1,
       "cusum_threshold": 3,
       "minimum_observations": 5,
@@ -139,7 +140,7 @@
         "gradual_calibration_drift": 28,
         "abrupt_calibration_shift": 19
       },
-      "non_operational": true
+      "mode": "offline-diagnostic-only"
     }
   }
 }
