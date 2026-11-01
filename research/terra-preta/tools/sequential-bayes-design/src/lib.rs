@@ -5,3 +5,4 @@
 //! It is not yet wired into the categorical acquisition executable.
 
 pub mod correlated_likelihood;
+pub mod multivariate_gaussian;
