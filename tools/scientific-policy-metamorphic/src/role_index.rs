@@ -13,11 +13,20 @@ use crate::shrink::parse_unique_json_bytes;
 
 pub const ROLE_INDEX_PROFILE: &str = "mycelix-rego-role-index-v0.1";
 pub const MAX_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
-pub const MAX_STRATIFIED_SAMPLES_PER_ACTION: usize = 24;
-pub const MIN_STRATIFIED_SAMPLES_PER_ACTION: usize = 20;
+pub const MAX_STRATIFIED_SAMPLES_PER_ACTION: usize = 32;
+pub const MIN_STRATIFIED_SAMPLES_PER_ACTION: usize = 24;
 const MAX_SAMPLES_PER_STRATUM: usize = 1;
 const STRATIFIED_SAMPLE_PROFILE: &str = "mycelix-role-index-stratified-sample-v0.1";
-const REQUIRED_STRATUM_DIMENSIONS: [&str; 18] = [
+const ROLE_IDENTITY_DIMENSIONS: [&str; 7] = [
+    "contributor",
+    "reviewer",
+    "editor",
+    "institution",
+    "service",
+    "migration_service",
+    "registry_admin",
+];
+const REQUIRED_STRATUM_DIMENSIONS: [&str; 32] = [
     "roles=0",
     "roles=1-2",
     "roles=3-4",
@@ -36,6 +45,20 @@ const REQUIRED_STRATUM_DIMENSIONS: [&str; 18] = [
     "target=absent",
     "target=self",
     "target=other",
+    "role_contributor=present",
+    "role_contributor=absent",
+    "role_reviewer=present",
+    "role_reviewer=absent",
+    "role_editor=present",
+    "role_editor=absent",
+    "role_institution=present",
+    "role_institution=absent",
+    "role_service=present",
+    "role_service=absent",
+    "role_migration_service=present",
+    "role_migration_service=absent",
+    "role_registry_admin=present",
+    "role_registry_admin=absent",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -197,6 +220,19 @@ fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
         3..=4 => "3-4",
         _ => "5+",
     };
+    let role_identity_dimensions = ROLE_IDENTITY_DIMENSIONS
+        .iter()
+        .map(|role_name| {
+            let present = roles
+                .iter()
+                .any(|role| role.as_str() == Some(*role_name));
+            format!(
+                "role_{role_name}={}",
+                if present { "present" } else { "absent" }
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(";");
 
     let claim = input
         .get("claim")
@@ -264,7 +300,7 @@ fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
     };
 
     Ok(format!(
-        "roles={role_bucket};claim={};owner={owner_relation};org={organization_relation};attestation={attestation_bucket};target={target_relation}",
+        "roles={role_bucket};claim={};owner={owner_relation};org={organization_relation};attestation={attestation_bucket};target={target_relation};{role_identity_dimensions}",
         if claim_exists { "present" } else { "absent" }
     ))
 }
@@ -650,6 +686,9 @@ mod tests {
         });
         let base_key = stratum_key(&base).expect("base input has valid strata");
         assert!(base_key.contains("roles=1-2"));
+        assert!(base_key.contains("role_reviewer=present"));
+        assert!(base_key.contains("role_contributor=absent"));
+        assert!(base_key.contains("role_migration_service=absent"));
         assert!(base_key.contains("owner=non_owner"));
         assert!(base_key.contains("org=same"));
         assert!(base_key.contains("attestation=ordinary"));
@@ -665,6 +704,9 @@ mod tests {
         let changed_key = stratum_key(&changed).expect("changed input has valid strata");
         assert_ne!(base_key, changed_key);
         assert!(changed_key.contains("roles=5+"));
+        assert!(changed_key.contains("role_contributor=present"));
+        assert!(changed_key.contains("role_editor=present"));
+        assert!(changed_key.contains("role_registry_admin=absent"));
         assert!(changed_key.contains("owner=owner"));
         assert!(changed_key.contains("org=absent"));
         assert!(changed_key.contains("attestation=independent_replication"));
@@ -714,26 +756,42 @@ mod tests {
     }
 
     #[test]
+    #[test]
     fn stratified_selector_greedily_covers_every_required_dimension() {
-        let role = ["0", "1-2", "3-4", "5+"];
-        let claim = ["absent", "present"];
-        let owner = ["not_applicable", "owner", "non_owner"];
-        let organization = ["absent", "same", "different", "orphan"];
-        let attestation = ["ordinary", "independent_replication"];
-        let target = ["absent", "self", "other"];
+        let role_names = ROLE_IDENTITY_DIMENSIONS;
         let mut buckets = BTreeMap::new();
 
-        for index in 0..MAX_STRATIFIED_SAMPLES_PER_ACTION {
+        // Enumerate every role bitmask once. The selector must prove marginal
+        // presence and absence for each role, not just role cardinality.
+        for mask in 0_u8..128 {
+            let role_count = mask.count_ones() as usize;
+            let role_bucket = match role_count {
+                0 => "0",
+                1..=2 => "1-2",
+                3..=4 => "3-4",
+                _ => "5+",
+            };
+            let role_membership = role_names
+                .iter()
+                .enumerate()
+                .map(|(bit, name)| {
+                    format!(
+                        "role_{name}={}",
+                        if mask & (1 << bit) != 0 { "present" } else { "absent" }
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(";");
+            let index = usize::from(mask);
             let stratum = format!(
-                "roles={};claim={};owner={};org={};attestation={};target={}",
-                role[index % role.len()],
-                claim[(index / 4) % claim.len()],
-                owner[(index / 8) % owner.len()],
-                organization[(index / 6) % organization.len()],
-                attestation[(index / 3) % attestation.len()],
-                target[(index / 5) % target.len()],
+                "roles={role_bucket};claim={};owner={};org={};attestation={};target={};{role_membership}",
+                if index % 2 == 0 { "absent" } else { "present" },
+                ["not_applicable", "owner", "non_owner"][index % 3],
+                ["absent", "same", "different", "orphan"][index % 4],
+                ["ordinary", "independent_replication"][index % 2],
+                ["absent", "self", "other"][index % 3],
             );
-            let case_id = format!("case-{index:02}");
+            let case_id = format!("case-{index:03}");
             insert_stratified_candidate(
                 &mut buckets,
                 StratifiedCandidate {
@@ -748,7 +806,7 @@ mod tests {
         }
 
         let (selected, counts) = select_stratified_candidates(&buckets, &["claim_proposed"])
-            .expect("panel covers every required semantic dimension");
+            .expect("panel covers every required semantic dimension and role identity");
         assert_eq!(counts["claim_proposed"], MAX_STRATIFIED_SAMPLES_PER_ACTION);
         assert_eq!(selected.len(), MAX_STRATIFIED_SAMPLES_PER_ACTION);
         let covered = selected
