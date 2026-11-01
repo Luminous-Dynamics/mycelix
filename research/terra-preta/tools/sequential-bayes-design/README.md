@@ -237,7 +237,8 @@ The `robust-information-bakeoff` binary reads
 machine-readable report. It compares nominal Shannon, fixed-alpha Sibson and
 fixed per-design KL-radius selection under identical model/action inputs.
 The report binds the exact input SHA-256 and includes each candidate's score,
-feasibility, cost, alpha and effective ambiguity radius.
+feasibility, cost, alpha, effective ambiguity radius, search floor and bisection
+budget.
 
 Run:
 
