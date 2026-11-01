@@ -487,6 +487,146 @@ pub struct DiscreteDesignSelection {
     pub feasible_candidate_count: usize,
 }
 
+/// Robust per-design information score for a declared KL ambiguity radius.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RadiusRobustInformation {
+    pub requested_kl_radius_nats: f64,
+    pub effective_kl_radius_nats: f64,
+    pub alpha: f64,
+    pub sibson_information_nats: f64,
+    /// True when the requested radius exceeds the supported alpha search range.
+    pub alpha_search_clamped: bool,
+}
+
+/// Deterministic one-design maximin information reference for a KL radius.
+///
+/// For each fixed candidate design, this inverts the q* KL cost to choose its
+/// alpha, then evaluates Sibson alpha-MI. This is the fixed-design ambiguity
+/// problem, not the paper's stochastic-policy problem with one shared average
+/// KL budget across a policy distribution.
+pub fn robust_information_at_kl_radius(
+    design: &DiscreteDesignModel,
+    radius_nats: f64,
+    minimum_alpha: f64,
+    iterations: usize,
+) -> Result<RadiusRobustInformation, String> {
+    if !radius_nats.is_finite() || radius_nats < 0.0 {
+        return Err("KL ambiguity radius must be finite and non-negative".into());
+    }
+    design.validate()?;
+    if radius_nats == 0.0 {
+        return Ok(RadiusRobustInformation {
+            requested_kl_radius_nats: 0.0,
+            effective_kl_radius_nats: 0.0,
+            alpha: 1.0,
+            sibson_information_nats: design.shannon_mutual_information()?,
+            alpha_search_clamped: false,
+        });
+    }
+
+    let maximum_radius = design
+        .worst_case_joint_distribution(minimum_alpha)?
+        .kl_to_nominal_nats;
+    if maximum_radius <= 1e-14 {
+        return Ok(RadiusRobustInformation {
+            requested_kl_radius_nats: radius_nats,
+            effective_kl_radius_nats: 0.0,
+            alpha: 1.0,
+            sibson_information_nats: 0.0,
+            alpha_search_clamped: false,
+        });
+    }
+
+    let alpha_search_clamped = radius_nats >= maximum_radius;
+    let alpha = if alpha_search_clamped {
+        minimum_alpha
+    } else {
+        design.alpha_for_kl_radius(radius_nats, minimum_alpha, iterations)?
+    };
+    let worst_case = design.worst_case_joint_distribution(alpha)?;
+    let information = design.sibson_alpha_mutual_information(alpha)?;
+
+    Ok(RadiusRobustInformation {
+        requested_kl_radius_nats: radius_nats,
+        effective_kl_radius_nats: worst_case.kl_to_nominal_nats,
+        alpha,
+        sibson_information_nats: information,
+        alpha_search_clamped,
+    })
+}
+
+/// Select the best feasible action when every deterministic candidate is
+/// evaluated under the same per-design KL ambiguity radius.
+///
+/// A candidate whose supported q* KL path saturates below the requested
+/// radius is evaluated at `minimum_alpha` and marked as clamped in its
+/// detailed score. This API is not a shared-average-KL stochastic-policy
+/// optimizer.
+pub fn select_discrete_design_at_kl_radius(
+    model_ids: &[String],
+    prior_weights: &[f64],
+    candidates: &[DiscreteDesignCandidate],
+    budget_units: u64,
+    radius_nats: f64,
+    minimum_alpha: f64,
+    iterations: usize,
+) -> Result<Option<(DiscreteDesignSelection, RadiusRobustInformation)>, String> {
+    let mut action_ids = BTreeSet::new();
+    let mut best: Option<(DiscreteDesignSelection, RadiusRobustInformation)> = None;
+    let mut feasible_candidate_count = 0;
+
+    for candidate in candidates {
+        if candidate.action_id.trim().is_empty()
+            || !action_ids.insert(candidate.action_id.as_str())
+        {
+            return Err("candidate action IDs must be non-empty and unique".into());
+        }
+        let design = DiscreteDesignModel {
+            model_ids: model_ids.to_vec(),
+            prior_weights: prior_weights.to_vec(),
+            outcome_ids: candidate.outcome_ids.clone(),
+            likelihoods: candidate.likelihoods.clone(),
+        };
+        design.validate()?;
+        if !candidate.eligible || candidate.cost_units > budget_units {
+            continue;
+        }
+        feasible_candidate_count += 1;
+        let score = robust_information_at_kl_radius(
+            &design,
+            radius_nats,
+            minimum_alpha,
+            iterations,
+        )?;
+        let should_replace = match &best {
+            None => true,
+            Some((current, _)) => {
+                score.sibson_information_nats > current.objective_value_nats + 1e-12
+                    || ((score.sibson_information_nats - current.objective_value_nats).abs() <= 1e-12
+                        && candidate.action_id < current.action_id)
+            }
+        };
+        if should_replace {
+            best = Some((
+                DiscreteDesignSelection {
+                    action_id: candidate.action_id.clone(),
+                    cost_units: candidate.cost_units,
+                    objective: DesignInformationObjective::SibsonAlpha(score.alpha),
+                    objective_value_nats: score.sibson_information_nats,
+                    candidate_count: candidates.len(),
+                    feasible_candidate_count: 0,
+                },
+                score,
+            ));
+        }
+    }
+
+    if let Some((selection, _)) = &mut best {
+        selection.feasible_candidate_count = feasible_candidate_count;
+    }
+    Ok(best)
+}
+
 /// Select the best single action by nominal Shannon MI or finite Sibson alpha-MI.
 ///
 /// This is a deterministic one-step reference with hard eligibility and budget
@@ -608,6 +748,76 @@ mod tests {
                 ],
             },
         ]
+    }
+
+    #[test]
+    fn fixed_kl_radius_resolves_alpha_and_recovers_requested_radius() {
+        let design = complementary_ct_tracer_pair();
+        let target_radius = design.worst_case_joint_distribution(0.5).unwrap()
+            .kl_to_nominal_nats;
+        let score = robust_information_at_kl_radius(
+            &design,
+            target_radius,
+            0.05,
+            64,
+        ).unwrap();
+        assert!((score.alpha - 0.5).abs() < 1e-8);
+        assert!((score.effective_kl_radius_nats - target_radius).abs() < 1e-8);
+        assert!((score.sibson_information_nats
+            - design.sibson_alpha_mutual_information(0.5).unwrap()).abs() < 1e-10);
+        assert!(!score.alpha_search_clamped);
+    }
+
+    #[test]
+    fn zero_kl_radius_recovers_nominal_shannon_design_value() {
+        let design = complementary_ct_tracer_pair();
+        let score = robust_information_at_kl_radius(&design, 0.0, 0.05, 64).unwrap();
+        assert_eq!(score.alpha, 1.0);
+        assert_eq!(score.effective_kl_radius_nats, 0.0);
+        assert!((score.sibson_information_nats
+            - design.shannon_mutual_information().unwrap()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn uninformative_design_handles_positive_kl_radius_without_false_information() {
+        let design = independent_design();
+        let score = robust_information_at_kl_radius(&design, 0.1, 0.05, 64).unwrap();
+        assert_eq!(score.alpha, 1.0);
+        assert_eq!(score.sibson_information_nats, 0.0);
+        assert_eq!(score.effective_kl_radius_nats, 0.0);
+    }
+
+    #[test]
+    fn per_design_radius_selector_enforces_budget_and_eligibility() {
+        let candidates = robust_ranking_fixture();
+        let selected = select_discrete_design_at_kl_radius(
+            &["m0".into(), "m1".into()],
+            &[0.5, 0.5],
+            &candidates,
+            2,
+            0.02,
+            0.05,
+            48,
+        ).unwrap().unwrap();
+        assert_eq!(selected.0.feasible_candidate_count, 2);
+        assert!(selected.1.effective_kl_radius_nats <= 0.02 + 1e-8);
+        assert!(selected.1.alpha >= 0.05);
+    }
+
+    #[test]
+    fn per_design_radius_selector_marks_alpha_search_clamp() {
+        let design = complementary_ct_tracer_pair();
+        let maximum = design.worst_case_joint_distribution(0.05).unwrap()
+            .kl_to_nominal_nats;
+        let score = robust_information_at_kl_radius(
+            &design,
+            maximum * 2.0,
+            0.05,
+            64,
+        ).unwrap();
+        assert!(score.alpha_search_clamped);
+        assert_eq!(score.alpha, 0.05);
+        assert!((score.effective_kl_radius_nats - maximum).abs() < 1e-12);
     }
 
     #[test]
