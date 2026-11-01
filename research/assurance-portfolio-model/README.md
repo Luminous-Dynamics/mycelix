@@ -42,7 +42,7 @@ The crate has no third-party dependencies and no default features. It is intenti
 
 ## Initial qualification panel
 
-The 25 unit tests include:
+The 26 unit tests include:
 - hard-invariant refutation with multiple supporting evaluators;
 - exact replay deduplication;
 - shared implementation lineage despite distinct executable digests;
@@ -54,6 +54,7 @@ The 25 unit tests include:
 - explicit profile authorization of exact hard-refutation evaluator identities;
 - undeclared roles cannot dispositively refute a hard invariant;
 - a familiar role label with an unlisted evaluator digest cannot spoof hard-refutation authority;
+- an authorized executable under an unlisted evaluator profile cannot issue a hard refutation;
 - self-contradictory output from a designated refutation evaluator is indeterminate;
 - non-hard refutation;
 - contradictory outcomes from one evaluator/profile;
