@@ -199,7 +199,8 @@ jobs:
             ([.candidate_summaries[] | select(.action_id == "redundant_ct_repeat") | .sibson_information_nats][0] < 1e-12) and
             ([.candidate_summaries[] | select(.action_id == "ineligible_perfect_measurement") | .feasible_under_budget][0] == false) and
             ([.candidate_summaries[] | select(.action_id == "over_budget_perfect_measurement") | .feasible_under_budget][0] == false) and
-            ([.candidate_summaries[] | select(.action_id == "ineligible_perfect_measurement") | .sibson_information_nats][0] > .fixed_alpha_sibson_selection.objective_value_nats)
+            ([.candidate_summaries[] | select(.action_id == "ineligible_perfect_measurement") | .sibson_information_nats][0]) as $ineligible_information |
+            $ineligible_information > .fixed_alpha_sibson_selection.objective_value_nats
           ' "$RUNNER_TEMP/robust-information-report.json"
       - name: Execute physical-versus-nuisance covariance identifiability bake-off
         run: |
