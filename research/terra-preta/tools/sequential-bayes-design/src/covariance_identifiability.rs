@@ -785,6 +785,22 @@ mod tests {
     }
 
     #[test]
+    fn relative_fit_residual_is_scale_invariant_for_small_covariances() {
+        let design = crossed_support_batch_instrument_design();
+        let mut covariance = design.covariance_from_variances(&[
+            0.7e-12, 0.4e-12, 0.2e-12, 0.1e-12,
+        ]).unwrap();
+        // These observations share no physical, batch or instrument group;
+        // the off-diagonal perturbation lies outside every declared component.
+        covariance[0][14] += 1e-14;
+        covariance[14][0] += 1e-14;
+
+        let recovered = design.recover_exact_variance_components(&covariance).unwrap();
+        assert!(recovered.relative_fit_residual > 1e-4);
+        assert!(recovered.relative_fit_residual < 1e-2);
+    }
+
+    #[test]
     fn exact_covariance_oracle_recovers_each_variance_component() {
         let design = crossed_support_batch_instrument_design();
         let expected = [0.7, 0.4, 0.2, 0.1];
