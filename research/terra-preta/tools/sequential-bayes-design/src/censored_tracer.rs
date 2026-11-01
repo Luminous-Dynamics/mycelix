@@ -11,7 +11,7 @@
 //! This module does not infer the transformation, calibrate detection limits,
 //! or model the instrument's false-positive/false-negative process.
 
-use crate::information_gain::ConditionalGaussianModel;
+use crate::multivariate_gaussian::ConditionalGaussianModel;
 use crate::robust_information::DiscreteDesignModel;
 use std::collections::BTreeSet;
 
