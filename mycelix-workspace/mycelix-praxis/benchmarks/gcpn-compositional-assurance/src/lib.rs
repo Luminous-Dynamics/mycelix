@@ -979,7 +979,7 @@ mod tests {
         input.evidence.retain(|item| item.stage != Stage::Forecast);
         let report = input.audit().unwrap();
         let forecast = report.claims.iter().find(|claim| claim.stage == Stage::Forecast).unwrap();
-        assert_eq!(forecast.disposition, ClaimDisposition::Indeterminate);
+        assert_eq!(forecast.disposition, ClaimDisposition::Unavailable);
         assert!(forecast.violations.contains(&ViolationCode::ClaimEvidenceMissing));
     }
 
