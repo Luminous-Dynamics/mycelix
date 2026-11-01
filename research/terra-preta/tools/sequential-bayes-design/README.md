@@ -232,6 +232,27 @@ not finite-sample precision, posterior calibration or empirical covariance
 estimation. Support equality must be explicitly declared; overlap does not
 automatically become a correlation coefficient.
 
+## Detection-aware tracer sensor co-design
+
+The `tracer_sensor_design` module compares sensor/reporting configurations
+with different finite censoring boundaries, acquisition costs and eligibility.
+It turns each configuration into a discrete likelihood design from the same
+conditional Gaussian tracer predictions, then scores Shannon information,
+fixed-alpha Sibson information and per-design KL-radius information. It also
+selects under hard cost and eligibility constraints.
+
+The `tracer-sensor-design-bakeoff` executable reports every candidate's
+outcome bins and information metrics plus nominal, fixed-alpha and
+fixed-per-design-KL selections. Its synthetic fixture includes a coarse
+detector, a more sensitive feasible detector, an ultra-sensitive
+over-budget detector and an ineligible high-resolution option.
+
+**Boundary:** this is detector-threshold/bin co-design under a synthetic
+predictive distribution. The cost units, thresholds and Gaussian likelihood
+are inputs, not calibrated analytical chemistry or a tracer-mass/transport
+model. The fixed-per-design-KL method remains distinct from the shared-policy
+average-KL stochastic optimizer.
+
 ## Censored tracer observations and detection-aware information
 
 The `censored_tracer` module treats a tracer nondetect as the event
