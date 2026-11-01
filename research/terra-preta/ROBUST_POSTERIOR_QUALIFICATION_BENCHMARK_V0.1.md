@@ -289,3 +289,10 @@ sup_beta { E_pi[I^S_{beta/(1+beta)}(design)] - beta * rho }
 ```
 
 It is distinct from the earlier `robust_information_at_kl_radius` comparator, which solves a separate KL inversion for each deterministic design. The new module additionally implements the finite Gibbs optimizer for the PAC-Bayes variational objective and a lower-bound arithmetic helper conditional on externally verified concentration assumptions. It does not implement the nested Monte Carlo estimator yet, and it does not claim PAC-Bayes certification from unverified constants.
+
+
+## 21. Executable Gibbs policy + shared-average-KL comparison — 2026-11-01
+
+The robust CLI now imports the finite stochastic-policy implementation. It builds a Gibbs policy from the exact finite Sibson action rewards, with a uniform reference policy over feasible actions and zero probability for ineligible or over-budget actions. It then evaluates this *stochastic distribution over designs* under the shared-average-KL robust dual using one common beta.
+
+The SHA-bound report now includes action-level prior/posterior probabilities, reward, cost, expected information, (KL(\pi\|\pi_0)), variational objective, expected cost, common dual beta, alpha, expected robust information, adversarial penalty and robust policy value. Workflow assertions check distribution normalization, zero probability for infeasible actions, expected budget compliance, and the dual identity. This is an executable finite stochastic-policy comparator. Rewards are exact synthetic Sibson calculations rather than nested Monte Carlo estimates, and the PAC-Bayes lower-bound assumptions/constants are not validated by this CLI; no certificate or empirical superiority is claimed.
