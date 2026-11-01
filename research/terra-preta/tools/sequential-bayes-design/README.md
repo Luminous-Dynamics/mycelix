@@ -123,6 +123,26 @@ This is an exact synthetic oracle, not an EnKF, particle filter, adjoint,
 Richards solver or empirical assimilation result. It is intended as a truth
 reference for comparing those approximations in #5658.
 
+## CT-derived wetted macropore–matrix interface
+
+The `ct_wetted_interface` module calculates unique voxel-face interfaces
+between segmented macropore and matrix-pore phases. It uses physical voxel
+spacing to calculate face area, weights each face by the lesser of the two
+explicit local wet fractions, and divides by the full specimen support volume
+to return specific wetted interface area in m⁻¹. It preserves a stable support
+ID and converts directly to the `ExchangeObservation` input expected by the
+transient exchange module.
+
+The tests cover exact single-face area, anisotropic voxel spacing, unique face
+counting, geometric-but-unwetted interfaces, solid boundary exclusion, the
+exchange bridge, and invalid grids/measurements.
+
+**Boundary:** the segmentation and wet-fraction fields are supplied. The
+minimum-wet-fraction face weight is a transparent synthetic approximation,
+not a calibrated multiphase wetting law. CT alone does not measure time-varying
+wetting; dynamic wet fractions must come from a physical model or independent
+observation operator. No sub-voxel surface correction is applied.
+
 ## Transient macropore–matrix exchange
 
 The `transient_exchange` module implements a time-resolved reference for
