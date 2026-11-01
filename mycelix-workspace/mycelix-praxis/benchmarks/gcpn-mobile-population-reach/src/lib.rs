@@ -266,16 +266,15 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
             cell.unique_accessible_receipts.unwrap_or(0),
             "accessible reach",
         )?;
-        if cell.accessibility_required {
-            if let (Some(timely_count), Some(accessible_count)) =
+        if cell.accessibility_required
+            && let (Some(timely_count), Some(accessible_count)) =
                 (cell.unique_timely_receipts, cell.unique_accessible_receipts)
-            {
+        {
                 checked_add_count(
                     &mut accessibility_required_unserved,
                     timely_count - accessible_count,
                     "accessibility shortfall",
                 )?;
-            }
         }
         checked_add_count(
             &mut channel_total,
@@ -303,16 +302,15 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
             cell.unique_accessible_receipts.unwrap_or(0),
             "cohort accessible reach",
         )?;
-        if cell.accessibility_required {
-            if let (Some(timely_count), Some(accessible_count)) =
+        if cell.accessibility_required
+            && let (Some(timely_count), Some(accessible_count)) =
                 (cell.unique_timely_receipts, cell.unique_accessible_receipts)
-            {
+        {
                 checked_add_count(
                     &mut row.accessibility_required_unserved,
                     timely_count - accessible_count,
                     "cohort accessibility shortfall",
                 )?;
-            }
         }
         if cell.unique_timely_receipts.is_none() {
             row.unknown_unique_reach_cells = row
