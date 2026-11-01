@@ -43,15 +43,17 @@ fn main() {
                 report.evaluation_period_start
             );
             println!(
-                "case,raw_bias,raw_rmse,debiased_rmse,forecast_activity,truth_activity,FI,IE,NE,status"
+                "case,raw_bias,raw_rmse,forecast_anomaly_mean,truth_anomaly_mean,anomaly_centered_error_std,forecast_activity,truth_activity,FI,IE,NE,status"
             );
             for item in &report.cases {
                 println!(
-                    "{},{:.6},{:.6},{:.6},{:.6},{:.6},{:?},{:?},{:?},{}",
+                    "{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:?},{:?},{:?},{}",
                     item.case_id,
                     item.raw_bias,
                     item.raw_rmse,
-                    item.debiased_rmse,
+                    item.forecast_anomaly_mean,
+                    item.truth_anomaly_mean,
+                    item.anomaly_centered_error_std,
                     item.forecast_activity,
                     item.truth_activity,
                     item.forecast_information,
