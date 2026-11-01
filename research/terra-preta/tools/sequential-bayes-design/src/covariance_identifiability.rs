@@ -894,6 +894,30 @@ mod tests {
     }
 
     #[test]
+    fn expected_fisher_information_matches_one_observation_analytic_oracle() {
+        let design = CovarianceComponentDesign::new(vec![
+            observation(
+                "single-observation",
+                "ct",
+                Some("support-A"),
+                Some("batch-A"),
+                Some("instrument-A"),
+            ),
+        ]).unwrap();
+        let information = design.expected_fisher_information(&[0.4, 0.3, 0.2, 0.1]).unwrap();
+        // Every component basis is [1] and Sigma = 0.4 + 0.3 + 0.2 + 0.1 = 1.
+        // For one N(mu, Sigma) datum with known mean, I[k,l] = 1/(2 Sigma^2).
+        for row in 0..4 {
+            for column in 0..4 {
+                assert!((information.information_matrix[row][column] - 0.5).abs() < 1e-12);
+            }
+        }
+        assert_eq!(information.structural_rank, 1);
+        assert_eq!(information.condition_number, None);
+        assert_eq!(information.log_determinant, None);
+    }
+
+    #[test]
     fn expected_fisher_information_distinguishes_crossed_from_confounded_designs() {
         let crossed = crossed_support_batch_instrument_design();
         let crossed_information = crossed.expected_fisher_information(&[0.7, 0.4, 0.2, 0.1]).unwrap();
