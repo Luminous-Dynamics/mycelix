@@ -126,15 +126,14 @@ fn number(record: &csv::StringRecord, index: usize, name: &str, row: usize) -> R
         .parse()
         .map_err(|error| format!("row {row}: cannot parse {name:?} value {raw:?}: {error}"))?;
     if !value.is_finite() || value < 0.0 {
-        return Err(format!("row {row}: {name:?} must be finite and non-negative"));
+        return Err(format!(
+            "row {row}: {name:?} must be finite and non-negative"
+        ));
     }
     Ok(value)
 }
 
-fn parse_pores<R: io::Read>(
-    reader: R,
-    mapping: &ColumnMapping,
-) -> Result<Vec<Pore>, String> {
+fn parse_pores<R: io::Read>(reader: R, mapping: &ColumnMapping) -> Result<Vec<Pore>, String> {
     let mut csv_reader = csv::ReaderBuilder::new()
         .flexible(false)
         .trim(csv::Trim::Headers)
@@ -155,7 +154,8 @@ fn parse_pores<R: io::Read>(
     let mut pores = Vec::new();
     for (offset, result) in csv_reader.records().enumerate() {
         let row_number = offset + 2;
-        let record = result.map_err(|error| format!("row {row_number}: CSV parse failed: {error}"))?;
+        let record =
+            result.map_err(|error| format!("row {row_number}: CSV parse failed: {error}"))?;
         if record.iter().all(|value| value.trim().is_empty()) {
             continue;
         }
@@ -170,13 +170,17 @@ fn parse_pores<R: io::Read>(
             return Err(format!("row {row_number}: area must be greater than zero"));
         }
         if pore.perimeter_mm <= 0.0 || pore.min_feret_mm <= 0.0 || pore.feret_mm <= 0.0 {
-            return Err(format!("row {row_number}: perimeter and Feret diameters must be greater than zero"));
+            return Err(format!(
+                "row {row_number}: perimeter and Feret diameters must be greater than zero"
+            ));
         }
         if pore.min_feret_mm > pore.feret_mm {
             return Err(format!("row {row_number}: MinFeret cannot exceed Feret"));
         }
         if pore.feret_angle_degrees >= 180.0 {
-            return Err(format!("row {row_number}: FeretAngle must be in [0, 180) degrees"));
+            return Err(format!(
+                "row {row_number}: FeretAngle must be in [0, 180) degrees"
+            ));
         }
         pores.push(pore);
     }
@@ -223,11 +227,15 @@ fn summarize(
     let perimeters: Vec<_> = retained.iter().map(|pore| pore.perimeter_mm).collect();
     let min_ferets: Vec<_> = retained.iter().map(|pore| pore.min_feret_mm).collect();
     let ferets: Vec<_> = retained.iter().map(|pore| pore.feret_mm).collect();
-    let angles: Vec<_> = retained.iter().map(|pore| pore.feret_angle_degrees).collect();
+    let angles: Vec<_> = retained
+        .iter()
+        .map(|pore| pore.feret_angle_degrees)
+        .collect();
     let circularities: Vec<_> = retained
         .iter()
-        .map(|pore| 4.0 * std::f64::consts::PI * pore.area_mm2
-            / (pore.perimeter_mm * pore.perimeter_mm))
+        .map(|pore| {
+            4.0 * std::f64::consts::PI * pore.area_mm2 / (pore.perimeter_mm * pore.perimeter_mm)
+        })
         .collect();
     let aspect_ratios: Vec<_> = retained
         .iter()
@@ -248,16 +256,20 @@ fn summarize(
     }
     orientation_nematic_order_x /= angles.len() as f64;
     orientation_nematic_order_y /= angles.len() as f64;
-    let orientation_nematic_strength = orientation_nematic_order_x.hypot(orientation_nematic_order_y);
+    let orientation_nematic_strength =
+        orientation_nematic_order_x.hypot(orientation_nematic_order_y);
     let dominant_orientation_degrees = if orientation_nematic_strength > 1.0e-12 {
-        let degrees = 0.5 * orientation_nematic_order_y.atan2(orientation_nematic_order_x).to_degrees();
+        let degrees = 0.5
+            * orientation_nematic_order_y
+                .atan2(orientation_nematic_order_x)
+                .to_degrees();
         Some(degrees.rem_euclid(180.0))
     } else {
         None
     };
 
-    let projected_pore_area_fraction = cross_section_area_mm2
-        .map(|section_area| summed_projected_pore_area_mm2 / section_area);
+    let projected_pore_area_fraction =
+        cross_section_area_mm2.map(|section_area| summed_projected_pore_area_mm2 / section_area);
 
     if let Some(fraction) = projected_pore_area_fraction {
         if fraction > 1.0 {
@@ -316,21 +328,31 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut index = 3;
     while index < args.len() {
         if index + 1 >= args.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "every option requires a value").into());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "every option requires a value",
+            )
+            .into());
         }
         let key = args[index].clone();
         let value = args[index + 1].clone();
         if options.insert(key.clone(), value).is_some() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("duplicate option {key}")).into());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("duplicate option {key}"),
+            )
+            .into());
         }
         index += 2;
     }
 
     let required = |key: &str| -> Result<String, io::Error> {
-        options
-            .get(key)
-            .cloned()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, format!("missing required option {key}")))
+        options.get(key).cloned().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("missing required option {key}"),
+            )
+        })
     };
     let horizon = required("--horizon")?;
     let resolution: f64 = required("--resolution-um")?.parse()?;
@@ -362,16 +384,21 @@ fn run() -> Result<(), Box<dyn Error>> {
             "--angle-col",
             "--cross-section-area-mm2",
             "--min-area-mm2",
-        ].contains(&key.as_str()) {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unknown option {key}")).into());
+        ]
+        .contains(&key.as_str())
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unknown option {key}"),
+            )
+            .into());
         }
     }
 
     let bytes = fs::read(input_path)?;
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
-    let pores = parse_pores(bytes.as_slice(), &mapping).map_err(|error| {
-        io::Error::new(io::ErrorKind::InvalidData, error)
-    })?;
+    let pores = parse_pores(bytes.as_slice(), &mapping)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let report = summarize(
         &pores,
         input_sha256,
@@ -380,22 +407,26 @@ fn run() -> Result<(), Box<dyn Error>> {
         cross_section_area,
         minimum_object_area,
         mapping,
-    ).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    )
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let serialized = serde_json::to_vec_pretty(&report)?;
 
     let mut output = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(Path::new(output_path))
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create report {output_path}: {error}")))?;
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("refusing overwrite or cannot create report {output_path}: {error}"),
+            )
+        })?;
     output.write_all(&serialized)?;
     output.write_all(b"\n")?;
     output.sync_all()?;
     println!(
         "morphology audit complete: {} 2D pore objects; projected pore area {:.6} mm2; input SHA-256 {}",
-        report.detected_object_count,
-        report.summed_projected_pore_area_mm2,
-        report.input_sha256
+        report.detected_object_count, report.summed_projected_pore_area_mm2, report.input_sha256
     );
     Ok(())
 }
@@ -422,7 +453,8 @@ mod tests {
         }
     }
 
-    const CSV: &str = "Area,Perim.,MinFeret,Feret,FeretAngle\n2.0,5.0,1.0,2.0,5.0\n4.0,8.0,1.5,3.0,95.0\n";
+    const CSV: &str =
+        "Area,Perim.,MinFeret,Feret,FeretAngle\n2.0,5.0,1.0,2.0,5.0\n4.0,8.0,1.5,3.0,95.0\n";
 
     #[test]
     fn parses_and_summarizes_imagej_geometry() {
@@ -437,7 +469,8 @@ mod tests {
             Some(100.0),
             0.0,
             mapping(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(report.detected_object_count, 2);
         assert_eq!(report.summed_projected_pore_area_mm2, 6.0);
         assert_eq!(report.projected_pore_area_fraction, Some(0.06));
@@ -457,7 +490,8 @@ mod tests {
             Some(100.0),
             std::f64::consts::PI,
             mapping(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(report.input_object_count, 2);
         assert_eq!(report.excluded_below_minimum_area_count, 1);
         assert_eq!(report.detected_object_count, 1);
@@ -475,7 +509,8 @@ mod tests {
             None,
             0.0,
             mapping(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(report.feret_aspect_ratio.mean, 2.0);
         assert_eq!(report.orientation_histogram_10deg_bins[0], 1);
         assert_eq!(report.orientation_histogram_10deg_bins[9], 1);
@@ -487,9 +522,19 @@ mod tests {
     #[test]
     fn rejects_negative_minimum_area_filter() {
         let pores = parse_pores(Cursor::new(CSV), &mapping()).unwrap();
-        assert!(summarize(
-            &pores, "f".repeat(64), "Ap1".to_owned(), 180.0, None, -1.0, mapping()
-        ).unwrap_err().contains("minimum object area"));
+        assert!(
+            summarize(
+                &pores,
+                "f".repeat(64),
+                "Ap1".to_owned(),
+                180.0,
+                None,
+                -1.0,
+                mapping()
+            )
+            .unwrap_err()
+            .contains("minimum object area")
+        );
     }
 
     #[test]
@@ -497,7 +542,8 @@ mod tests {
         let error = parse_pores(
             Cursor::new("Area,Perim.,MinFeret,Feret\n2,5,1,2\n"),
             &mapping(),
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert!(error.contains("FeretAngle"));
     }
 
@@ -506,7 +552,8 @@ mod tests {
         let error = parse_pores(
             Cursor::new("Area,Perim.,MinFeret,Feret,FeretAngle\nNaN,5,1,2,10\n"),
             &mapping(),
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert!(error.contains("finite and non-negative"));
     }
 
@@ -515,7 +562,8 @@ mod tests {
         let error = parse_pores(
             Cursor::new("Area,Perim.,MinFeret,Feret,FeretAngle\n2,5,3,2,10\n"),
             &mapping(),
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert!(error.contains("MinFeret cannot exceed Feret"));
     }
 
@@ -524,7 +572,8 @@ mod tests {
         let error = parse_pores(
             Cursor::new("Area,Perim.,MinFeret,Feret,FeretAngle\n2,5,1,2,180\n"),
             &mapping(),
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert!(error.contains("FeretAngle must be in [0, 180)"));
     }
 
@@ -539,7 +588,8 @@ mod tests {
             Some(5.0),
             0.0,
             mapping(),
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert!(error.contains("exceeds declared cross-section area"));
     }
 
@@ -562,7 +612,8 @@ mod tests {
             None,
             0.0,
             mapping(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(report.input_sha256, "c".repeat(64));
         assert!(report.dimensionality_boundary.contains("2D"));
         assert_eq!(report.projected_pore_area_fraction, None);
