@@ -150,7 +150,7 @@ impl Report {
             && self.decision_to_finance.total_ticks == 800
             && self.finance_to_action.observations == 6
             && self.finance_to_action.total_ticks == 800
-            && self.action_to_completion.observations == 4
+            && self.action_to_completion.observations == 5
             && self.action_to_completion.total_ticks == 2_130
             && self.decision_to_action.observations == 1
             && self.decision_to_action.total_ticks == 20
