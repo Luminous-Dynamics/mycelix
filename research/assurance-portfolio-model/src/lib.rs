@@ -687,9 +687,6 @@ mod tests {
         let mut invalid = profile(false);
         invalid.required_separations[0].right_role = EvaluatorRole::NormativeContract;
 
-        assert_eq!(
-            invalid.validate(),
-            Err(CompositionError::SelfSeparation)
-        );
+        assert_eq!(invalid.validate(), Err(CompositionError::SelfSeparation));
     }
 }
