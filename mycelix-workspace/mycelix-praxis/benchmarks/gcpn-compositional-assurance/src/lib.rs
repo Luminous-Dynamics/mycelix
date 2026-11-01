@@ -155,8 +155,9 @@ impl ViolationCode {
             | Self::PopulationAccountingMismatch => Stage::PopulationReach,
             Self::UnsupportedCausalClaim | Self::EvidenceAfterAsOf => Stage::AfterEventReview,
             Self::ClaimEvidenceMissing => Stage::Forecast,
-            Self::CandidateReferenceFrameMismatch
-            | Self::CandidateReferenceSourceMismatch => Stage::Forecast,
+            Self::CandidateReferenceFrameMismatch | Self::CandidateReferenceSourceMismatch => {
+                Stage::Forecast
+            }
         }
     }
 }
@@ -359,8 +360,7 @@ impl Scenario {
                 .evidence
                 .iter()
                 .filter(|evidence| {
-                    evidence.stage == requirement.stage
-                        && evidence.claim_id == requirement.claim_id
+                    evidence.stage == requirement.stage && evidence.claim_id == requirement.claim_id
                 })
                 .collect();
 
@@ -436,14 +436,12 @@ impl Scenario {
             }
 
             if supporting_records > 1
-                && supporting_lineages.len()
-                    < requirement.minimum_independent_supporting_lineages
+                && supporting_lineages.len() < requirement.minimum_independent_supporting_lineages
             {
                 violations.insert(ViolationCode::CommonCauseLineage);
             }
 
-            if supporting_lineages.len()
-                < requirement.minimum_independent_supporting_lineages
+            if supporting_lineages.len() < requirement.minimum_independent_supporting_lineages
                 && !matching.is_empty()
             {
                 violations.insert(ViolationCode::InsufficientIndependentEvidence);
@@ -555,7 +553,8 @@ impl Scenario {
                     if population.unique_reach > eligible {
                         violations.insert(ViolationCode::PopulationReachExceedsEligible);
                     }
-                    if population.observed_cases
+                    if population
+                        .observed_cases
                         .checked_add(population.typed_missing_cases)
                         != Some(eligible)
                     {
@@ -566,7 +565,8 @@ impl Scenario {
         }
 
         if let Some(verification) = &self.facts.verification {
-            if verification.observed_cases
+            if verification
+                .observed_cases
                 .checked_add(verification.typed_missing_cases)
                 != Some(verification.eligible_cases)
             {
@@ -725,13 +725,55 @@ mod tests {
                 requirement(Stage::AfterEventReview, "review-valid", 1),
             ],
             evidence: vec![
-                evidence("f-1", Stage::Forecast, "forecast-valid", "forecast-root", ClaimDisposition::Supports),
-                evidence("o-1", Stage::Observation, "reference-valid", "sensor-root-a", ClaimDisposition::Supports),
-                evidence("o-2", Stage::Observation, "reference-valid", "sensor-root-b", ClaimDisposition::Supports),
-                evidence("c-1", Stage::CapLifecycle, "receipt-valid", "cap-root", ClaimDisposition::Supports),
-                evidence("p-1", Stage::PopulationReach, "reach-valid", "population-root", ClaimDisposition::Supports),
-                evidence("d-1", Stage::Decision, "decision-valid", "decision-root", ClaimDisposition::Supports),
-                evidence("a-1", Stage::AfterEventReview, "review-valid", "review-root", ClaimDisposition::Supports),
+                evidence(
+                    "f-1",
+                    Stage::Forecast,
+                    "forecast-valid",
+                    "forecast-root",
+                    ClaimDisposition::Supports,
+                ),
+                evidence(
+                    "o-1",
+                    Stage::Observation,
+                    "reference-valid",
+                    "sensor-root-a",
+                    ClaimDisposition::Supports,
+                ),
+                evidence(
+                    "o-2",
+                    Stage::Observation,
+                    "reference-valid",
+                    "sensor-root-b",
+                    ClaimDisposition::Supports,
+                ),
+                evidence(
+                    "c-1",
+                    Stage::CapLifecycle,
+                    "receipt-valid",
+                    "cap-root",
+                    ClaimDisposition::Supports,
+                ),
+                evidence(
+                    "p-1",
+                    Stage::PopulationReach,
+                    "reach-valid",
+                    "population-root",
+                    ClaimDisposition::Supports,
+                ),
+                evidence(
+                    "d-1",
+                    Stage::Decision,
+                    "decision-valid",
+                    "decision-root",
+                    ClaimDisposition::Supports,
+                ),
+                evidence(
+                    "a-1",
+                    Stage::AfterEventReview,
+                    "review-valid",
+                    "review-root",
+                    ClaimDisposition::Supports,
+                ),
             ],
             facts: ScenarioFacts {
                 forecast_timing: Some(ForecastTiming {
@@ -785,21 +827,38 @@ mod tests {
     fn clean_composed_scenario_supports_each_required_claim() {
         let report = scenario().audit().unwrap();
         assert_eq!(report.claims.len(), 6);
-        assert!(report.claims.iter().all(|claim| claim.disposition == ClaimDisposition::Supports));
+        assert!(
+            report
+                .claims
+                .iter()
+                .all(|claim| claim.disposition == ClaimDisposition::Supports)
+        );
         assert!(report.violations.is_empty());
     }
 
     #[test]
     fn common_cause_lineage_does_not_count_as_independent_witnesses() {
         let mut input = scenario();
-        for evidence in input.evidence.iter_mut().filter(|item| item.stage == Stage::Observation) {
+        for evidence in input
+            .evidence
+            .iter_mut()
+            .filter(|item| item.stage == Stage::Observation)
+        {
             evidence.lineage_root = "shared-calibration-root".into();
         }
         let report = input.audit().unwrap();
-        let observation = report.claims.iter().find(|claim| claim.stage == Stage::Observation).unwrap();
+        let observation = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Observation)
+            .unwrap();
         assert_eq!(observation.independent_supporting_lineages, 1);
         assert_eq!(observation.disposition, ClaimDisposition::Indeterminate);
-        assert!(observation.violations.contains(&ViolationCode::CommonCauseLineage));
+        assert!(
+            observation
+                .violations
+                .contains(&ViolationCode::CommonCauseLineage)
+        );
     }
 
     #[test]
@@ -810,9 +869,17 @@ mod tests {
         input.evidence[1].lineage_root = "same-network-root".into();
         input.evidence[2].lineage_root = "same-network-root".into();
         let report = input.audit().unwrap();
-        let observation = report.claims.iter().find(|claim| claim.stage == Stage::Observation).unwrap();
+        let observation = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Observation)
+            .unwrap();
         assert_eq!(observation.independent_supporting_lineages, 1);
-        assert!(observation.violations.contains(&ViolationCode::CommonCauseLineage));
+        assert!(
+            observation
+                .violations
+                .contains(&ViolationCode::CommonCauseLineage)
+        );
     }
 
     #[test]
@@ -820,7 +887,11 @@ mod tests {
         let mut input = scenario();
         input.evidence[0].validity = EvidenceValidity::Stale;
         let report = input.audit().unwrap();
-        let forecast = report.claims.iter().find(|claim| claim.stage == Stage::Forecast).unwrap();
+        let forecast = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Forecast)
+            .unwrap();
         assert_eq!(forecast.disposition, ClaimDisposition::Indeterminate);
         assert!(forecast.violations.contains(&ViolationCode::StaleEvidence));
     }
@@ -842,9 +913,17 @@ mod tests {
         let mut input = scenario();
         input.evidence[6].recorded_at = 101;
         let report = input.audit().unwrap();
-        let review = report.claims.iter().find(|claim| claim.stage == Stage::AfterEventReview).unwrap();
+        let review = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::AfterEventReview)
+            .unwrap();
         assert_eq!(review.disposition, ClaimDisposition::Indeterminate);
-        assert!(review.violations.contains(&ViolationCode::EvidenceAfterAsOf));
+        assert!(
+            review
+                .violations
+                .contains(&ViolationCode::EvidenceAfterAsOf)
+        );
     }
 
     #[test]
@@ -857,8 +936,16 @@ mod tests {
             minimum_action_lead: 30,
         });
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::ForecastIssuedAfterDecisionCutoff));
-        assert!(report.violations.contains(&ViolationCode::InsufficientActionLead));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::ForecastIssuedAfterDecisionCutoff)
+        );
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::InsufficientActionLead)
+        );
     }
 
     #[test]
@@ -867,16 +954,33 @@ mod tests {
         input.facts.cap_receipt.as_mut().unwrap().receipt_message_id = "cap-41".into();
         input.facts.cap_receipt.as_mut().unwrap().receipt_version = "1".into();
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::CapReceiptMessageMismatch));
-        assert!(report.violations.contains(&ViolationCode::CapReceiptVersionMismatch));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CapReceiptMessageMismatch)
+        );
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CapReceiptVersionMismatch)
+        );
     }
 
     #[test]
     fn unknown_population_denominator_is_not_replaced_by_channel_totals() {
         let mut input = scenario();
-        input.facts.population.as_mut().unwrap().eligible_denominator = None;
+        input
+            .facts
+            .population
+            .as_mut()
+            .unwrap()
+            .eligible_denominator = None;
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::PopulationDenominatorUnknown));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::PopulationDenominatorUnknown)
+        );
     }
 
     #[test]
@@ -885,8 +989,16 @@ mod tests {
         input.facts.population.as_mut().unwrap().unique_reach = 1001;
         input.facts.population.as_mut().unwrap().typed_missing_cases = 10;
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::PopulationReachExceedsEligible));
-        assert!(report.violations.contains(&ViolationCode::PopulationAccountingMismatch));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::PopulationReachExceedsEligible)
+        );
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::PopulationAccountingMismatch)
+        );
     }
 
     #[test]
@@ -894,18 +1006,45 @@ mod tests {
         let mut input = scenario();
         input.facts.verification.as_mut().unwrap().observed_cases = 80;
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::PopulationAccountingMismatch));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::PopulationAccountingMismatch)
+        );
     }
 
     #[test]
     fn candidate_and_reference_must_share_frame_and_verification_lineage() {
         let mut input = scenario();
-        input.facts.paired_comparison.as_mut().unwrap().reference_case_frame_digest = "frame-2".into();
-        input.facts.paired_comparison.as_mut().unwrap().reference_source = "source-b".into();
-        input.facts.paired_comparison.as_mut().unwrap().reference_version = "v2".into();
+        input
+            .facts
+            .paired_comparison
+            .as_mut()
+            .unwrap()
+            .reference_case_frame_digest = "frame-2".into();
+        input
+            .facts
+            .paired_comparison
+            .as_mut()
+            .unwrap()
+            .reference_source = "source-b".into();
+        input
+            .facts
+            .paired_comparison
+            .as_mut()
+            .unwrap()
+            .reference_version = "v2".into();
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::CandidateReferenceFrameMismatch));
-        assert!(report.violations.contains(&ViolationCode::CandidateReferenceSourceMismatch));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CandidateReferenceFrameMismatch)
+        );
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CandidateReferenceSourceMismatch)
+        );
     }
 
     #[test]
@@ -918,23 +1057,45 @@ mod tests {
             supporting_evidence_ids: vec!["event-order".into()],
         });
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::UnsupportedCausalClaim));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::UnsupportedCausalClaim)
+        );
     }
 
     #[test]
     fn calibration_using_confirmatory_outcomes_is_not_intrinsic_skill() {
         let mut input = scenario();
-        input.facts.post_processing.as_mut().unwrap().calibration_uses_evaluation_outcomes = true;
+        input
+            .facts
+            .post_processing
+            .as_mut()
+            .unwrap()
+            .calibration_uses_evaluation_outcomes = true;
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::PostprocessingOutcomeLeakage));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::PostprocessingOutcomeLeakage)
+        );
     }
 
     #[test]
     fn calibration_cutoff_must_precede_evaluation_period() {
         let mut input = scenario();
-        input.facts.post_processing.as_mut().unwrap().calibration_trained_through = Some(20);
+        input
+            .facts
+            .post_processing
+            .as_mut()
+            .unwrap()
+            .calibration_trained_through = Some(20);
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::PostprocessingOutcomeLeakage));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::PostprocessingOutcomeLeakage)
+        );
     }
 
     #[test]
@@ -944,11 +1105,23 @@ mod tests {
         input.evidence[0].source = "wrong-source".into();
         input.evidence[0].version = "v9".into();
         let report = input.audit().unwrap();
-        let forecast = report.claims.iter().find(|claim| claim.stage == Stage::Forecast).unwrap();
+        let forecast = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Forecast)
+            .unwrap();
         assert_eq!(forecast.disposition, ClaimDisposition::Indeterminate);
-        assert!(forecast.violations.contains(&ViolationCode::SubjectDigestMismatch));
+        assert!(
+            forecast
+                .violations
+                .contains(&ViolationCode::SubjectDigestMismatch)
+        );
         assert!(forecast.violations.contains(&ViolationCode::SourceMismatch));
-        assert!(forecast.violations.contains(&ViolationCode::VersionMismatch));
+        assert!(
+            forecast
+                .violations
+                .contains(&ViolationCode::VersionMismatch)
+        );
     }
 
     #[test]
@@ -956,7 +1129,11 @@ mod tests {
         let mut input = scenario();
         input.evidence[0].disposition = ClaimDisposition::Refutes;
         let report = input.audit().unwrap();
-        let forecast = report.claims.iter().find(|claim| claim.stage == Stage::Forecast).unwrap();
+        let forecast = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Forecast)
+            .unwrap();
         assert_eq!(forecast.disposition, ClaimDisposition::Refutes);
     }
 
@@ -969,7 +1146,11 @@ mod tests {
         conflict.disposition = ClaimDisposition::Refutes;
         input.evidence.push(conflict);
         let report = input.audit().unwrap();
-        let forecast = report.claims.iter().find(|claim| claim.stage == Stage::Forecast).unwrap();
+        let forecast = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Forecast)
+            .unwrap();
         assert_eq!(forecast.disposition, ClaimDisposition::Indeterminate);
     }
 
@@ -978,16 +1159,29 @@ mod tests {
         let mut input = scenario();
         input.evidence.retain(|item| item.stage != Stage::Forecast);
         let report = input.audit().unwrap();
-        let forecast = report.claims.iter().find(|claim| claim.stage == Stage::Forecast).unwrap();
+        let forecast = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Forecast)
+            .unwrap();
         assert_eq!(forecast.disposition, ClaimDisposition::Unavailable);
-        assert!(forecast.violations.contains(&ViolationCode::ClaimEvidenceMissing));
+        assert!(
+            forecast
+                .violations
+                .contains(&ViolationCode::ClaimEvidenceMissing)
+        );
     }
 
     #[test]
     fn duplicate_evidence_ids_reject_the_scenario() {
         let mut input = scenario();
         input.evidence[1].evidence_id = input.evidence[0].evidence_id.clone();
-        assert!(input.validate().unwrap_err().contains("duplicate evidence id"));
+        assert!(
+            input
+                .validate()
+                .unwrap_err()
+                .contains("duplicate evidence id")
+        );
     }
 
     #[test]
@@ -999,7 +1193,10 @@ mod tests {
         let first_report = first.audit().unwrap();
         let second_report = second.audit().unwrap();
         assert_eq!(first_report, second_report);
-        assert_eq!(first_report.canonical_bytes(), second_report.canonical_bytes());
+        assert_eq!(
+            first_report.canonical_bytes(),
+            second_report.canonical_bytes()
+        );
     }
 
     #[test]
@@ -1015,7 +1212,12 @@ mod tests {
         irrelevant.subject_digest = "other-subject".into();
         input.evidence.push(irrelevant);
         let report = input.audit().unwrap();
-        assert!(report.claims.iter().all(|claim| claim.disposition == ClaimDisposition::Supports));
+        assert!(
+            report
+                .claims
+                .iter()
+                .all(|claim| claim.disposition == ClaimDisposition::Supports)
+        );
     }
 
     #[test]
@@ -1023,7 +1225,10 @@ mod tests {
         let input = scenario();
         let first = input.audit().unwrap();
         let second = input.audit().unwrap();
-        assert_eq!(first.reproducibility_fingerprint, second.reproducibility_fingerprint);
+        assert_eq!(
+            first.reproducibility_fingerprint,
+            second.reproducibility_fingerprint
+        );
     }
 
     #[test]
@@ -1032,7 +1237,10 @@ mod tests {
         let first = input.audit().unwrap();
         input.evidence[0].disposition = ClaimDisposition::Refutes;
         let second = input.audit().unwrap();
-        assert_ne!(first.reproducibility_fingerprint, second.reproducibility_fingerprint);
+        assert_ne!(
+            first.reproducibility_fingerprint,
+            second.reproducibility_fingerprint
+        );
     }
 
     #[test]
@@ -1043,7 +1251,12 @@ mod tests {
 
         let mut input = scenario();
         input.requirements.push(input.requirements[0].clone());
-        assert!(input.validate().unwrap_err().contains("duplicate stage/claim"));
+        assert!(
+            input
+                .validate()
+                .unwrap_err()
+                .contains("duplicate stage/claim")
+        );
     }
 
     #[test]
