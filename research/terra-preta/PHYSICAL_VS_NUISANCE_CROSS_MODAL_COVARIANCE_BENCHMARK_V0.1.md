@@ -166,3 +166,10 @@ These are qualification targets, not achieved results or guarantees.
 - Modrák et al. (2025), Bayesian Analysis, DOI [10.1214/23-BA1404](https://doi.org/10.1214/23-BA1404).
 
 The benchmark is statistical-methods software and synthetic data only. It authorizes no sampling, instrument deployment, sample handling, tracer injection, CT scan, field trial, land access or amendment.
+
+
+## 11. Executable structural covariance identifiability reference — 2026-11-01
+
+The Rust library now contains `tools/sequential-bayes-design/src/covariance_identifiability.rs`. It constructs covariance basis matrices for shared physical support, preparation batch, instrument and independent residual effects; computes structural rank and a Gram spectral condition diagnostic; determines individually identifiable components; and performs noiseless exact coefficient recovery for synthetic covariance matrices only.
+
+The reference controls show one CT/tracer pair sharing support/batch/instrument is rank 2/4, while a crossed support × batch × instrument × modality design is rank 4/4 and recovers variance coefficients [0.7, 0.4, 0.2, 0.1] to floating-point tolerance. A batch-only pair identifies the batch component but does not make physical covariance identifiable. This is an exact synthetic design oracle, not a statistical variance estimator or empirical soil result.
