@@ -89,13 +89,13 @@ pub struct MilestoneFinding {
 pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> Vec<MilestoneFinding> {
     plan.iter()
         .map(|milestone| {
-            let mut matching: Vec<&EvidenceEvent> = snapshot
+            let mut all_matching: Vec<&EvidenceEvent> = snapshot
                 .events
                 .iter()
                 .filter(|event| event.milestone_id == milestone.milestone_id)
                 .collect();
-            matching.sort_by_key(|event| event.event_at);
-            if matching.is_empty() {
+            all_matching.sort_by_key(|event| event.event_at);
+            if all_matching.is_empty() {
                 return MilestoneFinding {
                     milestone_id: milestone.milestone_id.clone(),
                     stage: milestone.stage,
@@ -105,13 +105,46 @@ pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> 
                     evidence_ids: Vec::new(),
                 };
             }
-            let event = matching[0];
-            let ids = matching.iter().map(|item| item.evidence_id.clone()).collect();
-            let status = if event.stage != milestone.stage || event.plan_version != milestone.plan_version {
-                MilestoneStatus::StageOrPlanVersionMismatch
-            } else if !event.verified_under_fixture_policy {
-                MilestoneStatus::Unverified
-            } else if event.event_at <= milestone.planned_at {
+
+            let mut plan_matching: Vec<&EvidenceEvent> = all_matching
+                .iter()
+                .copied()
+                .filter(|event| {
+                    event.stage == milestone.stage
+                        && event.plan_version == milestone.plan_version
+                })
+                .collect();
+            if plan_matching.is_empty() {
+                return MilestoneFinding {
+                    milestone_id: milestone.milestone_id.clone(),
+                    stage: milestone.stage,
+                    status: MilestoneStatus::StageOrPlanVersionMismatch,
+                    planned_at: milestone.planned_at,
+                    observed_at: all_matching.first().map(|event| event.event_at),
+                    evidence_ids: all_matching.iter().map(|event| event.evidence_id.clone()).collect(),
+                };
+            }
+
+            plan_matching.sort_by_key(|event| event.event_at);
+            let verified: Vec<&EvidenceEvent> = plan_matching
+                .iter()
+                .copied()
+                .filter(|event| event.verified_under_fixture_policy)
+                .collect();
+
+            if verified.is_empty() {
+                return MilestoneFinding {
+                    milestone_id: milestone.milestone_id.clone(),
+                    stage: milestone.stage,
+                    status: MilestoneStatus::Unverified,
+                    planned_at: milestone.planned_at,
+                    observed_at: plan_matching.first().map(|event| event.event_at),
+                    evidence_ids: plan_matching.iter().map(|event| event.evidence_id.clone()).collect(),
+                };
+            }
+
+            let first_verified = verified[0];
+            let status = if first_verified.event_at <= milestone.planned_at {
                 MilestoneStatus::OnTime
             } else {
                 MilestoneStatus::Late
@@ -121,8 +154,8 @@ pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> 
                 stage: milestone.stage,
                 status,
                 planned_at: milestone.planned_at,
-                observed_at: Some(event.event_at),
-                evidence_ids: ids,
+                observed_at: Some(first_verified.event_at),
+                evidence_ids: verified.iter().map(|event| event.evidence_id.clone()).collect(),
             }
         })
         .collect()
@@ -490,6 +523,40 @@ mod tests {
         let plan=vec![PlannedMilestone{milestone_id:"m".into(),stage:ReviewStage::WarningDissemination,planned_at:100,plan_version:"v2".into()}];
         let snapshot=reconstruct_as_of(&[event("e","m",90,91,true)],200);
         assert_eq!(evaluate_plan(&plan,&snapshot)[0].status,MilestoneStatus::StageOrPlanVersionMismatch);
+    }
+
+    #[test]
+    fn earlier_wrong_plan_version_does_not_hide_later_matching_evidence() {
+        let plan = vec![PlannedMilestone {
+            milestone_id: "m".into(),
+            stage: ReviewStage::WarningDissemination,
+            planned_at: 100,
+            plan_version: "v1".into(),
+        }];
+        let mut wrong = event("wrong-version", "m", 80, 81, true);
+        wrong.plan_version = "v0".into();
+        let right = event("matching-version", "m", 90, 91, true);
+        let snapshot = reconstruct_as_of(&[wrong, right], 200);
+        let finding = &evaluate_plan(&plan, &snapshot)[0];
+        assert_eq!(finding.status, MilestoneStatus::OnTime);
+        assert_eq!(finding.evidence_ids, vec!["matching-version"]);
+    }
+
+    #[test]
+    fn earlier_unverified_record_does_not_override_later_verified_record() {
+        let plan = vec![PlannedMilestone {
+            milestone_id: "m".into(),
+            stage: ReviewStage::WarningDissemination,
+            planned_at: 100,
+            plan_version: "v1".into(),
+        }];
+        let unverified = event("unverified-early", "m", 80, 81, false);
+        let verified_late = event("verified-late", "m", 120, 121, true);
+        let snapshot = reconstruct_as_of(&[unverified, verified_late], 200);
+        let finding = &evaluate_plan(&plan, &snapshot)[0];
+        assert_eq!(finding.status, MilestoneStatus::Late);
+        assert_eq!(finding.observed_at, Some(120));
+        assert_eq!(finding.evidence_ids, vec!["verified-late"]);
     }
 
     #[test]
