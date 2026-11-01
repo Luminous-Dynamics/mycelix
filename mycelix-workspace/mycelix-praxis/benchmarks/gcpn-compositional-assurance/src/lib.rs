@@ -319,6 +319,17 @@ impl Scenario {
             return Err("scenario must declare at least one claim requirement".into());
         }
 
+        if let Some(causal) = &self.facts.causal_claim
+            && causal.claim_made
+            && (!valid_identifier(&causal.claim_id)
+                || causal
+                    .supporting_evidence_ids
+                    .iter()
+                    .any(|evidence_id| !valid_identifier(evidence_id)))
+        {
+            return Err("causal claim and supporting evidence IDs must be canonical".into());
+        }
+
         let mut requirement_keys = BTreeSet::new();
         for requirement in &self.requirements {
             if !valid_identifier(&requirement.claim_id)
@@ -1378,6 +1389,87 @@ mod tests {
             .unwrap();
         assert_eq!(forecast.disposition, ClaimDisposition::Unavailable);
         assert!(forecast.violations.is_empty());
+    }
+
+    #[test]
+    fn simultaneous_cross_stage_faults_remain_separately_visible() {
+        let mut input = scenario();
+
+        input.evidence[1].lineage_root = "shared-network-root".into();
+        input.evidence[2].lineage_root = "shared-network-root".into();
+
+        input.facts.cap_receipt.as_mut().unwrap().receipt_message_id = "cap-41".into();
+        input.facts.cap_receipt.as_mut().unwrap().receipt_version = "1".into();
+
+        input.facts.forecast_timing = Some(ForecastTiming {
+            issued_at: 30,
+            decision_cutoff: 20,
+            event_valid_at: 35,
+            minimum_action_lead: 30,
+        });
+
+        input.facts.population.as_mut().unwrap().eligible_denominator = None;
+
+        input
+            .evidence
+            .iter_mut()
+            .find(|record| record.stage == Stage::AfterEventReview)
+            .unwrap()
+            .recorded_at = 101;
+        input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
+
+        let report = input.audit().unwrap();
+        for expected in [
+            ViolationCode::CommonCauseLineage,
+            ViolationCode::CapReceiptMessageMismatch,
+            ViolationCode::CapReceiptVersionMismatch,
+            ViolationCode::ForecastIssuedAfterDecisionCutoff,
+            ViolationCode::InsufficientActionLead,
+            ViolationCode::PopulationDenominatorUnknown,
+            ViolationCode::EvidenceAfterAsOf,
+            ViolationCode::CausalEvidenceAfterAsOf,
+        ] {
+            assert!(
+                report.violations.contains(&expected),
+                "missing composed violation: {}",
+                expected.label()
+            );
+        }
+
+        for (stage, expected) in [
+            (Stage::Forecast, ClaimDisposition::Supports),
+            (Stage::Observation, ClaimDisposition::Indeterminate),
+            (Stage::CapLifecycle, ClaimDisposition::Indeterminate),
+            (Stage::PopulationReach, ClaimDisposition::Indeterminate),
+            (Stage::Decision, ClaimDisposition::Indeterminate),
+            (Stage::AfterEventReview, ClaimDisposition::Indeterminate),
+        ] {
+            let claim = report.claims.iter().find(|item| item.stage == stage).unwrap();
+            assert_eq!(
+                claim.disposition,
+                expected,
+                "unexpected disposition for stage {}",
+                stage.label()
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_causal_claim_identifiers_are_rejected() {
+        let mut input = scenario();
+        input.facts.causal_claim = Some(CausalClaim {
+            claim_id: "not a canonical id".into(),
+            claim_made: true,
+            identification_method_id: Some("method-v1".into()),
+            design_id: Some("design-v1".into()),
+            supporting_evidence_ids: vec!["a-1".into()],
+        });
+        assert!(
+            input
+                .validate()
+                .unwrap_err()
+                .contains("causal claim and supporting evidence IDs")
+        );
     }
 
     #[test]
