@@ -84,9 +84,12 @@ fn main() {
             println!("  centralized_cost_per_accessible_receiver: {:.4}", report.lifecycle_cost.centralized_cost_per_accessible_receiver);
             println!("  regional_cost_per_accessible_receiver: {:.4}", report.lifecycle_cost.regional_cost_per_accessible_receiver);
             println!("  local_first_cost_per_accessible_receiver: {:.4}", report.lifecycle_cost.local_first_cost_per_accessible_receiver);
-            println!("  annual_staff_hours_centralized: {:.0}", report.lifecycle_cost.centralized_staff_hours);
-            println!("  annual_staff_hours_regional: {:.0}", report.lifecycle_cost.regional_staff_hours);
-            println!("  annual_staff_hours_local_first: {:.0}", report.lifecycle_cost.local_first_staff_hours);
+            println!("  annual_staff_hours_centralized: {:.0}", report.lifecycle_cost.centralized_annual_staff_hours);
+            println!("  annual_staff_hours_regional: {:.0}", report.lifecycle_cost.regional_annual_staff_hours);
+            println!("  annual_staff_hours_local_first: {:.0}", report.lifecycle_cost.local_first_annual_staff_hours);
+            println!("  staff_hours_over_horizon_centralized: {:.0}", report.lifecycle_cost.centralized_staff_hours_over_horizon);
+            println!("  staff_hours_over_horizon_regional: {:.0}", report.lifecycle_cost.regional_staff_hours_over_horizon);
+            println!("  staff_hours_over_horizon_local_first: {:.0}", report.lifecycle_cost.local_first_staff_hours_over_horizon);
 
             println!();
             println!("integrated_fixture_reproduction: {}", if report.all_fixture_oracles_reproduced() { "PASS" } else { "FAIL" });
