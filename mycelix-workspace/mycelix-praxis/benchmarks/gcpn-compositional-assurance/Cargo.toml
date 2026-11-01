@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-compositional-assurance"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Deterministic fault-injection and compositional assurance benchmark for GCPN"
+
+# Standalone benchmark; do not couple it to the parent Praxis workspace.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-compositional-assurance"
+path = "src/main.rs"
