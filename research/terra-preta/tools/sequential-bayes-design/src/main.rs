@@ -192,6 +192,9 @@ struct PolicySummary {
     replicate_count: usize,
     mean_truth_decision_utility: f64,
     mean_true_decision_regret: f64,
+    decision_regret_standard_error: f64,
+    decision_regret_ci95_lower: f64,
+    decision_regret_ci95_upper: f64,
     mean_surprise_events: f64,
     mean_diagnostic_actions: f64,
     mean_total_cost_units: f64,
@@ -199,7 +202,13 @@ struct PolicySummary {
     mean_predictive_log_score: f64,
     mean_predictive_brier_score: f64,
     mean_heldout_validation_log_score: f64,
+    heldout_validation_log_score_standard_error: f64,
+    heldout_validation_log_score_ci95_lower: f64,
+    heldout_validation_log_score_ci95_upper: f64,
     mean_heldout_validation_brier_score: f64,
+    heldout_validation_brier_score_standard_error: f64,
+    heldout_validation_brier_score_ci95_lower: f64,
+    heldout_validation_brier_score_ci95_upper: f64,
     validation_by_stratum: Vec<ValidationStratumScore>,
     selected_action_frequency: Vec<ActionFrequency>,
 }
@@ -841,6 +850,28 @@ fn summarize_trajectory(
     }
 }
 
+fn mean_standard_error(values: &[f64]) -> (f64, f64) {
+    if values.is_empty() {
+        return (0.0, 0.0);
+    }
+    let n = values.len() as f64;
+    let mean = values.iter().sum::<f64>() / n;
+    if values.len() < 2 {
+        return (mean, 0.0);
+    }
+    let sample_variance = values.iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f64>() / (n - 1.0);
+    (mean, (sample_variance / n).sqrt())
+}
+
+fn normal_95_interval(mean: f64, standard_error: f64, lower_bound: f64, upper_bound: f64) -> (f64, f64) {
+    (
+        (mean - 1.96 * standard_error).max(lower_bound),
+        (mean + 1.96 * standard_error).min(upper_bound),
+    )
+}
+
 fn summarize_policy(
     scenario: &Scenario,
     context: &SelectorContext,
@@ -858,6 +889,21 @@ fn summarize_policy(
     let mean = |f: fn(&TrajectoryMetrics) -> f64| {
         trajectories.iter().map(f).sum::<f64>() / n
     };
+    let regret_values: Vec<f64> = trajectories.iter()
+        .map(|trajectory| trajectory.decision_regret).collect();
+    let heldout_log_values: Vec<f64> = trajectories.iter()
+        .map(|trajectory| trajectory.heldout_validation_log_score).collect();
+    let heldout_brier_values: Vec<f64> = trajectories.iter()
+        .map(|trajectory| trajectory.heldout_validation_brier_score).collect();
+    let (regret_mean, regret_se) = mean_standard_error(&regret_values);
+    let (regret_ci_lower, regret_ci_upper) =
+        normal_95_interval(regret_mean, regret_se, 0.0, 1.0);
+    let (heldout_log_mean, heldout_log_se) = mean_standard_error(&heldout_log_values);
+    let (heldout_log_ci_lower, heldout_log_ci_upper) =
+        normal_95_interval(heldout_log_mean, heldout_log_se, 0.0, f64::INFINITY);
+    let (heldout_brier_mean, heldout_brier_se) = mean_standard_error(&heldout_brier_values);
+    let (heldout_brier_ci_lower, heldout_brier_ci_upper) =
+        normal_95_interval(heldout_brier_mean, heldout_brier_se, 0.0, 2.0);
     let selected_action_frequency = actions.iter().map(|action| ActionFrequency {
         action_id: action.action_id.clone(),
         selection_rate: trajectories.iter()
@@ -869,15 +915,24 @@ fn summarize_policy(
         policy_id: policy.id().to_owned(),
         replicate_count: trajectories.len(),
         mean_truth_decision_utility: mean(|m| m.truth_utility),
-        mean_true_decision_regret: mean(|m| m.decision_regret),
+        mean_true_decision_regret: regret_mean,
+        decision_regret_standard_error: regret_se,
+        decision_regret_ci95_lower: regret_ci_lower,
+        decision_regret_ci95_upper: regret_ci_upper,
         mean_surprise_events: mean(|m| m.surprise_events as f64),
         mean_diagnostic_actions: mean(|m| m.diagnostic_actions as f64),
         mean_total_cost_units: mean(|m| m.total_cost_units as f64),
         mean_final_posterior_entropy: mean(|m| m.final_posterior_entropy),
         mean_predictive_log_score: mean(|m| m.predictive_log_score),
         mean_predictive_brier_score: mean(|m| m.predictive_brier_score),
-        mean_heldout_validation_log_score: mean(|m| m.heldout_validation_log_score),
-        mean_heldout_validation_brier_score: mean(|m| m.heldout_validation_brier_score),
+        mean_heldout_validation_log_score: heldout_log_mean,
+        heldout_validation_log_score_standard_error: heldout_log_se,
+        heldout_validation_log_score_ci95_lower: heldout_log_ci_lower,
+        heldout_validation_log_score_ci95_upper: heldout_log_ci_upper,
+        mean_heldout_validation_brier_score: heldout_brier_mean,
+        heldout_validation_brier_score_standard_error: heldout_brier_se,
+        heldout_validation_brier_score_ci95_lower: heldout_brier_ci_lower,
+        heldout_validation_brier_score_ci95_upper: heldout_brier_ci_upper,
         validation_by_stratum: scenario.strata.iter().filter_map(|stratum| {
             let entries: Vec<&ValidationStratumScore> = trajectories.iter()
                 .flat_map(|trajectory| trajectory.validation_by_stratum.iter())
@@ -1186,6 +1241,25 @@ mod tests {
         let mut scenario = fixture();
         scenario.budget_cost_units = 1;
         assert!(validate_scenario(&scenario).is_err());
+    }
+
+    #[test]
+    fn replicate_uncertainty_intervals_are_ordered_and_cover_the_mean() {
+        let scenario = fixture();
+        let report = build_report(&scenario, b"fixture").expect("report");
+        for summary in report.policy_summaries {
+            assert!(summary.decision_regret_ci95_lower <= summary.mean_true_decision_regret);
+            assert!(summary.mean_true_decision_regret <= summary.decision_regret_ci95_upper);
+            assert!(summary.decision_regret_standard_error.is_finite());
+            assert!(summary.heldout_validation_log_score_ci95_lower
+                <= summary.mean_heldout_validation_log_score);
+            assert!(summary.mean_heldout_validation_log_score
+                <= summary.heldout_validation_log_score_ci95_upper);
+            assert!(summary.heldout_validation_brier_score_ci95_lower
+                <= summary.mean_heldout_validation_brier_score);
+            assert!(summary.mean_heldout_validation_brier_score
+                <= summary.heldout_validation_brier_score_ci95_upper);
+        }
     }
 
     #[test]
