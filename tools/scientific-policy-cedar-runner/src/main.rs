@@ -4,7 +4,8 @@ use serde_json::Value;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use scientific_policy_metamorphic::shrink::{
-    minimize_json_with_provenance, parse_unique_json_bytes, PredicateProvenance,
+    minimize_json_with_provenance, parse_unique_json_bytes, stable_json_value_sha256,
+    PredicateProvenance,
     MAX_SOURCE_INPUT_BYTES,
 };
 use std::cell::Cell;
@@ -1149,6 +1150,8 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     let mut cedar_candidate_times = Vec::new();
     let mut opa_cli_candidate_times = Vec::new();
     let opa_candidate_process_evaluations = Cell::new(0usize);
+    let seed_confirmation_pending = Cell::new(true);
+    let mut initial_seed_outcome: Option<CandidateEngineOutcome> = None;
     let mut candidate_engine_outcomes = Vec::<CandidateEngineOutcome>::new();
     let minimization_started = Instant::now();
     let result = minimize_json_with_provenance(
@@ -1159,18 +1162,57 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &protected_paths,
         max_candidates,
         |candidate| {
-            let candidate_bytes = serde_json::to_vec(candidate)
-                .map_err(|error| format!("serialize engine candidate for trace: {error}"))?;
-            let candidate_digest = sha256(&candidate_bytes);
-            let sequence = candidate_engine_outcomes.len();
-            match evaluate_policy_pair(
+            let candidate_digest = stable_json_value_sha256(candidate)
+                .map_err(|error| format!("digest normalized engine candidate: {error}"))?;
+            let is_initial_seed_confirmation = seed_confirmation_pending.replace(false);
+            if is_initial_seed_confirmation && candidate != &initial_value {
+                return Err("shrink reducer did not begin with the exact original seed".to_owned());
+            }
+
+            let evaluation = evaluate_policy_pair(
                 candidate,
                 &authorizer,
                 &policy_set,
                 &schema,
                 &pinned_opa.path,
                 &pinned_rego.path,
-            ) {
+            );
+
+            if is_initial_seed_confirmation {
+                let seed = evaluation?;
+                if !matches!(seed.cedar_decision.as_str(), "allow" | "deny")
+                    || !matches!(seed.opa_decision.as_str(), "allow" | "deny")
+                {
+                    return Err(format!(
+                        "initial seed confirmation produced no paired decision: Cedar={}, OPA={}",
+                        seed.cedar_decision, seed.opa_decision
+                    ));
+                }
+                let preserved = seed.cedar_decision == initial_cedar
+                    && seed.opa_decision == initial_opa
+                    && seed.cedar_decision != seed.opa_decision
+                    && seed.cedar_policy_ids == initial_cedar_policy_ids
+                    && seed.opa_rule_id == initial_opa_rule;
+                initial_seed_outcome = Some(CandidateEngineOutcome {
+                    sequence: 0,
+                    candidate_sha256: candidate_digest,
+                    candidate_status: "initial_seed_confirmation".to_owned(),
+                    input_rejection: None,
+                    cedar_decision: Some(seed.cedar_decision),
+                    cedar_determining_policy_ids: seed.cedar_policy_ids,
+                    opa_decision: Some(seed.opa_decision),
+                    opa_rule_id: Some(seed.opa_rule_id),
+                    predicate_preserved: Some(preserved),
+                    evaluation_error: None,
+                });
+                if !preserved {
+                    return Err("initial seed confirmation disagreed with the previously established divergence".to_owned());
+                }
+                return Ok(true);
+            }
+
+            let sequence = candidate_engine_outcomes.len();
+            match evaluation {
                 Ok(result)
                     if result.cedar_decision == "invalid" && result.opa_decision == "invalid" =>
                 {
@@ -1269,6 +1311,15 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         .map_err(|error| format!("serialize shrink trace: {error}"))?;
     fs::write(output_directory.join("shrink-trace.json"), &trace_bytes)
         .map_err(|error| format!("write shrink trace: {error}"))?;
+    let initial_seed_outcome = initial_seed_outcome
+        .ok_or_else(|| "initial seed confirmation outcome was not recorded".to_owned())?;
+    let initial_seed_bytes = serde_json::to_vec_pretty(&initial_seed_outcome)
+        .map_err(|error| format!("serialize initial seed confirmation: {error}"))?;
+    fs::write(
+        output_directory.join("initial-seed-engine-outcome.json"),
+        &initial_seed_bytes,
+    )
+    .map_err(|error| format!("write initial seed confirmation: {error}"))?;
     let mut candidate_outcomes_bytes = Vec::new();
     for outcome in &candidate_engine_outcomes {
         let mut row = serde_json::to_vec(outcome)

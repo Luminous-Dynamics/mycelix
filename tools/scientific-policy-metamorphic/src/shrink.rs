@@ -304,6 +304,13 @@ fn sha256(value: &Value) -> Result<String, ShrinkError> {
     Ok(sha256_bytes(&bytes))
 }
 
+/// Return the exact normalized-value digest used by shrink traces. Callers
+/// recording engine sidecars should use this instead of serde_json::to_vec so
+/// candidate identities reconcile byte-for-byte with the trace profile.
+pub fn stable_json_value_sha256(value: &Value) -> Result<String, ShrinkError> {
+    sha256(value)
+}
+
 fn escape_pointer_token(token: &str) -> String {
     token.replace('~', "~0").replace('/', "~1")
 }
