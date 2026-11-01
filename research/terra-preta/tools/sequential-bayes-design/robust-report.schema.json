@@ -22,7 +22,8 @@
     "candidate_summaries",
     "limitations",
     "gibbs_policy",
-    "shared_kl_policy"
+    "shared_kl_policy",
+    "optimized_robust_gibbs_policy"
   ],
   "properties": {
     "schema_version": {
@@ -96,6 +97,9 @@
     },
     "shared_kl_policy": {
       "$ref": "#/$defs/shared_kl_policy"
+    },
+    "optimized_robust_gibbs_policy": {
+      "$ref": "#/$defs/optimized_robust_gibbs_policy"
     }
   },
   "$defs": {
@@ -298,6 +302,74 @@
           "minimum": 0
         },
         "action_probabilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/gibbs_action"
+          }
+        }
+      }
+    },
+    "optimized_robust_gibbs_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "precision_lambda",
+        "requested_average_kl_radius_nats",
+        "common_dual_beta",
+        "alpha",
+        "expected_sibson_information_nats",
+        "policy_kl_to_prior_nats",
+        "policy_complexity_penalty_nats",
+        "adversarial_kl_penalty_nats",
+        "robust_regularized_value_nats",
+        "expected_cost_units",
+        "actions"
+      ],
+      "properties": {
+        "precision_lambda": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "requested_average_kl_radius_nats": {
+          "type": "number",
+          "minimum": 0
+        },
+        "common_dual_beta": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "expected_sibson_information_nats": {
+          "type": "number"
+        },
+        "policy_kl_to_prior_nats": {
+          "type": "number",
+          "minimum": 0
+        },
+        "policy_complexity_penalty_nats": {
+          "type": "number",
+          "minimum": 0
+        },
+        "adversarial_kl_penalty_nats": {
+          "type": "number",
+          "minimum": 0
+        },
+        "robust_regularized_value_nats": {
+          "type": "number"
+        },
+        "expected_cost_units": {
+          "type": "number",
+          "minimum": 0
+        },
+        "actions": {
           "type": "array",
           "minItems": 1,
           "items": {
