@@ -346,7 +346,11 @@ fn validate_manifest(manifest: &InputManifest) -> Result<(), String> {
 }
 
 fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>, String> {
-    let metadata = fs::metadata(path).map_err(|error| format!("stat engine input corpus: {error}"))?;
+    let input_file = File::open(path)
+        .map_err(|error| format!("open engine input corpus: {error}"))?;
+    let metadata = input_file
+        .metadata()
+        .map_err(|error| format!("inspect opened engine input corpus: {error}"))?;
     if !metadata.is_file() {
         return Err("engine input corpus must be a regular file".to_owned());
     }
@@ -356,7 +360,7 @@ fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>
     let initial_capacity = usize::try_from(metadata.len().min(MAX_INPUT_BYTES))
         .map_err(|error| format!("engine input corpus size does not fit memory index: {error}"))?;
     let bytes = read_bounded_input(
-        File::open(path).map_err(|error| format!("open engine input corpus: {error}"))?,
+        input_file,
         MAX_INPUT_BYTES,
         initial_capacity,
         "engine input corpus",
@@ -871,29 +875,29 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         return Err("max-candidates must be between 1 and 2000".to_owned());
     }
 
-    let source_metadata = fs::metadata(&input_path)
-        .map_err(|error| format!("stat original counterexample: {error}"))?;
+    let source_file = File::open(&input_path)
+        .map_err(|error| format!("open original counterexample: {error}"))?;
+    let source_metadata = source_file
+        .metadata()
+        .map_err(|error| format!("inspect opened original counterexample: {error}"))?;
+    if !source_metadata.is_file() {
+        return Err("original counterexample must be a regular file".to_owned());
+    }
     if source_metadata.len() > MAX_SOURCE_INPUT_BYTES as u64 {
         return Err(format!(
             "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
         ));
     }
-    let mut source_bytes = Vec::with_capacity(
-        usize::try_from(source_metadata.len().min(MAX_SOURCE_INPUT_BYTES as u64))
-            .map_err(|error| format!("counterexample size does not fit memory index: {error}"))?,
-    );
-    File::open(&input_path)
-        .map_err(|error| format!("open original counterexample: {error}"))?
-        .take(MAX_SOURCE_INPUT_BYTES as u64 + 1)
-        .read_to_end(&mut source_bytes)
-        .map_err(|error| format!("bounded-read original counterexample: {error}"))?;
-    // The metadata check is only an early rejection. The read is independently
-    // capped so a concurrent file replacement/growth cannot bypass the limit.
-    if source_bytes.len() > MAX_SOURCE_INPUT_BYTES {
-        return Err(format!(
-            "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
-        ));
-    }
+    let initial_capacity = usize::try_from(
+        source_metadata.len().min(MAX_SOURCE_INPUT_BYTES as u64),
+    )
+    .map_err(|error| format!("counterexample size does not fit memory index: {error}"))?;
+    let source_bytes = read_bounded_input(
+        source_file,
+        MAX_SOURCE_INPUT_BYTES as u64,
+        initial_capacity,
+        "original counterexample",
+    )?;
     let initial_value: Value = parse_unique_json_bytes(&source_bytes)
         .map_err(|error| format!("strictly parse original counterexample before engine evaluation: {error}"))?;
     let initial_case: EngineInputCase = serde_json::from_value(initial_value.clone())
