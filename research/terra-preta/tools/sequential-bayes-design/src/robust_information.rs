@@ -1089,11 +1089,24 @@ mod tests {
 
     #[test]
     fn conditional_renyi_gain_handles_zero_likelihood_support() {
-        let design = complementary_ct_tracer_pair();
-        let gain = design.conditional_renyi_information(0, 0.5).unwrap();
-        assert!(gain.is_finite() && gain > 0.0);
+        let design = DiscreteDesignModel {
+            model_ids: vec!["state_a".into(), "state_b".into()],
+            prior_weights: vec![0.5, 0.5],
+            outcome_ids: vec!["only_a".into(), "only_b".into(), "impossible".into()],
+            likelihoods: vec![
+                vec![1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+            ],
+        };
+        let gain_a = design.conditional_renyi_information(0, 0.5).unwrap();
+        let gain_b = design.conditional_renyi_information(1, 0.5).unwrap();
+        assert!((gain_a - std::f64::consts::LN_2).abs() < 1e-12);
+        assert!((gain_b - std::f64::consts::LN_2).abs() < 1e-12);
+        assert!(design.conditional_renyi_information(2, 0.5).is_err());
         assert!(design.conditional_renyi_information(999, 0.5).is_err());
         assert!(design.conditional_renyi_information(0, 1.0).is_err());
+        assert!((design.sibson_from_conditional_renyi(0.5).unwrap()
+            - design.sibson_alpha_mutual_information(0.5).unwrap()).abs() < 1e-12);
     }
 
     #[test]
