@@ -292,3 +292,8 @@ It linearly interpolates the two inputs and analytically integrates their produc
 ## State–parameter assimilation comparator update
 
 A new 2026 reduced-adjoint VDA study provides a useful comparator for joint state–parameter estimation: Heidary, Farhadi & Altaf, Environmental Modelling & Software 203, 107035, DOI [10.1016/j.envsoft.2026.107035](https://doi.org/10.1016/j.envsoft.2026.107035). It combines POD model reduction with a reduced-order adjoint in HYDRUS-1D and tests structural, initial-state and forcing uncertainty in synthetic experiments. This should be included as a matched comparator in #5658. The public accompanying repository is MATLAB-based; no code was imported or executed by this update.
+
+
+## End-to-end correlated action-information bake-off
+
+The Rust binary `conditional-information-bakeoff` now connects the stable coordinate layout, retained CT observation history, multivariate Gaussian conditional predictions and seeded information-gain estimator. Its fixture encodes two candidate models with identical one-dimensional CT and tracer marginals but opposite cross-modal correlations. The executable compares CT-only, tracer-only and joint acquisition from the prior, then scores tracer conditional on an observed CT value. Focused CI asserts zero individual marginal information, positive joint information, positive post-CT tracer information and hard budget/eligibility compliance; it validates the report schema and uploads a digest-bound artifact. This is a synthetic model-discrimination benchmark, not field validation or decision EVSI.
