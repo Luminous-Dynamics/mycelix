@@ -668,9 +668,9 @@ mod tests {
                 role[index % role.len()],
                 claim[(index / 4) % claim.len()],
                 owner[(index / 8) % owner.len()],
-                organization[(index / 12) % organization.len()],
-                attestation[(index / 2) % attestation.len()],
-                target[(index / 3) % target.len()],
+                organization[(index / 6) % organization.len()],
+                attestation[(index / 3) % attestation.len()],
+                target[(index / 5) % target.len()],
             );
             let case_id = format!("case-{index:02}");
             insert_stratified_candidate(
