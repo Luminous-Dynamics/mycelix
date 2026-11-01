@@ -102,7 +102,7 @@ jobs:
               .mean_heldout_validation_brier_score >= 0 and
               .mean_heldout_validation_brier_score <= 2)
           ' "$RUNNER_TEMP/sequential-bayes-discrepancy-state-report.json"
-      - name: Validate both report schemas
+      - name: Validate all three report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/report.schema.json \
