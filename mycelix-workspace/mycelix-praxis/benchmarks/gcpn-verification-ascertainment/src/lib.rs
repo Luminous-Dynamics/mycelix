@@ -740,7 +740,8 @@ mod tests {
         ]);
         let summary = frame.report().unwrap().candidate;
         assert_eq!(summary.observed_mean, None);
-        assert_eq!(summary.population_bounds, PopulationBounds { lower: 0.0, upper: 1.0 });
+        assert!((summary.population_bounds.lower - 0.0).abs() < 1e-12);
+        assert!((summary.population_bounds.upper - 1.0).abs() < 1e-12);
     }
 
     #[test]
@@ -766,8 +767,9 @@ mod tests {
         let report = frame.report().unwrap();
         let stratum = report.strata.iter().find(|entry| entry.stratum_id == "unobserved").unwrap();
         assert_eq!(stratum.candidate.observed_mean, None);
-        assert_eq!(stratum.candidate.population_bounds, PopulationBounds { lower: 0.0, upper: 1.0 });
-        assert_eq!(stratum.coverage_rate, 0.0);
+        assert!((stratum.candidate.population_bounds.lower - 0.0).abs() < 1e-12);
+        assert!((stratum.candidate.population_bounds.upper - 1.0).abs() < 1e-12);
+        assert!(stratum.coverage_rate.abs() < 1e-12);
     }
 
     #[test]
@@ -942,7 +944,9 @@ mod tests {
         assert!((points[0].population_mean - 0.2).abs() < 1e-12);
         assert!((points[1].population_mean - 0.3).abs() < 1e-12);
         assert!((points[2].population_mean - 0.4).abs() < 1e-12);
-        assert_eq!(points.iter().map(|point| point.delta).collect::<Vec<_>>(), vec![-0.2, 0.0, 0.2]);
+        assert!((points[0].delta + 0.2).abs() < 1e-12);
+        assert!(points[1].delta.abs() < 1e-12);
+        assert!((points[2].delta - 0.2).abs() < 1e-12);
     }
 
     #[test]
@@ -952,7 +956,7 @@ mod tests {
             case("b", "sys-2", "zone-b", Some(0.1), missing(MissingReason::Unknown)),
         ]);
         let point = frame.sensitivity_grid(Metric::Candidate, &[0.5]).unwrap()[0];
-        assert_eq!(point.assumed_missing_mean, 1.0);
+        assert!((point.assumed_missing_mean - 1.0).abs() < 1e-12);
         assert!((point.population_mean - 0.9).abs() < 1e-12);
     }
 
@@ -1020,6 +1024,6 @@ mod tests {
         assert_eq!(urban.eligible_cases, 2);
         assert_eq!(urban.observed_cases, 1);
         assert_eq!(urban.missing_cases, 1);
-        assert_eq!(urban.coverage_rate, 0.5);
+        assert!((urban.coverage_rate - 0.5).abs() < 1e-12);
     }
 }
