@@ -495,7 +495,7 @@ pub fn generate_indexed_role_corpus(
             .ok_or_else(|| role_index_error(format!("source case {case_id} has no action")))?;
 
         if expected_actions.contains(&action) {
-            if !action_inputs.contains(&action) {
+            if !action_inputs.contains(*action) {
                 action_inputs.insert(action.to_owned());
                 let action_path = action_directory.join(format!("{action}.json"));
                 let bytes = serde_json::to_vec_pretty(&indexed)
