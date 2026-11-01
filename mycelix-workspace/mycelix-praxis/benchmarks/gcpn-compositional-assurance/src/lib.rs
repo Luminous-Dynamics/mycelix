@@ -629,8 +629,7 @@ impl Scenario {
                     continue;
                 };
 
-                if evidence.stage != Stage::AfterEventReview
-                    || evidence.claim_id != causal.claim_id
+                if evidence.stage != Stage::AfterEventReview || evidence.claim_id != causal.claim_id
                 {
                     violations.insert(ViolationCode::CausalEvidenceClaimMismatch);
                     continue;
@@ -1150,9 +1149,21 @@ mod tests {
         let mut input = scenario();
         input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
         let report = input.audit().unwrap();
-        assert!(!report.violations.contains(&ViolationCode::UnsupportedCausalClaim));
-        assert!(!report.violations.contains(&ViolationCode::CausalEvidenceMissing));
-        assert!(!report.violations.contains(&ViolationCode::CausalEvidenceClaimMismatch));
+        assert!(
+            !report
+                .violations
+                .contains(&ViolationCode::UnsupportedCausalClaim)
+        );
+        assert!(
+            !report
+                .violations
+                .contains(&ViolationCode::CausalEvidenceMissing)
+        );
+        assert!(
+            !report
+                .violations
+                .contains(&ViolationCode::CausalEvidenceClaimMismatch)
+        );
     }
 
     #[test]
@@ -1160,7 +1171,11 @@ mod tests {
         let mut input = scenario();
         input.facts.causal_claim = Some(complete_causal_claim(vec!["not-present".into()]));
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::CausalEvidenceMissing));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CausalEvidenceMissing)
+        );
 
         let mut input = scenario();
         let mut record = input.evidence.pop().unwrap();
@@ -1168,7 +1183,11 @@ mod tests {
         input.evidence.push(record);
         input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::CausalEvidenceClaimMismatch));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CausalEvidenceClaimMismatch)
+        );
     }
 
     #[test]
@@ -1177,13 +1196,21 @@ mod tests {
         input.evidence.last_mut().unwrap().recorded_at = 101;
         input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::CausalEvidenceAfterAsOf));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CausalEvidenceAfterAsOf)
+        );
 
         let mut input = scenario();
         input.evidence.last_mut().unwrap().validity = EvidenceValidity::Stale;
         input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::CausalEvidenceNotCurrent));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CausalEvidenceNotCurrent)
+        );
     }
 
     #[test]
@@ -1192,7 +1219,11 @@ mod tests {
         input.evidence.last_mut().unwrap().disposition = ClaimDisposition::Refutes;
         input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
         let report = input.audit().unwrap();
-        assert!(report.violations.contains(&ViolationCode::CausalEvidenceNotSupporting));
+        assert!(
+            report
+                .violations
+                .contains(&ViolationCode::CausalEvidenceNotSupporting)
+        );
     }
 
     #[test]
