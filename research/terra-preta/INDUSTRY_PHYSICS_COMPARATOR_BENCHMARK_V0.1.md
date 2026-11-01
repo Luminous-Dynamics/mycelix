@@ -200,3 +200,24 @@ The competitive goal is not simply lower mean error. A new model should improve 
 - PC-Progress, HYDRUS 6 overview: https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/HYDRUSOverview.html
 - PC-Progress, HYDRUS 6 dual-permeability equations: https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/DualPermeabilityModels1.html
 - Li et al. (2026), NEON preferential-flow event model: https://doi.org/10.1029/2026EF008296
+
+
+## New pore-scale hydraulic comparator family — 2026 literature update
+
+Issue #5650 and `MULTISCALE_CT_TENSORIAL_PERMEABILITY_BENCHMARK_V0.1.md` extend the benchmark beyond dual-permeability profile simulators to image-resolved pore-scale flow:
+
+- **Gerke et al. (2026), Soil and Tillage Research 106790**, DOI [10.1016/j.still.2025.106790](https://doi.org/10.1016/j.still.2025.106790): finite-difference Stokes, lattice-Boltzmann and pore-network simulation on XCT images. The paper reports inter-solver agreement but overestimation relative to experimental conductivity in the tested horizons, plus directional anisotropy. Treat this as a required negative-control/comparator family. It is not evidence that all pore-scale solvers always overestimate.
+- **Kaur et al. (2025), Journal of Soils and Sediments**, DOI [10.1007/s11368-025-04105-8](https://doi.org/10.1007/s11368-025-04105-8): image resolution, field of view and core diameter alter observed pore counts, isolation, connectivity and anisotropy.
+- **Jiang et al. (2025), Plant and Soil**, DOI [10.1007/s11104-024-07030-w](https://doi.org/10.1007/s11104-024-07030-w): segmentation uncertainty propagates through CT-derived morphology into permeability in a vegetated porous-media analogue.
+- **Sobucki et al. (2026), Journal of Soil Science and Plant Nutrition**, DOI [10.1007/s42729-026-03422-2](https://doi.org/10.1007/s42729-026-03422-2): CT–hydraulic relationships vary between cohesive/non-cohesive horizons and across sites; some groups show no significant correlations.
+
+### New required qualification
+
+1. Compare finite-difference Stokes, LBM and PNM on identical frozen geometries where supported.
+2. Propagate reconstruction, segmentation, network-extraction and solver uncertainty into permeability; no hydraulic-target threshold tuning on held-out specimens.
+3. Estimate directional conductivity tensor components and principal directions where the experimental design identifies them; do not reduce all claims to scalar (K_{sat}).
+4. Test joint resolution–field-of-view–core-size / representative-volume effects.
+5. Stratify and validate across soil structural domains, horizons, specimens and sites; a universal CT-feature-to-(K) regression is not assumed.
+6. Keep saturated hydraulic tensor distinct from unsaturated event activation and tracer transport. The latter remains linked to #5643.
+
+No new solver is implemented or run by this documentation update. These are comparator requirements and proposed tests, not benchmark results.
