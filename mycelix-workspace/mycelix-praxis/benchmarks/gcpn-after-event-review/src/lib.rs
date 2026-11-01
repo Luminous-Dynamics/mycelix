@@ -209,6 +209,9 @@ pub fn assess_causal_claim_as_of(
     truth: &KnownDgpTruth,
     snapshot: &TimelineSnapshot,
 ) -> CausalAssessment {
+    if claim.evidence_ids.is_empty() {
+        return CausalAssessment::CausalFieldsIncomplete;
+    }
     let visible: BTreeMap<&str, bool> = snapshot
         .events
         .iter()
@@ -220,10 +223,10 @@ pub fn assess_causal_claim_as_of(
     if claim.evidence_ids.iter().any(|id| !visible.get(id.as_str()).copied().unwrap_or(false)) {
         return CausalAssessment::CausalEvidenceUnverified;
     }
-    assess_causal_claim(claim, truth)
+    assess_causal_claim_against_known_dgp(claim, truth)
 }
 
-pub fn assess_causal_claim(claim: &CausalClaim, truth: &KnownDgpTruth) -> CausalAssessment {
+fn assess_causal_claim_against_known_dgp(claim: &CausalClaim, truth: &KnownDgpTruth) -> CausalAssessment {
     match claim.level {
         CausalClaimLevel::Chronology | CausalClaimLevel::Association => {
             CausalAssessment::DescriptiveOnly
@@ -503,6 +506,15 @@ mod tests {
     }
 
     #[test]
+    fn causal_claim_without_any_evidence_id_is_incomplete(){
+        let mut claim=complete_causal_claim();
+        claim.evidence_ids.clear();
+        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
+        let snapshot=reconstruct_as_of(&[],500);
+        assert_eq!(assess_causal_claim_as_of(&claim,&truth,&snapshot),CausalAssessment::CausalFieldsIncomplete);
+    }
+
+    #[test]
     fn unverified_as_of_evidence_cannot_support_causal_claim(){
         let claim=complete_causal_claim();
         let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
@@ -571,7 +583,7 @@ mod tests {
         let mut claim=complete_causal_claim();
         claim.level=CausalClaimLevel::Chronology;
         let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::new()};
-        assert_eq!(assess_causal_claim(&claim,&truth),CausalAssessment::DescriptiveOnly);
+        assert_eq!(assess_causal_claim_against_known_dgp(&claim,&truth),CausalAssessment::DescriptiveOnly);
     }
 
     #[test]
