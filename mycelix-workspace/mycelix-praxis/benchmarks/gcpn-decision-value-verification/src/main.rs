@@ -18,6 +18,10 @@ fn main() {
     println!("GCPN decision-value forecast verification v0.1");
     println!("status: synthetic_cost_loss_oracle");
     println!("profile_id: {}",report.profile_id);
+    println!("action_cost: {:.2}",report.action_cost);
+    println!("avoidable_event_loss: {:.2}",report.avoidable_event_loss);
+    println!("residual_event_loss_under_action: {:.2}",report.residual_event_loss_under_action);
+    println!("minimum_action_lead_seconds: {}",report.minimum_action_lead_seconds);
     println!("frozen_decision_threshold: {:.6}",report.decision_threshold);
     println!("candidate_brier: {:.6}",report.candidate_brier_score.unwrap_or(f64::NAN));
     println!("reference_brier: {:.6}",report.reference_brier_score.unwrap_or(f64::NAN));
