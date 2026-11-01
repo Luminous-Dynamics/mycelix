@@ -13,7 +13,10 @@ const EVENT_ELIGIBILITY_MM: f64 = 2.0;
 const VT_VARIANTS: [(&str, &str); 3] = [
     ("vt_maximum_ksat", "maximum depth-weighted Rosetta Ksat"),
     ("vt_median_ksat", "median depth-weighted Rosetta Ksat"),
-    ("vt_median_plus_sd_ksat", "median depth-weighted Rosetta Ksat plus one standard deviation"),
+    (
+        "vt_median_plus_sd_ksat",
+        "median depth-weighted Rosetta Ksat plus one standard deviation",
+    ),
 ];
 
 #[derive(Debug, Deserialize)]
@@ -162,7 +165,10 @@ fn validate_evidence(
 
 fn validate(input: &Input) -> Result<(), String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     for (value, label) in [
         (&input.study_id, "study_id"),
@@ -173,13 +179,14 @@ fn validate(input: &Input) -> Result<(), String> {
         nonblank(value, label)?;
     }
     if input.source_sha256.len() != 64
-        || !input.source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !input
+            .source_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
     {
         return Err("source_sha256 must contain exactly 64 hexadecimal characters".to_owned());
     }
-    if !input.rainfall_minimum_event_mm.is_finite()
-        || input.rainfall_minimum_event_mm <= 0.0
-    {
+    if !input.rainfall_minimum_event_mm.is_finite() || input.rainfall_minimum_event_mm <= 0.0 {
         return Err("rainfall_minimum_event_mm must be finite and greater than zero".to_owned());
     }
     if input.rainfall_minimum_event_mm != EVENT_ELIGIBILITY_MM {
@@ -194,7 +201,10 @@ fn validate(input: &Input) -> Result<(), String> {
     let mut ids = HashSet::new();
     for (index, event) in input.site_events.iter().enumerate() {
         nonblank(&event.event_id, &format!("site_events[{index}].event_id"))?;
-        nonblank(&event.evidence_ref, &format!("site_events[{index}].evidence_ref"))?;
+        nonblank(
+            &event.evidence_ref,
+            &format!("site_events[{index}].evidence_ref"),
+        )?;
         if !ids.insert(event.event_id.as_str()) {
             return Err(format!("duplicate event_id {:?}", event.event_id));
         }
@@ -209,8 +219,7 @@ fn validate(input: &Input) -> Result<(), String> {
                     "site_events[{index}] has soil moisture available but a zero sensor/profile roster"
                 ));
             }
-        } else if event.declared_sensor_count_10_to_100_cm != 0
-            || event.declared_profile_count != 0
+        } else if event.declared_sensor_count_10_to_100_cm != 0 || event.declared_profile_count != 0
         {
             return Err(format!(
                 "site_events[{index}] has no soil-moisture data but declares sensors or profiles"
@@ -266,9 +275,7 @@ fn event_outcome(
         EventMethodOutcome::NoSoilMoistureData
     } else if evidence.positive_units > 0 {
         EventMethodOutcome::Positive
-    } else if evidence.declared_units > 0
-        && evidence.evaluable_units == evidence.declared_units
-    {
+    } else if evidence.declared_units > 0 && evidence.evaluable_units == evidence.declared_units {
         EventMethodOutcome::Negative
     } else {
         EventMethodOutcome::Indeterminate
@@ -281,9 +288,18 @@ fn method_summary(
     outcomes: &[EventMethodOutcome],
     denominator: usize,
 ) -> MethodSummary {
-    let positive = outcomes.iter().filter(|value| **value == EventMethodOutcome::Positive).count();
-    let negative = outcomes.iter().filter(|value| **value == EventMethodOutcome::Negative).count();
-    let indeterminate = outcomes.iter().filter(|value| **value == EventMethodOutcome::Indeterminate).count();
+    let positive = outcomes
+        .iter()
+        .filter(|value| **value == EventMethodOutcome::Positive)
+        .count();
+    let negative = outcomes
+        .iter()
+        .filter(|value| **value == EventMethodOutcome::Negative)
+        .count();
+    let indeterminate = outcomes
+        .iter()
+        .filter(|value| **value == EventMethodOutcome::Indeterminate)
+        .count();
     let evaluable = positive + negative;
 
     let (conditional, lower, upper, coverage) = if denominator == 0 {
@@ -332,22 +348,34 @@ fn cross_method_agreement(
     for (vt, nsr) in vt_outcomes.iter().zip(nsr_outcomes.iter()) {
         match (*vt, *nsr) {
             (EventMethodOutcome::Positive, EventMethodOutcome::Positive) => both_positive += 1,
-            (EventMethodOutcome::Positive, EventMethodOutcome::Negative) => vt_positive_nsr_negative += 1,
-            (EventMethodOutcome::Negative, EventMethodOutcome::Positive) => vt_negative_nsr_positive += 1,
+            (EventMethodOutcome::Positive, EventMethodOutcome::Negative) => {
+                vt_positive_nsr_negative += 1
+            }
+            (EventMethodOutcome::Negative, EventMethodOutcome::Positive) => {
+                vt_negative_nsr_positive += 1
+            }
             (EventMethodOutcome::Negative, EventMethodOutcome::Negative) => both_negative += 1,
-            (EventMethodOutcome::Positive, EventMethodOutcome::Indeterminate) => vt_positive_nsr_indeterminate += 1,
-            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Positive) => vt_indeterminate_nsr_positive += 1,
-            (EventMethodOutcome::Negative, EventMethodOutcome::Indeterminate) => vt_negative_nsr_indeterminate += 1,
-            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Negative) => vt_indeterminate_nsr_negative += 1,
-            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Indeterminate) => both_indeterminate += 1,
+            (EventMethodOutcome::Positive, EventMethodOutcome::Indeterminate) => {
+                vt_positive_nsr_indeterminate += 1
+            }
+            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Positive) => {
+                vt_indeterminate_nsr_positive += 1
+            }
+            (EventMethodOutcome::Negative, EventMethodOutcome::Indeterminate) => {
+                vt_negative_nsr_indeterminate += 1
+            }
+            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Negative) => {
+                vt_indeterminate_nsr_negative += 1
+            }
+            (EventMethodOutcome::Indeterminate, EventMethodOutcome::Indeterminate) => {
+                both_indeterminate += 1
+            }
             _ => {}
         }
     }
 
-    let fully_evaluable = both_positive
-        + vt_positive_nsr_negative
-        + vt_negative_nsr_positive
-        + both_negative;
+    let fully_evaluable =
+        both_positive + vt_positive_nsr_negative + vt_negative_nsr_positive + both_negative;
     let agreement = both_positive + both_negative;
     CrossMethodAgreement {
         vt_method_id: vt_method_id.to_owned(),
@@ -400,9 +428,21 @@ fn evaluate(input: &Input, input_sha256: String) -> Report {
         }
 
         let outcomes = [
-            event_outcome(rainfall_eligible, event.soil_moisture_available, &event.vt_maximum_ksat),
-            event_outcome(rainfall_eligible, event.soil_moisture_available, &event.vt_median_ksat),
-            event_outcome(rainfall_eligible, event.soil_moisture_available, &event.vt_median_plus_sd_ksat),
+            event_outcome(
+                rainfall_eligible,
+                event.soil_moisture_available,
+                &event.vt_maximum_ksat,
+            ),
+            event_outcome(
+                rainfall_eligible,
+                event.soil_moisture_available,
+                &event.vt_median_ksat,
+            ),
+            event_outcome(
+                rainfall_eligible,
+                event.soil_moisture_available,
+                &event.vt_median_plus_sd_ksat,
+            ),
             event_outcome(rainfall_eligible, event.soil_moisture_available, &event.nsr),
         ];
         vt_max.push(outcomes[0]);
@@ -425,8 +465,18 @@ fn evaluate(input: &Input, input_sha256: String) -> Report {
     let methods = vec![
         method_summary(VT_VARIANTS[0].0, VT_VARIANTS[0].1, &vt_max, denominator),
         method_summary(VT_VARIANTS[1].0, VT_VARIANTS[1].1, &vt_median, denominator),
-        method_summary(VT_VARIANTS[2].0, VT_VARIANTS[2].1, &vt_median_sd, denominator),
-        method_summary("nsr", "nonsequential-response profile diagnostic", &nsr, denominator),
+        method_summary(
+            VT_VARIANTS[2].0,
+            VT_VARIANTS[2].1,
+            &vt_median_sd,
+            denominator,
+        ),
+        method_summary(
+            "nsr",
+            "nonsequential-response profile diagnostic",
+            &nsr,
+            denominator,
+        ),
     ];
 
     let cross_method = vec![
@@ -469,7 +519,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "usage: site-prevalence-audit <site-events.json> <new-report.json>",
-        ).into());
+        )
+        .into());
     }
     let bytes = fs::read(&args[1])?;
     let digest = format!("{:x}", Sha256::digest(&bytes));
@@ -477,8 +528,16 @@ fn run() -> Result<(), Box<dyn Error>> {
     validate(&input).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let report = evaluate(&input, digest);
     let encoded = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(&args[2])
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create report: {error}")))?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&args[2])
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("refusing overwrite or cannot create report: {error}"),
+            )
+        })?;
     output.write_all(&encoded)?;
     output.write_all(b"\n")?;
     output.sync_all()?;
@@ -619,8 +678,14 @@ mod tests {
         assert_eq!(report.methods[1].positive_event_count, 3);
         assert_eq!(report.methods[2].positive_event_count, 0);
         assert_eq!(report.methods[3].positive_event_count, 1);
-        assert_eq!(report.event_audits[0].vt_maximum_ksat, EventMethodOutcome::Positive);
-        assert_eq!(report.event_audits[3].vt_maximum_ksat, EventMethodOutcome::NotEligible);
+        assert_eq!(
+            report.event_audits[0].vt_maximum_ksat,
+            EventMethodOutcome::Positive
+        );
+        assert_eq!(
+            report.event_audits[3].vt_maximum_ksat,
+            EventMethodOutcome::NotEligible
+        );
     }
 
     #[test]
@@ -634,7 +699,14 @@ mod tests {
         assert_eq!(maximum.fully_evaluable_pair_events, 2);
         assert_eq!(maximum.fully_evaluable_agreement_events, 2);
         assert_eq!(maximum.fully_evaluable_agreement_fraction, Some(1.0));
-        assert!((maximum.both_positive_fraction_of_probability_denominator.unwrap() - 1.0 / 3.0).abs() < 1e-12);
+        assert!(
+            (maximum
+                .both_positive_fraction_of_probability_denominator
+                .unwrap()
+                - 1.0 / 3.0)
+                .abs()
+                < 1e-12
+        );
 
         let median = &report.vt_nsr_cross_method_agreement[1];
         assert_eq!(median.both_positive_events, 1);
@@ -653,7 +725,10 @@ mod tests {
     fn refuses_to_treat_partial_nonresponse_as_a_negative() {
         let input = fixture();
         let report = evaluate(&input, "e".repeat(64));
-        assert_eq!(report.event_audits[2].nsr, EventMethodOutcome::Indeterminate);
+        assert_eq!(
+            report.event_audits[2].nsr,
+            EventMethodOutcome::Indeterminate
+        );
     }
 
     #[test]
@@ -667,6 +742,10 @@ mod tests {
     fn rejects_inconsistent_unit_counts() {
         let mut input = fixture();
         input.site_events[0].vt_maximum_ksat.positive_units = 5;
-        assert!(validate(&input).unwrap_err().contains("exceeds evaluable_units"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("exceeds evaluable_units")
+        );
     }
 }
