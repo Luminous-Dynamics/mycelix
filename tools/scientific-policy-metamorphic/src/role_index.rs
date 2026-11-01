@@ -273,6 +273,19 @@ fn stratum_rank(action: &str, stratum: &str) -> String {
     )
 }
 
+fn should_retain_stratified_candidate(
+    buckets: &BTreeMap<(String, String), Vec<StratifiedCandidate>>,
+    action: &str,
+    stratum: &str,
+    rank_sha256: &str,
+) -> bool {
+    let key = (action.to_owned(), stratum.to_owned());
+    match buckets.get(&key).and_then(|bucket| bucket.first()) {
+        None => true,
+        Some(current) => rank_sha256 < current.rank_sha256.as_str(),
+    }
+}
+
 fn insert_stratified_candidate(
     buckets: &mut BTreeMap<(String, String), Vec<StratifiedCandidate>>,
     candidate: StratifiedCandidate,
@@ -513,21 +526,31 @@ pub fn generate_indexed_role_corpus(
 
             let stratum = stratum_key(input)?;
             let rank_sha256 = sample_rank(action, case_id);
-            let baseline_bytes = serde_json::to_vec_pretty(input)
-                .map_err(|error| role_index_error(format!("serialize baseline stratified input: {error}")))?;
-            let indexed_bytes = serde_json::to_vec_pretty(&indexed)
-                .map_err(|error| role_index_error(format!("serialize indexed stratified input: {error}")))?;
-            insert_stratified_candidate(
-                &mut stratified_buckets,
-                StratifiedCandidate {
-                    action: action.to_owned(),
-                    case_id: case_id.to_owned(),
-                    stratum,
-                    rank_sha256,
-                    baseline_bytes,
-                    indexed_bytes,
-                },
-            );
+            // Serialize only candidates that can displace the current
+            // deterministic winner for this stratum. The corpus may contain
+            // tens of thousands of rows, but the selected panel is capped.
+            if should_retain_stratified_candidate(
+                &stratified_buckets,
+                action,
+                &stratum,
+                &rank_sha256,
+            ) {
+                let baseline_bytes = serde_json::to_vec_pretty(input)
+                    .map_err(|error| role_index_error(format!("serialize baseline stratified input: {error}")))?;
+                let indexed_bytes = serde_json::to_vec_pretty(&indexed)
+                    .map_err(|error| role_index_error(format!("serialize indexed stratified input: {error}")))?;
+                insert_stratified_candidate(
+                    &mut stratified_buckets,
+                    StratifiedCandidate {
+                        action: action.to_owned(),
+                        case_id: case_id.to_owned(),
+                        stratum,
+                        rank_sha256,
+                        baseline_bytes,
+                        indexed_bytes,
+                    },
+                );
+            }
         }
 
         let mut output_row = serde_json::to_vec(&serde_json::json!({
@@ -695,6 +718,40 @@ mod tests {
             .flat_map(|candidate| candidate.stratum.split(';'))
             .collect::<BTreeSet<_>>();
         assert!(REQUIRED_STRATUM_DIMENSIONS.iter().all(|dimension| covered.contains(dimension)));
+    }
+
+    #[test]
+    fn stratified_candidate_preflight_skips_nonwinning_serializations() {
+        let mut buckets = BTreeMap::new();
+        assert!(should_retain_stratified_candidate(
+            &buckets,
+            "claim_proposed",
+            "roles=0;claim=absent",
+            "c",
+        ));
+        insert_stratified_candidate(
+            &mut buckets,
+            StratifiedCandidate {
+                action: "claim_proposed".to_owned(),
+                case_id: "case-c".to_owned(),
+                stratum: "roles=0;claim=absent".to_owned(),
+                rank_sha256: "c".to_owned(),
+                baseline_bytes: b"baseline-c".to_vec(),
+                indexed_bytes: b"indexed-c".to_vec(),
+            },
+        );
+        assert!(!should_retain_stratified_candidate(
+            &buckets,
+            "claim_proposed",
+            "roles=0;claim=absent",
+            "d",
+        ));
+        assert!(should_retain_stratified_candidate(
+            &buckets,
+            "claim_proposed",
+            "roles=0;claim=absent",
+            "b",
+        ));
     }
 
     #[test]
