@@ -104,6 +104,11 @@ pub enum ViolationCode {
     CandidateReferenceFrameMismatch,
     CandidateReferenceSourceMismatch,
     UnsupportedCausalClaim,
+    CausalEvidenceMissing,
+    CausalEvidenceClaimMismatch,
+    CausalEvidenceAfterAsOf,
+    CausalEvidenceNotCurrent,
+    CausalEvidenceNotSupporting,
     PostprocessingOutcomeLeakage,
 }
 
@@ -130,6 +135,11 @@ impl ViolationCode {
             Self::CandidateReferenceFrameMismatch => "candidate_reference_frame_mismatch",
             Self::CandidateReferenceSourceMismatch => "candidate_reference_source_mismatch",
             Self::UnsupportedCausalClaim => "unsupported_causal_claim",
+            Self::CausalEvidenceMissing => "causal_evidence_missing",
+            Self::CausalEvidenceClaimMismatch => "causal_evidence_claim_mismatch",
+            Self::CausalEvidenceAfterAsOf => "causal_evidence_after_as_of",
+            Self::CausalEvidenceNotCurrent => "causal_evidence_not_current",
+            Self::CausalEvidenceNotSupporting => "causal_evidence_not_supporting",
             Self::PostprocessingOutcomeLeakage => "postprocessing_outcome_leakage",
         }
     }
@@ -153,7 +163,13 @@ impl ViolationCode {
             Self::PopulationDenominatorUnknown
             | Self::PopulationReachExceedsEligible
             | Self::PopulationAccountingMismatch => Stage::PopulationReach,
-            Self::UnsupportedCausalClaim | Self::EvidenceAfterAsOf => Stage::AfterEventReview,
+            Self::UnsupportedCausalClaim
+            | Self::CausalEvidenceMissing
+            | Self::CausalEvidenceClaimMismatch
+            | Self::CausalEvidenceAfterAsOf
+            | Self::CausalEvidenceNotCurrent
+            | Self::CausalEvidenceNotSupporting
+            | Self::EvidenceAfterAsOf => Stage::AfterEventReview,
             Self::ClaimEvidenceMissing => Stage::Forecast,
             Self::CandidateReferenceFrameMismatch | Self::CandidateReferenceSourceMismatch => {
                 Stage::Forecast
@@ -588,7 +604,8 @@ impl Scenario {
 
         if let Some(causal) = &self.facts.causal_claim
             && causal.claim_made
-            && (causal
+        {
+            if causal
                 .identification_method_id
                 .as_ref()
                 .is_none_or(|value| value.trim().is_empty())
@@ -596,9 +613,40 @@ impl Scenario {
                     .design_id
                     .as_ref()
                     .is_none_or(|value| value.trim().is_empty())
-                || causal.supporting_evidence_ids.is_empty())
-        {
-            violations.insert(ViolationCode::UnsupportedCausalClaim);
+                || causal.claim_id.trim().is_empty()
+                || causal.supporting_evidence_ids.is_empty()
+            {
+                violations.insert(ViolationCode::UnsupportedCausalClaim);
+            }
+
+            for evidence_id in &causal.supporting_evidence_ids {
+                let Some(evidence) = self
+                    .evidence
+                    .iter()
+                    .find(|record| record.evidence_id == *evidence_id)
+                else {
+                    violations.insert(ViolationCode::CausalEvidenceMissing);
+                    continue;
+                };
+
+                if evidence.stage != Stage::AfterEventReview
+                    || evidence.claim_id != causal.claim_id
+                {
+                    violations.insert(ViolationCode::CausalEvidenceClaimMismatch);
+                    continue;
+                }
+                if evidence.recorded_at > self.as_of_cutoff {
+                    violations.insert(ViolationCode::CausalEvidenceAfterAsOf);
+                    continue;
+                }
+                if evidence.validity != EvidenceValidity::Current {
+                    violations.insert(ViolationCode::CausalEvidenceNotCurrent);
+                    continue;
+                }
+                if evidence.disposition != ClaimDisposition::Supports {
+                    violations.insert(ViolationCode::CausalEvidenceNotSupporting);
+                }
+            }
         }
 
         if let Some(post_processing) = &self.facts.post_processing
@@ -1085,6 +1133,66 @@ mod tests {
                 .violations
                 .contains(&ViolationCode::UnsupportedCausalClaim)
         );
+    }
+
+    fn complete_causal_claim(evidence_ids: Vec<String>) -> CausalClaim {
+        CausalClaim {
+            claim_id: "review-valid".into(),
+            claim_made: true,
+            identification_method_id: Some("synthetic-identification-design-v1".into()),
+            design_id: Some("randomized-known-dgp-v1".into()),
+            supporting_evidence_ids: evidence_ids,
+        }
+    }
+
+    #[test]
+    fn causal_claim_requires_existing_claim_bound_visible_verified_support() {
+        let mut input = scenario();
+        input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
+        let report = input.audit().unwrap();
+        assert!(!report.violations.contains(&ViolationCode::UnsupportedCausalClaim));
+        assert!(!report.violations.contains(&ViolationCode::CausalEvidenceMissing));
+        assert!(!report.violations.contains(&ViolationCode::CausalEvidenceClaimMismatch));
+    }
+
+    #[test]
+    fn causal_claim_rejects_missing_or_wrong_claim_evidence() {
+        let mut input = scenario();
+        input.facts.causal_claim = Some(complete_causal_claim(vec!["not-present".into()]));
+        let report = input.audit().unwrap();
+        assert!(report.violations.contains(&ViolationCode::CausalEvidenceMissing));
+
+        let mut input = scenario();
+        let mut record = input.evidence.pop().unwrap();
+        record.claim_id = "different-claim".into();
+        input.evidence.push(record);
+        input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
+        let report = input.audit().unwrap();
+        assert!(report.violations.contains(&ViolationCode::CausalEvidenceClaimMismatch));
+    }
+
+    #[test]
+    fn causal_claim_rejects_post_cutoff_and_stale_evidence() {
+        let mut input = scenario();
+        input.evidence.last_mut().unwrap().recorded_at = 101;
+        input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
+        let report = input.audit().unwrap();
+        assert!(report.violations.contains(&ViolationCode::CausalEvidenceAfterAsOf));
+
+        let mut input = scenario();
+        input.evidence.last_mut().unwrap().validity = EvidenceValidity::Stale;
+        input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
+        let report = input.audit().unwrap();
+        assert!(report.violations.contains(&ViolationCode::CausalEvidenceNotCurrent));
+    }
+
+    #[test]
+    fn causal_claim_requires_supporting_not_refuting_evidence() {
+        let mut input = scenario();
+        input.evidence.last_mut().unwrap().disposition = ClaimDisposition::Refutes;
+        input.facts.causal_claim = Some(complete_causal_claim(vec!["a-1".into()]));
+        let report = input.audit().unwrap();
+        assert!(report.violations.contains(&ViolationCode::CausalEvidenceNotSupporting));
     }
 
     #[test]
