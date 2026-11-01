@@ -1,0 +1,38 @@
+name: Terra Preta rustfmt repair snapshot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/terra-preta-rustfmt-snapshot.yml"
+      - "research/terra-preta/tools/neon-swc-normalizer/src/main.rs"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-preta-rustfmt-snapshot-\${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Apply the pinned runner rustfmt to the affected crate
+        run: cargo fmt --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml
+      - name: Preserve only the formatted source
+        run: |
+          mkdir -p "$RUNNER_TEMP/rustfmt-snapshot"
+          cp research/terra-preta/tools/neon-swc-normalizer/src/main.rs \
+            "$RUNNER_TEMP/rustfmt-snapshot/main.rs"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neon-swc-normalizer-rustfmt-\${{ github.sha }}
+          path: \${{ runner.temp }}/rustfmt-snapshot/main.rs
+          if-no-files-found: error
+          retention-days: 3
