@@ -31,7 +31,7 @@ pub struct MultivariateGaussianPosterior {
     pub log_evidence: f64,
 }
 
-fn cholesky_factor(matrix: &[Vec<f64>]) -> Result<(Vec<Vec<f64>>, f64), String> {
+pub(crate) fn cholesky_factor(matrix: &[Vec<f64>]) -> Result<(Vec<Vec<f64>>, f64), String> {
     let dimension = matrix.len();
     if dimension == 0 || matrix.iter().any(|row| row.len() != dimension) {
         return Err("covariance matrix must be non-empty and square".into());
