@@ -40,6 +40,7 @@ pub struct EvidenceEvent {
     /// Transaction/knowledge time: when the review record became available.
     pub recorded_at: u64,
     pub source_id: String,
+    pub plan_version: String,
     pub verified_under_fixture_policy: bool,
 }
 
@@ -72,6 +73,7 @@ pub enum MilestoneStatus {
     Late,
     Missing,
     Unverified,
+    StageOrPlanVersionMismatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,7 +107,9 @@ pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> 
             }
             let event = matching[0];
             let ids = matching.iter().map(|item| item.evidence_id.clone()).collect();
-            let status = if !event.verified_under_fixture_policy {
+            let status = if event.stage != milestone.stage || event.plan_version != milestone.plan_version {
+                MilestoneStatus::StageOrPlanVersionMismatch
+            } else if !event.verified_under_fixture_policy {
                 MilestoneStatus::Unverified
             } else if event.event_at <= milestone.planned_at {
                 MilestoneStatus::OnTime
@@ -155,6 +159,7 @@ pub enum CausalAssessment {
     CausalClaimUnsupportedByKnownDgp,
     CausalClaimConsistentWithKnownDgp,
     CausalEffectUnidentified,
+    CausalEvidenceNotVisibleAsOf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,6 +168,18 @@ pub struct KnownDgpTruth {
     pub causal_effect_identified: bool,
     /// Synthetic directed causal links known to the evaluator.
     pub supported_links: BTreeSet<(String, String)>,
+}
+
+pub fn assess_causal_claim_as_of(
+    claim: &CausalClaim,
+    truth: &KnownDgpTruth,
+    snapshot: &TimelineSnapshot,
+) -> CausalAssessment {
+    let visible: BTreeSet<&str> = snapshot.events.iter().map(|event| event.evidence_id.as_str()).collect();
+    if claim.evidence_ids.iter().any(|id| !visible.contains(id.as_str())) {
+        return CausalAssessment::CausalEvidenceNotVisibleAsOf;
+    }
+    assess_causal_claim(claim, truth)
 }
 
 pub fn assess_causal_claim(claim: &CausalClaim, truth: &KnownDgpTruth) -> CausalAssessment {
@@ -199,7 +216,9 @@ pub fn assess_causal_claim(claim: &CausalClaim, truth: &KnownDgpTruth) -> Causal
                     .data_limitations
                     .as_ref()
                     .is_some_and(|value| !value.trim().is_empty())
-                && !claim.evidence_ids.is_empty();
+                && !claim.evidence_ids.is_empty()
+                && !claim.proposed_cause.trim().is_empty()
+                && !claim.proposed_effect.trim().is_empty();
             if !complete {
                 return CausalAssessment::CausalFieldsIncomplete;
             }
@@ -304,6 +323,7 @@ pub struct ReviewReport {
     pub late: u32,
     pub missing: u32,
     pub unverified: u32,
+    pub stage_or_plan_version_mismatch: u32,
     pub causal_claims_incomplete: u32,
     pub causal_claims_unsupported: u32,
     pub causal_effects_unidentified: u32,
@@ -330,6 +350,7 @@ pub fn summarize_review(
             MilestoneStatus::Late => report.late += 1,
             MilestoneStatus::Missing => report.missing += 1,
             MilestoneStatus::Unverified => report.unverified += 1,
+            MilestoneStatus::StageOrPlanVersionMismatch => report.stage_or_plan_version_mismatch += 1,
         }
     }
     for assessment in causal_assessments {
@@ -337,6 +358,7 @@ pub fn summarize_review(
             CausalAssessment::CausalFieldsIncomplete => report.causal_claims_incomplete += 1,
             CausalAssessment::CausalClaimUnsupportedByKnownDgp => report.causal_claims_unsupported += 1,
             CausalAssessment::CausalEffectUnidentified => report.causal_effects_unidentified += 1,
+            CausalAssessment::CausalEvidenceNotVisibleAsOf => report.causal_claims_incomplete += 1,
             _ => {}
         }
     }
@@ -363,6 +385,7 @@ mod tests {
             event_at,
             recorded_at,
             source_id: "synthetic-source".into(),
+            plan_version: "v1".into(),
             verified_under_fixture_policy: verified,
         }
     }
@@ -418,6 +441,21 @@ mod tests {
         assert_eq!(result[0].status,MilestoneStatus::OnTime);
         assert_eq!(result[1].status,MilestoneStatus::Late);
         assert_eq!(result[2].status,MilestoneStatus::Missing);
+    }
+
+    #[test]
+    fn evidence_recorded_after_cutoff_cannot_support_causal_claim(){
+        let claim=complete_causal_claim();
+        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
+        let snapshot=reconstruct_as_of(&[event("evidence-1","m1",100,300,true)],200);
+        assert_eq!(assess_causal_claim_as_of(&claim,&truth,&snapshot),CausalAssessment::CausalEvidenceNotVisibleAsOf);
+    }
+
+    #[test]
+    fn plan_version_or_stage_mismatch_is_not_scored_as_success(){
+        let plan=vec![PlannedMilestone{milestone_id:"m".into(),stage:ReviewStage::WarningDissemination,planned_at:100,plan_version:"v2".into()}];
+        let snapshot=reconstruct_as_of(&[event("e","m",90,91,true)],200);
+        assert_eq!(evaluate_plan(&plan,&snapshot)[0].status,MilestoneStatus::StageOrPlanVersionMismatch);
     }
 
     #[test]
