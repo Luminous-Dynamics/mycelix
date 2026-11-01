@@ -629,3 +629,68 @@ posterior draws for discrepancy and sensor-covariance parameters. Refer to
 Modrák et al. (Bayesian Analysis, 2025), who show the sensitivity of SBC to
 test-quantity choice and emphasize data-dependent quantities such as the
 joint likelihood: https://doi.org/10.1214/23-BA1404.
+
+
+## 26. Executed three-world sequential benchmark — workflow #49
+
+Exact source head:
+`56c333ebc2ff0944151678e5a018678c1279532e`
+
+Workflow:
+https://github.com/Luminous-Dynamics/mycelix/actions/runs/41291225381
+
+The focused workflow passed formatting, **20/20 Rust tests**, schema validation for
+the observation-support contract and all three scenario fixtures, three
+128-replicate executions, all three report-schema validations, artifact upload,
+and Clippy. Artifact digest:
+`sha256:cad10016645f93bd2ebfb634b5634b39198b6118d86603518a76cab9d3dd8454`.
+
+The exact report artifact contains these 128-replicate mean decision regrets:
+
+| Synthetic world | Static EIG | Conditional EIG | Decision EVSI | Discrepancy-guarded EVSI | Random |
+|---|---:|---:|---:|---:|---:|
+| Out-of-family preferential flow (3 physical models) | 0.2227 | 0.1758 | 0.2344 | **0.1016** | 0.1797 |
+| In-family DUAL_PERMEABILITY | 0.0422 | 0.0422 | **0.0188** | **0.0188** | 0.0422 |
+| Explicit discrepancy-state hypothesis | 0.0880 | 0.0641 | 0.0364 | **0.0128** | 0.0378 |
+
+Common held-out expected scores (lower is better):
+
+| Synthetic world | Policy | Expected NLS | Expected Brier |
+|---|---|---:|---:|
+| Out-of-family preferential flow | Discrepancy-guarded EVSI | **3.4500** | **1.2167** |
+| Out-of-family preferential flow | Random | 3.4535 | 1.2234 |
+| In-family DUAL_PERMEABILITY | Discrepancy-guarded EVSI | **0.5990** | **0.3775** |
+| In-family DUAL_PERMEABILITY | Random | 0.6217 | 0.3974 |
+| Explicit discrepancy state | Discrepancy-guarded EVSI | **0.9647** | **0.5250** |
+| Explicit discrepancy state | Random | 1.3031 | 0.6823 |
+
+The full artifact contains every policy, confidence interval and action-selection
+frequency. For example, in the explicit discrepancy-state world the guarded
+policy selected the predeclared CT and gas diagnostic modalities in 96.9% and
+97.7% of replicates, respectively, and averaged 1.945 diagnostic actions.
+It also selected the nuisance-signature action only 3.9% of the time. This is
+consistent with the fixture's model-expansion design, but it is not evidence
+that an arbitrary real discrepancy process can be inferred or diagnosed.
+
+The common-heldout result changes the earlier interpretation. On the previous
+two-world experiment, random had been the lowest-regret baseline. Under
+common-random-number pairing and the expanded third-world control, the
+discrepancy-guarded heuristic performs best on the designed stress worlds and
+ties decision EVSI on the in-family world. No universal ranking is justified:
+the synthetic prior, likelihoods, action budget and utility model determine the
+problem. The 95% intervals are replicate-level normal approximations, not
+paired differences or scenario-family uncertainty intervals.
+
+**Key limitation:** the explicit discrepancy state is an author-specified
+categorical hypothesis with a broad residual likelihood and a strong
+"diagnose first" utility in this designed world. These results verify that
+Bayesian model expansion can route an out-of-family outcome to a different
+decision when that hypothesis is present and correctly useful. They do not
+validate how the hypothesis/prior/likelihood should be learned for real soil.
+Sensitivity to prior weight, residual likelihood width, diagnostic utility,
+false positives, corrupted measurements and competing omitted mechanisms is
+mandatory before drawing any practical conclusion.
+
+Report artifact digest and source SHA are pinned above. Do not replace the
+negative findings from earlier runs; retain all versioned outputs so the
+benchmark history remains auditable.
