@@ -133,6 +133,12 @@ to return specific wetted interface area in m⁻¹. It preserves a stable suppor
 ID and converts directly to the `ExchangeObservation` input expected by the
 transient exchange module.
 
+An end-to-end test also builds two CT voxel supports at different event
+times, derives their changing specific wetted area, converts both to transient
+exchange observations, analytically integrates the transfer, and verifies
+that the macropore storage loss equals matrix storage gain. This checks the
+CT → wetted interface → exchange pathway as one synthetic composition.
+
 The tests cover exact single-face area, anisotropic voxel spacing, unique face
 counting, geometric-but-unwetted interfaces, solid boundary exclusion, the
 exchange bridge, and invalid grids/measurements.
