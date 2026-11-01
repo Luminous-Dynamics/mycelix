@@ -67,15 +67,16 @@ fn create_pinned_temp_artifact(
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(if executable { 0o700 } else { 0o600 });
     }
+    let artifact = TempArtifact { path };
     let mut file = options
-        .open(&path)
-        .map_err(|error| format!("create private pinned artifact {}: {error}", path.display()))?;
+        .open(&artifact.path)
+        .map_err(|error| format!("create private pinned artifact {}: {error}", artifact.path.display()))?;
     file.write_all(bytes)
-        .map_err(|error| format!("write private pinned artifact {}: {error}", path.display()))?;
+        .map_err(|error| format!("write private pinned artifact {}: {error}", artifact.path.display()))?;
     file.sync_all()
-        .map_err(|error| format!("sync private pinned artifact {}: {error}", path.display()))?;
+        .map_err(|error| format!("sync private pinned artifact {}: {error}", artifact.path.display()))?;
     drop(file);
-    Ok(TempArtifact { path })
+    Ok(artifact)
 }
 
 #[derive(Debug, Deserialize)]
