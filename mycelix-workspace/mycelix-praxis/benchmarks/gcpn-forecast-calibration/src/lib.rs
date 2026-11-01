@@ -159,8 +159,8 @@ pub struct ForecastReport {
 
 impl ForecastReport {
     pub fn fixture_oracle_matches(&self) -> bool {
-        if self.record_count != 47
-            || self.scored_record_count != 36
+        if self.record_count != 65
+            || self.scored_record_count != 54
             || self.duplicate_records != 1
             || self.late_forecasts != 1
             || self.unverified_outcome_records != 1
@@ -172,9 +172,9 @@ impl ForecastReport {
             || self.abstentions != 1
             || self.partition_leak_events != 1
             || self.event_metadata_mismatch_events != 1
-            || self.metrics.len() != 36
-            || self.strata.len() != 24
-            || self.model_summaries.len() != 4
+            || self.metrics.len() != 54
+            || self.strata.len() != 36
+            || self.model_summaries.len() != 6
         {
             return false;
         }
@@ -700,9 +700,9 @@ mod tests {
 
     #[test]
     fn frozen_fixture_has_unique_schema_and_expected_rows() {
-        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0xd3ca04ec0d54ead9);
+        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0xb47e33e9576a7b6a);
         let records = parse_fixture(FIXTURE).unwrap();
-        assert_eq!(records.len(), 47);
+        assert_eq!(records.len(), 65);
         assert_eq!(
             records.iter().map(|record| record.event_id.as_str()).collect::<BTreeSet<_>>().len(),
             26
@@ -748,6 +748,18 @@ mod tests {
         assert_eq!(heat_72.sample_count, 2);
         assert!((heat_72.brier_score - 0.9801).abs() < 1e-12);
         assert!(heat_72.brier_skill_score.unwrap() < 0.0);
+    }
+
+    #[test]
+    fn persistence_reference_is_scored_alongside_climatology_and_candidate() {
+        let report = fixture_report().unwrap();
+        let persistence = report.model_summary("persistence", Partition::Evaluation).unwrap();
+        let climatology = report.model_summary("climatology", Partition::Evaluation).unwrap();
+        assert_eq!(persistence.sample_count, 12);
+        assert!((persistence.brier_score - 0.19668333333333334).abs() < 1e-12);
+        assert!((persistence.brier_skill_score.unwrap() - 0.21326666666666664).abs() < 1e-12);
+        assert_eq!(climatology.sample_count, 12);
+        assert!((climatology.brier_score - 0.25).abs() < 1e-12);
     }
 
     #[test]
