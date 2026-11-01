@@ -441,8 +441,8 @@ impl Scenario {
                 violations.insert(ViolationCode::CommonCauseLineage);
             }
 
-            if supporting_lineages.len() < requirement.minimum_independent_supporting_lineages
-                && !matching.is_empty()
+            if supporting_records > 0
+                && supporting_lineages.len() < requirement.minimum_independent_supporting_lineages
             {
                 violations.insert(ViolationCode::InsufficientIndependentEvidence);
             }
@@ -1193,6 +1193,48 @@ mod tests {
                 .violations
                 .contains(&ViolationCode::ClaimEvidenceMissing)
         );
+    }
+
+    #[test]
+    fn exclusively_out_of_scope_evidence_returns_out_of_scope() {
+        let mut input = scenario();
+        input.evidence.retain(|item| item.stage != Stage::Forecast);
+        input.evidence.push(evidence(
+            "forecast-oos",
+            Stage::Forecast,
+            "forecast-valid",
+            "forecast-root",
+            ClaimDisposition::OutOfScope,
+        ));
+        let report = input.audit().unwrap();
+        let forecast = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Forecast)
+            .unwrap();
+        assert_eq!(forecast.disposition, ClaimDisposition::OutOfScope);
+        assert!(forecast.violations.is_empty());
+    }
+
+    #[test]
+    fn exclusively_unavailable_evidence_returns_unavailable() {
+        let mut input = scenario();
+        input.evidence.retain(|item| item.stage != Stage::Forecast);
+        input.evidence.push(evidence(
+            "forecast-unavailable",
+            Stage::Forecast,
+            "forecast-valid",
+            "forecast-root",
+            ClaimDisposition::Unavailable,
+        ));
+        let report = input.audit().unwrap();
+        let forecast = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Forecast)
+            .unwrap();
+        assert_eq!(forecast.disposition, ClaimDisposition::Unavailable);
+        assert!(forecast.violations.is_empty());
     }
 
     #[test]
