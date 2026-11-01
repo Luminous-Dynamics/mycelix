@@ -267,7 +267,7 @@ fn solve_linear_system(matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>, Str
         })
         .collect();
 
-    let scale = augmented.iter().flatten()
+    let scale = matrix.iter().flatten()
         .map(|value| value.abs()).fold(1.0_f64, f64::max);
     for pivot_column in 0..dimension {
         let pivot_row = (pivot_column..dimension)
