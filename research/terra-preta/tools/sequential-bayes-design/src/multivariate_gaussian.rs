@@ -325,8 +325,8 @@ pub fn update_multivariate_model_posterior(
     if models.is_empty() {
         return Err("at least one multivariate Gaussian model is required".into());
     }
-    if observed_indices.len() != observations.len() || observed_indices.is_empty() {
-        return Err("observed indices and values must have equal non-zero length".into());
+    if observed_indices.len() != observations.len() {
+        return Err("observed indices and values must have equal length".into());
     }
 
     let mut identifiers = std::collections::BTreeSet::new();
@@ -353,8 +353,13 @@ pub fn update_multivariate_model_posterior(
         if model.prior_weight == 0.0 {
             Ok(f64::NEG_INFINITY)
         } else {
-            Ok((model.prior_weight / prior_total).ln()
-                + model.observation_model.log_density_subset(observed_indices, observations)?)
+            let log_prior = (model.prior_weight / prior_total).ln();
+            if observed_indices.is_empty() {
+                Ok(log_prior)
+            } else {
+                Ok(log_prior
+                    + model.observation_model.log_density_subset(observed_indices, observations)?)
+            }
         }
     }).collect::<Result<Vec<_>, String>>()?;
     let maximum = log_joint.iter().copied().fold(f64::NEG_INFINITY, f64::max);
@@ -507,6 +512,34 @@ mod tests {
         assert!(components[0].posterior_weight > 0.98);
         assert!(components[1].posterior_weight < 0.02);
         assert!((components[0].predictive_distribution.mean[0] - 0.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn empty_history_returns_prior_weighted_target_marginals() {
+        let models = vec![
+            MultivariateGaussianModel {
+                model_id: "a".into(),
+                prior_weight: 0.75,
+                observation_model: gaussian(
+                    vec![0.0, 0.2],
+                    vec![vec![1.0, 0.3], vec![0.3, 2.0]],
+                ),
+            },
+            MultivariateGaussianModel {
+                model_id: "b".into(),
+                prior_weight: 0.25,
+                observation_model: gaussian(
+                    vec![1.0, -0.2],
+                    vec![vec![2.0, -0.4], vec![-0.4, 1.0]],
+                ),
+            },
+        ];
+        let components = conditional_predictive_models(&models, &[], &[], &[1]).unwrap();
+        assert!((components[0].posterior_weight - 0.75).abs() < 1e-12);
+        assert!((components[1].posterior_weight - 0.25).abs() < 1e-12);
+        assert!((components[0].predictive_distribution.mean[0] - 0.2).abs() < 1e-12);
+        assert!((components[0].predictive_distribution.covariance[0][0] - 2.0).abs() < 1e-12);
+        assert!((components[1].predictive_distribution.mean[0] + 0.2).abs() < 1e-12);
     }
 
     #[test]
