@@ -1142,10 +1142,13 @@ mod tests {
             outcome_ids: vec!["only_a".into(), "only_b".into()],
             likelihoods: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
         };
-        for alpha in [0.1, 1e-2, 1e-3] {
+        for alpha in [0.1, 1e-2, 1e-3, 1e-6, 1e-9] {
             let direct = design.sibson_alpha_mutual_information(alpha).unwrap();
             let via_renyi = design.sibson_from_conditional_renyi(alpha).unwrap();
-            assert!((direct - via_renyi).abs() < 1e-8);
+            assert!(
+                (direct - via_renyi).abs() < 1e-8,
+                "alpha={alpha}: direct={direct}, via_renyi={via_renyi}"
+            );
         }
     }
 
