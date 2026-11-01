@@ -40,7 +40,9 @@ impl NsrSignature {
     fn as_str(self) -> &'static str {
         match self {
             Self::NonsequentialResponseDetected => "nonsequential_response_detected",
-            Self::NonsequentialSignatureIncompleteProfile => "nonsequential_signature_incomplete_profile",
+            Self::NonsequentialSignatureIncompleteProfile => {
+                "nonsequential_signature_incomplete_profile"
+            },
             Self::MixedResponseOrdering => "mixed_response_ordering",
             Self::SequentialResponseOnly => "sequential_response_only",
             Self::SequentialAndSimultaneousResponse => "sequential_and_simultaneous_response",
@@ -53,7 +55,9 @@ impl NsrSignature {
             }
             Self::NotApplicableInsufficientResponders => "not_applicable_insufficient_responders",
             Self::IndeterminateNoDistinctDepthPair => "indeterminate_no_distinct_depth_pair",
-            Self::IndeterminateIncompleteProfileWithoutNsr => "indeterminate_incomplete_profile_without_nsr",
+            Self::IndeterminateIncompleteProfileWithoutNsr => {
+                "indeterminate_incomplete_profile_without_nsr"
+            },
         }
     }
 }
@@ -263,7 +267,9 @@ fn nonblank(value: &str, label: &str) -> Result<(), String> {
 
 fn valid_sha256(value: &str, label: &str) -> Result<(), String> {
     if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(format!("{label} must contain exactly 64 hexadecimal characters"));
+        return Err(format!(
+            "{label} must contain exactly 64 hexadecimal characters"
+        ));
     }
     Ok(())
 }
@@ -291,7 +297,10 @@ fn proxy_concordance(vt: ProxyStatus, trajectory: ProxyStatus) -> &'static str {
 
 fn validate(input: &Input) -> Result<(), String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     for (value, label) in [
         (&input.study_id, "study_id"),
@@ -310,29 +319,52 @@ fn validate(input: &Input) -> Result<(), String> {
 
     let mut sensor_ids = HashSet::new();
     for (index, sensor) in input.sensor_evidence.iter().enumerate() {
-        nonblank(&sensor.sensor_id, &format!("sensor_evidence[{index}].sensor_id"))?;
+        nonblank(
+            &sensor.sensor_id,
+            &format!("sensor_evidence[{index}].sensor_id"),
+        )?;
         if !sensor_ids.insert(sensor.sensor_id.as_str()) {
             return Err(format!("duplicate sensor_id {:?}", sensor.sensor_id));
         }
         if !sensor.depth_cm.is_finite() || sensor.depth_cm <= 0.0 {
-            return Err(format!("sensor_evidence[{index}].depth_cm must be finite and positive"));
+            return Err(format!(
+                "sensor_evidence[{index}].depth_cm must be finite and positive"
+            ));
         }
     }
 
     let mut reference_ids = HashSet::new();
     for (index, reference) in input.independent_references.iter().enumerate() {
-        nonblank(&reference.reference_id, &format!("independent_references[{index}].reference_id"))?;
-        nonblank(&reference.event_id, &format!("independent_references[{index}].event_id"))?;
-        nonblank(&reference.profile_id, &format!("independent_references[{index}].profile_id"))?;
+        nonblank(
+            &reference.reference_id,
+            &format!("independent_references[{index}].reference_id"),
+        )?;
+        nonblank(
+            &reference.event_id,
+            &format!("independent_references[{index}].event_id"),
+        )?;
+        nonblank(
+            &reference.profile_id,
+            &format!("independent_references[{index}].profile_id"),
+        )?;
         if reference.event_id != input.event_id || reference.profile_id != input.profile_id {
-            return Err(format!("independent reference {:?} does not match the input event/profile", reference.reference_id));
+            return Err(format!(
+                "independent reference {:?} does not match the input event/profile",
+                reference.reference_id
+            ));
         }
-        nonblank(&reference.evidence_ref, &format!("independent_references[{index}].evidence_ref"))?;
+        nonblank(
+            &reference.evidence_ref,
+            &format!("independent_references[{index}].evidence_ref"),
+        )?;
         nonblank(
             &reference.detection_limit_or_resolution,
             &format!("independent_references[{index}].detection_limit_or_resolution"),
         )?;
-        match (reference.review_claim, reference.reviewer_evidence_ref_claimed.as_deref()) {
+        match (
+            reference.review_claim,
+            reference.reviewer_evidence_ref_claimed.as_deref(),
+        ) {
             (ReferenceReviewClaim::ClaimsIndependentReviewBlinded, Some(value))
                 if !value.trim().is_empty() => {}
             (ReferenceReviewClaim::ClaimsIndependentReviewBlinded, _) => {
@@ -348,18 +380,36 @@ fn validate(input: &Input) -> Result<(), String> {
             _ => {}
         }
         if !reference_ids.insert(reference.reference_id.as_str()) {
-            return Err(format!("duplicate reference_id {:?}", reference.reference_id));
+            return Err(format!(
+                "duplicate reference_id {:?}",
+                reference.reference_id
+            ));
         }
     }
 
     let mut artifact_keys = HashSet::new();
     for (index, artifact) in input.method_artifacts.iter().enumerate() {
-        nonblank(&artifact.tool_name, &format!("method_artifacts[{index}].tool_name"))?;
-        nonblank(&artifact.tool_version, &format!("method_artifacts[{index}].tool_version"))?;
-        nonblank(&artifact.evidence_ref, &format!("method_artifacts[{index}].evidence_ref"))?;
-        valid_sha256(&artifact.output_sha256, &format!("method_artifacts[{index}].output_sha256"))?;
+        nonblank(
+            &artifact.tool_name,
+            &format!("method_artifacts[{index}].tool_name"),
+        )?;
+        nonblank(
+            &artifact.tool_version,
+            &format!("method_artifacts[{index}].tool_version"),
+        )?;
+        nonblank(
+            &artifact.evidence_ref,
+            &format!("method_artifacts[{index}].evidence_ref"),
+        )?;
+        valid_sha256(
+            &artifact.output_sha256,
+            &format!("method_artifacts[{index}].output_sha256"),
+        )?;
         if !artifact_keys.insert((artifact.tool_name.as_str(), artifact.tool_version.as_str())) {
-            return Err(format!("duplicate tool artifact {:?} {:?}", artifact.tool_name, artifact.tool_version));
+            return Err(format!(
+                "duplicate tool artifact {:?} {:?}",
+                artifact.tool_name, artifact.tool_version
+            ));
         }
     }
     Ok(())
@@ -639,7 +689,9 @@ mod tests {
                 outcome: ReferenceOutcome::SupportsBypass,
                 review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
                 quality_status: ReferenceQualityStatus::Qualified,
-                reviewer_evidence_ref_claimed: Some("synthetic self-declared review reference".to_owned()),
+                reviewer_evidence_ref_claimed: Some(
+                    "synthetic self-declared review reference".to_owned(),
+                ),
                 evidence_ref: "synthetic tracer truth".to_owned(),
                 detection_limit_or_resolution: "arrival detected at lower boundary".to_owned(),
             }],
@@ -675,7 +727,10 @@ mod tests {
         assert_eq!(report.neither_proxy_evaluable_count, 1);
         assert_eq!(report.velocity_indeterminate_count, 1);
         assert_eq!(report.trajectory_indeterminate_count, 1);
-        assert_eq!(report.nsr_profile_signature, "nonsequential_response_detected");
+        assert_eq!(
+            report.nsr_profile_signature,
+            "nonsequential_response_detected"
+        );
     }
 
     #[test]
@@ -717,7 +772,9 @@ mod tests {
             outcome: ReferenceOutcome::DoesNotSupportBypass,
             review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
             quality_status: ReferenceQualityStatus::Qualified,
-            reviewer_evidence_ref_claimed: Some("synthetic self-declared review reference".to_owned()),
+            reviewer_evidence_ref_claimed: Some(
+                "synthetic self-declared review reference".to_owned(),
+            ),
             evidence_ref: "synthetic ERT reference".to_owned(),
             detection_limit_or_resolution: "spatial resolution 5 cm".to_owned(),
         });
@@ -757,7 +814,9 @@ mod tests {
             outcome: ReferenceOutcome::SupportsBypass,
             review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
             quality_status: ReferenceQualityStatus::Qualified,
-            reviewer_evidence_ref_claimed: Some("synthetic self-declared review reference".to_owned()),
+            reviewer_evidence_ref_claimed: Some(
+                    "synthetic self-declared review reference".to_owned(),
+                ),
             evidence_ref: "synthetic dye map".to_owned(),
             detection_limit_or_resolution: "image pixel 1 mm".to_owned(),
         });
@@ -765,7 +824,10 @@ mod tests {
         assert_eq!(report.claimed_reference_supporting_count, 2);
         assert_eq!(report.eligible_independent_reference_count, 0);
         assert_eq!(report.unverified_review_claim_count, 2);
-        assert_eq!(report.physical_claim_status, "not_adjudicated_external_attestation_verifier_required");
+        assert_eq!(
+            report.physical_claim_status,
+            "not_adjudicated_external_attestation_verifier_required"
+        );
     }
 
     #[test]
@@ -799,20 +861,28 @@ mod tests {
             outcome: ReferenceOutcome::SupportsBypass,
             review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
             quality_status: ReferenceQualityStatus::Qualified,
-            reviewer_evidence_ref_claimed: Some("synthetic self-declared review reference".to_owned()),
+            reviewer_evidence_ref_claimed: Some(
+                    "synthetic self-declared review reference".to_owned(),
+                ),
             evidence_ref: "duplicate".to_owned(),
             detection_limit_or_resolution: "unknown".to_owned(),
         });
-        assert!(validate(&data).unwrap_err().contains("duplicate reference_id"));
+        assert!(
+            validate(&data)
+                .unwrap_err()
+                .contains("duplicate reference_id")
+        );
     }
 
     #[test]
     fn rejects_independent_reference_from_different_event_or_profile() {
         let mut data = input();
         data.independent_references[0].event_id = "OTHER-EVENT".to_owned();
-        assert!(validate(&data)
-            .unwrap_err()
-            .contains("does not match the input event/profile"));
+        assert!(
+            validate(&data)
+                .unwrap_err()
+                .contains("does not match the input event/profile")
+        );
     }
 
     #[test]
