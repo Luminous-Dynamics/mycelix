@@ -14,9 +14,11 @@
     "accessible_format_shortfall",
     "cross_jurisdiction_handoff_status",
     "minimum_cell_suppression",
-    "single_cell_query_differencing_negative_control"
+    "single_cell_query_differencing_negative_control",
+    "checked_aggregate_count_arithmetic",
+    "reject_self_zone_movement"
   ],
-  "tests_authored": 11,
+  "tests_authored": 12,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
