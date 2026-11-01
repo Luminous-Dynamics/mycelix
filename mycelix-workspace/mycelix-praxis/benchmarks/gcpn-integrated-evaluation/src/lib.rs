@@ -13,7 +13,6 @@ use gcpn_warning_to_action::{
     evaluate as evaluate_warning_action,
     parse_fixture as parse_warning_action_fixture,
     fixture_report as warning_action_fixture_report,
-    Decision,
     FIXTURE as WARNING_ACTION_FIXTURE,
 };
 
@@ -158,7 +157,7 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
     });
 
     let get_last_mile = |scenario_id: &str| {
-        last_mile_rows.iter().find(|row| row.scenario_id == scenario_id)
+        last_mile_rows.iter().find(|row| row.scenario_id.as_str() == scenario_id)
     };
 
     let all_channels = get_last_mile("all-channels-up");
