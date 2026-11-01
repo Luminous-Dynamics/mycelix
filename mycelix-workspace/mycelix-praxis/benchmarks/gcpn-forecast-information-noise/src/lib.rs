@@ -700,10 +700,7 @@ mod tests {
         );
         let metrics = &evaluate(&contract(), &[record]).unwrap().cases[0];
         near(metrics.forecast_information.unwrap(), 2.0);
-        near(
-            metrics.information_error.unwrap(),
-            (2.0_f64 * (2.0_f64 / 3.0).sqrt()),
-        );
+        near(metrics.information_error.unwrap(), (2.0_f64 / 3.0).sqrt());
         near(metrics.noise_error.unwrap(), 0.0);
     }
 
