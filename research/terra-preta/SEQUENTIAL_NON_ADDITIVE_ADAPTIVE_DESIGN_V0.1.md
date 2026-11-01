@@ -710,7 +710,7 @@ w_D = \frac{p_D \ell_D}
 
 For the test grid:
 - prior 0.001, residual likelihood 0.30 gives posterior discrepancy mass
-  0.0292 and the declared optimal decision remains RETAIN_WATER;
+  0.0292 and the declared optimal decision remains DRAIN_FAST;
 - prior 0.001, residual likelihood 0.90 gives posterior mass 0.0826 and
   changes the expected decision to DIAGNOSE_FIRST;
 - prior 0.01, residual likelihood 0.30 gives posterior mass 0.2326;
