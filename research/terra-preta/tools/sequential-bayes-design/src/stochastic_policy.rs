@@ -511,7 +511,11 @@ fn evaluate_gibbs_policy_at_beta(
         hard_action_cost_cap_units,
         precision_lambda,
     )?;
-    let adversarial_penalty = beta * average_kl_radius_nats;
+    let adversarial_penalty = if average_kl_radius_nats == 0.0 {
+        0.0
+    } else {
+        beta * average_kl_radius_nats
+    };
     let policy_complexity_penalty = gibbs.kl_to_prior_nats / precision_lambda;
     let robust_regularized_value = gibbs.expected_information_nats
         - policy_complexity_penalty
@@ -520,7 +524,7 @@ fn evaluate_gibbs_policy_at_beta(
     Ok(OptimizedRobustGibbsPolicy {
         precision_lambda,
         requested_average_kl_radius_nats: average_kl_radius_nats,
-        common_dual_beta: Some(beta),
+        common_dual_beta: if average_kl_radius_nats == 0.0 { None } else { Some(beta) },
         alpha: if alpha >= 1.0 - 1e-12 { 1.0 } else { alpha },
         action_weights: gibbs.action_weights,
         expected_sibson_information_nats: gibbs.expected_information_nats,
