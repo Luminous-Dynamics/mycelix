@@ -209,13 +209,19 @@ fn near(a: f64, b: f64) -> bool {
 
 fn valid_sha256(value: &str, label: &str) -> Result<(), String> {
     if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(format!("{label} must contain exactly 64 hexadecimal characters"));
+        return Err(format!(
+            "{label} must contain exactly 64 hexadecimal characters"
+        ));
     }
     Ok(())
 }
 
 fn geometric_mean(values: &[f64]) -> Result<f64, String> {
-    if values.is_empty() || values.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+    if values.is_empty()
+        || values
+            .iter()
+            .any(|value| !value.is_finite() || *value <= 0.0)
+    {
         return Err("geometric mean requires at least one finite positive value".to_owned());
     }
     let mean_log = values.iter().map(|value| value.ln()).sum::<f64>() / values.len() as f64;
@@ -228,7 +234,10 @@ fn parse_config(bytes: &[u8]) -> Result<Config, String> {
     let config: Config = serde_json::from_slice(bytes)
         .map_err(|error| format!("config JSON parse failed: {error}"))?;
     if config.schema_version != "0.1.0" {
-        return Err(format!("unsupported config schema_version {:?}", config.schema_version));
+        return Err(format!(
+            "unsupported config schema_version {:?}",
+            config.schema_version
+        ));
     }
     for (value, label) in [
         (&config.study_id, "study_id"),
@@ -237,17 +246,25 @@ fn parse_config(bytes: &[u8]) -> Result<Config, String> {
         (&config.scan_id, "scan_id"),
         (&config.image_evidence_ref, "image_evidence_ref"),
         (&config.morphology_evidence_ref, "morphology_evidence_ref"),
-        (&config.dynamic_model_evidence_ref, "dynamic_model_evidence_ref"),
+        (
+            &config.dynamic_model_evidence_ref,
+            "dynamic_model_evidence_ref",
+        ),
         (&config.columns.area, "columns.area"),
         (&config.columns.perimeter, "columns.perimeter"),
         (&config.columns.min_feret, "columns.min_feret"),
     ] {
         if value.trim().is_empty() || value.trim() != value {
-            return Err(format!("{label} must be nonblank and have no surrounding whitespace"));
+            return Err(format!(
+                "{label} must be nonblank and have no surrounding whitespace"
+            ));
         }
     }
     valid_sha256(&config.image_source_sha256, "image_source_sha256")?;
-    finite_positive(config.image_resolution_um_per_pixel, "image_resolution_um_per_pixel")?;
+    finite_positive(
+        config.image_resolution_um_per_pixel,
+        "image_resolution_um_per_pixel",
+    )?;
     finite_positive(config.cross_section_area_mm2, "cross_section_area_mm2")?;
     finite_nonnegative(config.minimum_object_area_mm2, "minimum_object_area_mm2")?;
     if config.columns.area == config.columns.perimeter
@@ -260,14 +277,24 @@ fn parse_config(bytes: &[u8]) -> Result<Config, String> {
 }
 
 fn csv_column(headers: &csv::StringRecord, name: &str) -> Result<usize, String> {
-    headers.iter().position(|header| header == name)
+    headers
+        .iter()
+        .position(|header| header == name)
         .ok_or_else(|| format!("required ImageJ CSV column {name:?} was not found"))
 }
 
-fn csv_number(record: &csv::StringRecord, index: usize, name: &str, row: usize) -> Result<f64, String> {
-    let raw = record.get(index)
+fn csv_number(
+    record: &csv::StringRecord,
+    index: usize,
+    name: &str,
+    row: usize,
+) -> Result<f64, String> {
+    let raw = record
+        .get(index)
         .ok_or_else(|| format!("row {row}: missing value for {name}"))?;
-    let value: f64 = raw.trim().parse()
+    let value: f64 = raw
+        .trim()
+        .parse()
         .map_err(|error| format!("row {row}: cannot parse {name} value {raw:?}: {error}"))?;
     finite_positive(value, &format!("row {row}: {name}"))?;
     Ok(value)
@@ -278,7 +305,8 @@ fn parse_pores(bytes: &[u8], config: &Config) -> Result<(usize, Vec<Pore>), Stri
         .flexible(false)
         .trim(csv::Trim::Headers)
         .from_reader(bytes);
-    let headers = reader.headers()
+    let headers = reader
+        .headers()
         .map_err(|error| format!("ImageJ CSV header parse failed: {error}"))?
         .clone();
     let area_index = csv_column(&headers, &config.columns.area)?;
@@ -330,30 +358,56 @@ fn validate_dynamic(config: &Config, report: &DynamicReport) -> Result<(), Strin
         || report.profile_id != config.profile_id
         || report.horizon_label != config.horizon_label
     {
-        return Err("dynamic report study/profile/horizon identity does not match config".to_owned());
+        return Err(
+            "dynamic report study/profile/horizon identity does not match config".to_owned(),
+        );
     }
     if report.model_version != "0.1.0" {
-        return Err(format!("unsupported dynamic model version {:?}", report.model_version));
+        return Err(format!(
+            "unsupported dynamic model version {:?}",
+            report.model_version
+        ));
     }
     valid_sha256(&report.input_sha256, "dynamic report input_sha256")?;
-    if !near(report.image_geometry.image_resolution_um_per_pixel, config.image_resolution_um_per_pixel)
-        || !near(report.image_geometry.cross_section_area_mm2, config.cross_section_area_mm2)
-        || !near(report.image_geometry.minimum_object_area_threshold_mm2, config.minimum_object_area_mm2)
-    {
+    if !near(
+        report.image_geometry.image_resolution_um_per_pixel,
+        config.image_resolution_um_per_pixel,
+    ) || !near(
+        report.image_geometry.cross_section_area_mm2,
+        config.cross_section_area_mm2,
+    ) || !near(
+        report.image_geometry.minimum_object_area_threshold_mm2,
+        config.minimum_object_area_mm2,
+    ) {
         return Err("dynamic report image resolution, cross-section area or object filter does not match config".to_owned());
     }
     if report.time_points.is_empty() {
         return Err("dynamic report contains no time points".to_owned());
     }
-    if !report.image_geometry.projected_macropore_area_mm2.is_finite()
+    if !report
+        .image_geometry
+        .projected_macropore_area_mm2
+        .is_finite()
         || report.image_geometry.projected_macropore_area_mm2 <= 0.0
-        || !report.image_geometry.total_macropore_perimeter_mm.is_finite()
+        || !report
+            .image_geometry
+            .total_macropore_perimeter_mm
+            .is_finite()
         || report.image_geometry.total_macropore_perimeter_mm <= 0.0
-        || !report.derived_geometry.dry_structural_unit_width_mm.is_finite()
+        || !report
+            .derived_geometry
+            .dry_structural_unit_width_mm
+            .is_finite()
         || report.derived_geometry.dry_structural_unit_width_mm <= 0.0
-        || !report.derived_geometry.dry_mean_macropore_width_mm.is_finite()
+        || !report
+            .derived_geometry
+            .dry_mean_macropore_width_mm
+            .is_finite()
         || report.derived_geometry.dry_mean_macropore_width_mm <= 0.0
-        || !report.derived_geometry.total_dry_repeat_width_mm.is_finite()
+        || !report
+            .derived_geometry
+            .total_dry_repeat_width_mm
+            .is_finite()
         || report.derived_geometry.total_dry_repeat_width_mm <= 0.0
     {
         return Err("dynamic report contains non-positive or non-finite pore geometry".to_owned());
@@ -361,9 +415,18 @@ fn validate_dynamic(config: &Config, report: &DynamicReport) -> Result<(), Strin
     if report.image_geometry.included_macropore_object_count == 0 {
         return Err("dynamic report included_macropore_object_count must be positive".to_owned());
     }
-    finite_positive(report.fluid_properties.surface_tension_n_m, "dynamic report surface tension")?;
-    finite_positive(report.fluid_properties.water_density_kg_m3, "dynamic report water density")?;
-    finite_positive(report.fluid_properties.gravity_m_s2, "dynamic report gravity")?;
+    finite_positive(
+        report.fluid_properties.surface_tension_n_m,
+        "dynamic report surface tension",
+    )?;
+    finite_positive(
+        report.fluid_properties.water_density_kg_m3,
+        "dynamic report water density",
+    )?;
+    finite_positive(
+        report.fluid_properties.gravity_m_s2,
+        "dynamic report gravity",
+    )?;
     finite_nonnegative(
         report.maximum_macropore_volume_fraction_at_wilting_point,
         "maximum macropore volume fraction",
@@ -381,20 +444,36 @@ fn validate_dynamic(config: &Config, report: &DynamicReport) -> Result<(), Strin
             }
         }
         previous_time = Some(timestamp);
-        finite_nonnegative(point.matrix_water_content_m3_m3, &format!("time_points[{index}].matrix_water_content"))?;
-        finite_positive(point.structural_unit_width_mm, &format!("time_points[{index}].structural_unit_width_mm"))?;
-        finite_nonnegative(point.macropore_width_mm, &format!("time_points[{index}].macropore_width_mm"))?;
-        finite_nonnegative(point.macropore_volume_fraction, &format!("time_points[{index}].macropore_volume_fraction"))?;
+        finite_nonnegative(
+            point.matrix_water_content_m3_m3,
+            &format!("time_points[{index}].matrix_water_content"),
+        )?;
+        finite_positive(
+            point.structural_unit_width_mm,
+            &format!("time_points[{index}].structural_unit_width_mm"),
+        )?;
+        finite_nonnegative(
+            point.macropore_width_mm,
+            &format!("time_points[{index}].macropore_width_mm"),
+        )?;
+        finite_nonnegative(
+            point.macropore_volume_fraction,
+            &format!("time_points[{index}].macropore_volume_fraction"),
+        )?;
         if !near(
             point.structural_unit_width_mm + point.macropore_width_mm,
             report.derived_geometry.total_dry_repeat_width_mm,
         ) {
-            return Err(format!("time_points[{index}] violates the declared structural repeat width"));
+            return Err(format!(
+                "time_points[{index}] violates the declared structural repeat width"
+            ));
         }
         if point.macropore_volume_fraction
             > report.maximum_macropore_volume_fraction_at_wilting_point + 1.0e-8
         {
-            return Err(format!("time_points[{index}] aggregate macro fraction exceeds the wilting-point maximum"));
+            return Err(format!(
+                "time_points[{index}] aggregate macro fraction exceeds the wilting-point maximum"
+            ));
         }
     }
     Ok(())
@@ -408,7 +487,9 @@ fn conversion_factor_rp(w_mm: f64, pore_width_mm: f64) -> Result<f64, String> {
     let denominator = repeat_width * pore_width_mm * (2.0 * w_mm + pore_width_mm);
     let result = numerator / denominator;
     if !result.is_finite() || result <= 0.0 {
-        return Err("Equation 35 produced a non-positive or non-finite pore conversion factor".to_owned());
+        return Err(
+            "Equation 35 produced a non-positive or non-finite pore conversion factor".to_owned(),
+        );
     }
     Ok(result)
 }
@@ -486,13 +567,9 @@ fn fit_van_genuchten_retention_curve(
         })
         .collect();
 
-    let branch_rmse = |alpha: Option<f64>| {
-        match (alpha, upstream_n) {
-            (Some(alpha), Some(n)) => {
-                retention_curve_rmse(&samples, maximum_fraction, alpha, n)
-            }
-            _ => None,
-        }
+    let branch_rmse = |alpha: Option<f64>| match (alpha, upstream_n) {
+        (Some(alpha), Some(n)) => retention_curve_rmse(&samples, maximum_fraction, alpha, n),
+        _ => None,
     };
 
     let figure_table_rmse = branch_rmse(figure_table_alpha);
@@ -553,12 +630,7 @@ fn fit_van_genuchten_retention_curve(
             let alpha = 10.0_f64.powf(log_alpha);
             for n_index in 0..=divisions {
                 let n = n_min + n_index as f64 * n_step;
-                if let Some(rmse) = retention_curve_rmse(
-                    &samples,
-                    maximum_fraction,
-                    alpha,
-                    n,
-                ) {
+                if let Some(rmse) = retention_curve_rmse(&samples, maximum_fraction, alpha, n) {
                     let sse = rmse.powi(2);
                     stage_candidates.push((sse, log_alpha, n));
                     if best.map(|current| sse < current.0).unwrap_or(true) {
@@ -665,7 +737,10 @@ fn per_pore_state(
         point.structural_unit_width_mm + average_dynamic_width,
         report.derived_geometry.total_dry_repeat_width_mm,
     ) {
-        return Err(format!("time {} violates dynamic repeat-width geometry", point.timestamp_utc));
+        return Err(format!(
+            "time {} violates dynamic repeat-width geometry",
+            point.timestamp_utc
+        ));
     }
 
     let mut states = Vec::with_capacity(pores.len());
@@ -685,9 +760,7 @@ fn per_pore_state(
         }
         let rp = conversion_factor_rp(point.structural_unit_width_mm, dynamic_width)?;
         // Hirmas et al. Eq. 36: f_pi = R_pi * A_pi*d(theta_m)/(A_xs*d_ds).
-        let fp = rp
-            * pore.area_mm2
-            * average_dynamic_width
+        let fp = rp * pore.area_mm2 * average_dynamic_width
             / (config.cross_section_area_mm2 * dry_mean_width);
         finite_nonnegative(fp, "individual pore volume fraction")?;
         let head = -report.fluid_properties.surface_tension_n_m
@@ -741,7 +814,9 @@ fn per_pore_state(
     let retention_curve_fit = fit_van_genuchten_retention_curve(
         &per_pore_retention_curve,
         per_pore_volume_fraction_sum,
-        point.structural_alpha_figure_table_plus_per_m.or(point.structural_alpha_per_m),
+        point
+            .structural_alpha_figure_table_plus_per_m
+            .or(point.structural_alpha_per_m),
         point.structural_alpha_printed_eq37_minus_per_m,
         point.structural_n,
     );
@@ -754,12 +829,12 @@ fn per_pore_state(
         dynamic_average_ratio_d_over_dry: ratio,
         per_pore_volume_fraction_sum,
         aggregate_eq22_volume_fraction: point.macropore_volume_fraction,
-        per_pore_minus_aggregate_difference:
-            per_pore_volume_fraction_sum - point.macropore_volume_fraction,
+        per_pore_minus_aggregate_difference: per_pore_volume_fraction_sum
+            - point.macropore_volume_fraction,
         per_pore_retention_curve,
         retention_curve_fit,
-        maximum_macropore_volume_fraction_at_wilting_point:
-            report.maximum_macropore_volume_fraction_at_wilting_point,
+        maximum_macropore_volume_fraction_at_wilting_point: report
+            .maximum_macropore_volume_fraction_at_wilting_point,
     })
 }
 
@@ -781,20 +856,32 @@ fn evaluate(
     let dry_widths: Vec<f64> = pores.iter().map(|pore| pore.dry_min_feret_mm).collect();
     let d_ds = geometric_mean(&dry_widths)?;
     let w_ds = 4.0 * (config.cross_section_area_mm2 - total_area) / total_perimeter;
-    finite_positive(w_ds, "dry structural-unit width derived from per-pore table")?;
+    finite_positive(
+        w_ds,
+        "dry structural-unit width derived from per-pore table",
+    )?;
 
-    if !near(total_area, dynamic.image_geometry.projected_macropore_area_mm2)
-        || !near(total_perimeter, dynamic.image_geometry.total_macropore_perimeter_mm)
-    {
+    if !near(
+        total_area,
+        dynamic.image_geometry.projected_macropore_area_mm2,
+    ) || !near(
+        total_perimeter,
+        dynamic.image_geometry.total_macropore_perimeter_mm,
+    ) {
         return Err("summed per-pore projected area/perimeter differs from dynamic report; check filter, columns and ROI".to_owned());
     }
     if !near(d_ds, dynamic.image_geometry.mean_dry_macropore_width_mm)
         || !near(d_ds, dynamic.derived_geometry.dry_mean_macropore_width_mm)
     {
-        return Err("geometric mean of retained MinFeret values differs from dynamic dry mean pore width".to_owned());
+        return Err(
+            "geometric mean of retained MinFeret values differs from dynamic dry mean pore width"
+                .to_owned(),
+        );
     }
     if !near(w_ds, dynamic.derived_geometry.dry_structural_unit_width_mm) {
-        return Err("per-pore dry structural-unit width does not match dynamic report geometry".to_owned());
+        return Err(
+            "per-pore dry structural-unit width does not match dynamic report geometry".to_owned(),
+        );
     }
 
     let mut states = Vec::with_capacity(dynamic.time_points.len());
@@ -802,7 +889,8 @@ fn evaluate(
         states.push(per_pore_state(pores, config, dynamic, point)?);
     }
 
-    let difference = states.iter()
+    let difference = states
+        .iter()
         .map(|state| state.per_pore_minus_aggregate_difference.abs())
         .fold(0.0_f64, f64::max);
     let interpretation = if difference <= 0.01 {
@@ -877,7 +965,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     if output_path.exists() {
         for input_path in [csv_path, dynamic_path, config_path] {
             if fs::canonicalize(output_path)? == fs::canonicalize(input_path)? {
-                return Err(format!("output path resolves to input {}; refusing overwrite", input_path.display()).into());
+                return Err(format!(
+                    "output path resolves to input {}; refusing overwrite",
+                    input_path.display()
+                )
+                .into());
             }
         }
         return Err(format!("output path already exists: {}", output_path.display()).into());
@@ -895,21 +987,39 @@ fn run() -> Result<(), Box<dyn Error>> {
     let (input_count, pores) = parse_pores(&csv_bytes, &config)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let report = evaluate(
-        &config, &dynamic, input_count, &pores,
-        config_sha, csv_sha, dynamic_sha,
-    ).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        &config,
+        &dynamic,
+        input_count,
+        &pores,
+        config_sha,
+        csv_sha,
+        dynamic_sha,
+    )
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
 
     let mut encoded = serde_json::to_vec_pretty(&report)?;
     encoded.push(b'\n');
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create report: {error}")))?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("refusing overwrite or cannot create report: {error}"),
+            )
+        })?;
     output.write_all(&encoded)?;
     output.sync_all()?;
     println!(
         "Hirmas per-pore audit complete: {} retained pores; {} dynamic states; max |per-pore - aggregate| {}; input CSV SHA-256 {}",
         report.geometry_audit.retained_macropore_object_count,
         report.time_state_count,
-        report.time_states.iter().map(|state| state.per_pore_minus_aggregate_difference.abs()).fold(0.0_f64, f64::max),
+        report
+            .time_states
+            .iter()
+            .map(|state| state.per_pore_minus_aggregate_difference.abs())
+            .fold(0.0_f64, f64::max),
         report.morphology_csv_sha256
     );
     Ok(())
@@ -937,13 +1047,21 @@ mod tests {
 
     #[test]
     fn parse_utc_requires_explicit_zero_offset() {
-        assert!(parse_utc("2026-01-01T00:00:00+01:00", "timestamp").unwrap_err().contains("zero UTC offset"));
+        assert!(
+            parse_utc("2026-01-01T00:00:00+01:00", "timestamp")
+                .unwrap_err()
+                .contains("zero UTC offset")
+        );
         assert!(parse_utc("2026-01-01T00:00:00Z", "timestamp").is_ok());
     }
 
     #[test]
     fn parse_utc_rejects_invalid_timestamp() {
-        assert!(parse_utc("not-a-timestamp", "timestamp").unwrap_err().contains("invalid RFC3339"));
+        assert!(
+            parse_utc("not-a-timestamp", "timestamp")
+                .unwrap_err()
+                .contains("invalid RFC3339")
+        );
     }
 
     fn retention_point(head: f64, theta_p: f64) -> PoreRetentionPoint {
@@ -991,13 +1109,8 @@ mod tests {
     #[test]
     fn retention_fit_abstains_when_too_few_pore_points_exist() {
         let points = vec![retention_point(-0.01, 0.10), retention_point(-0.02, 0.15)];
-        let fit = fit_van_genuchten_retention_curve(
-            &points,
-            0.2,
-            Some(1500.0),
-            Some(-500.0),
-            Some(2.8),
-        );
+        let fit =
+            fit_van_genuchten_retention_curve(&points, 0.2, Some(1500.0), Some(-500.0), Some(2.8));
         assert_eq!(fit.status, "not_fitted_insufficient_retention_points");
         assert_eq!(fit.alpha2_fit_per_m, None);
         assert_eq!(fit.figure_table_alpha_rmse_m3_m3, Some(0.0));
@@ -1023,42 +1136,96 @@ mod tests {
     fn zero_dynamic_width_produces_zero_volume_and_no_finite_head_claim() {
         let config = Config {
             schema_version: "0.1.0".to_owned(),
-            study_id: "S".to_owned(), profile_id: "P".to_owned(), horizon_label: "Ap1".to_owned(),
-            scan_id: "scan".to_owned(), image_source_sha256: "a".repeat(64),
-            image_evidence_ref: "synthetic".to_owned(), morphology_evidence_ref: "synthetic".to_owned(),
+            study_id: "S".to_owned(),
+            profile_id: "P".to_owned(),
+            horizon_label: "Ap1".to_owned(),
+            scan_id: "scan".to_owned(),
+            image_source_sha256: "a".repeat(64),
+            image_evidence_ref: "synthetic".to_owned(),
+            morphology_evidence_ref: "synthetic".to_owned(),
             dynamic_model_evidence_ref: "synthetic".to_owned(),
-            image_resolution_um_per_pixel: 180.0, cross_section_area_mm2: 100.0,
+            image_resolution_um_per_pixel: 180.0,
+            cross_section_area_mm2: 100.0,
             minimum_object_area_mm2: 0.0,
-            columns: ColumnMapping { area:"Area".to_owned(), perimeter:"Perim.".to_owned(), min_feret:"MinFeret".to_owned() }
+            columns: ColumnMapping {
+                area: "Area".to_owned(),
+                perimeter: "Perim.".to_owned(),
+                min_feret: "MinFeret".to_owned(),
+            },
         };
         let dynamic = DynamicReport {
-            model_version: "0.1.0".to_owned(), input_sha256: "b".repeat(64),
-            study_id: "S".to_owned(), profile_id: "P".to_owned(), horizon_label: "Ap1".to_owned(),
+            model_version: "0.1.0".to_owned(),
+            input_sha256: "b".repeat(64),
+            study_id: "S".to_owned(),
+            profile_id: "P".to_owned(),
+            horizon_label: "Ap1".to_owned(),
             image_geometry: DynamicImageGeometry {
-                image_resolution_um_per_pixel: 180.0, cross_section_area_mm2:100.0,
-                projected_macropore_area_mm2:10.0,total_macropore_perimeter_mm:20.0,
-                mean_dry_macropore_width_mm:2.0,minimum_object_area_threshold_mm2:0.0,
-                included_macropore_object_count:1
+                image_resolution_um_per_pixel: 180.0,
+                cross_section_area_mm2: 100.0,
+                projected_macropore_area_mm2: 10.0,
+                total_macropore_perimeter_mm: 20.0,
+                mean_dry_macropore_width_mm: 2.0,
+                minimum_object_area_threshold_mm2: 0.0,
+                included_macropore_object_count: 1,
             },
-            fluid_properties:FluidProperties{surface_tension_n_m:0.0728,water_density_kg_m3:1000.0,gravity_m_s2:9.80665},
-            derived_geometry:DynamicDerivedGeometry{dry_structural_unit_width_mm:18.0,dry_mean_macropore_width_mm:2.0,total_dry_repeat_width_mm:20.0},
-            maximum_macropore_volume_fraction_at_wilting_point:0.1,
-            time_points:vec![DynamicTimePoint{timestamp_utc:"2026-01-01T00:00:00Z".to_owned(),matrix_water_content_m3_m3:0.3,structural_unit_width_mm:20.0,macropore_width_mm:0.0,macropore_volume_fraction:0.0,structural_alpha_per_m:None,structural_alpha_figure_table_plus_per_m:None,structural_alpha_printed_eq37_minus_per_m:None,structural_n:None}]
+            fluid_properties: FluidProperties {
+                surface_tension_n_m: 0.0728,
+                water_density_kg_m3: 1000.0,
+                gravity_m_s2: 9.80665,
+            },
+            derived_geometry: DynamicDerivedGeometry {
+                dry_structural_unit_width_mm: 18.0,
+                dry_mean_macropore_width_mm: 2.0,
+                total_dry_repeat_width_mm: 20.0,
+            },
+            maximum_macropore_volume_fraction_at_wilting_point: 0.1,
+            time_points: vec![DynamicTimePoint {
+                timestamp_utc: "2026-01-01T00:00:00Z".to_owned(),
+                matrix_water_content_m3_m3: 0.3,
+                structural_unit_width_mm: 20.0,
+                macropore_width_mm: 0.0,
+                macropore_volume_fraction: 0.0,
+                structural_alpha_per_m: None,
+                structural_alpha_figure_table_plus_per_m: None,
+                structural_alpha_printed_eq37_minus_per_m: None,
+                structural_n: None,
+            }],
         };
-        let state=per_pore_state(&[pore("A",10.0,20.0,2.0)],&config,&dynamic,&dynamic.time_points[0]).unwrap();
-        assert_eq!(state.per_pore_volume_fraction_sum,0.0);
-        assert_eq!(state.per_pore_retention_curve[0].matric_head_m,None);
-        assert_eq!(state.per_pore_retention_curve[0].individual_conversion_factor_rp,None);
+        let state = per_pore_state(
+            &[pore("A", 10.0, 20.0, 2.0)],
+            &config,
+            &dynamic,
+            &dynamic.time_points[0],
+        )
+        .unwrap();
+        assert_eq!(state.per_pore_volume_fraction_sum, 0.0);
+        assert_eq!(state.per_pore_retention_curve[0].matric_head_m, None);
+        assert_eq!(
+            state.per_pore_retention_curve[0].individual_conversion_factor_rp,
+            None
+        );
     }
 
     #[test]
     fn rejects_nonmatching_geometry_and_horizon() {
-        let config=Config{
-            schema_version:"0.1.0".to_owned(),study_id:"S".to_owned(),profile_id:"P".to_owned(),horizon_label:"Ap1".to_owned(),
-            scan_id:"scan".to_owned(),image_source_sha256:"a".repeat(64),
-            image_evidence_ref:"s".to_owned(),morphology_evidence_ref:"s".to_owned(),dynamic_model_evidence_ref:"s".to_owned(),
-            image_resolution_um_per_pixel:180.0,cross_section_area_mm2:100.0,minimum_object_area_mm2:0.0,
-            columns:ColumnMapping{area:"Area".to_owned(),perimeter:"Perim.".to_owned(),min_feret:"MinFeret".to_owned()}
+        let config = Config {
+            schema_version: "0.1.0".to_owned(),
+            study_id: "S".to_owned(),
+            profile_id: "P".to_owned(),
+            horizon_label: "Ap1".to_owned(),
+            scan_id: "scan".to_owned(),
+            image_source_sha256: "a".repeat(64),
+            image_evidence_ref: "s".to_owned(),
+            morphology_evidence_ref: "s".to_owned(),
+            dynamic_model_evidence_ref: "s".to_owned(),
+            image_resolution_um_per_pixel: 180.0,
+            cross_section_area_mm2: 100.0,
+            minimum_object_area_mm2: 0.0,
+            columns: ColumnMapping {
+                area: "Area".to_owned(),
+                perimeter: "Perim.".to_owned(),
+                min_feret: "MinFeret".to_owned(),
+            },
         };
         let mut report: DynamicReport=serde_json::from_str(r#"{
         "model_version":"0.1.0","input_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -1069,23 +1236,43 @@ mod tests {
         "maximum_macropore_volume_fraction_at_wilting_point":0.1,
         "time_points":[{"timestamp_utc":"2026-01-01T00:00:00Z","matrix_water_content_m3_m3":0.3,"structural_unit_width_mm":18,"macropore_width_mm":2,"macropore_volume_fraction":0.1}]
         }"#).unwrap();
-        report.horizon_label="Bt".to_owned();
-        assert!(validate_dynamic(&config,&report).unwrap_err().contains("identity does not match"));
+        report.horizon_label = "Bt".to_owned();
+        assert!(
+            validate_dynamic(&config, &report)
+                .unwrap_err()
+                .contains("identity does not match")
+        );
     }
 
     #[test]
     fn stable_sort_orders_retention_curve_by_dynamic_pore_width() {
-        let mut values=vec![(4.0,"B".to_owned()),(1.0,"A".to_owned()),(2.0,"C".to_owned())];
-        values.sort_by(|a,b|a.0.total_cmp(&b.0).then_with(||a.1.cmp(&b.1)));
-        assert_eq!(values.iter().map(|item|item.1.as_str()).collect::<Vec<_>>(),vec!["A","C","B"]);
+        let mut values = vec![
+            (4.0, "B".to_owned()),
+            (1.0, "A".to_owned()),
+            (2.0, "C".to_owned()),
+        ];
+        values.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        assert_eq!(
+            values
+                .iter()
+                .map(|item| item.1.as_str())
+                .collect::<Vec<_>>(),
+            vec!["A", "C", "B"]
+        );
     }
 
     #[test]
     fn strict_size_filter_excludes_objects_equal_to_threshold() {
-        let threshold=std::f64::consts::PI;
-        let rows=[pore("A",threshold,10.0,1.0),pore("B",threshold+0.001,20.0,1.5)];
-        let retained:Vec<_>=rows.iter().filter(|item|item.area_mm2>threshold).collect();
-        assert_eq!(retained.len(),1);
-        assert_eq!(retained[0].object_id,"B");
+        let threshold = std::f64::consts::PI;
+        let rows = [
+            pore("A", threshold, 10.0, 1.0),
+            pore("B", threshold + 0.001, 20.0, 1.5),
+        ];
+        let retained: Vec<_> = rows
+            .iter()
+            .filter(|item| item.area_mm2 > threshold)
+            .collect();
+        assert_eq!(retained.len(), 1);
+        assert_eq!(retained[0].object_id, "B");
     }
 }
