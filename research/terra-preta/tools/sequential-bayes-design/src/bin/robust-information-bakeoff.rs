@@ -9,8 +9,8 @@ use terra_preta_sequential_bayes_design::robust_information::{
     RadiusRobustInformation,
 };
 use terra_preta_sequential_bayes_design::stochastic_policy::{
-    gibbs_policy_from_rewards, optimize_shared_kl_policy,
-    StochasticPolicyCandidate,
+    gibbs_policy_from_rewards, optimize_gibbs_shared_kl_policy,
+    optimize_shared_kl_policy, StochasticPolicyCandidate,
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -114,6 +114,21 @@ struct GibbsPolicyRecord {
 }
 
 #[derive(Clone, Debug, Serialize)]
+struct OptimizedRobustGibbsPolicyRecord {
+    precision_lambda: f64,
+    requested_average_kl_radius_nats: f64,
+    common_dual_beta: Option<f64>,
+    alpha: f64,
+    expected_sibson_information_nats: f64,
+    policy_kl_to_prior_nats: f64,
+    policy_complexity_penalty_nats: f64,
+    adversarial_kl_penalty_nats: f64,
+    robust_regularized_value_nats: f64,
+    expected_cost_units: f64,
+    actions: Vec<GibbsActionRecord>,
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct SharedKlPolicyRecord {
     requested_average_kl_radius_nats: f64,
     common_dual_beta: Option<f64>,
@@ -144,6 +159,7 @@ struct Report {
     fixed_kl_radius_selection: Option<SelectionRecord>,
     gibbs_policy: GibbsPolicyRecord,
     shared_kl_policy: SharedKlPolicyRecord,
+    optimized_robust_gibbs_policy: OptimizedRobustGibbsPolicyRecord,
     candidate_summaries: Vec<CandidateSummary>,
     limitations: Vec<String>,
 }
@@ -350,6 +366,36 @@ fn build_report(scenario: &Scenario, input_bytes: &[u8]) -> Result<Report, Strin
         expected_cost_units: shared.expected_cost_units,
         action_probabilities: shared_actions,
     };
+    let optimized = optimize_gibbs_shared_kl_policy(
+        &policy_candidates,
+        &policy_prior,
+        scenario.budget_units,
+        scenario.kl_radius_nats,
+        scenario.gibbs_precision_lambda,
+        128,
+    )?;
+    let optimized_actions = optimized.action_weights.iter()
+        .map(|action| GibbsActionRecord {
+            action_id: action.action_id.clone(),
+            prior_probability: action.prior_probability,
+            probability: action.probability,
+            sibson_reward_nats: action.sibson_information_nats,
+            cost_units: action.cost_units,
+        })
+        .collect();
+    let optimized_record = OptimizedRobustGibbsPolicyRecord {
+        precision_lambda: optimized.precision_lambda,
+        requested_average_kl_radius_nats: optimized.requested_average_kl_radius_nats,
+        common_dual_beta: optimized.common_dual_beta,
+        alpha: optimized.alpha,
+        expected_sibson_information_nats: optimized.expected_sibson_information_nats,
+        policy_kl_to_prior_nats: optimized.policy_kl_to_prior_nats,
+        policy_complexity_penalty_nats: optimized.policy_complexity_penalty_nats,
+        adversarial_kl_penalty_nats: optimized.adversarial_kl_penalty_nats,
+        robust_regularized_value_nats: optimized.robust_regularized_value_nats,
+        expected_cost_units: optimized.expected_cost_units,
+        actions: optimized_actions,
+    };
 
     Ok(Report {
         schema_version: "0.1.0".into(),
@@ -371,6 +417,7 @@ fn build_report(scenario: &Scenario, input_bytes: &[u8]) -> Result<Report, Strin
         }),
         gibbs_policy: gibbs_record,
         shared_kl_policy: shared_record,
+        optimized_robust_gibbs_policy: optimized_record,
         candidate_summaries,
         limitations: vec![
             "Finite discrete candidate-model reference; not a continuous physical likelihood.".into(),
