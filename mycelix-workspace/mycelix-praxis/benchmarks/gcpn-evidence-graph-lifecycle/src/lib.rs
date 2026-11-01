@@ -898,19 +898,42 @@ mod tests {
             None,
             b"alert-v2",
         );
+        let future_alert = cap_message(
+            "alert-future",
+            400,
+            CapMessageType::Alert,
+            vec![],
+            Some(600),
+            b"future-alert",
+        );
+        let non_prior_update = cap_message(
+            "update-non-prior",
+            300,
+            CapMessageType::Update,
+            vec![future_alert.extended_identifier()],
+            None,
+            b"non-prior-update",
+        );
         let unknown_cancel = cap_message(
             "cancel-unknown",
-            300,
+            500,
             CapMessageType::Cancel,
             vec!["unknown,identifier,10".into()],
             None,
             b"cancel-v1",
         );
-        let audit = validate_cap_lifecycle(&[first, expired_update, unknown_cancel]);
+        let audit = validate_cap_lifecycle(&[
+            first,
+            future_alert,
+            expired_update,
+            non_prior_update,
+            unknown_cancel,
+        ]);
         let report = audit.report;
         assert_eq!(report.expired_references, 1);
+        assert_eq!(report.non_prior_references, 1);
         assert_eq!(report.unknown_references, 1);
-        assert!(report.is_conformant());
+        assert!(!report.is_conformant());
         assert!(!report.is_conformant_under_active_reference_profile());
     }
 
