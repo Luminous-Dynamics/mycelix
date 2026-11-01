@@ -217,7 +217,8 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
                 return Err("channel receipt total cannot be smaller than unique receipt union".into());
             }
         } else {
-            unknown_unique += 1;
+            unknown_unique = unknown_unique.checked_add(1)
+                .ok_or_else(|| "unknown reach cell counter overflow".to_string())?;
         }
         if let Some(count) = cell.unique_accessible_receipts {
             if count > cell.exposed {
@@ -233,18 +234,19 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
                 _ => {}
             }
         } else {
-            unknown_accessibility += 1;
+            unknown_accessibility = unknown_accessibility.checked_add(1)
+                .ok_or_else(|| "unknown accessibility cell counter overflow".to_string())?;
         }
 
-        total_exposed += cell.exposed;
-        timely += cell.unique_timely_receipts.unwrap_or(0);
-        accessible += cell.unique_accessible_receipts.unwrap_or(0);
+        checked_add_count(&mut total_exposed, cell.exposed, "total exposure")?;
+        checked_add_count(&mut timely, cell.unique_timely_receipts.unwrap_or(0), "unique timely reach")?;
+        checked_add_count(&mut accessible, cell.unique_accessible_receipts.unwrap_or(0), "accessible reach")?;
         if cell.accessibility_required {
             if let (Some(timely_count), Some(accessible_count)) = (cell.unique_timely_receipts, cell.unique_accessible_receipts) {
-                accessibility_required_unserved += timely_count - accessible_count;
+                checked_add_count(&mut accessibility_required_unserved, timely_count - accessible_count, "accessibility shortfall")?;
             }
         }
-        channel_total += cell.channel_receipt_count;
+        checked_add_count(&mut channel_total, cell.channel_receipt_count, "channel receipt total")?;
         let row = per.entry(cell.cohort_id.clone()).or_insert_with(|| CohortReach {
             cohort_id: cell.cohort_id.clone(),
             cohort_class: Some(cell.cohort_class),
@@ -253,17 +255,23 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
         if row.cohort_class != Some(cell.cohort_class) {
             return Err("cohort class changes across cells".into());
         }
-        row.exposed += cell.exposed;
-        row.timely_covered += cell.unique_timely_receipts.unwrap_or(0);
-        row.accessible_covered += cell.unique_accessible_receipts.unwrap_or(0);
+        checked_add_count(&mut row.exposed, cell.exposed, "cohort exposure")?;
+        checked_add_count(&mut row.timely_covered, cell.unique_timely_receipts.unwrap_or(0), "cohort timely reach")?;
+        checked_add_count(&mut row.accessible_covered, cell.unique_accessible_receipts.unwrap_or(0), "cohort accessible reach")?;
         if cell.accessibility_required {
             if let (Some(timely_count), Some(accessible_count)) = (cell.unique_timely_receipts, cell.unique_accessible_receipts) {
-                row.accessibility_required_unserved += timely_count - accessible_count;
+                checked_add_count(&mut row.accessibility_required_unserved, timely_count - accessible_count, "cohort accessibility shortfall")?;
             }
         }
-        row.unknown_unique_reach_cells += if cell.unique_timely_receipts.is_none() { 1 } else { 0 };
-        row.unknown_accessibility_cells += if cell.unique_accessible_receipts.is_none() { 1 } else { 0 };
-        row.channel_receipts += cell.channel_receipt_count;
+        if cell.unique_timely_receipts.is_none() {
+            row.unknown_unique_reach_cells = row.unknown_unique_reach_cells.checked_add(1)
+                .ok_or_else(|| "cohort unknown reach counter overflow".to_string())?;
+        }
+        if cell.unique_accessible_receipts.is_none() {
+            row.unknown_accessibility_cells = row.unknown_accessibility_cells.checked_add(1)
+                .ok_or_else(|| "cohort unknown accessibility counter overflow".to_string())?;
+        }
+        checked_add_count(&mut row.channel_receipts, cell.channel_receipt_count, "cohort channel receipt total")?;
     }
 
     let effective_timely_reach = (unknown_unique == 0 && total_exposed > 0)
@@ -282,7 +290,8 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
     };
 
     Ok(ReachReport {
-        cells_seen: cells.len() as u32,
+        cells_seen: u32::try_from(cells.len())
+            .map_err(|_| "reach cell count exceeds supported range".to_string())?,
         exposure_units: total_exposed,
         timely_unique_reach: timely,
         accessible_reach: accessible,
@@ -497,6 +506,15 @@ mod tests {
     fn accessible_union_cannot_be_claimed_without_timely_union(){
         let cells=vec![cell("transit",CohortClass::Transit,"hub",50,None,Some(20),30)];
         assert!(evaluate_reach(&cells).unwrap_err().contains("timely unique union is unknown"));
+    }
+
+    #[test]
+    fn reach_aggregate_count_overflow_fails_closed() {
+        let cells = vec![
+            cell("c1", CohortClass::Resident, "z1", u64::MAX, Some(0), Some(0), 0),
+            cell("c2", CohortClass::Commuter, "z2", 1, Some(0), Some(0), 0),
+        ];
+        assert!(evaluate_reach(&cells).unwrap_err().contains("total exposure exceeds"));
     }
 
     #[test]
