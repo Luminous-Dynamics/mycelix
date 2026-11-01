@@ -19,6 +19,10 @@ use gcpn_forecast_calibration::{
     fixture_report as forecast_fixture_report,
     Partition as ForecastPartition,
 };
+use gcpn_lifecycle_cost::{
+    fixture_report as lifecycle_cost_fixture_report,
+    Architecture as CostArchitecture,
+};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CivilRecordSummary {
@@ -96,12 +100,42 @@ pub struct ForecastSummary {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+pub struct LifecycleCostSummary {
+    pub cost_record_count: u32,
+    pub service_outcome_count: u32,
+    pub scenario_count: u32,
+    pub fixture_oracle_matches: bool,
+    pub cost_ranges_monotonic: bool,
+    pub service_denominators_consistent: bool,
+    pub outcome_counts_valid: bool,
+    pub all_architectures_have_profiles: bool,
+    pub centralized_baseline_lifecycle_pv: f64,
+    pub regional_baseline_lifecycle_pv: f64,
+    pub local_first_baseline_lifecycle_pv: f64,
+    pub centralized_baseline_annualized_cost: f64,
+    pub regional_baseline_annualized_cost: f64,
+    pub local_first_baseline_annualized_cost: f64,
+    pub centralized_cost_per_accessible_receiver: f64,
+    pub regional_cost_per_accessible_receiver: f64,
+    pub local_first_cost_per_accessible_receiver: f64,
+    pub centralized_annual_staff_hours: f64,
+    pub regional_annual_staff_hours: f64,
+    pub local_first_annual_staff_hours: f64,
+    pub centralized_staff_hours_over_horizon: f64,
+    pub regional_staff_hours_over_horizon: f64,
+    pub local_first_staff_hours_over_horizon: f64,
+    pub zero_accessible_cost_is_undefined: bool,
+    pub central_hub_restoration_is_scenario_scoped: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct IntegratedReport {
     pub civil_record: CivilRecordSummary,
     pub topology: TopologySummary,
     pub last_mile: LastMileSummary,
     pub warning_to_action: WarningActionSummary,
     pub forecast: ForecastSummary,
+    pub lifecycle_cost: LifecycleCostSummary,
 }
 
 impl IntegratedReport {
@@ -157,6 +191,28 @@ impl IntegratedReport {
             && self.forecast.candidate_evaluation_brier_skill > 0.0
             && self.forecast.lead_reference_evaluation_brier < self.forecast.candidate_evaluation_brier
             && self.forecast.candidate_heat_72h_evaluation_brier_skill < 0.0
+            && self.lifecycle_cost.fixture_oracle_matches
+            && self.lifecycle_cost.cost_record_count == 24
+            && self.lifecycle_cost.service_outcome_count == 21
+            && self.lifecycle_cost.scenario_count == 7
+            && self.lifecycle_cost.cost_ranges_monotonic
+            && self.lifecycle_cost.service_denominators_consistent
+            && self.lifecycle_cost.outcome_counts_valid
+            && self.lifecycle_cost.all_architectures_have_profiles
+            && (self.lifecycle_cost.centralized_baseline_lifecycle_pv - 28_026.378583683407).abs() < 1e-6
+            && (self.lifecycle_cost.regional_baseline_lifecycle_pv - 31_443.190239418658).abs() < 1e-6
+            && (self.lifecycle_cost.local_first_baseline_lifecycle_pv - 38_847.468928902585).abs() < 1e-6
+            && (self.lifecycle_cost.centralized_cost_per_accessible_receiver - 15.57021032426856).abs() < 1e-6
+            && (self.lifecycle_cost.regional_cost_per_accessible_receiver - 16.99631904833441).abs() < 1e-6
+            && (self.lifecycle_cost.local_first_cost_per_accessible_receiver - 20.44603627836978).abs() < 1e-6
+            && self.lifecycle_cost.centralized_annual_staff_hours == 1_600.0
+            && self.lifecycle_cost.regional_annual_staff_hours == 1_950.0
+            && self.lifecycle_cost.local_first_annual_staff_hours == 2_400.0
+            && self.lifecycle_cost.centralized_staff_hours_over_horizon == 8_000.0
+            && self.lifecycle_cost.regional_staff_hours_over_horizon == 9_750.0
+            && self.lifecycle_cost.local_first_staff_hours_over_horizon == 12_000.0
+            && self.lifecycle_cost.zero_accessible_cost_is_undefined
+            && self.lifecycle_cost.central_hub_restoration_is_scenario_scoped
     }
 }
 
@@ -170,6 +226,28 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
         .map_err(|e| format!("warning-to-action fixture: {e}"))?;
     let forecast = forecast_fixture_report()
         .map_err(|e| format!("forecast-verification fixture: {e}"))?;
+    let lifecycle_cost = lifecycle_cost_fixture_report()
+        .map_err(|e| format!("lifecycle-cost fixture: {e}"))?;
+
+    let centralized_cost = lifecycle_cost
+        .evaluation(CostArchitecture::Centralized, "all-available")
+        .ok_or_else(|| "centralized base cost evaluation missing".to_owned())?;
+    let regional_cost = lifecycle_cost
+        .evaluation(CostArchitecture::Regional, "all-available")
+        .ok_or_else(|| "regional base cost evaluation missing".to_owned())?;
+    let local_first_cost = lifecycle_cost
+        .evaluation(CostArchitecture::LocalFirst, "all-available")
+        .ok_or_else(|| "local-first base cost evaluation missing".to_owned())?;
+    let zero_reach_cost = lifecycle_cost
+        .evaluation(CostArchitecture::Centralized, "origin-authority-unavailable")
+        .ok_or_else(|| "zero-reach cost evaluation missing".to_owned())?;
+    let central_hub_fault_cost = lifecycle_cost
+        .evaluation(CostArchitecture::Centralized, "central-hub-outage")
+        .ok_or_else(|| "central hub fault cost evaluation missing".to_owned())?;
+
+    let central_hub_restoration_is_scenario_scoped =
+        central_hub_fault_cost.components.iter().any(|component| component.component == "scenario_restoration")
+            && centralized_cost.components.iter().all(|component| component.component != "scenario_restoration");
 
     let candidate_calibration = forecast
         .model_summary("candidate", ForecastPartition::Calibration)
@@ -337,6 +415,33 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
             candidate_heat_72h_evaluation_brier: candidate_heat_72h.brier_score,
             candidate_heat_72h_evaluation_brier_skill: candidate_heat_72h.brier_skill_score.unwrap_or(0.0),
         },
+        lifecycle_cost: LifecycleCostSummary {
+            cost_record_count: lifecycle_cost.cost_record_count,
+            service_outcome_count: lifecycle_cost.service_outcome_count,
+            scenario_count: lifecycle_cost.scenario_count,
+            fixture_oracle_matches: lifecycle_cost.fixture_oracle_matches(),
+            cost_ranges_monotonic: lifecycle_cost.cost_ranges_monotonic,
+            service_denominators_consistent: lifecycle_cost.service_denominators_consistent,
+            outcome_counts_valid: lifecycle_cost.outcome_counts_valid,
+            all_architectures_have_profiles: lifecycle_cost.all_architectures_have_profiles,
+            centralized_baseline_lifecycle_pv: centralized_cost.base_lifecycle_present_value,
+            regional_baseline_lifecycle_pv: regional_cost.base_lifecycle_present_value,
+            local_first_baseline_lifecycle_pv: local_first_cost.base_lifecycle_present_value,
+            centralized_baseline_annualized_cost: centralized_cost.base_annualized_cost,
+            regional_baseline_annualized_cost: regional_cost.base_annualized_cost,
+            local_first_baseline_annualized_cost: local_first_cost.base_annualized_cost,
+            centralized_cost_per_accessible_receiver: centralized_cost.base_cost_per_accessible_receiver_reached.unwrap_or(0.0),
+            regional_cost_per_accessible_receiver: regional_cost.base_cost_per_accessible_receiver_reached.unwrap_or(0.0),
+            local_first_cost_per_accessible_receiver: local_first_cost.base_cost_per_accessible_receiver_reached.unwrap_or(0.0),
+            centralized_annual_staff_hours: centralized_cost.annual_staff_hours,
+            regional_annual_staff_hours: regional_cost.annual_staff_hours,
+            local_first_annual_staff_hours: local_first_cost.annual_staff_hours,
+            centralized_staff_hours_over_horizon: centralized_cost.staff_hours_over_horizon,
+            regional_staff_hours_over_horizon: regional_cost.staff_hours_over_horizon,
+            local_first_staff_hours_over_horizon: local_first_cost.staff_hours_over_horizon,
+            zero_accessible_cost_is_undefined: zero_reach_cost.base_cost_per_accessible_receiver_reached.is_none(),
+            central_hub_restoration_is_scenario_scoped,
+        },
     };
 
     Ok(report)
@@ -379,6 +484,14 @@ mod tests {
             fnv1a64(gcpn_forecast_calibration::FIXTURE.as_bytes()),
             0x81af0b6779196770
         );
+        assert_eq!(
+            fnv1a64(gcpn_lifecycle_cost::COST_FIXTURE.as_bytes()),
+            0x52072da4d6fb1ba6
+        );
+        assert_eq!(
+            fnv1a64(gcpn_lifecycle_cost::OUTCOME_FIXTURE.as_bytes()),
+            0x376c727b26d887aa
+        );
     }
 
     #[test]
@@ -387,6 +500,7 @@ mod tests {
         assert!(report.forecast.fixture_oracle_matches);
         assert_eq!(report.forecast.record_count, 65);
         assert_eq!(report.forecast.scored_record_count, 54);
+        assert_eq!(report.lifecycle_cost.cost_record_count, 24);
         assert_eq!(report.forecast.candidate_calibration_samples, 6);
         assert_eq!(report.forecast.candidate_evaluation_samples, 12);
         assert_eq!(report.forecast.lead_reference_evaluation_samples, 12);
@@ -407,6 +521,39 @@ mod tests {
         assert!(report.topology.receiver_denominators_consistent);
         assert!(report.last_mile.all_counting_invariants_hold);
         assert!(report.warning_to_action.fixture_oracle_matches);
+    }
+
+    #[test]
+    fn lifecycle_cost_remains_separate_from_reach_and_accessibility() {
+        let report = integrated_report().unwrap();
+        assert!(report.lifecycle_cost.fixture_oracle_matches);
+        assert_eq!(report.lifecycle_cost.cost_record_count, 24);
+        assert_eq!(report.lifecycle_cost.service_outcome_count, 21);
+        assert_eq!(report.lifecycle_cost.scenario_count, 7);
+        assert!(report.lifecycle_cost.cost_ranges_monotonic);
+        assert!(report.lifecycle_cost.service_denominators_consistent);
+        assert!(report.lifecycle_cost.outcome_counts_valid);
+        assert!(report.lifecycle_cost.all_architectures_have_profiles);
+        assert!(report.lifecycle_cost.zero_accessible_cost_is_undefined);
+        assert!(report.lifecycle_cost.central_hub_restoration_is_scenario_scoped);
+        assert!(report.lifecycle_cost.centralized_baseline_lifecycle_pv
+            < report.lifecycle_cost.local_first_baseline_lifecycle_pv);
+        assert!(report.lifecycle_cost.centralized_cost_per_accessible_receiver
+            < report.lifecycle_cost.local_first_cost_per_accessible_receiver);
+    }
+
+    #[test]
+    fn lifecycle_cost_failure_cannot_be_offset_by_the_other_five_modules() {
+        let mut report = integrated_report().unwrap();
+        assert!(report.all_fixture_oracles_reproduced());
+
+        report.lifecycle_cost.cost_ranges_monotonic = false;
+        assert!(!report.all_fixture_oracles_reproduced());
+        assert!(report.civil_record.integrity_gates_pass);
+        assert!(report.topology.receiver_denominators_consistent);
+        assert!(report.last_mile.all_counting_invariants_hold);
+        assert!(report.warning_to_action.fixture_oracle_matches);
+        assert!(report.forecast.fixture_oracle_matches);
     }
 
     #[test]

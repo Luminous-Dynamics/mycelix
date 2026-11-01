@@ -3,7 +3,7 @@ use gcpn_integrated_evaluation::integrated_report;
 fn main() {
     match integrated_report() {
         Ok(report) => {
-            println!("GCPN integrated synthetic evaluation v0.3");
+            println!("GCPN integrated synthetic evaluation v0.4");
             println!();
             println!("[1] Civil record integrity");
             println!("  cases: {}", report.civil_record.case_count);
@@ -69,8 +69,31 @@ fn main() {
             println!("  heat_72h_candidate_brier_skill: {:.6}", report.forecast.candidate_heat_72h_evaluation_brier_skill);
 
             println!();
+            println!("[6] Lifecycle cost and accessible reach");
+            println!("  cost_records: {}", report.lifecycle_cost.cost_record_count);
+            println!("  service_outcome_records: {}", report.lifecycle_cost.service_outcome_count);
+            println!("  scenarios: {}", report.lifecycle_cost.scenario_count);
+            println!("  cost_fixture_oracle: {}", report.lifecycle_cost.fixture_oracle_matches);
+            println!("  low_base_high_monotonic: {}", report.lifecycle_cost.cost_ranges_monotonic);
+            println!("  common_receiver_denominators: {}", report.lifecycle_cost.service_denominators_consistent);
+            println!("  zero_reach_unit_cost_undefined: {}", report.lifecycle_cost.zero_accessible_cost_is_undefined);
+            println!("  central_hub_restoration_scenario_scoped: {}", report.lifecycle_cost.central_hub_restoration_is_scenario_scoped);
+            println!("  centralized_baseline_lifecycle_pv: {:.2}", report.lifecycle_cost.centralized_baseline_lifecycle_pv);
+            println!("  regional_baseline_lifecycle_pv: {:.2}", report.lifecycle_cost.regional_baseline_lifecycle_pv);
+            println!("  local_first_baseline_lifecycle_pv: {:.2}", report.lifecycle_cost.local_first_baseline_lifecycle_pv);
+            println!("  centralized_cost_per_accessible_receiver: {:.4}", report.lifecycle_cost.centralized_cost_per_accessible_receiver);
+            println!("  regional_cost_per_accessible_receiver: {:.4}", report.lifecycle_cost.regional_cost_per_accessible_receiver);
+            println!("  local_first_cost_per_accessible_receiver: {:.4}", report.lifecycle_cost.local_first_cost_per_accessible_receiver);
+            println!("  annual_staff_hours_centralized: {:.0}", report.lifecycle_cost.centralized_annual_staff_hours);
+            println!("  annual_staff_hours_regional: {:.0}", report.lifecycle_cost.regional_annual_staff_hours);
+            println!("  annual_staff_hours_local_first: {:.0}", report.lifecycle_cost.local_first_annual_staff_hours);
+            println!("  staff_hours_over_horizon_centralized: {:.0}", report.lifecycle_cost.centralized_staff_hours_over_horizon);
+            println!("  staff_hours_over_horizon_regional: {:.0}", report.lifecycle_cost.regional_staff_hours_over_horizon);
+            println!("  staff_hours_over_horizon_local_first: {:.0}", report.lifecycle_cost.local_first_staff_hours_over_horizon);
+
+            println!();
             println!("integrated_fixture_reproduction: {}", if report.all_fixture_oracles_reproduced() { "PASS" } else { "FAIL" });
-            println!("interpretation: five separate non-compensatory fixture gates; no blended quality score or real-world performance claim");
+            println!("interpretation: six separate non-compensatory fixture gates; no blended quality score or real-world performance claim");
             if !report.all_fixture_oracles_reproduced() {
                 std::process::exit(1);
             }
