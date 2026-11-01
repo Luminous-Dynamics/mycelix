@@ -1,6 +1,6 @@
 # Sequential Bayesian experiment-design benchmark v0.1
 
-Synthetic-only Rust prototype for sequential categorical observations and Bayesian updating.
+Synthetic-only Rust programme with a sequential categorical acquisition executable and a reusable bivariate-Gaussian model-posterior library. The continuous likelihood component is not yet wired into the acquisition loop.
 
 ## Run
 
