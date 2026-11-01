@@ -1,3 +1,5 @@
+mod correlated_likelihood;
+
 //! Synthetic-only sequential Bayesian experiment design benchmark.
 //!
 //! The selector receives only model priors, candidate-model likelihoods,
