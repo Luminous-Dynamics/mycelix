@@ -17,7 +17,8 @@ The package contains a first typed in-memory evidence graph with:
 - valid-time and transaction-time fields on records and edges;
 - deterministic transaction-time `snapshot_as_of(T)` reconstruction;
 - visibility of dangling references in historical snapshots when an edge arrived before its endpoint;
-- interval, endpoint, relation-type and record-order diagnostics.
+- informational forward-reference counts when an endpoint record arrives after its relation;
+- interval, endpoint, relation-type and forbidden-cycle diagnostics.
 
 This is a deliberately small in-memory engine, not yet a persistent event-log format or production provenance store.
 
