@@ -61,7 +61,7 @@ A zero accessible denominator produces an undefined conditional rate, not a fabr
 
 ## 4. Synthetic fixture oracle
 
-The v0.1 fixture has 18 rows, 6 profiles, 3 variants and 1,800 total intended trials. The FNV-1a 64-bit fingerprint is 0xf784d7e59e19e31f.
+The v0.1 fixture has 18 rows, 6 profiles, 3 variants and 1,800 total intended trials. The FNV-1a 64-bit fingerprint is 0x019e77cec7c2246c.
 
 The accessible-multimodal synthetic profile totals are:
 - 600 intended trials;
