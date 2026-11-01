@@ -428,7 +428,7 @@ impl EvaluationFrame {
         cases: &[&EligibleCase],
     ) -> Result<StratumReport, String> {
         let candidate = self.summarize_cases(cases, Metric::Candidate)?;
-        let (reference, paired_difference) = match self.comparison {
+        let (reference, paired_difference) = match &self.comparison {
             ComparisonMode::Single { .. } => (None, None),
             ComparisonMode::Paired { .. } => (
                 Some(self.summarize_cases(cases, Metric::Reference)?),
@@ -455,7 +455,7 @@ impl EvaluationFrame {
         self.validate()?;
         let all_cases: Vec<&EligibleCase> = self.cases.iter().collect();
         let candidate = self.summarize_cases(&all_cases, Metric::Candidate)?;
-        let (reference, paired_difference) = match self.comparison {
+        let (reference, paired_difference) = match &self.comparison {
             ComparisonMode::Single { .. } => (None, None),
             ComparisonMode::Paired { .. } => (
                 Some(self.summarize_cases(&all_cases, Metric::Reference)?),
