@@ -190,14 +190,22 @@ impl BinAccumulator {
     }
 }
 
-fn parse_utc(value: &str, label: &str, resolution_seconds: i64) -> Result<DateTime<FixedOffset>, String> {
+fn parse_utc(
+    value: &str,
+    label: &str,
+    resolution_seconds: i64,
+) -> Result<DateTime<FixedOffset>, String> {
     let parsed = DateTime::parse_from_rfc3339(value)
         .map_err(|error| format!("{label}: invalid RFC3339 timestamp: {error}"))?;
     if parsed.offset().local_minus_utc() != 0 {
         return Err(format!("{label}: timestamp must use zero UTC offset"));
     }
-    if parsed.timestamp().rem_euclid(resolution_seconds) != 0 || parsed.timestamp_subsec_nanos() != 0 {
-        return Err(format!("{label}: timestamp is not aligned to the declared UTC time grid"));
+    if parsed.timestamp().rem_euclid(resolution_seconds) != 0
+        || parsed.timestamp_subsec_nanos() != 0
+    {
+        return Err(format!(
+            "{label}: timestamp is not aligned to the declared UTC time grid"
+        ));
     }
     Ok(parsed)
 }
@@ -216,9 +224,21 @@ fn median(values: &[f64]) -> Option<f64> {
     }
 }
 
-fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffset>, Vec<DateTime<FixedOffset>>), String> {
+fn validate_config(
+    config: &Config,
+) -> Result<
+    (
+        DateTime<FixedOffset>,
+        DateTime<FixedOffset>,
+        Vec<DateTime<FixedOffset>>,
+    ),
+    String,
+> {
     if config.schema_version != "0.1.0" {
-        return Err(format!("unsupported config schema_version {:?}", config.schema_version));
+        return Err(format!(
+            "unsupported config schema_version {:?}",
+            config.schema_version
+        ));
     }
     for (value, label) in [
         (&config.study_id, "study_id"),
@@ -226,7 +246,10 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
         (&config.plot_id, "plot_id"),
         (&config.profile_id, "profile_id"),
         (&config.event_id, "event_id"),
-        (&config.maximum_profile_porosity_evidence_ref, "maximum_profile_porosity_evidence_ref"),
+        (
+            &config.maximum_profile_porosity_evidence_ref,
+            "maximum_profile_porosity_evidence_ref",
+        ),
         (&config.raw_file_label, "raw_file_label"),
         (&config.source_evidence_ref, "source_evidence_ref"),
         (&config.timestamp_column, "timestamp_column"),
@@ -242,7 +265,9 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
     if !(MIN_TARGET_SECONDS..=MAX_TARGET_SECONDS).contains(&config.target_resolution_seconds)
         || config.target_resolution_seconds % 60 != 0
     {
-        return Err("target_resolution_seconds must be a multiple of 60 between 300 and 1800".to_owned());
+        return Err(
+            "target_resolution_seconds must be a multiple of 60 between 300 and 1800".to_owned(),
+        );
     }
     if !config.minimum_good_fraction.is_finite()
         || config.minimum_good_fraction <= 0.0
@@ -270,15 +295,25 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
     }
     for (index, filter) in config.quality_filters.iter().enumerate() {
         if filter.column.trim().is_empty() || filter.accepted_values.is_empty() {
-            return Err(format!("quality_filters[{index}] must declare a column and accepted values"));
+            return Err(format!(
+                "quality_filters[{index}] must declare a column and accepted values"
+            ));
         }
     }
     if config.sensors.is_empty() {
         return Err("sensor metadata roster must not be empty".to_owned());
     }
 
-    let start = parse_utc(&config.event_start_utc, "event_start_utc", i64::from(config.target_resolution_seconds))?;
-    let end = parse_utc(&config.observation_window_end_utc, "observation_window_end_utc", i64::from(config.target_resolution_seconds))?;
+    let start = parse_utc(
+        &config.event_start_utc,
+        "event_start_utc",
+        i64::from(config.target_resolution_seconds),
+    )?;
+    let end = parse_utc(
+        &config.observation_window_end_utc,
+        "observation_window_end_utc",
+        i64::from(config.target_resolution_seconds),
+    )?;
     if start >= end {
         return Err("observation_window_end_utc must be after event_start_utc".to_owned());
     }
@@ -325,82 +360,132 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
             }
         }
         if sensor.depth_cm <= 0.0 {
-            return Err(format!("sensors[{index}].depth_cm must be greater than zero"));
+            return Err(format!(
+                "sensors[{index}].depth_cm must be greater than zero"
+            ));
         }
         if let Some(position_start_text) = &sensor.position_start_utc {
-            let position_start = DateTime::parse_from_rfc3339(position_start_text)
-                .map_err(|error| format!("sensors[{index}].position_start_utc is not RFC3339: {error}"))?;
+            let position_start =
+                DateTime::parse_from_rfc3339(position_start_text).map_err(|error| {
+                    format!("sensors[{index}].position_start_utc is not RFC3339: {error}")
+                })?;
             if position_start.offset().local_minus_utc() != 0 || start < position_start {
-                return Err(format!("sensors[{index}] position is not valid at event start"));
+                return Err(format!(
+                    "sensors[{index}] position is not valid at event start"
+                ));
             }
         }
         if let Some(position_end_text) = &sensor.position_end_utc {
-            let position_end = DateTime::parse_from_rfc3339(position_end_text)
-                .map_err(|error| format!("sensors[{index}].position_end_utc is not RFC3339: {error}"))?;
+            let position_end =
+                DateTime::parse_from_rfc3339(position_end_text).map_err(|error| {
+                    format!("sensors[{index}].position_end_utc is not RFC3339: {error}")
+                })?;
             if position_end.offset().local_minus_utc() != 0 || end > position_end {
-                return Err(format!("sensors[{index}] position is not valid through event end"));
+                return Err(format!(
+                    "sensors[{index}] position is not valid through event end"
+                ));
             }
         }
     }
     Ok((start, end, bin_starts))
 }
 
-fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha256: String) -> Result<(NormalizedProfile, NormalizedProfile, AggregationReport), String> {
+fn evaluate(
+    config: &Config,
+    csv_bytes: &[u8],
+    source_sha256: String,
+    config_sha256: String,
+) -> Result<(NormalizedProfile, NormalizedProfile, AggregationReport), String> {
     let (_event_start, _event_end, bin_starts) = validate_config(config)?;
     let raw_headers;
     let mut csv_reader = csv::ReaderBuilder::new()
         .flexible(false)
         .from_reader(csv_bytes);
-    raw_headers = csv_reader.headers()
+    raw_headers = csv_reader
+        .headers()
         .map_err(|error| format!("CSV header error: {error}"))?
         .clone();
 
-    let header_map: HashMap<String, usize> = raw_headers.iter().enumerate()
+    let header_map: HashMap<String, usize> = raw_headers
+        .iter()
+        .enumerate()
         .map(|(index, name)| (name.to_owned(), index))
         .collect();
     if header_map.len() != raw_headers.len() {
         return Err("CSV contains duplicate column names".to_owned());
     }
-    let mut required_columns = vec![config.timestamp_column.as_str(), config.theta_column.as_str()];
+    let mut required_columns = vec![
+        config.timestamp_column.as_str(),
+        config.theta_column.as_str(),
+    ];
     required_columns.extend(config.sensor_key_columns.iter().map(String::as_str));
-    required_columns.extend(config.quality_filters.iter().map(|filter| filter.column.as_str()));
+    required_columns.extend(
+        config
+            .quality_filters
+            .iter()
+            .map(|filter| filter.column.as_str()),
+    );
     for column in required_columns {
         if !header_map.contains_key(column) {
-            return Err(format!("required CSV column {column:?} is absent; verify the pinned NEON variables file and declared mapping"));
+            return Err(format!(
+                "required CSV column {column:?} is absent; verify the pinned NEON variables file and declared mapping"
+            ));
         }
     }
 
     let timestamp_index = header_map[config.timestamp_column.as_str()];
     let theta_index = header_map[config.theta_column.as_str()];
-    let key_indices: Vec<usize> = config.sensor_key_columns.iter()
+    let key_indices: Vec<usize> = config
+        .sensor_key_columns
+        .iter()
         .map(|column| header_map[column])
         .collect();
-    let quality_indices: Vec<usize> = config.quality_filters.iter()
+    let quality_indices: Vec<usize> = config
+        .quality_filters
+        .iter()
         .map(|filter| header_map[filter.column.as_str()])
         .collect();
-    let sensor_map: HashMap<&str, usize> = config.sensors.iter().enumerate()
+    let sensor_map: HashMap<&str, usize> = config
+        .sensors
+        .iter()
+        .enumerate()
         .map(|(index, sensor)| (sensor.sensor_key.as_str(), index))
         .collect();
 
     let raw_step = RAW_RESOLUTION_SECONDS;
     let target_step = i64::from(config.target_resolution_seconds);
-    let first_bin = bin_starts.first().expect("validated bins are non-empty").clone();
-    let last_bin = bin_starts.last().expect("validated bins are non-empty").clone();
+    let first_bin = bin_starts
+        .first()
+        .expect("validated bins are non-empty")
+        .clone();
+    let last_bin = bin_starts
+        .last()
+        .expect("validated bins are non-empty")
+        .clone();
     let exclusive_end = last_bin.clone() + Duration::seconds(target_step);
     let bins_per_sensor = bin_starts.len();
     let mut accumulators: Vec<Vec<BinAccumulator>> = (0..config.sensors.len())
-        .map(|_| (0..bins_per_sensor).map(|_| BinAccumulator::new()).collect())
+        .map(|_| {
+            (0..bins_per_sensor)
+                .map(|_| BinAccumulator::new())
+                .collect()
+        })
         .collect();
     let mut seen: Vec<HashSet<i64>> = (0..config.sensors.len()).map(|_| HashSet::new()).collect();
     let mut unknown_sensor_rows = 0usize;
 
     for (row_index, row_result) in csv_reader.records().enumerate() {
-        let row: StringRecord = row_result.map_err(|error| format!("CSV row {}: {error}", row_index + 2))?;
-        let key_parts: Vec<&str> = key_indices.iter()
+        let row: StringRecord =
+            row_result.map_err(|error| format!("CSV row {}: {error}", row_index + 2))?;
+        let key_parts: Vec<&str> = key_indices
+            .iter()
             .map(|index| row.get(*index).unwrap_or("").trim())
             .collect();
         if key_parts.iter().any(|part| part.is_empty()) {
-            return Err(format!("CSV row {} has a blank sensor-key component", row_index + 2));
+            return Err(format!(
+                "CSV row {} has a blank sensor-key component",
+                row_index + 2
+            ));
         }
         let sensor_key = key_parts.join("|");
         let Some(sensor_index) = sensor_map.get(sensor_key.as_str()).copied() else {
@@ -409,23 +494,32 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         };
 
         let timestamp_text = row.get(timestamp_index).unwrap_or("");
-        let timestamp = parse_utc(timestamp_text, &format!("CSV row {} timestamp", row_index + 2), raw_step)?;
+        let timestamp = parse_utc(
+            timestamp_text,
+            &format!("CSV row {} timestamp", row_index + 2),
+            raw_step,
+        )?;
         if timestamp < first_bin || timestamp >= exclusive_end {
             continue;
         }
         let offset_seconds = (timestamp.clone() - first_bin.clone()).num_seconds();
         if offset_seconds < 0 || offset_seconds % raw_step != 0 {
-            return Err(format!("CSV row {} is not aligned to the one-minute raw grid", row_index + 2));
+            return Err(format!(
+                "CSV row {} is not aligned to the one-minute raw grid",
+                row_index + 2
+            ));
         }
         let bin_index = (offset_seconds / target_step) as usize;
         if bin_index >= bins_per_sensor {
-            return Err(format!("CSV row {} maps outside expected target bins", row_index + 2));
+            return Err(format!(
+                "CSV row {} maps outside expected target bins",
+                row_index + 2
+            ));
         }
         if !seen[sensor_index].insert(timestamp.timestamp()) {
             return Err(format!(
                 "duplicate one-minute row for sensor_key {:?} at {}",
-                sensor_key,
-                timestamp_text
+                sensor_key, timestamp_text
             ));
         }
 
@@ -435,7 +529,11 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         let mut quality_pass = true;
         for (filter, column_index) in config.quality_filters.iter().zip(&quality_indices) {
             let raw_value = row.get(*column_index).unwrap_or("").trim();
-            if !filter.accepted_values.iter().any(|accepted| accepted == raw_value) {
+            if !filter
+                .accepted_values
+                .iter()
+                .any(|accepted| accepted == raw_value)
+            {
                 quality_pass = false;
                 break;
             }
@@ -447,10 +545,17 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         accumulator.quality_pass_rows += 1;
 
         let theta_text = row.get(theta_index).unwrap_or("").trim();
-        let theta: f64 = theta_text.parse()
-            .map_err(|error| format!("CSV row {} accepted theta value {theta_text:?} is not numeric: {error}", row_index + 2))?;
+        let theta: f64 = theta_text.parse().map_err(|error| {
+            format!(
+                "CSV row {} accepted theta value {theta_text:?} is not numeric: {error}",
+                row_index + 2
+            )
+        })?;
         if !theta.is_finite() || !(0.0..=1.0).contains(&theta) {
-            return Err(format!("CSV row {} accepted theta must be finite and within [0, 1]", row_index + 2));
+            return Err(format!(
+                "CSV row {} accepted theta must be finite and within [0, 1]",
+                row_index + 2
+            ));
         }
         if theta > config.maximum_profile_porosity_m3_m3 {
             accumulator.porosity_rejected_rows += 1;
@@ -521,7 +626,10 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
         event_start_utc: config.event_start_utc.clone(),
         observation_window_end_utc: config.observation_window_end_utc.clone(),
         time_resolution_seconds: config.target_resolution_seconds,
-        source_evidence_ref: format!("{}; raw_file={}; see aggregation report for raw/config digests", config.source_evidence_ref, config.raw_file_label),
+        source_evidence_ref: format!(
+            "{}; raw_file={}; see aggregation report for raw/config digests",
+            config.source_evidence_ref, config.raw_file_label
+        ),
         sensors: normalized_sensors,
     };
     let mut paper_analysis_profile = normalized.clone();
@@ -590,7 +698,10 @@ fn evaluate(config: &Config, csv_bytes: &[u8], source_sha256: String, config_sha
     Ok((normalized, paper_analysis_profile, report))
 }
 
-fn interpolate_short_gaps(profile: &mut NormalizedProfile, target_resolution_seconds: u32) -> usize {
+fn interpolate_short_gaps(
+    profile: &mut NormalizedProfile,
+    target_resolution_seconds: u32,
+) -> usize {
     const MAX_GAP_SECONDS: u64 = 6 * 60 * 60;
     let step = u64::from(target_resolution_seconds);
     let mut total_interpolated = 0usize;
@@ -638,8 +749,16 @@ fn interpolate_short_gaps(profile: &mut NormalizedProfile, target_resolution_sec
 }
 
 fn write_new_file(path: &str, bytes: &[u8]) -> Result<(), io::Error> {
-    let mut output = OpenOptions::new().write(true).create_new(true).open(path)
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create {path}: {error}")))?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("refusing overwrite or cannot create {path}: {error}"),
+            )
+        })?;
     output.write_all(bytes)?;
     output.write_all(b"\n")?;
     output.sync_all()
@@ -710,11 +829,15 @@ mod tests {
             minimum_good_fraction: 0.8,
             response_threshold_m3_m3: 0.01,
             maximum_profile_porosity_m3_m3: 0.35,
-            maximum_profile_porosity_evidence_ref: "synthetic whole-profile porosity fixture".to_owned(),
+            maximum_profile_porosity_evidence_ref: "synthetic whole-profile porosity fixture"
+                .to_owned(),
             raw_file_label: "SWS_1_minute synthetic fixture".to_owned(),
             source_evidence_ref: "synthetic one-minute CSV only".to_owned(),
             timestamp_column: "startDateTime".to_owned(),
-            sensor_key_columns: vec!["horizontalPosition".to_owned(), "verticalPosition".to_owned()],
+            sensor_key_columns: vec![
+                "horizontalPosition".to_owned(),
+                "verticalPosition".to_owned(),
+            ],
             theta_column: "VSWCMean".to_owned(),
             quality_filters: vec![QualityFilter {
                 column: "VSWCFinalQF".to_owned(),
@@ -728,7 +851,8 @@ mod tests {
                     x_m: 0.0,
                     y_m: 0.0,
                     condition: SensorCondition::Usable,
-                    metadata_evidence_ref: "corrected synthetic depth and sensor positions".to_owned(),
+                    metadata_evidence_ref: "corrected synthetic depth and sensor positions"
+                        .to_owned(),
                     position_start_utc: Some("2026-01-01T00:00:00Z".to_owned()),
                     position_end_utc: None,
                 },
@@ -739,7 +863,8 @@ mod tests {
                     x_m: 0.0,
                     y_m: 0.0,
                     condition: SensorCondition::Usable,
-                    metadata_evidence_ref: "corrected synthetic depth and sensor positions".to_owned(),
+                    metadata_evidence_ref: "corrected synthetic depth and sensor positions"
+                        .to_owned(),
                     position_start_utc: Some("2026-01-01T00:00:00Z".to_owned()),
                     position_end_utc: None,
                 },
@@ -748,7 +873,9 @@ mod tests {
     }
 
     fn csv_fixture() -> String {
-        let mut rows = vec!["horizontalPosition,verticalPosition,startDateTime,VSWCMean,VSWCFinalQF".to_owned()];
+        let mut rows = vec![
+            "horizontalPosition,verticalPosition,startDateTime,VSWCMean,VSWCFinalQF".to_owned(),
+        ];
         for sensor in 0..2 {
             for minute in 0..40 {
                 let baseline = minute < 10;
@@ -759,14 +886,21 @@ mod tests {
                 } else {
                     0.21
                 };
-                let qf = if sensor == 0 && minute == 12 { "1" } else { "0" };
-                rows.push(format!(
-                    "001,{}, {},{:.3},{}",
-                    if sensor == 0 { "501" } else { "502" },
-                    stamp(minute),
-                    theta,
-                    qf
-                ).replace(", ", ","));
+                let qf = if sensor == 0 && minute == 12 {
+                    "1"
+                } else {
+                    "0"
+                };
+                rows.push(
+                    format!(
+                        "001,{}, {},{:.3},{}",
+                        if sensor == 0 { "501" } else { "502" },
+                        stamp(minute),
+                        theta,
+                        qf
+                    )
+                    .replace(", ", ","),
+                );
             }
         }
         rows.join("\n") + "\n"
@@ -781,10 +915,22 @@ mod tests {
         assert_eq!(normalized.sensors.len(), 2);
         assert_eq!(normalized.sensors[0].observations.len(), 4);
         assert_eq!(normalized.sensors[0].observations[0].status, "observed");
-        assert_eq!(normalized.sensors[0].observations[0].volumetric_water_content_m3_m3, Some(0.20));
-        assert_eq!(normalized.sensors[0].observations[1].volumetric_water_content_m3_m3, Some(0.24));
-        assert_eq!(normalized.sensors[1].observations[1].volumetric_water_content_m3_m3, Some(0.18));
-        assert_eq!(normalized.sensors[1].observations[3].volumetric_water_content_m3_m3, Some(0.21));
+        assert_eq!(
+            normalized.sensors[0].observations[0].volumetric_water_content_m3_m3,
+            Some(0.20)
+        );
+        assert_eq!(
+            normalized.sensors[0].observations[1].volumetric_water_content_m3_m3,
+            Some(0.24)
+        );
+        assert_eq!(
+            normalized.sensors[1].observations[1].volumetric_water_content_m3_m3,
+            Some(0.18)
+        );
+        assert_eq!(
+            normalized.sensors[1].observations[3].volumetric_water_content_m3_m3,
+            Some(0.21)
+        );
         assert_eq!(report.observed_bin_count, 8);
         assert_eq!(report.missing_bin_count, 0);
         assert_eq!(report.bins[1].quality_rejected_rows, 1);
@@ -807,13 +953,27 @@ mod tests {
             }
         }
         let csv = rows.join("\n") + "\n";
-        let (raw_profile, paper_profile, report) =
-            evaluate(&config, csv.as_bytes(), "gap-source".to_owned(), "gap-config".to_owned()).unwrap();
+        let (raw_profile, paper_profile, report) = evaluate(
+            &config,
+            csv.as_bytes(),
+            "gap-source".to_owned(),
+            "gap-config".to_owned(),
+        )
+        .unwrap();
 
         assert_eq!(raw_profile.sensors[0].observations[1].status, "missing");
-        assert_eq!(raw_profile.sensors[0].observations[1].volumetric_water_content_m3_m3, None);
-        assert_eq!(paper_profile.sensors[0].observations[1].status, "linear_interpolated_gap_lt6h");
-        assert_eq!(paper_profile.sensors[0].observations[1].volumetric_water_content_m3_m3, Some(0.22));
+        assert_eq!(
+            raw_profile.sensors[0].observations[1].volumetric_water_content_m3_m3,
+            None
+        );
+        assert_eq!(
+            paper_profile.sensors[0].observations[1].status,
+            "linear_interpolated_gap_lt6h"
+        );
+        assert_eq!(
+            paper_profile.sensors[0].observations[1].volumetric_water_content_m3_m3,
+            Some(0.22)
+        );
         assert_eq!(report.missing_bin_count, 1);
         assert_eq!(report.interpolated_bin_count, 1);
         assert_eq!(report.remaining_missing_bin_count, 0);
@@ -837,32 +997,67 @@ mod tests {
                 depth_cm: 6.0,
                 condition: SensorCondition::Usable,
                 observations: vec![
-                    NormalizedObservation { timestamp_utc: stamp(0), volumetric_water_content_m3_m3: Some(0.20), status: "observed" },
-                    NormalizedObservation { timestamp_utc: stamp(10), volumetric_water_content_m3_m3: None, status: "missing" },
-                    NormalizedObservation { timestamp_utc: stamp(20), volumetric_water_content_m3_m3: None, status: "missing" },
-                    NormalizedObservation { timestamp_utc: stamp(30), volumetric_water_content_m3_m3: Some(0.40), status: "observed" },
+                    NormalizedObservation {
+                        timestamp_utc: stamp(0),
+                        volumetric_water_content_m3_m3: Some(0.20),
+                        status: "observed",
+                    },
+                    NormalizedObservation {
+                        timestamp_utc: stamp(10),
+                        volumetric_water_content_m3_m3: None,
+                        status: "missing",
+                    },
+                    NormalizedObservation {
+                        timestamp_utc: stamp(20),
+                        volumetric_water_content_m3_m3: None,
+                        status: "missing",
+                    },
+                    NormalizedObservation {
+                        timestamp_utc: stamp(30),
+                        volumetric_water_content_m3_m3: Some(0.40),
+                        status: "observed",
+                    },
                 ],
             }],
         };
         let raw = profile.clone();
         let count = interpolate_short_gaps(&mut profile, 600);
         assert_eq!(count, 2);
-        assert_eq!(profile.sensors[0].observations[1].status, "linear_interpolated_gap_lt6h");
-        assert!((profile.sensors[0].observations[1].volumetric_water_content_m3_m3.unwrap() - 0.2666666667).abs() < 1e-9);
-        assert!((profile.sensors[0].observations[2].volumetric_water_content_m3_m3.unwrap() - 0.3333333333).abs() < 1e-9);
+        assert_eq!(
+            profile.sensors[0].observations[1].status,
+            "linear_interpolated_gap_lt6h"
+        );
+        assert!(
+            (profile.sensors[0].observations[1]
+                .volumetric_water_content_m3_m3
+                .unwrap()
+                - 0.2666666667)
+                .abs()
+                < 1e-9
+        );
+        assert!(
+            (profile.sensors[0].observations[2]
+                .volumetric_water_content_m3_m3
+                .unwrap()
+                - 0.3333333333)
+                .abs()
+                < 1e-9
+        );
         assert_eq!(raw.sensors[0].observations[1].status, "missing");
-        assert_eq!(raw.sensors[0].observations[1].volumetric_water_content_m3_m3, None);
+        assert_eq!(
+            raw.sensors[0].observations[1].volumetric_water_content_m3_m3,
+            None
+        );
     }
 
     #[test]
     fn does_not_interpolate_six_hour_or_longer_gaps_or_edge_gaps() {
-        let make_observation = |index: usize, value: Option<f64>, status: &'static str| {
-            NormalizedObservation {
+        let make_observation =
+            |index: usize, value: Option<f64>, status: &'static str| NormalizedObservation {
                 timestamp_utc: format!("bin-{index}"),
                 volumetric_water_content_m3_m3: value,
                 status,
-            }
-        };
+            };
         let mut observations = vec![make_observation(0, Some(0.2), "observed")];
         for index in 1..=35 {
             observations.push(make_observation(index, None, "missing"));
@@ -899,22 +1094,37 @@ mod tests {
         let mut config = config();
         config.maximum_profile_porosity_m3_m3 = 0.22;
         let csv = csv_fixture();
-        let (normalized, _paper_analysis, report) =
-            evaluate(&config, csv.as_bytes(), "porosity-source".to_owned(), "porosity-config".to_owned()).unwrap();
+        let (normalized, _paper_analysis, report) = evaluate(
+            &config,
+            csv.as_bytes(),
+            "porosity-source".to_owned(),
+            "porosity-config".to_owned(),
+        )
+        .unwrap();
         assert_eq!(normalized.sensors[0].observations[1].status, "missing");
         assert_eq!(report.bins[1].quality_pass_rows, 9);
         assert_eq!(report.bins[1].porosity_rejected_rows, 9);
         assert_eq!(report.bins[1].porosity_pass_rows, 0);
-        assert_eq!(report.bins[1].aggregation_status, "insufficient_qa_or_porosity_coverage");
+        assert_eq!(
+            report.bins[1].aggregation_status,
+            "insufficient_qa_or_porosity_coverage"
+        );
         assert_eq!(report.maximum_profile_porosity_m3_m3, 0.22);
-        assert_eq!(report.maximum_profile_porosity_evidence_ref, "synthetic whole-profile porosity fixture");
+        assert_eq!(
+            report.maximum_profile_porosity_evidence_ref,
+            "synthetic whole-profile porosity fixture"
+        );
     }
 
     #[test]
     fn rejects_invalid_maximum_profile_porosity() {
         let mut config = config();
         config.maximum_profile_porosity_m3_m3 = 1.1;
-        assert!(validate_config(&config).unwrap_err().contains("maximum_profile_porosity_m3_m3"));
+        assert!(
+            validate_config(&config)
+                .unwrap_err()
+                .contains("maximum_profile_porosity_m3_m3")
+        );
     }
 
     #[test]
@@ -929,7 +1139,10 @@ mod tests {
         let (normalized, _paper_analysis, report) =
             evaluate(&config, csv.as_bytes(), "c".repeat(64), "d".repeat(64)).unwrap();
         assert_eq!(normalized.sensors[0].observations[1].status, "missing");
-        assert_eq!(normalized.sensors[0].observations[1].volumetric_water_content_m3_m3, None);
+        assert_eq!(
+            normalized.sensors[0].observations[1].volumetric_water_content_m3_m3,
+            None
+        );
         assert_eq!(report.missing_bin_count, 1);
     }
 
@@ -940,15 +1153,21 @@ mod tests {
         let row = csv.lines().nth(1).unwrap().to_owned();
         csv.push_str(&row);
         csv.push('\n');
-        assert!(evaluate(&config, csv.as_bytes(), "e".repeat(64), "f".repeat(64))
-            .unwrap_err().contains("duplicate one-minute row"));
+        assert!(
+            evaluate(&config, csv.as_bytes(), "e".repeat(64), "f".repeat(64))
+                .unwrap_err()
+                .contains("duplicate one-minute row")
+        );
     }
 
     #[test]
     fn missing_quality_column_is_rejected_instead_of_assuming_pass() {
         let config = config();
         let csv = "horizontalPosition,verticalPosition,startDateTime,VSWCMean\n001,501,2026-06-01T00:00:00Z,0.2\n";
-        assert!(evaluate(&config, csv.as_bytes(), "a".repeat(64), "b".repeat(64))
-            .unwrap_err().contains("required CSV column"));
+        assert!(
+            evaluate(&config, csv.as_bytes(), "a".repeat(64), "b".repeat(64))
+                .unwrap_err()
+                .contains("required CSV column")
+        );
     }
 }
