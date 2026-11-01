@@ -50,6 +50,13 @@ pub struct FlowResult {
 /// Counts are integer cohort aggregates. Every departure must be available in
 /// its origin cell. The transition conserves cohort totals exactly; no
 /// individual is represented or assigned a persistent ID.
+fn checked_add_count(target: &mut u64, value: u64, label: &str) -> Result<(), String> {
+    *target = target
+        .checked_add(value)
+        .ok_or_else(|| format!("{label} exceeds the supported aggregate count range"))?;
+    Ok(())
+}
+
 pub fn apply_aggregate_flows(
     populations: &[PopulationCount],
     flows: &[AggregateFlow],
@@ -64,7 +71,10 @@ pub fn apply_aggregate_flows(
         }
     }
 
-    let total_before: u64 = cells.values().sum();
+    let total_before = cells.values().try_fold(0u64, |sum, value| {
+        sum.checked_add(*value)
+            .ok_or_else(|| "total population exceeds the supported aggregate count range".to_string())
+    })?;
     let mut outgoing: BTreeMap<PopulationKey, u64> = BTreeMap::new();
     let mut incoming: BTreeMap<PopulationKey, u64> = BTreeMap::new();
     let mut moved = 0u64;
@@ -84,12 +94,15 @@ pub fn apply_aggregate_flows(
         if !cells.contains_key(&from) {
             return Err(format!("unknown flow origin: {}/{}", from.cohort_id, from.zone_id));
         }
+        if from == to {
+            return Err("movement flow origin and destination must differ".into());
+        }
         if !cells.contains_key(&to) {
             return Err(format!("unknown flow destination: {}/{}", to.cohort_id, to.zone_id));
         }
-        *outgoing.entry(from).or_default() += flow.count;
-        *incoming.entry(to).or_default() += flow.count;
-        moved += flow.count;
+        checked_add_count(outgoing.entry(from).or_default(), flow.count, "outgoing flow")?;
+        checked_add_count(incoming.entry(to).or_default(), flow.count, "incoming flow")?;
+        checked_add_count(&mut moved, flow.count, "moved population")?;
     }
 
     let mut after = BTreeMap::new();
@@ -103,10 +116,15 @@ pub fn apply_aggregate_flows(
         }
         let retained = count - departures;
         let arrivals = incoming.get(key).copied().unwrap_or(0);
-        after.insert(key.clone(), retained + arrivals);
+        let final_count = retained.checked_add(arrivals)
+            .ok_or_else(|| "destination population exceeds the supported aggregate count range".to_string())?;
+        after.insert(key.clone(), final_count);
     }
 
-    let total_after: u64 = after.values().sum();
+    let total_after = after.values().try_fold(0u64, |sum, value| {
+        sum.checked_add(*value)
+            .ok_or_else(|| "final population exceeds the supported aggregate count range".to_string())
+    })?;
     if total_before != total_after {
         return Err(format!(
             "aggregate population conservation failed: before={total_before}, after={total_after}"
@@ -422,6 +440,18 @@ mod tests {
         assert_eq!(result.moved, 65);
         let constrained = result.populations.iter().find(|p| p.key.cohort_id == "constrained" && p.key.zone_id == "home").unwrap();
         assert_eq!(constrained.count, 40);
+    }
+
+    #[test]
+    fn self_zone_and_aggregate_count_overflow_are_rejected() {
+        let population = vec![pop("cohort","a",u64::MAX),pop("cohort","b",0)];
+        let self_flow = vec![AggregateFlow{cohort_id:"cohort".into(),from_zone:"a".into(),to_zone:"a".into(),count:1}];
+        assert!(apply_aggregate_flows(&population,&self_flow).unwrap_err().contains("must differ"));
+        let overflow = vec![
+            AggregateFlow{cohort_id:"cohort".into(),from_zone:"a".into(),to_zone:"b".into(),count:u64::MAX},
+            AggregateFlow{cohort_id:"cohort".into(),from_zone:"a".into(),to_zone:"b".into(),count:1},
+        ];
+        assert!(apply_aggregate_flows(&population,&overflow).unwrap_err().contains("outgoing flow exceeds"));
     }
 
     #[test]
