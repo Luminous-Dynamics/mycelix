@@ -16,12 +16,32 @@ fn main() {
 
     let evidence = vec![
         record("f-1", Stage::Forecast, "forecast-valid", "forecast-root"),
-        record("o-1", Stage::Observation, "reference-valid", "sensor-root-a"),
-        record("o-2", Stage::Observation, "reference-valid", "sensor-root-b"),
+        record(
+            "o-1",
+            Stage::Observation,
+            "reference-valid",
+            "sensor-root-a",
+        ),
+        record(
+            "o-2",
+            Stage::Observation,
+            "reference-valid",
+            "sensor-root-b",
+        ),
         record("c-1", Stage::CapLifecycle, "receipt-valid", "cap-root"),
-        record("p-1", Stage::PopulationReach, "reach-valid", "population-root"),
+        record(
+            "p-1",
+            Stage::PopulationReach,
+            "reach-valid",
+            "population-root",
+        ),
         record("d-1", Stage::Decision, "decision-valid", "decision-root"),
-        record("a-1", Stage::AfterEventReview, "review-valid", "review-root"),
+        record(
+            "a-1",
+            Stage::AfterEventReview,
+            "review-valid",
+            "review-root",
+        ),
     ];
 
     let scenario = Scenario {
