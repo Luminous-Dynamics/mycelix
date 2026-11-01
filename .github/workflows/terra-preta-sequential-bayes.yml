@@ -45,6 +45,9 @@ jobs:
           jq empty research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation-report.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-state-parameter-assimilation.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/censored-tracer.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/censored-tracer-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-censored-tracer-scenario.json
       - name: Format and test standalone crate
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
@@ -76,6 +79,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-state-parameter-assimilation.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/censored-tracer.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-censored-tracer-scenario.json
       - name: Execute misspecified and in-family controls
         run: |
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
@@ -258,6 +264,29 @@ jobs:
             (.runs | length == 24) and
             all(.runs[]; .posterior_mean_rmse >= 0 and .posterior_covariance_relative_frobenius_error >= 0)
           ' "$RUNNER_TEMP/state-parameter-assimilation-report.json"
+      - name: Execute censored tracer likelihood and censoring-information bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin censored-tracer-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-censored-tracer-scenario.json \
+            "$RUNNER_TEMP/censored-tracer-report.json"
+          jq -e '
+            .status == "synthetic_censored_tracer_observation_reference_only" and
+            .scenario_id == "ct-conditioned-left-censored-tracer-v0" and
+            .conditional_models[0].model_id == "positive_cross_correlation" and
+            .conditional_models[1].model_id == "negative_cross_correlation" and
+            ((.conditional_models[0].tracer_conditional_mean - 0.8) | fabs < 1e-9) and
+            ((.conditional_models[1].tracer_conditional_mean + 0.8) | fabs < 1e-9) and
+            (.censored_bins | length == 3) and
+            all(.censored_bins[]; (((.model_probabilities | add) - 1) | fabs) < 2e-6) and
+            .binned_shannon_information_nats > 0.1 and
+            .binned_sibson_information_nats > 0.05 and
+            .below_detection_posterior.weights[1] > 0.75 and
+            .below_detection_posterior.weights[0] < 0.25 and
+            ((.missing_at_random_posterior.weights[0] - 0.5) | fabs < 1e-12) and
+            ((.missing_at_random_posterior.weights[1] - 0.5) | fabs < 1e-12) and
+            ((.incorrect_zero_substitution_posterior.weights[0] - 0.5) | fabs < 1e-9) and
+            ((.incorrect_zero_substitution_posterior.weights[1] - 0.5) | fabs < 1e-9)
+          ' "$RUNNER_TEMP/censored-tracer-report.json"
       - name: Validate all report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
@@ -281,6 +310,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation-report.schema.json \
             "$RUNNER_TEMP/state-parameter-assimilation-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/censored-tracer-report.schema.json \
+            "$RUNNER_TEMP/censored-tracer-report.json"
       - name: Upload deterministic synthetic report
         uses: actions/upload-artifact@v4
         with:
@@ -293,6 +325,7 @@ jobs:
             ${{ runner.temp }}/covariance-identifiability-report.json
             ${{ runner.temp }}/conditional-information-report.json
             ${{ runner.temp }}/state-parameter-assimilation-report.json
+            ${{ runner.temp }}/censored-tracer-report.json
           if-no-files-found: error
           retention-days: 30
       - name: Clippy
