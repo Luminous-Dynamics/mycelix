@@ -51,6 +51,59 @@ impl VarianceComponent {
     }
 }
 
+/// Known observation-specific sensitivities to the shared random effects.
+///
+/// Loadings are fixed design/model inputs, not estimated from the same
+/// covariance matrix being audited. Shared-effect covariance between
+/// observations i and j is loading_i * loading_j * variance when their group
+/// identity matches. Signed loadings are allowed for physical, batch and
+/// instrument effects; residual loadings are non-negative scale factors.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CovarianceComponentLoadings {
+    pub shared_physical_support: f64,
+    pub preparation_batch: f64,
+    pub instrument: f64,
+    pub independent_residual: f64,
+}
+
+impl Default for CovarianceComponentLoadings {
+    fn default() -> Self {
+        Self {
+            shared_physical_support: 1.0,
+            preparation_batch: 1.0,
+            instrument: 1.0,
+            independent_residual: 1.0,
+        }
+    }
+}
+
+impl CovarianceComponentLoadings {
+    fn for_component(self, component: VarianceComponent) -> f64 {
+        match component {
+            VarianceComponent::SharedPhysicalSupport => self.shared_physical_support,
+            VarianceComponent::PreparationBatch => self.preparation_batch,
+            VarianceComponent::Instrument => self.instrument,
+            VarianceComponent::IndependentResidual => self.independent_residual,
+        }
+    }
+
+    fn validate(self) -> Result<(), String> {
+        let values = [
+            self.shared_physical_support,
+            self.preparation_batch,
+            self.instrument,
+            self.independent_residual,
+        ];
+        if values.iter().any(|value| !value.is_finite()) {
+            return Err("covariance component loadings must be finite".into());
+        }
+        if self.independent_residual < 0.0 {
+            return Err("independent residual loadings must be non-negative".into());
+        }
+        Ok(())
+    }
+}
+
 /// Structural identifiability summary for the covariance components.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CovarianceIdentifiabilityAudit {
@@ -96,6 +149,7 @@ pub struct CovarianceComponentDesign {
     basis_vectors: Vec<Vec<f64>>,
     upper_triangle_weights: Vec<f64>,
     upper_triangle_indices: Vec<(usize, usize)>,
+    observation_loadings: Vec<CovarianceComponentLoadings>,
 }
 
 fn validate_observations(observations: &[CovarianceObservation]) -> Result<(), String> {
@@ -319,14 +373,37 @@ fn solve_linear_system(matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>, Str
 }
 
 impl CovarianceComponentDesign {
-    /// Build component basis matrices from exact group identities.
+    /// Build a unit-loading design from exact group identities.
     ///
     /// A shared covariance contribution is present only when two observations
     /// carry the same non-empty group ID for that component. Equal specimen
     /// labels do not imply equal physical support unless the physical support
-    /// IDs themselves match.
+    /// IDs themselves match. Every component loading defaults to one.
     pub fn new(observations: Vec<CovarianceObservation>) -> Result<Self, String> {
+        let loadings = vec![CovarianceComponentLoadings::default(); observations.len()];
+        Self::new_with_loadings(observations, loadings)
+    }
+
+    /// Build component basis matrices with fixed, observation-specific loadings.
+    ///
+    /// For grouped component k, the covariance basis is
+    /// A_k[i,j] = l[i,k] * l[j,k] * 1[group(i,k) = group(j,k)].
+    /// Independent residual noise contributes l[i,e]^2 only on the diagonal.
+    /// Loadings must be specified from the observation/design model before
+    /// examining the covariance outcome; estimating them from that same outcome
+    /// would invalidate this structural-identifiability audit.
+    pub fn new_with_loadings(
+        observations: Vec<CovarianceObservation>,
+        observation_loadings: Vec<CovarianceComponentLoadings>,
+    ) -> Result<Self, String> {
         validate_observations(&observations)?;
+        if observation_loadings.len() != observations.len() {
+            return Err("one loading record is required for every observation".into());
+        }
+        for loading in &observation_loadings {
+            loading.validate()?;
+        }
+
         let component_ids = VarianceComponent::ALL.to_vec();
         let upper_triangle_indices = upper_triangle_pairs(observations.len());
         let upper_triangle_weights: Vec<f64> = upper_triangle_indices.iter()
@@ -335,13 +412,17 @@ impl CovarianceComponentDesign {
 
         let basis_vectors = component_ids.iter().map(|component| {
             upper_triangle_indices.iter().map(|(row, column)| {
+                let left_loading = observation_loadings[*row].for_component(*component);
+                let right_loading = observation_loadings[*column].for_component(*component);
                 if *component == VarianceComponent::IndependentResidual {
-                    if row == column { 1.0 } else { 0.0 }
+                    if row == column { left_loading * right_loading } else { 0.0 }
                 } else {
                     let left = component_group(&observations[*row], *component);
                     let right = component_group(&observations[*column], *component);
                     match (left, right) {
-                        (Some(left), Some(right)) if left == right => 1.0,
+                        (Some(left), Some(right)) if left == right => {
+                            left_loading * right_loading
+                        }
                         _ => 0.0,
                     }
                 }
@@ -354,6 +435,7 @@ impl CovarianceComponentDesign {
             basis_vectors,
             upper_triangle_weights,
             upper_triangle_indices,
+            observation_loadings,
         })
     }
 
@@ -374,7 +456,8 @@ impl CovarianceComponentDesign {
         let gram = gram_matrix(&self.basis_vectors, &self.upper_triangle_weights)?;
         let (structural_rank, gram_condition_number) = rank_and_condition(&gram)?;
         let component_count = self.component_ids.len();
-        let individually_identifiable = (0..component_count).map(|removed| {
+        let mut individually_identifiable = Vec::with_capacity(component_count);
+        for removed in 0..component_count {
             let reduced: Vec<Vec<f64>> = gram.iter().enumerate()
                 .filter(|(row, _)| *row != removed)
                 .map(|(_, values)| values.iter().enumerate()
@@ -382,10 +465,9 @@ impl CovarianceComponentDesign {
                     .map(|(_, value)| *value)
                     .collect())
                 .collect();
-            let (reduced_rank, _) = rank_and_condition(&reduced)
-                .unwrap_or((0, None));
-            reduced_rank < structural_rank
-        }).collect();
+            let (reduced_rank, _) = rank_and_condition(&reduced)?;
+            individually_identifiable.push(reduced_rank < structural_rank);
+        }
 
         Ok(CovarianceIdentifiabilityAudit {
             observation_count: self.observations.len(),
@@ -528,8 +610,18 @@ impl CovarianceComponentDesign {
             residual_sum += weight * residual * residual;
             covariance_sum += weight * covariance[*row][*column] * covariance[*row][*column];
         }
-        let relative_fit_residual =
-            residual_sum.sqrt() / covariance_sum.sqrt().max(1.0);
+        if !residual_sum.is_finite() || !covariance_sum.is_finite() {
+            return Err("covariance fit residual overflowed".into());
+        }
+        let residual_norm = residual_sum.sqrt();
+        let covariance_norm = covariance_sum.sqrt();
+        let relative_fit_residual = if covariance_norm > 0.0 {
+            residual_norm / covariance_norm
+        } else if residual_norm == 0.0 {
+            0.0
+        } else {
+            f64::INFINITY
+        };
 
         Ok(ExactCovarianceRecovery {
             component_ids: self.component_ids.clone(),
@@ -581,6 +673,96 @@ mod tests {
             }
         }
         CovarianceComponentDesign::new(observations).unwrap()
+    }
+
+    #[test]
+    fn modality_specific_loadings_scale_and_reverse_cross_modal_covariance() {
+        let design = CovarianceComponentDesign::new_with_loadings(
+            vec![
+                observation("ct-1", "ct", Some("support-A"), Some("batch-A"), Some("ct-device")),
+                observation("tracer-1", "tracer", Some("support-A"), Some("batch-A"), Some("tracer-device")),
+            ],
+            vec![
+                CovarianceComponentLoadings {
+                    shared_physical_support: 1.0,
+                    preparation_batch: 0.25,
+                    instrument: 1.0,
+                    independent_residual: 1.0,
+                },
+                CovarianceComponentLoadings {
+                    shared_physical_support: -0.5,
+                    preparation_batch: 2.0,
+                    instrument: 1.0,
+                    independent_residual: 1.0,
+                },
+            ],
+        ).unwrap();
+        let covariance = design.covariance_from_variances(&[2.0, 3.0, 0.5, 0.1]).unwrap();
+        // Physical contribution: 2 * (1.0 * -0.5) = -1.0.
+        // Batch contribution: 3 * (0.25 * 2.0) = 1.5.
+        // The two instruments are distinct, so their shared contribution is zero.
+        assert!((covariance[0][1] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn declared_modality_loadings_can_separate_effects_with_identical_group_ids() {
+        let observations = vec![
+            observation("y-1", "ct", Some("shared-support"), Some("shared-batch"), Some("shared-device")),
+            observation("y-2", "tracer", Some("shared-support"), Some("shared-batch"), Some("shared-device")),
+            observation("y-3", "tracer", Some("shared-support"), Some("shared-batch"), Some("shared-device")),
+        ];
+        let unit_loading_audit = CovarianceComponentDesign::new(observations.clone())
+            .unwrap().audit().unwrap();
+        assert!(!unit_loading_audit.fully_identifiable);
+
+        let loadings = vec![
+            CovarianceComponentLoadings {
+                shared_physical_support: 1.0,
+                preparation_batch: 1.0,
+                instrument: 1.0,
+                independent_residual: 1.0,
+            },
+            CovarianceComponentLoadings {
+                shared_physical_support: 1.0,
+                preparation_batch: -1.0,
+                instrument: 0.0,
+                independent_residual: 1.0,
+            },
+            CovarianceComponentLoadings {
+                shared_physical_support: 1.0,
+                preparation_batch: 0.0,
+                instrument: -1.0,
+                independent_residual: 1.0,
+            },
+        ];
+        let loaded_audit = CovarianceComponentDesign::new_with_loadings(observations, loadings)
+            .unwrap().audit().unwrap();
+        assert_eq!(loaded_audit.structural_rank, 4);
+        assert!(loaded_audit.fully_identifiable);
+    }
+
+    #[test]
+    fn loading_design_rejects_mismatched_or_nonfinite_inputs() {
+        let observations = vec![
+            observation("ct-1", "ct", Some("support-A"), Some("batch-A"), Some("device-A")),
+        ];
+        assert!(CovarianceComponentDesign::new_with_loadings(
+            observations.clone(), vec![],
+        ).is_err());
+        assert!(CovarianceComponentDesign::new_with_loadings(
+            observations.clone(),
+            vec![CovarianceComponentLoadings {
+                shared_physical_support: f64::NAN,
+                ..CovarianceComponentLoadings::default()
+            }],
+        ).is_err());
+        assert!(CovarianceComponentDesign::new_with_loadings(
+            observations,
+            vec![CovarianceComponentLoadings {
+                independent_residual: -1.0,
+                ..CovarianceComponentLoadings::default()
+            }],
+        ).is_err());
     }
 
     #[test]
