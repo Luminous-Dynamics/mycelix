@@ -14,7 +14,7 @@ use crate::shrink::parse_unique_json_bytes;
 pub const ROLE_INDEX_PROFILE: &str = "mycelix-rego-role-index-v0.1";
 pub const MAX_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_STRATIFIED_SAMPLES_PER_ACTION: usize = 24;
-pub const MIN_STRATIFIED_SAMPLES_PER_ACTION: usize = 16;
+pub const MIN_STRATIFIED_SAMPLES_PER_ACTION: usize = 20;
 const MAX_SAMPLES_PER_STRATUM: usize = 2;
 const STRATIFIED_SAMPLE_PROFILE: &str = "mycelix-role-index-stratified-sample-v0.1";
 
@@ -140,6 +140,20 @@ struct StratifiedCandidate {
     indexed_bytes: Vec<u8>,
 }
 
+fn optional_string_field<'a>(
+    object: &'a Map<String, Value>,
+    field: &str,
+    label: &str,
+) -> Result<Option<&'a str>, RoleIndexError> {
+    match object.get(field) {
+        None => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.as_str())),
+        Some(_) => Err(role_index_error(format!(
+            "{label}.{field} must be a string when present"
+        ))),
+    }
+}
+
 fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
     let actor = input
         .get("actor")
@@ -168,7 +182,7 @@ fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
         .get("exists")
         .and_then(Value::as_bool)
         .ok_or_else(|| role_index_error("Rego input.claim.exists must be boolean for stratification"))?;
-    let creator_actor = claim.get("creatorActorId").and_then(Value::as_str);
+    let creator_actor = optional_string_field(claim, "creatorActorId", "Rego input.claim")?;
     let owner_relation = if !claim_exists || creator_actor.is_none() {
         "not_applicable"
     } else if creator_actor == Some(actor_id) {
@@ -177,8 +191,11 @@ fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
         "non_owner"
     };
 
-    let creator_org = claim.get("creatorOrganizationId").and_then(Value::as_str);
-    let acting_org = input.get("actingOrganizationId").and_then(Value::as_str);
+    let creator_org = optional_string_field(claim, "creatorOrganizationId", "Rego input.claim")?;
+    let input_object = input
+        .as_object()
+        .ok_or_else(|| role_index_error("Rego input must be an object for stratification"))?;
+    let acting_org = optional_string_field(input_object, "actingOrganizationId", "Rego input")?;
     let organization_relation = match (acting_org, creator_org) {
         (None, _) => "absent",
         (Some(_), None) => "orphan",
@@ -204,9 +221,15 @@ fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
         .get("exists")
         .and_then(Value::as_bool)
         .ok_or_else(|| role_index_error("Rego input.targetAttestation.exists must be boolean for stratification"))?;
+    let target_author = optional_string_field(target, "authorActorId", "Rego input.targetAttestation")?;
+    if target_exists && target_author.is_none() {
+        return Err(role_index_error(
+            "Rego input.targetAttestation.authorActorId is required when the target attestation exists",
+        ));
+    }
     let target_relation = if !target_exists {
         "absent"
-    } else if target.get("authorActorId").and_then(Value::as_str) == Some(actor_id) {
+    } else if target_author == Some(actor_id) {
         "self"
     } else {
         "other"
@@ -571,6 +594,48 @@ mod tests {
         assert!(changed_key.contains("org=absent"));
         assert!(changed_key.contains("attestation=independent_replication"));
         assert!(changed_key.contains("target=absent"));
+    }
+
+    #[test]
+    fn optional_stratification_fields_reject_non_string_values() {
+        let input = serde_json::json!({
+            "action":"evidence_attached",
+            "actor":{"id":"actor:a","roles":[]},
+            "claim":{"exists":true,"creatorActorId":17},
+            "attestation":{"kind":"ordinary"},
+            "targetAttestation":{"exists":false}
+        });
+        assert!(stratum_key(&input).is_err());
+    }
+
+    #[test]
+    fn stratified_selector_round_robins_hash_ranked_strata() {
+        let mut buckets = BTreeMap::new();
+        for stratum_index in 0..32 {
+            for candidate_index in 0..2 {
+                let case_id = format!("case-{stratum_index:02}-{candidate_index}");
+                insert_stratified_candidate(
+                    &mut buckets,
+                    StratifiedCandidate {
+                        action: "claim_proposed".to_owned(),
+                        case_id: case_id.clone(),
+                        stratum: format!("stratum-{stratum_index:02}"),
+                        rank_sha256: sample_rank("claim_proposed", &case_id),
+                        baseline_bytes: case_id.as_bytes().to_vec(),
+                        indexed_bytes: case_id.as_bytes().to_vec(),
+                    },
+                );
+            }
+        }
+        let (selected, counts) = select_stratified_candidates(&buckets, &["claim_proposed"])
+            .expect("enough semantic strata should meet the minimum sample count");
+        assert_eq!(counts["claim_proposed"], MAX_STRATIFIED_SAMPLES_PER_ACTION);
+        assert_eq!(selected.len(), MAX_STRATIFIED_SAMPLES_PER_ACTION);
+        let distinct_strata = selected
+            .iter()
+            .map(|candidate| candidate.stratum.as_str())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(distinct_strata.len(), MAX_STRATIFIED_SAMPLES_PER_ACTION);
     }
 
     #[test]
