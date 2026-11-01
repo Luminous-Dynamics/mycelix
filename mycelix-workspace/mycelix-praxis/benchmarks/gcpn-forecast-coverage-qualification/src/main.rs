@@ -1,5 +1,6 @@
 use gcpn_forecast_coverage_qualification::{
-    analytic_truth, bootstrap_interval, generate_dataset, BootstrapUnit, DgpConfig,
+    analytic_truth, basic_bootstrap_interval, bootstrap_interval, generate_dataset,
+    studentized_system_bootstrap_interval, BootstrapUnit, DgpConfig,
 };
 
 fn main() {
@@ -50,6 +51,20 @@ fn main() {
                 std::process::exit(1);
             }
         }
+    }
+    match basic_bootstrap_interval(&dataset, BootstrapUnit::IndependentSystem, 0.95, 20_000, seed ^ 0x1f83_d9ab_fb41_bd6b) {
+        Ok(interval) => println!(
+            "independent_system_basic,{},{:.8},{:.8},{:.8},{}",
+            interval.resampling_units, interval.estimate, interval.lower, interval.upper, interval.replicates
+        ),
+        Err(error) => { eprintln!("basic interval failed: {error}"); std::process::exit(1); }
+    }
+    match studentized_system_bootstrap_interval(&dataset, 0.95, 20_000, seed ^ 0x5be0_cd19_137e_2179) {
+        Ok(interval) => println!(
+            "independent_system_studentized_t,{},{:.8},{:.8},{:.8},{}",
+            interval.independent_systems, interval.estimate, interval.lower, interval.upper, interval.valid_replicates
+        ),
+        Err(error) => { eprintln!("studentized interval failed: {error}"); std::process::exit(1); }
     }
     println!();
     println!("non_claim: no empirical coverage qualification or real forecast comparison has been performed");
