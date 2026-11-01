@@ -42,7 +42,7 @@ The crate has no third-party dependencies and no default features. It is intenti
 
 ## Initial qualification panel
 
-The 19 unit tests include:
+The 22 unit tests include:
 - hard-invariant refutation with multiple supporting evaluators;
 - exact replay deduplication;
 - shared implementation lineage despite distinct executable digests;
@@ -55,6 +55,9 @@ The 19 unit tests include:
 - non-hard refutation;
 - contradictory outcomes from one evaluator/profile;
 - shared CI provider visibility without falsely claiming provider independence;
+- distinct implementation lineage with shared specification lineage;
+- distinct implementation lineage with shared expected-answer lineage;
+- unknown specification lineage cannot satisfy the required independence profile;
 - an exhaustive 400-state product over five evaluator outcomes and four evidence-validity states for each of two required roles;
 - assessment-order invariance;
 - stale hard-invariant refutation and wrong-subject refutation controls;
