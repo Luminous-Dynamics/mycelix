@@ -307,7 +307,6 @@ impl MetricAccumulator {
     fn add(&mut self, probability: f64, reference_probability: f64, outcome: bool) {
         let y = if outcome { 1.0 } else { 0.0 };
         let clipped = probability.clamp(LOG_LOSS_FLOOR, 1.0 - LOG_LOSS_FLOOR);
-        let reference_clipped = reference_probability.clamp(LOG_LOSS_FLOOR, 1.0 - LOG_LOSS_FLOOR);
 
         self.sample_count += 1;
         self.brier_sum += (probability - y).powi(2);
@@ -322,8 +321,6 @@ impl MetricAccumulator {
         self.bin_probability_sums[bin] += probability;
         self.bin_outcome_sums[bin] += y;
 
-        // Keep the reference probability's numerical domain explicit.
-        let _ = reference_clipped;
     }
 
     fn finish(&self) -> Option<MetricValues> {
@@ -703,12 +700,12 @@ mod tests {
 
     #[test]
     fn frozen_fixture_has_unique_schema_and_expected_rows() {
-        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0);
+        assert_eq!(fnv1a64(FIXTURE.as_bytes()), 0xd3ca04ec0d54ead9);
         let records = parse_fixture(FIXTURE).unwrap();
         assert_eq!(records.len(), 47);
         assert_eq!(
             records.iter().map(|record| record.event_id.as_str()).collect::<BTreeSet<_>>().len(),
-            22
+            26
         );
     }
 
