@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tracer sensor design report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_class",
+    "scenario_id",
+    "scenario_sha256",
+    "status",
+    "budget_units",
+    "sibson_alpha",
+    "kl_radius_nats",
+    "minimum_alpha",
+    "alpha_bisection_iterations",
+    "nominal_shannon_selection",
+    "fixed_alpha_sibson_selection",
+    "fixed_kl_radius_selection",
+    "sensor_scores",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "data_class": {
+      "const": "synthetic-known-truth"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "scenario_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "const": "synthetic_detection_aware_tracer_sensor_design_only"
+    },
+    "budget_units": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sibson_alpha": {
+      "type": "number"
+    },
+    "kl_radius_nats": {
+      "type": "number",
+      "minimum": 0
+    },
+    "minimum_alpha": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 0.99999999
+    },
+    "alpha_bisection_iterations": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "nominal_shannon_selection": {
+      "$ref": "#/$defs/selection"
+    },
+    "fixed_alpha_sibson_selection": {
+      "$ref": "#/$defs/selection"
+    },
+    "fixed_kl_radius_selection": {
+      "$ref": "#/$defs/selection"
+    },
+    "sensor_scores": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sensor_id",
+          "cost_units",
+          "eligible",
+          "feasible",
+          "outcome_ids",
+          "shannon_information_nats",
+          "sibson_information_nats",
+          "per_design_alpha",
+          "per_design_kl_radius_nats",
+          "per_design_robust_information_nats",
+          "alpha_search_clamped"
+        ],
+        "properties": {
+          "sensor_id": {
+            "type": "string"
+          },
+          "cost_units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "feasible": {
+            "type": "boolean"
+          },
+          "outcome_ids": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
+          "shannon_information_nats": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sibson_information_nats": {
+            "type": "number",
+            "minimum": 0
+          },
+          "per_design_alpha": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "per_design_kl_radius_nats": {
+            "type": "number",
+            "minimum": 0
+          },
+          "per_design_robust_information_nats": {
+            "type": "number",
+            "minimum": 0
+          },
+          "alpha_search_clamped": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "selection": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "sensor_id",
+        "cost_units",
+        "objective_value_nats",
+        "alpha_used"
+      ],
+      "properties": {
+        "sensor_id": {
+          "type": "string"
+        },
+        "cost_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "objective_value_nats": {
+          "type": "number"
+        },
+        "alpha_used": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}
