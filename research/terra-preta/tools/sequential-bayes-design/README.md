@@ -103,6 +103,25 @@ rank/attribution and recovered coefficients, validates the report, and uploads
 the artifact. It is a structural covariance-design oracle, not a noisy
 variance estimator.
 
+## Finite-ensemble Kalman assimilation comparator
+
+The `ensemble_assimilation` module draws a reproducible finite Gaussian
+ensemble from the augmented state/parameter prior, computes its empirical
+mean/covariance, and applies a deterministic linear EnKF-style moment update
+with the same observation operator and noise covariance as the exact oracle.
+It reports the posterior distribution and sample count/seed, so finite-
+ensemble error can be measured against the exact linear-Gaussian posterior.
+
+Tests cover seeded reproducibility, prior-moment convergence at large N,
+posterior convergence to the exact analytical state/parameter posterior,
+preservation of cross-covariance and invalid ensemble metadata.
+
+**Boundary:** this is the deterministic Gaussian-moment EnKF analysis for a
+linear observation operator. It is not a perturbed-observation EnKF,
+square-root implementation, nonlinear Richards solver, particle filter or
+field assimilation result. It provides a matched approximation baseline for
+#5658.
+
 ## Exact joint state–parameter assimilation reference
 
 The `state_parameter_assimilation` module is an exact linear-Gaussian
