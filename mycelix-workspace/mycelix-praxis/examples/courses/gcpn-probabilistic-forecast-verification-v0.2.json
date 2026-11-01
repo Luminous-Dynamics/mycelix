@@ -1,0 +1,49 @@
+{
+  "benchmark_id": "GCPN-PROBABILISTIC-FORECAST-VERIFICATION-001",
+  "version": "0.2.0",
+  "status": "synthetic-scoring-calibration-and-drift-diagnostics",
+  "scoring_fixture": {
+    "name": "forecast-cases-v0.1.csv",
+    "fnv1a64": "0x81af0b6779196770",
+    "raw_records": 65,
+    "scored_records": 54
+  },
+  "brier_decomposition": {
+    "method": "murphy-decomposition-by-distinct-issued-probability",
+    "terms": ["reliability", "resolution", "uncertainty", "reconstruction_residual"],
+    "separate_from_fixed_bin_ece": true,
+    "acceptance": "score_equals_reliability_minus_resolution_plus_uncertainty_within_1e-12"
+  },
+  "drift_fixture": {
+    "name": "forecast-drift-v0.1.csv",
+    "profiles": [
+      "stable_control",
+      "gradual_calibration_drift",
+      "abrupt_calibration_shift"
+    ],
+    "records_per_profile": 30,
+    "chronological": true,
+    "partition": "evaluation"
+  },
+  "drift_diagnostics": {
+    "rolling_window_size": 5,
+    "cusum_allowance": 0.1,
+    "cusum_threshold": 3.0,
+    "minimum_observations": 5,
+    "first_flag_sequence": {
+      "stable_control": null,
+      "gradual_calibration_drift": 28,
+      "abrupt_calibration_shift": 19
+    },
+    "policy": "offline-diagnostic-only-no-operational-invalidation-or-alert"
+  },
+  "non_claims": [
+    "not_an_operational_forecast_model",
+    "no_alert_threshold_selection",
+    "no_forecast_invalidation_policy",
+    "no_warning_authority",
+    "no_live_alert_dispatch",
+    "no_operational_action_authorization",
+    "synthetic_samples_not_scientifically_representative"
+  ]
+}
