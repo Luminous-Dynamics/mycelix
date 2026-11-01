@@ -1033,8 +1033,8 @@ mod tests {
         )]);
         let summary = frame.report().unwrap().paired_difference.unwrap();
         assert!((summary.observed_mean.unwrap() + 0.5).abs() < 1e-12);
-        assert!(summary.population_bounds.lower <= -0.5);
-        assert!(summary.population_bounds.upper >= -0.5);
+        assert!((summary.population_bounds.lower + 0.5).abs() < 1e-12);
+        assert!((summary.population_bounds.upper + 0.5).abs() < 1e-12);
     }
 
     #[test]
