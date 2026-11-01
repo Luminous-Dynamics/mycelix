@@ -445,7 +445,8 @@ pub fn validate_cap_lifecycle(messages: &[CapMessage]) -> CapLifecycleAudit {
         match message.digest_verification {
             DigestVerification::Unchecked => report.unverified_digests += 1,
             DigestVerification::Mismatch => report.digest_mismatches += 1,
-            DigestVerification::VerifiedByExternalAdapter | DigestVerification::FixtureOracleAccepted => {}
+            DigestVerification::VerifiedByExternalAdapter
+            | DigestVerification::FixtureOracleAccepted => {}
         }
 
         let extended_id = message.extended_identifier();
@@ -461,7 +462,10 @@ pub fn validate_cap_lifecycle(messages: &[CapMessage]) -> CapLifecycleAudit {
             continue;
         }
 
-        if matches!(message.message_type, CapMessageType::Update | CapMessageType::Cancel) {
+        if matches!(
+            message.message_type,
+            CapMessageType::Update | CapMessageType::Cancel
+        ) {
             if message.references.is_empty() {
                 report.missing_references += 1;
             } else {
@@ -490,7 +494,10 @@ pub fn validate_cap_lifecycle(messages: &[CapMessage]) -> CapLifecycleAudit {
         }
         seen.insert(extended_id, message);
     }
-    CapLifecycleAudit { report, conflicting_messages }
+    CapLifecycleAudit {
+        report,
+        conflicting_messages,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -558,7 +565,8 @@ pub fn validate_receipts(messages: &[CapMessage], receipts: &[DeliveryReceipt]) 
                     report.digest_mismatches += 1;
                 } else if !matches!(
                     message.digest_verification,
-                    DigestVerification::VerifiedByExternalAdapter | DigestVerification::FixtureOracleAccepted
+                    DigestVerification::VerifiedByExternalAdapter
+                        | DigestVerification::FixtureOracleAccepted
                 ) {
                     report.unverified_message_digests += 1;
                 } else {
@@ -650,10 +658,7 @@ mod tests {
         let current_view = graph.snapshot_as_of(400);
         assert!(!old_view.nodes.contains_key("observation-late"));
         assert!(current_view.nodes.contains_key("observation-late"));
-        assert_eq!(
-            current_view.nodes["observation-late"].valid_from,
-            Some(100)
-        );
+        assert_eq!(current_view.nodes["observation-late"].valid_from, Some(100));
     }
 
     #[test]
@@ -737,13 +742,7 @@ mod tests {
     fn dangling_and_wrongly_typed_edges_are_reported_separately() {
         let mut graph = EvidenceGraph::default();
         graph
-            .append_node(node(
-                "receipt-1",
-                NodeKind::DeliveryReceipt,
-                None,
-                None,
-                10,
-            ))
+            .append_node(node("receipt-1", NodeKind::DeliveryReceipt, None, None, 10))
             .unwrap();
         graph.append_edge(edge(
             "edge-dangling",
@@ -779,11 +778,34 @@ mod tests {
     #[test]
     fn forward_reference_is_dangling_historically_and_resolves_later() {
         let mut graph = EvidenceGraph::default();
-        graph.append_node(node("forecast-1", NodeKind::ForecastProduct, Some(10), None, 10)).unwrap();
-        graph.append_edge(edge("derived-from-late-source", "forecast-1", "source-1", RelationKind::DerivedFrom, Some(10), 20));
+        graph
+            .append_node(node(
+                "forecast-1",
+                NodeKind::ForecastProduct,
+                Some(10),
+                None,
+                10,
+            ))
+            .unwrap();
+        graph.append_edge(edge(
+            "derived-from-late-source",
+            "forecast-1",
+            "source-1",
+            RelationKind::DerivedFrom,
+            Some(10),
+            20,
+        ));
         let historical = graph.snapshot_as_of(25);
         assert_eq!(historical.validate().dangling_edges, 1);
-        graph.append_node(node("source-1", NodeKind::SourceObservation, Some(5), None, 30)).unwrap();
+        graph
+            .append_node(node(
+                "source-1",
+                NodeKind::SourceObservation,
+                Some(5),
+                None,
+                30,
+            ))
+            .unwrap();
         let current = graph.validate();
         assert_eq!(current.dangling_edges, 0);
         assert_eq!(current.forward_reference_edges, 1);
@@ -795,13 +817,7 @@ mod tests {
         let mut graph = EvidenceGraph::default();
         for id in ["source-a", "source-b"] {
             graph
-                .append_node(node(
-                    id,
-                    NodeKind::SourceObservation,
-                    Some(1),
-                    None,
-                    2,
-                ))
+                .append_node(node(id, NodeKind::SourceObservation, Some(1), None, 2))
                 .unwrap();
         }
         graph.append_edge(edge(
@@ -960,13 +976,7 @@ mod tests {
     #[test]
     fn payload_digest_without_external_verification_is_not_a_pass() {
         let mut graph = EvidenceGraph::default();
-        let mut record = node(
-            "forecast-1",
-            NodeKind::ForecastProduct,
-            Some(1),
-            None,
-            2,
-        );
+        let mut record = node("forecast-1", NodeKind::ForecastProduct, Some(1), None, 2);
         record.payload_digest = Some("sha256:fixture".into());
         record.digest_status = DigestStatus::Unchecked;
         graph.append_node(record).unwrap();
