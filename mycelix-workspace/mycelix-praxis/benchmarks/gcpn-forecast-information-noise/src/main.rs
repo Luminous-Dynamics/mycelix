@@ -1,5 +1,5 @@
 use gcpn_forecast_information_noise::{
-    evaluate, ForecastCase, PostProcessingProvenance, PredictandContract,
+    ForecastCase, PostProcessingProvenance, PredictandContract, evaluate,
 };
 
 fn main() {
@@ -23,11 +23,7 @@ fn main() {
             vec![2.0, 0.0, -2.0],
             vec![1.0, -1.0, 0.0],
         ),
-        case(
-            "smoothed",
-            vec![0.5, -0.5, 0.0],
-            vec![1.0, -1.0, 0.0],
-        ),
+        case("smoothed", vec![0.5, -0.5, 0.0], vec![1.0, -1.0, 0.0]),
     ];
 
     match evaluate(&contract, &cases) {
@@ -35,11 +31,22 @@ fn main() {
             println!("GCPN forecast information/noise attribution v0.1");
             println!("status: deterministic_known_truth_method_demonstration");
             println!("predictand: {} [{}]", report.predictand_id, report.unit);
-            println!("forecast: {}@{}", report.forecast_source_id, report.forecast_source_version);
-            println!("verification: {}@{}", report.verification_source_id, report.verification_source_version);
+            println!(
+                "forecast: {}@{}",
+                report.forecast_source_id, report.forecast_source_version
+            );
+            println!(
+                "verification: {}@{}",
+                report.verification_source_id, report.verification_source_version
+            );
             println!("climatology: {}", report.climatology_id);
-            println!("evaluation_period_start: {}", report.evaluation_period_start);
-            println!("case,raw_bias,raw_rmse,debiased_rmse,forecast_activity,truth_activity,FI,IE,NE,status");
+            println!(
+                "evaluation_period_start: {}",
+                report.evaluation_period_start
+            );
+            println!(
+                "case,raw_bias,raw_rmse,debiased_rmse,forecast_activity,truth_activity,FI,IE,NE,status"
+            );
             for item in &report.cases {
                 println!(
                     "{},{:.6},{:.6},{:.6},{:.6},{:.6},{:?},{:?},{:?},{}",
@@ -58,7 +65,10 @@ fn main() {
             println!("non_claim: no real forecast superiority or calibration quality is assessed");
         }
         Err(error) => {
-            eprintln!("forecast verification contract rejected: {}", error.violation.label());
+            eprintln!(
+                "forecast verification contract rejected: {}",
+                error.violation.label()
+            );
             std::process::exit(2);
         }
     }
