@@ -159,6 +159,7 @@ These are research targets, not outcomes, field guarantees or universal toleranc
 - Abdulsamad et al. (2026), *Maximin Robust Bayesian Experimental Design*, arXiv:2603.14094 / ICML: https://arxiv.org/abs/2603.14094. Uses a max–min adversarial formulation, KL-bounded perturbations, Sibson α-MI and PAC-Bayes policy lower bounds.
 - Säilynoja et al. (2026), *Posterior SBC: simulation-based calibration checking conditional on data*, Statistics and Computing 36, 78: https://doi.org/10.1007/s11222-026-10825-9. Posterior SBC compares original posterior draws with augmented posterior draws after posterior-predictive simulation, conditional on observed data.
 - Tang, Sloman & Kaski (2026), *Representative, Informative, and De-Amplifying*, AISTATS/PMLR 300: https://proceedings.mlr.press/v300/tang26d.html.
+- López-Fidalgo & Wong (2026), *Optimal Designs for Correlated Data*, Annual Review of Statistics and Its Application 13:245–270: https://doi.org/10.1146/annurev-statistics-042324-012947. The review highlights that optimal design for correlated observations lags correlated-data estimation, with limited general algorithms and few tools to certify design optimality. This reinforces the need for exact small-case oracles and explicit approximation/solver gaps in our benchmark.
 - Modrák et al. (2025), *Simulation-Based Calibration Checking for Bayesian Computation: The Choice of Test Quantities Shapes Sensitivity*: https://doi.org/10.1214/23-BA1404.
 
 The methods are comparators and qualification inputs, not methods originated by this project.
