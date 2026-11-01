@@ -19,3 +19,4 @@ pub mod state_parameter_assimilation;
 pub mod ct_wetted_interface;
 pub mod ensemble_assimilation;
 pub mod censored_tracer;
+pub mod tracer_sensor_design;
