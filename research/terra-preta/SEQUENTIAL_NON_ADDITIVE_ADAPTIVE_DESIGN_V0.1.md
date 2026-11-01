@@ -554,3 +554,38 @@ scenario-family random effects or hierarchical summaries, and independent
 seed suites. Common random numbers reduce action-level noise but do not remove
 the need for many worlds, independent data-generating mechanisms, or matched
 compute and measurement budgets.
+
+
+## 24. Measurement-support contract: prerequisite to covariance-aware likelihoods
+
+A machine-readable observation-support contract is now committed:
+
+- Specification: `research/terra-preta/OBSERVATION_SUPPORT_CONTRACT_V0.1.md`
+- Schema: `research/terra-preta/tools/sequential-bayes-design/observation-support.schema.json`
+- Synthetic fixture: `research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-observation-support.json`
+
+Four synthetic records exercise CT pore geometry, event tracer breakthrough,
+water-retention curve and gas permeability. Each record distinguishes
+measurement/support/sample IDs, treatment-assignment unit, source batch,
+modality, measurand/unit, observation-operator ID, spatial support and temporal
+support, instrument/calibration/detection metadata, and uncertainty provenance.
+
+This is not merely metadata decoration. A CT volume and a tracer collection
+window answer different physical questions. Repeated tracer intervals can be
+correlated through a shared sample or time series; CT segmentation can share
+calibration/processing effects; retention and gas-permeability measurements
+taken on related cores can share sample lineage. The benchmark must model these
+dependencies only when supported by repeatability, paired, inter-operator or
+cross-instrument evidence, or by a declared synthetic simulator.
+
+**Do not infer a covariance coefficient from geometric overlap alone.**
+Support overlap is an auditable reason to investigate dependence; it does not
+determine the correlation value. Non-overlapping supports can still be
+correlated through spatial fields, temporal autocorrelation or shared
+calibration drift.
+
+The focused sequential workflow now parses the support schema/fixture and
+validates the fixture through the standalone schema-audit tool. This verifies
+the metadata contract only; the current categorical Bayesian engine does not
+yet consume the support records or use a covariance matrix. That is a distinct
+next implementation gate under #5632.
