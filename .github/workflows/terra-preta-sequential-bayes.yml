@@ -30,6 +30,7 @@ jobs:
           jq empty research/terra-preta/tools/sequential-bayes-design/report.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-discrepancy-state-control.json
       - name: Format and test standalone crate
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
@@ -43,6 +44,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-discrepancy-state-control.json
       - name: Execute misspecified and in-family controls
         run: |
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
@@ -51,6 +55,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json \
             "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-discrepancy-state-control.json \
+            "$RUNNER_TEMP/sequential-bayes-discrepancy-state-report.json"
           jq -e '
             .status == "synthetic_sequential_bayesian_benchmark_only" and
             .replicate_count == 128 and
@@ -84,6 +91,17 @@ jobs:
               .mean_heldout_validation_brier_score >= 0 and
               .mean_heldout_validation_brier_score <= 2)
           ' "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
+          jq -e '
+            .scenario_id == "preferential-flow-explicit-discrepancy-state-v0" and
+            .replicate_count == 128 and
+            .validation_probe_count == 2 and
+            (.policy_summaries | length == 5) and
+            all(.policy_summaries[];
+              .mean_true_decision_regret >= 0 and
+              .mean_heldout_validation_log_score >= 0 and
+              .mean_heldout_validation_brier_score >= 0 and
+              .mean_heldout_validation_brier_score <= 2)
+          ' "$RUNNER_TEMP/sequential-bayes-discrepancy-state-report.json"
       - name: Validate both report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
@@ -92,6 +110,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/report.schema.json \
             "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/report.schema.json \
+            "$RUNNER_TEMP/sequential-bayes-discrepancy-state-report.json"
       - name: Upload deterministic synthetic report
         uses: actions/upload-artifact@v4
         with:
@@ -99,6 +120,7 @@ jobs:
           path: |
             ${{ runner.temp }}/sequential-bayes-report.json
             ${{ runner.temp }}/sequential-bayes-infamily-report.json
+            ${{ runner.temp }}/sequential-bayes-discrepancy-state-report.json
           if-no-files-found: error
           retention-days: 30
       - name: Clippy
