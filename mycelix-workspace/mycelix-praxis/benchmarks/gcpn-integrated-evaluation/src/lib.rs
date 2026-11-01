@@ -1,6 +1,6 @@
 //! Integrated synthetic GCPN evaluation.
 //!
-//! The four constituent benchmark modules retain distinct, non-compensatory
+//! Eight constituent benchmark modules retain distinct, non-compensatory
 //! evidence gates. This crate verifies their composition; it does not create
 //! alerts, decide public policy, release funding, or direct civil protection.
 
@@ -24,6 +24,12 @@ use gcpn_lifecycle_cost::{
     fixture_report as lifecycle_cost_fixture_report,
     Architecture as CostArchitecture,
 };
+use gcpn_human_outcomes::{
+    fixture_report as human_outcomes_fixture_report,
+    InteractionProfile as HumanInteractionProfile,
+    MessageVariant as HumanMessageVariant,
+};
+use gcpn_forecast_uncertainty::fixture_report as forecast_uncertainty_fixture_report;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CivilRecordSummary {
@@ -140,6 +146,44 @@ pub struct LifecycleCostSummary {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+pub struct HumanOutcomesSummary {
+    pub fixture_oracle_matches: bool,
+    pub row_count: u32,
+    pub profile_count: u32,
+    pub variant_count: u32,
+    pub accessible_multimodal_intended_trials: u64,
+    pub accessible_multimodal_accessible_trials: u64,
+    pub accessible_multimodal_comprehension_correct: u64,
+    pub accessible_multimodal_action_intent_correct: u64,
+    pub accessible_multimodal_uncertainty_understood: u64,
+    pub accessible_multimodal_false_certainty: u64,
+    pub effective_comprehension: f64,
+    pub conditional_comprehension: f64,
+    pub worst_profile_effective_comprehension: f64,
+    pub comprehension_profile_gap: f64,
+    pub maximum_profile_p90_seconds: u32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ForecastUncertaintySummary {
+    pub fixture_oracle_matches: bool,
+    pub source_record_count: u32,
+    pub source_fixture_fingerprint: u64,
+    pub paired_event_clusters: u32,
+    pub exact_duplicate_rows: u32,
+    pub partition_leak_events: u32,
+    pub metadata_mismatch_events: u32,
+    pub bootstrap_seed: u64,
+    pub bootstrap_replicates: u32,
+    pub candidate_vs_climatology_point_difference: f64,
+    pub candidate_vs_climatology_ci95_low: f64,
+    pub candidate_vs_climatology_ci95_high: f64,
+    pub candidate_vs_lead_reference_point_difference: f64,
+    pub candidate_vs_lead_reference_ci95_low: f64,
+    pub candidate_vs_lead_reference_ci95_high: f64,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct IntegratedReport {
     pub civil_record: CivilRecordSummary,
     pub topology: TopologySummary,
@@ -147,6 +191,8 @@ pub struct IntegratedReport {
     pub warning_to_action: WarningActionSummary,
     pub forecast: ForecastSummary,
     pub lifecycle_cost: LifecycleCostSummary,
+    pub human_outcomes: HumanOutcomesSummary,
+    pub forecast_uncertainty: ForecastUncertaintySummary,
 }
 
 impl IntegratedReport {
@@ -235,6 +281,36 @@ impl IntegratedReport {
             && self.lifecycle_cost.local_first_staff_hours_over_horizon == 12_000.0
             && self.lifecycle_cost.zero_accessible_cost_is_undefined
             && self.lifecycle_cost.central_hub_restoration_is_scenario_scoped
+            && self.human_outcomes.fixture_oracle_matches
+            && self.human_outcomes.row_count == 18
+            && self.human_outcomes.profile_count == 6
+            && self.human_outcomes.variant_count == 3
+            && self.human_outcomes.accessible_multimodal_intended_trials == 600
+            && self.human_outcomes.accessible_multimodal_accessible_trials == 530
+            && self.human_outcomes.accessible_multimodal_comprehension_correct == 484
+            && self.human_outcomes.accessible_multimodal_action_intent_correct == 452
+            && self.human_outcomes.accessible_multimodal_uncertainty_understood == 422
+            && self.human_outcomes.accessible_multimodal_false_certainty == 87
+            && (self.human_outcomes.effective_comprehension - (484.0 / 600.0)).abs() < 1e-12
+            && (self.human_outcomes.conditional_comprehension - (484.0 / 530.0)).abs() < 1e-12
+            && (self.human_outcomes.worst_profile_effective_comprehension - 0.55).abs() < 1e-12
+            && (self.human_outcomes.comprehension_profile_gap - 0.39).abs() < 1e-12
+            && self.human_outcomes.maximum_profile_p90_seconds == 34
+            && self.forecast_uncertainty.fixture_oracle_matches
+            && self.forecast_uncertainty.source_record_count == 65
+            && self.forecast_uncertainty.source_fixture_fingerprint == 0x81af0b6779196770
+            && self.forecast_uncertainty.paired_event_clusters == 12
+            && self.forecast_uncertainty.exact_duplicate_rows == 1
+            && self.forecast_uncertainty.partition_leak_events == 1
+            && self.forecast_uncertainty.metadata_mismatch_events == 1
+            && self.forecast_uncertainty.bootstrap_seed == 0x6a09e667f3bcc909
+            && self.forecast_uncertainty.bootstrap_replicates == 20_000
+            && (self.forecast_uncertainty.candidate_vs_climatology_point_difference - (-0.07831666666666666)).abs() < 1e-12
+            && (self.forecast_uncertainty.candidate_vs_climatology_ci95_low - (-0.24)).abs() < 1e-12
+            && (self.forecast_uncertainty.candidate_vs_climatology_ci95_high - 0.16420833333333332).abs() < 1e-12
+            && (self.forecast_uncertainty.candidate_vs_lead_reference_point_difference - 0.13168333333333335).abs() < 1e-12
+            && (self.forecast_uncertainty.candidate_vs_lead_reference_ci95_low - (-0.03)).abs() < 1e-12
+            && (self.forecast_uncertainty.candidate_vs_lead_reference_ci95_high - 0.3742083333333333).abs() < 1e-12
     }
 }
 
@@ -263,6 +339,15 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
 
     let lifecycle_cost = lifecycle_cost_fixture_report()
         .map_err(|e| format!("lifecycle-cost fixture: {e}"))?;
+
+    let human_outcomes = human_outcomes_fixture_report()
+        .map_err(|e| format!("human-outcomes fixture: {e}"))?;
+    let accessible_multimodal = human_outcomes.variant_summaries.iter()
+        .find(|summary| summary.variant == HumanMessageVariant::AccessibleMultimodal)
+        .ok_or_else(|| "accessible-multimodal human-outcomes summary missing".to_owned())?;
+
+    let forecast_uncertainty = forecast_uncertainty_fixture_report()
+        .map_err(|e| format!("forecast-uncertainty fixture: {e}"))?;
 
     let centralized_cost = lifecycle_cost
         .evaluation(CostArchitecture::Centralized, "all-available")
@@ -487,6 +572,40 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
             zero_accessible_cost_is_undefined: zero_reach_cost.base_cost_per_accessible_receiver_reached.is_none(),
             central_hub_restoration_is_scenario_scoped,
         },
+        human_outcomes: HumanOutcomesSummary {
+            fixture_oracle_matches: human_outcomes.fixture_oracle_matches(),
+            row_count: human_outcomes.rows.len() as u32,
+            profile_count: HumanInteractionProfile::ALL.len() as u32,
+            variant_count: human_outcomes.variant_summaries.len() as u32,
+            accessible_multimodal_intended_trials: accessible_multimodal.trials,
+            accessible_multimodal_accessible_trials: accessible_multimodal.accessible_trials,
+            accessible_multimodal_comprehension_correct: accessible_multimodal.comprehension_correct,
+            accessible_multimodal_action_intent_correct: accessible_multimodal.action_intent_correct,
+            accessible_multimodal_uncertainty_understood: accessible_multimodal.uncertainty_understood,
+            accessible_multimodal_false_certainty: accessible_multimodal.false_certainty,
+            effective_comprehension: accessible_multimodal.effective_comprehension,
+            conditional_comprehension: accessible_multimodal.comprehension_given_access.unwrap_or(0.0),
+            worst_profile_effective_comprehension: accessible_multimodal.minimum_profile_effective_comprehension,
+            comprehension_profile_gap: accessible_multimodal.effective_comprehension_profile_gap,
+            maximum_profile_p90_seconds: accessible_multimodal.maximum_profile_p90_seconds,
+        },
+        forecast_uncertainty: ForecastUncertaintySummary {
+            fixture_oracle_matches: forecast_uncertainty.fixture_oracle_matches(),
+            source_record_count: forecast_uncertainty.source_record_count,
+            source_fixture_fingerprint: forecast_uncertainty.source_fixture_fingerprint,
+            paired_event_clusters: forecast_uncertainty.diagnostics.complete_event_clusters,
+            exact_duplicate_rows: forecast_uncertainty.diagnostics.exact_duplicate_rows,
+            partition_leak_events: forecast_uncertainty.diagnostics.partition_leak_events,
+            metadata_mismatch_events: forecast_uncertainty.diagnostics.metadata_mismatch_events,
+            bootstrap_seed: forecast_uncertainty.seed,
+            bootstrap_replicates: forecast_uncertainty.replicates,
+            candidate_vs_climatology_point_difference: forecast_uncertainty.candidate_vs_climatology.point_mean_difference,
+            candidate_vs_climatology_ci95_low: forecast_uncertainty.candidate_vs_climatology.percentile_95_low,
+            candidate_vs_climatology_ci95_high: forecast_uncertainty.candidate_vs_climatology.percentile_95_high,
+            candidate_vs_lead_reference_point_difference: forecast_uncertainty.candidate_vs_lead_reference.point_mean_difference,
+            candidate_vs_lead_reference_ci95_low: forecast_uncertainty.candidate_vs_lead_reference.percentile_95_low,
+            candidate_vs_lead_reference_ci95_high: forecast_uncertainty.candidate_vs_lead_reference.percentile_95_high,
+        },
     };
 
     Ok(report)
@@ -537,6 +656,10 @@ mod tests {
             fnv1a64(gcpn_lifecycle_cost::OUTCOME_FIXTURE.as_bytes()),
             0x376c727b26d887aa
         );
+        assert_eq!(
+            fnv1a64(gcpn_human_outcomes::FIXTURE.as_bytes()),
+            0x019e77cec7c2246c
+        );
     }
 
     #[test]
@@ -557,7 +680,7 @@ mod tests {
     }
 
     #[test]
-    fn forecast_subgroup_failure_cannot_be_masked_by_the_other_four_modules() {
+    fn forecast_subgroup_failure_cannot_be_masked_by_other_modules() {
         let mut report = integrated_report().unwrap();
         assert!(report.all_fixture_oracles_reproduced());
 
@@ -589,7 +712,7 @@ mod tests {
     }
 
     #[test]
-    fn drift_regression_cannot_be_hidden_by_five_other_modules_or_forecast_average() {
+    fn drift_regression_cannot_be_hidden_by_other_modules_or_forecast_average() {
         let mut report = integrated_report().unwrap();
         assert!(report.all_fixture_oracles_reproduced());
 
@@ -623,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    fn lifecycle_cost_failure_cannot_be_offset_by_the_other_five_modules() {
+    fn lifecycle_cost_failure_cannot_be_offset_by_other_modules() {
         let mut report = integrated_report().unwrap();
         assert!(report.all_fixture_oracles_reproduced());
 
@@ -688,6 +811,63 @@ mod tests {
         assert!(report.civil_record.integrity_gates_pass);
         assert!(report.topology.receiver_denominators_consistent);
         assert!(report.warning_to_action.fixture_oracle_matches);
+    }
+
+    #[test]
+    fn human_message_outcomes_keep_accessibility_and_comprehension_denominators_separate() {
+        let report = integrated_report().unwrap();
+        assert!(report.human_outcomes.fixture_oracle_matches);
+        assert_eq!(report.human_outcomes.row_count, 18);
+        assert_eq!(report.human_outcomes.profile_count, 6);
+        assert_eq!(report.human_outcomes.variant_count, 3);
+        assert_eq!(report.human_outcomes.accessible_multimodal_intended_trials, 600);
+        assert_eq!(report.human_outcomes.accessible_multimodal_accessible_trials, 530);
+        assert_eq!(report.human_outcomes.accessible_multimodal_comprehension_correct, 484);
+        assert!(report.human_outcomes.effective_comprehension
+            < report.human_outcomes.conditional_comprehension);
+        assert_eq!(report.human_outcomes.maximum_profile_p90_seconds, 34);
+    }
+
+    #[test]
+    fn human_outcomes_failure_cannot_be_offset_by_the_other_seven_modules() {
+        let mut report = integrated_report().unwrap();
+        assert!(report.all_fixture_oracles_reproduced());
+        report.human_outcomes.worst_profile_effective_comprehension = 0.56;
+        assert!(!report.all_fixture_oracles_reproduced());
+        assert!(report.civil_record.integrity_gates_pass);
+        assert!(report.topology.receiver_denominators_consistent);
+        assert!(report.last_mile.all_counting_invariants_hold);
+        assert!(report.warning_to_action.fixture_oracle_matches);
+        assert!(report.forecast.fixture_oracle_matches);
+        assert!(report.lifecycle_cost.fixture_oracle_matches);
+        assert!(report.forecast_uncertainty.fixture_oracle_matches);
+    }
+
+    #[test]
+    fn forecast_sampling_uncertainty_is_not_collapsed_into_point_skill() {
+        let report = integrated_report().unwrap();
+        assert!(report.forecast_uncertainty.fixture_oracle_matches);
+        assert_eq!(report.forecast_uncertainty.paired_event_clusters, 12);
+        assert_eq!(report.forecast_uncertainty.bootstrap_replicates, 20_000);
+        assert!(report.forecast_uncertainty.candidate_vs_climatology_ci95_low < 0.0);
+        assert!(report.forecast_uncertainty.candidate_vs_climatology_ci95_high > 0.0);
+        assert!(report.forecast_uncertainty.candidate_vs_lead_reference_ci95_low < 0.0);
+        assert!(report.forecast_uncertainty.candidate_vs_lead_reference_ci95_high > 0.0);
+    }
+
+    #[test]
+    fn forecast_uncertainty_failure_cannot_be_offset_by_the_other_seven_modules() {
+        let mut report = integrated_report().unwrap();
+        assert!(report.all_fixture_oracles_reproduced());
+        report.forecast_uncertainty.candidate_vs_climatology_ci95_high = -0.25;
+        assert!(!report.all_fixture_oracles_reproduced());
+        assert!(report.civil_record.integrity_gates_pass);
+        assert!(report.topology.receiver_denominators_consistent);
+        assert!(report.last_mile.all_counting_invariants_hold);
+        assert!(report.warning_to_action.fixture_oracle_matches);
+        assert!(report.forecast.fixture_oracle_matches);
+        assert!(report.lifecycle_cost.fixture_oracle_matches);
+        assert!(report.human_outcomes.fixture_oracle_matches);
     }
 
     #[test]
