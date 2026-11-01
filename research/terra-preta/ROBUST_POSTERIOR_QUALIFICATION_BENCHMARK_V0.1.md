@@ -238,3 +238,8 @@ Added `robust_information_at_kl_radius` and `select_discrete_design_at_kl_radius
 The zero-radius control exactly recovers Shannon MI (alpha=1). An uninformative design remains zero-information under positive requested radius because its q* divergence is zero. Tests also verify recovery of a known radius generated at alpha=0.5, feasibility handling and high-radius clamping.
 
 **Important mathematical boundary:** this selector treats each candidate as its own fixed-design KL ambiguity problem. The paper's stochastic-policy formulation uses one shared *average* KL budget over the policy distribution and optimizes the common dual parameter with the corresponding (-\\beta\\rho) term. That stochastic-policy optimization is not implemented; this finite per-design selector must not be described as a faithful reproduction of it.
+
+
+### Fail-closed robust-selector input validation — 2026-11-01
+
+The fixed-radius and fixed-alpha selectors now validate objective parameters *before* checking whether any candidate is feasible. This closes a fail-open edge case where invalid alpha/radius inputs could be hidden by an empty or fully ineligible candidate pool. Zero-radius calls also validate the configured alpha search range and non-zero bisection budget before returning the nominal limit. Three negative-control tests cover these paths; the robust module now contains 26 authored tests.
