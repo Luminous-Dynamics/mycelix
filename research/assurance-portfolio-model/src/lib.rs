@@ -131,6 +131,8 @@ pub struct Assessment {
     pub role: EvaluatorRole,
     pub evaluator_digest: Digest,
     pub evaluator_profile_digest: Digest,
+    /// Digest of the evaluator authorization/revocation snapshot used for this assessment.
+    pub authority_snapshot_digest: Digest,
     pub outcome: AssessmentOutcome,
     pub validity: EvidenceValidity,
     pub fault_domains: FaultDomains,
@@ -158,6 +160,8 @@ pub struct ClaimProfile {
     /// Exact evaluator identities authorized to issue dispositive hard
     /// refutations. A role label alone is not an evaluator credential.
     pub authorized_hard_refuters: Vec<AuthorizedEvaluator>,
+    /// Pinned authorization/revocation registry snapshot for dispositive hard refutations.
+    pub hard_refutation_authority_snapshot_digest: Option<Digest>,
     pub required_roles: Vec<EvaluatorRole>,
     pub required_separations: Vec<PairwiseSeparation>,
 }
@@ -169,6 +173,8 @@ pub enum CompositionError {
     DuplicateRequiredRole,
     HardInvariantRequiresAuthorizedRefuter,
     AuthorizedRefuterWithoutHardInvariant,
+    HardInvariantRequiresAuthoritySnapshot,
+    AuthoritySnapshotWithoutHardInvariant,
     DuplicateAuthorizedRefuter,
     SelfSeparation,
     SeparationRoleNotRequired,
@@ -204,6 +210,12 @@ impl ClaimProfile {
         }
         if !self.hard_invariant && !self.authorized_hard_refuters.is_empty() {
             return Err(CompositionError::AuthorizedRefuterWithoutHardInvariant);
+        }
+        if self.hard_invariant && self.hard_refutation_authority_snapshot_digest.is_none() {
+            return Err(CompositionError::HardInvariantRequiresAuthoritySnapshot);
+        }
+        if !self.hard_invariant && self.hard_refutation_authority_snapshot_digest.is_some() {
+            return Err(CompositionError::AuthoritySnapshotWithoutHardInvariant);
         }
         let mut authorized_hard_refuters = BTreeSet::new();
         for evaluator in &self.authorized_hard_refuters {
@@ -249,6 +261,7 @@ pub enum CompositionReason {
     DuplicateReplaySuppressed,
     NonCurrentEvidenceObserved,
     WrongSubjectEvidenceIgnored,
+    AuthoritySnapshotMismatchObserved,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -265,6 +278,8 @@ pub struct FaultDomainReport {
 pub struct CompositionReport {
     pub claim_id: String,
     pub subject_digest: Digest,
+    /// Exact registry snapshot that conferred hard-refutation authority, if any.
+    pub authority_snapshot_digest: Option<Digest>,
     pub disposition: CompositionDisposition,
     pub unique_assessment_count: usize,
     pub current_assessment_count: usize,
@@ -359,6 +374,21 @@ pub fn compose(
             .insert(assessment.fault_domains.clone());
     }
 
+    let authority_snapshot = profile.hard_refutation_authority_snapshot_digest;
+    let has_authorized_snapshot_mismatch = profile.hard_invariant
+        && current.iter().any(|assessment| {
+            let explicitly_authorized = profile.authorized_hard_refuters.iter().any(|authorized| {
+                authorized.role == assessment.role
+                    && authorized.evaluator_digest == assessment.evaluator_digest
+                    && authorized.evaluator_profile_digest == assessment.evaluator_profile_digest
+            });
+            explicitly_authorized
+                && authority_snapshot != Some(assessment.authority_snapshot_digest)
+        });
+    if has_authorized_snapshot_mismatch {
+        reasons.insert(CompositionReason::AuthoritySnapshotMismatchObserved);
+    }
+
     let has_qualified_hard_refutation = profile.hard_invariant
         && current.iter().any(|assessment| {
             let explicitly_authorized = profile.authorized_hard_refuters.iter().any(|authorized| {
@@ -366,7 +396,10 @@ pub fn compose(
                     && authorized.evaluator_digest == assessment.evaluator_digest
                     && authorized.evaluator_profile_digest == assessment.evaluator_profile_digest
             });
-            if assessment.outcome != AssessmentOutcome::Refutes || !explicitly_authorized {
+            if assessment.outcome != AssessmentOutcome::Refutes
+                || !explicitly_authorized
+                || authority_snapshot != Some(assessment.authority_snapshot_digest)
+            {
                 return false;
             }
 
@@ -523,6 +556,7 @@ fn report(
     CompositionReport {
         claim_id: profile.claim_id.clone(),
         subject_digest: profile.subject_digest,
+        authority_snapshot_digest: profile.hard_refutation_authority_snapshot_digest,
         disposition,
         unique_assessment_count: counts.unique,
         current_assessment_count: counts.current,
@@ -602,6 +636,7 @@ mod tests {
             } else {
                 vec![]
             },
+            hard_refutation_authority_snapshot_digest: hard_invariant.then_some(digest(212)),
             required_roles: vec![
                 EvaluatorRole::NormativeContract,
                 EvaluatorRole::IndependentImplementation,
@@ -643,6 +678,7 @@ mod tests {
             role,
             evaluator_digest: digest(evaluator),
             evaluator_profile_digest: digest(100 + evaluator),
+            authority_snapshot_digest: digest(212),
             outcome: AssessmentOutcome::Supports,
             validity: EvidenceValidity::Current,
             fault_domains: domains(implementation),
@@ -701,6 +737,20 @@ mod tests {
             Err(CompositionError::HardInvariantRequiresAuthorizedRefuter)
         );
 
+        let mut missing_snapshot = profile(true);
+        missing_snapshot.hard_refutation_authority_snapshot_digest = None;
+        assert_eq!(
+            missing_snapshot.validate(),
+            Err(CompositionError::HardInvariantRequiresAuthoritySnapshot)
+        );
+
+        let mut unexpected_snapshot = profile(false);
+        unexpected_snapshot.hard_refutation_authority_snapshot_digest = Some(digest(212));
+        assert_eq!(
+            unexpected_snapshot.validate(),
+            Err(CompositionError::AuthoritySnapshotWithoutHardInvariant)
+        );
+
         let mut unexpected_authority = profile(false);
         unexpected_authority
             .authorized_hard_refuters
@@ -722,6 +772,27 @@ mod tests {
             duplicate_authority.validate(),
             Err(CompositionError::DuplicateAuthorizedRefuter)
         );
+    }
+
+    #[test]
+    fn an_old_authority_snapshot_cannot_issue_a_current_hard_refutation() {
+        let mut assessments = required_pair();
+        let mut old_snapshot_refutation = assessment(EvaluatorRole::InvariantChecker, 13, 3);
+        old_snapshot_refutation.outcome = AssessmentOutcome::Refutes;
+        old_snapshot_refutation.authority_snapshot_digest = digest(211);
+        assessments.push(old_snapshot_refutation);
+
+        let result = compose(&profile(true), &assessments).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(!has_reason(
+            &result,
+            CompositionReason::HardInvariantRefuted
+        ));
+        assert!(has_reason(
+            &result,
+            CompositionReason::AuthoritySnapshotMismatchObserved
+        ));
+        assert_eq!(result.authority_snapshot_digest, Some(digest(212)));
     }
 
     #[test]
