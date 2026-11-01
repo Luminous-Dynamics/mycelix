@@ -265,9 +265,13 @@ impl DiscreteDesignModel {
         if !minimum_alpha.is_finite() || !(0.0..1.0).contains(&minimum_alpha) {
             return Err("minimum alpha must lie strictly between zero and one".into());
         }
+        if minimum_alpha >= 1.0 - 1e-8 {
+            return Err("minimum alpha must leave a non-empty bisection interval".into());
+        }
         if iterations == 0 {
             return Err("at least one bisection iteration is required".into());
         }
+        self.validate()?;
         if radius_nats == 0.0 {
             return Ok(1.0);
         }
