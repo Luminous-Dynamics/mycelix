@@ -424,13 +424,14 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
     let mut raw_bias_sum = 0.0;
     let mut raw_squared_error_sum = 0.0;
     let mut truth_activity_squared_sum = 0.0;
-    let mut raw_forecast_anomaly_squared_sum = 0.0;
 
-    for index in 0..case.forecast_values.len() {
-        let weight = case.weights[index];
-        let forecast = case.forecast_values[index];
-        let observed = case.verification_values[index];
-        let climatology = case.climatology_values[index];
+    for (((weight, forecast), observed), climatology) in case
+        .weights
+        .iter()
+        .zip(&case.forecast_values)
+        .zip(&case.verification_values)
+        .zip(&case.climatology_values)
+    {
         let raw_error = forecast - observed;
         raw_bias_sum += weight * raw_error;
         raw_squared_error_sum += weight * raw_error * raw_error;
@@ -438,7 +439,6 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         let truth_anomaly = observed - climatology;
         let forecast_anomaly = forecast - climatology;
         truth_activity_squared_sum += weight * truth_anomaly * truth_anomaly;
-        raw_forecast_anomaly_squared_sum += weight * forecast_anomaly * forecast_anomaly;
     }
 
     let raw_bias = raw_bias_sum / total_weight;
@@ -452,15 +452,17 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
     let mut dot_product = 0.0;
     let mut debiased_squared_error_sum = 0.0;
 
-    for index in 0..case.forecast_values.len() {
-        let weight = case.weights[index];
-        let observed = case.verification_values[index];
-        let climatology = case.climatology_values[index];
+    for (((weight, forecast), observed), climatology) in case
+        .weights
+        .iter()
+        .zip(&case.forecast_values)
+        .zip(&case.verification_values)
+        .zip(&case.climatology_values)
+    {
         let truth_anomaly = observed - climatology;
-        let forecast_anomaly = case.forecast_values[index] - climatology;
+        let forecast_anomaly = forecast - climatology;
 
-        // Center out the forecast anomaly's spatial mean component and remove
-        // the case-mean raw bias. This is a declared diagnostic convention.
+        // Remove the case-mean raw bias; its value remains a separate output.
         let debiased_forecast_anomaly = forecast_anomaly - raw_bias;
         forecast_activity_squared_sum +=
             weight * debiased_forecast_anomaly * debiased_forecast_anomaly;
