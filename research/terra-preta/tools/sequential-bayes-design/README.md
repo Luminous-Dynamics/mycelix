@@ -126,7 +126,7 @@ and failing when the requested radius exceeds the configured alpha range.
 This is a finite deterministic reference; the paper's ambiguity set is
 defined over a stochastic design policy with an average KL budget.
 
-Twenty-three authored tests cover independence/zero-information, convergence to
+Twenty-six authored tests cover independence/zero-information, convergence to
 Shannon MI, monotonicity over an alpha grid, CT–tracer correlation-only
 complementarity, posterior tempering, worst-case posterior identities,
 worst-case KL cost, radius-to-alpha inversion, and invalid inputs.
