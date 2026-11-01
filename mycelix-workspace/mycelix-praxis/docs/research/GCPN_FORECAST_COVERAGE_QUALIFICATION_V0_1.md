@@ -75,11 +75,7 @@ A paired interval is not valid merely because two models have similar row counts
 
 The synthetic record hierarchy is:
 
-[
-	ext{case} ightarrow 	ext{event_id} ightarrow
-	ext{dependence_cluster_id} ightarrow
-	ext{independent sampling block}.
-]
+`forecast_case -> event_id -> dependence_cluster_id -> independent_sampling_block`.
 
 Not every dataset will need all four levels. The DGP must make the levels explicit and provide an oracle identifier for the true independent top-level unit.
 
@@ -206,13 +202,7 @@ Therefore the next human-outcomes work should not turn the current 1,800 invente
 
 A second, complementary research track should treat each warning as a typed, versioned evidence graph:
 
-[
-	ext{source observation} ightarrow 	ext{forecast evidence}
-ightarrow 	ext{authority assertion} ightarrow 	ext{message version}
-ightarrow 	ext{CAP exchange} ightarrow 	ext{channel receipt}
-ightarrow 	ext{accessible representation} ightarrow 	ext{comprehension evidence}
-ightarrow 	ext{authorized action} ightarrow 	ext{independently evaluated outcome}.
-]
+`source_observation -> forecast_evidence -> authority_assertion -> message_version -> CAP_exchange -> channel_receipt -> accessible_representation -> comprehension_evidence -> authorized_action -> independently_evaluated_outcome`.
 
 Every edge should carry provenance, time semantics, version, authority and uncertainty. The graph must preserve missingness, contradiction, supersession, revocation and late arrival as explicit states. A valid cryptographic receipt proves the receipt of particular bytes by an endpoint, not that a person understood a warning. A comprehension observation does not prove action; action does not prove impact or causality.
 
