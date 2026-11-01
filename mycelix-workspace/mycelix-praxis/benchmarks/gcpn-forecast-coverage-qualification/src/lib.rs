@@ -504,6 +504,150 @@ pub fn bootstrap_interval(
     })
 }
 
+/// Reflected/basic percentile interval for the same paired bootstrap draws.
+pub fn basic_bootstrap_interval(
+    dataset: &Dataset,
+    method: BootstrapUnit,
+    confidence_level: f64,
+    replicates: usize,
+    seed: u64,
+) -> Result<BootstrapInterval, String> {
+    let percentile = bootstrap_interval(dataset, method, confidence_level, replicates, seed)?;
+    Ok(BootstrapInterval {
+        method: percentile.method,
+        estimate: percentile.estimate,
+        lower: 2.0 * percentile.estimate - percentile.upper,
+        upper: 2.0 * percentile.estimate - percentile.lower,
+        confidence_level: percentile.confidence_level,
+        replicates: percentile.replicates,
+        resampling_units: percentile.resampling_units,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StudentizedSystemInterval {
+    pub estimate: f64,
+    pub lower: f64,
+    pub upper: f64,
+    pub confidence_level: f64,
+    pub requested_replicates: usize,
+    pub valid_replicates: usize,
+    pub abstentions: usize,
+    pub independent_systems: usize,
+    pub original_standard_error: f64,
+}
+
+fn ratio_cluster_standard_error(units: &[(f64, usize)], estimate: f64) -> Option<f64> {
+    if units.len() < 2 {
+        return None;
+    }
+    let count = units.len() as f64;
+    let total_n: usize = units.iter().map(|(_, n)| *n).sum();
+    if total_n == 0 {
+        return None;
+    }
+    let mean_n = total_n as f64 / count;
+    let residuals: Vec<f64> = units
+        .iter()
+        .map(|(difference, n)| difference - estimate * *n as f64)
+        .collect();
+    let residual_mean = residuals.iter().sum::<f64>() / count;
+    let sample_variance = residuals
+        .iter()
+        .map(|value| (value - residual_mean).powi(2))
+        .sum::<f64>()
+        / (count - 1.0);
+    let standard_error = (sample_variance / (count * mean_n * mean_n)).sqrt();
+    (standard_error.is_finite() && standard_error > 0.0).then_some(standard_error)
+}
+
+/// Paired cluster-bootstrap-t interval for the case-weighted ratio estimand.
+///
+/// Resampling unit is the independent system. Each bootstrap replicate
+/// recomputes the ratio estimator and a cluster-level delta-method standard
+/// error. Degenerate replicates are counted as abstentions, not discarded
+/// silently. This is a research candidate, not an assumed small-cluster fix.
+pub fn studentized_system_bootstrap_interval(
+    dataset: &Dataset,
+    confidence_level: f64,
+    replicates: usize,
+    seed: u64,
+) -> Result<StudentizedSystemInterval, String> {
+    dataset.validate()?;
+    if !confidence_level.is_finite() || !(0.0..1.0).contains(&confidence_level) {
+        return Err("confidence level must be finite and strictly between 0 and 1".into());
+    }
+    if replicates < 100 {
+        return Err("at least 100 studentized bootstrap replicates are required".into());
+    }
+
+    let units: Vec<(f64, usize)> = dataset
+        .systems
+        .iter()
+        .map(|system| {
+            let cases: Vec<&ForecastCase> = system
+                .events
+                .iter()
+                .flat_map(|event| &event.cases)
+                .collect();
+            (
+                cases
+                    .iter()
+                    .map(|case| case.paired_brier_difference())
+                    .sum::<f64>(),
+                cases.len(),
+            )
+        })
+        .collect();
+    let estimate = dataset.estimate_case_weighted()?;
+    let original_se = ratio_cluster_standard_error(&units, estimate)
+        .ok_or_else(|| "original independent-system standard error is degenerate".to_string())?;
+
+    let mut rng = XorShift64Star::new(seed);
+    let mut studentized = Vec::with_capacity(replicates);
+    for _ in 0..replicates {
+        let sampled: Vec<(f64, usize)> = (0..units.len())
+            .map(|_| units[rng.index(units.len())])
+            .collect();
+        let total_difference = sampled.iter().map(|(d, _)| *d).sum::<f64>();
+        let total_cases = sampled.iter().map(|(_, n)| *n).sum::<usize>();
+        if total_cases == 0 {
+            continue;
+        }
+        let replicate_estimate = total_difference / total_cases as f64;
+        if let Some(replicate_se) = ratio_cluster_standard_error(&sampled, replicate_estimate) {
+            let statistic = (replicate_estimate - estimate) / replicate_se;
+            if statistic.is_finite() {
+                studentized.push(statistic);
+            }
+        }
+    }
+
+    let abstentions = replicates - studentized.len();
+    let minimum_valid = ((replicates as f64) * 0.80).ceil() as usize;
+    if studentized.len() < minimum_valid {
+        return Err(format!(
+            "studentized bootstrap has too many degenerate replicates: valid={}, requested={}, minimum_valid={minimum_valid}",
+            studentized.len(), replicates
+        ));
+    }
+    studentized.sort_by(f64::total_cmp);
+    let alpha = (1.0 - confidence_level) / 2.0;
+    let lower_t = percentile(&studentized, alpha);
+    let upper_t = percentile(&studentized, 1.0 - alpha);
+    Ok(StudentizedSystemInterval {
+        estimate,
+        lower: estimate - upper_t * original_se,
+        upper: estimate - lower_t * original_se,
+        confidence_level,
+        requested_replicates: replicates,
+        valid_replicates: studentized.len(),
+        abstentions,
+        independent_systems: units.len(),
+        original_standard_error: original_se,
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CoverageSummary {
     pub method: BootstrapUnit,
@@ -709,6 +853,28 @@ mod tests {
             );
             assert!(a.lower <= a.upper);
         }
+    }
+
+    #[test]
+    fn basic_interval_reflects_percentile_endpoints_about_the_paired_estimate() {
+        let dataset = generate_dataset(&DgpConfig::default(), 731).unwrap();
+        let percentile = bootstrap_interval(&dataset, BootstrapUnit::IndependentSystem, 0.95, 500, 88).unwrap();
+        let basic = basic_bootstrap_interval(&dataset, BootstrapUnit::IndependentSystem, 0.95, 500, 88).unwrap();
+        close(basic.lower, 2.0 * percentile.estimate - percentile.upper, 1e-12);
+        close(basic.upper, 2.0 * percentile.estimate - percentile.lower, 1e-12);
+        assert!(basic.lower <= basic.upper);
+    }
+
+    #[test]
+    fn studentized_system_interval_is_deterministic_and_reports_degenerate_draws() {
+        let dataset = generate_dataset(&DgpConfig::default(), 812).unwrap();
+        let first = studentized_system_bootstrap_interval(&dataset, 0.95, 500, 992).unwrap();
+        let second = studentized_system_bootstrap_interval(&dataset, 0.95, 500, 992).unwrap();
+        assert_eq!(first, second);
+        assert!(first.lower <= first.upper);
+        assert_eq!(first.valid_replicates + first.abstentions, first.requested_replicates);
+        assert!(first.valid_replicates >= 400);
+        assert_eq!(first.independent_systems, 40);
     }
 
     #[test]
