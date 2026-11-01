@@ -1,0 +1,48 @@
+{
+  "benchmark_id": "GCPN-WARNING-TO-ACTION-EVIDENCE-001",
+  "version": "0.1.1",
+  "status": "synthetic-negative-control-suite",
+  "finance_semantics": {
+    "finance_required": true,
+    "required_funding_gate": "prearranged_and_authorized_funds_release_precedes_action_start",
+    "finance_required_false": "authorized_action_may_start_after_authorized_decision_without_separate_funds_release",
+    "unrequested_funds_release": "hard_failure",
+    "latency_metrics": [
+      "decision_to_finance_release",
+      "finance_release_to_action_start",
+      "decision_to_unfunded_action_start"
+    ]
+  },
+  "authority_constraints": [
+    "gcpn_does_not_issue_or_cancel_public_alerts",
+    "gcpn_does_not_set_trigger_thresholds",
+    "gcpn_does_not_activate_early_action_protocols",
+    "gcpn_does_not_release_or_transfer_funds",
+    "gcpn_does_not_direct_responders",
+    "gcpn_does_not_select_real_people_for_assistance",
+    "gcpn_does_not_certify_causal_impact"
+  ],
+  "positive_controls": [
+    "valid_funded_complete_chain",
+    "valid_authorized_unfunded_action",
+    "authorized_abstention_without_action_or_funding"
+  ],
+  "negative_controls": [
+    "unauthorized_activation",
+    "unapproved_fund_release",
+    "unauthorized_action_start",
+    "false_completion_without_action_start",
+    "unique_population_overclaim",
+    "grievance_suppression",
+    "impact_claim_without_outcome_counterfactual",
+    "completion_before_action_start"
+  ],
+  "non_claims": [
+    "no_operational_trigger",
+    "no_live_alert_dispatch",
+    "no_fund_movement",
+    "no_population_targeting_or_eligibility",
+    "no_causal_lives_saved_claim",
+    "no_real_world_coverage_or_cost_effectiveness_claim"
+  ]
+}
