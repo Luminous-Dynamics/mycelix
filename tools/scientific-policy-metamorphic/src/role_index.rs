@@ -90,6 +90,23 @@ pub struct RoleIndexManifest {
     pub claim_ceiling: String,
 }
 
+
+fn read_bounded_source<R: Read>(
+    reader: R,
+    maximum: u64,
+    initial_capacity: usize,
+) -> Result<Vec<u8>, RoleIndexError> {
+    let mut bytes = Vec::with_capacity(initial_capacity);
+    reader
+        .take(maximum.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|error| role_index_error(format!("bounded-read source engine inputs: {error}")))?;
+    if bytes.len() as u64 > maximum {
+        return Err(role_index_error(format!("source engine inputs exceed {maximum} bytes")));
+    }
+    Ok(bytes)
+}
+
 /// Read the exact source-pinned paired engine-input JSONL, create one
 /// indexed Rego input per case, and export the first source-bound representative
 /// input for each of the eight policy actions.
@@ -98,9 +115,12 @@ pub fn generate_indexed_role_corpus(
     expected_source_sha256: &str,
     output_directory: &Path,
 ) -> Result<RoleIndexManifest, RoleIndexError> {
-    let metadata = fs::metadata(source_jsonl_path)
-        .map_err(|error| role_index_error(format!("stat source engine inputs: {error}")))?;
-    if !metadata.file_type().is_file() {
+    let source_file = File::open(source_jsonl_path)
+        .map_err(|error| role_index_error(format!("open source engine inputs: {error}")))?;
+    let metadata = source_file
+        .metadata()
+        .map_err(|error| role_index_error(format!("inspect opened source engine inputs: {error}")))?;
+    if !metadata.is_file() {
         return Err(role_index_error("source engine inputs must be a regular file"));
     }
     if metadata.len() > MAX_SOURCE_BYTES {
@@ -108,17 +128,11 @@ pub fn generate_indexed_role_corpus(
     }
     let initial_capacity = usize::try_from(metadata.len().min(MAX_SOURCE_BYTES))
         .map_err(|error| role_index_error(format!("source engine input size does not fit memory index: {error}")))?;
-    let mut source_bytes = Vec::with_capacity(initial_capacity);
-    File::open(source_jsonl_path)
-        .map_err(|error| role_index_error(format!("open source engine inputs: {error}")))?
-        .take(MAX_SOURCE_BYTES + 1)
-        .read_to_end(&mut source_bytes)
-        .map_err(|error| role_index_error(format!("bounded-read source engine inputs: {error}")))?;
-    // Metadata is an early rejection only. The read cap and post-read check
-    // protect against a source file that grows or is replaced after stat.
-    if source_bytes.len() as u64 > MAX_SOURCE_BYTES {
-        return Err(role_index_error(format!("source engine inputs exceed {MAX_SOURCE_BYTES} bytes")));
-    }
+    let source_bytes = read_bounded_source(
+        source_file,
+        MAX_SOURCE_BYTES,
+        initial_capacity,
+    )?;
     let source_sha256 = sha256(&source_bytes);
     if source_sha256 != expected_source_sha256 {
         return Err(role_index_error("source engine input SHA-256 differs from its pinned manifest"));
@@ -241,6 +255,24 @@ pub fn generate_indexed_role_corpus(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_source_read_accepts_exact_limit_and_rejects_one_byte_over() {
+        let at_limit = read_bounded_source(
+            std::io::Cursor::new(b"1234".as_slice()),
+            4,
+            4,
+        )
+        .expect("exactly-at-limit input is accepted");
+        assert_eq!(at_limit, b"1234");
+
+        let over_limit = read_bounded_source(
+            std::io::Cursor::new(b"12345".as_slice()),
+            4,
+            4,
+        );
+        assert!(over_limit.is_err(), "one byte over the cap must be rejected");
+    }
 
     #[test]
     fn role_projection_is_deterministic_and_preserves_other_actor_fields() {
