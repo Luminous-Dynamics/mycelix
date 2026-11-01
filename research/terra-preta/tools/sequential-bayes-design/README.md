@@ -32,7 +32,9 @@ The report aggregates repeated deterministic seeds and records true synthetic de
 
 ## Calibration interpretation
 
-Prequential scores describe prediction on each policy's selected measurement stream; the measurement operators can differ between policies, so those values are operational diagnostics rather than a fully matched calibration contest. Use `mean_heldout_validation_log_score`, `mean_heldout_validation_brier_score`, and `validation_by_stratum` for the matched comparison: they score every policy's final posterior against the same fixed evaluator-only probe set and synthetic truth distribution.
+Prequential scores describe prediction on each policy's selected measurement stream; the measurement operators can differ between policies, so those values are operational diagnostics rather than a fully matched calibration contest. Use `mean_heldout_validation_log_score`, `mean_heldout_validation_brier_score`, their standard errors / 95% normal-approximation intervals, and `validation_by_stratum` for the matched comparison: they score every policy's final posterior against the same fixed evaluator-only probe set and synthetic truth distribution.
+
+Intervals are normal-approximation intervals over independent replicate means with the standard error estimated from the sample variance. They are not Bayesian credible intervals, do not account for scenario-family uncertainty, and should be supplemented with paired bootstrap intervals when comparing policies across large preregistered scenario suites. Common random numbers reduce action-level Monte Carlo noise but do not make different adaptive policies identical or remove the need for replicated worlds.
 
 ## Limits
 
