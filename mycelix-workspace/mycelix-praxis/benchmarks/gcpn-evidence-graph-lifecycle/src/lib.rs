@@ -196,9 +196,9 @@ pub struct GraphReport {
 impl GraphReport {
     pub fn is_conformant(&self) -> bool {
         self.conflicting_node_identities == 0
+            && self.conflicting_edge_identities == 0
             && self.dangling_edges == 0
             && self.invalid_relation_types == 0
-            && self.transaction_time_violations == 0
             && self.invalid_validity_intervals == 0
             && self.unverified_payload_digests == 0
             && self.digest_mismatches == 0
