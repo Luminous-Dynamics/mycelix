@@ -67,10 +67,19 @@ jobs:
               .replicate_count == 128 and
               .mean_total_cost_units <= 4 and
               .mean_true_decision_regret >= 0 and
+              .decision_regret_standard_error >= 0 and
+              .decision_regret_ci95_lower <= .mean_true_decision_regret and
+              .decision_regret_ci95_upper >= .mean_true_decision_regret and
               .mean_predictive_log_score >= 0 and
               .mean_predictive_brier_score >= 0 and
               .mean_predictive_brier_score <= 2 and
               .mean_heldout_validation_log_score >= 0 and
+              .heldout_validation_log_score_standard_error >= 0 and
+              .heldout_validation_log_score_ci95_lower <= .mean_heldout_validation_log_score and
+              .heldout_validation_log_score_ci95_upper >= .mean_heldout_validation_log_score and
+              .heldout_validation_brier_score_standard_error >= 0 and
+              .heldout_validation_brier_score_ci95_lower <= .mean_heldout_validation_brier_score and
+              .heldout_validation_brier_score_ci95_upper >= .mean_heldout_validation_brier_score and
               .mean_heldout_validation_brier_score >= 0 and
               .mean_heldout_validation_brier_score <= 2 and
               (.validation_by_stratum | length == 2) and
