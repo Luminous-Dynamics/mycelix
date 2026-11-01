@@ -176,7 +176,9 @@ fn nonblank(value: &str, label: &str) -> Result<(), String> {
 
 fn valid_sha256(value: &str, label: &str) -> Result<(), String> {
     if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(format!("{label} must contain exactly 64 hexadecimal characters"));
+        return Err(format!(
+            "{label} must contain exactly 64 hexadecimal characters"
+        ));
     }
     Ok(())
 }
@@ -190,7 +192,10 @@ fn finite_positive(value: f64, label: &str) -> Result<(), String> {
 
 fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, f64, f64), String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
 
     for (value, label) in [
@@ -199,24 +204,53 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, f64, f64), String> {
         (&input.sample_id, "sample_id"),
         (&input.horizon_id, "horizon_id"),
         (&input.segmentation.method, "segmentation.method"),
-        (&input.segmentation.threshold_description, "segmentation.threshold_description"),
-        (&input.segmentation.software_name, "segmentation.software_name"),
-        (&input.segmentation.software_version, "segmentation.software_version"),
+        (
+            &input.segmentation.threshold_description,
+            "segmentation.threshold_description",
+        ),
+        (
+            &input.segmentation.software_name,
+            "segmentation.software_name",
+        ),
+        (
+            &input.segmentation.software_version,
+            "segmentation.software_version",
+        ),
         (&input.network.extractor, "network.extractor"),
-        (&input.network.extractor_version, "network.extractor_version"),
-        (&input.network.parameter_summary, "network.parameter_summary"),
+        (
+            &input.network.extractor_version,
+            "network.extractor_version",
+        ),
+        (
+            &input.network.parameter_summary,
+            "network.parameter_summary",
+        ),
     ] {
         nonblank(value, label)?;
     }
 
-    valid_sha256(&input.image.source_image_sha256, "image.source_image_sha256")?;
+    valid_sha256(
+        &input.image.source_image_sha256,
+        "image.source_image_sha256",
+    )?;
     if input.image.vertical_axis != "z" {
         return Err("v0.1 requires image.vertical_axis = \"z\"; reorder dimensions, spacing and pore coordinates before import".to_owned());
     }
-    valid_sha256(&input.segmentation.output_sha256, "segmentation.output_sha256")?;
-    valid_sha256(&input.network.source_network_sha256, "network.source_network_sha256")?;
+    valid_sha256(
+        &input.segmentation.output_sha256,
+        "segmentation.output_sha256",
+    )?;
+    valid_sha256(
+        &input.network.source_network_sha256,
+        "network.source_network_sha256",
+    )?;
 
-    if input.image.dimensions_voxels_xyz.iter().any(|dimension| *dimension < 2) {
+    if input
+        .image
+        .dimensions_voxels_xyz
+        .iter()
+        .any(|dimension| *dimension < 2)
+    {
         return Err("all image dimensions must be at least two voxels".to_owned());
     }
     for (axis, spacing) in input.image.voxel_spacing_um_xyz.iter().enumerate() {
@@ -227,7 +261,11 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, f64, f64), String> {
     let [sx, sy, sz] = input.image.voxel_spacing_um_xyz;
     let sample_volume_um3 = (nx as f64) * (ny as f64) * (nz as f64) * sx * sy * sz;
     let straight_height_um = (nz.saturating_sub(1) as f64) * sz;
-    if !sample_volume_um3.is_finite() || sample_volume_um3 <= 0.0 || !straight_height_um.is_finite() || straight_height_um <= 0.0 {
+    if !sample_volume_um3.is_finite()
+        || sample_volume_um3 <= 0.0
+        || !straight_height_um.is_finite()
+        || straight_height_um <= 0.0
+    {
         return Err("image dimensions/spacing produce invalid sample geometry".to_owned());
     }
 
@@ -251,11 +289,16 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, f64, f64), String> {
         for (axis, coordinate) in pore.centroid_voxels_xyz.iter().enumerate() {
             let upper = (input.image.dimensions_voxels_xyz[axis] - 1) as f64;
             if !coordinate.is_finite() || *coordinate < 0.0 || *coordinate > upper {
-                return Err(format!("pores[{index}].centroid_voxels_xyz[{axis}] lies outside the image volume"));
+                return Err(format!(
+                    "pores[{index}].centroid_voxels_xyz[{axis}] lies outside the image volume"
+                ));
             }
         }
         finite_positive(pore.volume_um3, &format!("pores[{index}].volume_um3"))?;
-        finite_positive(pore.inscribed_radius_um, &format!("pores[{index}].inscribed_radius_um"))?;
+        finite_positive(
+            pore.inscribed_radius_um,
+            &format!("pores[{index}].inscribed_radius_um"),
+        )?;
         pore_volume_total_um3 += pore.volume_um3;
         if !pore_volume_total_um3.is_finite() {
             return Err("extracted pore volume total overflowed".to_owned());
@@ -272,7 +315,10 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, f64, f64), String> {
         return Err("sum of extracted pore volumes exceeds the imaged sample volume".to_owned());
     }
     if top_count == 0 || bottom_count == 0 {
-        return Err("network must contain at least one top-boundary and one bottom-boundary pore".to_owned());
+        return Err(
+            "network must contain at least one top-boundary and one bottom-boundary pore"
+                .to_owned(),
+        );
     }
 
     let mut throat_ids = HashSet::new();
@@ -285,24 +331,44 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, f64, f64), String> {
             return Err(format!("duplicate throat_id {:?}", throat.throat_id));
         }
         let Some(&a) = pore_index.get(&throat.pore_a) else {
-            return Err(format!("throats[{index}] references unknown pore_a {:?}", throat.pore_a));
+            return Err(format!(
+                "throats[{index}] references unknown pore_a {:?}",
+                throat.pore_a
+            ));
         };
         let Some(&b) = pore_index.get(&throat.pore_b) else {
-            return Err(format!("throats[{index}] references unknown pore_b {:?}", throat.pore_b));
+            return Err(format!(
+                "throats[{index}] references unknown pore_b {:?}",
+                throat.pore_b
+            ));
         };
         if a == b {
             return Err(format!("throats[{index}] must connect two distinct pores"));
         }
         let pair = if a < b { (a, b) } else { (b, a) };
         if !connections.insert(pair) {
-            return Err(format!("duplicate undirected pore connection between {:?} and {:?}", throat.pore_a, throat.pore_b));
+            return Err(format!(
+                "duplicate undirected pore connection between {:?} and {:?}",
+                throat.pore_a, throat.pore_b
+            ));
         }
 
-        finite_positive(throat.total_length_um, &format!("throats[{index}].total_length_um"))?;
-        finite_positive(throat.direct_length_um, &format!("throats[{index}].direct_length_um"))?;
-        finite_positive(throat.inscribed_radius_um, &format!("throats[{index}].inscribed_radius_um"))?;
+        finite_positive(
+            throat.total_length_um,
+            &format!("throats[{index}].total_length_um"),
+        )?;
+        finite_positive(
+            throat.direct_length_um,
+            &format!("throats[{index}].direct_length_um"),
+        )?;
+        finite_positive(
+            throat.inscribed_radius_um,
+            &format!("throats[{index}].inscribed_radius_um"),
+        )?;
         if throat.total_length_um + GEOMETRY_TOLERANCE < throat.direct_length_um {
-            return Err(format!("throats[{index}].total_length_um is shorter than direct_length_um"));
+            return Err(format!(
+                "throats[{index}].total_length_um is shorter than direct_length_um"
+            ));
         }
         indexed.push(IndexedThroat {
             a,
@@ -315,7 +381,9 @@ fn validate(input: &Input) -> Result<(Vec<IndexedThroat>, f64, f64), String> {
     let mut thresholds = HashSet::new();
     for (index, threshold) in input.threshold_sweep_um.iter().enumerate() {
         if !threshold.is_finite() || *threshold < 0.0 {
-            return Err(format!("threshold_sweep_um[{index}] must be finite and non-negative"));
+            return Err(format!(
+                "threshold_sweep_um[{index}] must be finite and non-negative"
+            ));
         }
         if !thresholds.insert(threshold.to_bits()) {
             return Err(format!("duplicate throat-radius threshold {:?}", threshold));
@@ -340,7 +408,11 @@ fn adjacency(
     graph
 }
 
-fn component_metrics(input: &Input, graph: &[Vec<(usize, usize)>], total_pore_volume_um3: f64) -> ThresholdResult {
+fn component_metrics(
+    input: &Input,
+    graph: &[Vec<(usize, usize)>],
+    total_pore_volume_um3: f64,
+) -> ThresholdResult {
     let pore_count = input.network.pores.len();
     let mut visited = vec![false; pore_count];
     let mut components = 0usize;
@@ -389,10 +461,19 @@ fn component_metrics(input: &Input, graph: &[Vec<(usize, usize)>], total_pore_vo
     }
 }
 
-fn widest_path_bottleneck(input: &Input, graph: &[Vec<(usize, usize)>], throats: &[IndexedThroat]) -> Option<f64> {
+fn widest_path_bottleneck(
+    input: &Input,
+    graph: &[Vec<(usize, usize)>],
+    throats: &[IndexedThroat],
+) -> Option<f64> {
     // A single pore spanning both faces has no finite throat bottleneck; its
     // presence makes the maximum-minimum-throat-radius metric undefined.
-    if input.network.pores.iter().any(|pore| pore.touches_top_boundary && pore.touches_bottom_boundary) {
+    if input
+        .network
+        .pores
+        .iter()
+        .any(|pore| pore.touches_top_boundary && pore.touches_bottom_boundary)
+    {
         return None;
     }
     let n = input.network.pores.len();
@@ -402,7 +483,10 @@ fn widest_path_bottleneck(input: &Input, graph: &[Vec<(usize, usize)>], throats:
     for (index, pore) in input.network.pores.iter().enumerate() {
         if pore.touches_top_boundary {
             best[index] = f64::INFINITY;
-            heap.push(QueueState { score: f64::INFINITY, node: index });
+            heap.push(QueueState {
+                score: f64::INFINITY,
+                node: index,
+            });
         }
     }
 
@@ -418,14 +502,21 @@ fn widest_path_bottleneck(input: &Input, graph: &[Vec<(usize, usize)>], throats:
             let candidate = state.score.min(throats[edge_index].radius_um);
             if candidate > best[neighbor] {
                 best[neighbor] = candidate;
-                heap.push(QueueState { score: candidate, node: neighbor });
+                heap.push(QueueState {
+                    score: candidate,
+                    node: neighbor,
+                });
             }
         }
     }
     None
 }
 
-fn shortest_top_bottom_path(input: &Input, graph: &[Vec<(usize, usize)>], throats: &[IndexedThroat]) -> Option<f64> {
+fn shortest_top_bottom_path(
+    input: &Input,
+    graph: &[Vec<(usize, usize)>],
+    throats: &[IndexedThroat],
+) -> Option<f64> {
     let n = input.network.pores.len();
     let mut distance = vec![f64::INFINITY; n];
     let mut heap = BinaryHeap::new();
@@ -436,7 +527,10 @@ fn shortest_top_bottom_path(input: &Input, graph: &[Vec<(usize, usize)>], throat
             let start_offset = pore.centroid_voxels_xyz[2] * spacing_z;
             if start_offset < distance[index] {
                 distance[index] = start_offset;
-                heap.push(Reverse(QueueState { score: start_offset, node: index }));
+                heap.push(Reverse(QueueState {
+                    score: start_offset,
+                    node: index,
+                }));
             }
         }
     }
@@ -451,7 +545,9 @@ fn shortest_top_bottom_path(input: &Input, graph: &[Vec<(usize, usize)>], throat
         }
         let pore = &input.network.pores[state.node];
         if pore.touches_bottom_boundary {
-            let bottom_offset = ((input.image.dimensions_voxels_xyz[2] - 1) as f64 - pore.centroid_voxels_xyz[2]) * spacing_z;
+            let bottom_offset = ((input.image.dimensions_voxels_xyz[2] - 1) as f64
+                - pore.centroid_voxels_xyz[2])
+                * spacing_z;
             best_boundary_path = best_boundary_path.min(state.score + bottom_offset);
             continue;
         }
@@ -459,7 +555,10 @@ fn shortest_top_bottom_path(input: &Input, graph: &[Vec<(usize, usize)>], throat
             let candidate = state.score + throats[edge_index].length_um;
             if candidate < distance[neighbor] {
                 distance[neighbor] = candidate;
-                heap.push(Reverse(QueueState { score: candidate, node: neighbor }));
+                heap.push(Reverse(QueueState {
+                    score: candidate,
+                    node: neighbor,
+                }));
             }
         }
     }
@@ -473,10 +572,13 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let baseline_components = component_metrics(input, &all_graph, total_pore_volume_um3);
     let widest_path = widest_path_bottleneck(input, &all_graph, &throats);
     let shortest_path = shortest_top_bottom_path(input, &all_graph, &throats);
-    let straight_height_um = (input.image.dimensions_voxels_xyz[2] - 1) as f64
-        * input.image.voxel_spacing_um_xyz[2];
+    let straight_height_um =
+        (input.image.dimensions_voxels_xyz[2] - 1) as f64 * input.image.voxel_spacing_um_xyz[2];
     let tortuosity = shortest_path.map(|length| length / straight_height_um);
-    let direct_spanning_pore_count = input.network.pores.iter()
+    let direct_spanning_pore_count = input
+        .network
+        .pores
+        .iter()
         .filter(|pore| pore.touches_top_boundary && pore.touches_bottom_boundary)
         .count();
 
@@ -529,10 +631,13 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         pore_count: input.network.pores.len(),
         throat_count: input.network.throats.len(),
         connected_component_count_at_zero_threshold: baseline_components.connected_component_count,
-        largest_component_pore_volume_fraction: baseline_components.largest_component_pore_volume_fraction,
-        top_bottom_percolating_component_count_at_zero_threshold: baseline_components.top_bottom_percolating_component_count,
+        largest_component_pore_volume_fraction: baseline_components
+            .largest_component_pore_volume_fraction,
+        top_bottom_percolating_component_count_at_zero_threshold: baseline_components
+            .top_bottom_percolating_component_count,
         top_bottom_percolates_at_zero_threshold: baseline_components.top_bottom_percolates,
-        percolating_pore_volume_fraction_at_zero_threshold: baseline_components.percolating_pore_volume_fraction,
+        percolating_pore_volume_fraction_at_zero_threshold: baseline_components
+            .percolating_pore_volume_fraction,
         direct_spanning_pore_count,
         widest_top_bottom_path_bottleneck_radius_um: widest_path,
         shortest_top_bottom_path_length_um: shortest_path,
@@ -557,7 +662,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "usage: pore-network-audit <network-input.json> <new-report.json>",
-        ).into());
+        )
+        .into());
     }
     let bytes = fs::read(&args[1])?;
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
@@ -670,7 +776,10 @@ mod tests {
         );
         let report = evaluate(&input, "d".repeat(64)).unwrap();
         assert!(report.top_bottom_percolates_at_zero_threshold);
-        assert_eq!(report.widest_top_bottom_path_bottleneck_radius_um, Some(50.0));
+        assert_eq!(
+            report.widest_top_bottom_path_bottleneck_radius_um,
+            Some(50.0)
+        );
         assert_eq!(report.shortest_top_bottom_path_length_um, Some(9900.0));
         assert_eq!(report.shortest_path_tortuosity, Some(1.0));
         assert_eq!(report.threshold_analysis[0].top_bottom_percolates, true);
@@ -693,7 +802,10 @@ mod tests {
         assert!(!report.top_bottom_percolates_at_zero_threshold);
         assert_eq!(report.widest_top_bottom_path_bottleneck_radius_um, None);
         assert_eq!(report.shortest_top_bottom_path_length_um, None);
-        assert_eq!(report.percolating_pore_volume_fraction_at_zero_threshold, 0.0);
+        assert_eq!(
+            report.percolating_pore_volume_fraction_at_zero_threshold,
+            0.0
+        );
     }
 
     #[test]
@@ -714,7 +826,10 @@ mod tests {
             vec![0.0, 25.0, 35.0],
         );
         let report = evaluate(&input, "f".repeat(64)).unwrap();
-        assert_eq!(report.widest_top_bottom_path_bottleneck_radius_um, Some(30.0));
+        assert_eq!(
+            report.widest_top_bottom_path_bottleneck_radius_um,
+            Some(30.0)
+        );
         assert_eq!(report.shortest_top_bottom_path_length_um, Some(5900.0));
     }
 
@@ -737,7 +852,10 @@ mod tests {
     #[test]
     fn rejects_undeclared_or_unsupported_vertical_axis() {
         let mut input = base(
-            vec![pore("top", 0.0, 100.0, true, false), pore("bottom", 99.0, 100.0, false, true)],
+            vec![
+                pore("top", 0.0, 100.0, true, false),
+                pore("bottom", 99.0, 100.0, false, true),
+            ],
             vec![throat("path", "top", "bottom", 9900.0, 20.0)],
             vec![0.0],
         );
@@ -762,7 +880,10 @@ mod tests {
     #[test]
     fn rejects_unknown_pore_and_duplicate_connection() {
         let mut input = base(
-            vec![pore("top", 0.0, 100.0, true, false), pore("bottom", 99.0, 100.0, false, true)],
+            vec![
+                pore("top", 0.0, 100.0, true, false),
+                pore("bottom", 99.0, 100.0, false, true),
+            ],
             vec![throat("t1", "top", "missing", 9900.0, 20.0)],
             vec![0.0],
         );
@@ -771,20 +892,35 @@ mod tests {
             throat("t1", "top", "bottom", 9900.0, 20.0),
             throat("t2", "bottom", "top", 9900.0, 20.0),
         ];
-        assert!(validate(&input).unwrap_err().contains("duplicate undirected pore connection"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("duplicate undirected pore connection")
+        );
     }
 
     #[test]
     fn rejects_invalid_digests_and_pore_volume_overflow() {
         let mut input = base(
-            vec![pore("top", 0.0, 100.0, true, false), pore("bottom", 99.0, 100.0, false, true)],
+            vec![
+                pore("top", 0.0, 100.0, true, false),
+                pore("bottom", 99.0, 100.0, false, true),
+            ],
             vec![throat("t1", "top", "bottom", 9900.0, 20.0)],
             vec![0.0],
         );
         input.image.source_image_sha256 = "bad".to_owned();
-        assert!(validate(&input).unwrap_err().contains("source_image_sha256"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("source_image_sha256")
+        );
         input.image.source_image_sha256 = "a".repeat(64);
         input.network.pores[1].volume_um3 = 1.0e12;
-        assert!(validate(&input).unwrap_err().contains("exceeds the imaged sample volume"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("exceeds the imaged sample volume")
+        );
     }
 }
