@@ -1408,7 +1408,12 @@ mod tests {
             minimum_action_lead: 30,
         });
 
-        input.facts.population.as_mut().unwrap().eligible_denominator = None;
+        input
+            .facts
+            .population
+            .as_mut()
+            .unwrap()
+            .eligible_denominator = None;
 
         input
             .evidence
@@ -1444,7 +1449,11 @@ mod tests {
             (Stage::Decision, ClaimDisposition::Indeterminate),
             (Stage::AfterEventReview, ClaimDisposition::Indeterminate),
         ] {
-            let claim = report.claims.iter().find(|item| item.stage == stage).unwrap();
+            let claim = report
+                .claims
+                .iter()
+                .find(|item| item.stage == stage)
+                .unwrap();
             assert_eq!(
                 claim.disposition,
                 expected,
