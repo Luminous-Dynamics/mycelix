@@ -41,3 +41,13 @@ Intervals are normal-approximation intervals over independent replicate means wi
 This is an exact finite categorical model, not a continuous soil simulator. It assumes conditionally independent action outcomes and does not model correlated sensor noise, heteroscedastic likelihoods, continuous measurements, censored data, a learned discrepancy posterior, or physical water/solute equations. A surprise is evidence that the candidate model mixture assigned low predictive probability; it does not by itself identify the missing physical mechanism.
 
 No field data or physical experiment is authorized. The synthetic true world is deliberately outside the candidate model family to test misspecification handling, not to represent a measured soil regime.
+
+
+## Simulation-based calibration reference test
+
+The test suite includes a discrete prior-predictive SBC check with 4,096
+replicates. It checks randomized ranks for the true model index and for the
+data-dependent joint log likelihood. A deliberate likelihood-misspecification
+negative control must violate the 7–13% frequency band in at least one of the
+two rank histograms. This is an exact finite categorical reference test, not
+SBC certification for continuous physical, covariance or discrepancy models.
