@@ -1,0 +1,142 @@
+{
+  "schema_version": "0.1.0",
+  "data_class": "synthetic_known_truth",
+  "scenario_id": "preferential-flow-model-misspecification-sequential-v0",
+  "seed": 20261101,
+  "replicates": 128,
+  "budget_cost_units": 4,
+  "predictive_surprise_threshold": 0.05,
+  "strata": [
+    { "stratum_id": "SANDY", "minimum_selected_actions": 1 },
+    { "stratum_id": "WEATHERED", "minimum_selected_actions": 1 }
+  ],
+  "models": [
+    { "model_id": "MATRIX_FLOW", "prior_weight": 0.40 },
+    { "model_id": "DUAL_PERMEABILITY", "prior_weight": 0.35 },
+    { "model_id": "ROOT_CHANNEL", "prior_weight": 0.25 }
+  ],
+  "decisions": [
+    { "decision_id": "RETAIN_WATER", "model_utilities": [0.90, 0.30, 0.45] },
+    { "decision_id": "DRAIN_FAST", "model_utilities": [0.30, 0.90, 0.50] },
+    { "decision_id": "DIAGNOSE_FIRST", "model_utilities": [0.55, 0.55, 0.55] }
+  ],
+  "truth_decisions": [
+    { "decision_id": "RETAIN_WATER", "utility": 0.42 },
+    { "decision_id": "DRAIN_FAST", "utility": 0.92 },
+    { "decision_id": "DIAGNOSE_FIRST", "utility": 0.65 }
+  ],
+  "actions": [
+    {
+      "action_id": "A_SANDY_RETENTION",
+      "stratum_id": "SANDY",
+      "modality": "water_retention_curve",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "diagnostic_action": false,
+      "outcomes": ["low_storage", "high_storage", "unmodeled"],
+      "likelihoods": [
+        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.80, 0.19, 0.01] },
+        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.20, 0.79, 0.01] },
+        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.45, 0.54, 0.01] }
+      ],
+      "truth_outcome_probabilities": [0.55, 0.44, 0.01]
+    },
+    {
+      "action_id": "B_SANDY_EVENT_TRACER",
+      "stratum_id": "SANDY",
+      "modality": "event_tracer_breakthrough",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "diagnostic_action": false,
+      "outcomes": ["matrix_like", "preferential_like", "unmodeled"],
+      "likelihoods": [
+        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.85, 0.14, 0.01] },
+        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.15, 0.84, 0.01] },
+        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.40, 0.59, 0.01] }
+      ],
+      "truth_outcome_probabilities": [0.05, 0.25, 0.70]
+    },
+    {
+      "action_id": "C_SANDY_CT_DIAGNOSTIC",
+      "stratum_id": "SANDY",
+      "modality": "ct_pore_geometry",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "diagnostic_action": true,
+      "outcomes": ["matrix_like", "connected", "unmodeled"],
+      "likelihoods": [
+        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.60, 0.39, 0.01] },
+        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.65, 0.34, 0.01] },
+        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.20, 0.79, 0.01] }
+      ],
+      "truth_outcome_probabilities": [0.15, 0.15, 0.70]
+    },
+    {
+      "action_id": "D_WEATHERED_RETENTION",
+      "stratum_id": "WEATHERED",
+      "modality": "water_retention_curve",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "diagnostic_action": false,
+      "outcomes": ["low_storage", "high_storage", "unmodeled"],
+      "likelihoods": [
+        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.72, 0.27, 0.01] },
+        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.35, 0.64, 0.01] },
+        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.48, 0.51, 0.01] }
+      ],
+      "truth_outcome_probabilities": [0.70, 0.29, 0.01]
+    },
+    {
+      "action_id": "E_WEATHERED_EVENT_TRACER",
+      "stratum_id": "WEATHERED",
+      "modality": "event_tracer_breakthrough",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "diagnostic_action": false,
+      "outcomes": ["matrix_like", "preferential_like", "unmodeled"],
+      "likelihoods": [
+        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.80, 0.19, 0.01] },
+        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.12, 0.87, 0.01] },
+        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.35, 0.64, 0.01] }
+      ],
+      "truth_outcome_probabilities": [0.15, 0.15, 0.70]
+    },
+    {
+      "action_id": "F_WEATHERED_GAS_DIAGNOSTIC",
+      "stratum_id": "WEATHERED",
+      "modality": "gas_permeability",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "diagnostic_action": true,
+      "outcomes": ["low_exchange", "high_exchange", "unmodeled"],
+      "likelihoods": [
+        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.72, 0.27, 0.01] },
+        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.30, 0.69, 0.01] },
+        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.25, 0.74, 0.01] }
+      ],
+      "truth_outcome_probabilities": [0.20, 0.10, 0.70]
+    },
+    {
+      "action_id": "X_INELIGIBLE",
+      "stratum_id": "SANDY",
+      "modality": "unapproved_sensor",
+      "cost_units": 1,
+      "eligible": false,
+      "exclusion_reason": "Synthetic example of a measurement action that has not passed required approval.",
+      "diagnostic_action": true,
+      "outcomes": ["low", "high"],
+      "likelihoods": [
+        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.5, 0.5] },
+        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.5, 0.5] },
+        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.5, 0.5] }
+      ],
+      "truth_outcome_probabilities": [0.5, 0.5]
+    }
+  ]
+}
