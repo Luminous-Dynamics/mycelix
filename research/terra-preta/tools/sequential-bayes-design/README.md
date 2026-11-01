@@ -74,3 +74,15 @@ from support overlap. The next implementation must estimate or preregister
 dependence using paired repeatability/cross-instrument evidence or a declared
 simulator, then integrate the joint likelihood into sequential posterior
 updates.
+
+
+## Exact adaptive decision-tree reference
+
+The test suite also enumerates the optimal finite adaptive measurement policy
+under the declared model prior and service-decision utility. It branches over
+candidate categorical outcomes, updates the posterior, preserves mandatory
+stratum coverage and budget, and compares the optimal value with the
+conditional-greedy decision-EVSI trajectory. This is a test-only exact small
+case oracle; it does not access hidden truth and is not yet included as a
+runtime report metric. Larger problems need memoization, node caps and
+solver-gap/bound reporting.
