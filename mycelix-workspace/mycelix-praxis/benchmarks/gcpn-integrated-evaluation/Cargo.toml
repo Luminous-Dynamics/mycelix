@@ -1,9 +1,9 @@
 [package]
 name = "gcpn-integrated-evaluation"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
-description = "Integrated synthetic GCPN evaluation across forecast, integrity, topology, last-mile and early-action evidence"
+description = "Integrated synthetic GCPN evaluation across forecast, integrity, topology, last-mile, early-action and lifecycle-cost evidence"
 
 # Keep this integration package isolated from the parent Praxis workspace.
 [workspace]
@@ -14,6 +14,7 @@ gcpn-topology-resilience = { path = "../gcpn-topology-resilience" }
 gcpn-last-mile = { path = "../gcpn-last-mile" }
 gcpn-warning-to-action = { path = "../gcpn-warning-to-action" }
 gcpn-forecast-calibration = { path = "../gcpn-forecast-calibration" }
+gcpn-lifecycle-cost = { path = "../gcpn-lifecycle-cost" }
 
 [lib]
 path = "src/lib.rs"
