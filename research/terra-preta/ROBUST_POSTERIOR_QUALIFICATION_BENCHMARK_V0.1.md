@@ -187,3 +187,16 @@ A reference implementation of the conditional Posterior-SBC identity is now auth
 It fixes an observed dataset, forms the exact conditional finite posterior, samples an original model state from that posterior, simulates an additional observation from the posterior predictive, and computes the exact augmented posterior. Randomized discrete PIT ranks are checked for both model identity and the joint log-likelihood test quantity over 4,096 replicates. The exact-update control must fall within a 7–13% per-bin reference frequency band; a deliberate likelihood-power-4 overconfidence negative control must violate at least one histogram.
 
 This is an executable finite categorical Posterior-SBC reference test. It does not validate continuous covariance/discrepancy samplers or model adequacy, and it does not replace prior SBC or posterior predictive checks. Exact-head CI is required before calling it a passing test.
+
+
+## 12. Implemented exact discrete Sibson reference — 2026-11-01
+
+The Rust library now contains `tools/sequential-bayes-design/src/robust_information.rs` with:
+- exact finite-discrete Shannon mutual information;
+- exact finite-discrete Sibson α-mutual information for (0<\alpha<1);
+- the corresponding α-tilted finite posterior (p_\alpha(M\mid x)\propto p(M)p(x\mid M)^\alpha);
+- strict probability/identifier and alpha validation.
+
+Six authored tests cover zero-information independence, convergence to Shannon MI as α approaches one, monotonicity over a preregistered alpha grid, CT–tracer correlation-only complementarity, posterior tempering, and invalid inputs. An independent formula check for the complementary discrete fixture gives Shannon MI 0.368064 nats and Sibson MI values 0.097772, 0.184551, 0.258413, 0.290396, 0.319208 and 0.356878 nats at alpha 0.2, 0.4, 0.6, 0.7, 0.8 and 0.95 respectively.
+
+This is the exact deterministic discrete reference stage of #5648. It is not the full maximin game, ambiguity-radius-to-alpha optimizer, nested Monte Carlo estimator or PAC-Bayes stochastic design policy. Exact-head CI must establish compilation and tests.
