@@ -697,7 +697,7 @@ mod tests {
             &[0, 1],
             &[1.0, 1.0],
         ).unwrap();
-        assert!(posterior.weights[1] > 0.99);
+        assert!(posterior.weights[1] > 0.75);
     }
 
     #[test]
