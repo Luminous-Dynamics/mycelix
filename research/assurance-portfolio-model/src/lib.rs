@@ -122,6 +122,9 @@ pub struct ClaimProfile {
     pub claim_id: String,
     pub subject_digest: Digest,
     pub hard_invariant: bool,
+    /// Roles explicitly permitted to make a dispositive hard-invariant refutation.
+    /// A refutation from any other role remains a non-hard conflict.
+    pub hard_refutation_roles: Vec<EvaluatorRole>,
     pub required_roles: Vec<EvaluatorRole>,
     pub required_separations: Vec<PairwiseSeparation>,
 }
@@ -131,6 +134,9 @@ pub enum CompositionError {
     EmptyClaimId,
     EmptyRequiredRoles,
     DuplicateRequiredRole,
+    HardInvariantRequiresRefutationRole,
+    RefutationRoleWithoutHardInvariant,
+    DuplicateHardRefutationRole,
     SelfSeparation,
     SeparationRoleNotRequired,
     DuplicateSeparation,
@@ -157,6 +163,19 @@ impl ClaimProfile {
         for role in &self.required_roles {
             if !roles.insert(*role) {
                 return Err(CompositionError::DuplicateRequiredRole);
+            }
+        }
+
+        if self.hard_invariant && self.hard_refutation_roles.is_empty() {
+            return Err(CompositionError::HardInvariantRequiresRefutationRole);
+        }
+        if !self.hard_invariant && !self.hard_refutation_roles.is_empty() {
+            return Err(CompositionError::RefutationRoleWithoutHardInvariant);
+        }
+        let mut hard_refutation_roles = BTreeSet::new();
+        for role in &self.hard_refutation_roles {
+            if !hard_refutation_roles.insert(*role) {
+                return Err(CompositionError::DuplicateHardRefutationRole);
             }
         }
 
@@ -285,11 +304,41 @@ pub fn compose(
         reasons.insert(CompositionReason::WrongSubjectEvidenceIgnored);
     }
 
-    if profile.hard_invariant
-        && current
-            .iter()
-            .any(|assessment| assessment.outcome == AssessmentOutcome::Refutes)
-    {
+    let mut evaluator_observations = BTreeMap::<EvaluatorKey, EvaluatorObservation>::new();
+    for assessment in &current {
+        let key = EvaluatorKey {
+            role: assessment.role,
+            evaluator_digest: assessment.evaluator_digest,
+            evaluator_profile_digest: assessment.evaluator_profile_digest,
+        };
+        let observation = evaluator_observations.entry(key).or_default();
+        observation.outcomes.insert(assessment.outcome);
+        observation
+            .fault_domains
+            .insert(assessment.fault_domains.clone());
+    }
+
+    let has_qualified_hard_refutation = profile.hard_invariant
+        && current.iter().any(|assessment| {
+            if assessment.outcome != AssessmentOutcome::Refutes
+                || !profile.hard_refutation_roles.contains(&assessment.role)
+            {
+                return false;
+            }
+
+            let key = EvaluatorKey {
+                role: assessment.role,
+                evaluator_digest: assessment.evaluator_digest,
+                evaluator_profile_digest: assessment.evaluator_profile_digest,
+            };
+            evaluator_observations.get(&key).is_some_and(|observation| {
+                observation.outcomes.len() == 1
+                    && observation.outcomes.contains(&AssessmentOutcome::Refutes)
+                    && observation.fault_domains.len() == 1
+            })
+        });
+
+    if has_qualified_hard_refutation {
         reasons.insert(CompositionReason::HardInvariantRefuted);
         return Ok(report(
             profile,
@@ -304,20 +353,6 @@ pub fn compose(
             fault_domains,
             reasons,
         ));
-    }
-
-    let mut evaluator_observations = BTreeMap::<EvaluatorKey, EvaluatorObservation>::new();
-    for assessment in &current {
-        let key = EvaluatorKey {
-            role: assessment.role,
-            evaluator_digest: assessment.evaluator_digest,
-            evaluator_profile_digest: assessment.evaluator_profile_digest,
-        };
-        let observation = evaluator_observations.entry(key).or_default();
-        observation.outcomes.insert(assessment.outcome);
-        observation
-            .fault_domains
-            .insert(assessment.fault_domains.clone());
     }
 
     if evaluator_observations
@@ -511,6 +546,11 @@ mod tests {
             claim_id: CLAIM_ID.to_owned(),
             subject_digest: digest(42),
             hard_invariant,
+            hard_refutation_roles: if hard_invariant {
+                vec![EvaluatorRole::InvariantChecker]
+            } else {
+                vec![]
+            },
             required_roles: vec![
                 EvaluatorRole::NormativeContract,
                 EvaluatorRole::IndependentImplementation,
@@ -577,6 +617,78 @@ mod tests {
             CompositionDisposition::HardInvariantRefuted
         );
         assert!(has_reason(&result, CompositionReason::HardInvariantRefuted));
+    }
+
+    #[test]
+    fn hard_invariant_profiles_require_an_explicit_refutation_role() {
+        let mut missing_role = profile(true);
+        missing_role.hard_refutation_roles.clear();
+        assert_eq!(
+            missing_role.validate(),
+            Err(CompositionError::HardInvariantRequiresRefutationRole)
+        );
+
+        let mut unexpected_role = profile(false);
+        unexpected_role
+            .hard_refutation_roles
+            .push(EvaluatorRole::InvariantChecker);
+        assert_eq!(
+            unexpected_role.validate(),
+            Err(CompositionError::RefutationRoleWithoutHardInvariant)
+        );
+
+        let mut duplicate_role = profile(true);
+        duplicate_role
+            .hard_refutation_roles
+            .push(EvaluatorRole::InvariantChecker);
+        assert_eq!(
+            duplicate_role.validate(),
+            Err(CompositionError::DuplicateHardRefutationRole)
+        );
+    }
+
+    #[test]
+    fn an_undeclared_role_cannot_refute_a_hard_invariant() {
+        let mut assessments = required_pair();
+        let mut unqualified_refutation = assessment(EvaluatorRole::DomainReviewer, 18, 8);
+        unqualified_refutation.outcome = AssessmentOutcome::Refutes;
+        assessments.push(unqualified_refutation);
+
+        let result = compose(&profile(true), &assessments).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(!has_reason(
+            &result,
+            CompositionReason::HardInvariantRefuted
+        ));
+        assert!(has_reason(
+            &result,
+            CompositionReason::NonHardRefutationObserved
+        ));
+    }
+
+    #[test]
+    fn a_hard_refutation_from_a_self_contradictory_evaluator_is_not_dispositive() {
+        let mut assessments = required_pair();
+        let refutation = {
+            let mut item = assessment(EvaluatorRole::InvariantChecker, 19, 9);
+            item.outcome = AssessmentOutcome::Refutes;
+            item
+        };
+        let mut contradictory = refutation.clone();
+        contradictory.outcome = AssessmentOutcome::Supports;
+        assessments.push(refutation);
+        assessments.push(contradictory);
+
+        let result = compose(&profile(true), &assessments).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(!has_reason(
+            &result,
+            CompositionReason::HardInvariantRefuted
+        ));
+        assert!(has_reason(
+            &result,
+            CompositionReason::ContradictoryEvaluatorOutput
+        ));
     }
 
     #[test]
