@@ -9,10 +9,10 @@ fn main() {
         minimum_action_lead_seconds: 30,
     };
     let cases = vec![
-        DecisionCase { case_id:"event-1".into(),independent_system_id:"system-1".into(),issue_time:0,valid_time:100,decision_cutoff:50,candidate_probability:0.90,candidate_issued_at:40,reference_probability:0.21,reference_issued_at:40,climatology_probability:0.50,event_observed:true,action_feasible:true },
-        DecisionCase { case_id:"event-2".into(),independent_system_id:"system-2".into(),issue_time:0,valid_time:100,decision_cutoff:50,candidate_probability:0.19,candidate_issued_at:40,reference_probability:0.21,reference_issued_at:40,climatology_probability:0.50,event_observed:true,action_feasible:true },
-        DecisionCase { case_id:"nonevent-1".into(),independent_system_id:"system-3".into(),issue_time:0,valid_time:100,decision_cutoff:50,candidate_probability:0.19,candidate_issued_at:40,reference_probability:0.21,reference_issued_at:40,climatology_probability:0.50,event_observed:false,action_feasible:true },
-        DecisionCase { case_id:"nonevent-2".into(),independent_system_id:"system-4".into(),issue_time:0,valid_time:100,decision_cutoff:50,candidate_probability:0.19,candidate_issued_at:40,reference_probability:0.21,reference_issued_at:40,climatology_probability:0.50,event_observed:false,action_feasible:true },
+        DecisionCase { case_id:"event-1".into(),independent_system_id:"system-1".into(),verification_source:"synthetic-truth".into(),verification_version:"truth-v1".into(),issue_time:0,valid_time:100,decision_cutoff:50,candidate_probability:0.90,candidate_issued_at:40,reference_probability:0.21,reference_issued_at:40,climatology_probability:0.50,event_observed:true,action_feasible:true },
+        DecisionCase { case_id:"event-2".into(),independent_system_id:"system-2".into(),verification_source:"synthetic-truth".into(),verification_version:"truth-v1".into(),issue_time:0,valid_time:100,decision_cutoff:50,candidate_probability:0.19,candidate_issued_at:40,reference_probability:0.21,reference_issued_at:40,climatology_probability:0.50,event_observed:true,action_feasible:true },
+        DecisionCase { case_id:"nonevent-1".into(),independent_system_id:"system-3".into(),verification_source:"synthetic-truth".into(),verification_version:"truth-v1".into(),issue_time:0,valid_time:100,decision_cutoff:50,candidate_probability:0.19,candidate_issued_at:40,reference_probability:0.21,reference_issued_at:40,climatology_probability:0.50,event_observed:false,action_feasible:true },
+        DecisionCase { case_id:"nonevent-2".into(),independent_system_id:"system-4".into(),verification_source:"synthetic-truth".into(),verification_version:"truth-v1".into(),issue_time:0,valid_time:100,decision_cutoff:50,candidate_probability:0.19,candidate_issued_at:40,reference_probability:0.21,reference_issued_at:40,climatology_probability:0.50,event_observed:false,action_feasible:true },
     ];
     let report=evaluate_decision_value(&cases,&profile).expect("frozen synthetic decision profile");
     println!("GCPN decision-value forecast verification v0.1");
@@ -26,5 +26,7 @@ fn main() {
     println!("net_benefit_vs_reference: {:.2}",report.net_benefit_vs_reference);
     println!("perfect_information_infeasible_lower_bound: {:.2}",report.perfect_information.total_loss);
     println!("decision_regret_vs_perfect_information: {:.2}",report.decision_regret_vs_perfect_information);
+    println!("verification_source: {}",report.verification_source);
+    println!("verification_version: {}",report.verification_version);
     println!("non_claim: synthetic policy evaluation is not a real warning threshold or action recommendation");
 }
