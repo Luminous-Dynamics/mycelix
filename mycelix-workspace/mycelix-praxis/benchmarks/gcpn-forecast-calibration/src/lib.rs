@@ -100,6 +100,16 @@ pub struct MetricValues {
     pub log_loss: f64,
     pub reference_brier_score: f64,
     pub brier_skill_score: Option<f64>,
+    /// Exact Murphy reliability term, grouped by distinct issued probabilities.
+    pub brier_reliability: f64,
+    /// Exact Murphy resolution term, grouped by distinct issued probabilities.
+    pub brier_resolution: f64,
+    /// Outcome uncertainty term: climatology * (1 - climatology).
+    pub brier_uncertainty: f64,
+    /// Brier score minus (reliability - resolution + uncertainty).
+    pub brier_decomposition_residual: f64,
+    /// Number of distinct issued probability values in this metric group.
+    pub distinct_probability_count: u64,
     /// Mean forecast probability minus observed event frequency.
     pub calibration_in_large: f64,
     /// Fixed-bin expected calibration error (descriptive, bin-sensitive).
@@ -290,6 +300,13 @@ struct ModelKey {
 }
 
 #[derive(Debug, Clone, Default)]
+struct ProbabilityCategory {
+    probability: f64,
+    sample_count: u64,
+    outcome_sum: f64,
+}
+
+#[derive(Debug, Clone, Default)]
 struct MetricAccumulator {
     sample_count: u64,
     brier_sum: f64,
@@ -301,6 +318,7 @@ struct MetricAccumulator {
     bin_counts: [u64; RELIABILITY_BINS],
     bin_probability_sums: [f64; RELIABILITY_BINS],
     bin_outcome_sums: [f64; RELIABILITY_BINS],
+    probability_categories: BTreeMap<u64, ProbabilityCategory>,
 }
 
 impl MetricAccumulator {
@@ -315,6 +333,16 @@ impl MetricAccumulator {
         self.probability_sum += probability;
         self.outcome_sum += y;
         self.entropy_sum += bernoulli_entropy(clipped);
+
+        let probability_key = if probability == 0.0 { 0.0 } else { probability };
+        let category = self.probability_categories.entry(probability_key.to_bits()).or_insert_with(|| {
+            ProbabilityCategory {
+                probability: probability_key,
+                ..ProbabilityCategory::default()
+            }
+        });
+        category.sample_count += 1;
+        category.outcome_sum += y;
 
         let bin = reliability_bin(probability);
         self.bin_counts[bin] += 1;
@@ -363,12 +391,30 @@ impl MetricAccumulator {
             None
         };
 
+        let mut brier_reliability = 0.0;
+        let mut brier_resolution = 0.0;
+        for category in self.probability_categories.values() {
+            let group_n = category.sample_count as f64;
+            let observed_in_group = category.outcome_sum / group_n;
+            let weight = group_n / n;
+            brier_reliability += weight * (category.probability - observed_in_group).powi(2);
+            brier_resolution += weight * (observed_in_group - observed_frequency).powi(2);
+        }
+        let brier_uncertainty = observed_frequency * (1.0 - observed_frequency);
+        let brier_decomposition_residual =
+            brier_score - (brier_reliability - brier_resolution + brier_uncertainty);
+
         Some(MetricValues {
             sample_count: self.sample_count,
             brier_score,
             log_loss: self.log_loss_sum / n,
             reference_brier_score,
             brier_skill_score,
+            brier_reliability,
+            brier_resolution,
+            brier_uncertainty,
+            brier_decomposition_residual,
+            distinct_probability_count: self.probability_categories.len() as u64,
             calibration_in_large: mean_probability - observed_frequency,
             expected_calibration_error,
             mean_forecast_probability: mean_probability,
@@ -773,6 +819,41 @@ mod tests {
         assert_eq!(evaluation.sample_count, 12);
         assert!((calibration.brier_score - 0.01).abs() < 1e-12);
         assert_ne!(calibration.sample_count, evaluation.sample_count);
+    }
+
+    #[test]
+    fn exact_murphy_brier_decomposition_reconstructs_the_score() {
+        let report = fixture_report().unwrap();
+        for metric in &report.metrics {
+            let values = &metric.values;
+            let reconstructed =
+                values.brier_reliability - values.brier_resolution + values.brier_uncertainty;
+            assert!(
+                (values.brier_score - reconstructed).abs() < 1e-12,
+                "model={} hazard={} region={} lead={} partition={:?} score={} reconstructed={}",
+                metric.model_id,
+                metric.hazard,
+                metric.region,
+                metric.lead_hours,
+                metric.partition,
+                values.brier_score,
+                reconstructed
+            );
+            assert!(values.brier_decomposition_residual.abs() < 1e-12);
+            assert!(values.distinct_probability_count > 0);
+        }
+    }
+
+    #[test]
+    fn reliability_and_resolution_are_not_confused_with_fixed_bin_ece() {
+        let report = fixture_report().unwrap();
+        let candidate = report.model_summary("candidate", Partition::Evaluation).unwrap();
+        assert!(candidate.brier_reliability.is_finite());
+        assert!(candidate.brier_resolution.is_finite());
+        assert!(candidate.brier_uncertainty.is_finite());
+        assert!(candidate.distinct_probability_count >= 2);
+        // Fixed-bin ECE and the Murphy reliability term answer related but different questions.
+        assert!(candidate.expected_calibration_error.is_finite());
     }
 
     #[test]
