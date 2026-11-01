@@ -148,7 +148,7 @@ struct DecisionRecord<'a> {
     determining_policy_ids: &'a [String],
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct TimingSummary {
     count: usize,
     p50_ns: u128,
@@ -1151,7 +1151,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                 &pinned_opa.path,
                 &pinned_rego.path,
             ) {
-                Ok((cedar, opa, cedar_policy_ids, opa_rule, cedar_ns, opa_ns))
+                Ok((cedar, opa, _cedar_policy_ids, opa_rule, cedar_ns, opa_ns))
                     if cedar == "invalid" && opa == "invalid" =>
                 {
                     // Candidate did not satisfy the paired input/schema boundary;
@@ -1445,7 +1445,7 @@ fn run() -> Result<(), String> {
         baseline_source_blob_sha: input_manifest.baseline_source_blob_sha,
         policy_id: input_manifest.policy_id,
         policy_version: input_manifest.policy_version,
-        input_file: input_manifest.engine_input_file,
+        input_file: input_manifest.engine_inputs_file,
         input_sha256: input_manifest.engine_inputs_sha256,
         policy_sha256: sha256(&policy_bytes),
         schema_sha256: sha256(&schema_bytes),
