@@ -1,4 +1,8 @@
-use gcpn_forecast_calibration::{fixture_report, Partition};
+use gcpn_forecast_calibration::{
+    drift_fixture_report,
+    fixture_report,
+    Partition,
+};
 
 fn show_optional(value: Option<f64>) -> String {
     value
@@ -7,9 +11,9 @@ fn show_optional(value: Option<f64>) -> String {
 }
 
 fn main() {
-    match fixture_report() {
-        Ok(report) => {
-            println!("GCPN synthetic probabilistic forecast verification v0.1");
+    match (fixture_report(), drift_fixture_report()) {
+        (Ok(report), Ok(drift)) => {
+            println!("GCPN synthetic probabilistic forecast verification v0.2");
             println!("records: {}", report.record_count);
             println!("scored_records: {}", report.scored_record_count);
             println!("data_quality_controls:");
@@ -27,87 +31,90 @@ fn main() {
             println!("fixture_oracle: {}", if report.fixture_oracle_matches() { "PASS" } else { "FAIL" });
 
             println!();
-            println!("model_summary,model,partition,n,brier,log_loss,reference_brier,brier_skill,calibration_in_large,ece,mean_probability,event_frequency,mean_entropy_nats");
+            println!("model_summary,model,partition,n,brier,brier_reliability,brier_resolution,brier_uncertainty,brier_residual,distinct_probabilities,log_loss,reference_brier,brier_skill,calibration_in_large,ece,mean_entropy_nats");
             for summary in &report.model_summaries {
                 let v = &summary.values;
                 println!(
-                    "overall,{},{},{},{:.6},{:.6},{:.6},{},{:.6},{:.6},{:.6},{:.6},{:.6}",
+                    "overall,{},{},{},{:.6},{:.6},{:.6},{:.6},{:.12},{},{:.6},{:.6},{},{:.6},{:.6},{:.6}",
                     summary.model_id,
                     summary.partition.label(),
                     v.sample_count,
                     v.brier_score,
+                    v.brier_reliability,
+                    v.brier_resolution,
+                    v.brier_uncertainty,
+                    v.brier_decomposition_residual,
+                    v.distinct_probability_count,
                     v.log_loss,
                     v.reference_brier_score,
                     show_optional(v.brier_skill_score),
                     v.calibration_in_large,
                     v.expected_calibration_error,
-                    v.mean_forecast_probability,
-                    v.observed_event_frequency,
                     v.mean_forecast_entropy_nats
                 );
             }
 
             println!();
-            println!("stratum,model,hazard,lead_hours,partition,n,brier,log_loss,reference_brier,brier_skill,calibration_in_large,ece,mean_probability,event_frequency,mean_entropy_nats");
+            println!("stratum,model,hazard,lead_hours,partition,n,brier,reliability,resolution,uncertainty,residual,brier_skill,ece,mean_probability,event_frequency");
             for stratum in &report.strata {
                 let v = &stratum.values;
                 println!(
-                    "hazard-lead,{},{},{},{},{},{:.6},{:.6},{:.6},{},{:.6},{:.6},{:.6},{:.6},{:.6}",
+                    "hazard-lead,{},{},{},{},{},{:.6},{:.6},{:.6},{:.6},{:.12},{},{:.6},{:.6},{:.6}",
                     stratum.model_id,
                     stratum.hazard,
                     stratum.lead_hours,
                     stratum.partition.label(),
                     v.sample_count,
                     v.brier_score,
-                    v.log_loss,
-                    v.reference_brier_score,
+                    v.brier_reliability,
+                    v.brier_resolution,
+                    v.brier_uncertainty,
+                    v.brier_decomposition_residual,
                     show_optional(v.brier_skill_score),
-                    v.calibration_in_large,
                     v.expected_calibration_error,
                     v.mean_forecast_probability,
-                    v.observed_event_frequency,
-                    v.mean_forecast_entropy_nats
+                    v.observed_event_frequency
                 );
             }
 
             println!();
-            println!("group,model,hazard,region,lead_hours,partition,n,brier,brier_skill,ece");
-            for metric in &report.metrics {
-                let v = &metric.values;
+            println!("drift_profile,n,mean_brier,calibration_in_large,max_cusum,first_drift_sequence,rolling_windows");
+            for profile in &drift.profiles {
+                let first = profile.first_drift_sequence
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "none".to_owned());
                 println!(
-                    "hazard-region-lead,{},{},{},{},{},{},{:.6},{},{:.6}",
-                    metric.model_id,
-                    metric.hazard,
-                    metric.region,
-                    metric.lead_hours,
-                    metric.partition.label(),
-                    v.sample_count,
-                    v.brier_score,
-                    show_optional(v.brier_skill_score),
-                    v.expected_calibration_error
+                    "{},{},{:.6},{:.6},{:.6},{},{}",
+                    profile.profile_id,
+                    profile.sample_count,
+                    profile.mean_brier_score,
+                    profile.calibration_in_large,
+                    profile.max_cusum,
+                    first,
+                    profile.windows.len()
                 );
+                for window in &profile.windows {
+                    println!(
+                        "  window={},start={},end={},n={},brier={:.6},calibration_in_large={:.6},observed_frequency={:.6}",
+                        window.window_index,
+                        window.start_sequence,
+                        window.end_sequence,
+                        window.sample_count,
+                        window.brier_score,
+                        window.calibration_in_large,
+                        window.observed_event_frequency
+                    );
+                }
             }
+            println!("drift_fixture_oracle: {}", if drift.fixture_oracle_matches() { "PASS" } else { "FAIL" });
+            println!("drift_parameters: window_size=5, cusum_allowance=0.1, threshold=3.0, minimum_observations=5");
+            println!("interpretation: scoring decomposition and sequential drift are offline synthetic diagnostics only; no operational invalidation or alert trigger");
 
-            let candidate = report.model_summary("candidate", Partition::Evaluation);
-            let heat_72 = report.stratum("candidate", "heat", 72, Partition::Evaluation);
-            println!();
-            println!("subgroup_diagnostic:");
-            if let Some(v) = candidate {
-                println!("  candidate_evaluation_brier: {:.6}", v.brier_score);
-                println!("  candidate_evaluation_brier_skill: {}", show_optional(v.brier_skill_score));
-            }
-            if let Some(v) = heat_72 {
-                println!("  candidate_heat_72h_brier: {:.6}", v.brier_score);
-                println!("  candidate_heat_72h_brier_skill: {}", show_optional(v.brier_skill_score));
-                println!("  candidate_heat_72h_samples: {}", v.sample_count);
-            }
-            println!("interpretation: proper scoring and calibration diagnostics on synthetic cases only; no operational forecast or warning policy");
-
-            if !report.fixture_oracle_matches() {
+            if !report.fixture_oracle_matches() || !drift.fixture_oracle_matches() {
                 std::process::exit(1);
             }
         }
-        Err(error) => {
+        (Err(error), _) | (_, Err(error)) => {
             eprintln!("forecast fixture error: {error}");
             std::process::exit(2);
         }
