@@ -1,5 +1,5 @@
 use gcpn_reference_observation_uncertainty::{
-    evaluate, ForecastObservationPair, ObservationErrorModel, PredictandContract,
+    ForecastObservationPair, ObservationErrorModel, PredictandContract, evaluate,
 };
 
 fn main() {
@@ -35,14 +35,37 @@ fn main() {
             println!("as_of_cutoff: {}", report.as_of_cutoff);
             println!("cases: {}", report.cases);
             println!("naive_observation_mse: {:.8}", report.naive_observation_mse);
-            println!("error_corrected_latent_mse_estimator: {:?}", report.error_corrected_mse);
-            println!("correction_unavailable_reason: {:?}", report.correction_unavailable_reason);
-            println!("mean_known_bias: {:?}", report.error_components.mean_known_bias);
-            println!("mean_measurement_variance: {:?}", report.error_components.mean_measurement_variance);
-            println!("mean_representativeness_variance: {:?}", report.error_components.mean_representativeness_variance);
-            println!("mean_twice_cross_covariance: {:?}", report.error_components.mean_twice_cross_covariance);
-            println!("unique_error_lineage_roots: {}", report.error_components.unique_error_lineage_roots);
-            println!("non_claim: no universal latent-truth identification or forecast skill is asserted");
+            println!(
+                "error_corrected_latent_mse_estimator: {:?}",
+                report.error_corrected_mse
+            );
+            println!(
+                "correction_unavailable_reason: {:?}",
+                report.correction_unavailable_reason
+            );
+            println!(
+                "mean_known_bias: {:?}",
+                report.error_components.mean_known_bias
+            );
+            println!(
+                "mean_measurement_variance: {:?}",
+                report.error_components.mean_measurement_variance
+            );
+            println!(
+                "mean_representativeness_variance: {:?}",
+                report.error_components.mean_representativeness_variance
+            );
+            println!(
+                "mean_twice_cross_covariance: {:?}",
+                report.error_components.mean_twice_cross_covariance
+            );
+            println!(
+                "unique_error_lineage_roots: {}",
+                report.error_components.unique_error_lineage_roots
+            );
+            println!(
+                "non_claim: no universal latent-truth identification or forecast skill is asserted"
+            );
         }
         Err(error) => {
             eprintln!("observation contract rejected: {:?}", error.violations);
