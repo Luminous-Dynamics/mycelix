@@ -718,8 +718,11 @@ mod tests {
             .get(&("claim_proposed".to_owned(), "roles=0;claim=absent".to_owned()))
             .expect("stratum exists");
         assert_eq!(kept.len(), MAX_SAMPLES_PER_STRATUM);
-        assert!(kept[0].rank_sha256 <= kept[1].rank_sha256);
-        assert_ne!(kept[0].case_id, "case-m");
+        let expected_case_id = ["case-z", "case-a", "case-m"]
+            .into_iter()
+            .min_by_key(|case_id| sample_rank("claim_proposed", case_id))
+            .expect("candidate set is non-empty");
+        assert_eq!(kept[0].case_id, expected_case_id);
     }
 
     #[test]
