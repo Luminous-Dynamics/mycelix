@@ -243,3 +243,11 @@ The zero-radius control exactly recovers Shannon MI (alpha=1). An uninformative 
 ### Fail-closed robust-selector input validation — 2026-11-01
 
 The fixed-radius and fixed-alpha selectors now validate objective parameters *before* checking whether any candidate is feasible. This closes a fail-open edge case where invalid alpha/radius inputs could be hidden by an empty or fully ineligible candidate pool. Zero-radius calls also validate the configured alpha search range and non-zero bisection budget before returning the nominal limit. Three negative-control tests cover these paths; the robust module now contains 26 authored tests.
+
+## 17. Executable robust one-step bake-off — 2026-11-01
+
+Added a Rust CLI binary at `tools/sequential-bayes-design/src/bin/robust-information-bakeoff.rs`, a synthetic action-pool fixture, and separate input/report JSON Schemas. It generates a SHA-256-bound machine-readable report comparing nominal Shannon selection, fixed-alpha Sibson selection and per-design KL-radius selection under identical actions and hard budget.
+
+The five-action fixture includes: nominal-sharp vs robust-balanced ranking-reversal candidates, a zero-information repeated CT action, a perfectly discriminating but ineligible measurement, and a perfectly discriminating but over-budget measurement. Focused CI now parses both schemas, executes the binary, asserts expected selected IDs and budget/eligibility constraints, validates the report schema and uploads the artifact.
+
+This creates an executable finite comparator. It is still one-step deterministic, not a continuous physical simulator, sequential stochastic-policy optimizer, PAC-Bayes bound, or full selector integration. Exact-head CI must verify the binary and assertions.
