@@ -242,7 +242,7 @@ fn validate(input: &Input) -> Result<Vec<ParsedSensor<'_>>, String> {
                     )?,
                     None => {
                         upper - chrono::Duration::seconds(i64::from(input.time_resolution_seconds))
-                    },
+                    }
                 };
                 let interval_seconds = (upper - lower).num_seconds();
                 if interval_seconds < 0
