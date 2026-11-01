@@ -417,7 +417,11 @@ fn select(
         for action in &unselected {
             let add = [*action];
             let cost = action.cost_units;
-            let gain = marginal_gain(&add, &selected, pairs);
+            let gain = if matches!(policy, Policy::PairAwareJointLookahead) {
+                marginal_gain(&add, &selected, pairs)
+            } else {
+                action.predicted_standalone_value
+            };
             consider_candidate(&mut best, gain, cost, vec![action.action_id.clone()]);
         }
 
