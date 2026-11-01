@@ -148,6 +148,7 @@ pub struct CohortReach {
     pub exposed: u64,
     pub timely_covered: u64,
     pub accessible_covered: u64,
+    pub accessibility_required_unserved: u64,
     pub unknown_unique_reach_cells: u32,
     pub unknown_accessibility_cells: u32,
     pub channel_receipts: u64,
@@ -159,6 +160,7 @@ pub struct ReachReport {
     pub exposure_units: u64,
     pub timely_unique_reach: u64,
     pub accessible_reach: u64,
+    pub accessibility_required_unserved: u64,
     pub unique_reach_unknown_cells: u32,
     pub accessibility_unknown_cells: u32,
     pub channel_receipt_total: u64,
@@ -174,6 +176,7 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
     let mut total_exposed = 0u64;
     let mut timely = 0u64;
     let mut accessible = 0u64;
+    let mut accessibility_required_unserved = 0u64;
     let mut unknown_unique = 0u32;
     let mut unknown_accessibility = 0u32;
     let mut channel_total = 0u64;
@@ -218,6 +221,11 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
         total_exposed += cell.exposed;
         timely += cell.unique_timely_receipts.unwrap_or(0);
         accessible += cell.unique_accessible_receipts.unwrap_or(0);
+        if cell.accessibility_required {
+            if let (Some(timely_count), Some(accessible_count)) = (cell.unique_timely_receipts, cell.unique_accessible_receipts) {
+                accessibility_required_unserved += timely_count - accessible_count;
+            }
+        }
         channel_total += cell.channel_receipt_count;
         let row = per.entry(cell.cohort_id.clone()).or_insert_with(|| CohortReach {
             cohort_id: cell.cohort_id.clone(),
@@ -230,6 +238,11 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
         row.exposed += cell.exposed;
         row.timely_covered += cell.unique_timely_receipts.unwrap_or(0);
         row.accessible_covered += cell.unique_accessible_receipts.unwrap_or(0);
+        if cell.accessibility_required {
+            if let (Some(timely_count), Some(accessible_count)) = (cell.unique_timely_receipts, cell.unique_accessible_receipts) {
+                row.accessibility_required_unserved += timely_count - accessible_count;
+            }
+        }
         row.unknown_unique_reach_cells += if cell.unique_timely_receipts.is_none() { 1 } else { 0 };
         row.unknown_accessibility_cells += if cell.unique_accessible_receipts.is_none() { 1 } else { 0 };
         row.channel_receipts += cell.channel_receipt_count;
@@ -255,6 +268,7 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
         exposure_units: total_exposed,
         timely_unique_reach: timely,
         accessible_reach: accessible,
+        accessibility_required_unserved,
         unique_reach_unknown_cells: unknown_unique,
         accessibility_unknown_cells: unknown_accessibility,
         channel_receipt_total: channel_total,
@@ -431,6 +445,7 @@ mod tests {
         assert_eq!(report.channel_receipt_total,150);
         assert_eq!(report.duplicate_receipts_above_union,Some(70));
         assert_eq!(report.effective_timely_reach,Some(0.8));
+        assert_eq!(report.accessibility_required_unserved,10);
     }
 
     #[test]
