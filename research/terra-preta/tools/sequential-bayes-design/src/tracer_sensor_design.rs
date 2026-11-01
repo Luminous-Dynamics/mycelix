@@ -9,7 +9,7 @@
 //! detector thresholds, model tracer-mass effects or certify physical safety.
 
 use crate::censored_tracer::build_censored_discrete_design;
-use crate::information_gain::ConditionalGaussianModel;
+use crate::multivariate_gaussian::ConditionalGaussianModel;
 use crate::robust_information::{
     select_discrete_design, select_discrete_design_at_kl_radius,
     DesignInformationObjective, DiscreteDesignCandidate, DiscreteDesignModel,
