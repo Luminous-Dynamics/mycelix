@@ -68,7 +68,7 @@ The CLI prints one fixed-seed sample and all three interval constructions. It do
 
 ## 4. Authored tests
 
-Nine Rust tests are included:
+Ten Rust tests are included:
 
 - analytical case-weighted and system-weighted oracle have opposite signs;
 - fixed-seed generated datasets reproduce exactly;
@@ -78,7 +78,8 @@ Nine Rust tests are included:
 - coverage output includes MCSE, Wilson interval and abstentions;
 - invalid DGP configurations fail closed;
 - invalid event/system parent links are rejected;
-- too few bootstrap replicates are rejected.
+- too few bootstrap replicates are rejected;
+- invalid coverage confidence levels fail before the Monte Carlo loop rather than being reported as abstentions.
 
 These tests are authored source, not executed results.
 
