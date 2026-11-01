@@ -13,3 +13,4 @@ pub mod information_gain;
 mod posterior_sbc;
 pub mod robust_information;
 pub mod covariance_identifiability;
+pub mod stochastic_policy;
