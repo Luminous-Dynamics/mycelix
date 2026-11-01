@@ -487,3 +487,45 @@ multi-objective trade-off rather than compress it into an unqualified
 "information gain" score. Future comparisons require more scenario families,
 common held-out probes, uncertainty intervals over replicate worlds, and
 matched compute / measurement costs. No SOTA claim follows from these runs.
+
+
+## 22. Explicit discrepancy-state model-expansion control
+
+The sequential benchmark now includes a third scenario:
+`synthetic-discrepancy-state-control.json`. It extends the three physical
+candidate models with a fourth categorical `DISCREPANCY_STATE` hypothesis.
+
+The added state has a predeclared prior weight of 0.05 and a broad outcome
+likelihood that assigns 0.70 probability to the residual / "unmodeled" outcome
+for the three-outcome measurement modalities. The physical candidate models
+assign 0.01 to that same outcome. Under the sandy event-tracer residual
+observation, the exact finite Bayes update gives:
+
+[
+P(D=1\mid y=\text{unmodeled}) =
+\frac{0.05\times0.70}
+{0.38\times0.01+0.33\times0.01+0.24\times0.01+0.05\times0.70}
+\approx 0.7865
+]
+
+The regression test requires posterior mass above 0.75 and that the
+model-expected decision becomes `DIAGNOSE_FIRST`. The synthetic world gives
+that decision the highest truth utility because the residual process has made
+the current mechanistic choice unsafe to resolve from the candidate physical
+models alone.
+
+This makes the difference between a **surprise flag** and a **posterior
+discrepancy hypothesis** concrete. The flag only reports low predictive
+probability; a discrepancy-state hypothesis supplies a likelihood and can
+change the posterior and downstream decision.
+
+The control is deliberately simple and has an important limitation: the
+discrepancy-state prior and broad likelihood are specified by the benchmark
+author. This is not a learned discrepancy field, not a Gaussian process, not
+a proof that the true residual process is represented, and not a continuous
+physical model. An ill-calibrated catch-all component can absorb bad data or
+mask an incorrect measurement operator. The next phase must infer and
+calibrate discrepancy structure with data-dependent checks, distinguish it
+from observation error and parameter uncertainty, and test sensitivity to
+prior/likelihood choice. Never add a broad component merely to make model
+surprises disappear.
