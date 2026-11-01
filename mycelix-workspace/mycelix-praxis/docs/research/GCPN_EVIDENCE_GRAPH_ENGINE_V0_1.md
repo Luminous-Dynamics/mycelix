@@ -68,7 +68,7 @@ A payload digest by itself does not prove authenticity, authority or physical tr
 
 ## 5. Authored tests
 
-Seventeen Rust tests are included:
+Sixteen Rust tests are included:
 
 1. historical as-of snapshot excludes late arrivals;
 2. later-recorded revocation is not backdated into earlier knowledge;
