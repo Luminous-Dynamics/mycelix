@@ -3,7 +3,13 @@ use chrono::{DateTime, FixedOffset};
 use chrono::{Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{env, error::Error, fs, fs::OpenOptions, io::{self, Write}};
+use std::{
+    env,
+    error::Error,
+    fs,
+    fs::OpenOptions,
+    io::{self, Write},
+};
 
 const SUPPORTED_DT_SECONDS: i64 = 600;
 const BALANCE_TOLERANCE: f64 = 1.0e-10;
@@ -231,7 +237,6 @@ fn write_new_file_exact(path: &str, bytes: &[u8]) -> Result<(), io::Error> {
     output.sync_all()
 }
 
-
 fn finite_nonnegative(value: f64, label: &str) -> Result<(), String> {
     if !value.is_finite() || value < 0.0 {
         return Err(format!("{label} must be finite and non-negative"));
@@ -246,14 +251,19 @@ fn parse_utc(value: &str, label: &str) -> Result<DateTime<FixedOffset>, String> 
         return Err(format!("{label}: timestamp_utc must use a zero UTC offset"));
     }
     if parsed.timestamp() % SUPPORTED_DT_SECONDS != 0 || parsed.timestamp_subsec_nanos() != 0 {
-        return Err(format!("{label}: timestamp is not aligned to a 10-minute UTC boundary"));
+        return Err(format!(
+            "{label}: timestamp is not aligned to a 10-minute UTC boundary"
+        ));
     }
     Ok(parsed)
 }
 
 fn validate(input: &Input) -> Result<(Vec<ParsedForcing>, Pool, Pool), String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     if input.scenario_id.trim().is_empty() {
         return Err("scenario_id must not be blank".to_owned());
@@ -276,9 +286,18 @@ fn validate(input: &Input) -> Result<(Vec<ParsedForcing>, Pool, Pool), String> {
     }
     for (value, label) in [
         (p.macropore_inflow_fraction, "macropore_inflow_fraction"),
-        (p.matrix_drainage_fraction_per_step, "matrix_drainage_fraction_per_step"),
-        (p.macropore_drainage_fraction_per_step, "macropore_drainage_fraction_per_step"),
-        (p.interdomain_exchange_fraction_per_step, "interdomain_exchange_fraction_per_step"),
+        (
+            p.matrix_drainage_fraction_per_step,
+            "matrix_drainage_fraction_per_step",
+        ),
+        (
+            p.macropore_drainage_fraction_per_step,
+            "macropore_drainage_fraction_per_step",
+        ),
+        (
+            p.interdomain_exchange_fraction_per_step,
+            "interdomain_exchange_fraction_per_step",
+        ),
     ] {
         if !value.is_finite() || !(0.0..=1.0).contains(&value) {
             return Err(format!("{label} must be finite and within [0, 1]"));
@@ -296,7 +315,10 @@ fn validate(input: &Input) -> Result<(Vec<ParsedForcing>, Pool, Pool), String> {
         }
         ScenarioFamily::ConnectedMacropore => {
             if p.macropore_inflow_fraction <= 0.0 || !p.macropore_path_connected {
-                return Err("connected_macropore requires positive macropore partition and connected path".to_owned());
+                return Err(
+                    "connected_macropore requires positive macropore partition and connected path"
+                        .to_owned(),
+                );
             }
         }
         ScenarioFamily::DisconnectedMacropore => {
@@ -331,7 +353,9 @@ fn validate(input: &Input) -> Result<(Vec<ParsedForcing>, Pool, Pool), String> {
     if matches!(input.family, ScenarioFamily::MatrixOnly)
         && (initial.macropore_water_mm != 0.0 || initial.macropore_tracer_mg_m2 != 0.0)
     {
-        return Err("matrix_only requires zero initial macropore water and tracer storage".to_owned());
+        return Err(
+            "matrix_only requires zero initial macropore water and tracer storage".to_owned(),
+        );
     }
     if initial.matrix_water_mm == 0.0 && initial.matrix_tracer_mg_m2 > 0.0 {
         return Err("matrix tracer mass requires nonzero matrix water storage".to_owned());
@@ -344,12 +368,20 @@ fn validate(input: &Input) -> Result<(Vec<ParsedForcing>, Pool, Pool), String> {
     for (index, sample) in input.forcing.iter().enumerate() {
         let timestamp = parse_utc(&sample.timestamp_utc, &format!("forcing[{index}]"))?;
         finite_nonnegative(sample.rainfall_mm, &format!("forcing[{index}].rainfall_mm"))?;
-        finite_nonnegative(sample.potential_evaporation_mm, &format!("forcing[{index}].potential_evaporation_mm"))?;
-        finite_nonnegative(sample.rainfall_tracer_concentration_mg_l, &format!("forcing[{index}].rainfall_tracer_concentration_mg_l"))?;
+        finite_nonnegative(
+            sample.potential_evaporation_mm,
+            &format!("forcing[{index}].potential_evaporation_mm"),
+        )?;
+        finite_nonnegative(
+            sample.rainfall_tracer_concentration_mg_l,
+            &format!("forcing[{index}].rainfall_tracer_concentration_mg_l"),
+        )?;
         if index > 0 {
             let elapsed = timestamp.timestamp() - forcing[index - 1].timestamp.timestamp();
             if elapsed != SUPPORTED_DT_SECONDS {
-                return Err(format!("forcing[{index}] must be contiguous at 10-minute cadence; found {elapsed} seconds"));
+                return Err(format!(
+                    "forcing[{index}] must be contiguous at 10-minute cadence; found {elapsed} seconds"
+                ));
             }
         }
         forcing.push(ParsedForcing {
@@ -452,8 +484,11 @@ fn simulate(input: &Input, input_sha256: String) -> Result<Report, String> {
         let (macropore_capacity_overflow, macropore_capacity_overflow_tracer) =
             add_water_and_tracer(&mut macropore, macropore_rain, macropore_tracer_input);
 
-        let (matrix_to_macropore_exchange, macropore_to_matrix_exchange) =
-            exchange(&mut matrix, &mut macropore, p.interdomain_exchange_fraction_per_step);
+        let (matrix_to_macropore_exchange, macropore_to_matrix_exchange) = exchange(
+            &mut matrix,
+            &mut macropore,
+            p.interdomain_exchange_fraction_per_step,
+        );
 
         let (matrix_drainage, matrix_drainage_tracer) =
             drain(&mut matrix, p.matrix_drainage_fraction_per_step);
@@ -619,7 +654,12 @@ mod tests {
         (origin + Duration::minutes(minutes)).to_rfc3339()
     }
 
-    fn base(family: ScenarioFamily, macro_fraction: f64, connected: bool, exchange_fraction: f64) -> Input {
+    fn base(
+        family: ScenarioFamily,
+        macro_fraction: f64,
+        connected: bool,
+        exchange_fraction: f64,
+    ) -> Input {
         Input {
             schema_version: "0.1.0".to_owned(),
             scenario_id: "SYNTH-001".to_owned(),
@@ -640,12 +680,20 @@ mod tests {
                 matrix_tracer_mg_m2: 0.0,
                 macropore_tracer_mg_m2: 0.0,
             },
-            forcing: (0..12).map(|index| ForcingStep {
-                timestamp_utc: stamp(index * 10),
-                rainfall_mm: if index == 0 { 8.0 } else if index == 1 { 4.0 } else { 0.0 },
-                potential_evaporation_mm: if index > 2 { 0.1 } else { 0.0 },
-                rainfall_tracer_concentration_mg_l: 1.0,
-            }).collect(),
+            forcing: (0..12)
+                .map(|index| ForcingStep {
+                    timestamp_utc: stamp(index * 10),
+                    rainfall_mm: if index == 0 {
+                        8.0
+                    } else if index == 1 {
+                        4.0
+                    } else {
+                        0.0
+                    },
+                    potential_evaporation_mm: if index > 2 { 0.1 } else { 0.0 },
+                    rainfall_tracer_concentration_mg_l: 1.0,
+                })
+                .collect(),
         }
     }
 
@@ -691,11 +739,12 @@ mod tests {
     fn zero_outflow_has_no_flow_weighted_tracer_concentration() {
         let input = base(ScenarioFamily::MatrixOnly, 0.0, false, 0.0);
         let truth = simulate(&input, "b".repeat(64)).unwrap();
-        let observations =
-            boundary_observations(&input, &truth, "c".repeat(64));
+        let observations = boundary_observations(&input, &truth, "c".repeat(64));
         assert!(observations.observations.iter().any(|row| {
             row.total_boundary_outflow_mm == 0.0
-                && row.boundary_flow_weighted_tracer_concentration_mg_l.is_none()
+                && row
+                    .boundary_flow_weighted_tracer_concentration_mg_l
+                    .is_none()
         }));
     }
 
@@ -712,18 +761,22 @@ mod tests {
     #[test]
     fn matrix_only_rejects_hidden_interdomain_exchange() {
         let input = base(ScenarioFamily::MatrixOnly, 0.0, false, 0.2);
-        assert!(validate(&input)
-            .unwrap_err()
-            .contains("zero inter-domain exchange"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("zero inter-domain exchange")
+        );
     }
 
     #[test]
     fn matrix_only_rejects_initial_macropore_storage() {
         let mut input = base(ScenarioFamily::MatrixOnly, 0.0, false, 0.0);
         input.initial_state.macropore_water_mm = 1.0;
-        assert!(validate(&input)
-            .unwrap_err()
-            .contains("zero initial macropore water and tracer storage"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("zero initial macropore water and tracer storage")
+        );
     }
 
     #[test]
@@ -747,8 +800,7 @@ mod tests {
         let input = base(ScenarioFamily::DualDomainExchange, 0.3, true, 0.2);
         let report = simulate(&input, "d".repeat(64)).unwrap();
         assert!(report.steps.iter().any(|step| {
-            step.matrix_to_macropore_exchange_mm > 0.0
-                || step.macropore_to_matrix_exchange_mm > 0.0
+            step.matrix_to_macropore_exchange_mm > 0.0 || step.macropore_to_matrix_exchange_mm > 0.0
         }));
         assert!(report.max_abs_water_balance_residual_mm < BALANCE_TOLERANCE);
         assert!(report.max_abs_tracer_balance_residual_mg_m2 < BALANCE_TOLERANCE);
@@ -758,21 +810,39 @@ mod tests {
     fn repeated_storms_keep_stepwise_and_total_mass_balance() {
         let input = base(ScenarioFamily::DualDomainExchange, 0.3, true, 0.1);
         let report = simulate(&input, "e".repeat(64)).unwrap();
-        assert!(report.steps.iter().all(|step| step.water_balance_residual_mm.abs() < BALANCE_TOLERANCE));
-        assert!(report.steps.iter().all(|step| step.tracer_balance_residual_mg_m2.abs() < BALANCE_TOLERANCE));
+        assert!(
+            report
+                .steps
+                .iter()
+                .all(|step| step.water_balance_residual_mm.abs() < BALANCE_TOLERANCE)
+        );
+        assert!(
+            report
+                .steps
+                .iter()
+                .all(|step| step.tracer_balance_residual_mg_m2.abs() < BALANCE_TOLERANCE)
+        );
     }
 
     #[test]
     fn rejects_noncontiguous_forcing() {
         let mut input = base(ScenarioFamily::ConnectedMacropore, 0.3, true, 0.0);
         input.forcing[2].timestamp_utc = stamp(25);
-        assert!(validate(&input).unwrap_err().contains("contiguous at 10-minute cadence"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("contiguous at 10-minute cadence")
+        );
     }
 
     #[test]
     fn rejects_matrix_only_with_macropore_inflow() {
         let input = base(ScenarioFamily::MatrixOnly, 0.1, false, 0.0);
-        assert!(validate(&input).unwrap_err().contains("matrix_only requires"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("matrix_only requires")
+        );
     }
 
     #[test]
@@ -786,7 +856,10 @@ mod tests {
     fn preserves_scenario_family_as_separate_ground_truth() {
         let input = base(ScenarioFamily::DisconnectedMacropore, 0.3, false, 0.0);
         let report = simulate(&input, "f".repeat(64)).unwrap();
-        assert_eq!(report.scenario_family, ScenarioFamily::DisconnectedMacropore);
+        assert_eq!(
+            report.scenario_family,
+            ScenarioFamily::DisconnectedMacropore
+        );
         assert!(!report.true_macropore_path_connected);
         assert!(report.model_boundary.contains("not Richards"));
     }
