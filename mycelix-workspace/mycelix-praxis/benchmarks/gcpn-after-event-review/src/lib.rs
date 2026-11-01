@@ -719,7 +719,7 @@ mod tests {
             )]),
         };
         assert_eq!(
-            assess_causal_claim(&claim, &truth),
+            assess_causal_claim_against_known_dgp(&claim, &truth),
             CausalAssessment::CausalFieldsIncomplete
         );
     }
@@ -732,7 +732,7 @@ mod tests {
             supported_links: BTreeSet::new(),
         };
         assert_eq!(
-            assess_causal_claim(&claim, &truth),
+            assess_causal_claim_against_known_dgp(&claim, &truth),
             CausalAssessment::CausalEffectUnidentified
         );
     }
@@ -749,7 +749,7 @@ mod tests {
             )]),
         };
         assert_eq!(
-            assess_causal_claim(&claim, &truth),
+            assess_causal_claim_against_known_dgp(&claim, &truth),
             CausalAssessment::CausalClaimUnsupportedByKnownDgp
         );
     }
