@@ -132,22 +132,18 @@ fn parse_utc(
     Ok(parsed)
 }
 
-fn validate_theta(
-    theta: Option<f64>,
-    status: SampleStatus,
-    label: &str,
-) -> Result<(), String> {
+fn validate_theta(theta: Option<f64>, status: SampleStatus, label: &str) -> Result<(), String> {
     match (status, theta) {
         (SampleStatus::Missing, None) => Ok(()),
         (SampleStatus::Missing, Some(_)) => Err(format!(
             "{label}: missing status must have a null water-content value"
         )),
-        (SampleStatus::Observed | SampleStatus::LinearInterpolatedGapLt6h, None) => Err(
-            format!("{label}: observed/interpolated status requires a water-content value"),
-        ),
-        (_, Some(value)) if !value.is_finite() || !(0.0..=1.0).contains(&value) => {
-            Err(format!("{label}: water content must be finite and within [0, 1]"))
-        }
+        (SampleStatus::Observed | SampleStatus::LinearInterpolatedGapLt6h, None) => Err(format!(
+            "{label}: observed/interpolated status requires a water-content value"
+        )),
+        (_, Some(value)) if !value.is_finite() || !(0.0..=1.0).contains(&value) => Err(format!(
+            "{label}: water content must be finite and within [0, 1]"
+        )),
         (_, Some(_)) => Ok(()),
     }
 }
@@ -180,9 +176,7 @@ fn validate(
             return Err(format!("{label} must not be blank"));
         }
     }
-    if !(MIN_RESOLUTION_SECONDS..=MAX_RESOLUTION_SECONDS)
-        .contains(&input.time_resolution_seconds)
-    {
+    if !(MIN_RESOLUTION_SECONDS..=MAX_RESOLUTION_SECONDS).contains(&input.time_resolution_seconds) {
         return Err(format!(
             "time_resolution_seconds must be between {MIN_RESOLUTION_SECONDS} and {MAX_RESOLUTION_SECONDS}"
         ));
@@ -211,8 +205,8 @@ fn validate(
 
     let step = i64::from(input.time_resolution_seconds);
     let first_expected = event_start.clone() - Duration::seconds(step);
-    let expected_count = ((observation_end.timestamp() - first_expected.timestamp()) / step + 1)
-        as usize;
+    let expected_count =
+        ((observation_end.timestamp() - first_expected.timestamp()) / step + 1) as usize;
     let mut ids = HashSet::new();
     let mut parsed_sensors = Vec::with_capacity(input.sensors.len());
     let mut expected_times = Vec::with_capacity(expected_count);
@@ -222,7 +216,9 @@ fn validate(
 
     for (sensor_index, sensor) in input.sensors.iter().enumerate() {
         if sensor.sensor_id.trim().is_empty() {
-            return Err(format!("sensors[{sensor_index}].sensor_id must not be blank"));
+            return Err(format!(
+                "sensors[{sensor_index}].sensor_id must not be blank"
+            ));
         }
         if !ids.insert(sensor.sensor_id.as_str()) {
             return Err(format!("duplicate sensor_id {:?}", sensor.sensor_id));
@@ -417,7 +413,10 @@ fn run() -> Result<(), Box<dyn Error>> {
         ).into());
     }
     let threshold: f64 = args[3].parse().map_err(|error| {
-        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid threshold: {error}"))
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid threshold: {error}"),
+        )
     })?;
     let bytes = fs::read(&args[1])?;
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
@@ -430,10 +429,15 @@ fn run() -> Result<(), Box<dyn Error>> {
         .write(true)
         .create_new(true)
         .open(&args[2])
-        .map_err(|error| io::Error::new(
-            error.kind(),
-            format!("refusing overwrite or cannot create output {}: {error}", args[2]),
-        ))?;
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!(
+                    "refusing overwrite or cannot create output {}: {error}",
+                    args[2]
+                ),
+            )
+        })?;
     output.write_all(&encoded)?;
     output.write_all(b"\n")?;
     output.sync_all()?;
@@ -466,20 +470,23 @@ mod tests {
         onset_minute: Option<i64>,
         response_delta: f64,
     ) -> SensorSeries {
-        let observations = [-10, 0, 10, 20, 30, 40].into_iter().map(|minute| {
-            let theta = if Some(minute) == onset_minute {
-                0.20 + response_delta
-            } else if onset_minute.is_some_and(|onset| minute > onset) {
-                0.20 + response_delta
-            } else {
-                0.20
-            };
-            Observation {
-                timestamp_utc: stamp(minute),
-                volumetric_water_content_m3_m3: Some(theta),
-                status: SampleStatus::Observed,
-            }
-        }).collect();
+        let observations = [-10, 0, 10, 20, 30, 40]
+            .into_iter()
+            .map(|minute| {
+                let theta = if Some(minute) == onset_minute {
+                    0.20 + response_delta
+                } else if onset_minute.is_some_and(|onset| minute > onset) {
+                    0.20 + response_delta
+                } else {
+                    0.20
+                };
+                Observation {
+                    timestamp_utc: stamp(minute),
+                    volumetric_water_content_m3_m3: Some(theta),
+                    status: SampleStatus::Observed,
+                }
+            })
+            .collect();
         SensorSeries {
             sensor_id: sensor_id.to_owned(),
             depth_cm,
@@ -515,12 +522,18 @@ mod tests {
             evaluate(&input, "a".repeat(64), 0.01).unwrap();
         assert_eq!((detected, not_detected, indeterminate), (3, 0, 0));
         assert_eq!(output.schema_version, "0.3.0");
-        assert_eq!(output.sensors[0].response_onset_utc.as_deref(), Some(stamp(20).as_str()));
+        assert_eq!(
+            output.sensors[0].response_onset_utc.as_deref(),
+            Some(stamp(20).as_str())
+        );
         assert_eq!(
             output.sensors[0].response_onset_lower_bound_utc.as_deref(),
             Some(stamp(10).as_str())
         );
-        assert_eq!(output.sensors[1].response_onset_utc.as_deref(), Some(stamp(0).as_str()));
+        assert_eq!(
+            output.sensors[1].response_onset_utc.as_deref(),
+            Some(stamp(0).as_str())
+        );
     }
 
     #[test]
@@ -555,8 +568,7 @@ mod tests {
         ] {
             let mut input = fixture();
             input.sensors[0].condition = condition;
-            let (output, _, _, indeterminate) =
-                evaluate(&input, "d".repeat(64), 0.01).unwrap();
+            let (output, _, _, indeterminate) = evaluate(&input, "d".repeat(64), 0.01).unwrap();
             assert_eq!(indeterminate, 1);
             assert_eq!(output.sensors[0].response_status, "indeterminate");
         }
@@ -578,14 +590,17 @@ mod tests {
     fn rejects_sensor_series_with_a_missing_grid_bin() {
         let mut input = fixture();
         input.sensors[0].observations[2].timestamp_utc = stamp(15);
-        assert!(validate(&input).unwrap_err().contains("shared profile grid"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("shared profile grid")
+        );
     }
 
     #[test]
     fn rejects_non_utc_timestamps() {
         let mut input = fixture();
-        input.sensors[0].observations[0].timestamp_utc =
-            "2026-03-31T19:50:00-04:00".to_owned();
+        input.sensors[0].observations[0].timestamp_utc = "2026-03-31T19:50:00-04:00".to_owned();
         assert!(validate(&input).unwrap_err().contains("zero UTC offset"));
     }
 }
