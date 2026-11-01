@@ -155,7 +155,9 @@ fn nonblank(value: &str, label: &str) -> Result<(), String> {
 
 fn valid_sha256(value: &str, label: &str) -> Result<(), String> {
     if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(format!("{label} must contain exactly 64 hexadecimal characters"));
+        return Err(format!(
+            "{label} must contain exactly 64 hexadecimal characters"
+        ));
     }
     Ok(())
 }
@@ -164,7 +166,10 @@ fn validate(
     input: &Input,
 ) -> Result<(Vec<String>, Vec<String>, Vec<String>, Vec<String>, Vec<f64>), String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     nonblank(&input.study_label, "study_label")?;
     nonblank(&input.source_evidence_ref, "source_evidence_ref")?;
@@ -186,8 +191,14 @@ fn validate(
     let mut model_ids = BTreeSet::new();
     for (index, model) in input.models.iter().enumerate() {
         nonblank(&model.model_id, &format!("models[{index}].model_id"))?;
-        nonblank(&model.model_family, &format!("models[{index}].model_family"))?;
-        nonblank(&model.model_version, &format!("models[{index}].model_version"))?;
+        nonblank(
+            &model.model_family,
+            &format!("models[{index}].model_family"),
+        )?;
+        nonblank(
+            &model.model_version,
+            &format!("models[{index}].model_version"),
+        )?;
         nonblank(
             &model.implementation_evidence_ref,
             &format!("models[{index}].implementation_evidence_ref"),
@@ -201,7 +212,8 @@ fn validate(
         }
     }
 
-    let expected_models: BTreeSet<String> = model_ids.iter().map(|value| (*value).to_owned()).collect();
+    let expected_models: BTreeSet<String> =
+        model_ids.iter().map(|value| (*value).to_owned()).collect();
     let mut sample_ids = HashSet::new();
     let mut groups = BTreeSet::new();
     let mut ks_methods = BTreeSet::new();
@@ -215,9 +227,15 @@ fn validate(
             (&row.sample_id, "sample_id"),
             (&row.group_id, "group_id"),
             (&row.ks_measurement_method, "ks_measurement_method"),
-            (&row.ks_measurement_protocol_id, "ks_measurement_protocol_id"),
+            (
+                &row.ks_measurement_protocol_id,
+                "ks_measurement_protocol_id",
+            ),
             (&row.water_retention_method, "water_retention_method"),
-            (&row.water_retention_protocol_id, "water_retention_protocol_id"),
+            (
+                &row.water_retention_protocol_id,
+                "water_retention_protocol_id",
+            ),
             (&row.rac_method, "rac_method"),
             (&row.rac_evidence_ref, "rac_evidence_ref"),
         ] {
@@ -239,24 +257,34 @@ fn validate(
         ));
 
         if !row.rac_fraction.is_finite() || !(0.0..=1.0).contains(&row.rac_fraction) {
-            return Err(format!("observations[{index}].rac_fraction must be finite and within [0, 1]"));
+            return Err(format!(
+                "observations[{index}].rac_fraction must be finite and within [0, 1]"
+            ));
         }
         if !row.total_porosity_fraction.is_finite()
             || !(0.0..=1.0).contains(&row.total_porosity_fraction)
         {
-            return Err(format!("observations[{index}].total_porosity_fraction must be finite and within [0, 1]"));
+            return Err(format!(
+                "observations[{index}].total_porosity_fraction must be finite and within [0, 1]"
+            ));
         }
         if !row.actual_ks_m_per_s.is_finite() || row.actual_ks_m_per_s <= 0.0 {
-            return Err(format!("observations[{index}].actual_ks_m_per_s must be finite and strictly positive"));
+            return Err(format!(
+                "observations[{index}].actual_ks_m_per_s must be finite and strictly positive"
+            ));
         }
 
         let prediction_ids: BTreeSet<String> = row.predictions_m_per_s.keys().cloned().collect();
         if prediction_ids != expected_models {
-            return Err(format!("observations[{index}] model prediction roster differs from declared model roster"));
+            return Err(format!(
+                "observations[{index}] model prediction roster differs from declared model roster"
+            ));
         }
         for (model_id, prediction) in &row.predictions_m_per_s {
             if !prediction.is_finite() || *prediction <= 0.0 {
-                return Err(format!("observations[{index}].predictions_m_per_s[{model_id:?}] must be finite and strictly positive"));
+                return Err(format!(
+                    "observations[{index}].predictions_m_per_s[{model_id:?}] must be finite and strictly positive"
+                ));
             }
         }
         observed_log_ks.push(row.actual_ks_m_per_s.log10());
@@ -295,7 +323,10 @@ fn sample_std(values: &[f64]) -> f64 {
         return 0.0;
     }
     let mean = values.iter().sum::<f64>() / values.len() as f64;
-    let variance = values.iter().map(|value| (value - mean).powi(2)).sum::<f64>()
+    let variance = values
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f64>()
         / (values.len() - 1) as f64;
     variance.sqrt()
 }
@@ -311,15 +342,20 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
         ("porosity_le_40pct", "Total porosity <= 40%", 2usize),
         ("porosity_gt_40pct", "Total porosity > 40%", 3usize),
     ] {
-        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            let selected = match predicate {
-                0 => row.rac_fraction < RAC_BOUNDARY,
-                1 => row.rac_fraction >= RAC_BOUNDARY,
-                2 => row.total_porosity_fraction <= POROSITY_BOUNDARY,
-                _ => row.total_porosity_fraction > POROSITY_BOUNDARY,
-            };
-            selected.then_some(index)
-        }).collect();
+        let indices = input
+            .observations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| {
+                let selected = match predicate {
+                    0 => row.rac_fraction < RAC_BOUNDARY,
+                    1 => row.rac_fraction >= RAC_BOUNDARY,
+                    2 => row.total_porosity_fraction <= POROSITY_BOUNDARY,
+                    _ => row.total_porosity_fraction > POROSITY_BOUNDARY,
+                };
+                selected.then_some(index)
+            })
+            .collect();
         output.push((id.to_owned(), description.to_owned(), indices));
     }
 
@@ -330,13 +366,22 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
     for row in &input.observations {
         ks_methods.insert(row.ks_measurement_method.clone());
         retention_methods.insert(row.water_retention_method.clone());
-        ks_protocols.insert((row.ks_measurement_method.clone(), row.ks_measurement_protocol_id.clone()));
-        retention_protocols.insert((row.water_retention_method.clone(), row.water_retention_protocol_id.clone()));
+        ks_protocols.insert((
+            row.ks_measurement_method.clone(),
+            row.ks_measurement_protocol_id.clone(),
+        ));
+        retention_protocols.insert((
+            row.water_retention_method.clone(),
+            row.water_retention_protocol_id.clone(),
+        ));
     }
     for method in ks_methods {
-        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            (row.ks_measurement_method == method).then_some(index)
-        }).collect();
+        let indices = input
+            .observations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| (row.ks_measurement_method == method).then_some(index))
+            .collect();
         output.push((
             format!("ks_method::{method}"),
             format!("Ks measurement method: {method}"),
@@ -344,9 +389,12 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
         ));
     }
     for method in retention_methods {
-        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            (row.water_retention_method == method).then_some(index)
-        }).collect();
+        let indices = input
+            .observations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| (row.water_retention_method == method).then_some(index))
+            .collect();
         output.push((
             format!("water_retention_method::{method}"),
             format!("Water-retention method: {method}"),
@@ -355,10 +403,15 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
     }
 
     for (method, protocol) in ks_protocols {
-        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            (row.ks_measurement_method == method && row.ks_measurement_protocol_id == protocol)
-                .then_some(index)
-        }).collect();
+        let indices = input
+            .observations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| {
+                (row.ks_measurement_method == method && row.ks_measurement_protocol_id == protocol)
+                    .then_some(index)
+            })
+            .collect();
         output.push((
             format!("ks_protocol::{method}::{protocol}"),
             format!("Ks measurement protocol: {method} / {protocol}"),
@@ -366,10 +419,16 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
         ));
     }
     for (method, protocol) in retention_protocols {
-        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            (row.water_retention_method == method && row.water_retention_protocol_id == protocol)
-                .then_some(index)
-        }).collect();
+        let indices = input
+            .observations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| {
+                (row.water_retention_method == method
+                    && row.water_retention_protocol_id == protocol)
+                    .then_some(index)
+            })
+            .collect();
         output.push((
             format!("water_retention_protocol::{method}::{protocol}"),
             format!("Water-retention protocol: {method} / {protocol}"),
@@ -411,41 +470,78 @@ fn strata(input: &Input) -> Vec<(String, String, Vec<usize>)> {
         ));
     }
     for (rac_low, method) in cross_methods {
-        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            ((row.rac_fraction < RAC_BOUNDARY) == rac_low && row.ks_measurement_method == method)
-                .then_some(index)
-        }).collect();
+        let indices = input
+            .observations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| {
+                ((row.rac_fraction < RAC_BOUNDARY) == rac_low
+                    && row.ks_measurement_method == method)
+                    .then_some(index)
+            })
+            .collect();
         let rac = if rac_low { "RAC < 5%" } else { "RAC >= 5%" };
         output.push((
-            format!("{}::ks_method::{method}", if rac_low { "rac_lt_5pct" } else { "rac_ge_5pct" }),
+            format!(
+                "{}::ks_method::{method}",
+                if rac_low {
+                    "rac_lt_5pct"
+                } else {
+                    "rac_ge_5pct"
+                }
+            ),
             format!("{rac}; Ks measurement method: {method}"),
             indices,
         ));
     }
     for (rac_low, method, protocol) in cross_ks_protocols {
-        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            ((row.rac_fraction < RAC_BOUNDARY) == rac_low
-                && row.ks_measurement_method == method
-                && row.ks_measurement_protocol_id == protocol)
-                .then_some(index)
-        }).collect();
+        let indices = input
+            .observations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| {
+                ((row.rac_fraction < RAC_BOUNDARY) == rac_low
+                    && row.ks_measurement_method == method
+                    && row.ks_measurement_protocol_id == protocol)
+                    .then_some(index)
+            })
+            .collect();
         let rac = if rac_low { "RAC < 5%" } else { "RAC >= 5%" };
         output.push((
-            format!("{}::ks_protocol::{method}::{protocol}", if rac_low { "rac_lt_5pct" } else { "rac_ge_5pct" }),
+            format!(
+                "{}::ks_protocol::{method}::{protocol}",
+                if rac_low {
+                    "rac_lt_5pct"
+                } else {
+                    "rac_ge_5pct"
+                }
+            ),
             format!("{rac}; Ks protocol: {method} / {protocol}"),
             indices,
         ));
     }
     for (rac_low, method, protocol) in cross_wr_protocols {
-        let indices = input.observations.iter().enumerate().filter_map(|(index, row)| {
-            ((row.rac_fraction < RAC_BOUNDARY) == rac_low
-                && row.water_retention_method == method
-                && row.water_retention_protocol_id == protocol)
-                .then_some(index)
-        }).collect();
+        let indices = input
+            .observations
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| {
+                ((row.rac_fraction < RAC_BOUNDARY) == rac_low
+                    && row.water_retention_method == method
+                    && row.water_retention_protocol_id == protocol)
+                    .then_some(index)
+            })
+            .collect();
         let rac = if rac_low { "RAC < 5%" } else { "RAC >= 5%" };
         output.push((
-            format!("{}::water_retention_protocol::{method}::{protocol}", if rac_low { "rac_lt_5pct" } else { "rac_ge_5pct" }),
+            format!(
+                "{}::water_retention_protocol::{method}::{protocol}",
+                if rac_low {
+                    "rac_lt_5pct"
+                } else {
+                    "rac_ge_5pct"
+                }
+            ),
             format!("{rac}; water-retention protocol: {method} / {protocol}"),
             indices,
         ));
@@ -515,13 +611,8 @@ fn model_metrics(
 }
 
 fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
-    let (
-        ks_methods,
-        ks_protocols,
-        retention_methods,
-        retention_protocols,
-        observed_log_ks,
-    ) = validate(input)?;
+    let (ks_methods, ks_protocols, retention_methods, retention_protocols, observed_log_ks) =
+        validate(input)?;
     let sigma_y = sample_std(&observed_log_ks);
     let half_sigma_y = sigma_y * 0.5;
     let mut results = Vec::new();
@@ -530,11 +621,16 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         if indices.is_empty() {
             continue;
         }
-        let group_count = indices.iter().map(|index| input.observations[*index].group_id.as_str())
-            .collect::<BTreeSet<_>>().len();
-        let metrics = input.models.iter().map(|model| {
-            model_metrics(input, model, &indices, half_sigma_y)
-        }).collect();
+        let group_count = indices
+            .iter()
+            .map(|index| input.observations[*index].group_id.as_str())
+            .collect::<BTreeSet<_>>()
+            .len();
+        let metrics = input
+            .models
+            .iter()
+            .map(|model| model_metrics(input, model, &indices, half_sigma_y))
+            .collect();
         results.push(StratumResult {
             stratum_id,
             description,
@@ -581,7 +677,12 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         observed_log10_ks_sample_standard_deviation: sigma_y,
         half_sigma_y_log10_threshold: half_sigma_y,
         observation_count: input.observations.len(),
-        independent_group_count: input.observations.iter().map(|row| row.group_id.as_str()).collect::<BTreeSet<_>>().len(),
+        independent_group_count: input
+            .observations
+            .iter()
+            .map(|row| row.group_id.as_str())
+            .collect::<BTreeSet<_>>()
+            .len(),
         ks_measurement_methods: ks_methods,
         ks_measurement_protocols: ks_protocols,
         water_retention_methods: retention_methods,
@@ -595,7 +696,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
 
 fn ensure_distinct_paths(input: &Path, output: &Path) -> Result<(), Box<dyn Error>> {
     if output.exists() && fs::canonicalize(input)? == fs::canonicalize(output)? {
-        return Err("input and report resolve to the same file; refusing to overwrite source".into());
+        return Err(
+            "input and report resolve to the same file; refusing to overwrite source".into(),
+        );
     }
     Ok(())
 }
@@ -606,7 +709,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "usage: ks-regime-audit <held-out-ks-predictions.json> <new-report.json>",
-        ).into());
+        )
+        .into());
     }
     let input_path = Path::new(&args[1]);
     let output_path = Path::new(&args[2]);
@@ -618,14 +722,25 @@ fn run() -> Result<(), Box<dyn Error>> {
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let mut encoded = serde_json::to_vec_pretty(&report)?;
     encoded.push(b'\n');
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create report: {error}")))?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("refusing overwrite or cannot create report: {error}"),
+            )
+        })?;
     output.write_all(&encoded)?;
     output.sync_all()?;
     println!(
         "Ks regime audit complete: {} samples; {} groups; {} models; {} strata; input SHA-256 {}",
-        report.observation_count, report.independent_group_count,
-        report.model_declarations.len(), report.strata.len(), report.input_sha256
+        report.observation_count,
+        report.independent_group_count,
+        report.model_declarations.len(),
+        report.strata.len(),
+        report.input_sha256
     );
     Ok(())
 }
@@ -696,12 +811,60 @@ mod tests {
                 model("rosetta3", "pedotransfer_function", 'e'),
             ],
             observations: vec![
-                row("S1", "SITE-A", "falling_head", "pressure_plate", 0.08, 0.50, 1.0e-5),
-                row("S2", "SITE-A", "falling_head", "pressure_plate", 0.03, 0.40, 1.0e-6),
-                row("S3", "SITE-B", "steady_state", "hanging_column", 0.10, 0.35, 2.0e-5),
-                row("S4", "SITE-B", "steady_state", "hanging_column", 0.01, 0.30, 8.0e-7),
-                row("S5", "SITE-C", "falling_head", "pressure_plate", 0.07, 0.45, 4.0e-6),
-                row("S6", "SITE-D", "steady_state", "hanging_column", 0.02, 0.42, 3.0e-6),
+                row(
+                    "S1",
+                    "SITE-A",
+                    "falling_head",
+                    "pressure_plate",
+                    0.08,
+                    0.50,
+                    1.0e-5,
+                ),
+                row(
+                    "S2",
+                    "SITE-A",
+                    "falling_head",
+                    "pressure_plate",
+                    0.03,
+                    0.40,
+                    1.0e-6,
+                ),
+                row(
+                    "S3",
+                    "SITE-B",
+                    "steady_state",
+                    "hanging_column",
+                    0.10,
+                    0.35,
+                    2.0e-5,
+                ),
+                row(
+                    "S4",
+                    "SITE-B",
+                    "steady_state",
+                    "hanging_column",
+                    0.01,
+                    0.30,
+                    8.0e-7,
+                ),
+                row(
+                    "S5",
+                    "SITE-C",
+                    "falling_head",
+                    "pressure_plate",
+                    0.07,
+                    0.45,
+                    4.0e-6,
+                ),
+                row(
+                    "S6",
+                    "SITE-D",
+                    "steady_state",
+                    "hanging_column",
+                    0.02,
+                    0.42,
+                    3.0e-6,
+                ),
             ],
         }
     }
@@ -710,13 +873,41 @@ mod tests {
     fn computes_rac_porosity_and_measurement_method_strata() {
         let input = fixture();
         let report = evaluate(&input, "f".repeat(64)).unwrap();
-        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "rac_lt_5pct" && stratum.observations == 3));
-        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "rac_ge_5pct" && stratum.observations == 3));
-        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "porosity_le_40pct" && stratum.observations == 3));
-        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "ks_method::falling_head" && stratum.observations == 3));
-        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "ks_protocol::falling_head::KS-falling_head" && stratum.observations == 3));
-        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "rac_lt_5pct::ks_method::steady_state" && stratum.observations == 2));
-        assert!(report.strata.iter().any(|stratum| stratum.stratum_id == "rac_lt_5pct::ks_protocol::steady_state::KS-steady_state" && stratum.observations == 2));
+        assert!(
+            report
+                .strata
+                .iter()
+                .any(|stratum| stratum.stratum_id == "rac_lt_5pct" && stratum.observations == 3)
+        );
+        assert!(
+            report
+                .strata
+                .iter()
+                .any(|stratum| stratum.stratum_id == "rac_ge_5pct" && stratum.observations == 3)
+        );
+        assert!(
+            report
+                .strata
+                .iter()
+                .any(|stratum| stratum.stratum_id == "porosity_le_40pct"
+                    && stratum.observations == 3)
+        );
+        assert!(
+            report
+                .strata
+                .iter()
+                .any(|stratum| stratum.stratum_id == "ks_method::falling_head"
+                    && stratum.observations == 3)
+        );
+        assert!(report.strata.iter().any(|stratum| stratum.stratum_id
+            == "ks_protocol::falling_head::KS-falling_head"
+            && stratum.observations == 3));
+        assert!(report.strata.iter().any(|stratum| stratum.stratum_id
+            == "rac_lt_5pct::ks_method::steady_state"
+            && stratum.observations == 2));
+        assert!(report.strata.iter().any(|stratum| stratum.stratum_id
+            == "rac_lt_5pct::ks_protocol::steady_state::KS-steady_state"
+            && stratum.observations == 2));
     }
 
     #[test]
@@ -725,9 +916,21 @@ mod tests {
         input.observations[0].rac_fraction = 0.05;
         input.observations[0].total_porosity_fraction = 0.40;
         let report = evaluate(&input, "a".repeat(64)).unwrap();
-        let rac_low = report.strata.iter().find(|item| item.stratum_id == "rac_lt_5pct").unwrap();
-        let rac_high = report.strata.iter().find(|item| item.stratum_id == "rac_ge_5pct").unwrap();
-        let phi_low = report.strata.iter().find(|item| item.stratum_id == "porosity_le_40pct").unwrap();
+        let rac_low = report
+            .strata
+            .iter()
+            .find(|item| item.stratum_id == "rac_lt_5pct")
+            .unwrap();
+        let rac_high = report
+            .strata
+            .iter()
+            .find(|item| item.stratum_id == "rac_ge_5pct")
+            .unwrap();
+        let phi_low = report
+            .strata
+            .iter()
+            .find(|item| item.stratum_id == "porosity_le_40pct")
+            .unwrap();
         assert_eq!(rac_low.observations, 3);
         assert_eq!(rac_high.observations, 3);
         assert_eq!(phi_low.observations, 4);
@@ -750,24 +953,40 @@ mod tests {
         assert!(validate(&input).unwrap_err().contains("group_id"));
         let mut input = fixture();
         input.observations[1].sample_id = "S1".to_owned();
-        assert!(validate(&input).unwrap_err().contains("duplicate sample_id"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("duplicate sample_id")
+        );
         let mut input = fixture();
         input.observations[0].water_retention_method = "".to_owned();
-        assert!(validate(&input).unwrap_err().contains("water_retention_method"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("water_retention_method")
+        );
     }
 
     #[test]
     fn rejects_mismatched_model_rosters() {
         let mut input = fixture();
         input.observations[0].predictions_m_per_s.remove("rosetta3");
-        assert!(validate(&input).unwrap_err().contains("model prediction roster"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("model prediction roster")
+        );
     }
 
     #[test]
     fn uniform_method_track_requires_one_protocol_family_per_method() {
         let mut input = fixture();
         input.evaluation_track = EvaluationTrack::UniformMethod;
-        assert!(validate(&input).unwrap_err().contains("one Ks measurement method/protocol"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("one Ks measurement method/protocol")
+        );
     }
 
     #[test]
@@ -782,7 +1001,11 @@ mod tests {
             row.ks_measurement_protocol_id = "KS-FH-different-rig".to_owned();
             row.water_retention_protocol_id = "WR-PP-different-plate".to_owned();
         }
-        assert!(validate(&input).unwrap_err().contains("one Ks measurement method/protocol"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("one Ks measurement method/protocol")
+        );
     }
 
     #[test]
@@ -794,25 +1017,47 @@ mod tests {
             row.water_retention_method = "pressure_plate".to_owned();
             row.water_retention_protocol_id = "WR-PP-v1".to_owned();
         }
-        assert!(validate(&input).unwrap_err().contains("at least two distinct"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("at least two distinct")
+        );
     }
 
     #[test]
     fn output_records_low_group_strata_as_exploratory() {
         let report = evaluate(&fixture(), "f".repeat(64)).unwrap();
-        let low = report.strata.iter().find(|item| item.stratum_id == "rac_lt_5pct").unwrap();
-        assert_eq!(low.minimum_group_gate, "fewer_than_5_groups_exploratory_only");
+        let low = report
+            .strata
+            .iter()
+            .find(|item| item.stratum_id == "rac_lt_5pct")
+            .unwrap();
+        assert_eq!(
+            low.minimum_group_gate,
+            "fewer_than_5_groups_exploratory_only"
+        );
     }
 
     #[test]
     fn computes_paper_style_material_underprediction_on_log_residuals() {
         let mut input = fixture();
         for row in &mut input.observations {
-            row.predictions_m_per_s.insert("brooks_corey_integral".to_owned(), row.actual_ks_m_per_s * 0.1);
+            row.predictions_m_per_s.insert(
+                "brooks_corey_integral".to_owned(),
+                row.actual_ks_m_per_s * 0.1,
+            );
         }
         let report = evaluate(&input, "a".repeat(64)).unwrap();
-        let all = report.strata.iter().find(|item| item.stratum_id == "all").unwrap();
-        let model = all.model_metrics.iter().find(|item| item.model_id == "brooks_corey_integral").unwrap();
+        let all = report
+            .strata
+            .iter()
+            .find(|item| item.stratum_id == "all")
+            .unwrap();
+        let model = all
+            .model_metrics
+            .iter()
+            .find(|item| item.model_id == "brooks_corey_integral")
+            .unwrap();
         assert!(model.material_underprediction_fraction > 0.0);
         assert_eq!(model.material_overprediction_fraction, 0.0);
     }
