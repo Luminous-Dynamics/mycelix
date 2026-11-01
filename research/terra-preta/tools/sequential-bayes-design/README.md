@@ -103,6 +103,26 @@ rank/attribution and recovered coefficients, validates the report, and uploads
 the artifact. It is a structural covariance-design oracle, not a noisy
 variance estimator.
 
+## Exact joint state–parameter assimilation reference
+
+The `state_parameter_assimilation` module is an exact linear-Gaussian
+reference for jointly updating an augmented vector of physical state,
+hydraulic/exchange parameters, measurement bias and nuisance variables. It
+constructs the joint Gaussian `[z, y]` from the prior (z\sim N(\mu,P)),
+the observation operator (y=Hz+\epsilon), and noise covariance (R), then
+conditions on the observed y. It returns the posterior mean/covariance,
+cross-role covariance, innovation and log marginal likelihood.
+
+Controls cover an analytical scalar state+exchange-parameter update,
+preservation of posterior state/parameter correlation, (HPH^T+R)
+observation prediction, equivalence of sequential and batch updates under
+independent observation noise, correlated observation noise, and invalid
+operator/prior/observation inputs.
+
+This is an exact synthetic oracle, not an EnKF, particle filter, adjoint,
+Richards solver or empirical assimilation result. It is intended as a truth
+reference for comparing those approximations in #5658.
+
 ## Transient macropore–matrix exchange
 
 The `transient_exchange` module implements a time-resolved reference for
