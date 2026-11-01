@@ -6,7 +6,7 @@
   "required": [
     "schema_version", "data_class", "scenario_id", "scenario_sha256", "status",
     "candidate_count", "feasible_candidate_count", "budget_units", "sibson_alpha",
-    "requested_kl_radius_nats", "nominal_shannon_selection",
+    "requested_kl_radius_nats", "minimum_alpha", "alpha_bisection_iterations", "nominal_shannon_selection",
     "fixed_alpha_sibson_selection", "fixed_kl_radius_selection",
     "candidate_summaries", "limitations"
   ],
@@ -21,6 +21,8 @@
     "budget_units": { "type": "integer", "minimum": 0 },
     "sibson_alpha": { "type": "number" },
     "requested_kl_radius_nats": { "type": "number", "minimum": 0 },
+    "minimum_alpha": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 0.99999999 },
+    "alpha_bisection_iterations": { "type": "integer", "minimum": 1 },
     "nominal_shannon_selection": { "$ref": "#/$defs/selection" },
     "fixed_alpha_sibson_selection": { "$ref": "#/$defs/selection" },
     "fixed_kl_radius_selection": { "$ref": "#/$defs/selection" },
