@@ -105,7 +105,7 @@ Not implemented in this increment:
 - JSON serialization and frozen case-level output fixtures;
 - external statistical review.
 
-The first run should be a pilot, not confirmatory evidence. Confirmatory DGPs, seeds, outer sample counts, bootstrap counts and method definitions must be frozen before qualification.
+The branch now contains two separately coded exploratory Python pilot notes: `GCPN_FORECAST_COVERAGE_EXPLORATORY_PILOT_2026_11_01.md` compares case/event/system percentile and system basic intervals; `GCPN_FORECAST_COVERAGE_STUDENTIZED_PILOT_2026_11_01.md` adds the studentized candidate. Neither is Rust execution or confirmatory evidence. The latter suggests improved coverage for this one DGP but also over-covers at 40 clusters; it does not qualify the method. Confirmatory DGPs, seeds, outer sample counts, bootstrap counts and method definitions must be frozen before qualification.
 
 ## 6. Validation status
 
