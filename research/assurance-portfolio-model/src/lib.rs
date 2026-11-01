@@ -694,6 +694,127 @@ mod tests {
     }
 
     #[test]
+    fn exhaustive_required_role_product_rejects_every_non_current_or_non_supporting_pair() {
+        let outcomes = [
+            AssessmentOutcome::Supports,
+            AssessmentOutcome::Refutes,
+            AssessmentOutcome::Indeterminate,
+            AssessmentOutcome::OutOfScope,
+            AssessmentOutcome::Unavailable,
+        ];
+        let validities = [
+            EvidenceValidity::Current,
+            EvidenceValidity::Stale,
+            EvidenceValidity::Revoked,
+            EvidenceValidity::Invalid,
+        ];
+
+        let mut evaluated_states = 0usize;
+        for left_outcome in outcomes {
+            for left_validity in validities {
+                for right_outcome in outcomes {
+                    for right_validity in validities {
+                        let mut pair = required_pair();
+                        pair[0].outcome = left_outcome;
+                        pair[0].validity = left_validity;
+                        pair[1].outcome = right_outcome;
+                        pair[1].validity = right_validity;
+
+                        let result = compose(&profile(false), &pair).unwrap();
+                        let both_current_support = left_outcome == AssessmentOutcome::Supports
+                            && left_validity == EvidenceValidity::Current
+                            && right_outcome == AssessmentOutcome::Supports
+                            && right_validity == EvidenceValidity::Current;
+                        let expected = if both_current_support {
+                            CompositionDisposition::MeetsDeclaredProfile
+                        } else {
+                            CompositionDisposition::Indeterminate
+                        };
+
+                        assert_eq!(
+                            result.disposition, expected,
+                            "unexpected composition for left=({left_outcome:?}, {left_validity:?}), right=({right_outcome:?}, {right_validity:?})"
+                        );
+                        evaluated_states += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(evaluated_states, 400);
+    }
+
+    #[test]
+    fn composition_is_invariant_under_assessment_order() {
+        let pair = required_pair();
+        let forward = compose(&profile(false), &pair).unwrap();
+        let mut reverse_pair = pair;
+        reverse_pair.reverse();
+        let reversed = compose(&profile(false), &reverse_pair).unwrap();
+
+        assert_eq!(forward, reversed);
+    }
+
+    #[test]
+    fn stale_hard_invariant_refutation_is_not_misreported_as_a_current_refutation() {
+        let mut assessments = required_pair();
+        let mut stale_refutation = assessment(EvaluatorRole::InvariantChecker, 16, 6);
+        stale_refutation.outcome = AssessmentOutcome::Refutes;
+        stale_refutation.validity = EvidenceValidity::Stale;
+        assessments.push(stale_refutation);
+
+        let result = compose(&profile(true), &assessments).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(!has_reason(
+            &result,
+            CompositionReason::HardInvariantRefuted
+        ));
+        assert!(has_reason(
+            &result,
+            CompositionReason::NonCurrentEvidenceObserved
+        ));
+    }
+
+    #[test]
+    fn wrong_subject_refutation_cannot_refute_the_current_hard_invariant() {
+        let mut assessments = required_pair();
+        let mut old_subject_refutation =
+            assessment(EvaluatorRole::InvariantChecker, 17, 7);
+        old_subject_refutation.subject_digest = digest(98);
+        old_subject_refutation.outcome = AssessmentOutcome::Refutes;
+        assessments.push(old_subject_refutation);
+
+        let result = compose(&profile(true), &assessments).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(!has_reason(
+            &result,
+            CompositionReason::HardInvariantRefuted
+        ));
+        assert_eq!(result.wrong_subject_assessment_count, 1);
+    }
+
+    #[test]
+    fn repeated_exact_replays_preserve_profile_result_without_adding_corroboration() {
+        let pair = required_pair();
+        let mut replayed = pair.clone();
+        for _ in 0..5 {
+            replayed.extend(pair.clone());
+        }
+
+        let result = compose(&profile(false), &replayed).unwrap();
+        assert_eq!(
+            result.disposition,
+            CompositionDisposition::MeetsDeclaredProfile
+        );
+        assert_eq!(result.unique_assessment_count, 2);
+        assert_eq!(result.current_assessment_count, 2);
+        assert_eq!(result.duplicate_replay_count, 10);
+        assert!(has_reason(
+            &result,
+            CompositionReason::DuplicateReplaySuppressed
+        ));
+    }
+
+    #[test]
     fn invalid_profile_cannot_request_self_separation() {
         let mut invalid = profile(false);
         invalid.required_separations[0].right_role = EvaluatorRole::NormativeContract;
