@@ -42,7 +42,7 @@ impl NsrSignature {
             Self::NonsequentialResponseDetected => "nonsequential_response_detected",
             Self::NonsequentialSignatureIncompleteProfile => {
                 "nonsequential_signature_incomplete_profile"
-            },
+            }
             Self::MixedResponseOrdering => "mixed_response_ordering",
             Self::SequentialResponseOnly => "sequential_response_only",
             Self::SequentialAndSimultaneousResponse => "sequential_and_simultaneous_response",
@@ -57,7 +57,7 @@ impl NsrSignature {
             Self::IndeterminateNoDistinctDepthPair => "indeterminate_no_distinct_depth_pair",
             Self::IndeterminateIncompleteProfileWithoutNsr => {
                 "indeterminate_incomplete_profile_without_nsr"
-            },
+            }
         }
     }
 }
@@ -690,8 +690,8 @@ mod tests {
                 review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
                 quality_status: ReferenceQualityStatus::Qualified,
                 reviewer_evidence_ref_claimed: Some(
-                    "synthetic self-declared review reference".to_owned(),
-                ),
+                "synthetic self-declared review reference".to_owned(),
+            ),
                 evidence_ref: "synthetic tracer truth".to_owned(),
                 detection_limit_or_resolution: "arrival detected at lower boundary".to_owned(),
             }],
@@ -815,8 +815,8 @@ mod tests {
             review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
             quality_status: ReferenceQualityStatus::Qualified,
             reviewer_evidence_ref_claimed: Some(
-                    "synthetic self-declared review reference".to_owned(),
-                ),
+                "synthetic self-declared review reference".to_owned(),
+            ),
             evidence_ref: "synthetic dye map".to_owned(),
             detection_limit_or_resolution: "image pixel 1 mm".to_owned(),
         });
@@ -862,8 +862,8 @@ mod tests {
             review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
             quality_status: ReferenceQualityStatus::Qualified,
             reviewer_evidence_ref_claimed: Some(
-                    "synthetic self-declared review reference".to_owned(),
-                ),
+                "synthetic self-declared review reference".to_owned(),
+            ),
             evidence_ref: "duplicate".to_owned(),
             detection_limit_or_resolution: "unknown".to_owned(),
         });
