@@ -2,10 +2,60 @@
   "document_id": "GCPN-FORECAST-INFORMATION-NOISE",
   "version": "0.1.0",
   "status": "deterministic-known-truth-research-contract",
-  "required_contract": ["predictand_id", "unit", "climatology_id", "forecast_source_id", "forecast_source_version", "verification_source_id", "verification_source_version", "temporal_support_id", "spatial_support_digest", "evaluation_period_start", "as_of_cutoff"],
-  "required_case": ["case_id", "independent_system_id", "forecast_values", "verification_values", "climatology_values", "positive_cell_weights", "recorded_at"],
-  "diagnostics": ["raw_bias", "raw_rmse", "debiased_rmse", "forecast_activity", "truth_activity", "forecast_information", "information_error", "noise_error"],
-  "identity": "debiased_rmse_squared_equals_information_error_squared_plus_noise_error_squared",
-  "negative_controls": ["perfect_forecast", "orthogonal_noise", "smoothing_rmse_ie_tradeoff", "overactive_forecast", "negative_information", "zero_truth_norm", "weight_rescaling", "confirmatory_calibration_leakage"],
-  "claim_ceiling": ["no_forecast_generation", "no_calibrator_fitting", "no_operational_forecast_claim", "no_sota_superiority_claim", "no_universal_skill_metric"]
+  "required_contract": [
+    "predictand_id",
+    "unit",
+    "climatology_id",
+    "forecast_source_id",
+    "forecast_source_version",
+    "verification_source_id",
+    "verification_source_version",
+    "temporal_support_id",
+    "spatial_support_digest",
+    "evaluation_period_start",
+    "as_of_cutoff"
+  ],
+  "required_case": [
+    "case_id",
+    "independent_system_id",
+    "forecast_values",
+    "verification_values",
+    "climatology_values",
+    "positive_cell_weights",
+    "recorded_at"
+  ],
+  "diagnostics": [
+    "raw_bias",
+    "raw_rmse",
+    "forecast_anomaly_mean",
+    "truth_anomaly_mean",
+    "anomaly_centered_error_std",
+    "forecast_activity",
+    "truth_activity",
+    "forecast_information",
+    "information_error",
+    "noise_error"
+  ],
+  "identities": [
+    "anomaly_centered_error_std_squared_equals_information_error_squared_plus_noise_error_squared",
+    "raw_rmse_squared_equals_raw_bias_squared_plus_anomaly_centered_error_std_squared"
+  ],
+  "centering": "weighted_forecast_and_verification_anomaly_means_removed_separately",
+  "negative_controls": [
+    "perfect_forecast",
+    "orthogonal_noise",
+    "smoothing_rmse_ie_tradeoff",
+    "overactive_forecast",
+    "negative_information",
+    "zero_truth_norm",
+    "weight_rescaling",
+    "confirmatory_calibration_leakage"
+  ],
+  "claim_ceiling": [
+    "no_forecast_generation",
+    "no_calibrator_fitting",
+    "no_operational_forecast_claim",
+    "no_sota_superiority_claim",
+    "no_universal_skill_metric"
+  ]
 }
