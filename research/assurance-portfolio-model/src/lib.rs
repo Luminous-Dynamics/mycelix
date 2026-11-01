@@ -286,15 +286,10 @@ struct EvaluatorObservation {
     fault_domains: BTreeSet<FaultDomains>,
 }
 
-fn assessment_identity(
-    assessment: &Assessment,
-    dimension: FaultDomainDimension,
-) -> Option<Digest> {
+fn assessment_identity(assessment: &Assessment, dimension: FaultDomainDimension) -> Option<Digest> {
     match dimension {
         FaultDomainDimension::EvaluatorIdentity => Some(assessment.evaluator_digest),
-        FaultDomainDimension::EvaluatorProfileIdentity => {
-            Some(assessment.evaluator_profile_digest)
-        }
+        FaultDomainDimension::EvaluatorProfileIdentity => Some(assessment.evaluator_profile_digest),
         _ => assessment.fault_domains.identity(dimension),
     }
 }
