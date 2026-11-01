@@ -101,6 +101,8 @@ struct Report {
     budget_units: u64,
     sibson_alpha: f64,
     requested_kl_radius_nats: f64,
+    minimum_alpha: f64,
+    alpha_bisection_iterations: usize,
     nominal_shannon_selection: Option<SelectionRecord>,
     fixed_alpha_sibson_selection: Option<SelectionRecord>,
     fixed_kl_radius_selection: Option<SelectionRecord>,
@@ -231,6 +233,8 @@ fn build_report(scenario: &Scenario, input_bytes: &[u8]) -> Result<Report, Strin
         budget_units: scenario.budget_units,
         sibson_alpha: scenario.sibson_alpha,
         requested_kl_radius_nats: scenario.kl_radius_nats,
+        minimum_alpha: scenario.minimum_alpha,
+        alpha_bisection_iterations: scenario.alpha_bisection_iterations,
         nominal_shannon_selection: selection_record(nominal, 1.0),
         fixed_alpha_sibson_selection: selection_record(fixed_alpha, scenario.sibson_alpha),
         fixed_kl_radius_selection: fixed_radius.map(|(selection, score)| {
