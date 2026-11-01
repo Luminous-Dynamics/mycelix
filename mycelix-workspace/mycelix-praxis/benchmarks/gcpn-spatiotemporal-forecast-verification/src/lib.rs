@@ -55,7 +55,10 @@ pub fn threshold_brier(
     if !observation.is_finite() || !threshold.is_finite() {
         return Err("observation and threshold must be finite".into());
     }
-    let event_members = members.iter().filter(|member| **member >= threshold).count();
+    let event_members = members
+        .iter()
+        .filter(|member| **member >= threshold)
+        .count();
     let probability = event_members as f64 / members.len() as f64;
     let observed_event = observation >= threshold;
     let outcome = if observed_event { 1.0 } else { 0.0 };
@@ -251,7 +254,10 @@ pub fn validate_fair_comparison(
         }
         if record.case_key.issue_time >= record.case_key.valid_time
             || record.case_key.case_id.trim().is_empty()
-            || record.case_key.valid_time.checked_sub(record.case_key.issue_time)
+            || record
+                .case_key
+                .valid_time
+                .checked_sub(record.case_key.issue_time)
                 != Some(record.case_key.lead_seconds)
             || record.case_key.variable.trim().is_empty()
             || record.case_key.units.trim().is_empty()
@@ -263,7 +269,10 @@ pub fn validate_fair_comparison(
         validate_field_ensemble(&record.ensemble_members, &record.observation)?;
         let case = by_case.entry(record.case_key.clone()).or_default();
         if case.insert(record.model_id.clone(), record).is_some() {
-            return Err(format!("duplicate model record for case {}", record.case_key.case_id));
+            return Err(format!(
+                "duplicate model record for case {}",
+                record.case_key.case_id
+            ));
         }
     }
 
@@ -362,8 +371,14 @@ mod tests {
         let wrong_dependence = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
         let observation = [0.0, 0.0];
         let weights = [pair(0, 1, 1.0)];
-        assert_eq!(variogram_score(&correct, &observation, 1.0, &weights).unwrap(), 0.0);
-        assert_eq!(variogram_score(&wrong_dependence, &observation, 1.0, &weights).unwrap(), 1.0);
+        assert_eq!(
+            variogram_score(&correct, &observation, 1.0, &weights).unwrap(),
+            0.0
+        );
+        assert_eq!(
+            variogram_score(&wrong_dependence, &observation, 1.0, &weights).unwrap(),
+            1.0
+        );
     }
 
     #[test]
@@ -372,7 +387,8 @@ mod tests {
         let wrong = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
         let observation = [0.0, 0.0];
         for dimension in 0..2 {
-            let correct_marginal: Vec<f64> = correct.iter().map(|member| member[dimension]).collect();
+            let correct_marginal: Vec<f64> =
+                correct.iter().map(|member| member[dimension]).collect();
             let wrong_marginal: Vec<f64> = wrong.iter().map(|member| member[dimension]).collect();
             assert_eq!(
                 crps_ensemble(&correct_marginal, observation[dimension]).unwrap(),
@@ -401,16 +417,28 @@ mod tests {
     fn variogram_pairs_reject_duplicate_or_invalid_weights() {
         let members = vec![vec![0.0, 0.0], vec![1.0, 1.0]];
         let observation = [0.0, 0.0];
-        assert!(variogram_score(&members, &observation, 1.0, &[pair(0, 1, 1.0), pair(1, 0, 1.0)]).is_err());
+        assert!(
+            variogram_score(
+                &members,
+                &observation,
+                1.0,
+                &[pair(0, 1, 1.0), pair(1, 0, 1.0)]
+            )
+            .is_err()
+        );
         assert!(variogram_score(&members, &observation, 1.0, &[pair(0, 1, -1.0)]).is_err());
     }
 
     #[test]
     fn fair_comparison_accepts_identical_case_and_verification_vintage() {
         let report = validate_fair_comparison(
-            &[archive_record("model-a", "ERA5-v1"), archive_record("model-b", "ERA5-v1")],
+            &[
+                archive_record("model-a", "ERA5-v1"),
+                archive_record("model-b", "ERA5-v1"),
+            ],
             &["model-a".into(), "model-b".into()],
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(report.eligible_matched_case_count, 1);
         assert_eq!(report.excluded_case_keys_due_to_missing_models, 0);
     }
@@ -418,9 +446,13 @@ mod tests {
     #[test]
     fn fair_comparison_rejects_different_verification_sources() {
         let error = validate_fair_comparison(
-            &[archive_record("model-a", "IFS-analysis"), archive_record("model-b", "ERA5")],
+            &[
+                archive_record("model-a", "IFS-analysis"),
+                archive_record("model-b", "ERA5"),
+            ],
             &["model-a".into(), "model-b".into()],
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert!(error.contains("mixes verification sources"));
     }
 
@@ -434,7 +466,8 @@ mod tests {
         let report = validate_fair_comparison(
             &[incomplete, complete_a, complete_b],
             &["model-a".into(), "model-b".into()],
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(report.total_case_keys_seen, 2);
         assert_eq!(report.eligible_matched_case_count, 1);
         assert_eq!(report.excluded_case_keys_due_to_missing_models, 1);
