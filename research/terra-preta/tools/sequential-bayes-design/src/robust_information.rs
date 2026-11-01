@@ -498,6 +498,26 @@ pub struct RadiusRobustInformation {
     pub alpha_search_clamped: bool,
 }
 
+fn validate_kl_ambiguity_inputs(
+    radius_nats: f64,
+    minimum_alpha: f64,
+    iterations: usize,
+) -> Result<(), String> {
+    if !radius_nats.is_finite() || radius_nats < 0.0 {
+        return Err("KL ambiguity radius must be finite and non-negative".into());
+    }
+    if !minimum_alpha.is_finite()
+        || !(0.0..1.0).contains(&minimum_alpha)
+        || minimum_alpha >= 1.0 - 1e-8
+    {
+        return Err("minimum alpha must lie strictly between zero and 1 - 1e-8".into());
+    }
+    if iterations == 0 {
+        return Err("at least one bisection iteration is required".into());
+    }
+    Ok(())
+}
+
 /// Deterministic one-design maximin information reference for a KL radius.
 ///
 /// For each fixed candidate design, this inverts the q* KL cost to choose its
@@ -510,9 +530,7 @@ pub fn robust_information_at_kl_radius(
     minimum_alpha: f64,
     iterations: usize,
 ) -> Result<RadiusRobustInformation, String> {
-    if !radius_nats.is_finite() || radius_nats < 0.0 {
-        return Err("KL ambiguity radius must be finite and non-negative".into());
-    }
+    validate_kl_ambiguity_inputs(radius_nats, minimum_alpha, iterations)?;
     design.validate()?;
     if radius_nats == 0.0 {
         return Ok(RadiusRobustInformation {
@@ -571,6 +589,7 @@ pub fn select_discrete_design_at_kl_radius(
     minimum_alpha: f64,
     iterations: usize,
 ) -> Result<Option<(DiscreteDesignSelection, RadiusRobustInformation)>, String> {
+    validate_kl_ambiguity_inputs(radius_nats, minimum_alpha, iterations)?;
     let mut action_ids = BTreeSet::new();
     let mut best: Option<(DiscreteDesignSelection, RadiusRobustInformation)> = None;
     let mut feasible_candidate_count = 0;
@@ -639,6 +658,11 @@ pub fn select_discrete_design(
     budget_units: u64,
     objective: DesignInformationObjective,
 ) -> Result<Option<DiscreteDesignSelection>, String> {
+    if let DesignInformationObjective::SibsonAlpha(alpha) = objective {
+        if !alpha.is_finite() || !(0.0..1.0).contains(&alpha) {
+            return Err("Sibson alpha must be finite and strictly between zero and one".into());
+        }
+    }
     let mut action_ids = BTreeSet::new();
     let mut best: Option<DiscreteDesignSelection> = None;
     let mut feasible_candidate_count = 0;
@@ -748,6 +772,45 @@ mod tests {
                 ],
             },
         ]
+    }
+
+    #[test]
+    fn rejects_invalid_robust_objective_even_when_no_action_is_feasible() {
+        let mut candidates = robust_ranking_fixture();
+        for candidate in &mut candidates {
+            candidate.eligible = false;
+        }
+        assert!(select_discrete_design(
+            &["m0".into(), "m1".into()],
+            &[0.5, 0.5],
+            &candidates,
+            2,
+            DesignInformationObjective::SibsonAlpha(1.0),
+        ).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_kl_search_controls_even_at_zero_radius() {
+        let design = complementary_ct_tracer_pair();
+        assert!(robust_information_at_kl_radius(&design, 0.0, 1.0, 64).is_err());
+        assert!(robust_information_at_kl_radius(&design, 0.0, 0.05, 0).is_err());
+    }
+
+    #[test]
+    fn radius_selector_validates_controls_before_empty_feasible_pool() {
+        let mut candidates = robust_ranking_fixture();
+        for candidate in &mut candidates {
+            candidate.eligible = false;
+        }
+        assert!(select_discrete_design_at_kl_radius(
+            &["m0".into(), "m1".into()],
+            &[0.5, 0.5],
+            &candidates,
+            2,
+            0.1,
+            1.0,
+            64,
+        ).is_err());
     }
 
     #[test]
