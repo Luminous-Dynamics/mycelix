@@ -490,7 +490,7 @@ fn selected_stratum_count(
     stratum_id: &str,
 ) -> usize {
     selected_ids.iter().filter(|selected_id| actions.iter().any(|action| {
-        action.action_id == **selected_id && action.stratum_id == stratum_id
+        action.action_id.as_str() == selected_id.as_str() && action.stratum_id == stratum_id
     })).count()
 }
 
@@ -542,17 +542,16 @@ fn next_action<'a>(
             if matches!(policy, Policy::SeededRandom) {
                 return deterministic_u64(seed, replicate, step, &action.action_id) as f64;
             }
-            let (basis, multiplier) = match policy {
-                Policy::StaticEig => (eig(action, initial_posterior), 1.0),
-                Policy::ConditionalEig => (eig(action, posterior), 1.0),
-                Policy::DecisionEvsi => (evsi(action, posterior, decisions), 1.0),
+            let acquisition = match policy {
+                Policy::StaticEig => eig(action, initial_posterior),
+                Policy::ConditionalEig => eig(action, posterior),
+                Policy::DecisionEvsi => evsi(action, posterior, decisions),
                 Policy::DiscrepancyGuardedEvsi => {
-                    (evsi(action, posterior, decisions) + 0.05 * eig(action, posterior), 1.0)
+                    evsi(action, posterior, decisions) + 0.05 * eig(action, posterior)
                 }
-                Policy::SeededRandom => (0.0, 1.0),
+                Policy::SeededRandom => 0.0,
             };
-            let _ = multiplier;
-            basis / f64::from(action.cost_units)
+            acquisition / f64::from(action.cost_units)
         };
         score(b).total_cmp(&score(a))
             .then_with(|| a.cost_units.cmp(&b.cost_units))
@@ -835,8 +834,9 @@ mod tests {
         let (updated, probability) = posterior_after(tracer, &prior, 2);
         assert!(probability < context.predictive_surprise_threshold);
         let chosen = next_action(
-            &context, &actions, &decisions, &["B_SANDY_EVENT_TRACER".into()],
-            1, &updated, &prior, Policy::DiscrepancyGuardedEvsi,
+            &context, &actions, &decisions,
+            &["B_SANDY_EVENT_TRACER".into(), "D_WEATHERED_RETENTION".into()],
+            2, &updated, &prior, Policy::DiscrepancyGuardedEvsi,
             true, 7, 0, 1,
         ).unwrap();
         assert!(chosen.diagnostic_action);
