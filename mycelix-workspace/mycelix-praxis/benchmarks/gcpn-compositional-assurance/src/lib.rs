@@ -311,15 +311,15 @@ impl Scenario {
             if requirement.minimum_independent_supporting_lineages == 0 {
                 return Err("minimum independent lineages must be at least one".into());
             }
-            if let Some(source) = &requirement.expected_source {
-                if !valid_identifier(source) {
-                    return Err("expected source must be a canonical identifier".into());
-                }
+            if let Some(source) = &requirement.expected_source
+                && !valid_identifier(source)
+            {
+                return Err("expected source must be a canonical identifier".into());
             }
-            if let Some(version) = &requirement.expected_version {
-                if !valid_identifier(version) {
-                    return Err("expected version must be a canonical identifier".into());
-                }
+            if let Some(version) = &requirement.expected_version
+                && !valid_identifier(version)
+            {
+                return Err("expected version must be a canonical identifier".into());
             }
             if !requirement_keys.insert((requirement.stage, requirement.claim_id.as_str())) {
                 return Err("duplicate stage/claim requirement".into());
@@ -564,14 +564,13 @@ impl Scenario {
             }
         }
 
-        if let Some(verification) = &self.facts.verification {
-            if verification
+        if let Some(verification) = &self.facts.verification
+            && verification
                 .observed_cases
                 .checked_add(verification.typed_missing_cases)
                 != Some(verification.eligible_cases)
-            {
-                violations.insert(ViolationCode::PopulationAccountingMismatch);
-            }
+        {
+            violations.insert(ViolationCode::PopulationAccountingMismatch);
         }
 
         if let Some(pairing) = &self.facts.paired_comparison {
@@ -585,36 +584,34 @@ impl Scenario {
             }
         }
 
-        if let Some(causal) = &self.facts.causal_claim {
-            if causal.claim_made
-                && (causal
-                    .identification_method_id
+        if let Some(causal) = &self.facts.causal_claim
+            && causal.claim_made
+            && (causal
+                .identification_method_id
+                .as_ref()
+                .is_none_or(|value| value.trim().is_empty())
+                || causal
+                    .design_id
                     .as_ref()
                     .is_none_or(|value| value.trim().is_empty())
-                    || causal
-                        .design_id
-                        .as_ref()
-                        .is_none_or(|value| value.trim().is_empty())
-                    || causal.supporting_evidence_ids.is_empty())
-            {
-                violations.insert(ViolationCode::UnsupportedCausalClaim);
-            }
+                || causal.supporting_evidence_ids.is_empty())
+        {
+            violations.insert(ViolationCode::UnsupportedCausalClaim);
         }
 
-        if let Some(post_processing) = &self.facts.post_processing {
-            if post_processing.intrinsic_skill_claim
-                && (post_processing.calibration_uses_evaluation_outcomes
-                    || matches!(
-                        (
-                            post_processing.calibration_trained_through,
-                            post_processing.evaluation_period_start
-                        ),
-                        (Some(trained_through), Some(evaluation_start))
-                            if trained_through >= evaluation_start
-                    ))
-            {
-                violations.insert(ViolationCode::PostprocessingOutcomeLeakage);
-            }
+        if let Some(post_processing) = &self.facts.post_processing
+            && post_processing.intrinsic_skill_claim
+            && (post_processing.calibration_uses_evaluation_outcomes
+                || matches!(
+                    (
+                        post_processing.calibration_trained_through,
+                        post_processing.evaluation_period_start
+                    ),
+                    (Some(trained_through), Some(evaluation_start))
+                        if trained_through >= evaluation_start
+                ))
+        {
+            violations.insert(ViolationCode::PostprocessingOutcomeLeakage);
         }
 
         violations
@@ -1186,7 +1183,7 @@ mod tests {
 
     #[test]
     fn record_order_does_not_change_canonical_result() {
-        let mut first = scenario();
+        let first = scenario();
         let mut second = first.clone();
         second.evidence.reverse();
         second.requirements.reverse();
