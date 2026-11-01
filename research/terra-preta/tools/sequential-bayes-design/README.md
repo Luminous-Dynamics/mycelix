@@ -60,6 +60,23 @@ DIAGNOSE_FIRST at the preregistered synthetic threshold. This is sensitivity
 analysis for an author-specified state, not empirical prior calibration.
 
 
+## Stable observation identities and append-only history
+
+The library now includes `observation_history` with a canonical
+`ObservationLayout` (stable coordinate ID, modality, physical support ID and
+unit), `ObservationAction` (the coordinates produced by one acquisition),
+and append-only `ObservationHistory`. It resolves stable IDs to covariance
+indices in the correct value order, rejects unknown/duplicate coordinates,
+rejects repeated acquisitions under the same coordinate identity, and rejects
+dimension mismatch or non-finite measurements before returning a new history.
+A repeated measurement must have a new coordinate identity. Support metadata
+is retained as metadata; support overlap is not translated into a correlation
+coefficient.
+
+This makes the matrix-to-measurement mapping explicit, but does not yet attach
+these types to the CLI selector or derive a covariance model from support
+relationships.
+
 ## Correlated continuous-likelihood posterior component
 
 The crate also exposes `multivariate_gaussian`, a dense-covariance
