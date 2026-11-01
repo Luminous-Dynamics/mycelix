@@ -1,0 +1,62 @@
+{
+  "document_id": "GCPN-VERIFICATION-ASCERTAINMENT",
+  "version": "0.1.0",
+  "status": "synthetic-research-contract",
+  "target_frame": {
+    "required": ["target_frame_id", "as_of_cutoff", "eligible_case_ids", "independent_system_id", "predeclared_stratum_id"],
+    "no_person_level_records": true
+  },
+  "verification": {
+    "required": ["verification_source", "verification_version", "recorded_at"],
+    "typed_missing_reasons": [
+      "pending_at_cutoff",
+      "not_collected",
+      "sensor_unavailable",
+      "communication_unavailable",
+      "quality_rejected",
+      "disputed",
+      "access_constrained",
+      "unknown_reason"
+    ],
+    "missing_is_negative": false,
+    "missing_score_is_zero": false
+  },
+  "estimands": {
+    "complete_case_mean": "descriptive_of_verified_cases",
+    "finite_frame_bounds": "sharp_given_declared_score_bounds",
+    "horvitz_thompson": "conditional_on_declared_positive_inclusion_probabilities_and_exchangeability",
+    "hajek": "conditional_on_declared_positive_inclusion_probabilities_and_exchangeability",
+    "pattern_mixture": "caller_supplied_delta_grid_only"
+  },
+  "required_diagnostics": [
+    "eligible_observed_missing_counts",
+    "coverage_by_stratum",
+    "missing_reason_counts",
+    "score_bounds",
+    "propensity_model_id",
+    "positivity_floor",
+    "maximum_inverse_weight",
+    "effective_sample_size",
+    "as_of_cutoff",
+    "verification_source_version"
+  ],
+  "negative_controls": [
+    "missing_to_negative_rejected",
+    "missing_to_zero_rejected",
+    "post_cutoff_observation_rejected",
+    "zero_propensity_ipw_refused",
+    "incomplete_propensity_ipw_refused",
+    "all_missing_stratum_has_no_point_estimate",
+    "paired_case_mismatch_rejected",
+    "source_version_mismatch_rejected",
+    "sensitivity_delta_not_auto_selected"
+  ],
+  "claim_ceiling": [
+    "no_forecast_generation",
+    "no_operational_warning",
+    "no_causal_effect_estimate",
+    "no_mnar_identification",
+    "no_population_tracking",
+    "no_sota_superiority_claim"
+  ]
+}
