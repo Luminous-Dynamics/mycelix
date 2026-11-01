@@ -1,0 +1,145 @@
+{
+  "evaluation_id": "GCPN-INTEGRATED-SYNTHETIC-EVALUATION",
+  "version": "0.5.0",
+  "status": "synthetic-composition-only",
+  "component_packages": [
+    {
+      "name": "gcpn-civil-conformance",
+      "version": "0.1.1",
+      "fixture": "gcpn-001-v0.1.1.csv",
+      "fnv1a64": "0x8e5118bf74fc7b13"
+    },
+    {
+      "name": "gcpn-topology-resilience",
+      "version": "0.1.0",
+      "fixture": "topology-fault-matrix-v0.1.csv",
+      "fnv1a64": "0xe6f6679f94c93e31"
+    },
+    {
+      "name": "gcpn-last-mile",
+      "version": "0.1.0",
+      "fixtures": [
+        {
+          "name": "receiver-cohorts-v0.1.csv",
+          "fnv1a64": "0x59f956045ca16c3d"
+        },
+        {
+          "name": "channel-fault-matrix-v0.1.csv",
+          "fnv1a64": "0x2a7269d9a7d4caee"
+        }
+      ]
+    },
+    {
+      "name": "gcpn-warning-to-action",
+      "version": "0.1.1",
+      "fixture": "action-chain-v0.1.1.csv",
+      "fnv1a64": "0x4084062a6c04598f"
+    },
+    {
+      "name": "gcpn-forecast-calibration",
+      "version": "0.2.0",
+      "fixture": "forecast-cases-v0.1.csv",
+      "fnv1a64": "0x81af0b6779196770",
+      "fixtures": [
+        {
+          "name": "forecast-cases-v0.1.csv",
+          "fnv1a64": "0x81af0b6779196770"
+        },
+        {
+          "name": "forecast-drift-v0.1.csv",
+          "record_count": 90,
+          "profiles": 3,
+          "first_cusum_crossings": {
+            "stable_control": null,
+            "gradual_calibration_drift": 28,
+            "abrupt_calibration_shift": 19
+          }
+        }
+      ]
+    },
+    {
+      "name": "gcpn-lifecycle-cost",
+      "version": "0.1.0",
+      "fixtures": [
+        {
+          "name": "lifecycle-cost-profile-v0.1.csv",
+          "fnv1a64": "0x52072da4d6fb1ba6"
+        },
+        {
+          "name": "service-outcomes-v0.1.csv",
+          "fnv1a64": "0x376c727b26d887aa"
+        }
+      ]
+    }
+  ],
+  "baseline_cost_assumptions": {
+    "service_horizon_years": 5,
+    "real_discount_rate": 0.05,
+    "unit": "synthetic-unit-not-currency",
+    "centralized_base_lifecycle_pv": 28026.378583683407,
+    "regional_base_lifecycle_pv": 31443.190239418658,
+    "local_first_base_lifecycle_pv": 38847.468928902585,
+    "zero_accessible_reach_unit_cost": null
+  },
+  "non_compensatory_gates": [
+    "civil_record_integrity",
+    "topology_authority_and_continuity",
+    "last_mile_unique_and_accessible_reach",
+    "warning_to_action_evidence_oracle",
+    "forecast_verification_and_subgroup_regression",
+    "lifecycle_cost_ranges_and_accessible_receiver_unit_costs",
+    "funded_action_positive_control",
+    "unfunded_action_positive_control",
+    "authorized_abstention_positive_control",
+    "forecast_brier_decomposition_identity",
+    "forecast_chronological_drift_regression"
+  ],
+  "forbidden_composite": "weighted_quality_score_or_automatic_architecture_winner",
+  "non_claims": [
+    "no_live_alert_dispatch",
+    "no_live_forecasts_or_hazard_predictions",
+    "no_alert_threshold_selection",
+    "no_resource_or_fund_release",
+    "no_real_population_coverage_claim",
+    "no_causal_lives_saved_claim",
+    "no_market_price_or_procurement_estimate",
+    "no_national_budget_or_investment_recommendation",
+    "no_replacement_for_national_warning_authorities_sadc_shoc_or_amhewas",
+    "nrvdef_is_a_separate_evidence_and_treaty-boundary-programme"
+  ],
+  "baseline_staffing_assumptions": {
+    "annual_staff_hours": {
+      "centralized": 1600,
+      "regional": 1950,
+      "local_first": 2400
+    },
+    "staff_hours_over_five_year_horizon": {
+      "centralized": 8000,
+      "regional": 9750,
+      "local_first": 12000
+    },
+    "note": "Synthetic staffing assumptions; no wage or salary rate is inferred."
+  },
+  "forecast_verification_v0_2": {
+    "brier_decomposition": "murphy-exact-distinct-issued-probability",
+    "terms": [
+      "reliability",
+      "resolution",
+      "uncertainty",
+      "reconstruction_residual"
+    ],
+    "fixed_bin_ece_remains_separate": true,
+    "drift_diagnostics": {
+      "window_size": 5,
+      "cusum_allowance": 0.1,
+      "cusum_threshold": 3,
+      "minimum_observations": 5,
+      "first_crossing_sequence": {
+        "stable_control": null,
+        "gradual_calibration_drift": 28,
+        "abrupt_calibration_shift": 19
+      },
+      "non_operational": true
+    }
+  }
+}
