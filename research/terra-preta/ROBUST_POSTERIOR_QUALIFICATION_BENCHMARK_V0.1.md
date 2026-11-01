@@ -256,3 +256,10 @@ This creates an executable finite comparator. It is still one-step deterministic
 ### Robust report provenance refinement — 2026-11-01
 
 The executable report now records `minimum_alpha` and `alpha_bisection_iterations` alongside the requested KL radius and fixed-alpha objective. These search controls affect whether a candidate's ambiguity radius is attained or clamped, so they are part of the evidence record and required by the report schema.
+
+
+## 18. Zero-KL perfect-measurement edge case — 2026-11-01
+
+A fixed-design KL-radius audit identified that (D_{KL}(q^*\|p)=0) does not imply zero measurement information. For a deterministic perfectly discriminating observation, the q* joint can equal the nominal joint (hence zero ambiguity cost) while Sibson MI remains (H(M)>0). The previous edge branch incorrectly returned zero information whenever the maximum q* KL cost was zero.
+
+The implementation now evaluates Sibson MI at `minimum_alpha` and marks a positive requested radius as clamped/unattainable. An uninformative action still returns zero MI; a perfect binary measurement returns (ln 2) nats under the same zero-KL condition. Dedicated regression tests distinguish these cases. This is an important fail-closed interpretation: zero ambiguity movement is not evidence of zero information.
