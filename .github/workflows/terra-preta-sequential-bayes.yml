@@ -54,6 +54,7 @@ jobs:
           jq -e '
             .status == "synthetic_sequential_bayesian_benchmark_only" and
             .replicate_count == 128 and
+            .validation_probe_count == 2 and
             (.policy_summaries | length == 5) and
             all(.policy_summaries[];
               .replicate_count == 128 and
@@ -62,6 +63,10 @@ jobs:
               .mean_predictive_log_score >= 0 and
               .mean_predictive_brier_score >= 0 and
               .mean_predictive_brier_score <= 2 and
+              .mean_heldout_validation_log_score >= 0 and
+              .mean_heldout_validation_brier_score >= 0 and
+              .mean_heldout_validation_brier_score <= 2 and
+              (.validation_by_stratum | length == 2) and
               all(.selected_action_frequency[]; .selection_rate >= 0 and .selection_rate <= 1))
           ' "$RUNNER_TEMP/sequential-bayes-report.json"
           jq -e '
@@ -71,8 +76,13 @@ jobs:
           jq -e '
             .scenario_id == "dual-permeability-in-family-calibration-control-v0" and
             .replicate_count == 128 and
+            .validation_probe_count == 2 and
             (.policy_summaries | length == 5) and
-            all(.policy_summaries[]; .mean_surprise_events < 0.2)
+            all(.policy_summaries[];
+              .mean_surprise_events < 0.2 and
+              .mean_heldout_validation_log_score >= 0 and
+              .mean_heldout_validation_brier_score >= 0 and
+              .mean_heldout_validation_brier_score <= 2)
           ' "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
       - name: Validate both report schemas
         run: |
