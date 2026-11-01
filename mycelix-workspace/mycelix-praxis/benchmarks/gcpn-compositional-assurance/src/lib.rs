@@ -8,7 +8,7 @@
 //! The canonical FNV-1a fingerprint is for reproducibility diagnostics only;
 //! it is not a cryptographic attestation or a security boundary.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Stage {
@@ -449,7 +449,9 @@ impl Scenario {
                 violations.insert(ViolationCode::InsufficientIndependentEvidence);
             }
 
-            let disposition = if supporting_records > 0 && refuting_records > 0 {
+            let disposition = if matching.is_empty() {
+                ClaimDisposition::Unavailable
+            } else if supporting_records > 0 && refuting_records > 0 {
                 ClaimDisposition::Indeterminate
             } else if refuting_records > 0 {
                 ClaimDisposition::Refutes
@@ -636,7 +638,7 @@ impl AuditReport {
                 .collect::<Vec<_>>()
                 .join(",");
             lines.push(format!(
-                "claim\t{}\t{}\t{}\t{}\t{}\t{}",
+                "claim\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                 claim.stage.label(),
                 claim.claim_id,
                 claim.disposition.label(),
