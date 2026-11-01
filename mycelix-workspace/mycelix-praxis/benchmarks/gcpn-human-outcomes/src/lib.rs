@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 pub const FIXTURE: &str = include_str!("../fixtures/message-comprehension-v0.1.csv");
 pub const HEADER: &str = "scenario_id,profile_id,message_variant,trials,accessible_trials,comprehension_correct,action_intent_correct,uncertainty_understood,false_certainty,median_response_seconds,p90_response_seconds";
-pub const EXPECTED_FNV1A64: u64 = 0xf784_d7e5_9e19_e31f;
+pub const EXPECTED_FNV1A64: u64 = 0x019e_77ce_c7c2_246c;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum InteractionProfile {
