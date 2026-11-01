@@ -402,10 +402,13 @@ pub fn compose(
         }
     }
 
-    let disposition = if reasons.is_empty() {
-        CompositionDisposition::MeetsDeclaredProfile
-    } else {
+    let has_blocking_reason = reasons
+        .iter()
+        .any(|reason| *reason != CompositionReason::DuplicateReplaySuppressed);
+    let disposition = if has_blocking_reason {
         CompositionDisposition::Indeterminate
+    } else {
+        CompositionDisposition::MeetsDeclaredProfile
     };
 
     Ok(report(
