@@ -109,8 +109,7 @@ impl ForecastCase {
     /// Negative values favour the candidate.
     pub fn paired_brier_difference(&self) -> f64 {
         let y = if self.outcome { 1.0 } else { 0.0 };
-        (self.candidate_probability - y).powi(2)
-            - (self.reference_probability - y).powi(2)
+        (self.candidate_probability - y).powi(2) - (self.reference_probability - y).powi(2)
     }
 }
 
@@ -277,10 +276,9 @@ pub fn analytic_truth(config: &DgpConfig) -> Result<PopulationTruth, String> {
         config.reference_probability,
     );
     let expected_cases = (1.0 - p_high) * low_cases + p_high * high_cases;
-    let expected_difference = (1.0 - p_high) * low_cases * delta_low
-        + p_high * high_cases * delta_high;
-    let system_weighted =
-        (1.0 - p_high) * delta_low + p_high * delta_high;
+    let expected_difference =
+        (1.0 - p_high) * low_cases * delta_low + p_high * high_cases * delta_high;
+    let system_weighted = (1.0 - p_high) * delta_low + p_high * delta_high;
 
     Ok(PopulationTruth {
         case_weighted: expected_difference / expected_cases,
@@ -628,7 +626,8 @@ pub fn studentized_system_bootstrap_interval(
     if studentized.len() < minimum_valid {
         return Err(format!(
             "studentized bootstrap has too many degenerate replicates: valid={}, requested={}, minimum_valid={minimum_valid}",
-            studentized.len(), replicates
+            studentized.len(),
+            replicates
         ));
     }
     studentized.sort_by(f64::total_cmp);
@@ -672,10 +671,11 @@ fn wilson_interval(successes: usize, trials: usize) -> (f64, f64) {
     let z2 = WILSON_Z_95 * WILSON_Z_95;
     let denominator = 1.0 + z2 / n;
     let center = (p + z2 / (2.0 * n)) / denominator;
-    let half_width = WILSON_Z_95
-        * ((p * (1.0 - p) / n) + z2 / (4.0 * n * n)).sqrt()
-        / denominator;
-    ((center - half_width).max(0.0), (center + half_width).min(1.0))
+    let half_width = WILSON_Z_95 * ((p * (1.0 - p) / n) + z2 / (4.0 * n * n)).sqrt() / denominator;
+    (
+        (center - half_width).max(0.0),
+        (center + half_width).min(1.0),
+    )
 }
 
 /// Pilot/confirmatory coverage driver. Callers must use separate seeds for
@@ -835,8 +835,7 @@ pub fn coverage_study(
         for trial in 0..outer_datasets {
             let trial_seed = derive_seed(seed, trial as u64);
             let dataset = generate_dataset(config, trial_seed)?;
-            let bootstrap_seed =
-                derive_seed(seed ^ method.seed_salt(), trial as u64 + 1);
+            let bootstrap_seed = derive_seed(seed ^ method.seed_salt(), trial as u64 + 1);
             match bootstrap_interval(
                 &dataset,
                 method,
@@ -924,7 +923,10 @@ mod tests {
         let b = generate_dataset(&config, 0x6a09_e667_f3bc_c909).unwrap();
         assert_eq!(a, b);
         assert_eq!(a.systems.len(), config.independent_systems);
-        assert_eq!(a.event_count(), config.independent_systems * config.events_per_system);
+        assert_eq!(
+            a.event_count(),
+            config.independent_systems * config.events_per_system
+        );
         a.validate().unwrap();
     }
 
@@ -981,10 +983,21 @@ mod tests {
     #[test]
     fn basic_interval_reflects_percentile_endpoints_about_the_paired_estimate() {
         let dataset = generate_dataset(&DgpConfig::default(), 731).unwrap();
-        let percentile = bootstrap_interval(&dataset, BootstrapUnit::IndependentSystem, 0.95, 500, 88).unwrap();
-        let basic = basic_bootstrap_interval(&dataset, BootstrapUnit::IndependentSystem, 0.95, 500, 88).unwrap();
-        close(basic.lower, 2.0 * percentile.estimate - percentile.upper, 1e-12);
-        close(basic.upper, 2.0 * percentile.estimate - percentile.lower, 1e-12);
+        let percentile =
+            bootstrap_interval(&dataset, BootstrapUnit::IndependentSystem, 0.95, 500, 88).unwrap();
+        let basic =
+            basic_bootstrap_interval(&dataset, BootstrapUnit::IndependentSystem, 0.95, 500, 88)
+                .unwrap();
+        close(
+            basic.lower,
+            2.0 * percentile.estimate - percentile.upper,
+            1e-12,
+        );
+        close(
+            basic.upper,
+            2.0 * percentile.estimate - percentile.lower,
+            1e-12,
+        );
         assert!(basic.lower <= basic.upper);
     }
 
@@ -995,7 +1008,10 @@ mod tests {
         let second = studentized_system_bootstrap_interval(&dataset, 0.95, 500, 992).unwrap();
         assert_eq!(first, second);
         assert!(first.lower <= first.upper);
-        assert_eq!(first.valid_replicates + first.abstentions, first.requested_replicates);
+        assert_eq!(
+            first.valid_replicates + first.abstentions,
+            first.requested_replicates
+        );
         assert!(first.valid_replicates >= 400);
         assert_eq!(first.independent_systems, 40);
     }
@@ -1017,11 +1033,15 @@ mod tests {
 
     #[test]
     fn alternative_coverage_study_reports_basic_and_studentized_methods_and_abstentions() {
-        let report = alternative_coverage_study(&DgpConfig::default(), 20, 100, 0.95, 8821).unwrap();
+        let report =
+            alternative_coverage_study(&DgpConfig::default(), 20, 100, 0.95, 8821).unwrap();
         assert_eq!(report.len(), 2);
         for method in report {
             assert_eq!(method.valid_intervals + method.abstentions, 20);
-            if let (Some(low), Some(high)) = (method.coverage_wilson_95_low, method.coverage_wilson_95_high) {
+            if let (Some(low), Some(high)) = (
+                method.coverage_wilson_95_low,
+                method.coverage_wilson_95_high,
+            ) {
                 assert!(low <= high);
             }
         }
@@ -1053,13 +1073,8 @@ mod tests {
     #[test]
     fn too_few_bootstrap_replicates_are_rejected() {
         let dataset = generate_dataset(&DgpConfig::default(), 19).unwrap();
-        assert!(bootstrap_interval(
-            &dataset,
-            BootstrapUnit::IndependentSystem,
-            0.95,
-            99,
-            1
-        )
-        .is_err());
+        assert!(
+            bootstrap_interval(&dataset, BootstrapUnit::IndependentSystem, 0.95, 99, 1).is_err()
+        );
     }
 }
