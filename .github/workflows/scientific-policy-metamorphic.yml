@@ -365,6 +365,236 @@ jobs:
             test -s "$indexed_output"
           done
 
+          # The eight first-occurrence representatives above remain a fast smoke
+          # panel. The broader panel samples deterministic semantic strata from
+          # the frozen role/ownership/organization/attestation input dimensions.
+          jq -e '
+            .stratified_sample_profile == "mycelix-role-index-stratified-sample-v0.1" and
+            .stratified_sample_count >= 128 and
+            (.stratified_action_sample_counts | length) == 8 and
+            all(.stratified_action_sample_counts[]; . >= 16 and . <= 24) and
+            (.stratified_action_inputs | length) == .stratified_sample_count and
+            all(.stratified_action_inputs[];
+              (.sample_rank_sha256 | length == 64) and
+              (.baseline_sha256 | length == 64) and
+              (.indexed_sha256 | length == 64) and
+              (.case_id | length > 0) and
+              (.stratum | length > 0)
+            )
+          ' "$indexed_manifest"
+
+          mkdir -p target/opa-indexed-role-bench/stratified
+          jq -r '
+            .stratified_action_inputs[]
+            | [.action, (.sample_index|tostring), .case_id, .stratum,
+               .baseline_path, .indexed_path, .baseline_sha256, .indexed_sha256]
+            | @tsv
+          ' "$indexed_manifest" > target/opa-indexed-role-bench/stratified/sample-manifest.tsv
+
+          while IFS=
+            printf 'source_sha256=%s\n' "$source_sha"
+            printf 'indexed_jsonl_sha256=%s\n' "$indexed_sha"
+            printf 'projection_generation_elapsed_ns=%s\n' "$projection_elapsed_ns"
+            printf 'indexed_batch_eval_elapsed_ns=%s\n' "$batch_elapsed_ns"
+            printf 'source_bytes=%s\n' "$(wc -c < "$source_file")"
+            printf 'indexed_bytes=%s\n' "$(wc -c < "$indexed_file")"
+            printf 'opa_version='; /tmp/opa version
+            printf 'opa_binary_sha256='; sha256sum /tmp/opa
+            printf 'array_policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego
+            printf 'indexed_policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego
+            uname -a
+            printf 'logical_cpus=%s\n' "$(nproc)"
+            sha256sum target/opa-indexed-role-bench/*-baseline.json target/opa-indexed-role-bench/*-indexed.json
+          } > target/opa-indexed-role-bench/reproducibility.txt
+
+      - name: Evaluate each metamorphic corpus through Cedar and OPA
+        run: |
+          set -euo pipefail
+
+          compare_engine() {
+            local engine="$1"
+            local baseline_file="$2"
+            local candidate_file="$3"
+            local output_file="$4"
+            local expected_mode="$5"
+            local target_case_id="$6"
+            jq -n --arg engine "$engine" --arg target_case_id "$target_case_id" --arg expected_mode "$expected_mode" --slurpfile baseline "$baseline_file" --slurpfile candidate "$candidate_file" '
+              def by_id: map({key:.case_id,value:{decision:.decision,determining_policy_ids:(.determining_policy_ids // [])}}) | from_entries;
+              ($baseline | by_id) as $b |
+              ($candidate | by_id) as $c |
+              ($b | keys) as $bk |
+              ($c | keys) as $ck |
+              {
+                engine:$engine,
+                baseline_case_count:($bk|length),
+                candidate_case_count:($ck|length),
+                same_case_ids:($bk == $ck),
+                target_case_id:$target_case_id,
+                target_baseline_decision:(if $target_case_id == "" then null else $b[$target_case_id].decision end),
+                target_candidate_decision:(if $target_case_id == "" then null else $c[$target_case_id].decision end),
+                decision_divergence_count:([$bk[] | select($b[.].decision != $c[.].decision)] | length),
+                determining_policy_divergence_count:([$bk[] | select($b[.].determining_policy_ids != $c[.].determining_policy_ids)] | length),
+                divergence_samples:([$bk[] | select($b[.].decision != $c[.].decision or $b[.].determining_policy_ids != $c[.].determining_policy_ids) | {case_id:.,baseline:$b[.],candidate:$c[.]}] | .[0:20]),
+                expected_mode:$expected_mode,
+                claim_ceiling:"pinned-engine metamorphic behavior only; not Rust parity or policy correctness"
+              }
+            ' > "$output_file"
+
+            jq -e '.baseline_case_count == 62464 and .candidate_case_count == 62464 and .same_case_ids == true' "$output_file"
+            if [ "$expected_mode" = "single_allow_to_deny" ]; then
+              jq -e --arg target_case_id "$target_case_id" '
+                .decision_divergence_count == 1 and
+                .determining_policy_divergence_count == 1 and
+                .target_case_id == $target_case_id and
+                .target_baseline_decision == "allow" and
+                .target_candidate_decision == "deny" and
+                (.divergence_samples | length) == 1 and
+                .divergence_samples[0].case_id == $target_case_id
+              ' "$output_file"
+            else
+              jq -e '.decision_divergence_count == 0 and .determining_policy_divergence_count == 0' "$output_file"
+            fi
+          }
+
+          for transform in \
+            json-object-key-order-reversed \
+            json-whitespace-expanded \
+            cedar-entity-order-reversed \
+            cedar-irrelevant-actor-added \
+            claim-proposed-contributor-removed; do
+            folder="target/scientific-policy-metamorphic/$transform"
+            result_dir="target/metamorphic-engine-results/$transform"
+            mkdir -p "$result_dir"
+
+            cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- \
+              "$folder/manifest.json" "$result_dir/cedar"
+            test "$(wc -l < "$result_dir/cedar/cedar-decisions-v0.1.jsonl")" -eq 62464
+            jq -e '.case_count == 62464 and .indeterminate_count == 0 and .measured_cases == 62208' \
+              "$result_dir/cedar/cedar-run-manifest-v0.1.json"
+
+            jq -s '{cases: map({case_id, input: .rego.input})}' \
+              "$folder/scientific-policy-engine-inputs-v0.1.jsonl" \
+              > "$result_dir/opa-input.json"
+            started="$(date +%s%N)"
+            /tmp/opa eval --strict --format=json --input "$result_dir/opa-input.json" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+              --data tools/scientific-policy-cedar-runner/opa-batch.rego \
+              'data.mycelix.authz.batch.decisions' > "$result_dir/opa-eval.json"
+            elapsed_ns="$(( $(date +%s%N) - started ))"
+            jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0", decision:.decision.effect, determining_policy_ids:[.decision.rule]}' \
+              "$result_dir/opa-eval.json" > "$result_dir/opa-decisions-v0.1.jsonl"
+            test "$(wc -l < "$result_dir/opa-decisions-v0.1.jsonl")" -eq 62464
+            output_sha="$(sha256sum "$result_dir/opa-decisions-v0.1.jsonl" | cut -d ' ' -f 1)"
+            input_sha="$(sha256sum "$result_dir/opa-input.json" | cut -d ' ' -f 1)"
+            jq -n --arg input_sha256 "$input_sha" --arg output_sha256 "$output_sha" --argjson elapsed_ns "$elapsed_ns" \
+              --arg transform "$transform" \
+              '{engine:"opa",engine_version:"1.22.0",transform:$transform,evaluation_method:"one-shot-cli-batch-including-process-startup-and-file-io",case_count:62464,input_sha256:$input_sha256,output_sha256:$output_sha256,elapsed_ns:$elapsed_ns,claim_ceiling:"OPA metamorphic result only; not Rust authorization parity"}' \
+              > "$result_dir/opa-run-manifest.json"
+
+            expected_mode="invariant"
+            target_case_id=""
+            if [ "$transform" = "claim-proposed-contributor-removed" ]; then
+              expected_mode="single_allow_to_deny"
+              target_case_id="$(jq -r '.changed_case_ids[0]' "$folder/transform-manifest.json")"
+              test -n "$target_case_id"
+            fi
+            compare_engine cedar \
+              target/metamorphic-engine-results/baseline-cedar/cedar-decisions-v0.1.jsonl \
+              "$result_dir/cedar/cedar-decisions-v0.1.jsonl" "$result_dir/cedar-invariance.json" \
+              "$expected_mode" "$target_case_id"
+            compare_engine opa \
+              target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl \
+              "$result_dir/opa-decisions-v0.1.jsonl" "$result_dir/opa-invariance.json" \
+              "$expected_mode" "$target_case_id"
+            jq -n --arg transform "$transform" \
+              --slurpfile cedar "$result_dir/cedar-invariance.json" \
+              --slurpfile opa "$result_dir/opa-invariance.json" \
+              --slurpfile manifest "$folder/transform-manifest.json" \
+              '{transform:$transform,transform_manifest:$manifest[0],cedar:$cedar[0],opa:$opa[0],claim_ceiling:"pinned-engine metamorphic invariance only; no Rust decision oracle, formal policy equivalence or credential-registry authority claim"}' \
+              > "$result_dir/metamorphic-result.json"
+          done
+
+      - name: Build engine metamorphic qualification summary
+        run: |
+          jq -s '{transform_count:length,transforms:map({transform,cedar_decision_divergences:.cedar.decision_divergence_count,cedar_determining_policy_divergences:.cedar.determining_policy_divergence_count,opa_decision_divergences:.opa.decision_divergence_count,opa_determining_policy_divergences:.opa.determining_policy_divergence_count}),all_engine_conditions_hold:all(.[]; .cedar.same_case_ids and .opa.same_case_ids and (if .transform == "claim-proposed-contributor-removed" then .cedar.decision_divergence_count == 1 and .cedar.determining_policy_divergence_count == 1 and .cedar.target_baseline_decision == "allow" and .cedar.target_candidate_decision == "deny" and .opa.decision_divergence_count == 1 and .opa.determining_policy_divergence_count == 1 and .opa.target_baseline_decision == "allow" and .opa.target_candidate_decision == "deny" else .cedar.decision_divergence_count == 0 and .cedar.determining_policy_divergence_count == 0 and .opa.decision_divergence_count == 0 and .opa.determining_policy_divergence_count == 0 end)),claim_ceiling:"four Cedar/OPA invariance transformations plus one explicit candidate-policy allow-to-deny negative control; no authentic Rust oracle parity"}' \
+            target/metamorphic-engine-results/*/metamorphic-result.json \
+            > target/metamorphic-engine-results/qualification-summary.json
+          jq -e '.transform_count == 5 and .all_engine_conditions_hold == true' \
+            target/metamorphic-engine-results/qualification-summary.json
+
+      - name: Publish source, transformed corpora, decisions, metrics and receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-policy-metamorphic-engine-results-${{ github.sha }}
+          path: |
+            target/scientific-policy-space/
+            target/scientific-policy-metamorphic/
+            target/metamorphic-engine-results/
+            target/opa-native-bench/
+            target/opa-indexed-role-bench/
+            target/scientific-policy-indexed-role/
+            target/policy-counterexample-seed.json
+            target/policy-counterexample-shrink/
+            target/opa-version.txt
+            tools/scientific-policy-metamorphic/Cargo.toml
+            tools/scientific-policy-metamorphic/Cargo.lock
+            tools/scientific-policy-metamorphic/README.md
+            tools/scientific-policy-metamorphic/BENCHMARK_PROTOCOL.md
+            tools/scientific-policy-metamorphic/COUNTEREXAMPLE_MINIMIZATION.md
+            tools/scientific-policy-metamorphic/INDEXED_ROLE_BENCHMARK.md
+            tools/scientific-policy-metamorphic/src/lib.rs
+            tools/scientific-policy-metamorphic/src/shrink.rs
+            tools/scientific-policy-metamorphic/src/role_index.rs
+            tools/scientific-policy-metamorphic/src/main.rs
+            tools/scientific-policy-metamorphic/src/bin/role_index_projection.rs
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego
+            tools/scientific-policy-cedar-runner/Cargo.toml
+            tools/scientific-policy-cedar-runner/Cargo.lock
+            tools/scientific-policy-cedar-runner/README.md
+            tools/scientific-policy-cedar-runner/src/main.rs
+          if-no-files-found: error
+          retention-days: 14
+\t' read -r action sample_index case_id stratum baseline_relative indexed_relative baseline_sha indexed_sha_sample; do
+            test -n "$action"
+            baseline_input="target/scientific-policy-indexed-role/$baseline_relative"
+            indexed_input="target/scientific-policy-indexed-role/$indexed_relative"
+            baseline_output="target/opa-indexed-role-bench/stratified/$action-$sample_index-baseline.json"
+            indexed_output="target/opa-indexed-role-bench/stratified/$action-$sample_index-indexed.json"
+            test -s "$baseline_input"
+            test -s "$indexed_input"
+            test "$(sha256sum "$baseline_input" | cut -d ' ' -f 1)" = "$baseline_sha"
+            test "$(sha256sum "$indexed_input" | cut -d ' ' -f 1)" = "$indexed_sha_sample"
+            jq -e --arg action "$action" '.action == $action' "$baseline_input"
+            jq -e --arg action "$action" '.action == $action and (.actor.role_index | type == "object") and (.actor.roles == null)' "$indexed_input"
+
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$baseline_input" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+              'data.mycelix.authz.decision' > "$baseline_output"
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$indexed_input" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego \
+              'data.mycelix.authz.decision' > "$indexed_output"
+            test -s "$baseline_output"
+            test -s "$indexed_output"
+          done < target/opa-indexed-role-bench/stratified/sample-manifest.tsv
+
+          jq -n \
+            --arg source_sha256 "$source_sha" \
+            --arg indexed_sha256 "$indexed_sha" \
+            --slurpfile manifest "$indexed_manifest" \
+            '{
+              sample_profile:$manifest[0].stratified_sample_profile,
+              source_inputs_sha256:$source_sha256,
+              indexed_inputs_sha256:$indexed_sha256,
+              sample_count:$manifest[0].stratified_sample_count,
+              per_action_counts:$manifest[0].stratified_action_sample_counts,
+              sample_subjects:$manifest[0].stratified_action_inputs,
+              evaluation_method:"paired OPA native opa bench --benchmem --metrics --count=5 on exact baseline/indexed per-case inputs; raw samples retained",
+              claim_ceiling:"stratified query-level Rego representation measurements over deterministic source-derived strata; not Cedar equivalence or Rust authorization parity"
+            }' > target/opa-indexed-role-bench/stratified/qualification.json
+
           {
             printf 'projection_profile=mycelix-rego-role-index-v0.1\n'
             printf 'source_sha256=%s\n' "$source_sha"
