@@ -884,7 +884,7 @@ pub fn parse_drift_fixture(input: &str) -> Result<Vec<DriftRecord>, String> {
         }
 
         if let Some(previous) = last_sequence.get(&profile_id) {
-            if sequence != previous + 1 {
+            if sequence != *previous + 1 {
                 return Err(format!("drift line {}: profile sequence is not contiguous and ordered", line_idx + 2));
             }
         } else if sequence != 1 {
@@ -1266,6 +1266,19 @@ mod tests {
         let gradual = report.profiles.iter().find(|p| p.profile_id == "gradual_calibration_drift").unwrap();
         assert_ne!(stable.first_drift_sequence, gradual.first_drift_sequence);
         assert_ne!(stable.mean_brier_score, gradual.mean_brier_score);
+    }
+
+    #[test]
+    fn drift_parser_rejects_duplicate_events_and_non_evaluation_rows() {
+        let first_row = DRIFT_FIXTURE.lines().nth(1).unwrap();
+        let duplicate = format!("{}\\n{}\\n", DRIFT_FIXTURE.trim_end(), first_row);
+        assert!(parse_drift_fixture(&duplicate).is_err());
+
+        let valid_row = "stable_control,stable_control-event-001,flood,synthetic-region,24,candidate,evaluation,1,103600,0.2,0";
+        let calibration_row = "stable_control,stable_control-event-001,flood,synthetic-region,24,candidate,calibration,1,103600,0.2,0";
+        let partition_leak = DRIFT_FIXTURE.replace(valid_row, calibration_row);
+        assert_ne!(partition_leak, DRIFT_FIXTURE);
+        assert!(parse_drift_fixture(&partition_leak).is_err());
     }
 
     #[test]
