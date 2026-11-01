@@ -13,7 +13,7 @@ fn main() {
         recorded_at: 101,
         wire_bytes: b"<alert>synthetic-v1</alert>".to_vec(),
         declared_digest: "sha256:externally-verified-fixture-digest".into(),
-        digest_verification: DigestVerification::VerifiedByExternalAdapter,
+        digest_verification: DigestVerification::FixtureOracleAccepted,
     };
     let update = CapMessage {
         sender: "synthetic-authority.example".into(),
@@ -28,9 +28,10 @@ fn main() {
         digest_verification: DigestVerification::VerifiedByExternalAdapter,
     };
 
-    let report = validate_cap_lifecycle(&[alert, update]);
+    let audit = validate_cap_lifecycle(&[alert, update]);
+    let report = audit.report;
     println!("GCPN bitemporal evidence graph lifecycle v0.1");
-    println!("status: synthetic_fixture_smoke_example");
+    println!("status: synthetic_fixture_oracle_example");
     println!("messages_seen: {}", report.messages_seen);
     println!("updates: {}", report.updates);
     println!("cancellations: {}", report.cancellations);
@@ -40,6 +41,7 @@ fn main() {
     println!("conflicting_identifiers: {}", report.conflicting_identifiers);
     println!("unverified_digests: {}", report.unverified_digests);
     println!("digest_mismatches: {}", report.digest_mismatches);
+    println!("conflicting_payloads_preserved: {}", audit.conflicting_messages.len());
     println!("conformant: {}", report.is_conformant());
     println!("non_claim: this core does not parse CAP XML or calculate/verify cryptographic digests");
 }
