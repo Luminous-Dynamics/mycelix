@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 license = "AGPL-3.0-or-later"
-description = "Synthetic categorical sequential Bayesian experiment-design benchmark"
+description = "Synthetic sequential Bayesian design with categorical policies and a correlated Gaussian posterior library"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
