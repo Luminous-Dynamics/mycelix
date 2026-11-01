@@ -192,6 +192,9 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
             if count > cell.exposed {
                 return Err("unique timely receipts exceed exposed denominator".into());
             }
+            if cell.channel_receipt_count < count {
+                return Err("channel receipt total cannot be smaller than unique receipt union".into());
+            }
         } else {
             unknown_unique += 1;
         }
@@ -227,8 +230,8 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
         row.exposed += cell.exposed;
         row.timely_covered += cell.unique_timely_receipts.unwrap_or(0);
         row.accessible_covered += cell.unique_accessible_receipts.unwrap_or(0);
-        row.unknown_unique_reach_cells += u32::from(cell.unique_timely_receipts.is_none());
-        row.unknown_accessibility_cells += u32::from(cell.unique_accessible_receipts.is_none());
+        row.unknown_unique_reach_cells += if cell.unique_timely_receipts.is_none() { 1 } else { 0 };
+        row.unknown_accessibility_cells += if cell.unique_accessible_receipts.is_none() { 1 } else { 0 };
         row.channel_receipts += cell.channel_receipt_count;
     }
 
@@ -279,11 +282,19 @@ pub enum HandoffStatus {
     AcceptedForRelay,
     AcceptedForReissue,
     AwaitingAcknowledgement,
+    RejectedInvalidHandoff,
     RejectedScopeMismatch,
     RejectedNoReissuePermission,
 }
 
 pub fn validate_handoff(handoff: &AuthorityHandoff) -> HandoffStatus {
+    if handoff.source_jurisdiction.trim().is_empty()
+        || handoff.destination_jurisdiction.trim().is_empty()
+        || handoff.destination_authority_id.trim().is_empty()
+        || handoff.acknowledged_at.is_some_and(|ack| ack < handoff.request_recorded_at)
+    {
+        return HandoffStatus::RejectedInvalidHandoff;
+    }
     if !handoff.scope_matches_hazard_and_zone {
         return HandoffStatus::RejectedScopeMismatch;
     }
@@ -451,6 +462,8 @@ mod tests {
         assert_eq!(validate_handoff(&no_ack),HandoffStatus::AwaitingAcknowledgement);
         let mut bad_scope=base.clone();bad_scope.scope_matches_hazard_and_zone=false;
         assert_eq!(validate_handoff(&bad_scope),HandoffStatus::RejectedScopeMismatch);
+        let mut time_reversed=base.clone();time_reversed.acknowledged_at=Some(9);
+        assert_eq!(validate_handoff(&time_reversed),HandoffStatus::RejectedInvalidHandoff);
     }
 
     #[test]
