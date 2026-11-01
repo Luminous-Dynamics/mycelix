@@ -1266,7 +1266,8 @@ mod tests {
         };
 
         assert_eq!(chosen_decision(0.001, 0.3), "DRAIN_FAST");
-        assert_eq!(chosen_decision(0.001, 0.9), "DIAGNOSE_FIRST");
+        assert_eq!(chosen_decision(0.001, 0.9), "DRAIN_FAST");
+        assert_eq!(chosen_decision(0.01, 0.9), "DIAGNOSE_FIRST");
         assert_eq!(chosen_decision(0.05, 0.7), "DIAGNOSE_FIRST");
     }
 
