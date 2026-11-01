@@ -1,7 +1,14 @@
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{env, error::Error, fs, fs::OpenOptions, io::{self, Write}, path::Path};
+use std::{
+    env,
+    error::Error,
+    fs,
+    fs::OpenOptions,
+    io::{self, Write},
+    path::Path,
+};
 
 const MODEL_VERSION: &str = "0.1.0";
 const NUMERIC_TOLERANCE: f64 = 1.0e-10;
@@ -205,7 +212,10 @@ fn dynamic_cole(theta_m: f64, soil: &SoilProperties) -> Result<f64, String> {
 
 fn validate(input: &Input) -> Result<Vec<DateTime<FixedOffset>>, String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     for (value, label) in [
         (&input.study_id, "study_id"),
@@ -220,10 +230,22 @@ fn validate(input: &Input) -> Result<Vec<DateTime<FixedOffset>>, String> {
     let image = &input.image;
     finite_positive(image.image_resolution_um_per_pixel, "image resolution")?;
     finite_positive(image.cross_section_area_mm2, "cross-section area")?;
-    finite_nonnegative(image.projected_macropore_area_mm2, "projected macropore area")?;
-    finite_positive(image.total_macropore_perimeter_mm, "total macropore perimeter")?;
-    finite_positive(image.mean_dry_macropore_width_mm, "mean dry macropore width")?;
-    finite_nonnegative(image.minimum_object_area_threshold_mm2, "minimum object area threshold")?;
+    finite_nonnegative(
+        image.projected_macropore_area_mm2,
+        "projected macropore area",
+    )?;
+    finite_positive(
+        image.total_macropore_perimeter_mm,
+        "total macropore perimeter",
+    )?;
+    finite_positive(
+        image.mean_dry_macropore_width_mm,
+        "mean dry macropore width",
+    )?;
+    finite_nonnegative(
+        image.minimum_object_area_threshold_mm2,
+        "minimum object area threshold",
+    )?;
     if image.included_macropore_object_count == 0 {
         return Err("included_macropore_object_count must be greater than zero".to_owned());
     }
@@ -235,31 +257,43 @@ fn validate(input: &Input) -> Result<Vec<DateTime<FixedOffset>>, String> {
     for (value, label) in [
         (soil.particle_density_kg_m3, "particle density"),
         (soil.oven_dry_bulk_density_kg_m3, "oven-dry bulk density"),
-        (soil.field_capacity_bulk_density_kg_m3, "field-capacity bulk density"),
-        (soil.matrix_saturated_hydraulic_conductivity_m_s, "matrix saturated hydraulic conductivity"),
+        (
+            soil.field_capacity_bulk_density_kg_m3,
+            "field-capacity bulk density",
+        ),
+        (
+            soil.matrix_saturated_hydraulic_conductivity_m_s,
+            "matrix saturated hydraulic conductivity",
+        ),
     ] {
         finite_positive(value, label)?;
     }
     for (value, label) in [
         (soil.wilting_point_water_content_m3_m3, "wilting point"),
         (soil.field_capacity_water_content_m3_m3, "field capacity"),
-        (soil.matrix_saturated_water_content_m3_m3, "matrix saturation"),
+        (
+            soil.matrix_saturated_water_content_m3_m3,
+            "matrix saturation",
+        ),
     ] {
         finite_positive(value, label)?;
     }
-    if !(soil.wilting_point_water_content_m3_m3
-        < soil.field_capacity_water_content_m3_m3
-        && soil.field_capacity_water_content_m3_m3
-            < soil.matrix_saturated_water_content_m3_m3
+    if !(soil.wilting_point_water_content_m3_m3 < soil.field_capacity_water_content_m3_m3
+        && soil.field_capacity_water_content_m3_m3 < soil.matrix_saturated_water_content_m3_m3
         && soil.matrix_saturated_water_content_m3_m3 < 1.0)
     {
-        return Err("water contents must satisfy 0 < theta_wp < theta_fc < theta_sm < 1".to_owned());
+        return Err(
+            "water contents must satisfy 0 < theta_wp < theta_fc < theta_sm < 1".to_owned(),
+        );
     }
 
     let rho_s = rho_saturated(soil);
     finite_positive(rho_s, "matrix-saturated bulk density")?;
     if soil.oven_dry_bulk_density_kg_m3 < soil.field_capacity_bulk_density_kg_m3 {
-        return Err("oven-dry bulk density must be greater than or equal to field-capacity bulk density".to_owned());
+        return Err(
+            "oven-dry bulk density must be greater than or equal to field-capacity bulk density"
+                .to_owned(),
+        );
     }
 
     let fluid = &input.fluid;
@@ -280,11 +314,11 @@ fn validate(input: &Input) -> Result<Vec<DateTime<FixedOffset>>, String> {
     }
     let mut times = Vec::with_capacity(input.matrix_water_content_observations.len());
     for (index, observation) in input.matrix_water_content_observations.iter().enumerate() {
-        let timestamp = parse_utc(&observation.timestamp_utc, &format!("matrix_water_content_observations[{index}]"))?;
-        bulk_density_at_matrix_water_content(
-            observation.matrix_water_content_m3_m3,
-            soil,
+        let timestamp = parse_utc(
+            &observation.timestamp_utc,
+            &format!("matrix_water_content_observations[{index}]"),
         )?;
+        bulk_density_at_matrix_water_content(observation.matrix_water_content_m3_m3, soil)?;
         if let Some(previous) = times.last() {
             if timestamp <= *previous {
                 return Err("matrix-water observations must be strictly ordered with no duplicate timestamps".to_owned());
@@ -310,7 +344,9 @@ fn macropore_fraction(
     let rp = numerator / denominator;
     let fp = rp * projected_pore_area_mm2 / cross_section_area_mm2;
     if !rp.is_finite() || !fp.is_finite() || fp < -NUMERIC_TOLERANCE || fp > 1.0 + 1.0e-8 {
-        return Err("macropore conversion produced a nonphysical projected-to-volume fraction".to_owned());
+        return Err(
+            "macropore conversion produced a nonphysical projected-to-volume fraction".to_owned(),
+        );
     }
     Ok((rp, fp.max(0.0)))
 }
@@ -326,10 +362,8 @@ fn macropore_saturated_conductivity_m_s(
     let width = width_mm / 1000.0;
     let structural_width = structural_width_mm / 1000.0;
     let repeat_width = width + structural_width;
-    let numerator = width.powi(3)
-        * structural_width
-        * fluid.water_density_kg_m3
-        * fluid.gravity_m_s2;
+    let numerator =
+        width.powi(3) * structural_width * fluid.water_density_kg_m3 * fluid.gravity_m_s2;
     let denominator = 9.0 * fluid.dynamic_viscosity_pa_s * repeat_width.powi(2);
     let conductivity = numerator / denominator;
     if !conductivity.is_finite() || conductivity < 0.0 {
@@ -345,13 +379,11 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let fluid = &input.fluid;
 
     // Hirmas et al. Equation 8: structural-unit dry width from MLT image geometry.
-    let non_macropore_area_mm2 = image.cross_section_area_mm2
-        - image.projected_macropore_area_mm2;
+    let non_macropore_area_mm2 = image.cross_section_area_mm2 - image.projected_macropore_area_mm2;
     let dry_structural_unit_width_mm =
         4.0 * non_macropore_area_mm2 / image.total_macropore_perimeter_mm;
     let dry_mean_macropore_width_mm = image.mean_dry_macropore_width_mm;
-    let total_dry_repeat_width_mm =
-        dry_structural_unit_width_mm + dry_mean_macropore_width_mm;
+    let total_dry_repeat_width_mm = dry_structural_unit_width_mm + dry_mean_macropore_width_mm;
     if !dry_structural_unit_width_mm.is_finite()
         || dry_structural_unit_width_mm <= 0.0
         || !total_dry_repeat_width_mm.is_finite()
@@ -360,30 +392,23 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     }
 
     let saturated_matrix_bulk_density_kg_m3 = rho_saturated(soil);
-    let saturated_dynamic_cole = dynamic_cole(
-        soil.matrix_saturated_water_content_m3_m3,
-        soil,
-    )?;
+    let saturated_dynamic_cole = dynamic_cole(soil.matrix_saturated_water_content_m3_m3, soil)?;
     let saturated_unconstrained_width =
         dry_structural_unit_width_mm * (1.0 + saturated_dynamic_cole);
-    let structural_width_correction_delta =
-        if saturated_unconstrained_width > total_dry_repeat_width_mm {
-            dry_mean_macropore_width_mm
-                / (saturated_unconstrained_width - dry_structural_unit_width_mm)
-        } else {
-            1.0
-        };
-    if !structural_width_correction_delta.is_finite()
-        || structural_width_correction_delta <= 0.0
+    let structural_width_correction_delta = if saturated_unconstrained_width
+        > total_dry_repeat_width_mm
     {
+        dry_mean_macropore_width_mm / (saturated_unconstrained_width - dry_structural_unit_width_mm)
+    } else {
+        1.0
+    };
+    if !structural_width_correction_delta.is_finite() || structural_width_correction_delta <= 0.0 {
         return Err("structural width correction delta is invalid".to_owned());
     }
 
     // The dry reference at theta_wp is used to enforce the published maximum fp constraint.
-    let dry_rho = bulk_density_at_matrix_water_content(
-        soil.wilting_point_water_content_m3_m3,
-        soil,
-    )?;
+    let dry_rho =
+        bulk_density_at_matrix_water_content(soil.wilting_point_water_content_m3_m3, soil)?;
     let dry_cole = (soil.oven_dry_bulk_density_kg_m3 / dry_rho).cbrt() - 1.0;
     let dry_unit_width =
         dry_structural_unit_width_mm * (1.0 + structural_width_correction_delta * dry_cole);
@@ -421,16 +446,13 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             image.cross_section_area_mm2,
         )?;
         if fp > maximum_macropore_volume_fraction_at_wilting_point + 1.0e-8 {
-            return Err("dynamic macropore volume fraction exceeds its wilting-point maximum".to_owned());
+            return Err(
+                "dynamic macropore volume fraction exceeds its wilting-point maximum".to_owned(),
+            );
         }
 
-        let ksp = macropore_saturated_conductivity_m_s(
-            macropore_width,
-            structural_width,
-            fluid,
-        )?;
-        let ks = (1.0 - fp) * soil.matrix_saturated_hydraulic_conductivity_m_s
-            + fp * ksp;
+        let ksp = macropore_saturated_conductivity_m_s(macropore_width, structural_width, fluid)?;
+        let ks = (1.0 - fp) * soil.matrix_saturated_hydraulic_conductivity_m_s + fp * ksp;
         if !ks.is_finite() || ks < 0.0 {
             return Err("whole-soil transient saturated conductivity became invalid".to_owned());
         }
@@ -442,7 +464,12 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                     * (parameters.beta0 + parameters.beta1 * width_ratio);
                 let alpha_minus = parameters.alpha_dry_per_m
                     * (parameters.beta0 - parameters.beta1 * width_ratio);
-                (Some(alpha_plus), Some(alpha_plus), Some(alpha_minus), Some(parameters.n_dry))
+                (
+                    Some(alpha_plus),
+                    Some(alpha_plus),
+                    Some(alpha_minus),
+                    Some(parameters.n_dry),
+                )
             } else {
                 (None, None, None, None)
             };
@@ -523,7 +550,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "usage: dynamic-macropore-audit <input.json> <new-report.json>",
-        ).into());
+        )
+        .into());
     }
     let bytes = fs::read(&args[1])?;
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
@@ -537,7 +565,12 @@ fn run() -> Result<(), Box<dyn Error>> {
         .write(true)
         .create_new(true)
         .open(Path::new(&args[2]))
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create report: {error}")))?;
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("refusing overwrite or cannot create report: {error}"),
+            )
+        })?;
     output.write_all(&encoded)?;
     output.sync_all()?;
     println!(
@@ -630,9 +663,16 @@ mod tests {
     #[test]
     fn wetter_matrix_conditions_contract_macropore_width() {
         let report = evaluate(&base(), "c".repeat(64)).unwrap();
-        assert!(report.time_points[1].macropore_width_mm < report.time_points[0].macropore_width_mm);
-        assert!(report.time_points[2].macropore_width_mm <= report.time_points[1].macropore_width_mm);
-        assert!(report.time_points[2].macropore_volume_fraction < report.time_points[0].macropore_volume_fraction);
+        assert!(
+            report.time_points[1].macropore_width_mm < report.time_points[0].macropore_width_mm
+        );
+        assert!(
+            report.time_points[2].macropore_width_mm <= report.time_points[1].macropore_width_mm
+        );
+        assert!(
+            report.time_points[2].macropore_volume_fraction
+                < report.time_points[0].macropore_volume_fraction
+        );
     }
 
     #[test]
@@ -641,7 +681,9 @@ mod tests {
         assert!(report.time_points.iter().all(|point| {
             point.macropore_saturated_conductivity_m_s.is_finite()
                 && point.macropore_saturated_conductivity_m_s >= 0.0
-                && point.whole_soil_transient_saturated_conductivity_m_s.is_finite()
+                && point
+                    .whole_soil_transient_saturated_conductivity_m_s
+                    .is_finite()
                 && point.whole_soil_transient_saturated_conductivity_m_s > 0.0
         }));
     }
@@ -658,8 +700,10 @@ mod tests {
             first.structural_alpha_per_m,
             first.structural_alpha_figure_table_plus_per_m
         );
-        assert!(first.structural_alpha_figure_table_plus_per_m.unwrap()
-            > first.structural_alpha_printed_eq37_minus_per_m.unwrap());
+        assert!(
+            first.structural_alpha_figure_table_plus_per_m.unwrap()
+                > first.structural_alpha_printed_eq37_minus_per_m.unwrap()
+        );
         assert!(report.time_points.iter().all(|point| {
             point.structural_n == Some(2.78)
                 && point.structural_alpha_figure_table_plus_per_m.is_some()
@@ -671,14 +715,20 @@ mod tests {
     fn rejects_out_of_range_matrix_water_content() {
         let mut input = base();
         input.matrix_water_content_observations[1].matrix_water_content_m3_m3 = 0.50;
-        assert!(evaluate(&input, "f".repeat(64)).unwrap_err().contains("within [0, theta_sm"));
+        assert!(
+            evaluate(&input, "f".repeat(64))
+                .unwrap_err()
+                .contains("within [0, theta_sm")
+        );
     }
 
     #[test]
     fn rejects_duplicate_or_out_of_order_timestamps() {
         let mut input = base();
-        input.matrix_water_content_observations[2].timestamp_utc =
-            input.matrix_water_content_observations[1].timestamp_utc.clone();
+        input.matrix_water_content_observations[2].timestamp_utc = input
+            .matrix_water_content_observations[1]
+            .timestamp_utc
+            .clone();
         assert!(validate(&input).unwrap_err().contains("strictly ordered"));
     }
 
@@ -686,7 +736,11 @@ mod tests {
     fn rejects_impossible_image_geometry() {
         let mut input = base();
         input.image.projected_macropore_area_mm2 = 101.0;
-        assert!(validate(&input).unwrap_err().contains("smaller than cross-section area"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("smaller than cross-section area")
+        );
     }
 
     #[test]
