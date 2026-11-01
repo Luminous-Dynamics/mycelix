@@ -105,6 +105,8 @@ pub struct FaultDomains {
 impl FaultDomains {
     pub fn identity(&self, dimension: FaultDomainDimension) -> Option<Digest> {
         match dimension {
+            FaultDomainDimension::EvaluatorIdentity
+            | FaultDomainDimension::EvaluatorProfileIdentity => None,
             FaultDomainDimension::ImplementationLineage => self.implementation_lineage,
             FaultDomainDimension::SpecificationLineage => self.specification_lineage,
             FaultDomainDimension::ExpectedAnswerLineage => self.expected_answer_lineage,
