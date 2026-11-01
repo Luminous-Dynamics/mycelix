@@ -41,35 +41,27 @@ That would complement forecast centres' verification practice. It would not esta
 
 ## 3. Statistical contract: define the estimand before resampling
 
-For each forecast case (i), retain the matched outcome (y_i) and the candidate/reference forecasts (p_{Ai}), (p_{Bi}). For binary Brier loss:
+For each forecast case (i), retain the matched outcome (y_i) and the candidate/reference forecasts (p_{Ai}), (p_{Bi}). For binary Brier loss, define the paired case difference as:
 
-[
-d_i = (p_{Ai}-y_i)^2 - (p_{Bi}-y_i)^2.
-]
+`d_i = (p_Ai - y_i)^2 - (p_Bi - y_i)^2`.
 
-Negative values favour candidate A; positive values favour reference B. The paired difference is formed case-by-case before any aggregation or resampling.
+Negative values favour candidate A; positive values favour reference B. Form the paired difference case-by-case before any aggregation or resampling.
 
 ### Primary estimand: forecast-case-weighted difference
 
-Let (g=1,ldots,G) index independent top-level sampling units (for example, independently defined storm-system blocks), (n_g) be the number of eligible matched forecast cases in unit (g), and (D_g=sum_{iin g} d_i). The primary target is:
+Let `g = 1,...,G` index independent top-level sampling units (for example, independently defined storm-system blocks), `n_g` be the number of eligible matched forecast cases in unit `g`, and `D_g = sum(i in g) d_i`. The primary target is:
 
-[
-	heta_{case} = rac{mathbb{E}[D_g]}{mathbb{E}[n_g]}.
-]
+`theta_case = E[D_g] / E[n_g]`.
 
 The sample estimator is the ratio:
 
-[
-widehat{	heta}_{case} = rac{sum_g D_g}{sum_g n_g}.
-]
+`theta_hat_case = sum_g D_g / sum_g n_g`.
 
 A cluster bootstrap replicate samples complete top-level units and recomputes this ratio. It must not average cluster means unless the estimand is explicitly the cluster-weighted quantity.
 
 ### Secondary estimand: cluster-weighted difference
 
-[
-	heta_{cluster} = mathbb{E}[D_g/n_g].
-]
+`theta_cluster = E[D_g / n_g]`.
 
 This answers a different question: the average independent system's mean score difference, giving small and large systems equal weight. When cluster size is informative about hazard type or score difference, the two estimands need not agree. Report them under distinct names; never silently substitute one for the other.
 
@@ -129,26 +121,19 @@ The machine-readable profile freezes a scenario matrix. The confirmatory impleme
 
 ### Analytic population oracle
 
-For a binary outcome with (Ysim Bernoulli(q)), the expected Brier loss for forecast probability (p) is:
+For a binary outcome with `Y ~ Bernoulli(q)`, the expected Brier loss for forecast probability `p` is:
 
-[
-mathbb{E}[(p-Y)^2 mid q] = (p-q)^2 + q(1-q).
-]
+`E[(p - Y)^2 | q] = (p - q)^2 + q(1 - q)`.
 
-Therefore, for a known DGP state (z), the conditional expected paired Brier difference is:
+For a known DGP state `z`, the conditional expected paired Brier difference is:
 
-[
-Delta(z) = (p_A(z)-q(z))^2 - (p_B(z)-q(z))^2.
-]
+`Delta(z) = (p_A(z) - q(z))^2 - (p_B(z) - q(z))^2`.
 
-The DGP can compute the exact case-weighted population target by applying its declared system-state and cluster-size probabilities:
+The DGP computes the exact case-weighted population target using its declared system-state and cluster-size probabilities:
 
-[
-	heta_{case} =
-rac{mathbb{E}[n_g Delta_g]}{mathbb{E}[n_g]}.
-]
+`theta_case = E[n_g * Delta_g] / E[n_g]`.
 
-This makes informative cluster-size experiments analytically auditable. The cluster-weighted target is (mathbb{E}[Delta_g]), and is separately checked. Simulation output must not be used as its own truth oracle.
+This makes informative cluster-size experiments analytically auditable. The cluster-weighted target is `E[Delta_g]` and is separately checked. Simulation output must not be used as its own truth oracle.
 
 ## 6. Candidate confidence-interval methods
 
@@ -184,13 +169,11 @@ For each scenario, sample-size regime, method and nominal level, report:
 - false superiority and false inferiority declarations under an explicit decision rule;
 - runtime, bootstrap replicate count and outer simulation count.
 
-For (M) independent Monte Carlo datasets and estimated coverage (hat c):
+For `M` independent Monte Carlo datasets and estimated coverage `c_hat`, compute:
 
-[
-MCSE(hat c) = sqrt{hat c(1-hat c)/M}.
-]
+`MCSE(c_hat) = sqrt(c_hat * (1 - c_hat) / M)`.
 
-At (M=10{,}000) and coverage near 0.95, MCSE is approximately 0.00218 (0.218 percentage points). A 95% Monte Carlo interval around the measured coverage should accompany every reported coverage rate. The Monte Carlo interval is not the forecast-score confidence interval; these quantify two different sources of uncertainty.
+At `M = 10,000` and coverage near 0.95, MCSE is approximately 0.00218 (0.218 percentage points). A 95% Monte Carlo interval around the measured coverage should accompany every reported coverage rate. The Monte Carlo interval is not the forecast-score confidence interval; these quantify two different sources of uncertainty.
 
 Use separately seeded pilot and confirmatory phases. Freeze scenario parameters, RNG streams, interval methods and counts before the confirmatory run. A pilot may discover bugs; it cannot be relabelled as confirmatory evidence.
 
