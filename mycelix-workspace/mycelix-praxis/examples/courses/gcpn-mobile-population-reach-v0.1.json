@@ -1,0 +1,69 @@
+{
+  "benchmark_id": "GCPN-MOBILE-POPULATION-REACH",
+  "version": "0.1.0",
+  "status": "research-specification-not-yet-executable",
+  "parent_issue": 5654,
+  "integration_baseline": "research/gcpn-integrated-evaluation-v0-6",
+  "institutional_guidance_date": "2026-07-15",
+  "model": {
+    "unit": "aggregate_cohort_coarse_zone_time_bucket_access_profile",
+    "identifiers": "no_persistent_person_or_device_ids",
+    "movement_data": "synthetic_aggregate_flow_matrices_only",
+    "preserves_movement_constraints": true,
+    "unknown_flows": "explicit_uncertainty_and_abstention"
+  },
+  "dgp_families": [
+    "static_baseline",
+    "commuter_flows",
+    "transit_temporary_presence",
+    "seasonal_flows",
+    "sudden_displacement",
+    "cross_jurisdiction",
+    "movement_constrained",
+    "channel_transition",
+    "accessibility_language",
+    "compound_window"
+  ],
+  "metrics": [
+    "exposure_weighted_timely_reach",
+    "accessible_reach",
+    "conditional_accessible_reach",
+    "effective_accessible_reach_per_intended_exposure",
+    "worst_cohort_reach",
+    "cohort_gap",
+    "entrant_transit_and_movement_constrained_reach",
+    "duplicate_receipts_vs_unique_aggregate_coverage",
+    "time_to_first_valid_receipt",
+    "late_or_expired_message_count",
+    "stale_zone_mapping_count",
+    "flow_denominator_uncertainty",
+    "cross_jurisdiction_authority_handoff_validity",
+    "small_cell_disclosure_and_differencing_risk"
+  ],
+  "comparisons": [
+    "static_home_zone",
+    "aggregate_time_window_zone",
+    "multichannel_distribution",
+    "local_first_community_relay",
+    "authorized_cross_jurisdiction_handoff"
+  ],
+  "targets": {
+    "zero_persistent_person_identifiers": true,
+    "exact_aggregate_count_conservation": true,
+    "zero_unauthorized_cross_jurisdiction_issue": true,
+    "stale_expired_mapping_detection": 1,
+    "uncertainty_abstention_for_weak_flows": true,
+    "always_report_worst_cohort": true,
+    "privacy_differencing_negative_controls": true,
+    "deterministic_replay": true
+  },
+  "no_ninth_gate_now": true,
+  "non_claims": [
+    "real_population_coverage",
+    "individual_receipt_or_comprehension",
+    "location_tracking",
+    "legal_or_vulnerability_status_inference",
+    "operational_alert_dispatch",
+    "lives_saved"
+  ]
+}
