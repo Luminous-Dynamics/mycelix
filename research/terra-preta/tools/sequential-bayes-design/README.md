@@ -126,7 +126,7 @@ and failing when the requested radius exceeds the configured alpha range.
 This is a finite deterministic reference; the paper's ambiguity set is
 defined over a stochastic design policy with an average KL budget.
 
-Ten authored tests cover independence/zero-information, convergence to
+Twenty-three authored tests cover independence/zero-information, convergence to
 Shannon MI, monotonicity over an alpha grid, CT–tracer correlation-only
 complementarity, posterior tempering, worst-case posterior identities,
 worst-case KL cost, radius-to-alpha inversion, and invalid inputs.
@@ -139,6 +139,20 @@ cost budget before ranking. It uses a stable action-ID tie break and returns
 that the nominal Shannon-maximizing action can differ from the Sibson-α
 choice at the same action pool; this is a one-step deterministic comparison,
 not a multi-step experiment policy.
+
+The library also supports a declared **per-design KL ambiguity radius**:
+`robust_information_at_kl_radius` numerically inverts each fixed design's
+worst-case joint KL cost to choose alpha, and
+`select_discrete_design_at_kl_radius` ranks candidate actions at the same
+requested per-design radius while enforcing eligibility and budget. It
+reports requested/effective radius, alpha and whether the search is clamped.
+An uninformative design remains zero-information even under a positive
+requested radius.
+
+This is a deterministic fixed-design ambiguity comparison. It is **not** the
+paper's stochastic-policy problem with one shared *average* KL budget over
+the policy distribution; that problem needs a common dual parameter and the
+`-beta * rho` term and is still unimplemented.
 
 This is **not** the full maximin policy optimizer, nested Monte Carlo estimator
 or PAC-Bayes lower-bound optimizer. The exact finite component is not a
