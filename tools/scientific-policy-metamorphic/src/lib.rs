@@ -830,3 +830,6 @@ mod tests {
 
 
 pub mod shrink;
+
+
+pub mod role_index;

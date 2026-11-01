@@ -293,6 +293,152 @@ jobs:
             printf 'logical_cpus=%s\n' "$(nproc)"
           } > target/opa-native-bench/reproducibility.txt
 
+      - name: Build indexed role projection generator
+        if: hashFiles('tools/scientific-policy-metamorphic/src/role_index.rs') != ''
+        run: |
+          cargo build --release --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked --bin role_index_projection
+
+      - name: Qualify full-corpus indexed Rego equivalence and stratified performance
+        if: hashFiles('tools/scientific-policy-metamorphic/src/role_index.rs') != ''
+        run: |
+          set -euo pipefail
+          source_file="target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl"
+          source_sha="$(jq -r '.engine_inputs_sha256' target/scientific-policy-space/manifest.json)"
+          out_dir="target/scientific-policy-indexed-role"
+          manifest="$out_dir/manifest.json"
+          indexed_file="$out_dir/indexed-engine-inputs-v0.1.jsonl"
+          mkdir -p target/opa-indexed-role-bench
+          tools/scientific-policy-metamorphic/target/release/role_index_projection \
+            "$source_file" "$source_sha" "$out_dir"
+
+          test "$(wc -l < "$indexed_file")" -eq 62464
+          jq -e --arg source_sha "$source_sha" '
+            .schema_version == "mycelix-indexed-role-corpus-v0.1" and
+            .projection_profile == "mycelix-rego-role-index-v0.1" and
+            .source_engine_inputs_sha256 == $source_sha and
+            .source_case_count == 62464 and
+            .indexed_case_count == 62464 and
+            .action_count == 8 and
+            (.action_inputs | length) == 8 and
+            (.action_input_digests | length) == 8 and
+            .stratified_sample_profile == "mycelix-role-index-stratified-sample-v0.2" and
+            .stratified_sample_count >= 192 and
+            .stratified_sample_count <= 256 and
+            (.stratified_action_sample_counts | length) == 8 and
+            all(.stratified_action_sample_counts[]; . >= 24 and . <= 32) and
+            (.stratified_action_inputs | length) == .stratified_sample_count and
+            all(.stratified_action_inputs[];
+              (.baseline_sha256 | length == 64) and
+              (.indexed_sha256 | length == 64) and
+              (.baseline_byte_length > 0) and
+              (.indexed_byte_length > 0) and
+              (.case_id | length > 0) and
+              (.sample_rank_sha256 | length == 64) and
+              (.baseline_path | startswith("stratified-inputs/baseline/")) and
+              (.indexed_path | startswith("stratified-inputs/indexed/"))
+            )
+          ' "$manifest"
+
+          # First qualify every source row, not just the sampled performance panel.
+          jq -s '{cases: map({case_id, input})}' "$indexed_file" \
+            > target/opa-indexed-role-bench/indexed-batch-input.json
+          jq -e '.cases | length == 62464' target/opa-indexed-role-bench/indexed-batch-input.json
+          started="$(date +%s%N)"
+          /tmp/opa eval --strict --format=json \
+            --input target/opa-indexed-role-bench/indexed-batch-input.json \
+            --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego \
+            --data tools/scientific-policy-cedar-runner/opa-batch.rego \
+            'data.mycelix.authz.batch.decisions' \
+            > target/opa-indexed-role-bench/indexed-batch-eval.json
+          elapsed_ns="$(( $(date +%s%N) - started ))"
+          jq -c '.result[0].expressions[0].value[] | {case_id, engine:"opa-1.22.0-indexed-role", decision:.decision.effect, determining_policy_ids:[.decision.rule]}' \
+            target/opa-indexed-role-bench/indexed-batch-eval.json \
+            > target/opa-indexed-role-bench/indexed-decisions-v0.1.jsonl
+          test "$(wc -l < target/opa-indexed-role-bench/indexed-decisions-v0.1.jsonl)" -eq 62464
+
+          jq -n \
+            --slurpfile baseline target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl \
+            --slurpfile indexed target/opa-indexed-role-bench/indexed-decisions-v0.1.jsonl '
+            def normalize:
+              map({key:.case_id,value:{decision:.decision,determining_policy_ids:(.determining_policy_ids // [])}})
+              | from_entries;
+            ($baseline | normalize) as $b |
+            ($indexed | normalize) as $i |
+            ($b | keys) as $bk |
+            ($i | keys) as $ik |
+            {
+              baseline_case_count:($bk|length),
+              indexed_case_count:($ik|length),
+              same_case_ids:($bk == $ik),
+              decision_divergences:([$bk[] | select($b[.].decision != $i[.].decision)] | length),
+              determining_policy_divergences:([$bk[] | select($b[.].determining_policy_ids != $i[.].determining_policy_ids)] | length),
+              mismatch_samples:([$bk[] | select($b[.].decision != $i[.].decision or $b[.].determining_policy_ids != $i[.].determining_policy_ids) | {case_id:.,baseline:$b[.],indexed:$i[.]}] | .[0:20]),
+              claim_ceiling:"OPA/Rego representation equivalence on the frozen source-pinned 62,464-case corpus; not Cedar or authentic Rust authorization parity"
+            }
+          ' > target/opa-indexed-role-bench/full-corpus-equivalence.json
+          jq -e '
+            .baseline_case_count == 62464 and
+            .indexed_case_count == 62464 and
+            .same_case_ids == true and
+            .decision_divergences == 0 and
+            .determining_policy_divergences == 0
+          ' target/opa-indexed-role-bench/full-corpus-equivalence.json
+
+          # Then benchmark matched source-bound pairs from the generated marginal-coverage panel.
+          sample_dir="target/opa-indexed-role-bench/stratified-native-bench"
+          mkdir -p "$sample_dir/baseline" "$sample_dir/indexed"
+          while IFS= read -r row; do
+            action="$(jq -r '.action' <<< "$row")"
+            sample_index="$(jq -r '.sample_index' <<< "$row")"
+            baseline_rel="$(jq -r '.baseline_path' <<< "$row")"
+            indexed_rel="$(jq -r '.indexed_path' <<< "$row")"
+            baseline_sha="$(jq -r '.baseline_sha256' <<< "$row")"
+            indexed_sha="$(jq -r '.indexed_sha256' <<< "$row")"
+            baseline_bytes="$(jq -r '.baseline_byte_length' <<< "$row")"
+            indexed_bytes="$(jq -r '.indexed_byte_length' <<< "$row")"
+            baseline_input="$out_dir/$baseline_rel"
+            indexed_input="$out_dir/$indexed_rel"
+            sample_id="$(printf '%02d' "$sample_index")"
+
+            case "$baseline_rel" in stratified-inputs/baseline/*/sample-*.json) ;; *) echo "unexpected baseline sample path: $baseline_rel" >&2; exit 1 ;; esac
+            case "$indexed_rel" in stratified-inputs/indexed/*/sample-*.json) ;; *) echo "unexpected indexed sample path: $indexed_rel" >&2; exit 1 ;; esac
+            test -s "$baseline_input"
+            test -s "$indexed_input"
+            test "$(sha256sum "$baseline_input" | cut -d ' ' -f 1)" = "$baseline_sha"
+            test "$(sha256sum "$indexed_input" | cut -d ' ' -f 1)" = "$indexed_sha"
+            test "$(wc -c < "$baseline_input" | tr -d ' ')" = "$baseline_bytes"
+            test "$(wc -c < "$indexed_input" | tr -d ' ')" = "$indexed_bytes"
+
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$baseline_input" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+              'data.mycelix.authz.decision' \
+              > "$sample_dir/baseline/$action-sample-$sample_id.json"
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$indexed_input" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego \
+              'data.mycelix.authz.decision' \
+              > "$sample_dir/indexed/$action-sample-$sample_id.json"
+            test -s "$sample_dir/baseline/$action-sample-$sample_id.json"
+            test -s "$sample_dir/indexed/$action-sample-$sample_id.json"
+          done < <(jq -c '.stratified_action_inputs[]' "$manifest")
+
+          {
+            printf 'evaluation_method=matched native OPA query benchmarks; baseline array membership vs indexed object membership; five repetitions per input\n'
+            printf 'opa_version='; /tmp/opa version
+            printf 'opa_binary_sha256='; sha256sum /tmp/opa
+            printf 'baseline_policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego
+            printf 'indexed_policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego
+            printf 'source_manifest_sha256='; sha256sum target/scientific-policy-space/manifest.json
+            printf 'projection_manifest_sha256='; sha256sum "$manifest"
+            printf 'projection_generator_binary_sha256='; sha256sum tools/scientific-policy-metamorphic/target/release/role_index_projection
+            printf 'full_corpus_baseline_sha256='; sha256sum target/metamorphic-engine-results/baseline-opa/opa-decisions-v0.1.jsonl
+            printf 'full_corpus_indexed_sha256='; sha256sum target/opa-indexed-role-bench/indexed-decisions-v0.1.jsonl
+            uname -a
+            printf 'logical_cpus=%s\n' "$(nproc)"
+            sha256sum "$sample_dir"/baseline/*.json "$sample_dir"/indexed/*.json
+          } > target/opa-indexed-role-bench/reproducibility.txt
+
       - name: Evaluate each metamorphic corpus through Cedar and OPA
         run: |
           set -euo pipefail
@@ -418,6 +564,7 @@ jobs:
             target/scientific-policy-metamorphic/
             target/metamorphic-engine-results/
             target/opa-native-bench/
+            target/opa-indexed-role-bench/
             target/policy-counterexample-seed.json
             target/policy-counterexample-shrink/
             target/opa-version.txt
