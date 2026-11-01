@@ -183,9 +183,10 @@ jobs:
             (.source_input_sha256 | length == 64)
           ' target/policy-counterexample-shrink/shrink-trace.json
           jq -s -e --slurpfile summary target/policy-counterexample-shrink/shrink-summary.json --slurpfile trace target/policy-counterexample-shrink/shrink-trace.json '
+            . as $rows |
             length == $summary[0].candidate_evaluations and
             length == ($trace[0].candidates | length) and
-            all(range(0; length) as $i;
+            all(range(0; ($rows | length)); . as $i |
               .[$i].sequence == $i and
               .[$i].candidate_sha256 == $trace[0].candidates[$i].candidate_sha256 and
               .[$i].predicate_preserved == $trace[0].candidates[$i].predicate_preserved and
