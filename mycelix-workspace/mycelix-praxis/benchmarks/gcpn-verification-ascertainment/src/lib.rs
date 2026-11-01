@@ -233,10 +233,10 @@ impl EvaluationFrame {
                 candidate_model_id,
                 reference_model_id,
             } => {
-                if candidate_model_id.trim().is_empty()
-                    || reference_model_id.trim().is_empty()
-                {
-                    return Err("paired candidate and reference model identifiers are required".into());
+                if candidate_model_id.trim().is_empty() || reference_model_id.trim().is_empty() {
+                    return Err(
+                        "paired candidate and reference model identifiers are required".into(),
+                    );
                 }
                 if candidate_model_id == reference_model_id {
                     return Err("candidate and reference model identifiers must differ".into());
@@ -320,7 +320,10 @@ impl EvaluationFrame {
                             ));
                         }
                         let reference_score = scores.reference_score.ok_or_else(|| {
-                            format!("paired reference score is missing for case {}", case.case_id)
+                            format!(
+                                "paired reference score is missing for case {}",
+                                case.case_id
+                            )
                         })?;
                         if !self.score_bounds.contains(reference_score) {
                             return Err(format!(
@@ -345,12 +348,10 @@ impl EvaluationFrame {
             (ComparisonMode::Paired { .. }, Metric::Candidate | Metric::Reference) => {
                 Ok(self.score_bounds)
             }
-            (ComparisonMode::Paired { .. }, Metric::CandidateMinusReference) => {
-                Ok(ScoreBounds {
-                    lower: self.score_bounds.lower - self.score_bounds.upper,
-                    upper: self.score_bounds.upper - self.score_bounds.lower,
-                })
-            }
+            (ComparisonMode::Paired { .. }, Metric::CandidateMinusReference) => Ok(ScoreBounds {
+                lower: self.score_bounds.lower - self.score_bounds.upper,
+                upper: self.score_bounds.upper - self.score_bounds.lower,
+            }),
         }
     }
 
@@ -362,9 +363,9 @@ impl EvaluationFrame {
         match metric {
             Metric::Candidate => Some(scores.candidate_score),
             Metric::Reference => scores.reference_score,
-            Metric::CandidateMinusReference => {
-                scores.reference_score.map(|reference| scores.candidate_score - reference)
-            }
+            Metric::CandidateMinusReference => scores
+                .reference_score
+                .map(|reference| scores.candidate_score - reference),
         }
     }
 
@@ -474,7 +475,10 @@ impl EvaluationFrame {
 
         let mut groups: BTreeMap<String, Vec<&EligibleCase>> = BTreeMap::new();
         for case in &self.cases {
-            groups.entry(case.stratum_id.clone()).or_default().push(case);
+            groups
+                .entry(case.stratum_id.clone())
+                .or_default()
+                .push(case);
         }
 
         let mut strata = Vec::with_capacity(groups.len());
@@ -537,7 +541,10 @@ impl EvaluationFrame {
 
         for case in &self.cases {
             let probability = case.inclusion_probability.ok_or_else(|| {
-                format!("case {} has no declared inclusion probability", case.case_id)
+                format!(
+                    "case {} has no declared inclusion probability",
+                    case.case_id
+                )
             })?;
             if probability < minimum_inclusion_probability {
                 return Err(format!(
@@ -551,8 +558,7 @@ impl EvaluationFrame {
                 weighted_score_sum += weight * score;
                 weight_sum += weight;
                 squared_weight_sum += weight * weight;
-                minimum_observed_probability =
-                    minimum_observed_probability.min(probability);
+                minimum_observed_probability = minimum_observed_probability.min(probability);
                 maximum_inverse_weight = maximum_inverse_weight.max(weight);
                 observed_cases += 1;
             }
@@ -581,8 +587,7 @@ impl EvaluationFrame {
             effective_sample_size: weight_sum * weight_sum / squared_weight_sum,
             eligible_cases: self.cases.len(),
             observed_cases,
-            identifying_assumption:
-                "verification is conditionally ignorable given the declared propensity covariates and the eligible frame is complete",
+            identifying_assumption: "verification is conditionally ignorable given the declared propensity covariates and the eligible frame is complete",
         })
     }
 
@@ -603,9 +608,9 @@ impl EvaluationFrame {
 
         let all_cases: Vec<&EligibleCase> = self.cases.iter().collect();
         let summary = self.summarize_cases(&all_cases, metric)?;
-        let observed_mean = summary
-            .observed_mean
-            .ok_or_else(|| "pattern-mixture sensitivity requires at least one observed score".to_string())?;
+        let observed_mean = summary.observed_mean.ok_or_else(|| {
+            "pattern-mixture sensitivity requires at least one observed score".to_string()
+        })?;
 
         let mut output = Vec::with_capacity(deltas.len());
         for delta in deltas {
@@ -698,9 +703,27 @@ mod tests {
     #[test]
     fn paired_report_keeps_candidate_reference_and_difference_separate() {
         let frame = paired_frame(vec![
-            case("a", "sys-1", "urban", Some(1.0), observed("a", 0.2, Some(0.1), 90)),
-            case("b", "sys-1", "urban", Some(1.0), observed("b", 0.4, Some(0.6), 91)),
-            case("c", "sys-2", "remote", Some(0.5), missing(MissingReason::SensorUnavailable)),
+            case(
+                "a",
+                "sys-1",
+                "urban",
+                Some(1.0),
+                observed("a", 0.2, Some(0.1), 90),
+            ),
+            case(
+                "b",
+                "sys-1",
+                "urban",
+                Some(1.0),
+                observed("b", 0.4, Some(0.6), 91),
+            ),
+            case(
+                "c",
+                "sys-2",
+                "remote",
+                Some(0.5),
+                missing(MissingReason::SensorUnavailable),
+            ),
         ]);
 
         let report = frame.report().unwrap();
@@ -723,8 +746,20 @@ mod tests {
     #[test]
     fn complete_verification_collapses_bounds_to_observed_mean() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, None, 90)),
-            case("b", "sys-2", "zone-b", Some(1.0), observed("b", 0.6, None, 91)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(1.0),
+                observed("a", 0.2, None, 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                Some(1.0),
+                observed("b", 0.6, None, 91),
+            ),
         ]);
         let summary = frame.report().unwrap().candidate;
         assert!((summary.observed_mean.unwrap() - 0.4).abs() < 1e-12);
@@ -735,8 +770,20 @@ mod tests {
     #[test]
     fn all_missing_frame_has_bounds_but_no_point_estimate() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(0.2), missing(MissingReason::NotCollected)),
-            case("b", "sys-2", "zone-b", Some(0.1), missing(MissingReason::Unknown)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(0.2),
+                missing(MissingReason::NotCollected),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                Some(0.1),
+                missing(MissingReason::Unknown),
+            ),
         ]);
         let summary = frame.report().unwrap().candidate;
         assert_eq!(summary.observed_mean, None);
@@ -747,25 +794,68 @@ mod tests {
     #[test]
     fn missing_reasons_remain_distinct() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(0.5), missing(MissingReason::PendingAtCutoff)),
-            case("b", "sys-1", "zone-a", Some(0.5), missing(MissingReason::CommunicationUnavailable)),
-            case("c", "sys-2", "zone-b", Some(0.5), missing(MissingReason::Disputed)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(0.5),
+                missing(MissingReason::PendingAtCutoff),
+            ),
+            case(
+                "b",
+                "sys-1",
+                "zone-a",
+                Some(0.5),
+                missing(MissingReason::CommunicationUnavailable),
+            ),
+            case(
+                "c",
+                "sys-2",
+                "zone-b",
+                Some(0.5),
+                missing(MissingReason::Disputed),
+            ),
         ]);
         let counts = frame.report().unwrap().missing_by_reason;
         assert_eq!(counts.get(&MissingReason::PendingAtCutoff), Some(&1));
-        assert_eq!(counts.get(&MissingReason::CommunicationUnavailable), Some(&1));
+        assert_eq!(
+            counts.get(&MissingReason::CommunicationUnavailable),
+            Some(&1)
+        );
         assert_eq!(counts.get(&MissingReason::Disputed), Some(&1));
     }
 
     #[test]
     fn zero_observation_stratum_has_no_mean_and_full_bounds() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "observed", Some(1.0), observed("a", 0.25, None, 90)),
-            case("b", "sys-2", "unobserved", Some(0.1), missing(MissingReason::SensorUnavailable)),
-            case("c", "sys-2", "unobserved", Some(0.1), missing(MissingReason::SensorUnavailable)),
+            case(
+                "a",
+                "sys-1",
+                "observed",
+                Some(1.0),
+                observed("a", 0.25, None, 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "unobserved",
+                Some(0.1),
+                missing(MissingReason::SensorUnavailable),
+            ),
+            case(
+                "c",
+                "sys-2",
+                "unobserved",
+                Some(0.1),
+                missing(MissingReason::SensorUnavailable),
+            ),
         ]);
         let report = frame.report().unwrap();
-        let stratum = report.strata.iter().find(|entry| entry.stratum_id == "unobserved").unwrap();
+        let stratum = report
+            .strata
+            .iter()
+            .find(|entry| entry.stratum_id == "unobserved")
+            .unwrap();
         assert_eq!(stratum.candidate.observed_mean, None);
         assert!((stratum.candidate.population_bounds.lower - 0.0).abs() < 1e-12);
         assert!((stratum.candidate.population_bounds.upper - 1.0).abs() < 1e-12);
@@ -774,27 +864,62 @@ mod tests {
 
     #[test]
     fn observations_recorded_after_cutoff_are_rejected() {
-        let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, None, 101)),
-        ]);
-        assert!(frame.validate().unwrap_err().contains("after the selected as-of cutoff"));
+        let frame = single_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            observed("a", 0.2, None, 101),
+        )]);
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("after the selected as-of cutoff")
+        );
     }
 
     #[test]
     fn candidate_score_outside_bounds_is_rejected() {
-        let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 1.1, None, 90)),
-        ]);
-        assert!(frame.validate().unwrap_err().contains("outside declared score bounds"));
+        let frame = single_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            observed("a", 1.1, None, 90),
+        )]);
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("outside declared score bounds")
+        );
     }
 
     #[test]
     fn duplicate_eligible_case_ids_are_rejected() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, None, 90)),
-            case("a", "sys-2", "zone-b", Some(1.0), missing(MissingReason::NotCollected)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(1.0),
+                observed("a", 0.2, None, 90),
+            ),
+            case(
+                "a",
+                "sys-2",
+                "zone-b",
+                Some(1.0),
+                missing(MissingReason::NotCollected),
+            ),
         ]);
-        assert!(frame.validate().unwrap_err().contains("duplicate eligible case id"));
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("duplicate eligible case id")
+        );
     }
 
     #[test]
@@ -804,8 +929,19 @@ mod tests {
             _ => unreachable!(),
         };
         scores.candidate_case_id = "different".into();
-        let frame = paired_frame(vec![case("a", "sys-1", "zone-a", Some(1.0), OutcomeStatus::Observed(scores))]);
-        assert!(frame.validate().unwrap_err().contains("candidate score case id"));
+        let frame = paired_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            OutcomeStatus::Observed(scores),
+        )]);
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("candidate score case id")
+        );
     }
 
     #[test]
@@ -815,8 +951,19 @@ mod tests {
             _ => unreachable!(),
         };
         scores.reference_case_id = Some("different".into());
-        let frame = paired_frame(vec![case("a", "sys-1", "zone-a", Some(1.0), OutcomeStatus::Observed(scores))]);
-        assert!(frame.validate().unwrap_err().contains("reference score case id"));
+        let frame = paired_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            OutcomeStatus::Observed(scores),
+        )]);
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("reference score case id")
+        );
     }
 
     #[test]
@@ -826,8 +973,19 @@ mod tests {
             _ => unreachable!(),
         };
         scores.verification_version = "v2".into();
-        let frame = paired_frame(vec![case("a", "sys-1", "zone-a", Some(1.0), OutcomeStatus::Observed(scores))]);
-        assert!(frame.validate().unwrap_err().contains("verification source/version mismatch"));
+        let frame = paired_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            OutcomeStatus::Observed(scores),
+        )]);
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("verification source/version mismatch")
+        );
     }
 
     #[test]
@@ -844,22 +1002,35 @@ mod tests {
             Some(1.0),
             OutcomeStatus::Observed(scores),
         )]);
-        assert!(frame.validate().unwrap_err().contains("reference score is missing"));
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("reference score is missing")
+        );
     }
 
     #[test]
     fn single_mode_rejects_reference_scores() {
-        let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, Some(0.3), 90)),
-        ]);
+        let frame = single_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            observed("a", 0.2, Some(0.3), 90),
+        )]);
         assert!(frame.validate().unwrap_err().contains("single-model frame"));
     }
 
     #[test]
     fn paired_difference_is_candidate_minus_reference() {
-        let frame = paired_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, Some(0.7), 90)),
-        ]);
+        let frame = paired_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            observed("a", 0.2, Some(0.7), 90),
+        )]);
         let summary = frame.report().unwrap().paired_difference.unwrap();
         assert!((summary.observed_mean.unwrap() + 0.5).abs() < 1e-12);
         assert!(summary.population_bounds.lower <= -0.5);
@@ -869,10 +1040,34 @@ mod tests {
     #[test]
     fn ht_and_hajek_match_constant_propensity_oracle() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(0.5), observed("a", 0.2, None, 90)),
-            case("b", "sys-1", "zone-a", Some(0.5), observed("b", 0.8, None, 91)),
-            case("c", "sys-2", "zone-b", Some(0.5), missing(MissingReason::NotCollected)),
-            case("d", "sys-2", "zone-b", Some(0.5), missing(MissingReason::SensorUnavailable)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(0.5),
+                observed("a", 0.2, None, 90),
+            ),
+            case(
+                "b",
+                "sys-1",
+                "zone-a",
+                Some(0.5),
+                observed("b", 0.8, None, 91),
+            ),
+            case(
+                "c",
+                "sys-2",
+                "zone-b",
+                Some(0.5),
+                missing(MissingReason::NotCollected),
+            ),
+            case(
+                "d",
+                "sys-2",
+                "zone-b",
+                Some(0.5),
+                missing(MissingReason::SensorUnavailable),
+            ),
         ]);
         let estimate = frame.ipw(Metric::Candidate, 0.1).unwrap();
         assert!((estimate.horvitz_thompson_mean - 0.5).abs() < 1e-12);
@@ -885,36 +1080,97 @@ mod tests {
     #[test]
     fn ipw_refuses_missing_propensity_values() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(0.5), observed("a", 0.2, None, 90)),
-            case("b", "sys-2", "zone-b", None, missing(MissingReason::NotCollected)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(0.5),
+                observed("a", 0.2, None, 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                None,
+                missing(MissingReason::NotCollected),
+            ),
         ]);
-        assert!(frame.ipw(Metric::Candidate, 0.1).unwrap_err().contains("no declared inclusion probability"));
+        assert!(
+            frame
+                .ipw(Metric::Candidate, 0.1)
+                .unwrap_err()
+                .contains("no declared inclusion probability")
+        );
     }
 
     #[test]
     fn ipw_refuses_zero_or_below_floor_propensity() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(0.5), observed("a", 0.2, None, 90)),
-            case("b", "sys-2", "zone-b", Some(0.0), missing(MissingReason::NotCollected)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(0.5),
+                observed("a", 0.2, None, 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                Some(0.0),
+                missing(MissingReason::NotCollected),
+            ),
         ]);
-        assert!(frame.ipw(Metric::Candidate, 0.01).unwrap_err().contains("positivity floor"));
+        assert!(
+            frame
+                .ipw(Metric::Candidate, 0.01)
+                .unwrap_err()
+                .contains("positivity floor")
+        );
     }
 
     #[test]
     fn ipw_requires_a_named_propensity_model() {
-        let mut frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, None, 90)),
-        ]);
+        let mut frame = single_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            observed("a", 0.2, None, 90),
+        )]);
         frame.propensity_model_id = None;
-        assert!(frame.ipw(Metric::Candidate, 0.01).unwrap_err().contains("propensity model identifier"));
+        assert!(
+            frame
+                .ipw(Metric::Candidate, 0.01)
+                .unwrap_err()
+                .contains("propensity model identifier")
+        );
     }
 
     #[test]
     fn ipw_reports_effective_sample_size_for_unequal_weights() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(0.25), observed("a", 0.2, None, 90)),
-            case("b", "sys-2", "zone-b", Some(0.75), observed("b", 0.8, None, 91)),
-            case("c", "sys-3", "zone-c", Some(0.5), missing(MissingReason::NotCollected)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(0.25),
+                observed("a", 0.2, None, 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                Some(0.75),
+                observed("b", 0.8, None, 91),
+            ),
+            case(
+                "c",
+                "sys-3",
+                "zone-c",
+                Some(0.5),
+                missing(MissingReason::NotCollected),
+            ),
         ]);
         let estimate = frame.ipw(Metric::Candidate, 0.1).unwrap();
         assert!((estimate.effective_sample_size - 1.6).abs() < 1e-12);
@@ -924,8 +1180,20 @@ mod tests {
     #[test]
     fn ipw_is_not_clipped_to_the_score_range() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(0.1), observed("a", 0.8, None, 90)),
-            case("b", "sys-2", "zone-b", Some(0.9), missing(MissingReason::NotCollected)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(0.1),
+                observed("a", 0.8, None, 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                Some(0.9),
+                missing(MissingReason::NotCollected),
+            ),
         ]);
         let estimate = frame.ipw(Metric::Candidate, 0.05).unwrap();
         assert!(estimate.horvitz_thompson_mean > 1.0);
@@ -934,12 +1202,38 @@ mod tests {
     #[test]
     fn sensitivity_grid_evaluates_only_the_supplied_deltas() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, None, 90)),
-            case("b", "sys-2", "zone-b", Some(0.5), observed("b", 0.4, None, 91)),
-            case("c", "sys-3", "zone-c", Some(0.2), missing(MissingReason::NotCollected)),
-            case("d", "sys-4", "zone-d", Some(0.2), missing(MissingReason::Unknown)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(1.0),
+                observed("a", 0.2, None, 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                Some(0.5),
+                observed("b", 0.4, None, 91),
+            ),
+            case(
+                "c",
+                "sys-3",
+                "zone-c",
+                Some(0.2),
+                missing(MissingReason::NotCollected),
+            ),
+            case(
+                "d",
+                "sys-4",
+                "zone-d",
+                Some(0.2),
+                missing(MissingReason::Unknown),
+            ),
         ]);
-        let points = frame.sensitivity_grid(Metric::Candidate, &[-0.2, 0.0, 0.2]).unwrap();
+        let points = frame
+            .sensitivity_grid(Metric::Candidate, &[-0.2, 0.0, 0.2])
+            .unwrap();
         assert_eq!(points.len(), 3);
         assert!((points[0].population_mean - 0.2).abs() < 1e-12);
         assert!((points[1].population_mean - 0.3).abs() < 1e-12);
@@ -952,8 +1246,20 @@ mod tests {
     #[test]
     fn sensitivity_assumptions_are_clipped_to_declared_score_bounds() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.8, None, 90)),
-            case("b", "sys-2", "zone-b", Some(0.1), missing(MissingReason::Unknown)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(1.0),
+                observed("a", 0.8, None, 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                Some(0.1),
+                missing(MissingReason::Unknown),
+            ),
         ]);
         let point = frame.sensitivity_grid(Metric::Candidate, &[0.5]).unwrap()[0];
         assert!((point.assumed_missing_mean - 1.0).abs() < 1e-12);
@@ -962,65 +1268,154 @@ mod tests {
 
     #[test]
     fn sensitivity_requires_at_least_one_observed_score() {
-        let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(0.1), missing(MissingReason::NotCollected)),
-        ]);
-        assert!(frame.sensitivity_grid(Metric::Candidate, &[0.0]).unwrap_err().contains("at least one observed score"));
+        let frame = single_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(0.1),
+            missing(MissingReason::NotCollected),
+        )]);
+        assert!(
+            frame
+                .sensitivity_grid(Metric::Candidate, &[0.0])
+                .unwrap_err()
+                .contains("at least one observed score")
+        );
     }
 
     #[test]
     fn empty_sensitivity_grid_is_rejected() {
-        let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, None, 90)),
-        ]);
-        assert!(frame.sensitivity_grid(Metric::Candidate, &[]).unwrap_err().contains("must not be empty"));
+        let frame = single_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            observed("a", 0.2, None, 90),
+        )]);
+        assert!(
+            frame
+                .sensitivity_grid(Metric::Candidate, &[])
+                .unwrap_err()
+                .contains("must not be empty")
+        );
     }
 
     #[test]
     fn case_order_does_not_change_the_report() {
         let first = vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, Some(0.4), 90)),
-            case("b", "sys-2", "zone-b", Some(0.5), missing(MissingReason::NotCollected)),
-            case("c", "sys-3", "zone-a", Some(1.0), observed("c", 0.6, Some(0.2), 91)),
+            case(
+                "a",
+                "sys-1",
+                "zone-a",
+                Some(1.0),
+                observed("a", 0.2, Some(0.4), 90),
+            ),
+            case(
+                "b",
+                "sys-2",
+                "zone-b",
+                Some(0.5),
+                missing(MissingReason::NotCollected),
+            ),
+            case(
+                "c",
+                "sys-3",
+                "zone-a",
+                Some(1.0),
+                observed("c", 0.6, Some(0.2), 91),
+            ),
         ];
         let mut second = first.clone();
         second.reverse();
-        assert_eq!(paired_frame(first).report().unwrap(), paired_frame(second).report().unwrap());
+        assert_eq!(
+            paired_frame(first).report().unwrap(),
+            paired_frame(second).report().unwrap()
+        );
     }
 
     #[test]
     fn missing_probability_out_of_range_is_rejected() {
-        let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.1), observed("a", 0.2, None, 90)),
-        ]);
-        assert!(frame.validate().unwrap_err().contains("inclusion probability outside [0, 1]"));
+        let frame = single_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.1),
+            observed("a", 0.2, None, 90),
+        )]);
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("inclusion probability outside [0, 1]")
+        );
     }
 
     #[test]
     fn empty_target_frame_is_rejected() {
         let frame = single_frame(Vec::new());
-        assert!(frame.validate().unwrap_err().contains("at least one eligible case"));
+        assert!(
+            frame
+                .validate()
+                .unwrap_err()
+                .contains("at least one eligible case")
+        );
     }
 
     #[test]
     fn reference_and_paired_metrics_are_unavailable_for_single_model_frames() {
-        let frame = single_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, None, 90)),
-        ]);
-        assert!(frame.ipw(Metric::Reference, 0.1).unwrap_err().contains("paired frame"));
-        assert!(frame.sensitivity_grid(Metric::CandidateMinusReference, &[0.0]).unwrap_err().contains("paired frame"));
+        let frame = single_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            observed("a", 0.2, None, 90),
+        )]);
+        assert!(
+            frame
+                .ipw(Metric::Reference, 0.1)
+                .unwrap_err()
+                .contains("paired frame")
+        );
+        assert!(
+            frame
+                .sensitivity_grid(Metric::CandidateMinusReference, &[0.0])
+                .unwrap_err()
+                .contains("paired frame")
+        );
     }
 
     #[test]
     fn declared_system_and_stratum_denominators_are_reported() {
         let frame = single_frame(vec![
-            case("a", "sys-1", "urban", Some(1.0), observed("a", 0.2, None, 90)),
-            case("b", "sys-1", "urban", Some(0.5), missing(MissingReason::NotCollected)),
-            case("c", "sys-2", "remote", Some(0.2), missing(MissingReason::AccessConstrained)),
+            case(
+                "a",
+                "sys-1",
+                "urban",
+                Some(1.0),
+                observed("a", 0.2, None, 90),
+            ),
+            case(
+                "b",
+                "sys-1",
+                "urban",
+                Some(0.5),
+                missing(MissingReason::NotCollected),
+            ),
+            case(
+                "c",
+                "sys-2",
+                "remote",
+                Some(0.2),
+                missing(MissingReason::AccessConstrained),
+            ),
         ]);
         let report = frame.report().unwrap();
         assert_eq!(report.independent_systems, 2);
-        let urban = report.strata.iter().find(|entry| entry.stratum_id == "urban").unwrap();
+        let urban = report
+            .strata
+            .iter()
+            .find(|entry| entry.stratum_id == "urban")
+            .unwrap();
         assert_eq!(urban.eligible_cases, 2);
         assert_eq!(urban.observed_cases, 1);
         assert_eq!(urban.missing_cases, 1);
