@@ -251,3 +251,8 @@ Added a Rust CLI binary at `tools/sequential-bayes-design/src/bin/robust-informa
 The five-action fixture includes: nominal-sharp vs robust-balanced ranking-reversal candidates, a zero-information repeated CT action, a perfectly discriminating but ineligible measurement, and a perfectly discriminating but over-budget measurement. Focused CI now parses both schemas, executes the binary, asserts expected selected IDs and budget/eligibility constraints, validates the report schema and uploads the artifact.
 
 This creates an executable finite comparator. It is still one-step deterministic, not a continuous physical simulator, sequential stochastic-policy optimizer, PAC-Bayes bound, or full selector integration. Exact-head CI must verify the binary and assertions.
+
+
+### Robust report provenance refinement — 2026-11-01
+
+The executable report now records `minimum_alpha` and `alpha_bisection_iterations` alongside the requested KL radius and fixed-alpha objective. These search controls affect whether a candidate's ambiguity radius is attained or clamped, so they are part of the evidence record and required by the report schema.
