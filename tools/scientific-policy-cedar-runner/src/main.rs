@@ -11,7 +11,7 @@ use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::env;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 use std::str::FromStr;
@@ -347,10 +347,25 @@ fn validate_manifest(manifest: &InputManifest) -> Result<(), String> {
 
 fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>, String> {
     let metadata = fs::metadata(path).map_err(|error| format!("stat engine input corpus: {error}"))?;
+    if !metadata.is_file() {
+        return Err("engine input corpus must be a regular file".to_owned());
+    }
     if metadata.len() > MAX_INPUT_BYTES {
         return Err(format!("engine input corpus exceeds {MAX_INPUT_BYTES} byte cap"));
     }
-    let bytes = fs::read(path).map_err(|error| format!("read engine input corpus: {error}"))?;
+    let initial_capacity = usize::try_from(metadata.len().min(MAX_INPUT_BYTES))
+        .map_err(|error| format!("engine input corpus size does not fit memory index: {error}"))?;
+    let mut bytes = Vec::with_capacity(initial_capacity);
+    File::open(path)
+        .map_err(|error| format!("open engine input corpus: {error}"))?
+        .take(MAX_INPUT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("bounded-read engine input corpus: {error}"))?;
+    // Metadata is an early rejection only. Cap the actual read as well so a
+    // concurrent file replacement or growth cannot bypass the input limit.
+    if bytes.len() as u64 > MAX_INPUT_BYTES {
+        return Err(format!("engine input corpus exceeds {MAX_INPUT_BYTES} byte cap"));
+    }
     if sha256(&bytes) != expected_sha256 {
         return Err("engine input corpus SHA-256 does not match its manifest".to_owned());
     }
@@ -824,8 +839,24 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         return Err("max-candidates must be between 1 and 2000".to_owned());
     }
 
-    let source_bytes = fs::read(&input_path)
-        .map_err(|error| format!("read original counterexample: {error}"))?;
+    let source_metadata = fs::metadata(&input_path)
+        .map_err(|error| format!("stat original counterexample: {error}"))?;
+    if source_metadata.len() > MAX_SOURCE_INPUT_BYTES as u64 {
+        return Err(format!(
+            "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
+        ));
+    }
+    let mut source_bytes = Vec::with_capacity(
+        usize::try_from(source_metadata.len().min(MAX_SOURCE_INPUT_BYTES as u64))
+            .map_err(|error| format!("counterexample size does not fit memory index: {error}"))?,
+    );
+    File::open(&input_path)
+        .map_err(|error| format!("open original counterexample: {error}"))?
+        .take(MAX_SOURCE_INPUT_BYTES as u64 + 1)
+        .read_to_end(&mut source_bytes)
+        .map_err(|error| format!("bounded-read original counterexample: {error}"))?;
+    // The metadata check is only an early rejection. The read is independently
+    // capped so a concurrent file replacement/growth cannot bypass the limit.
     if source_bytes.len() > MAX_SOURCE_INPUT_BYTES {
         return Err(format!(
             "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
