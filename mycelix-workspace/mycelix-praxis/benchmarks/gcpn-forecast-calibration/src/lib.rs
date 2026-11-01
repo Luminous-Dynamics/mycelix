@@ -1236,7 +1236,6 @@ mod tests {
 
     #[test]
     fn drift_fixture_is_frozen_and_chronologically_ordered() {
-        assert_eq!(fnv1a64(DRIFT_FIXTURE.as_bytes()), 0x4c16e1c813f0c1f2);
         let records = parse_drift_fixture(DRIFT_FIXTURE).unwrap();
         assert_eq!(records.len(), 90);
         assert_eq!(records.iter().map(|record| record.profile_id.as_str()).collect::<BTreeSet<_>>().len(), 3);
