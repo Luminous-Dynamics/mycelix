@@ -27,7 +27,7 @@ pub fn crps_ensemble(members: &[f64], observation: f64) -> Result<f64, String> {
     let member_count = members.len() as f64;
     let first_term = members
         .iter()
-        .map(|member| (member - observation).abs())
+        .map(|member| (*member - observation).abs())
         .sum::<f64>()
         / member_count;
     let mut pair_sum = 0.0;
