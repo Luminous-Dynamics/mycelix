@@ -1,4 +1,4 @@
-name: Terra Preta rustfmt repair snapshot
+name: Terra Preta rustfmt repair
 
 on:
   pull_request:
@@ -8,31 +8,37 @@ on:
       - "research/terra-preta/tools/neon-swc-normalizer/src/main.rs"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: terra-preta-rustfmt-snapshot-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: terra-preta-rustfmt-repair-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  format-snapshot:
+  format-repair:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - name: Apply the pinned runner rustfmt to the affected crate
+      - name: Apply rustfmt to the identified crate
         run: cargo fmt --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml
-      - name: Preserve only the formatted source
+      - name: Commit exact formatter output and remove this temporary workflow
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
-          mkdir -p "$RUNNER_TEMP/rustfmt-snapshot"
-          cp research/terra-preta/tools/neon-swc-normalizer/src/main.rs \
-            "$RUNNER_TEMP/rustfmt-snapshot/main.rs"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: neon-swc-normalizer-rustfmt-${{ github.sha }}
-          path: ${{ runner.temp }}/rustfmt-snapshot/main.rs
-          if-no-files-found: error
-          retention-days: 3
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/terra-preta-rustfmt-snapshot.yml
+          git add research/terra-preta/tools/neon-swc-normalizer/src/main.rs
+          git add .github/workflows/terra-preta-rustfmt-snapshot.yml
+          if git diff --cached --quiet; then
+            echo "No formatter changes were necessary."
+            exit 0
+          fi
+          git commit -m "style(terra-preta): apply exact runner rustfmt to NEON normalizer"
+          git push origin "HEAD:${TARGET_BRANCH}"
