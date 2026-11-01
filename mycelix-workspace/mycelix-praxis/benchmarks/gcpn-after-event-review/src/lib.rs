@@ -86,7 +86,10 @@ pub struct MilestoneFinding {
     pub evidence_ids: Vec<String>,
 }
 
-pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> Vec<MilestoneFinding> {
+pub fn evaluate_plan(
+    plan: &[PlannedMilestone],
+    snapshot: &TimelineSnapshot,
+) -> Vec<MilestoneFinding> {
     plan.iter()
         .map(|milestone| {
             let mut all_matching: Vec<&EvidenceEvent> = snapshot
@@ -110,8 +113,7 @@ pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> 
                 .iter()
                 .copied()
                 .filter(|event| {
-                    event.stage == milestone.stage
-                        && event.plan_version == milestone.plan_version
+                    event.stage == milestone.stage && event.plan_version == milestone.plan_version
                 })
                 .collect();
             if plan_matching.is_empty() {
@@ -121,7 +123,10 @@ pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> 
                     status: MilestoneStatus::StageOrPlanVersionMismatch,
                     planned_at: milestone.planned_at,
                     observed_at: all_matching.first().map(|event| event.event_at),
-                    evidence_ids: all_matching.iter().map(|event| event.evidence_id.clone()).collect(),
+                    evidence_ids: all_matching
+                        .iter()
+                        .map(|event| event.evidence_id.clone())
+                        .collect(),
                 };
             }
 
@@ -139,7 +144,10 @@ pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> 
                     status: MilestoneStatus::Unverified,
                     planned_at: milestone.planned_at,
                     observed_at: plan_matching.first().map(|event| event.event_at),
-                    evidence_ids: plan_matching.iter().map(|event| event.evidence_id.clone()).collect(),
+                    evidence_ids: plan_matching
+                        .iter()
+                        .map(|event| event.evidence_id.clone())
+                        .collect(),
                 };
             }
 
@@ -155,7 +163,10 @@ pub fn evaluate_plan(plan: &[PlannedMilestone], snapshot: &TimelineSnapshot) -> 
                 status,
                 planned_at: milestone.planned_at,
                 observed_at: Some(first_verified.event_at),
-                evidence_ids: verified.iter().map(|event| event.evidence_id.clone()).collect(),
+                evidence_ids: verified
+                    .iter()
+                    .map(|event| event.evidence_id.clone())
+                    .collect(),
             }
         })
         .collect()
@@ -215,18 +226,34 @@ pub fn assess_causal_claim_as_of(
     let visible: BTreeMap<&str, bool> = snapshot
         .events
         .iter()
-        .map(|event| (event.evidence_id.as_str(), event.verified_under_fixture_policy))
+        .map(|event| {
+            (
+                event.evidence_id.as_str(),
+                event.verified_under_fixture_policy,
+            )
+        })
         .collect();
-    if claim.evidence_ids.iter().any(|id| !visible.contains_key(id.as_str())) {
+    if claim
+        .evidence_ids
+        .iter()
+        .any(|id| !visible.contains_key(id.as_str()))
+    {
         return CausalAssessment::CausalEvidenceNotVisibleAsOf;
     }
-    if claim.evidence_ids.iter().any(|id| !visible.get(id.as_str()).copied().unwrap_or(false)) {
+    if claim
+        .evidence_ids
+        .iter()
+        .any(|id| !visible.get(id.as_str()).copied().unwrap_or(false))
+    {
         return CausalAssessment::CausalEvidenceUnverified;
     }
     assess_causal_claim_against_known_dgp(claim, truth)
 }
 
-fn assess_causal_claim_against_known_dgp(claim: &CausalClaim, truth: &KnownDgpTruth) -> CausalAssessment {
+fn assess_causal_claim_against_known_dgp(
+    claim: &CausalClaim,
+    truth: &KnownDgpTruth,
+) -> CausalAssessment {
     match claim.level {
         CausalClaimLevel::Chronology | CausalClaimLevel::Association => {
             CausalAssessment::DescriptiveOnly
@@ -329,7 +356,12 @@ pub fn validate_recommendations(
     let visible: BTreeMap<&str, bool> = snapshot
         .events
         .iter()
-        .map(|event| (event.evidence_id.as_str(), event.verified_under_fixture_policy))
+        .map(|event| {
+            (
+                event.evidence_id.as_str(),
+                event.verified_under_fixture_policy,
+            )
+        })
         .collect();
     recommendations
         .iter()
@@ -404,15 +436,20 @@ pub fn summarize_review(
             MilestoneStatus::Late => report.late += 1,
             MilestoneStatus::Missing => report.missing += 1,
             MilestoneStatus::Unverified => report.unverified += 1,
-            MilestoneStatus::StageOrPlanVersionMismatch => report.stage_or_plan_version_mismatch += 1,
+            MilestoneStatus::StageOrPlanVersionMismatch => {
+                report.stage_or_plan_version_mismatch += 1
+            }
         }
     }
     for assessment in causal_assessments {
         match assessment {
             CausalAssessment::CausalFieldsIncomplete => report.causal_claims_incomplete += 1,
-            CausalAssessment::CausalClaimUnsupportedByKnownDgp => report.causal_claims_unsupported += 1,
+            CausalAssessment::CausalClaimUnsupportedByKnownDgp => {
+                report.causal_claims_unsupported += 1
+            }
             CausalAssessment::CausalEffectUnidentified => report.causal_effects_unidentified += 1,
-            CausalAssessment::CausalEvidenceNotVisibleAsOf | CausalAssessment::CausalEvidenceUnverified => report.causal_claims_incomplete += 1,
+            CausalAssessment::CausalEvidenceNotVisibleAsOf
+            | CausalAssessment::CausalEvidenceUnverified => report.causal_claims_incomplete += 1,
             _ => {}
         }
     }
@@ -423,7 +460,8 @@ pub fn summarize_review(
             report.recommendations_incomplete += 1;
         }
     }
-    report.unresolved_findings = findings.iter().filter(|finding| finding.unresolved).count() as u32;
+    report.unresolved_findings =
+        findings.iter().filter(|finding| finding.unresolved).count() as u32;
     report
 }
 
@@ -431,7 +469,13 @@ pub fn summarize_review(
 mod tests {
     use super::*;
 
-    fn event(id: &str, milestone: &str, event_at: u64, recorded_at: u64, verified: bool) -> EvidenceEvent {
+    fn event(
+        id: &str,
+        milestone: &str,
+        event_at: u64,
+        recorded_at: u64,
+        verified: bool,
+    ) -> EvidenceEvent {
         EvidenceEvent {
             evidence_id: id.into(),
             milestone_id: milestone.into(),
@@ -476,65 +520,128 @@ mod tests {
             event("e2", "m2", 200, 201, true),
             event("e1", "m1", 100, 101, true),
         ];
-        assert_eq!(reconstruct_as_of(&records, 300), reconstruct_as_of(&records, 300));
+        assert_eq!(
+            reconstruct_as_of(&records, 300),
+            reconstruct_as_of(&records, 300)
+        );
         assert_eq!(reconstruct_as_of(&records, 300).events[0].evidence_id, "e1");
     }
 
     #[test]
-    fn plan_comparison_distinguishes_on_time_late_and_missing(){
+    fn plan_comparison_distinguishes_on_time_late_and_missing() {
         let plan = vec![
-            PlannedMilestone{milestone_id:"on-time".into(),stage:ReviewStage::WarningDissemination,planned_at:100,plan_version:"v1".into()},
-            PlannedMilestone{milestone_id:"late".into(),stage:ReviewStage::WarningDissemination,planned_at:100,plan_version:"v1".into()},
-            PlannedMilestone{milestone_id:"missing".into(),stage:ReviewStage::Preparedness,planned_at:100,plan_version:"v1".into()},
+            PlannedMilestone {
+                milestone_id: "on-time".into(),
+                stage: ReviewStage::WarningDissemination,
+                planned_at: 100,
+                plan_version: "v1".into(),
+            },
+            PlannedMilestone {
+                milestone_id: "late".into(),
+                stage: ReviewStage::WarningDissemination,
+                planned_at: 100,
+                plan_version: "v1".into(),
+            },
+            PlannedMilestone {
+                milestone_id: "missing".into(),
+                stage: ReviewStage::Preparedness,
+                planned_at: 100,
+                plan_version: "v1".into(),
+            },
         ];
-        let snapshot = reconstruct_as_of(&[
-            event("e1","on-time",90,91,true),
-            event("e2","late",120,121,true),
-        ],200);
-        let result=evaluate_plan(&plan,&snapshot);
-        assert_eq!(result[0].status,MilestoneStatus::OnTime);
-        assert_eq!(result[1].status,MilestoneStatus::Late);
-        assert_eq!(result[2].status,MilestoneStatus::Missing);
+        let snapshot = reconstruct_as_of(
+            &[
+                event("e1", "on-time", 90, 91, true),
+                event("e2", "late", 120, 121, true),
+            ],
+            200,
+        );
+        let result = evaluate_plan(&plan, &snapshot);
+        assert_eq!(result[0].status, MilestoneStatus::OnTime);
+        assert_eq!(result[1].status, MilestoneStatus::Late);
+        assert_eq!(result[2].status, MilestoneStatus::Missing);
     }
 
     #[test]
-    fn evidence_recorded_after_cutoff_cannot_support_causal_claim(){
-        let claim=complete_causal_claim();
-        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
-        let snapshot=reconstruct_as_of(&[event("evidence-1","m1",100,300,true)],200);
-        assert_eq!(assess_causal_claim_as_of(&claim,&truth,&snapshot),CausalAssessment::CausalEvidenceNotVisibleAsOf);
+    fn evidence_recorded_after_cutoff_cannot_support_causal_claim() {
+        let claim = complete_causal_claim();
+        let truth = KnownDgpTruth {
+            causal_effect_identified: true,
+            supported_links: BTreeSet::from([(
+                "warning_delay".into(),
+                "reduced_timely_reach".into(),
+            )]),
+        };
+        let snapshot = reconstruct_as_of(&[event("evidence-1", "m1", 100, 300, true)], 200);
+        assert_eq!(
+            assess_causal_claim_as_of(&claim, &truth, &snapshot),
+            CausalAssessment::CausalEvidenceNotVisibleAsOf
+        );
     }
 
     #[test]
-    fn causal_claim_without_any_evidence_id_is_incomplete(){
-        let mut claim=complete_causal_claim();
+    fn causal_claim_without_any_evidence_id_is_incomplete() {
+        let mut claim = complete_causal_claim();
         claim.evidence_ids.clear();
-        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
-        let snapshot=reconstruct_as_of(&[],500);
-        assert_eq!(assess_causal_claim_as_of(&claim,&truth,&snapshot),CausalAssessment::CausalFieldsIncomplete);
+        let truth = KnownDgpTruth {
+            causal_effect_identified: true,
+            supported_links: BTreeSet::from([(
+                "warning_delay".into(),
+                "reduced_timely_reach".into(),
+            )]),
+        };
+        let snapshot = reconstruct_as_of(&[], 500);
+        assert_eq!(
+            assess_causal_claim_as_of(&claim, &truth, &snapshot),
+            CausalAssessment::CausalFieldsIncomplete
+        );
     }
 
     #[test]
-    fn unverified_as_of_evidence_cannot_support_causal_claim(){
-        let claim=complete_causal_claim();
-        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
-        let snapshot=reconstruct_as_of(&[event("evidence-1","m1",100,101,false)],200);
-        assert_eq!(assess_causal_claim_as_of(&claim,&truth,&snapshot),CausalAssessment::CausalEvidenceUnverified);
+    fn unverified_as_of_evidence_cannot_support_causal_claim() {
+        let claim = complete_causal_claim();
+        let truth = KnownDgpTruth {
+            causal_effect_identified: true,
+            supported_links: BTreeSet::from([(
+                "warning_delay".into(),
+                "reduced_timely_reach".into(),
+            )]),
+        };
+        let snapshot = reconstruct_as_of(&[event("evidence-1", "m1", 100, 101, false)], 200);
+        assert_eq!(
+            assess_causal_claim_as_of(&claim, &truth, &snapshot),
+            CausalAssessment::CausalEvidenceUnverified
+        );
     }
 
     #[test]
-    fn recommendations_do_not_treat_unverified_evidence_as_traceable(){
-        let snapshot=reconstruct_as_of(&[event("e1","m1",100,101,false)],200);
-        let recommendation=Recommendation{recommendation_id:"r".into(),system_issue:"system issue".into(),owner_role:"coordination role".into(),evidence_ids:vec!["e1".into()],follow_up_due:Some(500),measurable_follow_up:Some("measure handoff time".into())};
-        let result=validate_recommendations(&[recommendation],&snapshot);
-        assert_eq!(result[0].status,RecommendationStatus::UnverifiedEvidence);
+    fn recommendations_do_not_treat_unverified_evidence_as_traceable() {
+        let snapshot = reconstruct_as_of(&[event("e1", "m1", 100, 101, false)], 200);
+        let recommendation = Recommendation {
+            recommendation_id: "r".into(),
+            system_issue: "system issue".into(),
+            owner_role: "coordination role".into(),
+            evidence_ids: vec!["e1".into()],
+            follow_up_due: Some(500),
+            measurable_follow_up: Some("measure handoff time".into()),
+        };
+        let result = validate_recommendations(&[recommendation], &snapshot);
+        assert_eq!(result[0].status, RecommendationStatus::UnverifiedEvidence);
     }
 
     #[test]
-    fn plan_version_or_stage_mismatch_is_not_scored_as_success(){
-        let plan=vec![PlannedMilestone{milestone_id:"m".into(),stage:ReviewStage::WarningDissemination,planned_at:100,plan_version:"v2".into()}];
-        let snapshot=reconstruct_as_of(&[event("e","m",90,91,true)],200);
-        assert_eq!(evaluate_plan(&plan,&snapshot)[0].status,MilestoneStatus::StageOrPlanVersionMismatch);
+    fn plan_version_or_stage_mismatch_is_not_scored_as_success() {
+        let plan = vec![PlannedMilestone {
+            milestone_id: "m".into(),
+            stage: ReviewStage::WarningDissemination,
+            planned_at: 100,
+            plan_version: "v2".into(),
+        }];
+        let snapshot = reconstruct_as_of(&[event("e", "m", 90, 91, true)], 200);
+        assert_eq!(
+            evaluate_plan(&plan, &snapshot)[0].status,
+            MilestoneStatus::StageOrPlanVersionMismatch
+        );
     }
 
     #[test]
@@ -572,62 +679,139 @@ mod tests {
     }
 
     #[test]
-    fn unverified_event_does_not_count_as_on_time(){
-        let plan=vec![PlannedMilestone{milestone_id:"m".into(),stage:ReviewStage::WarningDissemination,planned_at:100,plan_version:"v1".into()}];
-        let snapshot=reconstruct_as_of(&[event("e","m",90,91,false)],200);
-        assert_eq!(evaluate_plan(&plan,&snapshot)[0].status,MilestoneStatus::Unverified);
+    fn unverified_event_does_not_count_as_on_time() {
+        let plan = vec![PlannedMilestone {
+            milestone_id: "m".into(),
+            stage: ReviewStage::WarningDissemination,
+            planned_at: 100,
+            plan_version: "v1".into(),
+        }];
+        let snapshot = reconstruct_as_of(&[event("e", "m", 90, 91, false)], 200);
+        assert_eq!(
+            evaluate_plan(&plan, &snapshot)[0].status,
+            MilestoneStatus::Unverified
+        );
     }
 
     #[test]
-    fn descriptive_claim_is_not_promoted_to_causality(){
-        let mut claim=complete_causal_claim();
-        claim.level=CausalClaimLevel::Chronology;
-        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::new()};
-        assert_eq!(assess_causal_claim_against_known_dgp(&claim,&truth),CausalAssessment::DescriptiveOnly);
+    fn descriptive_claim_is_not_promoted_to_causality() {
+        let mut claim = complete_causal_claim();
+        claim.level = CausalClaimLevel::Chronology;
+        let truth = KnownDgpTruth {
+            causal_effect_identified: true,
+            supported_links: BTreeSet::new(),
+        };
+        assert_eq!(
+            assess_causal_claim_against_known_dgp(&claim, &truth),
+            CausalAssessment::DescriptiveOnly
+        );
     }
 
     #[test]
-    fn missing_causal_fields_are_rejected(){
-        let mut claim=complete_causal_claim();
-        claim.counterfactual_definition=None;
-        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
-        assert_eq!(assess_causal_claim(&claim,&truth),CausalAssessment::CausalFieldsIncomplete);
+    fn missing_causal_fields_are_rejected() {
+        let mut claim = complete_causal_claim();
+        claim.counterfactual_definition = None;
+        let truth = KnownDgpTruth {
+            causal_effect_identified: true,
+            supported_links: BTreeSet::from([(
+                "warning_delay".into(),
+                "reduced_timely_reach".into(),
+            )]),
+        };
+        assert_eq!(
+            assess_causal_claim(&claim, &truth),
+            CausalAssessment::CausalFieldsIncomplete
+        );
     }
 
     #[test]
-    fn unknown_causal_effect_must_remain_unidentified(){
-        let claim=complete_causal_claim();
-        let truth=KnownDgpTruth{causal_effect_identified:false,supported_links:BTreeSet::new()};
-        assert_eq!(assess_causal_claim(&claim,&truth),CausalAssessment::CausalEffectUnidentified);
+    fn unknown_causal_effect_must_remain_unidentified() {
+        let claim = complete_causal_claim();
+        let truth = KnownDgpTruth {
+            causal_effect_identified: false,
+            supported_links: BTreeSet::new(),
+        };
+        assert_eq!(
+            assess_causal_claim(&claim, &truth),
+            CausalAssessment::CausalEffectUnidentified
+        );
     }
 
     #[test]
-    fn unsupported_causal_link_is_not_accepted(){
-        let mut claim=complete_causal_claim();
-        claim.proposed_cause="wrong_cause".into();
-        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
-        assert_eq!(assess_causal_claim(&claim,&truth),CausalAssessment::CausalClaimUnsupportedByKnownDgp);
+    fn unsupported_causal_link_is_not_accepted() {
+        let mut claim = complete_causal_claim();
+        claim.proposed_cause = "wrong_cause".into();
+        let truth = KnownDgpTruth {
+            causal_effect_identified: true,
+            supported_links: BTreeSet::from([(
+                "warning_delay".into(),
+                "reduced_timely_reach".into(),
+            )]),
+        };
+        assert_eq!(
+            assess_causal_claim(&claim, &truth),
+            CausalAssessment::CausalClaimUnsupportedByKnownDgp
+        );
     }
 
     #[test]
-    fn recommendations_require_visible_evidence_system_issue_owner_and_followup(){
-        let snapshot=reconstruct_as_of(&[event("e1","m1",100,101,true)],200);
-        let good=Recommendation{recommendation_id:"r1".into(),system_issue:"late dissemination handoff".into(),owner_role:"regional coordination function".into(),evidence_ids:vec!["e1".into()],follow_up_due:Some(500),measurable_follow_up:Some("exercise median handoff time".into())};
-        let bad=Recommendation{recommendation_id:"r2".into(),system_issue:"".into(),owner_role:"".into(),evidence_ids:vec!["missing".into()],follow_up_due:None,measurable_follow_up:None};
-        let findings=validate_recommendations(&[good,bad],&snapshot);
-        assert_eq!(findings[0].status,RecommendationStatus::TraceableAndActionable);
-        assert_eq!(findings[1].status,RecommendationStatus::UnknownEvidence);
+    fn recommendations_require_visible_evidence_system_issue_owner_and_followup() {
+        let snapshot = reconstruct_as_of(&[event("e1", "m1", 100, 101, true)], 200);
+        let good = Recommendation {
+            recommendation_id: "r1".into(),
+            system_issue: "late dissemination handoff".into(),
+            owner_role: "regional coordination function".into(),
+            evidence_ids: vec!["e1".into()],
+            follow_up_due: Some(500),
+            measurable_follow_up: Some("exercise median handoff time".into()),
+        };
+        let bad = Recommendation {
+            recommendation_id: "r2".into(),
+            system_issue: "".into(),
+            owner_role: "".into(),
+            evidence_ids: vec!["missing".into()],
+            follow_up_due: None,
+            measurable_follow_up: None,
+        };
+        let findings = validate_recommendations(&[good, bad], &snapshot);
+        assert_eq!(
+            findings[0].status,
+            RecommendationStatus::TraceableAndActionable
+        );
+        assert_eq!(findings[1].status, RecommendationStatus::UnknownEvidence);
     }
 
     #[test]
-    fn summaries_report_unresolved_and_incomplete_without_composite_score(){
-        let milestones=vec![MilestoneFinding{milestone_id:"m".into(),stage:ReviewStage::Response,status:MilestoneStatus::Missing,planned_at:10,observed_at:None,evidence_ids:vec![]}];
-        let recommendations=vec![RecommendationFinding{recommendation_id:"r".into(),status:RecommendationStatus::MissingFollowUp}];
-        let findings=vec![SystemFinding{finding_id:"f".into(),system_issue:"coordination gap".into(),stage:ReviewStage::AuthorityDecision,evidence_ids:vec!["e".into()],alternative_explanations:vec!["source delay".into()],unresolved:true}];
-        let report=summarize_review(&milestones,&[CausalAssessment::CausalEffectUnidentified],&recommendations,&findings);
-        assert_eq!(report.missing,1);
-        assert_eq!(report.causal_effects_unidentified,1);
-        assert_eq!(report.recommendations_incomplete,1);
-        assert_eq!(report.unresolved_findings,1);
+    fn summaries_report_unresolved_and_incomplete_without_composite_score() {
+        let milestones = vec![MilestoneFinding {
+            milestone_id: "m".into(),
+            stage: ReviewStage::Response,
+            status: MilestoneStatus::Missing,
+            planned_at: 10,
+            observed_at: None,
+            evidence_ids: vec![],
+        }];
+        let recommendations = vec![RecommendationFinding {
+            recommendation_id: "r".into(),
+            status: RecommendationStatus::MissingFollowUp,
+        }];
+        let findings = vec![SystemFinding {
+            finding_id: "f".into(),
+            system_issue: "coordination gap".into(),
+            stage: ReviewStage::AuthorityDecision,
+            evidence_ids: vec!["e".into()],
+            alternative_explanations: vec!["source delay".into()],
+            unresolved: true,
+        }];
+        let report = summarize_review(
+            &milestones,
+            &[CausalAssessment::CausalEffectUnidentified],
+            &recommendations,
+            &findings,
+        );
+        assert_eq!(report.missing, 1);
+        assert_eq!(report.causal_effects_unidentified, 1);
+        assert_eq!(report.recommendations_incomplete, 1);
+        assert_eq!(report.unresolved_findings, 1);
     }
 }
