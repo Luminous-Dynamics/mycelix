@@ -8,7 +8,7 @@ core_message_task_v1,low_bandwidth_text,accessible_multimodal,100,60,55,48,43,27
 core_message_task_v1,screen_reader,dense_technical,100,70,45,40,35,38,21,44
 core_message_task_v1,screen_reader,plain_language,100,85,76,70,64,20,14,27
 core_message_task_v1,screen_reader,accessible_multimodal,100,100,92,87,82,8,12,23
-core_message_task_v1,sign_language_video,dense_technical,100,35,22,18,15,45,28,58
+core_message_task_v1,sign_language_video,dense_technical,100,35,22,18,15,15,28,58
 core_message_task_v1,sign_language_video,plain_language,100,45,34,28,25,38,23,48
 core_message_task_v1,sign_language_video,accessible_multimodal,100,100,90,84,79,10,15,28
 core_message_task_v1,audio_only_radio,dense_technical,100,100,60,54,48,30,19,40
