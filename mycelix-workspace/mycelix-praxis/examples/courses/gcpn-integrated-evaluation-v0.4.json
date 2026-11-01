@@ -3,12 +3,58 @@
   "version": "0.4.0",
   "status": "synthetic-composition-only",
   "component_packages": [
-    {"name":"gcpn-civil-conformance","version":"0.1.1","fixture":"gcpn-001-v0.1.1.csv","fnv1a64":"0x8e5118bf74fc7b13"},
-    {"name":"gcpn-topology-resilience","version":"0.1.0","fixture":"topology-fault-matrix-v0.1.csv","fnv1a64":"0xe6f6679f94c93e31"},
-    {"name":"gcpn-last-mile","version":"0.1.0","fixtures":[{"name":"receiver-cohorts-v0.1.csv","fnv1a64":"0x59f956045ca16c3d"},{"name":"channel-fault-matrix-v0.1.csv","fnv1a64":"0x2a7269d9a7d4caee"}]},
-    {"name":"gcpn-warning-to-action","version":"0.1.1","fixture":"action-chain-v0.1.1.csv","fnv1a64":"0x4084062a6c04598f"},
-    {"name":"gcpn-forecast-calibration","version":"0.1.0","fixture":"forecast-cases-v0.1.csv","fnv1a64":"0x81af0b6779196770"},
-    {"name":"gcpn-lifecycle-cost","version":"0.1.0","fixtures":[{"name":"lifecycle-cost-profile-v0.1.csv","fnv1a64":"0x52072da4d6fb1ba6"},{"name":"service-outcomes-v0.1.csv","fnv1a64":"0x376c727b26d887aa"}]}
+    {
+      "name": "gcpn-civil-conformance",
+      "version": "0.1.1",
+      "fixture": "gcpn-001-v0.1.1.csv",
+      "fnv1a64": "0x8e5118bf74fc7b13"
+    },
+    {
+      "name": "gcpn-topology-resilience",
+      "version": "0.1.0",
+      "fixture": "topology-fault-matrix-v0.1.csv",
+      "fnv1a64": "0xe6f6679f94c93e31"
+    },
+    {
+      "name": "gcpn-last-mile",
+      "version": "0.1.0",
+      "fixtures": [
+        {
+          "name": "receiver-cohorts-v0.1.csv",
+          "fnv1a64": "0x59f956045ca16c3d"
+        },
+        {
+          "name": "channel-fault-matrix-v0.1.csv",
+          "fnv1a64": "0x2a7269d9a7d4caee"
+        }
+      ]
+    },
+    {
+      "name": "gcpn-warning-to-action",
+      "version": "0.1.1",
+      "fixture": "action-chain-v0.1.1.csv",
+      "fnv1a64": "0x4084062a6c04598f"
+    },
+    {
+      "name": "gcpn-forecast-calibration",
+      "version": "0.1.0",
+      "fixture": "forecast-cases-v0.1.csv",
+      "fnv1a64": "0x81af0b6779196770"
+    },
+    {
+      "name": "gcpn-lifecycle-cost",
+      "version": "0.1.0",
+      "fixtures": [
+        {
+          "name": "lifecycle-cost-profile-v0.1.csv",
+          "fnv1a64": "0x52072da4d6fb1ba6"
+        },
+        {
+          "name": "service-outcomes-v0.1.csv",
+          "fnv1a64": "0x376c727b26d887aa"
+        }
+      ]
+    }
   ],
   "baseline_cost_assumptions": {
     "service_horizon_years": 5,
@@ -42,5 +88,18 @@
     "no_national_budget_or_investment_recommendation",
     "no_replacement_for_national_warning_authorities_sadc_shoc_or_amhewas",
     "nrvdef_is_a_separate_evidence_and_treaty-boundary-programme"
-  ]
+  ],
+  "baseline_staffing_assumptions": {
+    "annual_staff_hours": {
+      "centralized": 1600,
+      "regional": 1950,
+      "local_first": 2400
+    },
+    "staff_hours_over_five_year_horizon": {
+      "centralized": 8000,
+      "regional": 9750,
+      "local_first": 12000
+    },
+    "note": "Synthetic staffing assumptions; no wage or salary rate is inferred."
+  }
 }
