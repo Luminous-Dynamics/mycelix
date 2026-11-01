@@ -238,6 +238,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn all_component_fixture_fingerprints_are_pinned_at_integration_boundary() {
+        fn fnv1a64(bytes: &[u8]) -> u64 {
+            bytes.iter().fold(0xcbf29ce484222325u64, |mut hash, byte| {
+                hash ^= u64::from(*byte);
+                hash.wrapping_mul(0x100000001b3)
+            })
+        }
+
+        assert_eq!(
+            fnv1a64(gcpn_civil_conformance::FIXTURE.as_bytes()),
+            0x8e5118bf74fc7b13
+        );
+        assert_eq!(
+            fnv1a64(gcpn_topology_resilience::FIXTURE.as_bytes()),
+            0xe6f6679f94c93e31
+        );
+        assert_eq!(
+            fnv1a64(gcpn_last_mile::COHORT_FIXTURE.as_bytes()),
+            0x59f956045ca16c3d
+        );
+        assert_eq!(
+            fnv1a64(gcpn_last_mile::SCENARIO_FIXTURE.as_bytes()),
+            0x2a7269d9a7d4caee
+        );
+        assert_eq!(
+            fnv1a64(gcpn_warning_to_action::FIXTURE.as_bytes()),
+            0x4084062a6c04598f
+        );
+    }
+
+    #[test]
     fn every_module_retains_its_own_expected_fixture_result() {
         let report = integrated_report().unwrap();
         assert!(report.civil_record.integrity_gates_pass);
