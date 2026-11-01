@@ -305,3 +305,16 @@ Added `optimize_gibbs_shared_kl_policy`. For each candidate common dual beta, th
 The resulting report records lambda, beta, alpha, policy action probabilities, expected information, policy KL, both complexity/ambiguity penalties and the robust regularized value. At zero ambiguity radius it returns the nominal Shannon limit with no finite beta. Infeasible actions are excluded from the policy support.
 
 This is an exact-reward finite Gibbs/shared-dual reference, not the paper's nested-Monte-Carlo α-information estimator. It does not produce a valid PAC-Bayes LCB because no concentration constants or regularity assumptions are externally validated. The numerical beta search is reported but is not a formal global-optimality certificate.
+
+
+## 23. Log-domain Sibson and q* calculation — 2026-11-01
+
+A numerical adversarial control showed that direct powers in the Sibson formula can underflow as alpha approaches zero, especially for deterministic measurement channels. For a perfectly discriminating binary channel the information remains \\(\ln 2\\) nats; it must not collapse to zero. The implementation now uses log-sum-exp and the identity
+
+```text
+alpha * log(sum_x exp(log_inner_x / alpha))
+ = max_x(log_inner_x)
+   + alpha * log(sum_x exp((log_inner_x - max_x) / alpha))
+```
+
+The worst-case alpha-outcome marginal and q* joint are also normalized in log space. The fixed-policy shared-KL and joint Gibbs/shared-KL policy paths no longer replace small positive alpha rewards with zero. New controls check perfect deterministic information and zero-information channels down to alpha=1e-12, worst-case q* normalization/KL, and the conditional Rényi identity down to alpha=1e-9. A policy-level test confirms tiny positive common beta retains ln(2) nats for a perfect measurement.
