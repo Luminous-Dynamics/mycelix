@@ -129,11 +129,22 @@ impl IntegratedReport {
             && self.forecast.scored_record_count == 54
             && self.forecast.partition_leak_events == 1
             && self.forecast.event_metadata_mismatch_events == 1
+            && self.forecast.duplicate_records == 1
+            && self.forecast.late_forecasts == 1
+            && self.forecast.unverified_outcome_records == 1
+            && self.forecast.missing_outcome_records == 1
+            && self.forecast.invalid_probability_records == 1
+            && self.forecast.out_of_domain_records == 1
+            && self.forecast.abstentions == 1
             && self.forecast.candidate_calibration_samples == 6
             && self.forecast.candidate_evaluation_samples == 12
             && self.forecast.lead_reference_evaluation_samples == 12
             && self.forecast.candidate_heat_72h_evaluation_samples == 2
+            && (self.forecast.candidate_calibration_brier - 0.01).abs() < 1e-12
             && (self.forecast.candidate_evaluation_brier - 0.17168333333333333).abs() < 1e-12
+            && (self.forecast.candidate_evaluation_brier_skill - 0.3132666666666667).abs() < 1e-12
+            && (self.forecast.lead_reference_evaluation_brier_skill - 0.84).abs() < 1e-12
+            && (self.forecast.candidate_heat_72h_evaluation_brier_skill - (-2.9204)).abs() < 1e-12
             && (self.forecast.lead_reference_evaluation_brier - 0.04).abs() < 1e-12
             && (self.forecast.candidate_heat_72h_evaluation_brier - 0.9801).abs() < 1e-12
             && self.forecast.candidate_evaluation_brier_skill > 0.0
@@ -307,13 +318,13 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
             candidate_calibration_brier: candidate_calibration.brier_score,
             candidate_evaluation_samples: candidate_evaluation.sample_count,
             candidate_evaluation_brier: candidate_evaluation.brier_score,
-            candidate_evaluation_brier_skill: candidate_evaluation.brier_skill_score.unwrap_or(f64::NAN),
+            candidate_evaluation_brier_skill: candidate_evaluation.brier_skill_score.unwrap_or(0.0),
             lead_reference_evaluation_samples: lead_reference_evaluation.sample_count,
             lead_reference_evaluation_brier: lead_reference_evaluation.brier_score,
-            lead_reference_evaluation_brier_skill: lead_reference_evaluation.brier_skill_score.unwrap_or(f64::NAN),
+            lead_reference_evaluation_brier_skill: lead_reference_evaluation.brier_skill_score.unwrap_or(0.0),
             candidate_heat_72h_evaluation_samples: candidate_heat_72h.sample_count,
             candidate_heat_72h_evaluation_brier: candidate_heat_72h.brier_score,
-            candidate_heat_72h_evaluation_brier_skill: candidate_heat_72h.brier_skill_score.unwrap_or(f64::NAN),
+            candidate_heat_72h_evaluation_brier_skill: candidate_heat_72h.brier_skill_score.unwrap_or(0.0),
         },
     };
 
@@ -353,6 +364,10 @@ mod tests {
             fnv1a64(gcpn_warning_to_action::FIXTURE.as_bytes()),
             0x4084062a6c04598f
         );
+        assert_eq!(
+            fnv1a64(gcpn_forecast_calibration::FIXTURE.as_bytes()),
+            0x81af0b6779196770
+        );
     }
 
     #[test]
@@ -391,6 +406,8 @@ mod tests {
         assert_eq!(report.topology.comparison_rows, 33);
         assert_eq!(report.last_mile.scenario_count, 10);
         assert_eq!(report.warning_to_action.case_count, 11);
+        assert_eq!(report.forecast.record_count, 65);
+        assert_eq!(report.forecast.scored_record_count, 54);
         assert!(report.warning_to_action.fixture_oracle_matches);
         assert!(report.warning_to_action.fixture_contains_expected_failures);
     }
