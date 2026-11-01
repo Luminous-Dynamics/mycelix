@@ -122,6 +122,15 @@ Shannon MI, monotonicity over an alpha grid, CT–tracer correlation-only
 complementarity, posterior tempering, worst-case posterior identities,
 worst-case KL cost, radius-to-alpha inversion, and invalid inputs.
 
+The same module now includes a deterministic one-step candidate selector,
+`select_discrete_design`, which compares nominal Shannon or Sibson-α
+information over a finite action pool while enforcing eligibility and hard
+cost budget before ranking. It uses a stable action-ID tie break and returns
+`None` when no candidate is feasible. An adversarial ranking fixture shows
+that the nominal Shannon-maximizing action can differ from the Sibson-α
+choice at the same action pool; this is a one-step deterministic comparison,
+not a multi-step experiment policy.
+
 This is **not** the full maximin policy optimizer, nested Monte Carlo estimator
 or PAC-Bayes lower-bound optimizer. The exact finite component is not a
 decision-EVSI calculation or a physical-data result.
