@@ -68,7 +68,7 @@ A payload digest by itself does not prove authenticity, authority or physical tr
 
 ## 5. Authored tests
 
-Fifteen Rust tests are included:
+Sixteen Rust tests are included:
 
 1. historical as-of snapshot excludes late arrivals;
 2. later-recorded revocation is not backdated into earlier knowledge;
@@ -84,7 +84,8 @@ Fifteen Rust tests are included:
 12. receipt must match exact message digest;
 13. unverified digest is not accepted as a graph pass;
 14. invalid valid-time interval fails;
-15. a forward reference is dangling in a historical snapshot and resolves when the late endpoint arrives.
+15. a forward reference is dangling in a historical snapshot and resolves when the late endpoint arrives;
+16. a receipt cannot select one of multiple conflicting CAP payloads sharing an extended identity.
 
 These are authored source tests, not executed results.
 
