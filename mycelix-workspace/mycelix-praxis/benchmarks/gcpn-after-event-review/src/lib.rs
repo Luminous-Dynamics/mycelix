@@ -430,7 +430,7 @@ mod tests {
     fn plan_comparison_distinguishes_on_time_late_and_missing(){
         let plan = vec![
             PlannedMilestone{milestone_id:"on-time".into(),stage:ReviewStage::WarningDissemination,planned_at:100,plan_version:"v1".into()},
-            PlannedMilestone{milestone_id:"late".into(),stage:ReviewStage::Response,planned_at:100,plan_version:"v1".into()},
+            PlannedMilestone{milestone_id:"late".into(),stage:ReviewStage::WarningDissemination,planned_at:100,plan_version:"v1".into()},
             PlannedMilestone{milestone_id:"missing".into(),stage:ReviewStage::Preparedness,planned_at:100,plan_version:"v1".into()},
         ];
         let snapshot = reconstruct_as_of(&[
