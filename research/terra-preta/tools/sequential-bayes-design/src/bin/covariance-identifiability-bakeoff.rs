@@ -3,8 +3,8 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::{env, fs};
 use terra_preta_sequential_bayes_design::covariance_identifiability::{
-    CovarianceComponentDesign, CovarianceComponentHypothesis, CovarianceObservation,
-    VarianceComponent,
+    CovarianceComponentDesign, CovarianceComponentHypothesis, CovarianceFisherInformation,
+    CovarianceObservation, VarianceComponent,
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -51,6 +51,11 @@ struct DesignSummary {
     structural_rank: usize,
     component_count: usize,
     gram_condition_number: Option<f64>,
+    fisher_information: Vec<Vec<f64>>,
+    fisher_eigenvalues: Vec<f64>,
+    fisher_rank: usize,
+    fisher_condition_number: Option<f64>,
+    fisher_log_determinant: Option<f64>,
     fully_identifiable: bool,
     individually_identifiable: BTreeMap<String, bool>,
     recovery_status: String,
@@ -154,6 +159,14 @@ fn summarize_design(
         .collect();
     let design = CovarianceComponentDesign::new(observations)?;
     let audit = design.audit()?;
+    let fisher: CovarianceFisherInformation =
+        design.expected_fisher_information(true_variances)?;
+    if fisher.structural_rank != audit.structural_rank {
+        return Err(format!(
+            "design {:?} Fisher rank {} disagrees with structural rank {}",
+            design_input.design_id, fisher.structural_rank, audit.structural_rank
+        ));
+    }
     let mut individually_identifiable = BTreeMap::new();
     for (component, identifiable) in audit.component_ids.iter()
         .zip(&audit.individually_identifiable)
@@ -203,6 +216,11 @@ fn summarize_design(
         structural_rank: audit.structural_rank,
         component_count: audit.component_count,
         gram_condition_number: audit.gram_condition_number,
+        fisher_information: fisher.information_matrix,
+        fisher_eigenvalues: fisher.eigenvalues,
+        fisher_rank: fisher.structural_rank,
+        fisher_condition_number: fisher.condition_number,
+        fisher_log_determinant: fisher.log_determinant,
         fully_identifiable: audit.fully_identifiable,
         individually_identifiable,
         recovery_status,
@@ -238,6 +256,8 @@ fn build_report(scenario: &Scenario, input: &[u8]) -> Result<Report, String> {
             "Structural rank is not finite-sample precision or posterior calibration.".into(),
             "Exact coefficient recovery uses a noiseless synthetic covariance oracle.".into(),
             "Physical support identity must be supplied; overlap is not converted to covariance.".into(),
+            "Fisher information assumes one jointly observed Gaussian vector with fixed/known mean and the declared nominal covariance.".into(),
+            "If mean/trend parameters are estimated jointly, nuisance-parameter coupling is not Schur-complemented in this reference.".into(),
             "No empirical soil covariance, specimen data or field measurement is used.".into(),
         ],
     })
