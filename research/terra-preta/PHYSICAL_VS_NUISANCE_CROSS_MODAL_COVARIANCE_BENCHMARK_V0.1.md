@@ -173,3 +173,10 @@ The benchmark is statistical-methods software and synthetic data only. It author
 The Rust library now contains `tools/sequential-bayes-design/src/covariance_identifiability.rs`. It constructs covariance basis matrices for shared physical support, preparation batch, instrument and independent residual effects; computes structural rank and a Gram spectral condition diagnostic; determines individually identifiable components; and performs noiseless exact coefficient recovery for synthetic covariance matrices only.
 
 The reference controls show one CT/tracer pair sharing support/batch/instrument is rank 2/4, while a crossed support × batch × instrument × modality design is rank 4/4 and recovers variance coefficients [0.7, 0.4, 0.2, 0.1] to floating-point tolerance. A batch-only pair identifies the batch component but does not make physical covariance identifiable. This is an exact synthetic design oracle, not a statistical variance estimator or empirical soil result.
+
+
+## 12. Executable design audit and literature update
+
+Added `covariance-identifiability-bakeoff` with a five-field synthetic fixture / report contract and workflow assertion. It executes three designs and requires the expected structural pattern: single paired CT/tracer rank 2/4; batch-only pair rank 2/4 with batch identifiable but physical support not individually identifiable; crossed support × batch × instrument × modality rank 4/4 with exact coefficient recovery [0.7, 0.4, 0.2, 0.1]. The workflow validates schemas, report output and hashes the input fixture.
+
+Recent statistical references support explicit design-identifiability checks: the 2024 crossed random-effects study shows repeated group measurements and functional complexity affect recoverability (Rohloff et al., DOI 10.1111/bmsp.12334); necessary/sufficient covariance-matrix identifiability conditions for linear mixed models are derived in DOI 10.1080/03610926.2023.2272003. Structural rank here is a transparent finite reference, not a replacement for finite-sample parameter-recovery simulations or posterior calibration.
