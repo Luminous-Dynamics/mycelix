@@ -102,6 +102,15 @@ This removes manual numeric-index mapping from downstream conditional EIG/EVSI
 code. It is still a library operation, not yet wired into the CLI selector or
 used to derive covariance from support relationships.
 
+The module also implements the paper's **conditional Rényi-information
+identity**. For each outcome it calculates
+`D_alpha[p(M | outcome) || p(M)]` using the ordinary nominal posterior, then
+reconstructs Sibson alpha-MI as the risk-sensitive exponential average under
+the nominal outcome marginal. This is intentionally independent of the direct
+closed-form Sibson calculation and is checked to 1e-10 on multiple alpha
+values. Do not confuse the nominal posterior in the Rényi divergence with the
+alpha-tilted worst-case posterior used for robust belief updates.
+
 ## Exact discrete robust-information reference
 
 The `robust_information` module computes exact finite-discrete Shannon
