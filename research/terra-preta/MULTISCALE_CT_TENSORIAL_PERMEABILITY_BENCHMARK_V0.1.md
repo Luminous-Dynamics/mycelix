@@ -226,3 +226,46 @@ These thresholds require preregistration and feasibility evaluation; they are no
 ## 12. Evidence and safety boundary
 
 Research software and synthetic benchmark only. No CT scanning, physical specimen collection, flow testing, tracer injection, soil amendment, land access or field trial is authorized. Empirical datasets require license, provenance, specimen lineage and qualified scientific review. No field or agronomic recommendation follows from synthetic solver success.
+
+
+## 13. Public solver and image-reference candidates (metadata reviewed, not acquired)
+
+The following resources can make the first solver qualification reproducible. Their evidentiary roles must remain distinct.
+
+### POREMAPS 1.0.0 — Stokes/tensor solver verification
+
+- DaRUS DOI: https://doi.org/10.18419/DARUS-3676
+- Code repository: https://git.rwth-aachen.de/david.krach/poremaps
+- Release: 1.0.0; finite-difference Stokes solver designed for binary 3D image inputs and permeability-tensor calculation.
+- Dataset record documents Poiseuille, channel, sphere-packing, flat/pseudo-3D and ellipsoid benchmarks, with velocity/pressure outputs; applications include compressed foam and calcite-clogged porous structures.
+- The record specifies MIT licensing for software and CC BY 4.0 for the research data. Check terms on the exact downloaded version before any redistribution.
+- Importantly, application datasets were preprocessed for the specified periodic boundary conditions and non-connected pore space was removed. Record those transformations and do not compare them as raw-soil samples.
+
+**Use:** independent FDM/Stokes numerical verification and tensor-output reference. It is not a soil-specific validation dataset and does not replace independent measured soil conductivity.
+
+### Loess tunnel erosion micro-CT — soil morphology / erosion stress test
+
+- Mendeley Data DOI: https://doi.org/10.17632/rm69k2z4cm.1
+- Published 27 March 2026; CC BY 4.0 per landing-page metadata.
+- Record description includes raw and derived 3D reconstructed pore structures, pore morphology parameters, disintegration experimental results and analytical outputs.
+
+**Use:** image-pipeline reproducibility, pore-structure/erosion association and resolution/segmentation stress test. The landing-page description does not establish independent directional saturated-conductivity measurements or tracer breakthrough. Do not label it a (K)-tensor ground-truth set until the exact files and paper show those measurements.
+
+### Raw pore data from X-ray CT — soil morphology table candidate
+
+- Mendeley Data DOI: https://doi.org/10.17632/3rks5xn2gx.1
+- Published 2 April 2026; CC BY 4.0 per landing-page metadata.
+- The record describes 3D CT reconstruction and Avizo segmentation of soil samples. Its listed file is an Excel workbook (~690 KB), not a declared raw 3D image archive.
+
+**Use:** candidate for table/descriptor schema and segmentation-output audit after workbook inspection. Do not assume the underlying CT volumes, directional (K), specimen grouping or raw pixel arrays are included.
+
+### DRP-372 — general porous-media solver/transfer stress test
+
+- Dataset paper: https://doi.org/10.1038/s41597-022-01664-0
+- Includes 217 digital porous-media samples and 1,736 flow/electrical simulation results; images are available at 256³ and 480³ domains, with structural/topological descriptors and solver results. The collection spans many porous lithologies and includes non-soil materials.
+
+**Use:** larger-scale general porous-media solver regression, resolution sensitivity and out-of-domain transfer stress testing. Keep its sample groups and material classes intact; only a reviewed subset identified as soil may support soil-specific analysis. Simulated outputs are not independent experimental hydraulic truth.
+
+### Admission checklist before acquisition
+
+For every candidate, pin exact DOI/version, file inventory, license text, checksums, specimen/sample IDs, imaging resolution/FOV, segmentation provenance, boundary conditions, solver/version, observed vs simulated hydraulic variables, independent experimental-unit structure, and whether raw volumes are actually available. Store raw assets outside Git; no source is promoted to confirmatory external validation until this audit passes.
