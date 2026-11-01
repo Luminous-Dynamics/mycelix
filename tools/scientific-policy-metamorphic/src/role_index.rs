@@ -897,6 +897,40 @@ mod tests {
     }
 
     #[test]
+    fn role_projection_exhaustively_preserves_all_128_role_subsets() {
+        let role_names = ROLE_IDENTITY_DIMENSIONS;
+        for mask in 0_u8..128 {
+            let roles = role_names
+                .iter()
+                .enumerate()
+                .filter(|(bit, _)| mask & (1 << bit) != 0)
+                .map(|(_, role)| Value::String((*role).to_owned()))
+                .collect::<Vec<_>>();
+            let input = serde_json::json!({
+                "action":"attestation_recorded",
+                "actor":{"id":"actor:exhaustive", "roles":roles},
+                "claim":{"exists":false},
+                "attestation":{"kind":"ordinary"},
+                "targetAttestation":{"exists":false}
+            });
+            let projected = index_role_projection(&input)
+                .expect("every unique role subset has a valid deterministic projection");
+            let role_index = projected
+                .pointer("/actor/role_index")
+                .and_then(Value::as_object)
+                .expect("projected role index is an object");
+            assert_eq!(role_index.len(), mask.count_ones() as usize);
+            for (bit, role) in role_names.iter().enumerate() {
+                assert_eq!(
+                    role_index.get(*role).and_then(Value::as_bool),
+                    if mask & (1 << bit) != 0 { Some(true) } else { None },
+                    "role membership projection differs for {role} under mask {mask:#09b}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn role_projection_is_independent_of_source_array_order() {
         let first = serde_json::json!({
             "action": "attestation_recorded",
