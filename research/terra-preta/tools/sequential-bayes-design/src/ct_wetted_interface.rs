@@ -118,33 +118,30 @@ impl VoxelGrid3D {
         let mut geometric_interface_face_count = 0usize;
         let mut wetted_interface_face_count = 0usize;
 
-        for z in 0..nz {
-            for y in 0..ny {
-                for x in 0..nx {
-                    let left = self.cells[self.index(x, y, z)];
-                    let neighbors = [
-                        if x + 1 < nx {
-                            Some((self.cells[self.index(x + 1, y, z)], dy * dz))
-                        } else { None },
-                        if y + 1 < ny {
-                            Some((self.cells[self.index(x, y + 1, z)], dx * dz))
-                        } else { None },
-                        if z + 1 < nz {
-                            Some((self.cells[self.index(x, y, z + 1)], dx * dy))
-                        } else { None },
-                    ];
+        for (linear_index, left) in self.cells.iter().copied().enumerate() {
+            let x = linear_index % nx;
+            let y = (linear_index / nx) % ny;
+            let z = linear_index / (nx * ny);
+            let neighbors = [
+                if x + 1 < nx {
+                    Some((self.cells[self.index(x + 1, y, z)], dy * dz))
+                } else { None },
+                if y + 1 < ny {
+                    Some((self.cells[self.index(x, y + 1, z)], dx * dz))
+                } else { None },
+                if z + 1 < nz {
+                    Some((self.cells[self.index(x, y, z + 1)], dx * dy))
+                } else { None },
+            ];
 
-                    for neighbor in neighbors.into_iter().flatten() {
-                        let (right, face_area) = neighbor;
-                        if Self::is_macro_matrix_interface(left.phase, right.phase) {
-                            geometric_interface_area_m2 += face_area;
-                            geometric_interface_face_count += 1;
-                            let wet_weight = left.wet_fraction.min(right.wet_fraction);
-                            if wet_weight > 0.0 {
-                                wetted_interface_area_m2 += face_area * wet_weight;
-                                wetted_interface_face_count += 1;
-                            }
-                        }
+            for (right, face_area) in neighbors.into_iter().flatten() {
+                if Self::is_macro_matrix_interface(left.phase, right.phase) {
+                    geometric_interface_area_m2 += face_area;
+                    geometric_interface_face_count += 1;
+                    let wet_weight = left.wet_fraction.min(right.wet_fraction);
+                    if wet_weight > 0.0 {
+                        wetted_interface_area_m2 += face_area * wet_weight;
+                        wetted_interface_face_count += 1;
                     }
                 }
             }
