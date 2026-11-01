@@ -712,8 +712,10 @@ For the test grid:
 - prior 0.001, residual likelihood 0.30 gives posterior discrepancy mass
   0.0292 and the declared optimal decision remains DRAIN_FAST;
 - prior 0.001, residual likelihood 0.90 gives posterior mass 0.0826 and
-  changes the expected decision to DIAGNOSE_FIRST;
+  still leaves DRAIN_FAST optimal;
 - prior 0.01, residual likelihood 0.30 gives posterior mass 0.2326;
+- prior 0.01, residual likelihood 0.90 gives posterior mass 0.4762 and
+  changes the expected decision to DIAGNOSE_FIRST;
 - nominal fixture prior 0.05, likelihood 0.70 gives posterior mass 0.7865
   and DIAGNOSE_FIRST.
 
