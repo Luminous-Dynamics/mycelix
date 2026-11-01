@@ -222,3 +222,10 @@ The finite robust reference now includes `select_discrete_design`, comparing can
 A synthetic ranking-reversal control has nominal Shannon MI 0.569802 vs 0.476391 nats for two candidates, while at α=0.3 the Sibson values are 0.292592 vs 0.329155 nats. The nominal selector chooses `nominal_sharp`; the robust selector chooses `robust_balanced`. This is a designed finite reference fixture, not evidence that Sibson universally improves real soil experiments.
 
 It remains a deterministic one-step selector; stochastic policy optimization, adaptive multi-step robust trees, PAC-Bayes bounds and physical action/observation integration are not implemented.
+
+
+## 15. Conditional Rényi identity cross-check — 2026-11-01
+
+Added a second calculation path for the finite Sibson objective. For each nonzero-probability outcome, `conditional_renyi_information` computes (D_\alpha[p(M\mid x)\|p(M)]) using the **ordinary nominal posterior**, as in Proposition 3 of Abdulsamad et al. (2026). `sibson_from_conditional_renyi` reconstructs (I_\alpha^S) as the risk-sensitive exponential average of these conditional gains under the nominal outcome marginal.
+
+An exact cross-check requires agreement with the direct Sibson formula to (10^{-10}) at alpha values 0.1, 0.2, 0.4, 0.6, 0.7, 0.8, 0.95 and 0.999. Additional controls cover uninformative outcomes, zero likelihood support and invalid indices/alpha values. This is an internal mathematical identity check, not independent physical validation.
