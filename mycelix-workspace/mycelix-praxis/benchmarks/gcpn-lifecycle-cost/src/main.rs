@@ -1,4 +1,4 @@
-use gcpn_lifecycle_cost::{fixture_report, Architecture};
+use gcpn_lifecycle_cost::fixture_report;
 
 fn show_optional(value: Option<f64>) -> String {
     value
@@ -21,10 +21,10 @@ fn main() {
             println!("fixture_oracle: {}", if report.fixture_oracle_matches() { "PASS" } else { "FAIL" });
 
             println!();
-            println!("architecture,scenario,horizon_years,discount_rate,intended,unique_reached,accessible_reached,duplicate_receipts,low_lifecycle_pv,base_lifecycle_pv,high_lifecycle_pv,base_annualized_cost,base_cost_per_intended,base_cost_per_unique_reached,base_cost_per_accessible_reached,annual_staff_hours");
+            println!("architecture,scenario,horizon_years,discount_rate,intended,unique_reached,accessible_reached,duplicate_receipts,low_lifecycle_pv,base_lifecycle_pv,high_lifecycle_pv,base_annualized_cost,base_cost_per_intended,base_cost_per_unique_reached,base_cost_per_accessible_reached,annual_staff_hours,staff_hours_over_horizon");
             for evaluation in &report.evaluations {
                 println!(
-                    "{},{},{},{:.4},{},{},{},{},{:.4},{:.4},{:.4},{:.4},{},{},{},{}",
+                    "{},{},{},{:.4},{},{},{},{},{:.4},{:.4},{:.4},{:.4},{},{},{},{:.0},{:.0}",
                     evaluation.architecture.label(),
                     evaluation.scenario_id,
                     evaluation.service_horizon_years,
@@ -40,7 +40,8 @@ fn main() {
                     show_optional(evaluation.base_cost_per_intended_receiver),
                     show_optional(evaluation.base_cost_per_unique_receiver_reached),
                     show_optional(evaluation.base_cost_per_accessible_receiver_reached),
-                    evaluation.annual_staff_hours
+                    evaluation.annual_staff_hours,
+                    evaluation.staff_hours_over_horizon
                 );
             }
 
