@@ -1,0 +1,15 @@
+[package]
+name = "gcpn-reference-observation-uncertainty"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Known-error observation verification and predictand representativeness qualification for GCPN"
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-reference-observation-uncertainty"
+path = "src/main.rs"
