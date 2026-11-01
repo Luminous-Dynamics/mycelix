@@ -318,3 +318,8 @@ This closes the software interface from **segmented CT + supplied wetting state 
 The crate now has a deterministic finite-ensemble Gaussian-moment comparator in `ensemble_assimilation.rs`. It samples the augmented state/parameter prior with a recorded seed, estimates empirical prior mean/covariance, and performs a linear EnKF-style moment update using the same (H,R,y) as the exact joint-Gaussian oracle. This allows posterior mean/covariance error to be measured against an exact truth under controlled ensemble sizes.
 
 The current reference does not implement perturbed-observation or square-root EnKF variants, nonlinear Richards dynamics or particle filtering. It is the first matched approximation control; the next benchmark should vary ensemble size, parameter correlation, observation sparsity, skew/multimodal posterior mismatch and process-noise misspecification.
+
+
+## Reproducible ensemble-size error curve
+
+The focused sequential workflow now runs `state-parameter-assimilation-bakeoff` on a SHA-256-bound synthetic scenario. It compares 32, 256 and 2,048-member Gaussian ensembles, with eight independent deterministic seeds per size, against the exact joint state/parameter posterior. It reports per-run and per-size posterior mean RMSE, covariance-relative Frobenius error and standard errors, together with the exact posterior and observation marginal likelihood. The CI control checks the analytical posterior and a preregistered largest-ensemble error bound; it does not require every smaller-seed batch to be monotonically better.
