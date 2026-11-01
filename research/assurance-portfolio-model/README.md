@@ -42,7 +42,7 @@ The crate has no third-party dependencies and no default features. It is intenti
 
 ## Initial qualification panel
 
-The 27 unit tests include:
+The 25 unit tests include:
 - hard-invariant refutation with multiple supporting evaluators;
 - exact replay deduplication;
 - shared implementation lineage despite distinct executable digests;
