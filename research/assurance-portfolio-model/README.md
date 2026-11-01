@@ -12,8 +12,8 @@ The model makes the following distinctions executable:
 - evidence validity: Current, Stale, Revoked, Invalid;
 - claim scope: exact claim identifier plus exact subject digest;
 - evaluator identity: exact evaluator and evaluator-profile digests;
-- corroboration lineage: explicit identities for implementation, repository control, execution provider, runner image, runtime, input acquisition, operator control, and trust root;
-- policy: required evaluator roles and explicitly required pairwise fault-domain separation.
+- corroboration lineage: explicit identities for evaluator executable, evaluator profile, implementation, normative specification, expected-answer source, test corpus, source evidence, toolchain distribution, repository control, execution provider, runner image, runtime, input acquisition, operator control and trust root;
+- policy: required evaluator roles, identity-bound hard-refutation authorities and explicitly required pairwise fault-domain separations.
 
 No dimension is converted into a trust score or an independence boolean.
 
@@ -46,6 +46,8 @@ The 25 unit tests include:
 - hard-invariant refutation with multiple supporting evaluators;
 - exact replay deduplication;
 - shared implementation lineage despite distinct executable digests;
+- the same executable cannot fill two required independent roles;
+- distinct executables with shared evaluator-profile lineage cannot satisfy the independence profile;
 - unknown required lineage;
 - missing and stale required evidence;
 - exact-subject substitution;
