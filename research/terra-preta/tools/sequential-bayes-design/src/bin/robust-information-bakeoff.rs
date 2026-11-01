@@ -8,6 +8,10 @@ use terra_preta_sequential_bayes_design::robust_information::{
     DiscreteDesignCandidate, DiscreteDesignModel, DiscreteDesignSelection,
     RadiusRobustInformation,
 };
+use terra_preta_sequential_bayes_design::stochastic_policy::{
+    gibbs_policy_from_rewards, optimize_shared_kl_policy,
+    StochasticPolicyCandidate,
+};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -23,6 +27,7 @@ struct Scenario {
     kl_radius_nats: f64,
     minimum_alpha: f64,
     alpha_bisection_iterations: usize,
+    gibbs_precision_lambda: f64,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -90,6 +95,37 @@ struct CandidateSummary {
 }
 
 #[derive(Clone, Debug, Serialize)]
+struct GibbsActionRecord {
+    action_id: String,
+    prior_probability: f64,
+    probability: f64,
+    sibson_reward_nats: f64,
+    cost_units: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct GibbsPolicyRecord {
+    precision_lambda: f64,
+    expected_information_nats: f64,
+    kl_to_prior_nats: f64,
+    variational_objective_nats: f64,
+    expected_cost_units: f64,
+    actions: Vec<GibbsActionRecord>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedKlPolicyRecord {
+    requested_average_kl_radius_nats: f64,
+    common_dual_beta: Option<f64>,
+    alpha: f64,
+    expected_sibson_information_nats: f64,
+    adversarial_kl_penalty_nats: f64,
+    robust_policy_value_nats: f64,
+    expected_cost_units: f64,
+    action_probabilities: Vec<GibbsActionRecord>,
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct Report {
     schema_version: String,
     data_class: String,
@@ -106,6 +142,8 @@ struct Report {
     nominal_shannon_selection: Option<SelectionRecord>,
     fixed_alpha_sibson_selection: Option<SelectionRecord>,
     fixed_kl_radius_selection: Option<SelectionRecord>,
+    gibbs_policy: GibbsPolicyRecord,
+    shared_kl_policy: SharedKlPolicyRecord,
     candidate_summaries: Vec<CandidateSummary>,
     limitations: Vec<String>,
 }
@@ -133,6 +171,9 @@ fn validate_scenario(scenario: &Scenario) -> Result<(), String> {
     }
     if scenario.alpha_bisection_iterations == 0 {
         return Err("alpha_bisection_iterations must be positive".into());
+    }
+    if !scenario.gibbs_precision_lambda.is_finite() || scenario.gibbs_precision_lambda <= 0.0 {
+        return Err("gibbs_precision_lambda must be finite and positive".into());
     }
     if scenario.candidates.is_empty() {
         return Err("at least one candidate action is required".into());
@@ -221,6 +262,94 @@ fn build_report(scenario: &Scenario, input_bytes: &[u8]) -> Result<Report, Strin
     let feasible_candidate_count = candidate_summaries.iter()
         .filter(|candidate| candidate.feasible_under_budget)
         .count();
+    if feasible_candidate_count == 0 {
+        return Err("at least one eligible within-budget candidate is required for a policy".into());
+    }
+
+    // The Gibbs policy uses the fixed-alpha Sibson reward and a uniform prior
+    // over feasible actions only. Ineligible / over-budget actions retain zero
+    // prior mass and therefore zero posterior policy probability.
+    let mut policy_prior = vec![0.0; scenario.candidates.len()];
+    let feasible_mass = 1.0 / feasible_candidate_count as f64;
+    let mut action_ids = Vec::with_capacity(scenario.candidates.len());
+    let mut rewards = Vec::with_capacity(scenario.candidates.len());
+    let mut eligibility = Vec::with_capacity(scenario.candidates.len());
+    let mut costs = Vec::with_capacity(scenario.candidates.len());
+    let mut policy_candidates = Vec::with_capacity(scenario.candidates.len());
+    for (index, candidate) in scenario.candidates.iter().enumerate() {
+        let feasible = candidate.eligible && candidate.cost_units <= scenario.budget_units;
+        if feasible {
+            policy_prior[index] = feasible_mass;
+        }
+        action_ids.push(candidate.action_id.clone());
+        let design = candidate.as_model(model_ids, prior_weights);
+        rewards.push(design.sibson_alpha_mutual_information(scenario.sibson_alpha)?);
+        eligibility.push(candidate.eligible);
+        costs.push(candidate.cost_units);
+        policy_candidates.push(StochasticPolicyCandidate {
+            action_id: candidate.action_id.clone(),
+            cost_units: candidate.cost_units,
+            eligible: candidate.eligible,
+            design,
+        });
+    }
+    let gibbs = gibbs_policy_from_rewards(
+        &action_ids,
+        &rewards,
+        &policy_prior,
+        &eligibility,
+        &costs,
+        scenario.budget_units,
+        scenario.gibbs_precision_lambda,
+    )?;
+    let gibbs_actions: Vec<GibbsActionRecord> = gibbs.action_weights.iter()
+        .map(|action| GibbsActionRecord {
+            action_id: action.action_id.clone(),
+            prior_probability: action.prior_probability,
+            probability: action.probability,
+            sibson_reward_nats: action.sibson_information_nats,
+            cost_units: action.cost_units,
+        })
+        .collect();
+    let gibbs_record = GibbsPolicyRecord {
+        precision_lambda: gibbs.precision_lambda,
+        expected_information_nats: gibbs.expected_information_nats,
+        kl_to_prior_nats: gibbs.kl_to_prior_nats,
+        variational_objective_nats: gibbs.variational_objective_nats,
+        expected_cost_units: gibbs.expected_cost_units,
+        actions: gibbs_actions.clone(),
+    };
+    // Crucially, the shared-policy robust dual uses one common beta across
+    // the stochastic action distribution, not a separate alpha per design.
+    let probabilities: Vec<f64> = gibbs.action_weights.iter()
+        .map(|action| action.probability)
+        .collect();
+    let shared = optimize_shared_kl_policy(
+        &policy_candidates,
+        &probabilities,
+        scenario.budget_units,
+        scenario.kl_radius_nats,
+        128,
+    )?;
+    let shared_actions: Vec<GibbsActionRecord> = gibbs.action_weights.iter()
+        .map(|action| GibbsActionRecord {
+            action_id: action.action_id.clone(),
+            prior_probability: action.prior_probability,
+            probability: action.probability,
+            sibson_reward_nats: action.sibson_information_nats,
+            cost_units: action.cost_units,
+        })
+        .collect();
+    let shared_record = SharedKlPolicyRecord {
+        requested_average_kl_radius_nats: shared.requested_average_kl_radius_nats,
+        common_dual_beta: shared.common_dual_beta,
+        alpha: shared.alpha,
+        expected_sibson_information_nats: shared.expected_sibson_information_nats,
+        adversarial_kl_penalty_nats: shared.adversarial_kl_penalty_nats,
+        robust_policy_value_nats: shared.robust_policy_value_nats,
+        expected_cost_units: shared.expected_cost_units,
+        action_probabilities: shared_actions,
+    };
 
     Ok(Report {
         schema_version: "0.1.0".into(),
@@ -240,12 +369,16 @@ fn build_report(scenario: &Scenario, input_bytes: &[u8]) -> Result<Report, Strin
         fixed_kl_radius_selection: fixed_radius.map(|(selection, score)| {
             SelectionRecord::from_selection(&selection, score.alpha)
         }),
+        gibbs_policy: gibbs_record,
+        shared_kl_policy: shared_record,
         candidate_summaries,
         limitations: vec![
             "Finite discrete candidate-model reference; not a continuous physical likelihood.".into(),
             "One-step deterministic design; not a sequential stochastic-policy optimizer.".into(),
-            "The fixed per-design KL radius is not a shared average-KL policy constraint.".into(),
-            "No PAC-Bayes lower bound, nested Monte Carlo optimizer or empirical covariance estimation is implemented.".into(),
+            "The fixed per-design KL selector is distinct from the shared-average-KL stochastic-policy dual.".into(),
+            "The stochastic-policy rewards here are exact finite Sibson scores; no nested Monte Carlo estimator or PAC-Bayes certificate is applied.".into(),
+            "PAC-Bayes lower-bound arithmetic exists separately but its regularity and concentration assumptions are not certified by this CLI.".into(),
+            "No empirical covariance estimation is implemented.".into(),
             "The model-information objective is not decision EVSI.".into(),
             "Synthetic success does not establish soil, field or agronomic validity.".into(),
         ],
