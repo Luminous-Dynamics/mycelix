@@ -282,3 +282,8 @@ Use this exact oracle to qualify approximations:
 - batch Bayesian state/parameter calibration.
 
 Each method must be evaluated on identical synthetic worlds, with posterior means, covariance/credible coverage, CRPS/log score, innovations, conservation and compute cost. The linear oracle does not replace nonlinear hydraulic-model validation.
+
+
+## CT-derived wetted-interface support for transient exchange
+
+The crate's `ct_wetted_interface.rs` now offers a voxel-face reference operator over a segmented three-phase CT support (solid, macropore pore and matrix pore). It calculates orientation-correct interface face area under anisotropic voxel spacing, weights faces by the minimum adjacent wet fraction, counts each face once, and normalizes by the full support volume. This is intended as an event-time feature input to #5658; it must not be confused with static total porosity or connected-pore surface area. The wet fraction is an independent time-varying state input, not inferred from CT phase segmentation alone.
