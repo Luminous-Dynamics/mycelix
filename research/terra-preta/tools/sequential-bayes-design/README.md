@@ -102,6 +102,23 @@ This removes manual numeric-index mapping from downstream conditional EIG/EVSI
 code. It is still a library operation, not yet wired into the CLI selector or
 used to derive covariance from support relationships.
 
+## Exact discrete robust-information reference
+
+The `robust_information` module now computes exact finite-discrete Shannon
+mutual information and Sibson α-mutual information for a candidate design,
+and returns the α-tilted posterior
+`p_alpha(M | x) ∝ p(M) p(x | M)^alpha`. This follows the published finite
+objective, with α in (0,1); it is not a PAC-Bayes bound or a stochastic
+policy optimizer.
+
+The tests include independence/zero-information, α-to-one convergence to
+Shannon MI, monotonicity over a preregistered α grid, an adversarial
+CT–tracer correlation-only design (zero information in each marginal but
+positive joint Sibson information), likelihood tempering, and invalid-input
+controls. The positive control's finite exact values are checked independently
+against the analytical formula. Correlation in this fixture is declared by the
+synthetic generator and does not come from support-overlap metadata.
+
 ## Posterior-SBC reference control
 
 The library test suite includes a separate **conditional posterior-SBC** test
