@@ -3,12 +3,19 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
+use scientific_policy_metamorphic::shrink::{
+    minimize_json_with_provenance, parse_unique_json_bytes, stable_json_value_sha256,
+    PredicateProvenance,
+    MAX_SOURCE_INPUT_BYTES,
+};
+use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::env;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode, Stdio};
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -16,6 +23,65 @@ const EXPECTED_BASELINE_REVISION: &str = "f89b4bcdcfb901961e2ca11a577775acbf53a7
 const EXPECTED_BASELINE_SOURCE_BLOB_SHA: &str = "dd9ea9267cdae2e2c67244e8a90821defaacefb3";
 const EXPECTED_CASE_COUNT: usize = 62_464;
 const MAX_INPUT_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
+const MAX_POLICY_FILE_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_SOURCE_FILE_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_TOOL_BINARY_BYTES: u64 = 512 * 1024 * 1024;
+
+static TEMP_ARTIFACT_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+struct TempArtifact {
+    path: PathBuf,
+}
+
+impl Drop for TempArtifact {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+/// Materialize exactly the bytes already read and hashed into a private file.
+/// create_new prevents symlink/pre-existing-path substitution; the resulting
+/// path, not the caller's mutable path, is used by the evaluator.
+fn create_pinned_temp_artifact(
+    bytes: &[u8],
+    extension: &str,
+    executable: bool,
+) -> Result<TempArtifact, String> {
+    #[cfg(not(unix))]
+    if executable {
+        return Err("pinned executable artifacts currently require Unix file permissions".to_owned());
+    }
+
+    let sequence = TEMP_ARTIFACT_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let digest = sha256(bytes);
+    let path = env::temp_dir().join(format!(
+        "mycelix-policy-artifact-{}-{sequence}-{}.{}",
+        std::process::id(),
+        &digest[..16],
+        extension
+    ));
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(if executable { 0o700 } else { 0o600 });
+    }
+    let mut file = options
+        .open(&path)
+        .map_err(|error| format!("create private pinned artifact {}: {error}", path.display()))?;
+    let artifact = TempArtifact { path };
+    let write_result = (|| {
+        file.write_all(bytes)
+            .map_err(|error| format!("write private pinned artifact {}: {error}", artifact.path.display()))?;
+        file.sync_all()
+            .map_err(|error| format!("sync private pinned artifact {}: {error}", artifact.path.display()))
+    })();
+    drop(file);
+    write_result?;
+    Ok(artifact)
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -43,7 +109,7 @@ struct InputManifest {
     encoding: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct EngineInputCase {
     case_id: String,
@@ -51,7 +117,7 @@ struct EngineInputCase {
     rego: RegoCase,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct CedarCase {
     case_id: String,
@@ -59,7 +125,7 @@ struct CedarCase {
     entities: Vec<Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct CedarRequest {
     principal: String,
@@ -68,7 +134,7 @@ struct CedarRequest {
     context: Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct RegoCase {
     case_id: String,
@@ -83,7 +149,7 @@ struct DecisionRecord<'a> {
     determining_policy_ids: &'a [String],
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct TimingSummary {
     count: usize,
     p50_ns: u128,
@@ -92,6 +158,35 @@ struct TimingSummary {
     max_ns: u128,
     mean_ns: u128,
 }
+
+#[derive(Debug, Serialize)]
+struct ActionBenchmarkSummary {
+    action: String,
+    case_id: String,
+    case_sha256: String,
+    cedar_case_sha256: String,
+    rego_input_sha256: String,
+    warmup_iterations: usize,
+    measured_iterations: usize,
+    decision: String,
+    determining_policy_ids: Vec<String>,
+    construction_latency: TimingSummary,
+    authorization_latency: TimingSummary,
+    evaluation_method: &'static str,
+}
+
+const ACTION_BENCHMARK_ACTIONS: [&str; 8] = [
+    "claim_proposed",
+    "legacy_claim_imported",
+    "evidence_attached",
+    "attestation_recorded",
+    "attestation_corrected",
+    "attestation_withdrawn",
+    "claim_superseded",
+    "claim_retracted",
+];
+const ACTION_BENCHMARK_WARMUP_ITERATIONS: usize = 100;
+const ACTION_BENCHMARK_MEASURED_ITERATIONS: usize = 2_000;
 
 #[derive(Debug, Serialize)]
 struct RunManifest {
@@ -120,6 +215,7 @@ struct RunManifest {
     construction_latency: TimingSummary,
     authorization_latency: TimingSummary,
     end_to_end_latency: TimingSummary,
+    action_benchmarks: Vec<ActionBenchmarkSummary>,
     total_wall_ns: u128,
     throughput_cases_per_second: f64,
     peak_rss_kib: Option<u64>,
@@ -133,6 +229,31 @@ fn sha256(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+fn read_bounded_file(path: &Path, maximum: u64, label: &str) -> Result<Vec<u8>, String> {
+    let file = File::open(path).map_err(|error| format!("open {label}: {error}"))?;
+    let metadata = file
+        .metadata()
+        .map_err(|error| format!("inspect opened {label}: {error}"))?;
+    if !metadata.is_file() {
+        return Err(format!("{label} must be a regular file"));
+    }
+    if metadata.len() > maximum {
+        return Err(format!("{label} exceeds {maximum} byte limit"));
+    }
+    let initial_capacity = usize::try_from(metadata.len().min(maximum))
+        .map_err(|error| format!("{label} size does not fit memory index: {error}"))?;
+    read_bounded_input(file, maximum, initial_capacity, label)
+}
+
+fn length_prefixed_material(parts: &[&[u8]]) -> Vec<u8> {
+    let mut output = Vec::new();
+    for part in parts {
+        output.extend_from_slice(&(part.len() as u64).to_be_bytes());
+        output.extend_from_slice(part);
+    }
+    output
+}
+
 fn git_blob_oid(bytes: &[u8]) -> String {
     let mut hasher = Sha1::new();
     hasher.update(format!("blob {}\0", bytes.len()).as_bytes());
@@ -141,7 +262,7 @@ fn git_blob_oid(bytes: &[u8]) -> String {
 }
 
 fn verify_exact_file(path: &Path, expected_sha256: &str) -> Result<(), String> {
-    let bytes = fs::read(path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    let bytes = read_bounded_file(path, MAX_INPUT_BYTES, "pinned abstract corpus")?;
     if sha256(&bytes) != expected_sha256 {
         return Err(format!("SHA-256 mismatch for {}", path.display()));
     }
@@ -302,11 +423,25 @@ fn validate_manifest(manifest: &InputManifest) -> Result<(), String> {
 }
 
 fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>, String> {
-    let metadata = fs::metadata(path).map_err(|error| format!("stat engine input corpus: {error}"))?;
+    let input_file = File::open(path)
+        .map_err(|error| format!("open engine input corpus: {error}"))?;
+    let metadata = input_file
+        .metadata()
+        .map_err(|error| format!("inspect opened engine input corpus: {error}"))?;
+    if !metadata.is_file() {
+        return Err("engine input corpus must be a regular file".to_owned());
+    }
     if metadata.len() > MAX_INPUT_BYTES {
         return Err(format!("engine input corpus exceeds {MAX_INPUT_BYTES} byte cap"));
     }
-    let bytes = fs::read(path).map_err(|error| format!("read engine input corpus: {error}"))?;
+    let initial_capacity = usize::try_from(metadata.len().min(MAX_INPUT_BYTES))
+        .map_err(|error| format!("engine input corpus size does not fit memory index: {error}"))?;
+    let bytes = read_bounded_input(
+        input_file,
+        MAX_INPUT_BYTES,
+        initial_capacity,
+        "engine input corpus",
+    )?;
     if sha256(&bytes) != expected_sha256 {
         return Err("engine input corpus SHA-256 does not match its manifest".to_owned());
     }
@@ -343,6 +478,23 @@ fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>
         return Err(format!("expected {EXPECTED_CASE_COUNT} input rows, got {}", cases.len()));
     }
     Ok(cases)
+}
+
+fn read_bounded_input<R: Read>(
+    reader: R,
+    max_bytes: u64,
+    initial_capacity: usize,
+    label: &str,
+) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::with_capacity(initial_capacity);
+    reader
+        .take(max_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("bounded-read {label}: {error}"))?;
+    if bytes.len() as u64 > max_bytes {
+        return Err(format!("{label} exceeds {max_bytes} byte cap"));
+    }
+    Ok(bytes)
 }
 
 fn evaluate_case(
@@ -393,9 +545,148 @@ fn evaluate_case(
     Ok((decision, determining_policy_ids, construction_ns, authorization_ns))
 }
 
+fn benchmark_cedar_actions(
+    cases: &[EngineInputCase],
+    authorizer: &Authorizer,
+    policy_set: &PolicySet,
+    schema: &Schema,
+    output_directory: &Path,
+) -> Result<Vec<ActionBenchmarkSummary>, String> {
+    let input_directory = output_directory.join("opa-action-inputs");
+    fs::create_dir_all(&input_directory)
+        .map_err(|error| format!("create OPA action benchmark inputs: {error}"))?;
+    let mut summaries = Vec::with_capacity(ACTION_BENCHMARK_ACTIONS.len());
+
+    for action in ACTION_BENCHMARK_ACTIONS {
+        let case = cases
+            .iter()
+            .find(|case| {
+                case.rego.input
+                    .get("action")
+                    .and_then(Value::as_str)
+                    == Some(action)
+            })
+            .ok_or_else(|| format!("source-pinned corpus contains no case for action {action}"))?;
+
+        let case_bytes = serde_json::to_vec(case)
+            .map_err(|error| format!("serialize Cedar action benchmark case: {error}"))?;
+        let cedar_case_bytes = serde_json::to_vec(&case.cedar)
+            .map_err(|error| format!("serialize Cedar action benchmark projection: {error}"))?;
+        let rego_input_bytes = serde_json::to_vec(&case.rego.input)
+            .map_err(|error| format!("serialize Rego action benchmark input: {error}"))?;
+        fs::write(input_directory.join(format!("{action}.json")), &rego_input_bytes)
+            .map_err(|error| format!("write exact OPA action benchmark input for {action}: {error}"))?;
+
+        let mut expected_decision: Option<&'static str> = None;
+        let mut expected_policy_ids: Option<Vec<String>> = None;
+        for _ in 0..ACTION_BENCHMARK_WARMUP_ITERATIONS {
+            let (decision, policy_ids, _, _) =
+                evaluate_case(authorizer, policy_set, schema, case)?;
+            if let Some(expected) = expected_decision {
+                if decision != expected || expected_policy_ids.as_ref() != Some(&policy_ids) {
+                    return Err(format!(
+                        "Cedar decision/reason changed during warmup for action {action}"
+                    ));
+                }
+            } else {
+                expected_decision = Some(decision);
+                expected_policy_ids = Some(policy_ids);
+            }
+        }
+
+        let mut construction_times = Vec::with_capacity(ACTION_BENCHMARK_MEASURED_ITERATIONS);
+        let mut authorization_times = Vec::with_capacity(ACTION_BENCHMARK_MEASURED_ITERATIONS);
+        for _ in 0..ACTION_BENCHMARK_MEASURED_ITERATIONS {
+            let (decision, policy_ids, construction_ns, authorization_ns) =
+                evaluate_case(authorizer, policy_set, schema, case)?;
+            if Some(decision) != expected_decision
+                || expected_policy_ids.as_ref() != Some(&policy_ids)
+            {
+                return Err(format!(
+                    "Cedar decision/reason changed during measurement for action {action}"
+                ));
+            }
+            construction_times.push(construction_ns);
+            authorization_times.push(authorization_ns);
+        }
+
+        summaries.push(ActionBenchmarkSummary {
+            action: action.to_owned(),
+            case_id: case.case_id.clone(),
+            case_sha256: sha256(&case_bytes),
+            cedar_case_sha256: sha256(&cedar_case_bytes),
+            rego_input_sha256: sha256(&rego_input_bytes),
+            warmup_iterations: ACTION_BENCHMARK_WARMUP_ITERATIONS,
+            measured_iterations: ACTION_BENCHMARK_MEASURED_ITERATIONS,
+            decision: expected_decision
+                .ok_or_else(|| format!("missing warmup decision for action {action}"))?
+                .to_owned(),
+            determining_policy_ids: expected_policy_ids
+                .ok_or_else(|| format!("missing warmup policy IDs for action {action}"))?,
+            construction_latency: timing_summary(&construction_times),
+            authorization_latency: timing_summary(&authorization_times),
+            evaluation_method: "Cedar 4.14.0 in-process request/entity construction and pure authorization; 100 warmups then 2000 repeated evaluations of the exact source-pinned representative case",
+        });
+    }
+    Ok(summaries)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pinned_temp_artifact_contains_exact_subject_bytes() {
+        let subject = b"exact policy subject bytes";
+        let artifact = create_pinned_temp_artifact(subject, "rego", false)
+            .expect("private pinned policy copy is created");
+        let copied = read_bounded_file(&artifact.path, 1024, "pinned test artifact")
+            .expect("pinned policy copy is readable");
+        assert_eq!(copied, subject);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pinned_executable_artifact_is_executable_and_byte_identical() {
+        use std::os::unix::fs::PermissionsExt;
+        let subject = b"binary subject bytes";
+        let artifact = create_pinned_temp_artifact(subject, "bin", true)
+            .expect("private pinned executable copy is created");
+        let metadata = fs::metadata(&artifact.path).expect("pinned artifact metadata");
+        assert_eq!(metadata.permissions().mode() & 0o777, 0o700);
+        assert_eq!(
+            read_bounded_file(&artifact.path, 1024, "pinned test executable")
+                .expect("pinned executable bytes are readable"),
+            subject
+        );
+    }
+
+    #[test]
+    fn bounded_file_reader_rejects_non_regular_files() {
+        assert!(read_bounded_file(Path::new("."), 1024, "test artifact")
+            .expect_err("directory is not a regular file")
+            .contains("regular file"));
+    }
+
+    #[test]
+    fn bounded_input_read_accepts_limit_and_rejects_one_byte_over() {
+        let at_limit = read_bounded_input(
+            std::io::Cursor::new(b"1234".as_slice()),
+            4,
+            4,
+            "test input",
+        )
+        .expect("exactly-at-limit input is accepted");
+        assert_eq!(at_limit, b"1234");
+
+        let over_limit = read_bounded_input(
+            std::io::Cursor::new(b"12345".as_slice()),
+            4,
+            4,
+            "test input",
+        );
+        assert!(over_limit.is_err(), "one byte over the cap must be rejected");
+    }
 
     #[test]
     fn git_blob_oid_matches_the_empty_blob_known_answer() {
@@ -515,6 +806,579 @@ mod tests {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct CandidateEngineOutcome {
+    sequence: usize,
+    candidate_sha256: String,
+    candidate_status: String,
+    input_rejection: Option<String>,
+    cedar_decision: Option<String>,
+    cedar_determining_policy_ids: Vec<String>,
+    opa_decision: Option<String>,
+    opa_rule_id: Option<String>,
+    predicate_preserved: Option<bool>,
+    evaluation_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ShrinkPairSummary {
+    predicate: String,
+    evaluation_method: String,
+    initial_case_id: String,
+    initial_cedar_decision: String,
+    initial_opa_decision: String,
+    initial_cedar_determining_policy_ids: Vec<String>,
+    initial_opa_rule_id: String,
+    minimized_case_id: String,
+    minimized_cedar_decision: String,
+    minimized_opa_decision: String,
+    minimized_cedar_determining_policy_ids: Vec<String>,
+    minimized_opa_rule_id: String,
+    candidate_evaluations: usize,
+    input_rejected_candidate_count: usize,
+    valid_engine_evaluation_count: usize,
+    opa_candidate_process_evaluations: usize,
+    cedar_candidate_latency: TimingSummary,
+    opa_cli_candidate_latency: TimingSummary,
+    minimization_wall_ns: u128,
+    accepted_reductions: usize,
+    complete: bool,
+    is_one_minimal: bool,
+    claim_ceiling: String,
+}
+
+fn opa_decision(
+    opa_binary: &Path,
+    rego_policy_path: &Path,
+    input: &Value,
+) -> Result<(String, String, u128), String> {
+    let started = Instant::now();
+    let input_bytes = serde_json::to_vec(input)
+        .map_err(|error| format!("serialize OPA candidate input: {error}"))?;
+    let mut child = Command::new(opa_binary)
+        .arg("eval")
+        .arg("--strict")
+        .arg("--timeout=5s")
+        .arg("--format=json")
+        .arg("--stdin-input")
+        .arg("--data")
+        .arg(rego_policy_path)
+        .arg("data.mycelix.authz.decision")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("start OPA candidate evaluation: {error}"))?;
+    child
+        .stdin
+        .take()
+        .ok_or_else(|| "OPA stdin pipe was unavailable".to_owned())?
+        .write_all(&input_bytes)
+        .map_err(|error| format!("write OPA candidate input: {error}"))?;
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("wait for OPA candidate evaluation: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "OPA candidate evaluation exited {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    let response: Value = serde_json::from_slice(&output.stdout)
+        .map_err(|error| format!("parse OPA candidate response: {error}"))?;
+    let value = response
+        .pointer("/result/0/expressions/0/value")
+        .ok_or_else(|| "OPA response omitted the decision value".to_owned())?;
+    let effect = value
+        .get("effect")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "OPA decision omitted effect".to_owned())?;
+    let rule = value
+        .get("rule")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "OPA decision omitted rule identifier".to_owned())?;
+    if !matches!(effect, "allow" | "deny") {
+        return Err(format!("OPA returned unsupported decision effect: {effect}"));
+    }
+    Ok((effect.to_owned(), rule.to_owned(), started.elapsed().as_nanos()))
+}
+
+struct PolicyPairEvaluation {
+    cedar_decision: String,
+    opa_decision: String,
+    cedar_policy_ids: Vec<String>,
+    opa_rule_id: String,
+    cedar_latency_ns: u128,
+    opa_latency_ns: u128,
+}
+
+fn evaluate_policy_pair(
+    candidate: &Value,
+    authorizer: &Authorizer,
+    policy_set: &PolicySet,
+    schema: &Schema,
+    opa_binary: &Path,
+    rego_policy_path: &Path,
+) -> Result<PolicyPairEvaluation, String> {
+    let case: EngineInputCase = match serde_json::from_value(candidate.clone()) {
+        Ok(case) => case,
+        Err(_) => {
+            return Ok(PolicyPairEvaluation {
+                cedar_decision: "invalid".to_owned(),
+                opa_decision: "invalid".to_owned(),
+                cedar_policy_ids: Vec::new(),
+                opa_rule_id: "invalid".to_owned(),
+                cedar_latency_ns: 0,
+                opa_latency_ns: 0,
+            });
+        }
+    };
+    if case.case_id != case.cedar.case_id || case.case_id != case.rego.case_id {
+        return Ok(PolicyPairEvaluation {
+            cedar_decision: "invalid".to_owned(),
+            opa_decision: "invalid".to_owned(),
+            cedar_policy_ids: Vec::new(),
+            opa_rule_id: "invalid".to_owned(),
+            cedar_latency_ns: 0,
+            opa_latency_ns: 0,
+        });
+    }
+    if validate_explicit_entities(&case, 0).is_err()
+        || !case.cedar.request.context.is_object()
+        || !case.rego.input.is_object()
+    {
+        return Ok(PolicyPairEvaluation {
+            cedar_decision: "invalid".to_owned(),
+            opa_decision: "invalid".to_owned(),
+            cedar_policy_ids: Vec::new(),
+            opa_rule_id: "invalid".to_owned(),
+            cedar_latency_ns: 0,
+            opa_latency_ns: 0,
+        });
+    }
+    let (cedar_decision, cedar_policy_ids, construction_ns, authorization_ns) =
+        match evaluate_case(authorizer, policy_set, schema, &case) {
+            Ok(result) => result,
+            Err(message) if message.starts_with("Cedar evaluation diagnostic") => {
+                return Err(message);
+            }
+            Err(_) => {
+                return Ok(PolicyPairEvaluation {
+                    cedar_decision: "invalid".to_owned(),
+                    opa_decision: "invalid".to_owned(),
+                    cedar_policy_ids: Vec::new(),
+                    opa_rule_id: "invalid".to_owned(),
+                    cedar_latency_ns: 0,
+                    opa_latency_ns: 0,
+                });
+            }
+        };
+    let (opa_effect, opa_rule, opa_elapsed_ns) =
+        opa_decision(opa_binary, rego_policy_path, &case.rego.input)?;
+    Ok(PolicyPairEvaluation {
+        cedar_decision: cedar_decision.to_owned(),
+        opa_decision: opa_effect,
+        cedar_policy_ids,
+        opa_rule_id: opa_rule,
+        cedar_latency_ns: construction_ns + authorization_ns,
+        opa_latency_ns: opa_elapsed_ns,
+    })
+}
+
+fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
+    if args.len() != 7 {
+        return Err(
+            "usage: --shrink-pair <candidate.json> <opa-binary> <rego-policy.rego> <cedar-policy.cedar> <cedar-schema.json> <output-dir> <max-candidates>"
+                .to_owned(),
+        );
+    }
+    let input_path = PathBuf::from(&args[0]);
+    let opa_binary = PathBuf::from(&args[1]);
+    let rego_policy_path = PathBuf::from(&args[2]);
+    let cedar_policy_path = PathBuf::from(&args[3]);
+    let cedar_schema_path = PathBuf::from(&args[4]);
+    let output_directory = PathBuf::from(&args[5]);
+    let max_candidates = args[6]
+        .to_str()
+        .ok_or_else(|| "max-candidates must be UTF-8".to_owned())?
+        .parse::<usize>()
+        .map_err(|error| format!("invalid max-candidates: {error}"))?;
+    if max_candidates == 0 || max_candidates > 2_000 {
+        return Err("max-candidates must be between 1 and 2000".to_owned());
+    }
+
+    let source_file = File::open(&input_path)
+        .map_err(|error| format!("open original counterexample: {error}"))?;
+    let source_metadata = source_file
+        .metadata()
+        .map_err(|error| format!("inspect opened original counterexample: {error}"))?;
+    if !source_metadata.is_file() {
+        return Err("original counterexample must be a regular file".to_owned());
+    }
+    if source_metadata.len() > MAX_SOURCE_INPUT_BYTES as u64 {
+        return Err(format!(
+            "counterexample exceeds {MAX_SOURCE_INPUT_BYTES} byte shrinker limit"
+        ));
+    }
+    let initial_capacity = usize::try_from(
+        source_metadata.len().min(MAX_SOURCE_INPUT_BYTES as u64),
+    )
+    .map_err(|error| format!("counterexample size does not fit memory index: {error}"))?;
+    let source_bytes = read_bounded_input(
+        source_file,
+        MAX_SOURCE_INPUT_BYTES as u64,
+        initial_capacity,
+        "original counterexample",
+    )?;
+    let initial_value: Value = parse_unique_json_bytes(&source_bytes)
+        .map_err(|error| format!("strictly parse original counterexample before engine evaluation: {error}"))?;
+    let initial_case: EngineInputCase = serde_json::from_value(initial_value.clone())
+        .map_err(|error| format!("parse original engine case: {error}"))?;
+
+    let cedar_policy_bytes = read_bounded_file(&cedar_policy_path, MAX_POLICY_FILE_BYTES, "Cedar policy")?;
+    let cedar_schema_bytes = read_bounded_file(&cedar_schema_path, MAX_POLICY_FILE_BYTES, "Cedar schema")?;
+    let rego_policy_bytes = read_bounded_file(&rego_policy_path, MAX_POLICY_FILE_BYTES, "Rego policy")?;
+    let opa_binary_bytes = read_bounded_file(&opa_binary, MAX_TOOL_BINARY_BYTES, "OPA binary for provenance")?;
+    let runner_binary_path = env::current_exe()
+        .map_err(|error| format!("resolve Cedar runner binary: {error}"))?;
+    let runner_binary_bytes = read_bounded_file(&runner_binary_path, MAX_TOOL_BINARY_BYTES, "Cedar runner binary for provenance")?;
+
+    // All OPA execution must consume the exact bytes represented in the
+    // provenance digests. Do not invoke the caller-controlled paths again.
+    let pinned_opa = create_pinned_temp_artifact(&opa_binary_bytes, "bin", true)?;
+    let pinned_rego = create_pinned_temp_artifact(&rego_policy_bytes, "rego", false)?;
+    let opa_version = Command::new(&pinned_opa.path)
+        .arg("version")
+        .output()
+        .map_err(|error| format!("read pinned OPA version: {error}"))?;
+    if !opa_version.status.success() {
+        return Err(format!(
+            "pinned OPA version command failed: {}",
+            String::from_utf8_lossy(&opa_version.stderr)
+        ));
+    }
+    let opa_version_text = String::from_utf8_lossy(&opa_version.stdout).into_owned();
+    if !opa_version_text.contains("1.22.0") {
+        return Err(format!("expected pinned OPA 1.22.0, got {opa_version_text:?}"));
+    }
+
+    let cedar_policy_source = std::str::from_utf8(&cedar_policy_bytes)
+        .map_err(|error| format!("Cedar policy is not UTF-8: {error}"))?;
+    let cedar_schema_source = std::str::from_utf8(&cedar_schema_bytes)
+        .map_err(|error| format!("Cedar schema is not UTF-8: {error}"))?;
+    let policy_set: PolicySet = cedar_policy_source
+        .parse()
+        .map_err(|error| format!("parse Cedar policy: {error:?}"))?;
+    let schema = Schema::from_json_str(cedar_schema_source)
+        .map_err(|error| format!("parse Cedar schema: {error:?}"))?;
+    let validation = Validator::new(schema.clone()).validate(&policy_set, ValidationMode::Strict);
+    if !validation.validation_passed() {
+        return Err(format!("Cedar policy failed strict schema validation: {validation:?}"));
+    }
+    let authorizer = Authorizer::new();
+
+    let initial = evaluate_policy_pair(
+        &initial_value,
+        &authorizer,
+        &policy_set,
+        &schema,
+        &pinned_opa.path,
+        &pinned_rego.path,
+    )?;
+    let initial_cedar = initial.cedar_decision;
+    let initial_opa = initial.opa_decision;
+    let initial_cedar_policy_ids = initial.cedar_policy_ids;
+    let initial_opa_rule = initial.opa_rule_id;
+    if !matches!(initial_cedar.as_str(), "allow" | "deny")
+        || !matches!(initial_opa.as_str(), "allow" | "deny")
+        || initial_cedar == initial_opa
+    {
+        return Err(format!(
+            "input is not a valid Cedar/OPA decision counterexample: Cedar={initial_cedar}, OPA={initial_opa}"
+        ));
+    }
+
+    let mut protected_paths = BTreeSet::new();
+    for pointer in [
+        "/case_id",
+        "/cedar/case_id",
+        "/cedar/request/principal",
+        "/cedar/request/action",
+        "/cedar/request/resource",
+        "/cedar/entities",
+        "/rego/case_id",
+        "/rego/input/action",
+        "/rego/input/actor/id",
+        "/rego/input/actor/roles",
+        "/rego/input/claim/exists",
+        "/rego/input/claim/creatorActorId",
+        "/rego/input/claim/creatorOrganizationId",
+    ] {
+        protected_paths.insert(pointer.to_owned());
+    }
+
+    let engine_material =
+        length_prefixed_material(&[&runner_binary_bytes, &opa_binary_bytes]);
+    let policy_material =
+        length_prefixed_material(&[&cedar_policy_bytes, &rego_policy_bytes]);
+    let evaluation_config = serde_json::to_vec(&serde_json::json!({
+        "cedar_sdk": "4.14.0",
+        "opa_version": opa_version_text.trim(),
+        "opa_execution_subject_sha256": sha256(&opa_binary_bytes),
+        "rego_execution_subject_sha256": sha256(&rego_policy_bytes),
+        "opa_query": "data.mycelix.authz.decision",
+        "opa_flags": ["eval", "--strict", "--timeout=5s", "--format=json", "--stdin-input"],
+        "predicate": "preserve_initial_cedar_opa_decision_and_reason_divergence",
+        "source_case_id": initial_case.case_id,
+        "source_input_sha256": sha256(&source_bytes),
+        "source_corpus_baseline_revision": EXPECTED_BASELINE_REVISION,
+        "source_corpus_baseline_source_blob_sha256": EXPECTED_BASELINE_SOURCE_BLOB_SHA,
+        "max_candidate_evaluations": max_candidates,
+        "protected_paths": protected_paths
+    }))
+    .map_err(|error| format!("serialize evaluation configuration: {error}"))?;
+    let provenance = PredicateProvenance::from_bytes(
+        "cedar-policy+opa",
+        "cedar-sdk=4.14.0;opa=1.22.0",
+        &engine_material,
+        &policy_material,
+        &cedar_schema_bytes,
+        &evaluation_config,
+    );
+
+    let mut cedar_candidate_times = Vec::new();
+    let mut opa_cli_candidate_times = Vec::new();
+    let opa_candidate_process_evaluations = Cell::new(0usize);
+    let seed_confirmation_pending = Cell::new(true);
+    let mut initial_seed_outcome: Option<CandidateEngineOutcome> = None;
+    let mut candidate_engine_outcomes = Vec::<CandidateEngineOutcome>::new();
+    let minimization_started = Instant::now();
+    let result = minimize_json_with_provenance(
+        &initial_value,
+        &source_bytes,
+        "cedar-opa-decision-divergence",
+        provenance,
+        &protected_paths,
+        max_candidates,
+        |candidate| {
+            let candidate_digest = stable_json_value_sha256(candidate)
+                .map_err(|error| format!("digest normalized engine candidate: {error}"))?;
+            let is_initial_seed_confirmation = seed_confirmation_pending.replace(false);
+            if is_initial_seed_confirmation && candidate != &initial_value {
+                return Err("shrink reducer did not begin with the exact original seed".to_owned());
+            }
+
+            let evaluation = evaluate_policy_pair(
+                candidate,
+                &authorizer,
+                &policy_set,
+                &schema,
+                &pinned_opa.path,
+                &pinned_rego.path,
+            );
+
+            if is_initial_seed_confirmation {
+                let seed = evaluation?;
+                if !matches!(seed.cedar_decision.as_str(), "allow" | "deny")
+                    || !matches!(seed.opa_decision.as_str(), "allow" | "deny")
+                {
+                    return Err(format!(
+                        "initial seed confirmation produced no paired decision: Cedar={}, OPA={}",
+                        seed.cedar_decision, seed.opa_decision
+                    ));
+                }
+                let preserved = seed.cedar_decision == initial_cedar
+                    && seed.opa_decision == initial_opa
+                    && seed.cedar_decision != seed.opa_decision
+                    && seed.cedar_policy_ids == initial_cedar_policy_ids
+                    && seed.opa_rule_id == initial_opa_rule;
+                initial_seed_outcome = Some(CandidateEngineOutcome {
+                    sequence: 0,
+                    candidate_sha256: candidate_digest,
+                    candidate_status: "initial_seed_confirmation".to_owned(),
+                    input_rejection: None,
+                    cedar_decision: Some(seed.cedar_decision),
+                    cedar_determining_policy_ids: seed.cedar_policy_ids,
+                    opa_decision: Some(seed.opa_decision),
+                    opa_rule_id: Some(seed.opa_rule_id),
+                    predicate_preserved: Some(preserved),
+                    evaluation_error: None,
+                });
+                if !preserved {
+                    return Err("initial seed confirmation disagreed with the previously established divergence".to_owned());
+                }
+                return Ok(true);
+            }
+
+            let sequence = candidate_engine_outcomes.len();
+            match evaluation {
+                Ok(result)
+                    if result.cedar_decision == "invalid" && result.opa_decision == "invalid" =>
+                {
+                    // Candidate did not satisfy the paired input/schema boundary;
+                    // neither authorization engine produced a decision.
+                    candidate_engine_outcomes.push(CandidateEngineOutcome {
+                        sequence,
+                        candidate_sha256: candidate_digest,
+                        candidate_status: "input_rejected_before_engines".to_owned(),
+                        input_rejection: Some(
+                            "paired-case, entity, context or Cedar request preflight rejected the candidate; neither engine was evaluated"
+                                .to_owned(),
+                        ),
+                        cedar_decision: None,
+                        cedar_determining_policy_ids: Vec::new(),
+                        opa_decision: None,
+                        opa_rule_id: None,
+                        predicate_preserved: Some(false),
+                        evaluation_error: None,
+                    });
+                    Ok(false)
+                }
+                Ok(result) => {
+                    if !matches!(result.cedar_decision.as_str(), "allow" | "deny")
+                        || !matches!(result.opa_decision.as_str(), "allow" | "deny")
+                    {
+                        return Err(format!(
+                            "unexpected non-decision candidate result: Cedar={}, OPA={}",
+                            result.cedar_decision, result.opa_decision
+                        ));
+                    }
+                    let preserved = result.cedar_decision == initial_cedar
+                        && result.opa_decision == initial_opa
+                        && result.cedar_decision != result.opa_decision
+                        && result.cedar_policy_ids == initial_cedar_policy_ids
+                        && result.opa_rule_id == initial_opa_rule;
+                    cedar_candidate_times.push(result.cedar_latency_ns);
+                    opa_cli_candidate_times.push(result.opa_latency_ns);
+                    opa_candidate_process_evaluations.set(
+                        opa_candidate_process_evaluations.get() + 1
+                    );
+                    candidate_engine_outcomes.push(CandidateEngineOutcome {
+                        sequence,
+                        candidate_sha256: candidate_digest,
+                        candidate_status: "evaluated".to_owned(),
+                        input_rejection: None,
+                        cedar_decision: Some(result.cedar_decision),
+                        cedar_determining_policy_ids: result.cedar_policy_ids,
+                        opa_decision: Some(result.opa_decision),
+                        opa_rule_id: Some(result.opa_rule_id),
+                        predicate_preserved: Some(preserved),
+                        evaluation_error: None,
+                    });
+                    Ok(preserved)
+                }
+                Err(error) => {
+                    candidate_engine_outcomes.push(CandidateEngineOutcome {
+                        sequence,
+                        candidate_sha256: candidate_digest,
+                        candidate_status: "engine_evaluation_error".to_owned(),
+                        input_rejection: None,
+                        cedar_decision: None,
+                        cedar_determining_policy_ids: Vec::new(),
+                        opa_decision: None,
+                        opa_rule_id: None,
+                        predicate_preserved: None,
+                        evaluation_error: Some(error.clone()),
+                    });
+                    Err(error)
+                }
+            }
+        },
+    )
+    .map_err(|error| format!("counterexample minimization incomplete: {error}"))?;
+    let minimization_wall_ns = minimization_started.elapsed().as_nanos();
+
+    let minimized = evaluate_policy_pair(
+        &result.minimized_value,
+        &authorizer,
+        &policy_set,
+        &schema,
+        &pinned_opa.path,
+        &pinned_rego.path,
+    )?;
+    let minimized_cedar = minimized.cedar_decision;
+    let minimized_opa = minimized.opa_decision;
+    let minimized_cedar_policy_ids = minimized.cedar_policy_ids;
+    let minimized_opa_rule = minimized.opa_rule_id;
+    fs::create_dir_all(&output_directory)
+        .map_err(|error| format!("create shrink output directory: {error}"))?;
+    let minimized_bytes = serde_json::to_vec_pretty(&result.minimized_value)
+        .map_err(|error| format!("serialize minimized counterexample: {error}"))?;
+    fs::write(output_directory.join("minimized-counterexample.json"), &minimized_bytes)
+        .map_err(|error| format!("write minimized counterexample: {error}"))?;
+    let trace_bytes = serde_json::to_vec_pretty(&result.trace)
+        .map_err(|error| format!("serialize shrink trace: {error}"))?;
+    fs::write(output_directory.join("shrink-trace.json"), &trace_bytes)
+        .map_err(|error| format!("write shrink trace: {error}"))?;
+    let initial_seed_outcome = initial_seed_outcome
+        .ok_or_else(|| "initial seed confirmation outcome was not recorded".to_owned())?;
+    let initial_seed_bytes = serde_json::to_vec_pretty(&initial_seed_outcome)
+        .map_err(|error| format!("serialize initial seed confirmation: {error}"))?;
+    fs::write(
+        output_directory.join("initial-seed-engine-outcome.json"),
+        &initial_seed_bytes,
+    )
+    .map_err(|error| format!("write initial seed confirmation: {error}"))?;
+    let mut candidate_outcomes_bytes = Vec::new();
+    for outcome in &candidate_engine_outcomes {
+        let mut row = serde_json::to_vec(outcome)
+            .map_err(|error| format!("serialize candidate engine outcome: {error}"))?;
+        row.push(b'\n');
+        candidate_outcomes_bytes.extend_from_slice(&row);
+    }
+    fs::write(
+        output_directory.join("candidate-engine-outcomes.jsonl"),
+        &candidate_outcomes_bytes,
+    )
+    .map_err(|error| format!("write candidate engine outcomes: {error}"))?;
+    let summary = ShrinkPairSummary {
+        predicate: "cedar-opa-decision-divergence".to_owned(),
+        evaluation_method: "Cedar in-process request construction+authorization; OPA one-shot CLI per candidate including startup/policy loading/input parsing".to_owned(),
+        initial_case_id: initial_case.case_id,
+        initial_cedar_decision: initial_cedar,
+        initial_opa_decision: initial_opa,
+        initial_cedar_determining_policy_ids: initial_cedar_policy_ids,
+        initial_opa_rule_id: initial_opa_rule,
+        minimized_case_id: result.minimized_value["case_id"]
+            .as_str()
+            .ok_or_else(|| "minimized case ID is missing".to_owned())?
+            .to_owned(),
+        minimized_cedar_decision: minimized_cedar,
+        minimized_opa_decision: minimized_opa,
+        minimized_cedar_determining_policy_ids: minimized_cedar_policy_ids,
+        minimized_opa_rule_id: minimized_opa_rule,
+        candidate_evaluations: result.trace.candidate_evaluations,
+        input_rejected_candidate_count: candidate_engine_outcomes
+            .iter()
+            .filter(|outcome| outcome.candidate_status == "input_rejected_before_engines")
+            .count(),
+        valid_engine_evaluation_count: candidate_engine_outcomes
+            .iter()
+            .filter(|outcome| outcome.candidate_status == "evaluated")
+            .count(),
+        opa_candidate_process_evaluations: opa_candidate_process_evaluations.get(),
+        cedar_candidate_latency: timing_summary(&cedar_candidate_times),
+        opa_cli_candidate_latency: timing_summary(&opa_cli_candidate_times),
+        minimization_wall_ns,
+        accepted_reductions: result.trace.accepted_reductions,
+        complete: result.trace.complete,
+        is_one_minimal: result.trace.is_one_minimal,
+        claim_ceiling: result.trace.claim_ceiling.clone(),
+    };
+    let summary_bytes = serde_json::to_vec_pretty(&summary)
+        .map_err(|error| format!("serialize shrink summary: {error}"))?;
+    fs::write(output_directory.join("shrink-summary.json"), &summary_bytes)
+        .map_err(|error| format!("write shrink summary: {error}"))?;
+    println!("initial_cedar_decision={}", summary.initial_cedar_decision);
+    println!("initial_opa_decision={}", summary.initial_opa_decision);
+    println!("candidate_evaluations={}", summary.candidate_evaluations);
+    println!("accepted_reductions={}", summary.accepted_reductions);
+    println!("complete={}", summary.complete);
+    println!("is_one_minimal={}", summary.is_one_minimal);
+    Ok(())
+}
+
 fn run() -> Result<(), String> {
     let mut args = env::args_os();
     let program = args.next().unwrap_or_default();
@@ -532,8 +1396,7 @@ fn run() -> Result<(), String> {
     }
     let manifest_path = PathBuf::from(manifest_path);
     let output_directory = PathBuf::from(output_directory);
-    let manifest_bytes = fs::read(&manifest_path)
-        .map_err(|error| format!("read generator manifest: {error}"))?;
+    let manifest_bytes = read_bounded_file(&manifest_path, MAX_MANIFEST_BYTES, "generator manifest")?;
     let input_manifest: InputManifest = serde_json::from_slice(&manifest_bytes)
         .map_err(|error| format!("parse generator manifest: {error}"))?;
     validate_manifest(&input_manifest)?;
@@ -547,8 +1410,7 @@ fn run() -> Result<(), String> {
     let baseline_source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../")
         .join(&input_manifest.baseline_source_path);
-    let baseline_source_bytes = fs::read(&baseline_source_path)
-        .map_err(|error| format!("read pinned Rust authorization source: {error}"))?;
+    let baseline_source_bytes = read_bounded_file(&baseline_source_path, MAX_SOURCE_FILE_BYTES, "pinned Rust authorization source")?;
     let actual_blob_oid = git_blob_oid(&baseline_source_bytes);
     if actual_blob_oid != EXPECTED_BASELINE_SOURCE_BLOB_SHA {
         return Err(format!(
@@ -560,10 +1422,8 @@ fn run() -> Result<(), String> {
         .join("../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar");
     let schema_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json");
-    let policy_bytes = fs::read(&policy_path)
-        .map_err(|error| format!("read Cedar policy: {error}"))?;
-    let schema_bytes = fs::read(&schema_path)
-        .map_err(|error| format!("read Cedar schema: {error}"))?;
+    let policy_bytes = read_bounded_file(&policy_path, MAX_POLICY_FILE_BYTES, "Cedar policy")?;
+    let schema_bytes = read_bounded_file(&schema_path, MAX_POLICY_FILE_BYTES, "Cedar schema")?;
     let policy_source = std::str::from_utf8(&policy_bytes)
         .map_err(|error| format!("Cedar policy is not UTF-8: {error}"))?;
     let schema_source = std::str::from_utf8(&schema_bytes)
@@ -633,6 +1493,8 @@ fn run() -> Result<(), String> {
     writer.flush().map_err(|error| format!("flush Cedar decision output: {error}"))?;
     let total_wall_ns = wall_start.elapsed().as_nanos();
     let output_sha256 = hex::encode(output_hasher.finalize());
+    let action_benchmarks =
+        benchmark_cedar_actions(&cases, &authorizer, &policy_set, &schema, &output_directory)?;
     let peak_rss = peak_rss_kib();
     let logical_cpus = std::thread::available_parallelism().map_or(1, usize::from);
     let throughput = if total_wall_ns == 0 {
@@ -652,12 +1514,12 @@ fn run() -> Result<(), String> {
         baseline_source_blob_sha: input_manifest.baseline_source_blob_sha,
         policy_id: input_manifest.policy_id,
         policy_version: input_manifest.policy_version,
-        input_file: input_manifest.engine_input_file,
+        input_file: input_manifest.engine_inputs_file,
         input_sha256: input_manifest.engine_inputs_sha256,
         policy_sha256: sha256(&policy_bytes),
         schema_sha256: sha256(&schema_bytes),
         output_file: "cedar-decisions-v0.1.jsonl".to_owned(),
-        output_sha256,
+        output_sha256: output_sha256.clone(),
         case_count: cases.len(),
         allow_count,
         deny_count,
@@ -667,6 +1529,7 @@ fn run() -> Result<(), String> {
         construction_latency: timing_summary(&construction_times),
         authorization_latency: timing_summary(&authorization_times),
         end_to_end_latency: timing_summary(&end_to_end_times),
+        action_benchmarks,
         total_wall_ns,
         throughput_cases_per_second: throughput,
         peak_rss_kib: peak_rss,
@@ -704,6 +1567,16 @@ fn run() -> Result<(), String> {
 }
 
 fn main() -> ExitCode {
+    let args = env::args_os().skip(1).collect::<Vec<_>>();
+    if args.first().and_then(|value| value.to_str()) == Some("--shrink-pair") {
+        return match run_shrink_pair(&args[1..]) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("indeterminate: {error}");
+                ExitCode::from(2)
+            }
+        };
+    }
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {

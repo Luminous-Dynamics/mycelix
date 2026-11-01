@@ -57,9 +57,9 @@ jobs:
           test "$(wc -l < target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl)" -eq 62464
           jq -e '.case_count == 62464 and .expected_decision_status == "pending_authentic_rust_oracle" and .engine_input_count == 62464' target/scientific-policy-space/manifest.json
 
-      - name: Generate four deterministic source-bound metamorphic corpora
+      - name: Generate five deterministic source-bound metamorphic corpora
         run: |
-          cargo run --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked -- \
+          cargo run --bin scientific-policy-metamorphic --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked -- \
             target/scientific-policy-space/manifest.json \
             target/scientific-policy-metamorphic
           test "$(find target/scientific-policy-metamorphic -name transform-manifest.json | wc -l)" -eq 5
@@ -94,6 +94,124 @@ jobs:
           chmod +x /tmp/opa
           /tmp/opa version | tee target/opa-version.txt
 
+      - name: Seed and minimize a deliberate Cedar/OPA authorization counterexample
+        run: |
+          set -euo pipefail
+          target_case_id="$(jq -r '.changed_case_ids[0]' target/scientific-policy-metamorphic/claim-proposed-contributor-removed/transform-manifest.json)"
+          test -n "$target_case_id"
+          jq -c --arg case_id "$target_case_id" \
+            'select(.case_id == $case_id) | .rego.input.actor.roles = []' \
+            target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl \
+            > target/policy-counterexample-seed.json
+          test -s target/policy-counterexample-seed.json
+          test "$(wc -l < target/policy-counterexample-seed.json)" -eq 1
+          cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- \
+            --shrink-pair \
+            target/policy-counterexample-seed.json \
+            /tmp/opa \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json \
+            target/policy-counterexample-shrink \
+            2000
+          echo "### Counterexample shrink qualification diagnostics"
+          jq '{
+            initial_case_id,
+            minimized_case_id,
+            initial_cedar_decision,
+            minimized_cedar_decision,
+            initial_opa_decision,
+            minimized_opa_decision,
+            initial_opa_rule_id,
+            minimized_opa_rule_id,
+            initial_cedar_determining_policy_ids,
+            minimized_cedar_determining_policy_ids,
+            candidate_evaluations,
+            input_rejected_candidate_count,
+            valid_engine_evaluation_count,
+            opa_candidate_process_evaluations,
+            cedar_candidate_latency_count:.cedar_candidate_latency.count,
+            opa_cli_candidate_latency_count:.opa_cli_candidate_latency.count,
+            accepted_reductions,
+            complete,
+            is_one_minimal
+          }' target/policy-counterexample-shrink/shrink-summary.json
+          jq -s '{
+            sidecar_rows:length,
+            status_counts:(group_by(.candidate_status)|map({status:.[0].candidate_status,count:length})),
+            input_rejected_rows:map(select(.candidate_status=="input_rejected_before_engines")),
+            evaluated_rows:map(select(.candidate_status=="evaluated")),
+            engine_error_rows:map(select(.candidate_status=="engine_evaluation_error")),
+            predicate_false_count:map(select(.predicate_preserved==false))|length,
+            predicate_true_count:map(select(.predicate_preserved==true))|length
+          }' target/policy-counterexample-shrink/candidate-engine-outcomes.jsonl
+
+          jq -e --slurpfile summary target/policy-counterexample-shrink/shrink-summary.json --slurpfile trace target/policy-counterexample-shrink/shrink-trace.json '
+            .candidate_status == "initial_seed_confirmation" and
+            .predicate_preserved == true and
+            .evaluation_error == null and
+            .input_rejection == null and
+            .candidate_sha256 == $trace[0].original_value_sha256 and
+            .cedar_decision == $summary[0].initial_cedar_decision and
+            .opa_decision == $summary[0].initial_opa_decision and
+            .cedar_determining_policy_ids == $summary[0].initial_cedar_determining_policy_ids and
+            .opa_rule_id == $summary[0].initial_opa_rule_id
+          ' target/policy-counterexample-shrink/initial-seed-engine-outcome.json
+
+          jq -e '
+            .initial_case_id == .minimized_case_id and
+            .initial_cedar_decision == "allow" and
+            .initial_opa_decision == "deny" and
+            .minimized_cedar_decision == "allow" and
+            .minimized_opa_decision == "deny" and
+            .initial_opa_rule_id == "DEFAULT_DENY" and
+            .minimized_opa_rule_id == "DEFAULT_DENY" and
+            (.initial_cedar_determining_policy_ids | length) > 0 and
+            .initial_cedar_determining_policy_ids == .minimized_cedar_determining_policy_ids and
+            .complete == true and
+            .is_one_minimal == true and
+            .candidate_evaluations > 0 and
+            .candidate_evaluations == (.input_rejected_candidate_count + .valid_engine_evaluation_count) and
+            .valid_engine_evaluation_count == .opa_candidate_process_evaluations and
+            .opa_candidate_process_evaluations > 0 and
+            .cedar_candidate_latency.count == .valid_engine_evaluation_count and
+            .opa_cli_candidate_latency.count == .valid_engine_evaluation_count
+          ' target/policy-counterexample-shrink/shrink-summary.json
+          jq -e '
+            .predicate_provenance.engine_id == "cedar-policy+opa" and
+            .predicate_provenance.engine_version == "cedar-sdk=4.14.0;opa=1.22.0" and
+            (.source_input_sha256 | length == 64)
+          ' target/policy-counterexample-shrink/shrink-trace.json
+          jq -s -e --slurpfile summary target/policy-counterexample-shrink/shrink-summary.json --slurpfile trace target/policy-counterexample-shrink/shrink-trace.json '
+            . as $rows |
+            ($rows | length) == $summary[0].candidate_evaluations and
+            ($rows | length) == ($trace[0].candidates | length) and
+            all(($rows | to_entries[]);
+              .value.sequence == .key and
+              .value.candidate_sha256 == $trace[0].candidates[.key].candidate_sha256 and
+              .value.predicate_preserved == $trace[0].candidates[.key].predicate_preserved and
+              (.value.candidate_sha256 | length == 64) and
+              (.value.predicate_preserved != null) and
+              (.value.evaluation_error == null) and
+              (if .value.candidate_status == "input_rejected_before_engines" then
+                 .value.cedar_decision == null and
+                 .value.opa_decision == null and
+                 .value.input_rejection != null and
+                 .value.predicate_preserved == false
+               elif .value.candidate_status == "evaluated" then
+                 .value.cedar_decision != null and
+                 .value.opa_decision != null and
+                 .value.input_rejection == null and
+                 (if .value.predicate_preserved == true then
+                    .value.cedar_determining_policy_ids == $summary[0].initial_cedar_determining_policy_ids and
+                    .value.opa_rule_id == $summary[0].initial_opa_rule_id
+                  else true end)
+               else false end)
+            ) and
+            ($rows | map(select(.predicate_preserved == true)) | length) ==
+              $summary[0].accepted_reductions
+          ' target/policy-counterexample-shrink/candidate-engine-outcomes.jsonl
+
       - name: Evaluate baseline corpus through Cedar
         run: |
           cargo run --release --manifest-path tools/scientific-policy-cedar-runner/Cargo.toml --locked -- \
@@ -101,6 +219,13 @@ jobs:
           test "$(wc -l < target/metamorphic-engine-results/baseline-cedar/cedar-decisions-v0.1.jsonl)" -eq 62464
           jq -e '.case_count == 62464 and .indeterminate_count == 0 and .measured_cases == 62208' \
             target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json
+          jq -e '
+            .action_benchmarks | length == 8 and
+            all(.[]; .warmup_iterations == 100 and
+                     .measured_iterations == 2000 and
+                     (.rego_input_sha256 | length == 64) and
+                     (.cedar_case_sha256 | length == 64))
+          ' target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json
 
       - name: Evaluate baseline corpus through OPA/Rego v1
         run: |
@@ -125,6 +250,48 @@ jobs:
           jq -n --arg input_sha256 "$input_sha" --arg output_sha256 "$output_sha" --argjson elapsed_ns "$elapsed_ns" \
             '{engine:"opa",engine_version:"1.22.0",evaluation_method:"one-shot-cli-batch-including-process-startup-and-file-io",case_count:62464,input_sha256:$input_sha256,output_sha256:$output_sha256,elapsed_ns:$elapsed_ns,claim_ceiling:"OPA result over frozen abstract input corpus; not Rust authorization parity"}' \
             > target/metamorphic-engine-results/baseline-opa/opa-run-manifest.json
+
+      - name: Benchmark OPA in-process query evaluation by authorization action
+        run: |
+          set -euo pipefail
+          mkdir -p target/opa-native-bench
+          actions=(
+            claim_proposed
+            legacy_claim_imported
+            evidence_attached
+            attestation_recorded
+            attestation_corrected
+            attestation_withdrawn
+            claim_superseded
+            claim_retracted
+          )
+          cedar_manifest="target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json"
+          for action in "${actions[@]}"; do
+            input_file="target/metamorphic-engine-results/baseline-cedar/opa-action-inputs/$action.json"
+            output_file="target/opa-native-bench/$action-bench.json"
+            test -s "$input_file"
+            jq -e --arg action "$action" '.action == $action' "$input_file"
+            expected_sha="$(jq -r --arg action "$action" '.action_benchmarks[] | select(.action == $action) | .rego_input_sha256' "$cedar_manifest")"
+            actual_sha="$(sha256sum "$input_file" | cut -d ' ' -f 1)"
+            test "$actual_sha" = "$expected_sha"
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$input_file" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+              'data.mycelix.authz.decision' \
+              > "$output_file"
+            test -s "$output_file"
+          done
+          {
+            printf 'evaluation_method=opa bench; repeated in-process query evaluation; input loading/policy compilation/process startup excluded by engine benchmark\n'
+            printf 'opa_version='; /tmp/opa version
+            printf 'opa_binary_sha256='; sha256sum /tmp/opa
+            printf 'policy_sha256='; sha256sum docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego
+            printf 'source_input_sha256='; sha256sum target/scientific-policy-space/scientific-policy-engine-inputs-v0.1.jsonl
+            printf 'cedar_action_benchmark_manifest_sha256='; sha256sum target/metamorphic-engine-results/baseline-cedar/cedar-run-manifest-v0.1.json
+            sha256sum target/metamorphic-engine-results/baseline-cedar/opa-action-inputs/*.json
+            uname -a
+            printf 'logical_cpus=%s\n' "$(nproc)"
+          } > target/opa-native-bench/reproducibility.txt
 
       - name: Evaluate each metamorphic corpus through Cedar and OPA
         run: |
@@ -250,11 +417,17 @@ jobs:
             target/scientific-policy-space/
             target/scientific-policy-metamorphic/
             target/metamorphic-engine-results/
+            target/opa-native-bench/
+            target/policy-counterexample-seed.json
+            target/policy-counterexample-shrink/
             target/opa-version.txt
             tools/scientific-policy-metamorphic/Cargo.toml
             tools/scientific-policy-metamorphic/Cargo.lock
             tools/scientific-policy-metamorphic/README.md
+            tools/scientific-policy-metamorphic/BENCHMARK_PROTOCOL.md
+            tools/scientific-policy-metamorphic/COUNTEREXAMPLE_MINIMIZATION.md
             tools/scientific-policy-metamorphic/src/lib.rs
+            tools/scientific-policy-metamorphic/src/shrink.rs
             tools/scientific-policy-metamorphic/src/main.rs
             tools/scientific-policy-cedar-runner/Cargo.toml
             tools/scientific-policy-cedar-runner/Cargo.lock

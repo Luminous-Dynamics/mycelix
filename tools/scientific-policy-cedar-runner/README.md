@@ -9,6 +9,86 @@ This standalone Rust binary evaluates the paired Cedar PARC requests generated b
 
 The generator manifest and paired engine input corpus must be produced by `tools/scientific-policy-space`.
 
+## Deterministic Cedar/OPA counterexample minimization
+
+The runner also supports a deliberately seeded, engine-specific mismatch:
+
+    cargo run --release --locked -- \
+      --shrink-pair candidate.json /path/to/opa \
+      opa-policy.rego cedar-policy.cedar cedar-schema.json \
+      output-directory 2000
+
+The command requires OPA 1.22.0 and a valid single paired engine-input case.
+The seed is parsed by the shared duplicate-aware strict JSON parser before any
+Cedar or OPA evaluation; duplicate/escaped duplicate keys, malformed UTF-8,
+unpaired surrogates and trailing JSON are rejected. It first confirms that
+Cedar and OPA return different decisions. It then preserves that exact
+decision direction while reducing the JSON case with the shared deterministic
+shrinker. Each candidate is checked against the paired-case shape and Cedar
+schema before engine evaluation. A candidate rejected at this input boundary
+is explicitly recorded as `input_rejected_before_engines` with null Cedar/OPA
+decision fields; it is not misreported as an engine Deny or an OPA result.
+Cedar evaluation diagnostics or OPA process failures make the run indeterminate
+rather than being converted to Deny.
+
+The output directory receives the minimized case, complete candidate
+trace, per-candidate engine outcome JSONL and summary. Each sidecar row binds
+the candidate digest to its Cedar decision/determining-policy IDs and OPA
+decision/rule ID, the preserved-predicate outcome and any engine error. The
+workflow verifies the sidecar row count against the reducer trace and checks
+that accepted outcomes equal the recorded accepted reductions.
+
+The trace binds exact source bytes, normalized JSON, runner/OPA binary bytes,
+Cedar/Rego policy bytes, Cedar schema and evaluation configuration. Compound
+provenance components use length-prefixed framing. Protected paths preserve
+PARC identity, the request-referenced Cedar entities, action, and the specific
+Rego fields that define the seeded mismatch. Each OPA invocation has a
+five-second timeout. The summary reports total candidates, input-rejected candidates,
+valid paired engine evaluations, OPA process invocations, original and
+minimized determining reasons, Cedar in-process p50/p95/p99, OPA one-shot CLI
+p50/p95/p99, and total minimization wall time separately; the per-candidate
+distributions exclude initial/final confirmation. CI reconciles the candidate
+counts against both the generic trace and the engine-outcome sidecar.
+
+This measures counterexample-minimization behavior, not comparative Cedar/OPA
+latency. Cedar evaluator time and OPA one-shot process wall time must remain
+separate. A completed trace claims 1-minimality only in the declared JSON
+reduction neighborhood; it is not global minimality, policy correctness or
+Rust authorization parity.
+
+
+## Input and execution-subject boundaries
+
+The runner treats every file contributing to a qualification result as a
+bounded input. It opens each path first, checks regular-file metadata on the
+opened handle, then reads at most the declared ceiling plus one byte and
+rejects any over-limit result. Current limits are:
+
+| Input | Maximum |
+|---|---:|
+| Generator manifest | 1 MiB |
+| Abstract and paired engine-input corpora | 256 MiB each |
+| Original shrinker counterexample | 4 MiB |
+| Pinned Rust authorization source | 8 MiB |
+| Cedar policy, Cedar schema and Rego policy | 4 MiB each |
+| OPA and runner executable provenance bytes | 512 MiB each |
+
+For the engine-backed shrinker, the OPA binary and Rego policy are not
+re-opened through their caller-supplied paths after their bytes are hashed.
+The runner materializes those exact bytes into private, create-new temporary
+files, checks the OPA version by running the pinned executable, and uses the
+pinned executable and policy paths for the initial, candidate and final
+evaluations. The temporary artifacts are removed when the run exits. This
+binds the evaluator execution to the bytes represented in the recorded
+provenance, rather than merely recording a digest for a mutable path.
+
+These controls establish bounded ingress and exact experiment-subject
+identity for this runner. They do not authenticate who supplied the inputs,
+prove the source corpus is scientifically representative, or establish
+policy correctness or parity with the unavailable authentic Rust oracle.
+No test-pass claim follows from the presence of these checks; use exact-head
+workflow evidence and retain all source/build/corpus digests with results.
+
 ## Method
 
 - Parse Cedar policy and schema once.
@@ -23,6 +103,34 @@ The generator manifest and paired engine input corpus must be produced by `tools
 - Action entities remain schema-supplied and must not be duplicated in the explicit entity list. Extra actors are permitted only for metamorphic controls, with unique UIDs and schema-valid attributes; duplicate UIDs, missing request bindings and unsupported explicit entity types fail closed.
 
 Cedar output is a candidate engine result, not an expected decision. The authentic compiled Rust policy crate remains unavailable due to #5189, so Cedar results do not establish Rust/Cedar parity. The outer Rust kernel still owns signatures, actor/key binding, revocation, membership, replay, receipt integrity and atomic commit.
+
+## Native OPA query benchmarks
+
+The metamorphic workflow additionally runs OPA 1.22.0's native `opa bench`
+for one deterministic input from each of the eight policy actions, with
+`--benchmem`, metrics and five benchmark repetitions. These distributions
+measure repeated Rego query evaluation and exclude process startup, policy
+loading/compilation and input-file preparation according to OPA's benchmark
+model. They are a more appropriate comparison point for Cedar's in-process
+`authorization_latency` than the full one-shot OPA batch wall time.
+
+For a closer same-input comparison, the Cedar baseline runner also selects
+the first source-pinned case for each action, writes its exact Rego input bytes
+under `opa-action-inputs/`, performs 100 warmups and 2,000 repeated Cedar
+in-process evaluations, and records request-construction and authorization
+latencies separately. The action summary includes the case ID, Cedar-projection
+digest and Rego-input digest. The OPA benchmark consumes those exact files and
+CI verifies the file digest against the Cedar manifest before benchmarking.
+
+The workflow therefore records three distinct measurements:
+- Cedar repeated in-process per-action construction and authorization over the exact representative case.
+- OPA native per-query evaluation with allocations on the identical Rego input bytes.
+- OPA one-shot 62,464-case batch including process startup, input/output conversion and file I/O.
+
+The per-action input files and raw benchmark outputs are uploaded with exact
+policy, input, binary and host provenance. The benchmark set is intentionally
+bounded and representative; it is not a universal authorization workload or
+an apples-to-apples end-to-end product comparison.
 
 ## Claim ceiling
 
