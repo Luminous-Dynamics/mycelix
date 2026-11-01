@@ -424,7 +424,8 @@ mod tests {
     #[test]
     fn unauthorized_activation_is_rejected() {
         let report = evaluate(&[case("unauthorized-activation")]);
-        assert_eq!(report.unauthorized_decisions, 1);\n        assert_eq!(report.unauthorized_activations, 1);
+        assert_eq!(report.unauthorized_decisions, 1);
+        assert_eq!(report.unauthorized_activations, 1);
         assert!(!report.hard_gates_pass());
     }
 
