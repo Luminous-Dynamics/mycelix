@@ -228,3 +228,28 @@ conditional-greedy decision-EVSI trajectory. This is a test-only exact small
 case oracle; it does not access hidden truth and is not yet included as a
 runtime report metric. Larger problems need memoization, node caps and
 solver-gap/bound reporting.
+
+
+## Executable robust one-step bake-off
+
+The `robust-information-bakeoff` binary reads
+`fixtures/synthetic-robust-information-scenario.json` and writes a
+machine-readable report. It compares nominal Shannon, fixed-alpha Sibson and
+fixed per-design KL-radius selection under identical model/action inputs.
+The report binds the exact input SHA-256 and includes each candidate's score,
+feasibility, cost, alpha and effective ambiguity radius.
+
+Run:
+
+```sh
+cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml \
+  --bin robust-information-bakeoff -- \
+  research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-robust-information-scenario.json \
+  robust-information-report.json
+```
+
+The focused sequential workflow parses both robust schemas, runs this binary,
+asserts the expected ranking reversal and hard-feasibility behavior, validates
+the report schema, and uploads the report as an artifact. The fixture is
+synthetic and has no hidden physical truth supplied to the selector.
+
