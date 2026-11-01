@@ -546,12 +546,16 @@ pub fn robust_information_at_kl_radius(
         .worst_case_joint_distribution(minimum_alpha)?
         .kl_to_nominal_nats;
     if maximum_radius <= 1e-14 {
+        // The q* KL radius can be zero for both uninformative and perfectly
+        // identifying deterministic designs. Do not infer zero information
+        // from a zero ambiguity cost: evaluate Sibson MI at minimum_alpha.
+        let information = design.sibson_alpha_mutual_information(minimum_alpha)?;
         return Ok(RadiusRobustInformation {
             requested_kl_radius_nats: radius_nats,
             effective_kl_radius_nats: 0.0,
-            alpha: 1.0,
-            sibson_information_nats: 0.0,
-            alpha_search_clamped: false,
+            alpha: minimum_alpha,
+            sibson_information_nats: information,
+            alpha_search_clamped: radius_nats > 0.0,
         });
     }
 
@@ -845,9 +849,25 @@ mod tests {
     fn uninformative_design_handles_positive_kl_radius_without_false_information() {
         let design = independent_design();
         let score = robust_information_at_kl_radius(&design, 0.1, 0.05, 64).unwrap();
-        assert_eq!(score.alpha, 1.0);
+        assert_eq!(score.alpha, 0.05);
         assert_eq!(score.sibson_information_nats, 0.0);
         assert_eq!(score.effective_kl_radius_nats, 0.0);
+        assert!(score.alpha_search_clamped);
+    }
+
+    #[test]
+    fn deterministic_perfect_measurement_keeps_information_when_kl_cost_is_zero() {
+        let design = DiscreteDesignModel {
+            model_ids: vec!["state_a".into(), "state_b".into()],
+            prior_weights: vec![0.5, 0.5],
+            outcome_ids: vec!["only_a".into(), "only_b".into()],
+            likelihoods: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        };
+        let score = robust_information_at_kl_radius(&design, 0.1, 0.05, 64).unwrap();
+        assert_eq!(score.effective_kl_radius_nats, 0.0);
+        assert_eq!(score.alpha, 0.05);
+        assert!(score.alpha_search_clamped);
+        assert!((score.sibson_information_nats - std::f64::consts::LN_2).abs() < 1e-12);
     }
 
     #[test]
