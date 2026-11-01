@@ -1004,21 +1004,63 @@ fn evaluate_drift_profile(profile_id: &str, records: &[&DriftRecord]) -> Result<
 
 pub fn evaluate_drift(records: &[DriftRecord]) -> Result<DriftReport, String> {
     let mut grouped: BTreeMap<&str, Vec<&DriftRecord>> = BTreeMap::new();
+    let mut event_ids = HashSet::new();
+    let mut chronology_violations = 0u32;
+    let mut metadata_mismatch_profiles = 0u32;
+
     for record in records {
+        if !event_ids.insert(record.event_id.as_str()) {
+            return Err(format!("duplicate drift event ID: {}", record.event_id));
+        }
+        if record.partition != Partition::Evaluation {
+            return Err(format!("drift record {} is not in the evaluation partition", record.event_id));
+        }
         grouped.entry(record.profile_id.as_str()).or_default().push(record);
     }
 
     let mut profiles = Vec::with_capacity(grouped.len());
     for (profile_id, series) in grouped {
+        if series.is_empty() {
+            continue;
+        }
+        let first = series[0];
+        let expected_metadata = (
+            first.hazard.as_str(),
+            first.region.as_str(),
+            first.lead_hours,
+            first.model_id.as_str(),
+            first.partition,
+        );
+        let mut previous_sequence = 0u32;
+        let mut previous_time = 0u64;
+        for record in &series {
+            let metadata = (
+                record.hazard.as_str(),
+                record.region.as_str(),
+                record.lead_hours,
+                record.model_id.as_str(),
+                record.partition,
+            );
+            if metadata != expected_metadata {
+                metadata_mismatch_profiles += 1;
+                return Err(format!("drift profile {profile_id} has inconsistent metadata"));
+            }
+            if record.sequence != previous_sequence + 1 || record.verification_time <= previous_time {
+                chronology_violations += 1;
+                return Err(format!("drift profile {profile_id} has non-monotonic sequence/time"));
+            }
+            previous_sequence = record.sequence;
+            previous_time = record.verification_time;
+        }
         profiles.push(evaluate_drift_profile(profile_id, &series)?);
     }
 
     Ok(DriftReport {
         record_count: records.len() as u32,
         profile_count: profiles.len() as u32,
-        chronology_violations: 0,
+        chronology_violations,
         duplicate_event_ids: 0,
-        metadata_mismatch_profiles: 0,
+        metadata_mismatch_profiles,
         profiles,
     })
 }
@@ -1228,12 +1270,8 @@ mod tests {
 
     #[test]
     fn drift_parser_rejects_misordered_sequences_and_non_monotonic_timestamps() {
-        let records = parse_drift_fixture(DRIFT_FIXTURE).unwrap();
-        let mut swapped = records.clone();
-        swapped.swap(0, 1);
-        assert!(evaluate_drift(&swapped).is_ok()); // evaluator consumes parsed order; parser enforces source order below.
-
         let lines = DRIFT_FIXTURE.lines().collect::<Vec<_>>();
+
         let mut reordered = lines.clone();
         reordered.swap(1, 2);
         let invalid_order = reordered.join("\n") + "\n";
