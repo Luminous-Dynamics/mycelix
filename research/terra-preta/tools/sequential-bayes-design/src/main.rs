@@ -1207,6 +1207,67 @@ mod tests {
     }
 
     #[test]
+    fn discrepancy_state_prior_and_likelihood_sensitivity_is_monotonic() {
+        let base: Scenario = serde_json::from_str(include_str!(
+            "../fixtures/synthetic-discrepancy-state-control.json"
+        )).expect("discrepancy-state fixture");
+        let posterior_discrepancy = |prior_weight: f64, residual_likelihood: f64| {
+            let physical_residual_probability = 0.01;
+            prior_weight * residual_likelihood
+                / (prior_weight * residual_likelihood
+                    + (1.0 - prior_weight) * physical_residual_probability)
+        };
+
+        let weak = posterior_discrepancy(0.001, 0.3);
+        let stronger_likelihood = posterior_discrepancy(0.001, 0.9);
+        let stronger_prior = posterior_discrepancy(0.01, 0.3);
+        let fixture_setting = posterior_discrepancy(0.05, 0.7);
+        assert!(weak < stronger_likelihood);
+        assert!(stronger_likelihood < stronger_prior);
+        assert!(stronger_prior < fixture_setting);
+
+        let chosen_decision = |prior_weight: f64, residual_likelihood: f64| {
+            let mut scenario = base.clone();
+            let physical_scale = (1.0 - prior_weight) / 0.95;
+            for model in &mut scenario.models[..3] {
+                model.prior_weight *= physical_scale;
+            }
+            scenario.models[3].prior_weight = prior_weight;
+            for action in &mut scenario.actions {
+                if action.outcomes.len() == 3 {
+                    for likelihood in &mut action.likelihoods {
+                        if likelihood.model_id == "DISCREPANCY_STATE" {
+                            likelihood.outcome_probabilities = [
+                                (1.0 - residual_likelihood) / 2.0,
+                                (1.0 - residual_likelihood) / 2.0,
+                                residual_likelihood,
+                            ];
+                        }
+                    }
+                }
+            }
+            let actions = selector_actions(&scenario);
+            let action = actions.iter()
+                .find(|action| action.action_id == "B_SANDY_EVENT_TRACER")
+                .expect("event tracer");
+            let prior: Vec<f64> = scenario.models.iter()
+                .map(|model| model.prior_weight).collect();
+            let (posterior, _) = posterior_after(action, &prior, 2);
+            let decisions = selector_decisions(&scenario);
+            decisions.iter().max_by(|a, b| {
+                let utility = |decision: &SelectorDecision| posterior.iter()
+                    .zip(&decision.model_utilities)
+                    .map(|(weight, value)| weight * value).sum::<f64>();
+                utility(a).total_cmp(&utility(b))
+            }).expect("decisions").decision_id.clone()
+        };
+
+        assert_eq!(chosen_decision(0.001, 0.3), "RETAIN_WATER");
+        assert_eq!(chosen_decision(0.001, 0.9), "DIAGNOSE_FIRST");
+        assert_eq!(chosen_decision(0.05, 0.7), "DIAGNOSE_FIRST");
+    }
+
+    #[test]
     fn surprise_observation_is_detected() {
         let (_, actions, _, prior) = selector_fixture();
         let action = actions.iter().find(|a| a.action_id == "B_SANDY_EVENT_TRACER").unwrap();
