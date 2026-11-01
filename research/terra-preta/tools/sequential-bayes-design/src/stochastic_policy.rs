@@ -33,7 +33,6 @@ pub struct GibbsActionWeight {
 /// Gibbs policy that exactly maximizes a finite reward-minus-KL objective.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GibbsPolicy {
-    pub alpha: f64,
     pub precision_lambda: f64,
     pub action_weights: Vec<GibbsActionWeight>,
     pub expected_information_nats: f64,
@@ -439,7 +438,6 @@ pub fn gibbs_policy_from_rewards(
         .collect();
 
     Ok(GibbsPolicy {
-        alpha: f64::NAN,
         precision_lambda,
         action_weights,
         expected_information_nats: expected_reward,
@@ -547,7 +545,7 @@ pub fn calculate_pac_bayes_lower_bound(
         actual_outer_samples: config.outer_samples,
         actual_inner_samples: config.inner_samples,
         confidence_delta: config.confidence_delta,
-        validity_scope: "conditional_on_external_verification_of_paper_regularitiy_and_boundedness_assumptions",
+        validity_scope: "conditional_on_external_verification_of_paper_regularity_and_boundedness_assumptions",
     })
 }
 
