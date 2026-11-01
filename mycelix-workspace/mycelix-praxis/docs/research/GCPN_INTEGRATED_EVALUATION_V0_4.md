@@ -77,6 +77,10 @@ EAC = PV × r / (1 - (1+r)^(-T))
 
 At zero discount rate, the evaluator uses PV/T.
 
+### Staffing units
+
+Annual staff hours and total staff hours over the horizon are reported separately. The all-available baseline profiles use 1,600 / 1,950 / 2,400 staff hours per year for centralized / regional / local-first architectures, respectively. Over the five-year service horizon, the corresponding totals are 8,000 / 9,750 / 12,000 hours. No wage rate or salary is inferred from these hours.
+
 ### Accessible-reach denominators
 
 Cost-per-receiver metrics use:
