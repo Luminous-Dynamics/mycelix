@@ -103,6 +103,21 @@ rank/attribution and recovered coefficients, validates the report, and uploads
 the artifact. It is a structural covariance-design oracle, not a noisy
 variance estimator.
 
+## Executable exact-oracle vs EnKF ensemble bake-off
+
+The `state-parameter-assimilation-bakeoff` binary runs the same synthetic
+linear observation through the exact augmented Gaussian posterior and a
+deterministic finite-ensemble Gaussian-moment/EnKF analysis. The fixture
+compares ensemble sizes 32, 256 and 2,048 across eight fixed seeds per size.
+The SHA-256-bound report records exact posterior mean/covariance, marginal
+likelihood, run-level posterior-mean RMSE and covariance-relative error, and
+per-size mean/standard error.
+
+The focused workflow validates both schemas, executes the comparison,
+checks the known exact posterior and largest-ensemble error bounds, validates
+the report, and uploads it. No monotonic decrease is required from individual
+seed batches; the whole error curve remains visible.
+
 ## Finite-ensemble Kalman assimilation comparator
 
 The `ensemble_assimilation` module draws a reproducible finite Gaussian
