@@ -90,12 +90,6 @@ fn case(id: &str, forecast: Vec<f64>, truth: Vec<f64>) -> ForecastCase {
         temporal_support_id: "daily-mean".into(),
         spatial_support_digest: "grid-cell-set-1".into(),
         recorded_at: 150,
-        post_processing: Some(PostProcessingProvenance {
-            operation_id: "declared-no-postprocessing".into(),
-            operation_version: "v1".into(),
-            fit_data_digest: "synthetic-fixture".into(),
-            trained_through: 50,
-            uses_evaluation_outcomes: false,
-        }),
+        post_processing: None,
     }
 }
