@@ -70,7 +70,7 @@ The engine distinguishes missing evidence, unknown/not-visible evidence, missing
 
 ## 5. Authored tests
 
-Fourteen Rust tests are included:
+Sixteen Rust tests are included:
 1. later-recorded evidence excluded from historical snapshot;
 2. deterministic replay and event-time sorting;
 3. plan comparison distinguishes on-time, late and missing;
@@ -84,7 +84,9 @@ Fourteen Rust tests are included:
 11. later-recorded causal evidence cannot support an earlier as-of claim;
 12. plan-version/stage mismatch is not scored as success;
 13. unverified as-of evidence cannot support a causal claim;
-14. recommendations do not treat unverified evidence as traceable.
+14. recommendations do not treat unverified evidence as traceable;
+15. earlier wrong-plan-version evidence does not hide later matching evidence;
+16. earlier unverified evidence does not override later verified evidence.
 
 These are authored source tests, not executed results.
 
