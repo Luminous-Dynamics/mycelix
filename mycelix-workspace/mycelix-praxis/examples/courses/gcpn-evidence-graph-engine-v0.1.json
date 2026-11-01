@@ -41,7 +41,8 @@
       "exact_duplicate_node_idempotency",
       "conflicting_node_payload_preservation",
       "CAP_update_cancel_reference_validation",
-      "exact_message_receipt_binding"
+      "exact_message_receipt_binding",
+      "receipt_validator_rejects_ambiguous_conflicting_message_identity"
     ],
     "cap_message_types": [
       "Alert",
@@ -58,7 +59,7 @@
     ],
     "digest_status_note": "fixture_oracle_accepted is test-only; actual digest computation and signature verification are not implemented."
   },
-  "tests_authored": 15,
+  "tests_authored": 16,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
