@@ -494,6 +494,47 @@ fn selected_stratum_count(
     })).count()
 }
 
+fn preserves_coverage_with_candidate(
+    context: &SelectorContext,
+    actions: &[SelectorAction],
+    selected_ids: &[String],
+    candidate: &SelectorAction,
+    spent: u32,
+) -> bool {
+    let Some(new_spent) = spent.checked_add(candidate.cost_units) else {
+        return false;
+    };
+    if new_spent > context.budget_cost_units {
+        return false;
+    }
+    let mut reserve = 0u32;
+    for stratum in &context.strata {
+        let selected = selected_stratum_count(actions, selected_ids, &stratum.stratum_id);
+        let mut still_required = stratum.minimum_selected_actions.saturating_sub(selected);
+        if candidate.stratum_id == stratum.stratum_id && still_required > 0 {
+            still_required -= 1;
+        }
+        let mut costs: Vec<u32> = actions.iter()
+            .filter(|action| action.stratum_id == stratum.stratum_id
+                && action.action_id != candidate.action_id
+                && !selected_ids.contains(&action.action_id))
+            .map(|action| action.cost_units)
+            .collect();
+        costs.sort_unstable();
+        if costs.len() < still_required {
+            return false;
+        }
+        for cost in costs.into_iter().take(still_required) {
+            let Some(next) = reserve.checked_add(cost) else {
+                return false;
+            };
+            reserve = next;
+        }
+    }
+    new_spent.checked_add(reserve)
+        .is_some_and(|total| total <= context.budget_cost_units)
+}
+
 fn next_action<'a>(
     context: &SelectorContext,
     actions: &'a [SelectorAction],
@@ -510,7 +551,9 @@ fn next_action<'a>(
 ) -> Option<&'a SelectorAction> {
     let remaining = context.budget_cost_units.saturating_sub(spent);
     let candidates: Vec<&SelectorAction> = actions.iter().filter(|action| {
-        !selected_ids.contains(&action.action_id) && action.cost_units <= remaining
+        !selected_ids.contains(&action.action_id)
+            && action.cost_units <= remaining
+            && preserves_coverage_with_candidate(context, actions, selected_ids, action, spent)
     }).collect();
     if candidates.is_empty() {
         return None;
@@ -851,6 +894,25 @@ mod tests {
             true, 7, 0, 1,
         ).unwrap();
         assert!(chosen.diagnostic_action);
+    }
+
+    #[test]
+    fn coverage_reservation_rejects_candidate_that_strands_other_stratum() {
+        let mut scenario = fixture();
+        scenario.budget_cost_units = 2;
+        let expensive = scenario.actions.iter_mut()
+            .find(|action| action.action_id == "A_SANDY_RETENTION")
+            .expect("sandy retention action");
+        expensive.cost_units = 2;
+        validate_scenario(&scenario).expect("minimum coverage remains feasible");
+        let context = selector_context(&scenario);
+        let actions = selector_actions(&scenario);
+        let candidate = actions.iter()
+            .find(|action| action.action_id == "A_SANDY_RETENTION")
+            .expect("selector-facing action");
+        assert!(!preserves_coverage_with_candidate(
+            &context, &actions, &[], candidate, 0,
+        ));
     }
 
     #[test]
