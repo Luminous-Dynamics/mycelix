@@ -61,7 +61,7 @@
     "bootstrap_replicates_per_interval": 20000,
     "default_confidence_level": 0.95
   },
-  "tests_authored": 9,
+  "tests_authored": 10,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
