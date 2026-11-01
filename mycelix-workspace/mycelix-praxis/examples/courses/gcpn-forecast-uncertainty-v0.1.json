@@ -1,0 +1,50 @@
+{
+  "benchmark_id": "GCPN-FORECAST-UNCERTAINTY",
+  "version": "0.1.0",
+  "status": "synthetic-exploratory-bootstrap",
+  "source_package": "gcpn-forecast-calibration@0.2.0",
+  "source_fixture": {
+    "name": "forecast-cases-v0.1.csv",
+    "rows": 65,
+    "fnv1a64": "0x81af0b6779196770"
+  },
+  "resampling": {
+    "method": "paired_percentile_bootstrap",
+    "unit": "event_id",
+    "complete_event_clusters": 12,
+    "replicates": 20000,
+    "seed": "0x6a09e667f3bcc909",
+    "confidence_level": 0.95
+  },
+  "comparisons": {
+    "candidate_minus_climatology": {
+      "point_mean_difference": -0.07831666666666666,
+      "ci95_low": -0.24,
+      "ci95_high": 0.16420833333333332
+    },
+    "candidate_minus_lead_reference": {
+      "point_mean_difference": 0.13168333333333335,
+      "ci95_low": -0.03,
+      "ci95_high": 0.3742083333333333
+    }
+  },
+  "interpretation": "Both percentile intervals include zero. The synthetic point estimates do not establish forecast superiority or inferiority.",
+  "dependence_caveat": "The source fixture has no validated dependence_cluster_id. event_id is used as a synthetic resampling unit only. Real evaluation must supply and resample an authoritative dependence cluster.",
+  "future_qualification_targets": {
+    "nominal_95_percent_interval_coverage_target": [
+      0.93,
+      0.97
+    ],
+    "known_data_generating_processes": true,
+    "report_monte_carlo_error": true,
+    "compare_percentile_basic_studentized_bca": true
+  },
+  "non_claims": [
+    "real forecast skill",
+    "real-world interval coverage",
+    "independent weather events",
+    "statistical significance",
+    "operational model selection",
+    "live warning or action"
+  ]
+}
