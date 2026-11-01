@@ -184,7 +184,9 @@ pub struct GraphReport {
     pub conflicting_edge_identities: u32,
     pub dangling_edges: u32,
     pub invalid_relation_types: u32,
-    pub transaction_time_violations: u32,
+    /// Relations recorded before one or more referenced endpoint records arrived.
+    /// Informational: historical snapshots show these as dangling until resolution.
+    pub forward_reference_edges: u32,
     pub invalid_validity_intervals: u32,
     pub unverified_payload_digests: u32,
     pub digest_mismatches: u32,
@@ -324,7 +326,11 @@ fn validate_parts(
                 if edge.recorded_at < from_node.recorded_at
                     || edge.recorded_at < to_node.recorded_at
                 {
-                    report.transaction_time_violations += 1;
+                    // Distributed evidence may reference an entity before its
+                    // delayed payload arrives. Preserve this as an observable
+                    // forward reference rather than declaring the current graph
+                    // invalid; an earlier as-of snapshot will show it dangling.
+                    report.forward_reference_edges += 1;
                 }
             }
             _ => report.dangling_edges += 1,
@@ -746,6 +752,20 @@ mod tests {
             12,
         ));
         assert_eq!(graph.validate().invalid_relation_types, 1);
+    }
+
+    #[test]
+    fn forward_reference_is_dangling_historically_and_resolves_later() {
+        let mut graph = EvidenceGraph::default();
+        graph.append_node(node("forecast-1", NodeKind::ForecastProduct, Some(10), None, 10)).unwrap();
+        graph.append_edge(edge("derived-from-late-source", "forecast-1", "source-1", RelationKind::DerivedFrom, Some(10), 20));
+        let historical = graph.snapshot_as_of(25);
+        assert_eq!(historical.validate().dangling_edges, 1);
+        graph.append_node(node("source-1", NodeKind::SourceObservation, Some(5), None, 30)).unwrap();
+        let current = graph.validate();
+        assert_eq!(current.dangling_edges, 0);
+        assert_eq!(current.forward_reference_edges, 1);
+        assert!(current.is_conformant());
     }
 
     #[test]
