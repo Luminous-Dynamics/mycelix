@@ -83,7 +83,8 @@ Fifteen Rust tests are included:
 11. exact CAP duplicate is idempotent but visible;
 12. receipt must match exact message digest;
 13. unverified digest is not accepted as a graph pass;
-14. invalid valid-time interval fails.
+14. invalid valid-time interval fails;
+15. a forward reference is dangling in a historical snapshot and resolves when the late endpoint arrives.
 
 These are authored source tests, not executed results.
 
