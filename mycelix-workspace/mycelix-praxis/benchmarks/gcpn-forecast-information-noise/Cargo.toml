@@ -1,0 +1,15 @@
+[package]
+name = "gcpn-forecast-information-noise"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Known-truth forecast information, activity and post-processing attribution qualification for GCPN"
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-forecast-information-noise"
+path = "src/main.rs"
