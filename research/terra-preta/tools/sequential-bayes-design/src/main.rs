@@ -7,9 +7,6 @@
 //! claim to solve continuous physical inverse problems or correlated-noise
 //! likelihoods.
 
-#[cfg(test)]
-mod correlated_likelihood;
-
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
