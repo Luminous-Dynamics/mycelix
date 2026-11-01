@@ -1,5 +1,5 @@
 use gcpn_forecast_information_noise::{
-    ForecastCase, PostProcessingProvenance, PredictandContract, evaluate,
+    ForecastCase, PredictandContract, evaluate,
 };
 
 fn main() {
