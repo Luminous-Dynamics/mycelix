@@ -523,8 +523,8 @@ mod tests {
 
     #[test]
     fn fixtures_are_frozen_and_well_formed() {
-        assert_eq!(fnv1a64(COST_FIXTURE.as_bytes()), 0);
-        assert_eq!(fnv1a64(OUTCOME_FIXTURE.as_bytes()), 0);
+        assert_eq!(fnv1a64(COST_FIXTURE.as_bytes()), 0x52072da4d6fb1ba6);
+        assert_eq!(fnv1a64(OUTCOME_FIXTURE.as_bytes()), 0x376c727b26d887aa);
         let costs = parse_cost_fixture(COST_FIXTURE).unwrap();
         let outcomes = parse_service_outcomes(OUTCOME_FIXTURE).unwrap();
         assert_eq!(costs.len(), 24);
