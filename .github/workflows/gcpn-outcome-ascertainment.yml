@@ -1,0 +1,73 @@
+name: GCPN outcome ascertainment
+
+on:
+  pull_request:
+    branches:
+      - main
+      - research/gcpn-outcome-ascertainment-v0-1
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-verification-ascertainment/**"
+      - "mycelix-workspace/mycelix-praxis/examples/courses/gcpn-verification-ascertainment-v0.1.json"
+      - ".github/workflows/gcpn-outcome-ascertainment.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcpn-outcome-ascertainment-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TOOLCHAIN: "1.98.1"
+      MANIFEST: "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-verification-ascertainment/Cargo.toml"
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact source subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain)"
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$TOOLCHAIN" --profile minimal --component clippy --component rustfmt
+          rustup run "$TOOLCHAIN" rustc --version
+
+      - name: Format check
+        shell: bash
+        run: rustup run "$TOOLCHAIN" cargo fmt --manifest-path "$MANIFEST" --all -- --check
+
+      - name: Offline locked tests
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: rustup run "$TOOLCHAIN" cargo test --manifest-path "$MANIFEST" --locked --offline
+
+      - name: Strict Clippy
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: rustup run "$TOOLCHAIN" cargo clippy --manifest-path "$MANIFEST" --locked --offline --all-targets -- -D warnings
+
+      - name: Assert exact source subject and clean tree after tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain)"
