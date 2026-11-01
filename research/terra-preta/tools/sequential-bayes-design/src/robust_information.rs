@@ -530,7 +530,27 @@ mod tests {
 
         assert_eq!(nominal.action_id, "nominal_sharp");
         assert_eq!(robust.action_id, "robust_balanced");
-        assert!(nominal.objective_value_nats > robust.objective_value_nats);
+
+        let nominal_model = DiscreteDesignModel {
+            model_ids: model_ids.clone(),
+            prior_weights: prior.clone(),
+            outcome_ids: candidates[0].outcome_ids.clone(),
+            likelihoods: candidates[0].likelihoods.clone(),
+        };
+        let robust_model = DiscreteDesignModel {
+            model_ids,
+            prior_weights: prior,
+            outcome_ids: candidates[1].outcome_ids.clone(),
+            likelihoods: candidates[1].likelihoods.clone(),
+        };
+        assert!(
+            nominal_model.shannon_mutual_information().unwrap()
+                > robust_model.shannon_mutual_information().unwrap()
+        );
+        assert!(
+            nominal_model.sibson_alpha_mutual_information(0.3).unwrap()
+                < robust_model.sibson_alpha_mutual_information(0.3).unwrap()
+        );
         assert_eq!(robust.feasible_candidate_count, 2);
     }
 
