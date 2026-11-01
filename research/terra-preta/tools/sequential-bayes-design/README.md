@@ -126,7 +126,7 @@ and failing when the requested radius exceeds the configured alpha range.
 This is a finite deterministic reference; the paper's ambiguity set is
 defined over a stochastic design policy with an average KL budget.
 
-Twenty-six authored tests cover independence/zero-information, convergence to
+Twenty-seven authored tests cover independence/zero-information, convergence to
 Shannon MI, monotonicity over an alpha grid, CT–tracer correlation-only
 complementarity, posterior tempering, worst-case posterior identities,
 worst-case KL cost, radius-to-alpha inversion, and invalid inputs.
@@ -147,7 +147,11 @@ worst-case joint KL cost to choose alpha, and
 requested per-design radius while enforcing eligibility and budget. It
 reports requested/effective radius, alpha and whether the search is clamped.
 An uninformative design remains zero-information even under a positive
-requested radius.
+requested radius. A **perfect deterministic** measurement is a distinct
+zero-KL edge case: its q* distribution may equal nominal while Sibson
+information remains positive. The implementation scores it at the minimum
+alpha and marks the requested positive radius as unattainable/clamped rather
+than incorrectly returning zero information.
 
 This is a deterministic fixed-design ambiguity comparison. It is **not** the
 paper's stochastic-policy problem with one shared *average* KL budget over
