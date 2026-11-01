@@ -284,3 +284,59 @@ SBC worlds and an explicit discrepancy process. A later continuous benchmark
 must compare prediction-oriented sequential design, discrepancy-aware design,
 conditional EIG, decision-focused EVSI and batch/joint design under the same
 simulator-call, instrument-cost and target-coverage budgets.
+
+
+## 17. Sequential Bayesian prototype implementation notes and falsifiable controls
+
+The v0.1 categorical engine executes each policy over a shared preregistered
+replicate seed set. It samples outcomes from evaluator-only truth, computes the
+candidate-model posterior predictive distribution before every measurement,
+records the negative log predictive score and multiclass Brier score, applies
+Bayes' rule to update model weights, and re-evaluates the next acquisition from
+the updated posterior.
+
+The scenario adds a high-information / low-decision-value control: a nuisance
+signature distinguishes two candidate physical models that prescribe the same
+service decision. An independent calculation of the declared prior and
+likelihoods gives expected information gain **0.3774776716 nats** and expected
+decision EVSI **0** (within floating-point tolerance). This is a mathematical
+fixture check, not executed Rust output. The regression test requires
+`EIG > 0.1` and `EVSI < 1e-10`.
+
+This is a critical benchmark property: posterior entropy reduction can be real
+while management-decision value is zero. An acquisition system must not treat
+the two objectives as interchangeable.
+
+The discrepancy-guarded comparator is intentionally a testable heuristic, not
+a proposed production policy. When an outcome has low probability under the
+candidate model mixture, it can prioritize a previously declared diagnostic
+modality. The report must retain predictive log score, Brier score, surprise
+rate, decision regret and diagnostic-action frequency separately. If the guard
+raises surprise counts but does not improve decision regret or predictive
+adequacy, that is a policy failure to report—not a reason to tune away the
+negative result.
+
+## 18. Required next extensions
+
+The finite prototype still assumes conditional independence across action
+observations. Before any continuous physical trial, #5632 must add:
+
+1. joint likelihoods or covariance-aware observation models for repeated and
+   cross-modality measurements;
+2. support-aware measurement contracts for image volume/resolution, core
+   geometry, tracer sampling time/depth, sensor cadence and detection limits;
+3. model discrepancy distinct from parameter uncertainty and measurement noise;
+4. independent prior-predictive worlds and SBC quantities that include the
+   joint data likelihood;
+5. held-out predictive calibration across replicate seeds and target strata;
+6. explicit abstention and controlled candidate-model expansion under
+   out-of-family observations.
+
+The benchmark literature is not a single settled SOTA leaderboard. Relevant
+classes include prediction-oriented sequential design with local response
+complexity (Zhu & Hainy, 2026), discrepancy-aware Bayesian design (Yang et al.,
+2026), representative/informative/de-amplifying acquisition under shift and
+misspecification (Tang et al., AISTATS 2026), and strengthened SBC checks using
+data-dependent quantities (Modrák et al., 2025). These methods must be
+implemented or fairly adapted and compared under identical observation
+operators, simulator calls, measurement budgets, seeds and target strata.
