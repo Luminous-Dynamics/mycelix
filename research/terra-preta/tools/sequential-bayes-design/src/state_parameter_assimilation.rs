@@ -260,22 +260,24 @@ impl LinearGaussianStateParameterAssimilator {
             vec![0.0; state_dimension + observation_dimension];
             state_dimension + observation_dimension
         ];
-        for row in 0..state_dimension {
-            for column in 0..state_dimension {
-                joint_covariance[row][column] =
-                    self.prior.distribution.covariance[row][column];
+        let (state_block, observation_block) =
+            joint_covariance.split_at_mut(state_dimension);
+        for (row, state_row) in state_block.iter_mut().enumerate() {
+            for (column, covariance_value) in
+                self.prior.distribution.covariance[row].iter().enumerate()
+            {
+                state_row[column] = *covariance_value;
             }
-            for column in 0..observation_dimension {
-                joint_covariance[row][state_dimension + column] =
-                    cross_covariance[row][column];
-                joint_covariance[state_dimension + column][row] =
-                    cross_covariance[row][column];
+            for (column, cross_value) in cross_covariance[row].iter().enumerate() {
+                state_row[state_dimension + column] = *cross_value;
+                observation_block[column][row] = *cross_value;
             }
         }
-        for row in 0..observation_dimension {
-            for column in 0..observation_dimension {
-                joint_covariance[state_dimension + row][state_dimension + column] =
-                    predictive_observation.covariance[row][column];
+        for (row, observation_row) in observation_block.iter_mut().enumerate() {
+            for (column, covariance_value) in
+                predictive_observation.covariance[row].iter().enumerate()
+            {
+                observation_row[state_dimension + column] = *covariance_value;
             }
         }
 
