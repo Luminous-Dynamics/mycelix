@@ -551,6 +551,9 @@ pub fn coverage_study(
     if bootstrap_replicates < 100 {
         return Err("at least 100 bootstrap replicates are required".into());
     }
+    if !confidence_level.is_finite() || !(0.0..1.0).contains(&confidence_level) {
+        return Err("confidence level must be finite and strictly between 0 and 1".into());
+    }
     let truth = analytic_truth(config)?.case_weighted;
     let mut summaries = Vec::with_capacity(BootstrapUnit::ALL.len());
 
@@ -721,6 +724,12 @@ mod tests {
                 assert!(low <= high);
             }
         }
+    }
+
+    #[test]
+    fn coverage_study_rejects_invalid_confidence_instead_of_reporting_abstentions() {
+        assert!(coverage_study(&DgpConfig::default(), 10, 100, 1.0, 7).is_err());
+        assert!(coverage_study(&DgpConfig::default(), 10, 100, f64::NAN, 7).is_err());
     }
 
     #[test]
