@@ -249,6 +249,8 @@ pub struct PairedComparison {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CausalClaim {
+    /// Exact AER claim identity to which causal support evidence must belong.
+    pub claim_id: String,
     pub claim_made: bool,
     pub identification_method_id: Option<String>,
     pub design_id: Option<String>,
@@ -854,6 +856,7 @@ mod tests {
                     reference_version: "v1".into(),
                 }),
                 causal_claim: Some(CausalClaim {
+                    claim_id: "review-valid".into(),
                     claim_made: false,
                     identification_method_id: None,
                     design_id: None,
@@ -1121,6 +1124,7 @@ mod tests {
     fn unsupported_causal_claim_is_not_promoted_from_chronology() {
         let mut input = scenario();
         input.facts.causal_claim = Some(CausalClaim {
+            claim_id: "review-valid".into(),
             claim_made: true,
             identification_method_id: None,
             design_id: Some("before-after".into()),
