@@ -1,0 +1,38 @@
+{
+  "benchmark_id": "GCPN-MOBILE-POPULATION-REACH-ENGINE",
+  "version": "0.1.0",
+  "status": "rust-source-authored-execution-outstanding",
+  "package": "benchmarks/gcpn-mobile-population-reach",
+  "dependencies": [],
+  "implemented": [
+    "aggregate_population_cells",
+    "exact_conserving_aggregate_flows",
+    "cohort_zone_time_reach_cells",
+    "unique_receipt_union_separate_from_channel_receipt_total",
+    "unknown_union_remains_unknown",
+    "effective_and_worst_cohort_reach",
+    "accessible_format_shortfall",
+    "cross_jurisdiction_handoff_status",
+    "minimum_cell_suppression",
+    "single_cell_query_differencing_negative_control"
+  ],
+  "tests_authored": 12,
+  "execution": {
+    "cargo_build": "not_run",
+    "rust_tests": "not_run",
+    "cli": "not_run",
+    "ci": "not_claimed"
+  },
+  "privacy_limitations": [
+    "minimum_cell_suppression_is_not_differential_privacy",
+    "simple_differencing_test_is_not_complete_red_team"
+  ],
+  "non_claims": [
+    "real_population_movement",
+    "individual_receipt",
+    "individual_comprehension",
+    "differential_privacy_guarantee",
+    "legal_cross_border_authority",
+    "lives_saved"
+  ]
+}
