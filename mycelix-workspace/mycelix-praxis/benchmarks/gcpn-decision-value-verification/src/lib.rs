@@ -66,6 +66,8 @@ impl CostLossProfile {
 pub struct DecisionCase {
     pub case_id: String,
     pub independent_system_id: String,
+    pub verification_source: String,
+    pub verification_version: String,
     pub issue_time: u64,
     pub valid_time: u64,
     pub decision_cutoff: u64,
@@ -82,6 +84,9 @@ impl DecisionCase {
     pub fn validate(&self) -> Result<(), String> {
         if self.case_id.trim().is_empty() || self.independent_system_id.trim().is_empty() {
             return Err("case and independent-system identifiers are required".into());
+        }
+        if self.verification_source.trim().is_empty() || self.verification_version.trim().is_empty() {
+            return Err("verification source and version are required".into());
         }
         if self.issue_time >= self.valid_time {
             return Err(format!("case {} must have issue time before valid time", self.case_id));
@@ -155,7 +160,7 @@ impl PolicyKind {
 pub struct PolicyOutcome {
     pub policy: PolicyKind,
     pub cases: u32,
-    pub usable_forecasts: u32,
+    pub usable_decision_cases: u32,
     pub late_forecasts: u32,
     pub insufficient_action_lead_cases: u32,
     pub infeasible_action_cases: u32,
@@ -169,6 +174,8 @@ pub struct PolicyOutcome {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecisionValueReport {
     pub profile_id: String,
+    pub verification_source: String,
+    pub verification_version: String,
     pub decision_threshold: f64,
     pub forecast_score_paired_cases: u32,
     pub candidate_brier_score: Option<f64>,
@@ -203,7 +210,7 @@ fn decide(
     profile: &CostLossProfile,
     policy: PolicyForecast,
     threshold: f64,
-) -> (bool, bool, bool, bool) {
+) -> (bool, bool, bool) {
     let issue_time = match policy {
         PolicyForecast::Candidate => Some(case.candidate_issued_at),
         PolicyForecast::Reference => Some(case.reference_issued_at),
@@ -237,7 +244,7 @@ fn decide(
             }
         }
     };
-    (action, usable, late, insufficient_lead || infeasible)
+    (action, usable, late)
 }
 
 fn outcome_for(
@@ -250,7 +257,7 @@ fn outcome_for(
     let mut result = PolicyOutcome {
         policy,
         cases: cases.len() as u32,
-        usable_forecasts: 0,
+        usable_decision_cases: 0,
         late_forecasts: 0,
         insufficient_action_lead_cases: 0,
         infeasible_action_cases: 0,
@@ -262,10 +269,9 @@ fn outcome_for(
     };
 
     for case in cases {
-        let (action, usable, late, lead_or_feasibility_blocked) =
-            decide(case, profile, selector, threshold);
+        let (action, usable, late) = decide(case, profile, selector, threshold);
         if usable {
-            result.usable_forecasts += 1;
+            result.usable_decision_cases += 1;
         }
         if late {
             result.late_forecasts += 1;
@@ -284,7 +290,6 @@ fn outcome_for(
         } else if case.event_observed {
             result.missed_events += 1;
         }
-        let _ = lead_or_feasibility_blocked;
         result.total_loss += profile.loss(action, case.event_observed);
     }
     if !cases.is_empty() {
@@ -297,18 +302,39 @@ pub fn evaluate_decision_value(
     cases: &[DecisionCase],
     profile: &CostLossProfile,
 ) -> Result<DecisionValueReport, String> {
+    evaluate_decision_value_at_threshold(cases, profile, profile.decision_threshold()?)
+}
+
+/// Evaluate the candidate policy at one explicitly supplied threshold.
+/// The threshold is an analytical or predeclared sensitivity value; callers
+/// must not tune it on the confirmatory sample.
+pub fn evaluate_decision_value_at_threshold(
+    cases: &[DecisionCase],
+    profile: &CostLossProfile,
+    candidate_threshold: f64,
+) -> Result<DecisionValueReport, String> {
     profile.validate()?;
     if cases.is_empty() {
         return Err("decision-value case set must not be empty".into());
     }
+    if !candidate_threshold.is_finite() || !(0.0..=1.0).contains(&candidate_threshold) {
+        return Err("candidate decision threshold must be finite and in [0, 1]".into());
+    }
     let mut ids = BTreeSet::new();
+    let verification_source = cases[0].verification_source.clone();
+    let verification_version = cases[0].verification_version.clone();
     for case in cases {
         case.validate()?;
         if !ids.insert(case.case_id.as_str()) {
             return Err(format!("duplicate decision case ID: {}", case.case_id));
         }
+        if case.verification_source != verification_source
+            || case.verification_version != verification_version
+        {
+            return Err("decision panel mixes verification sources or versions".into());
+        }
     }
-    let threshold = profile.decision_threshold()?;
+    let threshold = candidate_threshold;
 
     let paired: Vec<&DecisionCase> = cases
         .iter()
@@ -385,6 +411,8 @@ pub fn evaluate_decision_value(
 
     Ok(DecisionValueReport {
         profile_id: profile.profile_id.clone(),
+        verification_source,
+        verification_version,
         decision_threshold: threshold,
         forecast_score_paired_cases: paired.len() as u32,
         candidate_brier_score,
@@ -402,6 +430,52 @@ pub fn evaluate_decision_value(
         always_act,
         perfect_information,
     })
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ThresholdValuePoint {
+    pub candidate_threshold: f64,
+    pub candidate_loss: f64,
+    pub reference_loss: f64,
+    pub net_benefit_vs_reference: f64,
+    pub false_actions: u32,
+    pub missed_events: u32,
+}
+
+/// Evaluate a caller-supplied, predeclared threshold grid. The function
+/// validates uniqueness/order but never searches for or returns an optimal
+/// threshold. Every point remains an explicit sensitivity result.
+pub fn evaluate_threshold_grid(
+    cases: &[DecisionCase],
+    profile: &CostLossProfile,
+    thresholds: &[f64],
+) -> Result<Vec<ThresholdValuePoint>, String> {
+    if thresholds.is_empty() {
+        return Err("threshold grid must not be empty".into());
+    }
+    let mut previous = -1.0;
+    for threshold in thresholds {
+        if !threshold.is_finite() || !(0.0..=1.0).contains(threshold) {
+            return Err("threshold grid values must be finite and in [0, 1]".into());
+        }
+        if *threshold <= previous {
+            return Err("threshold grid must be strictly increasing without duplicates".into());
+        }
+        previous = *threshold;
+    }
+    let mut points = Vec::with_capacity(thresholds.len());
+    for threshold in thresholds {
+        let report = evaluate_decision_value_at_threshold(cases, profile, *threshold)?;
+        points.push(ThresholdValuePoint {
+            candidate_threshold: *threshold,
+            candidate_loss: report.candidate.total_loss,
+            reference_loss: report.reference.total_loss,
+            net_benefit_vs_reference: report.net_benefit_vs_reference,
+            false_actions: report.candidate.false_actions,
+            missed_events: report.candidate.missed_events,
+        });
+    }
+    Ok(points)
 }
 
 #[cfg(test)]
@@ -427,6 +501,8 @@ mod tests {
         DecisionCase {
             case_id: id.into(),
             independent_system_id: "system-1".into(),
+            verification_source: "synthetic-truth".into(),
+            verification_version: "truth-v1".into(),
             issue_time: 0,
             valid_time: 100,
             decision_cutoff: 50,
@@ -486,7 +562,7 @@ mod tests {
         cases[0].candidate_issued_at = 60;
         let report = evaluate_decision_value(&cases, &profile()).unwrap();
         assert_eq!(report.candidate.late_forecasts, 1);
-        assert_eq!(report.candidate.usable_forecasts, 3);
+        assert_eq!(report.candidate.usable_decision_cases, 3);
         assert_eq!(report.forecast_score_paired_cases, 4);
         assert_eq!(report.candidate.missed_events, 2);
     }
@@ -526,6 +602,23 @@ mod tests {
         let mut cases = ranking_reversal_fixture();
         cases[0].candidate_probability = 1.5;
         assert!(evaluate_decision_value(&cases, &profile()).is_err());
+    }
+
+    #[test]
+    fn threshold_grid_is_predeclared_ordered_and_reports_each_profile_point() {
+        let grid = evaluate_threshold_grid(&ranking_reversal_fixture(), &profile(), &[0.1, 0.2, 0.5, 0.9]).unwrap();
+        assert_eq!(grid.len(), 4);
+        assert_eq!(grid[1].candidate_threshold, 0.2);
+        assert_eq!(grid[1].candidate_loss, 120.0);
+        assert!(evaluate_threshold_grid(&ranking_reversal_fixture(), &profile(), &[0.2, 0.1]).is_err());
+        assert!(evaluate_threshold_grid(&ranking_reversal_fixture(), &profile(), &[0.2, 0.2]).is_err());
+    }
+
+    #[test]
+    fn mixed_verification_sources_are_rejected() {
+        let mut cases = ranking_reversal_fixture();
+        cases[1].verification_source = "other-truth".into();
+        assert!(evaluate_decision_value(&cases, &profile()).unwrap_err().contains("mixes verification sources"));
     }
 
     #[test]
