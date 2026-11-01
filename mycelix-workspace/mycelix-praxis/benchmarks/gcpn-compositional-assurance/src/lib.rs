@@ -912,7 +912,11 @@ mod tests {
             .unwrap();
         assert_eq!(forecast.disposition, ClaimDisposition::Indeterminate);
         assert_eq!(observation.disposition, ClaimDisposition::Supports);
-        assert!(!observation.violations.contains(&ViolationCode::StaleEvidence));
+        assert!(
+            !observation
+                .violations
+                .contains(&ViolationCode::StaleEvidence)
+        );
     }
 
     #[test]
