@@ -64,6 +64,11 @@
           "structural_rank",
           "component_count",
           "gram_condition_number",
+          "fisher_information",
+          "fisher_eigenvalues",
+          "fisher_rank",
+          "fisher_condition_number",
+          "fisher_log_determinant",
           "fully_identifiable",
           "individually_identifiable",
           "recovery_status",
@@ -122,6 +127,45 @@
               "null"
             ],
             "minimum": 0
+          },
+          "fisher_information": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "fisher_eigenvalues": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number"
+            }
+          },
+          "fisher_rank": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "fisher_condition_number": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "fisher_log_determinant": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         }
       }
