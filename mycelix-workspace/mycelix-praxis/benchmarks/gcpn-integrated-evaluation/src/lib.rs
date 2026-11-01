@@ -16,6 +16,7 @@ use gcpn_warning_to_action::{
     FIXTURE as WARNING_ACTION_FIXTURE,
 };
 use gcpn_forecast_calibration::{
+    drift_fixture_report as forecast_drift_fixture_report,
     fixture_report as forecast_fixture_report,
     Partition as ForecastPartition,
 };
@@ -73,6 +74,16 @@ pub struct ForecastSummary {
     pub record_count: u32,
     pub scored_record_count: u32,
     pub fixture_oracle_matches: bool,
+    pub drift_fixture_oracle_matches: bool,
+    pub drift_record_count: u32,
+    pub drift_profile_count: u32,
+    pub stable_drift_first_sequence: Option<u32>,
+    pub gradual_drift_first_sequence: Option<u32>,
+    pub abrupt_drift_first_sequence: Option<u32>,
+    pub candidate_evaluation_brier_reliability: f64,
+    pub candidate_evaluation_brier_resolution: f64,
+    pub candidate_evaluation_brier_uncertainty: f64,
+    pub candidate_evaluation_brier_decomposition_residual: f64,
     pub duplicate_records: u32,
     pub late_forecasts: u32,
     pub unverified_outcome_records: u32,
@@ -163,6 +174,17 @@ impl IntegratedReport {
             && self.warning_to_action.valid_unfunded_positive_control_passes
             && self.warning_to_action.authorized_abstention_positive_control_passes
             && self.forecast.fixture_oracle_matches
+            && self.forecast.drift_fixture_oracle_matches
+            && self.forecast.drift_record_count == 90
+            && self.forecast.drift_profile_count == 3
+            && self.forecast.stable_drift_first_sequence.is_none()
+            && self.forecast.gradual_drift_first_sequence == Some(28)
+            && self.forecast.abrupt_drift_first_sequence == Some(19)
+            && (self.forecast.candidate_evaluation_brier
+                - (self.forecast.candidate_evaluation_brier_reliability
+                    - self.forecast.candidate_evaluation_brier_resolution
+                    + self.forecast.candidate_evaluation_brier_uncertainty)).abs() < 1e-12
+            && self.forecast.candidate_evaluation_brier_decomposition_residual.abs() < 1e-12
             && self.forecast.record_count == 65
             && self.forecast.scored_record_count == 54
             && self.forecast.partition_leak_events == 1
@@ -226,6 +248,19 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
         .map_err(|e| format!("warning-to-action fixture: {e}"))?;
     let forecast = forecast_fixture_report()
         .map_err(|e| format!("forecast-verification fixture: {e}"))?;
+    let forecast_drift = forecast_drift_fixture_report()
+        .map_err(|e| format!("forecast-drift fixture: {e}"))?;
+
+    let stable_drift = forecast_drift.profiles.iter()
+        .find(|profile| profile.profile_id == "stable_control")
+        .ok_or_else(|| "stable forecast drift profile missing".to_owned())?;
+    let gradual_drift = forecast_drift.profiles.iter()
+        .find(|profile| profile.profile_id == "gradual_calibration_drift")
+        .ok_or_else(|| "gradual forecast drift profile missing".to_owned())?;
+    let abrupt_drift = forecast_drift.profiles.iter()
+        .find(|profile| profile.profile_id == "abrupt_calibration_shift")
+        .ok_or_else(|| "abrupt forecast drift profile missing".to_owned())?;
+
     let lifecycle_cost = lifecycle_cost_fixture_report()
         .map_err(|e| format!("lifecycle-cost fixture: {e}"))?;
 
@@ -390,6 +425,16 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
             record_count: forecast.record_count,
             scored_record_count: forecast.scored_record_count,
             fixture_oracle_matches: forecast.fixture_oracle_matches(),
+            drift_fixture_oracle_matches: forecast_drift.fixture_oracle_matches(),
+            drift_record_count: forecast_drift.record_count,
+            drift_profile_count: forecast_drift.profile_count,
+            stable_drift_first_sequence: stable_drift.first_drift_sequence,
+            gradual_drift_first_sequence: gradual_drift.first_drift_sequence,
+            abrupt_drift_first_sequence: abrupt_drift.first_drift_sequence,
+            candidate_evaluation_brier_reliability: candidate_evaluation.brier_reliability,
+            candidate_evaluation_brier_resolution: candidate_evaluation.brier_resolution,
+            candidate_evaluation_brier_uncertainty: candidate_evaluation.brier_uncertainty,
+            candidate_evaluation_brier_decomposition_residual: candidate_evaluation.brier_decomposition_residual,
             duplicate_records: forecast.duplicate_records,
             late_forecasts: forecast.late_forecasts,
             unverified_outcome_records: forecast.unverified_outcome_records,
@@ -500,6 +545,7 @@ mod tests {
         assert!(report.forecast.fixture_oracle_matches);
         assert_eq!(report.forecast.record_count, 65);
         assert_eq!(report.forecast.scored_record_count, 54);
+        assert_eq!(report.forecast.drift_record_count, 90);
         assert_eq!(report.lifecycle_cost.cost_record_count, 24);
         assert_eq!(report.forecast.candidate_calibration_samples, 6);
         assert_eq!(report.forecast.candidate_evaluation_samples, 12);
@@ -521,6 +567,40 @@ mod tests {
         assert!(report.topology.receiver_denominators_consistent);
         assert!(report.last_mile.all_counting_invariants_hold);
         assert!(report.warning_to_action.fixture_oracle_matches);
+    }
+
+    #[test]
+    fn forecast_decomposition_and_chronological_drift_are_separate_diagnostics() {
+        let report = integrated_report().unwrap();
+        assert!(report.forecast.fixture_oracle_matches);
+        assert!(report.forecast.drift_fixture_oracle_matches);
+        assert_eq!(report.forecast.drift_record_count, 90);
+        assert_eq!(report.forecast.drift_profile_count, 3);
+        assert_eq!(report.forecast.stable_drift_first_sequence, None);
+        assert_eq!(report.forecast.gradual_drift_first_sequence, Some(28));
+        assert_eq!(report.forecast.abrupt_drift_first_sequence, Some(19));
+        assert!(
+            (report.forecast.candidate_evaluation_brier
+                - (report.forecast.candidate_evaluation_brier_reliability
+                    - report.forecast.candidate_evaluation_brier_resolution
+                    + report.forecast.candidate_evaluation_brier_uncertainty)).abs() < 1e-12
+        );
+        assert!(report.forecast.candidate_evaluation_brier_decomposition_residual.abs() < 1e-12);
+    }
+
+    #[test]
+    fn drift_regression_cannot_be_hidden_by_five_other_modules_or_forecast_average() {
+        let mut report = integrated_report().unwrap();
+        assert!(report.all_fixture_oracles_reproduced());
+
+        report.forecast.gradual_drift_first_sequence = Some(30);
+        assert!(!report.all_fixture_oracles_reproduced());
+        assert!(report.civil_record.integrity_gates_pass);
+        assert!(report.topology.receiver_denominators_consistent);
+        assert!(report.last_mile.all_counting_invariants_hold);
+        assert!(report.warning_to_action.fixture_oracle_matches);
+        assert!(report.lifecycle_cost.fixture_oracle_matches);
+        assert!(report.forecast.fixture_oracle_matches);
     }
 
     #[test]
