@@ -26,6 +26,21 @@ pub struct RobustInformationMetrics {
     pub sibson_mutual_information_nats: f64,
 }
 
+/// Worst-case joint distribution associated with the Sibson alpha objective.
+///
+/// `alpha_outcome_marginal` is the tilted outcome marginal p_alpha(x).
+/// `joint_weights` is q*(model, outcome) from the published geometric-mixture
+/// expression. `kl_to_nominal_nats` is the KL cost D_KL(q* || p(model,outcome)).
+#[derive(Clone, Debug, PartialEq)]
+pub struct WorstCaseJointDistribution {
+    pub alpha: f64,
+    pub alpha_outcome_marginal: Vec<f64>,
+    pub model_marginal: Vec<f64>,
+    pub outcome_marginal: Vec<f64>,
+    pub joint_weights: Vec<Vec<f64>>,
+    pub kl_to_nominal_nats: f64,
+}
+
 /// Validate identifiers, prior and likelihood matrix, returning normalized prior.
 impl DiscreteDesignModel {
     pub fn validate(&self) -> Result<Vec<f64>, String> {
@@ -139,6 +154,165 @@ impl DiscreteDesignModel {
             return Err("Sibson mutual information is not finite".into());
         }
         Ok(information.max(0.0))
+    }
+
+    /// Construct the finite worst-case joint distribution q* associated
+    /// with Sibson alpha-MI, using the published geometric-mixture form:
+    ///
+    /// q*(m,x) ∝ [p(m) p_alpha(x)]^(1-alpha) [p(m,x)]^alpha.
+    ///
+    /// Its conditional q*(m|x) is the alpha-tilted posterior.
+    pub fn worst_case_joint_distribution(
+        &self,
+        alpha: f64,
+    ) -> Result<WorstCaseJointDistribution, String> {
+        if !alpha.is_finite() || !(0.0..1.0).contains(&alpha) {
+            return Err("worst-case alpha must be finite and strictly between zero and one".into());
+        }
+        let prior = self.validate()?;
+        let outcome_count = self.outcome_ids.len();
+
+        let mut alpha_outcome_marginal: Vec<f64> = (0..outcome_count)
+            .map(|outcome| {
+                self.likelihoods.iter()
+                    .zip(&prior)
+                    .map(|(row, weight)| weight * row[outcome].powf(alpha))
+                    .sum::<f64>()
+                    .powf(1.0 / alpha)
+            })
+            .collect();
+        let alpha_total: f64 = alpha_outcome_marginal.iter().sum();
+        if !alpha_total.is_finite() || alpha_total <= 0.0 {
+            return Err("alpha outcome marginal has no finite positive mass".into());
+        }
+        for probability in &mut alpha_outcome_marginal {
+            *probability /= alpha_total;
+        }
+
+        let mut joint_weights = vec![vec![0.0; outcome_count]; self.model_ids.len()];
+        let mut joint_total = 0.0;
+        for (model, row) in self.likelihoods.iter().enumerate() {
+            for outcome in 0..outcome_count {
+                let nominal_joint = prior[model] * row[outcome];
+                let alpha_reference = prior[model] * alpha_outcome_marginal[outcome];
+                let value = if nominal_joint == 0.0 || alpha_reference == 0.0 {
+                    0.0
+                } else {
+                    alpha_reference.powf(1.0 - alpha)
+                        * nominal_joint.powf(alpha)
+                };
+                if !value.is_finite() || value < 0.0 {
+                    return Err("worst-case joint weight is invalid".into());
+                }
+                joint_weights[model][outcome] = value;
+                joint_total += value;
+            }
+        }
+        if !joint_total.is_finite() || joint_total <= 0.0 {
+            return Err("worst-case joint distribution has no finite positive mass".into());
+        }
+        for row in &mut joint_weights {
+            for value in row {
+                *value /= joint_total;
+            }
+        }
+
+        let mut model_marginal = vec![0.0; self.model_ids.len()];
+        let mut outcome_marginal = vec![0.0; outcome_count];
+        let mut kl_to_nominal_nats = 0.0;
+        for (model, row) in joint_weights.iter().enumerate() {
+            for (outcome, probability) in row.iter().enumerate() {
+                model_marginal[model] += probability;
+                outcome_marginal[outcome] += probability;
+                if *probability > 0.0 {
+                    let nominal = prior[model] * self.likelihoods[model][outcome];
+                    if nominal <= 0.0 {
+                        return Err("worst-case distribution escaped nominal support".into());
+                    }
+                    kl_to_nominal_nats += probability * (probability / nominal).ln();
+                }
+            }
+        }
+        if !kl_to_nominal_nats.is_finite() || kl_to_nominal_nats < -1e-10 {
+            return Err("worst-case KL ambiguity cost is invalid".into());
+        }
+
+        Ok(WorstCaseJointDistribution {
+            alpha,
+            alpha_outcome_marginal,
+            model_marginal,
+            outcome_marginal,
+            joint_weights,
+            kl_to_nominal_nats: kl_to_nominal_nats.max(0.0),
+        })
+    }
+
+    /// Numerically invert the single-design KL ambiguity cost to obtain alpha.
+    ///
+    /// The caller supplies the smallest alpha to consider because the alpha
+    /// -> 0 limit may be singular or support-sensitive. A zero radius returns
+    /// the nominal limit alpha=1. This is a finite one-design reference, not
+    /// the paper's stochastic-policy average-radius optimizer.
+    pub fn alpha_for_kl_radius(
+        &self,
+        radius_nats: f64,
+        minimum_alpha: f64,
+        iterations: usize,
+    ) -> Result<f64, String> {
+        if !radius_nats.is_finite() || radius_nats < 0.0 {
+            return Err("KL radius must be finite and non-negative".into());
+        }
+        if !minimum_alpha.is_finite() || !(0.0..1.0).contains(&minimum_alpha) {
+            return Err("minimum alpha must lie strictly between zero and one".into());
+        }
+        if iterations == 0 {
+            return Err("at least one bisection iteration is required".into());
+        }
+        if radius_nats == 0.0 {
+            return Ok(1.0);
+        }
+
+        let maximum_radius = self
+            .worst_case_joint_distribution(minimum_alpha)?
+            .kl_to_nominal_nats;
+        if radius_nats > maximum_radius {
+            return Err(format!(
+                "requested radius {radius_nats} exceeds the radius {maximum_radius} at minimum alpha {minimum_alpha}"
+            ));
+        }
+        if maximum_radius == 0.0 {
+            return Err("candidate design has no nonzero KL ambiguity radius".into());
+        }
+
+        // The dual relationship is monotone: lower alpha permits a larger
+        // adversarial deviation. Verify it on a fixed grid before bisection.
+        let mut previous_radius = maximum_radius;
+        for index in 1..=32 {
+            let alpha = minimum_alpha
+                + (1.0 - 1e-8 - minimum_alpha) * index as f64 / 32.0;
+            let current = self
+                .worst_case_joint_distribution(alpha)?
+                .kl_to_nominal_nats;
+            if current > previous_radius + 1e-9 {
+                return Err("KL ambiguity radius is not monotone over the checked alpha grid".into());
+            }
+            previous_radius = current;
+        }
+
+        let mut lower = minimum_alpha;
+        let mut upper = 1.0 - 1e-8;
+        for _ in 0..iterations {
+            let midpoint = 0.5 * (lower + upper);
+            let current = self
+                .worst_case_joint_distribution(midpoint)?
+                .kl_to_nominal_nats;
+            if current > radius_nats {
+                lower = midpoint;
+            } else {
+                upper = midpoint;
+            }
+        }
+        Ok(0.5 * (lower + upper))
     }
 
     /// Return both nominal Shannon MI and Sibson alpha-MI.
@@ -257,6 +431,48 @@ mod tests {
         assert!((nominal[0] - 0.9).abs() < 1e-12);
         assert!((robust[0] - 0.75).abs() < 1e-12);
         assert!(robust[0] < nominal[0]);
+    }
+
+    #[test]
+    fn worst_case_joint_has_alpha_tilted_conditional_posterior() {
+        let design = complementary_ct_tracer_pair();
+        let alpha = 0.5;
+        let worst_case = design.worst_case_joint_distribution(alpha).unwrap();
+        let tilted = design.alpha_tilted_posterior(0, alpha).unwrap();
+        let conditional: Vec<f64> = worst_case.joint_weights.iter()
+            .map(|row| row[0] / worst_case.outcome_marginal[0])
+            .collect();
+        assert!((conditional[0] - tilted[0]).abs() < 1e-12);
+        assert!((conditional[1] - tilted[1]).abs() < 1e-12);
+        assert!((worst_case.joint_weights.iter().flatten().sum::<f64>() - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn worst_case_kl_cost_tends_to_zero_at_nominal_alpha_limit() {
+        let design = complementary_ct_tracer_pair();
+        let at_half = design.worst_case_joint_distribution(0.5).unwrap();
+        let near_one = design.worst_case_joint_distribution(0.999).unwrap();
+        assert!(at_half.kl_to_nominal_nats > 0.05);
+        assert!(near_one.kl_to_nominal_nats < at_half.kl_to_nominal_nats);
+        assert!(near_one.kl_to_nominal_nats < 1e-5);
+    }
+
+    #[test]
+    fn alpha_inverts_the_finite_single_design_kl_ambiguity_radius() {
+        let design = complementary_ct_tracer_pair();
+        let radius = design.worst_case_joint_distribution(0.5).unwrap().kl_to_nominal_nats;
+        let recovered = design.alpha_for_kl_radius(radius, 0.05, 64).unwrap();
+        assert!((recovered - 0.5).abs() < 1e-8);
+        assert_eq!(design.alpha_for_kl_radius(0.0, 0.05, 64).unwrap(), 1.0);
+        assert!(design.alpha_for_kl_radius(radius + 1.0, 0.05, 64).is_err());
+    }
+
+    #[test]
+    fn independent_design_has_zero_adversarial_kl_cost() {
+        let design = independent_design();
+        let worst_case = design.worst_case_joint_distribution(0.5).unwrap();
+        assert!(worst_case.kl_to_nominal_nats.abs() < 1e-12);
+        assert!(design.alpha_for_kl_radius(0.01, 0.05, 32).is_err());
     }
 
     #[test]
