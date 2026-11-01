@@ -94,5 +94,10 @@
     "stationary_or_circular_block_bootstrap_not_implemented",
     "wild_cluster_bootstrap_t_not_implemented",
     "confirmatory_coverage_runs_not_performed"
-  ]
+  ],
+  "exploratory_pilots": [
+    "GCPN_FORECAST_COVERAGE_EXPLORATORY_PILOT_2026_11_01.md",
+    "GCPN_FORECAST_COVERAGE_STUDENTIZED_PILOT_2026_11_01.md"
+  ],
+  "note": "Studentized bootstrap appears promising on one exploratory DGP but is not qualified; 40-cluster pilot over-coverage and untested regimes remain."
 }
