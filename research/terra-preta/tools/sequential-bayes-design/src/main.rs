@@ -1010,6 +1010,34 @@ mod tests {
     }
 
     #[test]
+    fn explicit_discrepancy_state_absorbs_out_of_family_evidence() {
+        let scenario: Scenario = serde_json::from_str(include_str!(
+            "../fixtures/synthetic-discrepancy-state-control.json"
+        )).expect("discrepancy-state fixture");
+        validate_scenario(&scenario).expect("valid expanded model scenario");
+        let actions = selector_actions(&scenario);
+        let action = actions.iter()
+            .find(|action| action.action_id == "B_SANDY_EVENT_TRACER")
+            .expect("event tracer action");
+        let prior: Vec<f64> = scenario.models.iter().map(|model| model.prior_weight).collect();
+        let discrepancy_index = scenario.models.iter()
+            .position(|model| model.model_id == "DISCREPANCY_STATE")
+            .expect("discrepancy state");
+        let (posterior, probability) = posterior_after(action, &prior, 2);
+        assert!(probability < 0.05);
+        assert!(posterior[discrepancy_index] > 0.75);
+
+        let decisions = selector_decisions(&scenario);
+        let chosen = decisions.iter().max_by(|a, b| {
+            let utility = |decision: &SelectorDecision| posterior.iter()
+                .zip(&decision.model_utilities)
+                .map(|(weight, value)| weight * value).sum::<f64>();
+            utility(a).total_cmp(&utility(b))
+        }).expect("decisions");
+        assert_eq!(chosen.decision_id, "DIAGNOSE_FIRST");
+    }
+
+    #[test]
     fn surprise_observation_is_detected() {
         let (_, actions, _, prior) = selector_fixture();
         let action = actions.iter().find(|a| a.action_id == "B_SANDY_EVENT_TRACER").unwrap();
