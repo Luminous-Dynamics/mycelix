@@ -7,7 +7,10 @@
 //! it does not account for covariance, model-family or simulator uncertainty.
 
 use crate::multivariate_gaussian::{
-    cholesky_factor, ConditionalGaussianModel,
+    cholesky_factor, ConditionalGaussianModel, MultivariateGaussianModel,
+};
+use crate::observation_history::{
+    conditional_prediction_for_action, ObservationAction, ObservationHistory, ObservationLayout,
 };
 use std::collections::BTreeSet;
 
@@ -234,6 +237,27 @@ pub fn estimate_model_information_gain(
     })
 }
 
+
+/// Estimate the information value of a candidate action using stable
+/// observation identities and the full correlated measurement history.
+///
+/// This composes the history-to-conditional-mixture bridge with the Monte
+/// Carlo model-information estimator. It estimates
+/// `I(M; Y_action | Y_history)`; it is not decision EVSI and it does not
+/// infer covariance from support metadata.
+pub fn estimate_action_information_gain(
+    models: &[MultivariateGaussianModel],
+    layout: &ObservationLayout,
+    history: &ObservationHistory,
+    action: &ObservationAction,
+    samples_per_model: usize,
+    seed: u64,
+) -> Result<InformationGainEstimate, String> {
+    let components =
+        conditional_prediction_for_action(models, layout, history, action)?;
+    estimate_model_information_gain(&components, samples_per_model, seed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,6 +275,112 @@ mod tests {
                 ],
             },
         }
+    }
+
+    fn cross_modal_models() -> Vec<MultivariateGaussianModel> {
+        use crate::multivariate_gaussian::MultivariateGaussian;
+        vec![
+            MultivariateGaussianModel {
+                model_id: "positive-cross-modal-correlation".into(),
+                prior_weight: 0.5,
+                observation_model: MultivariateGaussian {
+                    mean: vec![0.0, 0.0],
+                    covariance: vec![vec![1.0, 0.8], vec![0.8, 1.0]],
+                },
+            },
+            MultivariateGaussianModel {
+                model_id: "negative-cross-modal-correlation".into(),
+                prior_weight: 0.5,
+                observation_model: MultivariateGaussian {
+                    mean: vec![0.0, 0.0],
+                    covariance: vec![vec![1.0, -0.8], vec![-0.8, 1.0]],
+                },
+            },
+        ]
+    }
+
+    fn cross_modal_layout() -> ObservationLayout {
+        use crate::observation_history::ObservationCoordinate;
+        ObservationLayout::new(vec![
+            ObservationCoordinate {
+                coordinate_id: "ct:pore-connectivity:core-A".into(),
+                modality: "ct".into(),
+                support_id: "core-A:imaged-volume".into(),
+                unit: "1".into(),
+            },
+            ObservationCoordinate {
+                coordinate_id: "tracer:arrival:core-A".into(),
+                modality: "tracer".into(),
+                support_id: "core-A:depth-10-20cm".into(),
+                unit: "hour".into(),
+            },
+        ]).unwrap()
+    }
+
+    #[test]
+    fn separate_ct_or_tracer_marginals_have_zero_information_but_the_pair_is_complementary() {
+        use crate::observation_history::ObservationAction;
+
+        let models = cross_modal_models();
+        let layout = cross_modal_layout();
+        let prior_history = ObservationHistory::empty();
+        let ct_action = ObservationAction {
+            action_id: "ct-only".into(),
+            coordinate_ids: vec!["ct:pore-connectivity:core-A".into()],
+        };
+        let tracer_action = ObservationAction {
+            action_id: "tracer-only".into(),
+            coordinate_ids: vec!["tracer:arrival:core-A".into()],
+        };
+        let pair_action = ObservationAction {
+            action_id: "ct-plus-tracer".into(),
+            coordinate_ids: vec![
+                "ct:pore-connectivity:core-A".into(),
+                "tracer:arrival:core-A".into(),
+            ],
+        };
+
+        let ct_gain = estimate_action_information_gain(
+            &models, &layout, &prior_history, &ct_action, 2048, 20261101,
+        ).unwrap();
+        let tracer_gain = estimate_action_information_gain(
+            &models, &layout, &prior_history, &tracer_action, 2048, 20261102,
+        ).unwrap();
+        let pair_gain = estimate_action_information_gain(
+            &models, &layout, &prior_history, &pair_action, 2048, 20261103,
+        ).unwrap();
+
+        assert!(ct_gain.expected_information_nats.abs() < 1e-12);
+        assert!(tracer_gain.expected_information_nats.abs() < 1e-12);
+        assert!(pair_gain.expected_information_nats > 0.2);
+        assert!(pair_gain.monte_carlo_standard_error_nats > 0.0);
+        assert_eq!(pair_gain.total_samples, 4096);
+    }
+
+    #[test]
+    fn tracer_information_becomes_positive_after_ct_history_is_observed() {
+        use crate::observation_history::ObservationAction;
+
+        let models = cross_modal_models();
+        let layout = cross_modal_layout();
+        let ct_action = ObservationAction {
+            action_id: "ct-scan".into(),
+            coordinate_ids: vec!["ct:pore-connectivity:core-A".into()],
+        };
+        let tracer_action = ObservationAction {
+            action_id: "event-tracer".into(),
+            coordinate_ids: vec!["tracer:arrival:core-A".into()],
+        };
+        let history = ObservationHistory::empty()
+            .with_appended(&layout, &ct_action, &[1.0]).unwrap();
+
+        let conditional_gain = estimate_action_information_gain(
+            &models, &layout, &history, &tracer_action, 2048, 20261104,
+        ).unwrap();
+
+        assert!(conditional_gain.expected_information_nats > 0.2);
+        assert!(conditional_gain.monte_carlo_standard_error_nats > 0.0);
+        assert_eq!(conditional_gain.total_samples, 4096);
     }
 
     #[test]
