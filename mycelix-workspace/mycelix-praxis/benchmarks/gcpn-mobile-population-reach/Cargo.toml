@@ -1,0 +1,15 @@
+[package]
+name = "gcpn-mobile-population-reach"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Aggregate-only, privacy-preserving mobile-population warning reach benchmark"
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-mobile-population-reach"
+path = "src/main.rs"
