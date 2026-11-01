@@ -1,0 +1,82 @@
+{
+  "benchmark_id": "GCPN-AFTER-EVENT-REVIEW",
+  "version": "0.1.0",
+  "status": "research-specification-not-yet-executable",
+  "parent_issue": 5656,
+  "evidence_graph_specification_pull_request": 5647,
+  "dgp_scenarios": [
+    "correct_forecast_late_warning",
+    "uncertain_precautionary_warning_no_event",
+    "forecast_miss_independent_source_action",
+    "correct_message_inaccessible_format",
+    "stale_cached_cap_version",
+    "local_fallback_during_partition",
+    "cross_jurisdiction_handoff_delay",
+    "late_evidence_after_decision_cutoff",
+    "dependent_corroboration",
+    "compound_hazard",
+    "movement_constrained_cohort",
+    "outcome_despite_good_warning",
+    "no_outcome_despite_weak_warning"
+  ],
+  "time_dimensions": [
+    "event_valid_time",
+    "transaction_knowledge_time",
+    "source_created_time",
+    "plan_version_time",
+    "policy_authority_version_time"
+  ],
+  "causal_claim_levels": [
+    "chronology",
+    "association",
+    "process_contribution",
+    "causal_effect"
+  ],
+  "required_causal_fields": [
+    "target_question",
+    "causal_graph_or_assumptions",
+    "confounders",
+    "outcome_measurement",
+    "counterfactual_definition",
+    "data_limitations"
+  ],
+  "metrics": [
+    "planned_observed_milestone_traceability",
+    "chronology_accuracy",
+    "historical_as_of_accuracy",
+    "late_evidence_without_hindsight",
+    "provenance_authority_completeness",
+    "contradiction_and_alternative_hypothesis_retention",
+    "process_deviation_by_chain_stage",
+    "causal_claim_calibration",
+    "false_causal_attribution_rate",
+    "unsupported_certainty_rate",
+    "missed_contributor_rate",
+    "recommendation_evidence_traceability",
+    "recommendation_followup_completeness",
+    "unresolved_evidence_proportion",
+    "review_runtime"
+  ],
+  "targets": {
+    "historical_as_of_invariants": 1,
+    "zero_hindsight_insertion": true,
+    "zero_causal_claim_without_required_fields": true,
+    "zero_individual_blame_or_ranking": true,
+    "all_recommendations_evidence_linked": true,
+    "explicit_undetermined_outcomes": true,
+    "deterministic_replay": true
+  },
+  "integration": {
+    "reuse_evidence_graph": true,
+    "add_ninth_gate_now": false,
+    "keep_eight_gate_conjunction": true
+  },
+  "non_claims": [
+    "live_incident_investigation",
+    "legal_finding",
+    "individual_blame",
+    "causal_lives_saved",
+    "operational_decision",
+    "public_org_leaderboard"
+  ]
+}
