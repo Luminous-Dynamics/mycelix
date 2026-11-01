@@ -384,12 +384,6 @@ jobs:
           ' "$indexed_manifest"
 
           mkdir -p target/opa-indexed-role-bench/stratified
-          jq -r '
-            .stratified_action_inputs[]
-            | [.action, (.sample_index|tostring), .case_id, .stratum,
-               .baseline_path, .indexed_path, .baseline_sha256, .indexed_sha256]
-            | @tsv
-          ' "$indexed_manifest" > target/opa-indexed-role-bench/stratified/sample-manifest.tsv
 
           # Execute each paired sample as its own query benchmark. JSONL records
           # avoid shell/TSV escaping of case IDs and stratum descriptions.
