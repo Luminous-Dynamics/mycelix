@@ -174,7 +174,9 @@ impl ContractViolation {
             Self::MissingPostProcessingIdentifier => "missing_postprocessing_identifier",
             Self::MissingFitDataDigest => "missing_fit_data_digest",
             Self::CalibrationUsedEvaluationOutcomes => "calibration_used_evaluation_outcomes",
-            Self::CalibrationTrainingOverlapsEvaluation => "calibration_training_overlaps_evaluation",
+            Self::CalibrationTrainingOverlapsEvaluation => {
+                "calibration_training_overlaps_evaluation"
+            }
             Self::NonFiniteMetric => "non_finite_metric",
             Self::DecompositionIdentityFailure => "decomposition_identity_failure",
         }
@@ -249,7 +251,10 @@ fn validate_contract(contract: &PredictandContract) -> Result<(), ContractError>
         contract.spatial_support_digest.as_str(),
     ] {
         if !valid_identifier(value) {
-            return Err(ContractError::new(None, ContractViolation::InvalidIdentifier));
+            return Err(ContractError::new(
+                None,
+                ContractViolation::InvalidIdentifier,
+            ));
         }
     }
     if contract.evaluation_period_start > contract.as_of_cutoff {
@@ -261,10 +266,7 @@ fn validate_contract(contract: &PredictandContract) -> Result<(), ContractError>
     Ok(())
 }
 
-fn validate_case(
-    contract: &PredictandContract,
-    case: &ForecastCase,
-) -> Result<(), ContractError> {
+fn validate_case(contract: &PredictandContract, case: &ForecastCase) -> Result<(), ContractError> {
     let case_id = Some(case.case_id.clone());
     for value in [
         case.case_id.as_str(),
@@ -278,7 +280,10 @@ fn validate_case(
         case.spatial_support_digest.as_str(),
     ] {
         if !valid_identifier(value) {
-            return Err(ContractError::new(case_id, ContractViolation::InvalidIdentifier));
+            return Err(ContractError::new(
+                case_id,
+                ContractViolation::InvalidIdentifier,
+            ));
         }
     }
 
@@ -289,25 +294,46 @@ fn validate_case(
         ));
     }
     if case.forecast_source_id != contract.forecast_source_id {
-        return Err(ContractError::new(case_id, ContractViolation::ForecastSourceMismatch));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::ForecastSourceMismatch,
+        ));
     }
     if case.forecast_source_version != contract.forecast_source_version {
-        return Err(ContractError::new(case_id, ContractViolation::ForecastVersionMismatch));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::ForecastVersionMismatch,
+        ));
     }
     if case.verification_source_id != contract.verification_source_id {
-        return Err(ContractError::new(case_id, ContractViolation::VerificationSourceMismatch));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::VerificationSourceMismatch,
+        ));
     }
     if case.verification_source_version != contract.verification_source_version {
-        return Err(ContractError::new(case_id, ContractViolation::VerificationVersionMismatch));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::VerificationVersionMismatch,
+        ));
     }
     if case.climatology_id != contract.climatology_id {
-        return Err(ContractError::new(case_id, ContractViolation::ClimatologyMismatch));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::ClimatologyMismatch,
+        ));
     }
     if case.temporal_support_id != contract.temporal_support_id {
-        return Err(ContractError::new(case_id, ContractViolation::TemporalSupportMismatch));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::TemporalSupportMismatch,
+        ));
     }
     if case.spatial_support_digest != contract.spatial_support_digest {
-        return Err(ContractError::new(case_id, ContractViolation::SpatialSupportMismatch));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::SpatialSupportMismatch,
+        ));
     }
 
     let length = case.forecast_values.len();
@@ -331,18 +357,34 @@ fn validate_case(
         .chain(&case.climatology_values)
         .any(|value| !value.is_finite())
     {
-        return Err(ContractError::new(case_id, ContractViolation::NonFiniteValue));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::NonFiniteValue,
+        ));
     }
-    if case.weights.iter().any(|weight| !weight.is_finite() || *weight <= 0.0) {
-        return Err(ContractError::new(case_id, ContractViolation::InvalidWeight));
+    if case
+        .weights
+        .iter()
+        .any(|weight| !weight.is_finite() || *weight <= 0.0)
+    {
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::InvalidWeight,
+        ));
     }
 
     let total_weight = case.weights.iter().sum::<f64>();
     if !total_weight.is_finite() {
-        return Err(ContractError::new(case_id, ContractViolation::NonFiniteMetric));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::NonFiniteMetric,
+        ));
     }
     if total_weight <= 0.0 {
-        return Err(ContractError::new(case_id, ContractViolation::ZeroTotalWeight));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::ZeroTotalWeight,
+        ));
     }
 
     if let Some(post) = &case.post_processing {
@@ -353,7 +395,10 @@ fn validate_case(
             ));
         }
         if !valid_identifier(&post.fit_data_digest) {
-            return Err(ContractError::new(case_id, ContractViolation::MissingFitDataDigest));
+            return Err(ContractError::new(
+                case_id,
+                ContractViolation::MissingFitDataDigest,
+            ));
         }
         if post.uses_evaluation_outcomes {
             return Err(ContractError::new(
@@ -451,9 +496,8 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
             }
             let noise_error = orthogonal_squared.max(0.0).sqrt();
 
-            let reconstructed = (information_error * information_error
-                + noise_error * noise_error)
-                .sqrt();
+            let reconstructed =
+                (information_error * information_error + noise_error * noise_error).sqrt();
             let identity_tolerance = 1e-10 * debiased_rmse.max(1.0);
             if (reconstructed - debiased_rmse).abs() > identity_tolerance {
                 return Err(ContractError::new(
@@ -478,7 +522,10 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         truth_activity,
     ] {
         if !value.is_finite() {
-            return Err(ContractError::new(case_id, ContractViolation::NonFiniteMetric));
+            return Err(ContractError::new(
+                case_id,
+                ContractViolation::NonFiniteMetric,
+            ));
         }
     }
 
@@ -486,7 +533,10 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         || information_error.is_some_and(|value| !value.is_finite())
         || noise_error.is_some_and(|value| !value.is_finite())
     {
-        return Err(ContractError::new(case_id, ContractViolation::NonFiniteMetric));
+        return Err(ContractError::new(
+            case_id,
+            ContractViolation::NonFiniteMetric,
+        ));
     }
 
     Ok(CaseMetrics {
@@ -606,11 +656,21 @@ mod tests {
             weights,
         );
         let report = evaluate(&contract(), &[noisy, smooth]).unwrap();
-        let noisy_metrics = report.cases.iter().find(|m| m.case_id == "noisy-informative").unwrap();
-        let smooth_metrics = report.cases.iter().find(|m| m.case_id == "smoothed").unwrap();
+        let noisy_metrics = report
+            .cases
+            .iter()
+            .find(|m| m.case_id == "noisy-informative")
+            .unwrap();
+        let smooth_metrics = report
+            .cases
+            .iter()
+            .find(|m| m.case_id == "smoothed")
+            .unwrap();
 
         assert!(smooth_metrics.raw_rmse < noisy_metrics.raw_rmse);
-        assert!(smooth_metrics.information_error.unwrap() > noisy_metrics.information_error.unwrap());
+        assert!(
+            smooth_metrics.information_error.unwrap() > noisy_metrics.information_error.unwrap()
+        );
         assert!(smooth_metrics.noise_error.unwrap() < noisy_metrics.noise_error.unwrap());
     }
 
@@ -685,7 +745,10 @@ mod tests {
             vec![1.0, 1.0],
         );
         let metrics = &evaluate(&contract(), &[record]).unwrap().cases[0];
-        assert_eq!(metrics.decomposition_status, DecompositionStatus::DegenerateTruthAnomaly);
+        assert_eq!(
+            metrics.decomposition_status,
+            DecompositionStatus::DegenerateTruthAnomaly
+        );
         assert_eq!(metrics.forecast_information, None);
         assert_eq!(metrics.information_error, None);
         assert_eq!(metrics.noise_error, None);
@@ -720,8 +783,14 @@ mod tests {
         let second = &evaluate(&contract(), &[scaled]).unwrap().cases[0];
         near(first.raw_rmse, second.raw_rmse);
         near(first.debiased_rmse, second.debiased_rmse);
-        near(first.forecast_information.unwrap(), second.forecast_information.unwrap());
-        near(first.information_error.unwrap(), second.information_error.unwrap());
+        near(
+            first.forecast_information.unwrap(),
+            second.forecast_information.unwrap(),
+        );
+        near(
+            first.information_error.unwrap(),
+            second.information_error.unwrap(),
+        );
         near(first.noise_error.unwrap(), second.noise_error.unwrap());
     }
 
@@ -742,7 +811,10 @@ mod tests {
         let a = &evaluate(&contract(), &[first]).unwrap().cases[0];
         let b = &evaluate(&contract(), &[second]).unwrap().cases[0];
         near(a.raw_bias, b.raw_bias);
-        near(a.forecast_information.unwrap(), b.forecast_information.unwrap());
+        near(
+            a.forecast_information.unwrap(),
+            b.forecast_information.unwrap(),
+        );
         near(a.information_error.unwrap(), b.information_error.unwrap());
         near(a.noise_error.unwrap(), b.noise_error.unwrap());
     }
@@ -819,7 +891,10 @@ mod tests {
         );
         let metrics = &evaluate(&contract(), &[record]).unwrap().cases[0];
         assert_eq!(metrics.forecast_information, None);
-        assert_eq!(metrics.decomposition_status, DecompositionStatus::DegenerateTruthAnomaly);
+        assert_eq!(
+            metrics.decomposition_status,
+            DecompositionStatus::DegenerateTruthAnomaly
+        );
     }
 
     #[test]
