@@ -730,11 +730,14 @@ pub fn alternative_coverage_study(
 
         for trial in 0..outer_datasets {
             let dataset = generate_dataset(config, derive_seed(seed, trial as u64))?;
-            let method_seed = derive_seed(seed ^ if studentized_method {
-                0x5be0_cd19_137e_2179
-            } else {
-                0x1f83_d9ab_fb41_bd6b
-            }, trial as u64 + 1);
+            let method_seed = derive_seed(
+                seed ^ (if studentized_method {
+                    0x5be0_cd19_137e_2179
+                } else {
+                    0x1f83_d9ab_fb41_bd6b
+                }),
+                trial as u64 + 1,
+            );
             let interval = if studentized_method {
                 studentized_system_bootstrap_interval(
                     &dataset,
