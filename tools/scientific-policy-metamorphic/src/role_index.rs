@@ -214,6 +214,18 @@ fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
         .get("roles")
         .and_then(Value::as_array)
         .ok_or_else(|| role_index_error("Rego input.actor.roles must be an array for stratification"))?;
+    for role in roles {
+        let role_name = role
+            .as_str()
+            .filter(|name| !name.trim().is_empty())
+            .ok_or_else(|| role_index_error("each role must be a non-empty string for stratification"))?;
+        if !ROLE_IDENTITY_DIMENSIONS.contains(&role_name) {
+            return Err(role_index_error(format!(
+                "role {role_name:?} is outside stratification profile {STRATIFIED_SAMPLE_PROFILE}"
+            )));
+        }
+    }
+
     let role_bucket = match roles.len() {
         0 => "0",
         1..=2 => "1-2",
@@ -711,6 +723,21 @@ mod tests {
         assert!(changed_key.contains("org=absent"));
         assert!(changed_key.contains("attestation=independent_replication"));
         assert!(changed_key.contains("target=absent"));
+    }
+
+    #[test]
+    fn stratification_rejects_unknown_role_identity_classes() {
+        let unknown_role = serde_json::json!({
+            "action":"claim_proposed",
+            "actor":{"id":"actor:a","roles":["future_role"]},
+            "claim":{"exists":false},
+            "attestation":{"kind":"ordinary"},
+            "targetAttestation":{"exists":false}
+        });
+        assert!(stratum_key(&unknown_role)
+            .expect_err("new roles require an explicit sample profile update")
+            .0
+            .contains("outside stratification profile"));
     }
 
     #[test]
