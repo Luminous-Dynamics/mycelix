@@ -367,25 +367,25 @@ pub fn detect_single_cell_differencing(
                 .collect();
             if left_only.len() == 1 && right_only.is_empty() {
                 let cell_id = left_only[0];
-                if let Some(cell_count) = cell_sizes.get(cell_id) {
+                if let Some(cell_count) = cell_sizes.get(cell_id.as_str()) {
                     let difference = left.published_total.checked_sub(right.published_total);
                     if *cell_count < minimum_cell_size && difference == Some(*cell_count) {
                         findings.push((
                             left.query_id.clone(),
                             right.query_id.clone(),
-                            cell_id.clone(),
+                            cell_id.to_string(),
                         ));
                     }
                 }
             } else if right_only.len() == 1 && left_only.is_empty() {
                 let cell_id = right_only[0];
-                if let Some(cell_count) = cell_sizes.get(cell_id) {
+                if let Some(cell_count) = cell_sizes.get(cell_id.as_str()) {
                     let difference = right.published_total.checked_sub(left.published_total);
                     if *cell_count < minimum_cell_size && difference == Some(*cell_count) {
                         findings.push((
                             right.query_id.clone(),
                             left.query_id.clone(),
-                            cell_id.clone(),
+                            cell_id.to_string(),
                         ));
                     }
                 }
