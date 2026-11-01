@@ -1,23 +1,18 @@
 # GCPN Integrated Synthetic Evaluation v0.5
 
 **Status:** integrated synthetic benchmark composition; non-operational.  
-**Parent:** issue #5627; predecessor PR #5622.  
+**Parent:** issue #5631; predecessor PR #5628.  
 **Package:** benchmarks/gcpn-integrated-evaluation.  
 **Version:** 0.5.0.  
 **Dependencies:** six local Rust benchmark packages; no third-party Cargo dependencies.
 
-## 1. What changed from v0.3
+## 1. What changed from v0.4
 
-v0.3 composed five independent modules:
-1. civil warning-record integrity;
-2. topology resilience;
-3. last-mile delivery/accessibility;
-4. warning-to-action evidence;
-5. probabilistic forecast verification.
+v0.4 already composed six independent modules: civil warning-record integrity, topology resilience, multi-channel last-mile reach, warning-to-action evidence, probabilistic forecast verification, and lifecycle cost.
 
-v0.5 adds **lifecycle cost and accessible-reach efficiency** as a sixth module. It accounts for capital, channel setup, operations, staff, maintenance, replacement and scenario-specific restoration, and relates these costs to intended, unique and accessible receiver counts.
+v0.5 retains those six non-compensatory modules and upgrades forecast verification from v0.1 to v0.2. The forecast component now exposes exact Murphy Brier reliability, resolution and uncertainty terms, a reconstruction residual, separate fixed-bin ECE, chronological rolling-window scores, and fixed-parameter CUSUM diagnostics across stable, gradual-drift and abrupt-shift synthetic profiles.
 
-Cost is not a quality score. A cheaper architecture is not necessarily better if it reaches fewer people accessibly or cannot preserve local service through a fault. Equally, greater reach does not erase unaffordable staffing or replacement obligations.
+The added diagnostics do not create a warning threshold, invalidate a live forecast, select an operational model, or authorize an action. Aggregate forecast scores cannot compensate for subgroup regressions or drift-profile failures. Lifecycle cost also remains a separate trade-off: no cheaper architecture is automatically preferred, and greater reach does not erase staffing or replacement obligations.
 
 ## 2. Six independent evaluation gates
 
