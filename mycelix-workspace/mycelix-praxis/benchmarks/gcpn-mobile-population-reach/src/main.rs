@@ -25,7 +25,7 @@ fn main() {
     println!("exposure_person_time_units: {}", report.exposure_units);
     println!("unique_timely_reach: {}", report.timely_unique_reach);
     println!("channel_receipts_not_unique: {}", report.channel_receipt_total);
-    println!("duplicate_receipts_above_union: {}", report.duplicate_receipts_above_union);
+    println!("duplicate_receipts_above_union: {:?}", report.duplicate_receipts_above_union);
     println!("effective_timely_reach: {:?}", report.effective_timely_reach);
     println!("effective_accessible_reach: {:?}", report.effective_accessible_reach);
     println!("worst_cohort_effective_reach: {:?}", report.worst_cohort_effective_reach);
