@@ -28,7 +28,11 @@ For every selected action the evaluator samples a categorical observation from t
 
 Selector-facing types contain model priors, candidate-model likelihoods, declared decision utilities, eligible actions, costs, strata and modality metadata. They do not contain hidden true observation probabilities or true decision utilities. A negative-control test mutates all evaluator truth fields and verifies that the first selector choice is unchanged.
 
-The report aggregates repeated deterministic seeds and records true synthetic decision utility/regret, predictive surprise events, diagnostic measurements, final posterior entropy, mean negative log predictive score, multiclass Brier score and action-selection frequencies. A nuisance-signature control demonstrates that information gain can be substantial while decision EVSI is zero: calculated EIG is 0.3774776716 nats versus zero EVSI for the declared service decision.
+The report aggregates repeated deterministic seeds and records true synthetic decision utility/regret, predictive surprise events, diagnostic measurements, final posterior entropy, prequential negative log predictive score, prequential multiclass Brier score, and action-selection frequencies. It also scores every final posterior against the same evaluator-only held-out probes, using expected negative log score and expected multiclass Brier score overall and by target stratum. These common probes are not selected by the policies and do not consume acquisition budget; this removes the direct comparison confound caused by policies selecting different measurement modalities. A nuisance-signature control demonstrates that information gain can be substantial while decision EVSI is zero: calculated EIG is 0.3774776716 nats versus zero EVSI for the declared service decision.
+
+## Calibration interpretation
+
+Prequential scores describe prediction on each policy's selected measurement stream; the measurement operators can differ between policies, so those values are operational diagnostics rather than a fully matched calibration contest. Use `mean_heldout_validation_log_score`, `mean_heldout_validation_brier_score`, and `validation_by_stratum` for the matched comparison: they score every policy's final posterior against the same fixed evaluator-only probe set and synthetic truth distribution.
 
 ## Limits
 
