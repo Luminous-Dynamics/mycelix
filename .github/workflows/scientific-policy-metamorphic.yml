@@ -321,7 +321,7 @@ jobs:
             .action_count == 8 and
             (.action_inputs | length) == 8 and
             (.action_input_digests | length) == 8 and
-            .stratified_sample_profile == "mycelix-role-index-stratified-sample-v0.1" and
+            .stratified_sample_profile == "mycelix-role-index-stratified-sample-v0.2" and
             .stratified_sample_count >= 192 and
             .stratified_sample_count <= 256 and
             (.stratified_action_sample_counts | length) == 8 and
