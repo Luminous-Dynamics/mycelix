@@ -265,6 +265,16 @@ assumptions and constants; the code checks sample-size and numeric conditions
 but does not certify them. The nested Monte Carlo estimator is not yet
 implemented.
 
+The executable robust bake-off now constructs a Gibbs stochastic policy from
+the fixed-alpha Sibson reward estimates, using a uniform prior over feasible
+actions and zero prior mass on ineligible/over-budget actions. It then
+evaluates that policy through the one-common-beta shared-average-KL dual.
+The report preserves action probabilities, policy KL, expected reward,
+variational objective, expected cost, common beta, robust policy value and
+adversarial penalty. CI asserts normalization, hard feasibility and the dual
+value identity. Rewards are exact synthetic Sibson scores, not nested-MC
+estimates, so this does not claim a PAC-Bayes lower-bound certificate.
+
 The shared-KL dual is the correct policy-level comparator for the
 maximin-robust paper. The earlier fixed per-design KL selector remains a
 separate finite comparator and must not be presented as the shared-policy
