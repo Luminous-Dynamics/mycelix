@@ -1,0 +1,92 @@
+{
+  "benchmark_id": "GCPN-SPATIOTEMPORAL-FORECAST-VERIFICATION",
+  "version": "0.1.0",
+  "status": "research-specification-not-yet-executable",
+  "parent_issue": 5662,
+  "integration_baseline": "research/gcpn-integrated-evaluation-v0-6",
+  "score_families": {
+    "marginal": [
+      "ensemble_crps",
+      "threshold_brier",
+      "reliability",
+      "rank_histogram",
+      "spread_skill"
+    ],
+    "joint_spatial": [
+      "energy_score",
+      "variogram_score"
+    ],
+    "temporal": [
+      "multi_lead_coherence",
+      "declared_block_dependence_diagnostics"
+    ],
+    "extremes": [
+      "threshold_stratified_brier",
+      "tail_reliability",
+      "false_alarm_and_miss_counts"
+    ]
+  },
+  "fair_comparison_requirements": [
+    "identical_issue_times",
+    "identical_valid_times",
+    "identical_case_mask",
+    "identical_grid_policy",
+    "identical_verifying_source_and_version",
+    "held_out_chronological_partition",
+    "explicit_ensemble_size_and_postprocessing",
+    "explicit_missing_and_abstention_handling"
+  ],
+  "dgp_families": [
+    "independent_scalar_ensembles",
+    "under_overdispersed_ensemble",
+    "spatial_gaussian_known_covariance",
+    "correct_marginals_wrong_spatial_dependence",
+    "wrong_marginals_correct_dependence",
+    "spatial_displacement_phase_shift",
+    "rare_extreme_mixture",
+    "multi_lead_temporal_dependence",
+    "regime_shift",
+    "integrity_mutations"
+  ],
+  "required_outputs": [
+    "CRPS_by_variable_lead_region",
+    "threshold_Brier_and_reference_skill",
+    "reliability_resolution_uncertainty_sharpness",
+    "spread_skill_and_rank_histogram",
+    "energy_score",
+    "variogram_score_with_weights",
+    "extreme_event_base_rates_false_alarms_misses",
+    "spatiotemporal_dependence_diagnostics",
+    "paired_case_count_and_matching_failures",
+    "verification_source_version_identity",
+    "cluster_count_and_exclusion_reasons",
+    "interval_coverage_MCSE_width_and_tail_misses",
+    "runtime_memory"
+  ],
+  "proposed_targets": {
+    "exact_paired_case_equality": 1,
+    "verification_source_version_identity": 1,
+    "unqualified_cross_source_leaderboard_rows": 0,
+    "exact_synthetic_score_oracles": true,
+    "detect_marginal_correct_dependence_wrong": true,
+    "frozen_threshold_weight_protocol": true,
+    "separately_qualify_interval_levels": [
+      0.9,
+      0.95,
+      0.99
+    ]
+  },
+  "source_comparison_caveat": "WeatherBench 2 scorecards disclose that operational and ML forecast groups may use different verifying analyses; GCPN comparisons must pin a common source/version or keep panels separate.",
+  "integration": {
+    "new_gate_now": false,
+    "possible_future_module": 5,
+    "preserve_v0_6_eight_gates": true
+  },
+  "non_claims": [
+    "better_weather_forecasts",
+    "ECMWF_superiority",
+    "operational_model_selection",
+    "warning_threshold_policy",
+    "live_forecast_service"
+  ]
+}
