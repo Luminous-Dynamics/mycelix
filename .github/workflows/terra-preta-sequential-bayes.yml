@@ -39,11 +39,14 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
-      - name: Execute seeded sequential benchmark
+      - name: Execute misspecified and in-family controls
         run: |
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json \
             "$RUNNER_TEMP/sequential-bayes-report.json"
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json \
+            "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
           jq -e '
             .status == "synthetic_sequential_bayesian_benchmark_only" and
             .replicate_count == 128 and
@@ -61,16 +64,27 @@ jobs:
             (.policy_summaries[] | select(.policy_id == "discrepancy_guarded_evsi")) as $guarded |
             $guarded.mean_diagnostic_actions > 0 and $guarded.mean_surprise_events > 0
           ' "$RUNNER_TEMP/sequential-bayes-report.json"
-      - name: Validate report schema
+          jq -e '
+            .scenario_id == "dual-permeability-in-family-calibration-control-v0" and
+            .replicate_count == 128 and
+            (.policy_summaries | length == 5) and
+            all(.policy_summaries[]; .mean_surprise_events < 0.2)
+          ' "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
+      - name: Validate both report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/report.schema.json \
             "$RUNNER_TEMP/sequential-bayes-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/report.schema.json \
+            "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
       - name: Upload deterministic synthetic report
         uses: actions/upload-artifact@v4
         with:
           name: sequential-bayes-report-${{ github.sha }}
-          path: "${{ runner.temp }}/sequential-bayes-report.json"
+          path: |
+            ${{ runner.temp }}/sequential-bayes-report.json
+            ${{ runner.temp }}/sequential-bayes-infamily-report.json
           if-no-files-found: error
           retention-days: 30
       - name: Clippy
