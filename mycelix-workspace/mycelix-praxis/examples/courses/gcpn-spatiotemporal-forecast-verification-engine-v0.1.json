@@ -1,0 +1,83 @@
+{
+  "benchmark_id": "GCPN-SPATIOTEMPORAL-FORECAST-VERIFICATION-ENGINE",
+  "version": "0.1.0",
+  "status": "rust-source-authored-execution-outstanding",
+  "package": "benchmarks/gcpn-spatiotemporal-forecast-verification",
+  "dependencies": [],
+  "parent_issue": 5662,
+  "specification_pull_request": 5663,
+  "implemented_score_functions": [
+    "empirical_ensemble_crps",
+    "threshold_brier_from_member_fraction",
+    "multivariate_energy_score",
+    "weighted_variogram_score"
+  ],
+  "fair_comparison_contract": {
+    "case_key": [
+      "case_id",
+      "issue_time",
+      "valid_time",
+      "lead_seconds",
+      "variable",
+      "units",
+      "region",
+      "grid_policy"
+    ],
+    "require_same_verification_source": true,
+    "require_same_verification_version": true,
+    "require_identical_observation_per_case": true,
+    "exact_issue_valid_lead_consistency": true,
+    "incomplete_expected_model_case": "exclude_and_count",
+    "duplicate_model_case": "reject"
+  },
+  "synthetic_negative_control": {
+    "observation": [
+      0,
+      0
+    ],
+    "correct_dependence_ensemble": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "wrong_dependence_ensemble": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    "expected_marginal_scores_equal": true,
+    "joint_energy_and_variogram_distinguish": true
+  },
+  "exact_oracles": {
+    "crps_two_member": 0.25,
+    "threshold_brier": 0.25,
+    "energy_score": "sqrt(2)/4",
+    "variogram_correct_dependence": 0,
+    "variogram_wrong_dependence": 1
+  },
+  "tests_authored": 10,
+  "execution": {
+    "cargo_build": "not_run",
+    "rust_tests": "not_run",
+    "cli": "not_run",
+    "external_dataset_adapter": "not_implemented",
+    "ci": "not_claimed"
+  },
+  "non_claims": [
+    "WeatherBench_2_full_adapter",
+    "real_forecast_skill",
+    "SOTA_superiority",
+    "operational_warning_policy",
+    "forecast_production"
+  ]
+}
