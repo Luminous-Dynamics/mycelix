@@ -180,6 +180,7 @@ pub struct ForecastCaseKey {
     pub valid_time: u64,
     pub lead_seconds: u64,
     pub variable: String,
+    pub units: String,
     pub region: String,
     pub grid_policy: String,
 }
@@ -249,8 +250,11 @@ pub fn validate_fair_comparison(
             return Err("comparison panel mixes verification sources or versions".into());
         }
         if record.case_key.issue_time >= record.case_key.valid_time
-            || record.case_key.lead_seconds == 0
+            || record.case_key.case_id.trim().is_empty()
+            || record.case_key.valid_time.checked_sub(record.case_key.issue_time)
+                != Some(record.case_key.lead_seconds)
             || record.case_key.variable.trim().is_empty()
+            || record.case_key.units.trim().is_empty()
             || record.case_key.region.trim().is_empty()
             || record.case_key.grid_policy.trim().is_empty()
         {
@@ -320,6 +324,7 @@ mod tests {
                 valid_time: 20,
                 lead_seconds: 10,
                 variable: "surface_temperature".into(),
+                units: "kelvin".into(),
                 region: "grid-cell-pair".into(),
                 grid_policy: "frozen-grid-v1".into(),
             },
@@ -421,11 +426,18 @@ mod tests {
 
     #[test]
     fn missing_model_case_is_reported_and_excluded_from_paired_denominator() {
-        let first = archive_record("model-a", "ERA5-v1");
+        let incomplete = archive_record("model-a", "ERA5-v1");
+        let mut complete_a = archive_record("model-a", "ERA5-v1");
+        complete_a.case_key.case_id = "case-2".into();
+        let mut complete_b = archive_record("model-b", "ERA5-v1");
+        complete_b.case_key.case_id = "case-2".into();
         let report = validate_fair_comparison(
-            &[first],
+            &[incomplete, complete_a, complete_b],
             &["model-a".into(), "model-b".into()],
-        ).unwrap_err();
-        assert!(report.contains("at least two expected models"));
+        ).unwrap();
+        assert_eq!(report.total_case_keys_seen, 2);
+        assert_eq!(report.eligible_matched_case_count, 1);
+        assert_eq!(report.excluded_case_keys_due_to_missing_models, 1);
+        assert_eq!(report.eligible_case_keys[0].case_id, "case-2");
     }
 }
