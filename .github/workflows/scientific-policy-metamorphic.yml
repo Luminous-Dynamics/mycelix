@@ -59,7 +59,7 @@ jobs:
 
       - name: Generate five deterministic source-bound metamorphic corpora
         run: |
-          cargo run --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked -- \
+          cargo run --bin scientific-policy-metamorphic --manifest-path tools/scientific-policy-metamorphic/Cargo.toml --locked -- \
             target/scientific-policy-space/manifest.json \
             target/scientific-policy-metamorphic
           test "$(find target/scientific-policy-metamorphic -name transform-manifest.json | wc -l)" -eq 5
@@ -184,32 +184,31 @@ jobs:
           ' target/policy-counterexample-shrink/shrink-trace.json
           jq -s -e --slurpfile summary target/policy-counterexample-shrink/shrink-summary.json --slurpfile trace target/policy-counterexample-shrink/shrink-trace.json '
             . as $rows |
-            length == $summary[0].candidate_evaluations and
-            length == ($trace[0].candidates | length) and
-            all(range(0; ($rows | length)); . as $i |
-              .[$i].sequence == $i and
-              .[$i].candidate_sha256 == $trace[0].candidates[$i].candidate_sha256 and
-              .[$i].predicate_preserved == $trace[0].candidates[$i].predicate_preserved and
-              (.[$i].candidate_sha256 | length == 64) and
-              (.[$i].predicate_preserved != null) and
-              (.[$i].evaluation_error == null) and
-              (if .[$i].candidate_status == "input_rejected_before_engines" then
-                 .[$i].cedar_decision == null and
-                 .[$i].opa_decision == null and
-                 .[$i].input_rejection != null and
-                 .[$i].predicate_preserved == false
-               else
-                 .[$i].candidate_status == "evaluated" and
-                 .[$i].cedar_decision != null and
-                 .[$i].opa_decision != null and
-                 .[$i].input_rejection == null and
-                 (if .[$i].predicate_preserved == true then
-                    .[$i].cedar_determining_policy_ids == $summary[0].initial_cedar_determining_policy_ids and
-                    .[$i].opa_rule_id == $summary[0].initial_opa_rule_id
+            ($rows | length) == $summary[0].candidate_evaluations and
+            ($rows | length) == ($trace[0].candidates | length) and
+            all(($rows | to_entries[]);
+              .value.sequence == .key and
+              .value.candidate_sha256 == $trace[0].candidates[.key].candidate_sha256 and
+              .value.predicate_preserved == $trace[0].candidates[.key].predicate_preserved and
+              (.value.candidate_sha256 | length == 64) and
+              (.value.predicate_preserved != null) and
+              (.value.evaluation_error == null) and
+              (if .value.candidate_status == "input_rejected_before_engines" then
+                 .value.cedar_decision == null and
+                 .value.opa_decision == null and
+                 .value.input_rejection != null and
+                 .value.predicate_preserved == false
+               elif .value.candidate_status == "evaluated" then
+                 .value.cedar_decision != null and
+                 .value.opa_decision != null and
+                 .value.input_rejection == null and
+                 (if .value.predicate_preserved == true then
+                    .value.cedar_determining_policy_ids == $summary[0].initial_cedar_determining_policy_ids and
+                    .value.opa_rule_id == $summary[0].initial_opa_rule_id
                   else true end)
-               end)
+               else false end)
             ) and
-            ([.[] | select(.predicate_preserved == true)] | length) ==
+            ($rows | map(select(.predicate_preserved == true)) | length) ==
               $summary[0].accepted_reductions
           ' target/policy-counterexample-shrink/candidate-engine-outcomes.jsonl
 
