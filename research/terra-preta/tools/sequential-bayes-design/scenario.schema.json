@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Terra Preta sequential Bayesian design scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "data_class", "scenario_id", "seed", "replicates", "budget_cost_units", "predictive_surprise_threshold", "strata", "models", "decisions", "truth_decisions", "actions"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "data_class": { "const": "synthetic_known_truth" },
+    "scenario_id": { "type": "string", "minLength": 1 },
+    "seed": { "type": "integer", "minimum": 0 },
+    "replicates": { "type": "integer", "minimum": 16, "maximum": 4096 },
+    "budget_cost_units": { "type": "integer", "minimum": 1 },
+    "predictive_surprise_threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "strata": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["stratum_id", "minimum_selected_actions"],
+        "properties": {
+          "stratum_id": { "type": "string", "minLength": 1 },
+          "minimum_selected_actions": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "models": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["model_id", "prior_weight"],
+        "properties": {
+          "model_id": { "type": "string", "minLength": 1 },
+          "prior_weight": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["decision_id", "model_utilities"],
+        "properties": {
+          "decision_id": { "type": "string", "minLength": 1 },
+          "model_utilities": { "type": "array", "minItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+        }
+      }
+    },
+    "truth_decisions": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["decision_id", "utility"],
+        "properties": {
+          "decision_id": { "type": "string", "minLength": 1 },
+          "utility": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "actions": {
+      "type": "array", "minItems": 1, "maxItems": 16,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["action_id", "stratum_id", "modality", "cost_units", "eligible", "exclusion_reason", "diagnostic_action", "outcomes", "likelihoods", "truth_outcome_probabilities"],
+        "properties": {
+          "action_id": { "type": "string", "minLength": 1 },
+          "stratum_id": { "type": "string", "minLength": 1 },
+          "modality": { "type": "string", "minLength": 1 },
+          "cost_units": { "type": "integer", "minimum": 1 },
+          "eligible": { "type": "boolean" },
+          "exclusion_reason": { "type": ["string", "null"] },
+          "diagnostic_action": { "type": "boolean" },
+          "outcomes": { "type": "array", "minItems": 2, "items": { "type": "string", "minLength": 1 } },
+          "likelihoods": {
+            "type": "array", "minItems": 2,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["model_id", "outcome_probabilities"],
+              "properties": {
+                "model_id": { "type": "string", "minLength": 1 },
+                "outcome_probabilities": { "type": "array", "minItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+              }
+            }
+          },
+          "truth_outcome_probabilities": { "type": "array", "minItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+        }
+      }
+    }
+  }
+}
