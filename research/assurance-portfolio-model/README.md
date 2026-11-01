@@ -13,6 +13,7 @@ The model makes the following distinctions executable:
 - claim scope: exact claim identifier plus exact subject digest;
 - evaluator identity: exact evaluator and evaluator-profile digests;
 - corroboration lineage: explicit identities for evaluator executable, evaluator profile, implementation, normative specification, expected-answer source, test corpus, source evidence, toolchain distribution, repository control, execution provider, runner image, runtime, input acquisition, operator control and trust root;
+- authorization lifecycle: hard-refutation authority is bound to exact evaluator and evaluator-profile digests plus a pinned authorization/revocation snapshot digest;
 - policy: required evaluator roles, identity-bound hard-refutation authorities and explicitly required pairwise fault-domain separations.
 
 No dimension is converted into a trust score or an independence boolean.
@@ -22,12 +23,12 @@ No dimension is converted into a trust score or an independence boolean.
 1. Only assessments for the exact claim and exact subject are in scope.
 2. Exact duplicate assessment replay is deduplicated; replay does not increase corroboration.
 3. Non-current evidence cannot support a profile.
-4. A current Refutes result on a hard invariant yields HardInvariantRefuted. Additional Supports results cannot outvote it.
+4. A current Refutes result on a hard invariant yields HardInvariantRefuted only when its evaluator identity and authorization/revocation snapshot match the claim profile. Additional Supports results cannot outvote an authorized refutation.
 5. A Refutes result on a non-hard claim, contradictory results from one evaluator/profile, missing required roles, unavailable/indeterminate results, or a required shared/unknown fault domain yields Indeterminate.
 6. MeetsDeclaredProfile is emitted only when every required role supplies current Supports evidence and every declared pairwise separation is observed as distinct.
 7. Shared fault domains remain visible even when they are not a required separation. For example, different verifier implementations running on one CI provider are implementation-diverse but provider-correlated.
 
-This is a portfolio-evidence result only. It is not a truth oracle, proof of model adequacy, qualification authority, authorization, execution permission, or outcome claim.
+This is a portfolio-evidence result only. The snapshot digest is a consistency pin, not proof that the registry bytes, signer, revocation source or governance decision are authentic. The model is not a truth oracle, proof of model adequacy, qualification authority, authorization, execution permission, or outcome claim.
 
 ## Run
 
@@ -42,7 +43,7 @@ The crate has no third-party dependencies and no default features. It is intenti
 
 ## Initial qualification panel
 
-The 26 unit tests include:
+The 27 unit tests include:
 - hard-invariant refutation with multiple supporting evaluators;
 - exact replay deduplication;
 - shared implementation lineage despite distinct executable digests;
@@ -55,6 +56,8 @@ The 26 unit tests include:
 - undeclared roles cannot dispositively refute a hard invariant;
 - a familiar role label with an unlisted evaluator digest cannot spoof hard-refutation authority;
 - an authorized executable under an unlisted evaluator profile cannot issue a hard refutation;
+- an old authorization/revocation snapshot cannot issue a current hard refutation;
+- hard-invariant profiles require an explicit authority-snapshot pin;
 - self-contradictory output from a designated refutation evaluator is indeterminate;
 - non-hard refutation;
 - contradictory outcomes from one evaluator/profile;
