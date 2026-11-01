@@ -355,17 +355,12 @@ fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>
     }
     let initial_capacity = usize::try_from(metadata.len().min(MAX_INPUT_BYTES))
         .map_err(|error| format!("engine input corpus size does not fit memory index: {error}"))?;
-    let mut bytes = Vec::with_capacity(initial_capacity);
-    File::open(path)
-        .map_err(|error| format!("open engine input corpus: {error}"))?
-        .take(MAX_INPUT_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|error| format!("bounded-read engine input corpus: {error}"))?;
-    // Metadata is an early rejection only. Cap the actual read as well so a
-    // concurrent file replacement or growth cannot bypass the input limit.
-    if bytes.len() as u64 > MAX_INPUT_BYTES {
-        return Err(format!("engine input corpus exceeds {MAX_INPUT_BYTES} byte cap"));
-    }
+    let bytes = read_bounded_input(
+        File::open(path).map_err(|error| format!("open engine input corpus: {error}"))?,
+        MAX_INPUT_BYTES,
+        initial_capacity,
+        "engine input corpus",
+    )?;
     if sha256(&bytes) != expected_sha256 {
         return Err("engine input corpus SHA-256 does not match its manifest".to_owned());
     }
@@ -402,6 +397,23 @@ fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>
         return Err(format!("expected {EXPECTED_CASE_COUNT} input rows, got {}", cases.len()));
     }
     Ok(cases)
+}
+
+fn read_bounded_input<R: Read>(
+    reader: R,
+    max_bytes: u64,
+    initial_capacity: usize,
+    label: &str,
+) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::with_capacity(initial_capacity);
+    reader
+        .take(max_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("bounded-read {label}: {error}"))?;
+    if bytes.len() as u64 > max_bytes {
+        return Err(format!("{label} exceeds {max_bytes} byte cap"));
+    }
+    Ok(bytes)
 }
 
 fn evaluate_case(
@@ -541,6 +553,26 @@ fn benchmark_cedar_actions(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_input_read_accepts_limit_and_rejects_one_byte_over() {
+        let at_limit = read_bounded_input(
+            std::io::Cursor::new(b"1234".as_slice()),
+            4,
+            4,
+            "test input",
+        )
+        .expect("exactly-at-limit input is accepted");
+        assert_eq!(at_limit, b"1234");
+
+        let over_limit = read_bounded_input(
+            std::io::Cursor::new(b"12345".as_slice()),
+            4,
+            4,
+            "test input",
+        );
+        assert!(over_limit.is_err(), "one byte over the cap must be rejected");
+    }
 
     #[test]
     fn git_blob_oid_matches_the_empty_blob_known_answer() {
