@@ -27,7 +27,10 @@ impl CostLossProfile {
         for (name, value) in [
             ("action_cost", self.action_cost),
             ("avoidable_event_loss", self.avoidable_event_loss),
-            ("residual_event_loss_under_action", self.residual_event_loss_under_action),
+            (
+                "residual_event_loss_under_action",
+                self.residual_event_loss_under_action,
+            ),
         ] {
             if !value.is_finite() || value < 0.0 {
                 return Err(format!("{name} must be finite and nonnegative"));
@@ -36,9 +39,7 @@ impl CostLossProfile {
         if self.avoidable_event_loss <= self.residual_event_loss_under_action {
             return Err("avoidable event loss must exceed residual loss under action".into());
         }
-        if self.action_cost
-            > self.avoidable_event_loss - self.residual_event_loss_under_action
-        {
+        if self.action_cost > self.avoidable_event_loss - self.residual_event_loss_under_action {
             return Err("action cost exceeds the maximum event-loss reduction".into());
         }
         Ok(())
@@ -48,8 +49,7 @@ impl CostLossProfile {
     /// act when p * (avoidable - residual) >= action_cost.
     pub fn decision_threshold(&self) -> Result<f64, String> {
         self.validate()?;
-        Ok(self.action_cost
-            / (self.avoidable_event_loss - self.residual_event_loss_under_action))
+        Ok(self.action_cost / (self.avoidable_event_loss - self.residual_event_loss_under_action))
     }
 
     pub fn loss(&self, action: bool, event: bool) -> f64 {
@@ -85,14 +85,21 @@ impl DecisionCase {
         if self.case_id.trim().is_empty() || self.independent_system_id.trim().is_empty() {
             return Err("case and independent-system identifiers are required".into());
         }
-        if self.verification_source.trim().is_empty() || self.verification_version.trim().is_empty() {
+        if self.verification_source.trim().is_empty() || self.verification_version.trim().is_empty()
+        {
             return Err("verification source and version are required".into());
         }
         if self.issue_time >= self.valid_time {
-            return Err(format!("case {} must have issue time before valid time", self.case_id));
+            return Err(format!(
+                "case {} must have issue time before valid time",
+                self.case_id
+            ));
         }
         if self.decision_cutoff < self.issue_time || self.decision_cutoff > self.valid_time {
-            return Err(format!("case {} has decision cutoff outside issue/valid interval", self.case_id));
+            return Err(format!(
+                "case {} has decision cutoff outside issue/valid interval",
+                self.case_id
+            ));
         }
         for (name, probability) in [
             ("candidate_probability", self.candidate_probability),
@@ -114,11 +121,7 @@ impl DecisionCase {
         issued_at <= self.decision_cutoff && issued_at < self.valid_time
     }
 
-    fn policy_usable(
-        &self,
-        profile: &CostLossProfile,
-        issued_at: u64,
-    ) -> bool {
+    fn policy_usable(&self, profile: &CostLossProfile, issued_at: u64) -> bool {
         self.action_feasible
             && self.action_lead_is_sufficient(profile)
             && self.forecast_is_available_by_cutoff(issued_at)
@@ -243,8 +246,7 @@ fn decide(
             if !usable {
                 false
             } else {
-                profile.loss(true, case.event_observed)
-                    < profile.loss(false, case.event_observed)
+                profile.loss(true, case.event_observed) < profile.loss(false, case.event_observed)
             }
         }
     };
@@ -343,8 +345,7 @@ pub fn evaluate_decision_value_at_threshold(
     let paired: Vec<&DecisionCase> = cases
         .iter()
         .filter(|case| {
-            case.candidate_issued_at < case.valid_time
-                && case.reference_issued_at < case.valid_time
+            case.candidate_issued_at < case.valid_time && case.reference_issued_at < case.valid_time
         })
         .collect();
     let candidate_brier_score = if paired.is_empty() {
@@ -500,12 +501,7 @@ mod tests {
         }
     }
 
-    fn case(
-        id: &str,
-        candidate_p: f64,
-        reference_p: f64,
-        outcome: bool,
-    ) -> DecisionCase {
+    fn case(id: &str, candidate_p: f64, reference_p: f64, outcome: bool) -> DecisionCase {
         DecisionCase {
             case_id: id.into(),
             independent_system_id: "system-1".into(),
@@ -562,7 +558,10 @@ mod tests {
         let report = evaluate_decision_value(&ranking_reversal_fixture(), &profile()).unwrap();
         assert_eq!(report.perfect_information.total_loss, 40.0);
         assert_eq!(report.decision_regret_vs_perfect_information, 80.0);
-        assert_eq!(report.perfect_information.policy, PolicyKind::PerfectInformation);
+        assert_eq!(
+            report.perfect_information.policy,
+            PolicyKind::PerfectInformation
+        );
     }
 
     #[test]
@@ -622,19 +621,32 @@ mod tests {
 
     #[test]
     fn threshold_grid_is_predeclared_ordered_and_reports_each_profile_point() {
-        let grid = evaluate_threshold_grid(&ranking_reversal_fixture(), &profile(), &[0.1, 0.2, 0.5, 0.9]).unwrap();
+        let grid = evaluate_threshold_grid(
+            &ranking_reversal_fixture(),
+            &profile(),
+            &[0.1, 0.2, 0.5, 0.9],
+        )
+        .unwrap();
         assert_eq!(grid.len(), 4);
         assert_eq!(grid[1].candidate_threshold, 0.2);
         assert_eq!(grid[1].candidate_loss, 120.0);
-        assert!(evaluate_threshold_grid(&ranking_reversal_fixture(), &profile(), &[0.2, 0.1]).is_err());
-        assert!(evaluate_threshold_grid(&ranking_reversal_fixture(), &profile(), &[0.2, 0.2]).is_err());
+        assert!(
+            evaluate_threshold_grid(&ranking_reversal_fixture(), &profile(), &[0.2, 0.1]).is_err()
+        );
+        assert!(
+            evaluate_threshold_grid(&ranking_reversal_fixture(), &profile(), &[0.2, 0.2]).is_err()
+        );
     }
 
     #[test]
     fn mixed_verification_sources_are_rejected() {
         let mut cases = ranking_reversal_fixture();
         cases[1].verification_source = "other-truth".into();
-        assert!(evaluate_decision_value(&cases, &profile()).unwrap_err().contains("mixes verification sources"));
+        assert!(
+            evaluate_decision_value(&cases, &profile())
+                .unwrap_err()
+                .contains("mixes verification sources")
+        );
     }
 
     #[test]
