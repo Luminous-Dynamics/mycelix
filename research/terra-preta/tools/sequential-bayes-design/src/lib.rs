@@ -15,3 +15,4 @@ pub mod robust_information;
 pub mod covariance_identifiability;
 pub mod stochastic_policy;
 pub mod transient_exchange;
+pub mod state_parameter_assimilation;
