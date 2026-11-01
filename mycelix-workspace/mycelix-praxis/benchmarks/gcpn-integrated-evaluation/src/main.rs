@@ -3,7 +3,7 @@ use gcpn_integrated_evaluation::integrated_report;
 fn main() {
     match integrated_report() {
         Ok(report) => {
-            println!("GCPN integrated synthetic evaluation v0.5");
+            println!("GCPN integrated synthetic evaluation v0.6");
             println!();
             println!("[1] Civil record integrity");
             println!("  cases: {}", report.civil_record.case_count);
@@ -104,8 +104,42 @@ fn main() {
             println!("  staff_hours_over_horizon_local_first: {:.0}", report.lifecycle_cost.local_first_staff_hours_over_horizon);
 
             println!();
+            println!("[7] Human message outcomes and inclusion");
+            println!("  fixture_oracle: {}", report.human_outcomes.fixture_oracle_matches);
+            println!("  fixture_cells: {}", report.human_outcomes.row_count);
+            println!("  interaction_profiles: {}", report.human_outcomes.profile_count);
+            println!("  message_variants: {}", report.human_outcomes.variant_count);
+            println!("  intended_trials: {}", report.human_outcomes.accessible_multimodal_intended_trials);
+            println!("  accessible_trials: {}", report.human_outcomes.accessible_multimodal_accessible_trials);
+            println!("  comprehension_correct: {}", report.human_outcomes.accessible_multimodal_comprehension_correct);
+            println!("  action_intent_correct: {}", report.human_outcomes.accessible_multimodal_action_intent_correct);
+            println!("  uncertainty_understood: {}", report.human_outcomes.accessible_multimodal_uncertainty_understood);
+            println!("  false_certainty: {}", report.human_outcomes.accessible_multimodal_false_certainty);
+            println!("  effective_comprehension_per_intended_trial: {:.4}", report.human_outcomes.effective_comprehension);
+            println!("  comprehension_given_access: {:.4}", report.human_outcomes.conditional_comprehension);
+            println!("  worst_profile_effective_comprehension: {:.4}", report.human_outcomes.worst_profile_effective_comprehension);
+            println!("  comprehension_profile_gap: {:.4}", report.human_outcomes.comprehension_profile_gap);
+            println!("  maximum_profile_p90_seconds: {}", report.human_outcomes.maximum_profile_p90_seconds);
+
+            println!();
+            println!("[8] Paired forecast sampling uncertainty");
+            println!("  fixture_oracle: {}", report.forecast_uncertainty.fixture_oracle_matches);
+            println!("  source_records: {}", report.forecast_uncertainty.source_record_count);
+            println!("  paired_event_clusters: {}", report.forecast_uncertainty.paired_event_clusters);
+            println!("  exact_duplicate_rows: {}", report.forecast_uncertainty.exact_duplicate_rows);
+            println!("  partition_leak_events: {}", report.forecast_uncertainty.partition_leak_events);
+            println!("  metadata_mismatch_events: {}", report.forecast_uncertainty.metadata_mismatch_events);
+            println!("  bootstrap_seed: 0x{:016x}", report.forecast_uncertainty.bootstrap_seed);
+            println!("  bootstrap_replicates: {}", report.forecast_uncertainty.bootstrap_replicates);
+            println!("  candidate_minus_climatology_brier: {:.6}", report.forecast_uncertainty.candidate_vs_climatology_point_difference);
+            println!("  candidate_minus_climatology_ci95: [{:.6}, {:.6}]", report.forecast_uncertainty.candidate_vs_climatology_ci95_low, report.forecast_uncertainty.candidate_vs_climatology_ci95_high);
+            println!("  candidate_minus_lead_reference_brier: {:.6}", report.forecast_uncertainty.candidate_vs_lead_reference_point_difference);
+            println!("  candidate_minus_lead_reference_ci95: [{:.6}, {:.6}]", report.forecast_uncertainty.candidate_vs_lead_reference_ci95_low, report.forecast_uncertainty.candidate_vs_lead_reference_ci95_high);
+            println!("  dependence_unit: event_id (synthetic fixture assumption; not validated for real weather events)");
+
+            println!();
             println!("integrated_fixture_reproduction: {}", if report.all_fixture_oracles_reproduced() { "PASS" } else { "FAIL" });
-            println!("interpretation: six separate non-compensatory fixture gates; no blended quality score or real-world performance claim");
+            println!("interpretation: eight separate non-compensatory synthetic fixture gates; no blended quality score or real-world performance claim");
             if !report.all_fixture_oracles_reproduced() {
                 std::process::exit(1);
             }
