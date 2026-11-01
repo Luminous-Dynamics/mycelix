@@ -155,6 +155,112 @@ mod tests {
         }
     }
 
+
+    fn standard_normal(rng: &mut SplitMix64) -> f64 {
+        // Box-Muller transform using open-interval uniforms.
+        let radius = (-2.0 * rng.uniform_open01().ln()).sqrt();
+        let angle = std::f64::consts::TAU * rng.uniform_open01();
+        radius * angle.cos()
+    }
+
+    fn normal_cdf(value: f64) -> f64 {
+        // Abramowitz-Stegun 7.1.26 approximation; absolute error is below
+        // 8e-8 and is negligible relative to the 4096-draw rank histogram.
+        let sign = if value < 0.0 { -1.0 } else { 1.0 };
+        let x = value.abs();
+        let t = 1.0 / (1.0 + 0.231_641_9 * x);
+        let density = 0.398_942_280_401_432_7 * (-0.5 * x * x).exp();
+        let polynomial = t
+            * (0.319_381_530
+                + t * (-0.356_563_782
+                    + t * (1.781_477_937
+                        + t * (-1.821_255_978 + t * 1.330_274_429))));
+        let upper_tail = density * polynomial;
+        if sign > 0.0 { 1.0 - upper_tail } else { upper_tail }
+    }
+
+    // Conjugate Normal-Normal posterior for a known observation variance.
+    // A likelihood power other than one is an intentionally misspecified update.
+    fn gaussian_posterior(
+        prior_mean: f64,
+        prior_variance: f64,
+        observation_variance: f64,
+        observations: &[f64],
+        likelihood_power: f64,
+    ) -> (f64, f64) {
+        let prior_precision = 1.0 / prior_variance;
+        let observation_precision =
+            observations.len() as f64 * likelihood_power / observation_variance;
+        let posterior_variance = 1.0 / (prior_precision + observation_precision);
+        let weighted_observations = observations.iter().sum::<f64>()
+            * likelihood_power / observation_variance;
+        let posterior_mean =
+            (prior_mean * prior_precision + weighted_observations)
+                * posterior_variance;
+        (posterior_mean, posterior_variance)
+    }
+
+    fn continuous_posterior_sbc_histogram(
+        augmented_likelihood_power: f64,
+    ) -> [usize; BIN_COUNT] {
+        // One fixed observed dataset conditions the first posterior. This is
+        // a conjugate reference, not an MCMC or differential-equation sampler.
+        let prior_mean = -0.3;
+        let prior_variance = 1.2;
+        let observation_variance = 0.2;
+        let observed_y = 1.4;
+        let (conditional_mean, conditional_variance) = gaussian_posterior(
+            prior_mean,
+            prior_variance,
+            observation_variance,
+            &[observed_y],
+            1.0,
+        );
+
+        let mut histogram = [0usize; BIN_COUNT];
+        let mut rng = SplitMix64::new(2026_1102);
+        for _ in 0..REPLICATES {
+            // theta' ~ p(theta | y_obs), then y_new ~ p(y_new | theta').
+            let original_theta = conditional_mean
+                + conditional_variance.sqrt() * standard_normal(&mut rng);
+            let new_observation = original_theta
+                + observation_variance.sqrt() * standard_normal(&mut rng);
+
+            // Reference inference uses both observed values. Raising the
+            // likelihood power deliberately creates an overconfident control.
+            let (augmented_mean, augmented_variance) = gaussian_posterior(
+                prior_mean,
+                prior_variance,
+                observation_variance,
+                &[observed_y, new_observation],
+                augmented_likelihood_power,
+            );
+            let pit = normal_cdf(
+                (original_theta - augmented_mean) / augmented_variance.sqrt(),
+            );
+            add_to_histogram(&mut histogram, pit);
+        }
+        histogram
+    }
+
+    #[test]
+    fn conjugate_gaussian_posterior_sbc_passes_for_fixed_observed_data() {
+        let histogram = continuous_posterior_sbc_histogram(1.0);
+        assert_uniform_histogram(&histogram);
+    }
+
+    #[test]
+    fn conjugate_gaussian_posterior_sbc_detects_overconfident_likelihood_power() {
+        let histogram = continuous_posterior_sbc_histogram(4.0);
+        assert!(
+            histogram.iter().any(|count| {
+                let frequency = *count as f64 / REPLICATES as f64;
+                !(LOWER_FREQUENCY..=UPPER_FREQUENCY).contains(&frequency)
+            }),
+            "overconfident Gaussian update should fail posterior SBC: {histogram:?}"
+        );
+    }
+
     #[test]
     fn exact_posterior_update_passes_conditional_posterior_sbc() {
         let (model_ranks, joint_likelihood_ranks) = posterior_sbc_histograms(1);
