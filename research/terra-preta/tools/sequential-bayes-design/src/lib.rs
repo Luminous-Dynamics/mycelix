@@ -11,3 +11,4 @@ pub mod information_gain;
 
 #[cfg(test)]
 mod posterior_sbc;
+pub mod robust_information;
