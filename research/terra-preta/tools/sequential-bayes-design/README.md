@@ -104,21 +104,27 @@ used to derive covariance from support relationships.
 
 ## Exact discrete robust-information reference
 
-The `robust_information` module now computes exact finite-discrete Shannon
+The `robust_information` module computes exact finite-discrete Shannon
 mutual information and Sibson α-mutual information for a candidate design,
-and returns the α-tilted posterior
-`p_alpha(M | x) ∝ p(M) p(x | M)^alpha`. This follows the published finite
-objective, with α in (0,1); it is not a PAC-Bayes bound or a stochastic
-policy optimizer.
+and returns the corresponding α-tilted posterior
+`p_alpha(M | x) ∝ p(M) p(x | M)^alpha`.
 
-The tests include independence/zero-information, α-to-one convergence to
-Shannon MI, monotonicity over a preregistered α grid, an adversarial
-CT–tracer correlation-only design (zero information in each marginal but
-positive joint Sibson information), likelihood tempering, and invalid-input
-controls. The positive control's finite exact values are checked independently
-against the analytical formula. Correlation in this fixture is declared by the
-synthetic generator and does not come from support-overlap metadata.
+It also constructs the finite worst-case joint distribution from the
+published geometric-mixture expression and reports its KL divergence to the
+nominal joint. A bisection routine inverts this single-design KL cost to
+recover α for a declared ambiguity radius, checking monotonicity on a grid
+and failing when the requested radius exceeds the configured alpha range.
+This is a finite deterministic reference; the paper's ambiguity set is
+defined over a stochastic design policy with an average KL budget.
 
+Ten authored tests cover independence/zero-information, convergence to
+Shannon MI, monotonicity over an alpha grid, CT–tracer correlation-only
+complementarity, posterior tempering, worst-case posterior identities,
+worst-case KL cost, radius-to-alpha inversion, and invalid inputs.
+
+This is **not** the full maximin policy optimizer, nested Monte Carlo estimator
+or PAC-Bayes lower-bound optimizer. The exact finite component is not a
+decision-EVSI calculation or a physical-data result.
 ## Posterior-SBC reference control
 
 The library test suite includes a separate **conditional posterior-SBC** test
