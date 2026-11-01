@@ -533,6 +533,23 @@ mod tests {
     }
 
     #[test]
+    fn frozen_cost_and_accessible_reach_oracle_matches_exact_base_profile() {
+        let report = fixture_report().unwrap();
+        assert!(report.fixture_oracle_matches(), "{report:?}");
+
+        let central = report.evaluation(Architecture::Centralized, "all-available").unwrap();
+        let regional = report.evaluation(Architecture::Regional, "all-available").unwrap();
+        let local = report.evaluation(Architecture::LocalFirst, "all-available").unwrap();
+
+        assert!((central.base_cost_per_accessible_receiver_reached.unwrap() - 15.57021032426856).abs() < 1e-6);
+        assert!((regional.base_cost_per_accessible_receiver_reached.unwrap() - 16.99631904833441).abs() < 1e-6);
+        assert!((local.base_cost_per_accessible_receiver_reached.unwrap() - 20.44603627836978).abs() < 1e-6);
+        assert_eq!(central.annual_staff_hours, 8_000.0);
+        assert_eq!(regional.annual_staff_hours, 9_750.0);
+        assert_eq!(local.annual_staff_hours, 12_000.0);
+    }
+
+    #[test]
     fn lifecycle_cost_is_discounted_by_component_and_scenario() {
         let report = fixture_report().unwrap();
         let central = report.evaluation(Architecture::Centralized, "all-available").unwrap();
