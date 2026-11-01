@@ -42,6 +42,7 @@
       "conflicting_node_payload_preservation",
       "CAP_update_cancel_reference_validation",
       "exact_message_receipt_binding",
+      "receipt_validator_rejects_ambiguous_conflicting_message_identity",
       "receipt_validator_rejects_ambiguous_conflicting_message_identity"
     ],
     "cap_message_types": [
