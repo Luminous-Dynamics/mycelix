@@ -1,5 +1,5 @@
 use gcpn_evidence_graph_lifecycle::{
-    validate_cap_lifecycle, CapMessage, CapMessageType, DigestVerification,
+    CapMessage, CapMessageType, DigestVerification, validate_cap_lifecycle,
 };
 
 fn main() {
@@ -38,10 +38,18 @@ fn main() {
     println!("missing_references: {}", report.missing_references);
     println!("unknown_references: {}", report.unknown_references);
     println!("expired_references: {}", report.expired_references);
-    println!("conflicting_identifiers: {}", report.conflicting_identifiers);
+    println!(
+        "conflicting_identifiers: {}",
+        report.conflicting_identifiers
+    );
     println!("unverified_digests: {}", report.unverified_digests);
     println!("digest_mismatches: {}", report.digest_mismatches);
-    println!("conflicting_payloads_preserved: {}", audit.conflicting_messages.len());
+    println!(
+        "conflicting_payloads_preserved: {}",
+        audit.conflicting_messages.len()
+    );
     println!("conformant: {}", report.is_conformant());
-    println!("non_claim: this core does not parse CAP XML or calculate/verify cryptographic digests");
+    println!(
+        "non_claim: this core does not parse CAP XML or calculate/verify cryptographic digests"
+    );
 }
