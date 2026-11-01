@@ -1,0 +1,15 @@
+[package]
+name = "gcpn-decision-value-verification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Frozen cost-loss decision-value verification for synthetic probabilistic forecasts"
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-decision-value-verification"
+path = "src/main.rs"
