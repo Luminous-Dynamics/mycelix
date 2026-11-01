@@ -16,9 +16,10 @@
     "minimum_cell_suppression",
     "single_cell_query_differencing_negative_control",
     "checked_aggregate_count_arithmetic",
-    "reject_self_zone_movement"
+    "reject_self_zone_movement",
+    "checked_reach_aggregate_arithmetic"
   ],
-  "tests_authored": 12,
+  "tests_authored": 13,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
