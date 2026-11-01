@@ -777,8 +777,7 @@ mod tests {
     #[test]
     fn wrong_subject_refutation_cannot_refute_the_current_hard_invariant() {
         let mut assessments = required_pair();
-        let mut old_subject_refutation =
-            assessment(EvaluatorRole::InvariantChecker, 17, 7);
+        let mut old_subject_refutation = assessment(EvaluatorRole::InvariantChecker, 17, 7);
         old_subject_refutation.subject_digest = digest(98);
         old_subject_refutation.outcome = AssessmentOutcome::Refutes;
         assessments.push(old_subject_refutation);
