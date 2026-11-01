@@ -102,6 +102,23 @@ This removes manual numeric-index mapping from downstream conditional EIG/EVSI
 code. It is still a library operation, not yet wired into the CLI selector or
 used to derive covariance from support relationships.
 
+## Posterior-SBC reference control
+
+The library test suite includes a separate **conditional posterior-SBC** test
+in `src/posterior_sbc.rs`. It fixes an observed dataset, computes its exact
+finite categorical posterior, draws a model from that conditional posterior,
+generates a posterior-predictive observation, updates the posterior with the
+augmented data, and computes randomized discrete PIT histograms for both model
+identity and joint log likelihood. The exact update must satisfy the
+preregistered 7–13% per-bin reference band across 4,096 replicates; an
+intentionally overconfident likelihood-power-4 update must fail at least one
+histogram.
+
+This is an exact finite categorical reference for the conditional Posterior
+SBC identity. It is not a continuous covariance/discrepancy posterior test
+and does not establish physical-model adequacy. Prior SBC remains a separate
+test.
+
 ## Correlated continuous-likelihood posterior component
 
 The crate also exposes `multivariate_gaussian`, a dense-covariance
