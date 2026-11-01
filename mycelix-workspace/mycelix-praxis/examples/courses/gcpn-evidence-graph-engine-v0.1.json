@@ -58,7 +58,7 @@
     ],
     "digest_status_note": "fixture_oracle_accepted is test-only; actual digest computation and signature verification are not implemented."
   },
-  "tests_authored": 14,
+  "tests_authored": 15,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
