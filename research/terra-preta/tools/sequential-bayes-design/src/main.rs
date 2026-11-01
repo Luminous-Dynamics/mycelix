@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod correlated_likelihood;
-
 //! Synthetic-only sequential Bayesian experiment design benchmark.
 //!
 //! The selector receives only model priors, candidate-model likelihoods,
@@ -9,6 +6,9 @@ mod correlated_likelihood;
 //! The engine performs exact finite categorical Bayesian updates; it does not
 //! claim to solve continuous physical inverse problems or correlated-noise
 //! likelihoods.
+
+#[cfg(test)]
+mod correlated_likelihood;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
