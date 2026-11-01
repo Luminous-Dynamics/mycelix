@@ -274,3 +274,16 @@ CT geometry ensemble
 ```
 
 The tensor is a bridge/physical prior, not a shortcut to tracer prediction. No solver or physical dataset was run by this update.
+
+
+## Event-conditioned macropore–matrix exchange (2026 research update)
+
+A new implementation track is open as [#5658 TERRA-EXCHANGE-001](https://github.com/Luminous-Dynamics/mycelix/issues/5658). Chaif et al. (2025), Journal of Hydrology 661, 133791, DOI [10.1016/j.jhydrol.2025.133791](https://doi.org/10.1016/j.jhydrol.2025.133791), propose a macropore–matrix exchange term formed from CT-derived specific wetted interface area and macropore water-flux density. Their reported dual-permeability model improved against measured drained/stored-water responses; exchange was largest following rainfall onset and fell toward zero before matrix saturation.
+
+The Rust library now includes a **synthetic reference operator** in `src/transient_exchange.rs`:
+
+```text
+q_exchange(t) = wetted_interfacial_area(t) * macropore_flux_density(t)
+```
+
+It linearly interpolates the two inputs and analytically integrates their product (quadratic within each interval), with unit/sign validation and a paired macropore-loss/matrix-gain storage check. It does not derive the interface from CT, solve Richards flow, or reproduce the complete published model. The paper's raw CT/infiltration data are stated as available upon request; no such data were acquired. See #5658 for the full comparative work plan.
