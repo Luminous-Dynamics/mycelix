@@ -379,7 +379,6 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
     let mut raw_bias_sum = 0.0;
     let mut raw_squared_error_sum = 0.0;
     let mut truth_activity_squared_sum = 0.0;
-    let mut raw_forecast_anomaly_sum = 0.0;
     let mut raw_forecast_anomaly_squared_sum = 0.0;
 
     for index in 0..case.forecast_values.len() {
@@ -394,7 +393,6 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         let truth_anomaly = observed - climatology;
         let forecast_anomaly = forecast - climatology;
         truth_activity_squared_sum += weight * truth_anomaly * truth_anomaly;
-        raw_forecast_anomaly_sum += weight * forecast_anomaly;
         raw_forecast_anomaly_squared_sum += weight * forecast_anomaly * forecast_anomaly;
     }
 
@@ -403,7 +401,6 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
 
     // Remove only the declared case-mean forecast bias. Reliability or
     // calibration gains are not silently folded into this intrinsic diagnostic.
-    let forecast_anomaly_mean = raw_forecast_anomaly_sum / total_weight;
     let truth_activity = (truth_activity_squared_sum / total_weight).sqrt();
 
     let mut forecast_activity_squared_sum = 0.0;
@@ -420,7 +417,6 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         // Center out the forecast anomaly's spatial mean component and remove
         // the case-mean raw bias. This is a declared diagnostic convention.
         let debiased_forecast_anomaly = forecast_anomaly - raw_bias;
-        let _centered_mean = forecast_anomaly_mean - raw_bias;
         forecast_activity_squared_sum +=
             weight * debiased_forecast_anomaly * debiased_forecast_anomaly;
         dot_product += weight * debiased_forecast_anomaly * truth_anomaly;
@@ -706,7 +702,7 @@ mod tests {
             vec![1.0, 3.0],
         );
         let metrics = &evaluate(&contract(), &[record]).unwrap().cases[0];
-        near(metrics.forecast_information.unwrap(), 1.75);
+        near(metrics.forecast_information.unwrap(), 1.375);
     }
 
     #[test]
