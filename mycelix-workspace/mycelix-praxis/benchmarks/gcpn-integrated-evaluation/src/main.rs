@@ -52,11 +52,15 @@ fn main() {
             println!("  unverified_outcomes: {}", report.forecast.unverified_outcome_records);
             println!("  missing_outcomes: {}", report.forecast.missing_outcome_records);
             println!("  invalid_probabilities: {}", report.forecast.invalid_probability_records);
+            println!("  invalid_reference_probabilities: {}", report.forecast.invalid_reference_probability_records);
             println!("  out_of_domain: {}", report.forecast.out_of_domain_records);
             println!("  abstentions: {}", report.forecast.abstentions);
             println!("  calibration_samples: {}", report.forecast.candidate_calibration_samples);
             println!("  candidate_evaluation_samples: {}", report.forecast.candidate_evaluation_samples);
             println!("  candidate_evaluation_brier: {:.6}", report.forecast.candidate_evaluation_brier);
+            println!("  candidate_evaluation_log_loss: {:.6}", report.forecast.candidate_evaluation_log_loss);
+            println!("  candidate_evaluation_ece: {:.6}", report.forecast.candidate_evaluation_ece);
+            println!("  candidate_evaluation_calibration_in_large: {:.6}", report.forecast.candidate_evaluation_calibration_in_large);
             println!("  candidate_brier_skill_vs_climatology: {:.6}", report.forecast.candidate_evaluation_brier_skill);
             println!("  lead_reference_evaluation_brier: {:.6}", report.forecast.lead_reference_evaluation_brier);
             println!("  lead_reference_brier_skill_vs_climatology: {:.6}", report.forecast.lead_reference_evaluation_brier_skill);
