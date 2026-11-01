@@ -729,3 +729,23 @@ boundary conditions or true process discrepancy. Future qualification needs
 prior sensitivity over a broad grid, model expansion penalties/complexity
 control, false-alert costs, alternative residual shapes and calibration against
 independent repeatability / instrument QA evidence.
+
+
+## 28. Correlated continuous likelihood reference primitive
+
+A test-only module
+`research/terra-preta/tools/sequential-bayes-design/src/correlated_likelihood.rs`
+implements the normalized bivariate Gaussian joint log density. Its five tests
+check:
+- exact reduction to the product of univariate densities at zero correlation;
+- correct conditional-Gaussian factorization;
+- positive / negative correlation effects on concordant and discordant residuals;
+- rejection of singular or invalid covariance parameters;
+- rejection of non-finite means and observations.
+
+This is a mathematical reference, not a covariance-aware acquisition engine.
+It does not estimate correlations, model multiple repeated observations, fit
+random effects, or link support metadata to an empirical covariance matrix.
+The tests are behind `cfg(test)` so the unused reference routine does not
+enter the production selector. Integration with a support-aware joint
+likelihood remains open under #5632.
