@@ -42,6 +42,9 @@ jobs:
           jq empty research/terra-preta/tools/sequential-bayes-design/conditional-information.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/conditional-information-report.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-conditional-information-scenario.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-state-parameter-assimilation.json
       - name: Format and test standalone crate
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
@@ -70,6 +73,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/conditional-information.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-conditional-information-scenario.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-state-parameter-assimilation.json
       - name: Execute misspecified and in-family controls
         run: |
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
@@ -234,6 +240,24 @@ jobs:
             all(.prior_stage.candidates[]; .feasible and .cost_units <= 2) and
             all(.conditional_stage.candidates[]; .feasible and .cost_units <= 2)
           ' "$RUNNER_TEMP/conditional-information-report.json"
+      - name: Execute exact state-parameter oracle versus ensemble Kalman bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin state-parameter-assimilation-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-state-parameter-assimilation.json \
+            "$RUNNER_TEMP/state-parameter-assimilation-report.json"
+          jq -e '
+            .status == "synthetic_exact_oracle_vs_ensemble_kalman_reference" and
+            .scenario_id == "joint-water-state-exchange-parameter-linear-gaussian-v0" and
+            (.exact_posterior_mean | length == 2) and
+            ((.exact_posterior_mean[0] - 0.19047619047619047) | fabs < 1e-9) and
+            ((.exact_posterior_mean[1] - 0.38095238095238093) | fabs < 1e-9) and
+            .ensemble_size_summaries | length == 3 and
+            all(.ensemble_size_summaries[]; .replicate_count == 8 and .mean_posterior_mean_rmse >= 0 and .posterior_mean_rmse_standard_error >= 0 and .mean_posterior_covariance_relative_error >= 0 and .posterior_covariance_relative_error_standard_error >= 0) and
+            ([.ensemble_size_summaries[] | select(.ensemble_size == 2048) | .mean_posterior_mean_rmse][0] < 0.05) and
+            ([.ensemble_size_summaries[] | select(.ensemble_size == 2048) | .mean_posterior_covariance_relative_error][0] < 0.15) and
+            (.runs | length == 24) and
+            all(.runs[]; .posterior_mean_rmse >= 0 and .posterior_covariance_relative_frobenius_error >= 0)
+          ' "$RUNNER_TEMP/state-parameter-assimilation-report.json"
       - name: Validate all three report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
@@ -254,6 +278,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/conditional-information-report.schema.json \
             "$RUNNER_TEMP/conditional-information-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation-report.schema.json \
+            "$RUNNER_TEMP/state-parameter-assimilation-report.json"
       - name: Upload deterministic synthetic report
         uses: actions/upload-artifact@v4
         with:
@@ -265,6 +292,7 @@ jobs:
             ${{ runner.temp }}/robust-information-report.json
             ${{ runner.temp }}/covariance-identifiability-report.json
             ${{ runner.temp }}/conditional-information-report.json
+            ${{ runner.temp }}/state-parameter-assimilation-report.json
           if-no-files-found: error
           retention-days: 30
       - name: Clippy
