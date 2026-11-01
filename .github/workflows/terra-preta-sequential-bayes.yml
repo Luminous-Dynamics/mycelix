@@ -39,6 +39,9 @@ jobs:
           jq empty research/terra-preta/tools/sequential-bayes-design/covariance-identifiability.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/covariance-identifiability-report.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/conditional-information.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/conditional-information-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-conditional-information-scenario.json
       - name: Format and test standalone crate
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
@@ -64,6 +67,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/covariance-identifiability.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/conditional-information.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-conditional-information-scenario.json
       - name: Execute misspecified and in-family controls
         run: |
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
@@ -178,6 +184,29 @@ jobs:
               ([.recovered_variance_components[0],.recovered_variance_components[1],.recovered_variance_components[2],.recovered_variance_components[3]] ==
                 [0.7,0.4,0.2,0.1]))
           ' "$RUNNER_TEMP/covariance-identifiability-report.json"
+      - name: Execute conditional correlated CT-tracer information bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin conditional-information-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-conditional-information-scenario.json \
+            "$RUNNER_TEMP/conditional-information-report.json"
+          jq -e '
+            .status == "synthetic_correlated_conditional_information_benchmark_only" and
+            .scenario_id == "ct-tracer-correlated-complementarity-v0" and
+            .prior_stage.selected_action_id == "joint_ct_tracer" and
+            .prior_stage.candidate_count == 3 and
+            .prior_stage.feasible_candidate_count == 3 and
+            ([.prior_stage.candidates[] | select(.action_id == "ct_only") | .information_gain_nats][0] | fabs < 1e-12) and
+            ([.prior_stage.candidates[] | select(.action_id == "tracer_only") | .information_gain_nats][0] | fabs < 1e-12) and
+            ([.prior_stage.candidates[] | select(.action_id == "joint_ct_tracer") | .information_gain_nats][0] > 0.2) and
+            ([.prior_stage.candidates[] | select(.action_id == "joint_ct_tracer") | .monte_carlo_standard_error_nats][0] > 0) and
+            .conditional_stage.history_action_id == "ct_only" and
+            .conditional_stage.selected_action_id == "tracer_after_ct" and
+            .conditional_stage.candidate_count == 1 and
+            ([.conditional_stage.candidates[0].information_gain_nats][0] > 0.2) and
+            ([.conditional_stage.candidates[0].monte_carlo_standard_error_nats][0] > 0) and
+            all(.prior_stage.candidates[]; .feasible and .cost_units <= 2) and
+            all(.conditional_stage.candidates[]; .feasible and .cost_units <= 2)
+          ' "$RUNNER_TEMP/conditional-information-report.json"
       - name: Validate all three report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
@@ -195,6 +224,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/covariance-identifiability-report.schema.json \
             "$RUNNER_TEMP/covariance-identifiability-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/conditional-information-report.schema.json \
+            "$RUNNER_TEMP/conditional-information-report.json"
       - name: Upload deterministic synthetic report
         uses: actions/upload-artifact@v4
         with:
@@ -205,6 +237,7 @@ jobs:
             ${{ runner.temp }}/sequential-bayes-discrepancy-state-report.json
             ${{ runner.temp }}/robust-information-report.json
             ${{ runner.temp }}/covariance-identifiability-report.json
+            ${{ runner.temp }}/conditional-information-report.json
           if-no-files-found: error
           retention-days: 30
       - name: Clippy
