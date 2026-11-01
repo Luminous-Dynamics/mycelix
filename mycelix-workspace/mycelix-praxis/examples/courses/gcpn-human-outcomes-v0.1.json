@@ -10,7 +10,7 @@
     "message_variants": 3,
     "trials_per_cell": 100,
     "total_intended_trials": 1800,
-    "fnv1a64": "0xf784d7e59e19e31f"
+    "fnv1a64": "0x019e77cec7c2246c"
   },
   "interaction_profiles": [
     "standard_smartphone",
