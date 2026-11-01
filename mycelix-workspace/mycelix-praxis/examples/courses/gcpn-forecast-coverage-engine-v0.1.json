@@ -42,7 +42,17 @@
       "implemented": true
     },
     {
-      "id": "basic_studentized_bca_block_wild_cluster",
+      "id": "independent_system_basic",
+      "role": "reflected_percentile_comparison",
+      "implemented": true
+    },
+    {
+      "id": "independent_system_studentized_bootstrap_t",
+      "role": "ratio_cluster_standard_error_candidate",
+      "implemented": true
+    },
+    {
+      "id": "bca_block_wild_cluster",
       "role": "future_qualification_work",
       "implemented": false
     }
@@ -54,14 +64,17 @@
     "mean_interval_width",
     "estimator_bias",
     "estimator_rmse",
-    "abstention_count"
+    "abstention_count",
+    "alternative_basic_studentized_empirical_coverage",
+    "studentized_valid_replicates",
+    "studentized_abstentions"
   ],
   "defaults": {
     "outer_monte_carlo_datasets": "caller-supplied",
     "bootstrap_replicates_per_interval": 20000,
     "default_confidence_level": 0.95
   },
-  "tests_authored": 10,
+  "tests_authored": 13,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
@@ -75,5 +88,11 @@
     "qualified_interval_coverage",
     "sota_superiority",
     "operational_warning_readiness"
+  ],
+  "limitations": [
+    "BCa_interval_not_implemented",
+    "stationary_or_circular_block_bootstrap_not_implemented",
+    "wild_cluster_bootstrap_t_not_implemented",
+    "confirmatory_coverage_runs_not_performed"
   ]
 }
