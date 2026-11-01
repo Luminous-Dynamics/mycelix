@@ -187,3 +187,100 @@ strata. It must compare greedy conditional EIG, batch/joint design,
 decision-focused EVSI and discrepancy-aware abstention under matched cost,
 coverage and compute budgets. It must report parameter recovery separately from
 predictive calibration and final service-decision regret.
+
+
+## 15. Executable categorical sequential engine — TERRA-VOI-005
+
+A finite categorical sequential Bayesian prototype is now added at
+`research/terra-preta/tools/sequential-bayes-design/`, with focused workflow
+`.github/workflows/terra-preta-sequential-bayes.yml`.
+
+Unlike the prior pairwise score prototype, this engine performs real Bayesian
+conditioning on each generated observation:
+
+`prior weights -> predictive outcome probabilities -> observed category ->
+posterior model weights -> next action`.
+
+It compares five policies under the same seed ensemble and hard budget /
+coverage rules:
+
+- static EIG (frozen initial-prior scores);
+- conditional EIG (recomputed after each observation);
+- decision-focused expected value of sample information (EVSI);
+- discrepancy-guarded EVSI (after a low posterior-predictive probability,
+  prioritizes an available predeclared diagnostic modality);
+- seeded random feasible.
+
+The evaluator samples observations from hidden truth outcome distributions,
+which may lie outside the candidate model family. It scores selected management
+decisions against evaluator-only truth utilities. It also records posterior
+predictive negative log score, multiclass Brier score, surprise-event rate,
+diagnostic-action frequency, final posterior entropy, cost and selection
+frequency. The selector receives none of the hidden outcome probabilities or
+truth decision utilities. An authored negative control mutates all evaluator
+truth fields and requires the selector's first action to remain unchanged.
+
+The first fixture represents matrix-flow, dual-permeability and root-channel
+candidate models plus a deliberately out-of-family preferential-flow world.
+The scenario is a method stress test, not a claim that those categorical
+probabilities or utility values describe real soil. No numeric policy ranking
+is promoted as evidence before the exact-head Rust workflow produces and
+validates the machine-readable report.
+
+### What this version actually adds
+
+- posterior model-weight updates after every categorical observation;
+- exact finite predictive probability, entropy and expected decision-value
+  calculations for each candidate measurement;
+- static versus conditional acquisition comparison;
+- a predeclared surprise threshold and diagnostic-modality response;
+- repeated deterministic synthetic-world evaluation;
+- proper predictive scoring (negative log score and multiclass Brier score)
+  alongside final decision regret.
+
+### What it deliberately does not claim
+
+- continuous observation likelihoods, censored measurements or sensor
+  calibration;
+- correlated or heteroscedastic observation noise across actions;
+- a Gaussian-process or other learned posterior over model discrepancy;
+- a continuous physical inverse solver, differentiable simulator or
+  Symtropy/HYDRUS/MACRO implementation;
+- simulation-based calibration (SBC) qualification or external posterior
+  calibration;
+- an identified cause for a predictive surprise.
+
+The guard's alert means only that the current candidate-model mixture assigned
+low predictive probability to an observed outcome. The event could arise from
+an omitted physical mechanism, bad measurement, data corruption, wrong boundary
+conditions, or a misspecified likelihood. A diagnostic action is therefore a
+controlled next measurement, not an automatic correction or causal conclusion.
+
+## 16. Research comparison and next scientific gate
+
+The benchmark must compare against stronger sequential methods, not only
+static EIG:
+
+- Zhu and Hainy (2026, v2 dated 2026-09-29) develop prediction-oriented
+  sequential Bayesian design for physical experiments informed by computer
+  models, combining mutual information with local predictive-complexity
+  information and a Kennedy–O'Hagan simulator/discrepancy/noise framework:
+  https://arxiv.org/abs/2603.16756
+- Yang, Dong and Wu (2026) propose discrepancy-aware Bayesian experimental
+  design with auto-differentiable ensemble Kalman inversion:
+  https://doi.org/10.1016/j.jcp.2025.114469
+- Tang, Sloman and Kaski (AISTATS 2026) show why representativeness,
+  informativeness and error de-amplification must be considered together under
+  model misspecification:
+  https://proceedings.mlr.press/v300/tang26d.html
+- Modrák et al. (Bayesian Analysis, 2025) show that SBC sensitivity depends on
+  the selected test quantities and recommend data-dependent checks such as
+  joint likelihood quantities:
+  https://doi.org/10.1214/23-BA1404
+
+The next gate (#5603) is to extend this finite categorical baseline with
+covariance-aware joint likelihoods, observation-support metadata, independent
+SBC worlds and an explicit discrepancy process. A later continuous benchmark
+must compare prediction-oriented sequential design, discrepancy-aware design,
+conditional EIG, decision-focused EVSI and batch/joint design under the same
+simulator-call, instrument-cost and target-coverage budgets.
