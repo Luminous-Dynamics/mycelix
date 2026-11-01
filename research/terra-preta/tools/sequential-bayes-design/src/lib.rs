@@ -8,3 +8,6 @@ pub mod correlated_likelihood;
 pub mod multivariate_gaussian;
 pub mod observation_history;
 pub mod information_gain;
+
+#[cfg(test)]
+mod posterior_sbc;
