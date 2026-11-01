@@ -1,8 +1,9 @@
 //! Known-truth forecast information/noise attribution diagnostics for GCPN.
 //!
 //! Each case is a weighted vector on a frozen spatial/temporal support.
-//! Forecast bias is reported separately and removed before the projection
-//! diagnostic. For bias-adjusted forecast anomaly F and verifying anomaly T:
+//! Raw bias and RMSE are reported separately. Forecast and verifying
+//! anomalies are each centered by their own weighted mean before projection.
+//! For mean-centered forecast anomaly F and verifying anomaly T:
 //!
 //!   p  = <F,T>_w / ||T||_w
 //!   FI = p / ||T||_w
@@ -10,7 +11,8 @@
 //!   NE = ||F - projection_T(F)||_w
 //!
 //! Under the same normalized weighted inner product:
-//!   anomaly_centered_error_std^2 = IE^2 + NE^2.
+//!   anomaly_centered_error_std^2 = IE^2 + NE^2
+//!   raw_RMSE^2 = raw_bias^2 + anomaly_centered_error_std^2.
 //!
 //! FI is deliberately not clipped to [-1, 1]. A zero truth-anomaly norm makes
 //! projection diagnostics unavailable, not zero. This package does not fit or
