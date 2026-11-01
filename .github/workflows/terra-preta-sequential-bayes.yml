@@ -150,6 +150,21 @@ jobs:
             .nominal_shannon_selection.cost_units <= .budget_units and
             .fixed_alpha_sibson_selection.cost_units <= .budget_units and
             .fixed_kl_radius_selection.cost_units <= .budget_units and
+            .gibbs_policy.precision_lambda == 5.0 and
+            ([.gibbs_policy.actions[].probability] | add | . - 1 | fabs < 1e-9) and
+            .gibbs_policy.expected_cost_units <= .budget_units and
+            .gibbs_policy.kl_to_prior_nats >= 0 and
+            ([.gibbs_policy.actions[] | select(.action_id == "ineligible_perfect_measurement") | .probability][0] == 0) and
+            ([.gibbs_policy.actions[] | select(.action_id == "over_budget_perfect_measurement") | .probability][0] == 0) and
+            .shared_kl_policy.common_dual_beta != null and
+            .shared_kl_policy.common_dual_beta >= 0 and
+            (.shared_kl_policy.alpha - (.shared_kl_policy.common_dual_beta / (1 + .shared_kl_policy.common_dual_beta))) | fabs < 1e-9 and
+            .shared_kl_policy.expected_cost_units <= .budget_units and
+            (.shared_kl_policy.robust_policy_value_nats -
+              (.shared_kl_policy.expected_sibson_information_nats - .shared_kl_policy.adversarial_kl_penalty_nats)) | fabs < 1e-9 and
+            (.shared_kl_policy.adversarial_kl_penalty_nats >= 0) and
+            ([.shared_kl_policy.action_probabilities[].probability] | add | . - 1 | fabs < 1e-9) and
+            all(.shared_kl_policy.action_probabilities[]; .probability >= 0) and
             all(.candidate_summaries[]; .shannon_information_nats >= 0 and .sibson_information_nats >= 0 and .effective_kl_radius_nats >= 0) and
             ([.candidate_summaries[] | select(.action_id == "redundant_ct_repeat") | .sibson_information_nats][0] < 1e-12) and
             ([.candidate_summaries[] | select(.action_id == "ineligible_perfect_measurement") | .feasible_under_budget][0] == false) and
