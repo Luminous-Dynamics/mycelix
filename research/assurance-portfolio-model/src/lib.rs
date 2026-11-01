@@ -294,11 +294,13 @@ pub fn compose(
         return Ok(report(
             profile,
             CompositionDisposition::HardInvariantRefuted,
-            unique_assessment_count,
-            current.len(),
-            duplicate_replay_count,
-            wrong_subject_assessment_count,
-            non_current_assessment_count,
+            AssessmentCounts {
+                unique: unique_assessment_count,
+                current: current.len(),
+                duplicate_replays: duplicate_replay_count,
+                wrong_subject: wrong_subject_assessment_count,
+                non_current: non_current_assessment_count,
+            },
             fault_domains,
             reasons,
         ));
@@ -414,24 +416,30 @@ pub fn compose(
     Ok(report(
         profile,
         disposition,
-        unique_assessment_count,
-        current.len(),
-        duplicate_replay_count,
-        wrong_subject_assessment_count,
-        non_current_assessment_count,
+        AssessmentCounts {
+            unique: unique_assessment_count,
+            current: current.len(),
+            duplicate_replays: duplicate_replay_count,
+            wrong_subject: wrong_subject_assessment_count,
+            non_current: non_current_assessment_count,
+        },
         fault_domains,
         reasons,
     ))
 }
 
+struct AssessmentCounts {
+    unique: usize,
+    current: usize,
+    duplicate_replays: usize,
+    wrong_subject: usize,
+    non_current: usize,
+}
+
 fn report(
     profile: &ClaimProfile,
     disposition: CompositionDisposition,
-    unique_assessment_count: usize,
-    current_assessment_count: usize,
-    duplicate_replay_count: usize,
-    wrong_subject_assessment_count: usize,
-    non_current_assessment_count: usize,
+    counts: AssessmentCounts,
     fault_domains: Vec<FaultDomainReport>,
     reasons: BTreeSet<CompositionReason>,
 ) -> CompositionReport {
@@ -439,11 +447,11 @@ fn report(
         claim_id: profile.claim_id.clone(),
         subject_digest: profile.subject_digest,
         disposition,
-        unique_assessment_count,
-        current_assessment_count,
-        duplicate_replay_count,
-        wrong_subject_assessment_count,
-        non_current_assessment_count,
+        unique_assessment_count: counts.unique,
+        current_assessment_count: counts.current,
+        duplicate_replay_count: counts.duplicate_replays,
+        wrong_subject_assessment_count: counts.wrong_subject,
+        non_current_assessment_count: counts.non_current,
         fault_domains,
         reasons: reasons.into_iter().collect(),
     }
