@@ -3,7 +3,7 @@ use gcpn_integrated_evaluation::integrated_report;
 fn main() {
     match integrated_report() {
         Ok(report) => {
-            println!("GCPN integrated synthetic evaluation v0.4");
+            println!("GCPN integrated synthetic evaluation v0.5");
             println!();
             println!("[1] Civil record integrity");
             println!("  cases: {}", report.civil_record.case_count);
@@ -58,6 +58,10 @@ fn main() {
             println!("  calibration_samples: {}", report.forecast.candidate_calibration_samples);
             println!("  candidate_evaluation_samples: {}", report.forecast.candidate_evaluation_samples);
             println!("  candidate_evaluation_brier: {:.6}", report.forecast.candidate_evaluation_brier);
+            println!("  candidate_evaluation_brier_reliability: {:.6}", report.forecast.candidate_evaluation_brier_reliability);
+            println!("  candidate_evaluation_brier_resolution: {:.6}", report.forecast.candidate_evaluation_brier_resolution);
+            println!("  candidate_evaluation_brier_uncertainty: {:.6}", report.forecast.candidate_evaluation_brier_uncertainty);
+            println!("  candidate_evaluation_brier_decomposition_residual: {:.12}", report.forecast.candidate_evaluation_brier_decomposition_residual);
             println!("  candidate_evaluation_log_loss: {:.6}", report.forecast.candidate_evaluation_log_loss);
             println!("  candidate_evaluation_ece: {:.6}", report.forecast.candidate_evaluation_ece);
             println!("  candidate_evaluation_calibration_in_large: {:.6}", report.forecast.candidate_evaluation_calibration_in_large);
@@ -67,6 +71,14 @@ fn main() {
             println!("  heat_72h_candidate_samples: {}", report.forecast.candidate_heat_72h_evaluation_samples);
             println!("  heat_72h_candidate_brier: {:.6}", report.forecast.candidate_heat_72h_evaluation_brier);
             println!("  heat_72h_candidate_brier_skill: {:.6}", report.forecast.candidate_heat_72h_evaluation_brier_skill);
+
+            println!();
+            println!("  drift_fixture_oracle: {}", report.forecast.drift_fixture_oracle_matches);
+            println!("  drift_records: {}", report.forecast.drift_record_count);
+            println!("  drift_profiles: {}", report.forecast.drift_profile_count);
+            println!("  stable_control_first_drift_sequence: {}", report.forecast.stable_drift_first_sequence.map(|x| x.to_string()).unwrap_or_else(|| "none".to_owned()));
+            println!("  gradual_drift_first_sequence: {}", report.forecast.gradual_drift_first_sequence.map(|x| x.to_string()).unwrap_or_else(|| "none".to_owned()));
+            println!("  abrupt_shift_first_sequence: {}", report.forecast.abrupt_drift_first_sequence.map(|x| x.to_string()).unwrap_or_else(|| "none".to_owned()));
 
             println!();
             println!("[6] Lifecycle cost and accessible reach");
