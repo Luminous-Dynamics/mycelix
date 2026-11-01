@@ -713,8 +713,8 @@ mod tests {
     fn fixture_oracle_detects_data_quality_and_leakage_controls() {
         let report = fixture_report().unwrap();
         assert!(report.fixture_oracle_matches(), "{report:?}");
-        assert_eq!(report.record_count, 47);
-        assert_eq!(report.scored_record_count, 36);
+        assert_eq!(report.record_count, 65);
+        assert_eq!(report.scored_record_count, 54);
         assert_eq!(report.duplicate_records, 1);
         assert_eq!(report.late_forecasts, 1);
         assert_eq!(report.unverified_outcome_records, 1);
@@ -753,11 +753,11 @@ mod tests {
     #[test]
     fn lead_conditioned_reference_is_scored_alongside_climatology_and_candidate() {
         let report = fixture_report().unwrap();
-        let persistence = report.model_summary("lead_reference", Partition::Evaluation).unwrap();
+        let lead_reference = report.model_summary("lead_reference", Partition::Evaluation).unwrap();
         let climatology = report.model_summary("climatology", Partition::Evaluation).unwrap();
-        assert_eq!(persistence.sample_count, 12);
-        assert!((persistence.brier_score - 0.04).abs() < 1e-12);
-        assert!((persistence.brier_skill_score.unwrap() - 0.84).abs() < 1e-12);
+        assert_eq!(lead_reference.sample_count, 12);
+        assert!((lead_reference.brier_score - 0.04).abs() < 1e-12);
+        assert!((lead_reference.brier_skill_score.unwrap() - 0.84).abs() < 1e-12);
         assert_eq!(climatology.sample_count, 12);
         assert!((climatology.brier_score - 0.25).abs() < 1e-12);
     }
