@@ -63,10 +63,11 @@ This is only a simple differencing negative control. Minimum-cell suppression is
 
 ## 6. Authored tests
 
-Eleven Rust tests are included:
+Twelve Rust tests are included:
 - aggregate conservation while movement-constrained cohorts remain represented;
 - overdrawn and unknown flows fail closed;
 - duplicate population cells rejected;
+- self-zone movement and aggregate count overflow are rejected;
 - channel receipts do not substitute for unique reach;
 - unknown union keeps effective and duplicate reach unknown;
 - accessible reach cannot exceed unique timely reach;
