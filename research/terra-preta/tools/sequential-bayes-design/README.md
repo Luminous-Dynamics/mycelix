@@ -73,9 +73,12 @@ A repeated measurement must have a new coordinate identity. Support metadata
 is retained as metadata; support overlap is not translated into a correlation
 coefficient.
 
-This makes the matrix-to-measurement mapping explicit, but does not yet attach
-these types to the CLI selector or derive a covariance model from support
-relationships.
+The `conditional_prediction_for_action` bridge takes candidate models,
+the layout, an observed history and a candidate action, then returns the
+posterior-weighted conditional Gaussian predictive components for that action.
+This removes manual numeric-index mapping from downstream conditional EIG/EVSI
+code. It is still a library operation, not yet wired into the CLI selector or
+used to derive covariance from support relationships.
 
 ## Correlated continuous-likelihood posterior component
 
