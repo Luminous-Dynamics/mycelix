@@ -1,0 +1,253 @@
+# Cross-Modal CT–Tracer Observation-Operator Benchmark v0.1
+
+**Status:** research specification only. No CT volume has been processed by this benchmark, no tracer experiment has been run, and no empirical predictive or decision advantage is claimed.
+
+**Tracker:** [TERRA-OBS-001 / #5643](https://github.com/Luminous-Dynamics/mycelix/issues/5643)
+
+**Dependencies:** #5536 (known-truth preferential-flow simulator), #5548 (3D pore-network connectivity), #5550 (CT-informed interface exchange), #5580 (root/connectivity causal mediation), #5601 (sequential non-additive design), #5602 (physical reference simulators), and #5632 (covariance-aware likelihoods and SBC).
+
+## 1. Research thesis
+
+A soil investigation needs to distinguish what a measurement can resolve from what the physical system is doing.
+
+The benchmark separates:
+
+- **Geometric topology** — pore bodies, throats, bottlenecks, connected components, orientation and resolution-dependent percolation.
+- **Hydraulic activation** — which geometrically available pathways actually conduct water under the current saturation/matric state, boundary conditions and event forcing.
+- **Transport response** — arrival-time distributions, breakthrough shape, early bypass, matrix exchange, tailing, residence time and recovered mass.
+- **Measurement** — finite-support, noisy outputs produced by the CT or tracer observation operator.
+
+The intended scientific bridge is:
+
+```
+latent pore geometry
+       +
+hydraulic state and boundary conditions
+       |
+       v
+hydraulically active pore network
+       |
+       v
+water and solute transport
+       |
+       +-------------------------+
+       |                         |
+       v                         v
+  CT observation             tracer observation
+  finite volume              finite depth/time
+  finite resolution          finite sampling cadence
+  segmentation               detection/censoring
+  image noise                 concentration/mass error
+       |                         |
+       +------------+------------+
+                    v
+       support-aware inference/design
+                    |
+                    v
+       posterior, discrepancy, decision
+```
+
+A geometrically percolating network is not a certificate of hydraulic activity. A breakthrough curve does not identify the pore-scale route uniquely. The combination may be highly informative, redundant, or misleading depending on the observation supports and error processes.
+
+## 2. Observation-operator formulation
+
+Let the latent physical state be
+
+```text
+Z = (G, A(x,t), H(x,t), C(x,t), B)
+```
+
+where:
+
+- `G` is the geometric pore/throat network;
+- `A(x,t)` is the hydraulically active state;
+- `H(x,t)` denotes hydraulic state and forcing;
+- `C(x,t)` is the transported tracer concentration field;
+- `B` contains specimen, batch and other shared effects.
+
+The observations are not direct readings of `Z`:
+
+```text
+Y_CT     = O_CT(G; resolution, FOV, reconstruction, segmentation)
+           + image noise + CT/operator discrepancy
+
+Y_tracer = O_tracer(G, A, H, C; injection, flow, collection support,
+                    cadence, censoring, calibration)
+           + measurement noise + transport/operator discrepancy
+```
+
+The two observation operators have distinct physical and numerical limitations. Correlation can arise through shared latent state, specimen, batch, instrument drift or processing, but it must be represented by declared mechanisms or estimated from suitable paired evidence. Support overlap alone must never be converted into a correlation coefficient.
+
+The model must keep at least the following uncertainty sources separate:
+
+1. physical parameter uncertainty;
+2. measurement noise and instrument calibration uncertainty;
+3. CT reconstruction and segmentation uncertainty;
+4. tracer sampling and concentration-to-mass uncertainty;
+5. shared specimen/batch/instrument effects;
+6. physical-model discrepancy;
+7. observation-operator discrepancy.
+
+## 3. CT observation operator
+
+The CT operator must accept or record:
+
+- field-of-view geometry and sample dimensions;
+- anisotropic voxel pitch and reconstruction version;
+- spatial resolution / point-spread assumptions where known;
+- partial-volume and boundary-truncation controls;
+- reconstruction noise or synthetic artifact model;
+- segmentation algorithm, threshold and parameter digest;
+- minimum resolvable pore and throat sizes;
+- connected-component and boundary-label rules;
+- network extractor/version and all extraction parameters.
+
+The operator outputs an observed network plus uncertainty/provenance metadata. It must not expose the synthetic ground-truth network to the selector.
+
+A segmentation ensemble is preferred to a single unquestioned threshold. Report network topology separately for each variant; do not average incompatible graphs into an invented consensus network.
+
+## 4. Tracer observation operator
+
+The tracer operator must accept or record:
+
+- injection mass, concentration and input waveform;
+- antecedent state and hydraulic boundary conditions;
+- collection depth and spatial support;
+- sample start/end times and actual cadence;
+- instrument calibration and detection limit;
+- censored / below-detection observations;
+- missing intervals and whether interpolation is prohibited;
+- concentration-to-mass conversion and flow integration;
+- recovered mass and uncertainty;
+- declared non-reactive transport assumptions for the initial benchmark.
+
+The score must not reduce a breakthrough curve to peak concentration or one global RMSE. Keep first observed arrival (interval-censored where appropriate), rising limb, peak, inflection/curve shape, cumulative recovered mass, long-time tail and residence-time summaries distinct.
+
+## 5. Proving families and adversarial controls
+
+The synthetic generator should include independent mechanism families, not just many seeds of one convenient fixture.
+
+| Family | Adversarial condition | Required diagnostic |
+|---|---|---|
+| Same porosity / different topology | Equal bulk porosity, different bottlenecks and percolating paths | Topology and transport recovery |
+| Geometric but inactive | CT sees a connected path that is dry, air-blocked or above its activation threshold | Zero false hydraulic-path certificate |
+| Active but unresolved | Conducting path is below the CT resolution | Tracer-supported uncertainty / abstention |
+| Segmentation sensitivity | Plausible thresholds create/remove apparent connectivity | Per-variant topology and calibrated uncertainty |
+| Same geometry / different hydraulic state | Entry pressure, saturation or exchange differs | Conditional tracer prediction |
+| Similar early arrival / different tail | Curves agree near peak but diverge in tail and recovery | Tail, residence-time and mass-recovery score |
+| Shared specimen effects | CT and tracer share core/preparation/batch | Hierarchical dependence recovery |
+| Repeated sensor drift | Same tracer sensor/assay has temporal drift | Temporal covariance ablation |
+| Paired vs adjacent cores | Same core, paired block cores or independent specimens | Correct assignment/support hierarchy |
+| Support mismatch | CT volume and tracer collection column do not coincide | Spatial-support uncertainty |
+| Sparse/censored sampling | First arrival and late tail are missed | Interval/censoring-aware predictions |
+| Out-of-family physics | Missing exchange, lateral flow or an unmodeled pathway | Predictive discrepancy and diagnostic/abstention response |
+
+Include matrix-only, no-flow, disconnected-path, geometrically-connected-but-inactive and closed-mass-balance controls. A control with a known null must not become an apparent success merely because its uncertainty is broad.
+
+## 6. Adaptive design bake-off
+
+The candidate action pool should distinguish acquisition of new specimens from repeated measurements on the same specimen. Candidate actions include CT at multiple declared resolutions, tracer under specified forcing, repeated tracer collection, repeat CT/segmentation, and independent or paired-core replication.
+
+Compare:
+
+- CT-only, tracer-only, repeated-CT and repeated-tracer;
+- static additive marginal-score selection;
+- pairwise/joint selection with diagonal independence;
+- support-aware joint likelihood and conditional information gain;
+- decision-focused EVSI;
+- discrepancy-aware diagnostic acquisition and abstention;
+- random feasible and expert-fixed schedules;
+- exact adaptive action-sequence oracle on small worlds.
+
+The selector receives only declared candidate-model predictions, support metadata, costs, eligibility and permitted posterior state. The evaluator retains the hidden physical truth and uses it only after selection to generate observations and score decisions. Truth mutation must not alter selector inputs or selection.
+
+Use common random numbers keyed by world, replicate and action ID where potential outcomes can validly be paired. Keep policy-dependent randomness separate.
+
+### Non-additive quantities
+
+For a latent target `θ`, report:
+
+```text
+I(θ; Y_CT)
+I(θ; Y_tracer)
+I(θ; Y_CT, Y_tracer)
+I(θ; Y_tracer | Y_CT)
+I(θ; Y_CT | Y_tracer)
+```
+
+Also report decision EVSI and regret. Joint information greater than the best single action is evidence of complementary information for the stated target, but it is not automatically decision value. A nuisance variable can be highly identifiable and irrelevant to the service decision.
+
+## 7. Evaluation and qualification
+
+### Scientific/physical
+
+- CT percolation and bottleneck recovery by resolution and segmentation variant;
+- geometric vs hydraulically active pathway discrimination;
+- early, peak, shape, tail and residence-time tracer errors;
+- cumulative solute mass recovery;
+- water/solute conservation residual;
+- parameter and discrepancy identifiability;
+- false pathway certificates and missed active pathways.
+
+### Statistical
+
+- common held-out expected log predictive density;
+- Brier score for declared categorical outcomes;
+- CRPS / interval score for continuous outcomes where supported;
+- nominal 90% interval coverage and width, overall and by support stratum;
+- simulation-based calibration for model, parameter, decision-functional and data-dependent joint-likelihood quantities;
+- posterior predictive checks and cross-seed reproducibility.
+
+Prequential scores for policy-selected observations must be reported separately from a common held-out probe set: acquisition policies see different measurement streams, and selected-stream scores are not a matched calibration contest.
+
+### Decision and operational
+
+- true service-decision regret and utility;
+- pairwise synergy over the best single action;
+- cost spent on redundant actions;
+- false diagnostic and missed-discrepancy rates;
+- abstention and unsupported-domain rates;
+- budget, instrument throughput, sample count, elapsed time and compute;
+- exact-oracle gaps or certified bounds for approximations.
+
+### Proposed gates (not results)
+
+- 100% budget, eligibility and independent-unit target-coverage compliance;
+- zero false hydraulic-path certificates on deterministic null controls;
+- ≤1% water/solute mass-balance residual in closed noise-free synthetic references;
+- 85–95% coverage for nominal 90% intervals on adequately replicated held-out worlds, reported by resolution/support stratum;
+- the correct support-aware likelihood improves held-out predictive score over diagonal independence when dependence exists, while matching the independent likelihood in independence controls;
+- no deterministic percolation claim when plausible segmentation variants disagree beyond a preregistered tolerance;
+- exact small-world oracle regret of zero within numerical tolerance;
+- any claimed ≥10% predictive/decision improvement over the strongest matched baseline must have a paired uncertainty interval excluding zero, with no material degradation in calibration, conservation, false certification or worst-stratum performance.
+
+The gates require preregistration and adequate independent-world replication. They are not universal agronomic tolerances or evidence of field superiority.
+
+## 8. Relation to existing physical comparators
+
+HYDRUS, MACRO and RZWQM2 are not interchangeable competitors. Match them only on supported configurations and observables. The HYDRUS 6 DualPerm module documentation describes a two-dimensional dual-permeability flow/transport formulation in the HYDRUS (2D/3D) package; this add-on should not be described as a generic 1D–3D DualPerm capability. MACRO 5.2 is a one-dimensional water-flow and reactive-solute model; USDA lists RZWQM2 4.8 as a one-dimensional whole-system model with pseudo-2D drainage.
+
+This benchmark does not need to outperform those simulators on every physical-forward task. A credible advantage would be lower experiment cost or regret for a specified decision, better calibrated transfer under support shift, earlier detection of model inadequacy, or better measurement selection while matching the physical comparator's supported task.
+
+## 9. Literature anchors and their limits
+
+- Van Offenwert, Cnudde & Bultreys (2019), *Pore-Scale Visualization and Quantification of Transient Solute Transport Using Fast Microcomputed Tomography*, Water Resources Research, DOI: https://doi.org/10.1029/2019WR025880. Demonstrates pore-resolved transient tracer imaging in sintered glass and Bentheimer sandstone. The authors report substantial single-voxel concentration uncertainty that falls sharply under pore-level aggregation. This is a measurement-method analogue, not direct soil validation.
+- *Zero-tillage induces significant changes to the soil pore network and hydraulic function after 7 years* (2024), Geoderma: https://www.sciencedirect.com/science/article/pii/S0016706124001630. Combines X-ray CT and solute breakthrough in undisturbed soil columns.
+- Chandel et al. (2026), *Non-reactive solute transport in coupled macro-meso-micro porous system*, Journal of Contaminant Hydrology 284, 105144, DOI: https://doi.org/10.1016/j.jconhyd.2026.105144. Reports segment-dependent sensitivity across breakthrough and highlights cumulative mass recovery and tail behavior as important fitting targets.
+- HYDRUS 6 DualPerm official documentation: https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/DualPermModule.html.
+
+These publications motivate the test cases; they do not establish that our implementation improves on a published method.
+
+## 10. Implementation stages
+
+1. Implement a small deterministic pore/throat graph and hydraulic-activation truth generator.
+2. Implement the CT and tracer operators as separate truth-side modules; expose only support-bounded observations.
+3. Add specimen/batch/instrument random effects and covariance controls.
+4. Connect the support-aware joint likelihood to #5632, preserving the selector/evaluator firewall.
+5. Add report schemas, oracle checks, negative controls, and a focused Rust workflow.
+6. Freeze a multi-family seed manifest and compare all policies at equal resources.
+7. Only after source/license review and qualified scientific review, evaluate public datasets; no local South African transfer claim without independent local reference measurements.
+
+## 11. Evidence and safety boundary
+
+Software and synthetic benchmark only. This specification does not authorize sample collection, CT scanning, tracer injection, land access, amendment application, material handling or field trials. Empirical data use requires source/license review, provenance, data governance and qualified review. No agronomic recommendation, product efficacy or field-transfer claim follows from synthetic success.
