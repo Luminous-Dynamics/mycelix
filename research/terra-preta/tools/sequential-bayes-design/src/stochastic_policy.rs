@@ -58,6 +58,26 @@ pub struct SharedKlPolicyValue {
     pub policy_probabilities: Vec<f64>,
 }
 
+/// Gibbs-regularized robust policy optimized jointly over alpha(beta)
+/// and the finite action distribution.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OptimizedRobustGibbsPolicy {
+    pub precision_lambda: f64,
+    pub requested_average_kl_radius_nats: f64,
+    /// One shared dual variable for the stochastic policy.
+    /// None is the nominal beta -> infinity limit at zero KL radius.
+    pub common_dual_beta: Option<f64>,
+    pub alpha: f64,
+    pub action_weights: Vec<GibbsActionWeight>,
+    pub expected_sibson_information_nats: f64,
+    pub policy_kl_to_prior_nats: f64,
+    pub policy_complexity_penalty_nats: f64,
+    pub adversarial_kl_penalty_nats: f64,
+    /// E_pi[I_alpha] - KL(pi||pi0)/lambda - beta*rho.
+    pub robust_regularized_value_nats: f64,
+    pub expected_cost_units: f64,
+}
+
 /// Inputs to the finite-sample PAC-Bayes lower-bound formula.
 ///
 /// Constants must be externally justified under the paper's assumptions.
@@ -454,6 +474,186 @@ pub fn gibbs_policy_from_rewards(
     })
 }
 
+fn evaluate_gibbs_policy_at_beta(
+    candidates: &[StochasticPolicyCandidate],
+    prior_policy: &[f64],
+    hard_action_cost_cap_units: u64,
+    average_kl_radius_nats: f64,
+    precision_lambda: f64,
+    beta: f64,
+) -> Result<OptimizedRobustGibbsPolicy, String> {
+    let alpha = if beta.is_infinite() { 1.0 } else { beta / (1.0 + beta) };
+    let mut action_ids = Vec::with_capacity(candidates.len());
+    let mut rewards = Vec::with_capacity(candidates.len());
+    let mut eligible = Vec::with_capacity(candidates.len());
+    let mut costs = Vec::with_capacity(candidates.len());
+
+    for candidate in candidates {
+        action_ids.push(candidate.action_id.clone());
+        eligible.push(candidate.eligible);
+        costs.push(candidate.cost_units);
+        let information = if alpha <= 1e-10 {
+            0.0
+        } else if alpha >= 1.0 - 1e-12 {
+            candidate.design.shannon_mutual_information()?
+        } else {
+            candidate.design.sibson_alpha_mutual_information(alpha)?
+        };
+        rewards.push(information);
+    }
+
+    let gibbs = gibbs_policy_from_rewards(
+        &action_ids,
+        &rewards,
+        prior_policy,
+        &eligible,
+        &costs,
+        hard_action_cost_cap_units,
+        precision_lambda,
+    )?;
+    let adversarial_penalty = beta * average_kl_radius_nats;
+    let policy_complexity_penalty = gibbs.kl_to_prior_nats / precision_lambda;
+    let robust_regularized_value = gibbs.expected_information_nats
+        - policy_complexity_penalty
+        - adversarial_penalty;
+
+    Ok(OptimizedRobustGibbsPolicy {
+        precision_lambda,
+        requested_average_kl_radius_nats: average_kl_radius_nats,
+        common_dual_beta: Some(beta),
+        alpha: if alpha >= 1.0 - 1e-12 { 1.0 } else { alpha },
+        action_weights: gibbs.action_weights,
+        expected_sibson_information_nats: gibbs.expected_information_nats,
+        policy_kl_to_prior_nats: gibbs.kl_to_prior_nats,
+        policy_complexity_penalty_nats: policy_complexity_penalty,
+        adversarial_kl_penalty_nats: adversarial_penalty,
+        robust_regularized_value_nats: robust_regularized_value,
+        expected_cost_units: gibbs.expected_cost_units,
+    })
+}
+
+/// Jointly optimize the finite Gibbs policy and its single shared-KL dual.
+///
+/// For each common beta, alpha=beta/(1+beta), action rewards are the
+/// corresponding Sibson alpha-MI values, and the Gibbs distribution exactly
+/// maximizes E_pi[reward] - KL(pi||pi0)/lambda. The outer one-dimensional
+/// search maximizes that variational value minus beta*rho.
+///
+/// This is an exact-reward finite reference. It is PAC-Bayes-inspired
+/// regularization, not a PAC-Bayes confidence bound: no nested Monte Carlo
+/// estimate or theorem concentration constants are supplied here.
+pub fn optimize_gibbs_shared_kl_policy(
+    candidates: &[StochasticPolicyCandidate],
+    prior_policy: &[f64],
+    hard_action_cost_cap_units: u64,
+    average_kl_radius_nats: f64,
+    precision_lambda: f64,
+    iterations: usize,
+) -> Result<OptimizedRobustGibbsPolicy, String> {
+    validate_action_pool(candidates)?;
+    validate_policy_support(candidates, prior_policy, hard_action_cost_cap_units)?;
+    if !average_kl_radius_nats.is_finite() || average_kl_radius_nats < 0.0 {
+        return Err("average KL radius must be finite and non-negative".into());
+    }
+    if !precision_lambda.is_finite() || precision_lambda <= 0.0 {
+        return Err("Gibbs precision lambda must be finite and positive".into());
+    }
+    if iterations == 0 {
+        return Err("at least one outer dual-search iteration is required".into());
+    }
+
+    if average_kl_radius_nats == 0.0 {
+        return evaluate_gibbs_policy_at_beta(
+            candidates,
+            prior_policy,
+            hard_action_cost_cap_units,
+            0.0,
+            precision_lambda,
+            f64::INFINITY,
+        );
+    }
+
+    let mut maximum_information = 0.0_f64;
+    for (candidate, prior_probability) in candidates.iter().zip(prior_policy) {
+        if *prior_probability > 0.0 {
+            maximum_information = maximum_information
+                .max(candidate.design.shannon_mutual_information()?);
+        }
+    }
+    if maximum_information <= 1e-14 {
+        let mut result = evaluate_gibbs_policy_at_beta(
+            candidates,
+            prior_policy,
+            hard_action_cost_cap_units,
+            average_kl_radius_nats,
+            precision_lambda,
+            0.0,
+        )?;
+        result.alpha = 0.0;
+        result.common_dual_beta = Some(0.0);
+        return Ok(result);
+    }
+
+    // Since Sibson MI <= Shannon MI, beta above this bound makes the
+    // adversarial penalty dominate even the largest possible action reward.
+    let upper = maximum_information / average_kl_radius_nats;
+    if !upper.is_finite() || upper <= 0.0 {
+        return Err("Gibbs shared-KL search interval is invalid".into());
+    }
+    let objective = |beta: f64| -> Result<f64, String> {
+        Ok(evaluate_gibbs_policy_at_beta(
+            candidates,
+            prior_policy,
+            hard_action_cost_cap_units,
+            average_kl_radius_nats,
+            precision_lambda,
+            beta,
+        )?.robust_regularized_value_nats)
+    };
+
+    let golden = (5.0_f64.sqrt() - 1.0) / 2.0;
+    let mut left = 0.0;
+    let mut right = upper;
+    let mut x1 = right - golden * (right - left);
+    let mut x2 = left + golden * (right - left);
+    let mut y1 = objective(x1)?;
+    let mut y2 = objective(x2)?;
+    for _ in 0..iterations {
+        if y1 < y2 {
+            left = x1;
+            x1 = x2;
+            y1 = y2;
+            x2 = left + golden * (right - left);
+            y2 = objective(x2)?;
+        } else {
+            right = x2;
+            x2 = x1;
+            y2 = y1;
+            x1 = right - golden * (right - left);
+            y1 = objective(x1)?;
+        }
+    }
+
+    let beta_candidates = [0.0, upper, x1, x2, 0.5 * (left + right)];
+    let mut best_beta = 0.0;
+    let mut best_value = f64::NEG_INFINITY;
+    for beta in beta_candidates {
+        let value = objective(beta)?;
+        if value > best_value {
+            best_value = value;
+            best_beta = beta;
+        }
+    }
+    evaluate_gibbs_policy_at_beta(
+        candidates,
+        prior_policy,
+        hard_action_cost_cap_units,
+        average_kl_radius_nats,
+        precision_lambda,
+        best_beta,
+    )
+}
+
 /// Compute the PAC-Bayes lower-bound formula from Proposition 6.
 ///
 /// The bound is conditional on the paper's regularity and boundedness
@@ -688,6 +888,72 @@ mod tests {
             concentration_c_h: 1.0,
             sigma_w: 1.0,
         }
+    }
+
+    #[test]
+    fn optimized_gibbs_shared_kl_policy_uses_common_beta_and_normalized_actions() {
+        let candidates = ranking_candidates();
+        let policy = optimize_gibbs_shared_kl_policy(
+            &candidates, &[0.5, 0.5], 2, 0.05, 3.0, 128,
+        ).unwrap();
+
+        let beta = policy.common_dual_beta.unwrap();
+        assert!(beta.is_finite() && beta >= 0.0);
+        assert!((policy.alpha - beta / (1.0 + beta)).abs() < 1e-12);
+        assert!((policy.action_weights.iter().map(|item| item.probability).sum::<f64>() - 1.0).abs() < 1e-12);
+        assert!(policy.expected_cost_units <= 2.0);
+        assert!((policy.policy_complexity_penalty_nats
+            - policy.policy_kl_to_prior_nats / 3.0).abs() < 1e-12);
+        assert!((policy.robust_regularized_value_nats
+            - (policy.expected_sibson_information_nats
+                - policy.policy_complexity_penalty_nats
+                - policy.adversarial_kl_penalty_nats)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn optimized_gibbs_shared_kl_zero_radius_uses_nominal_shannon_limit() {
+        let candidates = ranking_candidates();
+        let policy = optimize_gibbs_shared_kl_policy(
+            &candidates, &[0.25, 0.75], 2, 0.0, 2.0, 64,
+        ).unwrap();
+        assert_eq!(policy.common_dual_beta, None);
+        assert_eq!(policy.alpha, 1.0);
+        let rewards: Vec<f64> = candidates.iter()
+            .map(|candidate| candidate.design.shannon_mutual_information().unwrap())
+            .collect();
+        assert!((policy.expected_sibson_information_nats
+            - policy.action_weights.iter().zip(&rewards)
+                .map(|(action, reward)| action.probability * reward).sum::<f64>())
+            .abs() < 1e-12);
+    }
+
+    #[test]
+    fn optimized_gibbs_policy_preserves_zero_prior_mass_and_hard_feasibility() {
+        let mut candidates = ranking_candidates();
+        candidates[1].eligible = false;
+        let policy = optimize_gibbs_shared_kl_policy(
+            &candidates, &[1.0, 0.0], 1, 0.05, 2.0, 64,
+        ).unwrap();
+        assert_eq!(policy.action_weights[1].probability, 0.0);
+        assert_eq!(policy.action_weights[0].probability, 1.0);
+        assert!(policy.expected_cost_units <= 1.0);
+        assert!(optimize_gibbs_shared_kl_policy(
+            &candidates, &[0.5, 0.5], 2, 0.05, 2.0, 64,
+        ).is_err());
+    }
+
+    #[test]
+    fn optimized_gibbs_policy_rejects_invalid_inputs() {
+        let candidates = ranking_candidates();
+        assert!(optimize_gibbs_shared_kl_policy(
+            &candidates, &[0.5, 0.5], 2, -0.1, 2.0, 64,
+        ).is_err());
+        assert!(optimize_gibbs_shared_kl_policy(
+            &candidates, &[0.5, 0.5], 2, 0.1, 0.0, 64,
+        ).is_err());
+        assert!(optimize_gibbs_shared_kl_policy(
+            &candidates, &[0.5, 0.5], 2, 0.1, 2.0, 0,
+        ).is_err());
     }
 
     #[test]
