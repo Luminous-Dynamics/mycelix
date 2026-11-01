@@ -314,10 +314,6 @@ fn is_protected(path: &str, protected_paths: &BTreeSet<String>) -> bool {
             || path
                 .strip_prefix(protected)
                 .is_some_and(|suffix| suffix.starts_with('/'))
-            || (!path.is_empty()
-                && protected
-                    .strip_prefix(path)
-                    .is_some_and(|suffix| suffix.starts_with('/')))
     })
 }
 
@@ -1148,7 +1144,13 @@ mod tests {
         .unwrap();
         assert_eq!(result.minimized_value["request"]["principal"], "actor:fixed");
         assert!(result.minimized_value.get("request").is_some());
+        assert!(result.minimized_value["request"].get("principal").is_some());
+        assert!(result.minimized_value["request"].get("unused").is_none());
         assert!(result.minimized_value.get("noise").is_none());
+        assert!(
+            result.trace.candidate_evaluations > 0,
+            "the reducer must traverse protected ancestors and evaluate unprotected siblings"
+        );
         assert!(
             !result.trace.candidates.iter().any(|candidate| {
                 candidate.path == "/request" && candidate.operation == "remove_object_member"
