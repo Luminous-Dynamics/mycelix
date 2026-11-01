@@ -199,6 +199,9 @@ impl IntegratedReport {
             && (self.lifecycle_cost.centralized_baseline_lifecycle_pv - 28_026.378583683407).abs() < 1e-6
             && (self.lifecycle_cost.regional_baseline_lifecycle_pv - 31_443.190239418658).abs() < 1e-6
             && (self.lifecycle_cost.local_first_baseline_lifecycle_pv - 38_847.468928902585).abs() < 1e-6
+            && (self.lifecycle_cost.centralized_cost_per_accessible_receiver - 15.57021032426856).abs() < 1e-6
+            && (self.lifecycle_cost.regional_cost_per_accessible_receiver - 16.99631904833441).abs() < 1e-6
+            && (self.lifecycle_cost.local_first_cost_per_accessible_receiver - 20.44603627836978).abs() < 1e-6
             && self.lifecycle_cost.zero_accessible_cost_is_undefined
             && self.lifecycle_cost.central_hub_restoration_is_scenario_scoped
     }
