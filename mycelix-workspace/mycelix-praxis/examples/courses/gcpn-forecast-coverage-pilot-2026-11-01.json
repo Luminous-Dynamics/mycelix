@@ -39,7 +39,8 @@
       "system_bootstrap_wilson95": [
         0.9167,
         0.9425
-      ]
+      ],
+      "system_basic_bootstrap_coverage": 0.9267
     },
     {
       "independent_systems": 80,
@@ -49,7 +50,8 @@
       "system_bootstrap_wilson95": [
         0.921,
         0.9461
-      ]
+      ],
+      "system_basic_bootstrap_coverage": 0.934
     },
     {
       "independent_systems": 160,
@@ -59,7 +61,8 @@
       "system_bootstrap_wilson95": [
         0.9283,
         0.9521
-      ]
+      ],
+      "system_basic_bootstrap_coverage": 0.9347
     },
     {
       "independent_systems": 320,
@@ -69,7 +72,8 @@
       "system_bootstrap_wilson95": [
         0.9297,
         0.9533
-      ]
+      ],
+      "system_basic_bootstrap_coverage": 0.9433
     }
   ],
   "interpretation": [
