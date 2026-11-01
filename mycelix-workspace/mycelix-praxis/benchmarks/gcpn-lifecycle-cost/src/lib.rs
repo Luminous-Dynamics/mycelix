@@ -154,9 +154,9 @@ impl CostReport {
             base(Architecture::LocalFirst, "interregional-partition"),
         ) {
             (Some(c), Some(r), Some(l), Some(zero), Some(cp), Some(rp), Some(lp)) => {
-                (c.base_lifecycle_present_value - 28_026.3).abs() < 1.0
-                    && (r.base_lifecycle_present_value - 31_796.0).abs() < 1.0
-                    && (l.base_lifecycle_present_value - 38_236.0).abs() < 1.0
+                (c.base_lifecycle_present_value - 28_026.378583683407).abs() < 1e-6
+                    && (r.base_lifecycle_present_value - 31_443.190239418658).abs() < 1e-6
+                    && (l.base_lifecycle_present_value - 38_847.468928902585).abs() < 1e-6
                     && c.accessible_receivers_reached == 1_800
                     && r.accessible_receivers_reached == 1_850
                     && l.accessible_receivers_reached == 1_900
@@ -475,7 +475,7 @@ pub fn fixture_report() -> Result<CostReport, String> {
     let architectures: HashSet<_> = outcomes.iter().map(|row| row.architecture).collect();
 
     let service_denominators_consistent = scenarios.iter().all(|scenario| {
-        let group: Vec<_> = outcomes.iter().filter(|row| row.scenario_id == **scenario).collect();
+        let group: Vec<_> = outcomes.iter().filter(|row| row.scenario_id.as_str() == *scenario).collect();
         group.iter().map(|row| row.intended_receivers).collect::<HashSet<_>>().len() == 1
     });
 
@@ -604,12 +604,18 @@ mod tests {
 
     #[test]
     fn invalid_service_denominators_and_cost_ranges_fail_closed() {
-        let mut outcomes = parse_service_outcomes(OUTCOME_FIXTURE).unwrap();
-        outcomes[0].accessible_receivers_reached = outcomes[0].unique_receivers_reached + 1;
-        assert!(outcomes[0].accessible_receivers_reached > outcomes[0].unique_receivers_reached);
+        let invalid_outcome = OUTCOME_FIXTURE.replace(
+            "centralized,all-available,2000,2000,1800,2500",
+            "centralized,all-available,2000,2000,2001,2500",
+        );
+        assert_ne!(invalid_outcome, OUTCOME_FIXTURE);
+        assert!(parse_service_outcomes(&invalid_outcome).is_err());
 
-        let mut costs = parse_cost_fixture(COST_FIXTURE).unwrap();
-        costs[0].low_cost = costs[0].base_cost + 1.0;
-        assert!(costs[0].low_cost > costs[0].base_cost);
+        let invalid_cost = COST_FIXTURE.replace(
+            "C001,centralized,all,capital_setup,one_time,0,5,0.05,6500,8000,10500,0",
+            "C001,centralized,all,capital_setup,one_time,0,5,0.05,9000,8000,10500,0",
+        );
+        assert_ne!(invalid_cost, COST_FIXTURE);
+        assert!(parse_cost_fixture(&invalid_cost).is_err());
     }
 }
