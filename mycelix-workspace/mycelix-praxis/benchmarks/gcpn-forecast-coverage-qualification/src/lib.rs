@@ -549,7 +549,7 @@ fn ratio_cluster_standard_error(units: &[(f64, usize)], estimate: f64) -> Option
     let mean_n = total_n as f64 / count;
     let residuals: Vec<f64> = units
         .iter()
-        .map(|(difference, n)| difference - estimate * *n as f64)
+        .map(|(difference, n)| *difference - estimate * (*n as f64))
         .collect();
     let residual_mean = residuals.iter().sum::<f64>() / count;
     let sample_variance = residuals
