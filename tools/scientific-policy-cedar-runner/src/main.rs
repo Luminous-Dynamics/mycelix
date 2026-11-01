@@ -947,7 +947,14 @@ fn evaluate_policy_pair(
         || !case.cedar.request.context.is_object()
         || !case.rego.input.is_object()
     {
-        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), "invalid".to_owned(), 0, 0));
+        return Ok(PolicyPairEvaluation {
+            cedar_decision: "invalid".to_owned(),
+            opa_decision: "invalid".to_owned(),
+            cedar_policy_ids: Vec::new(),
+            opa_rule_id: "invalid".to_owned(),
+            cedar_latency_ns: 0,
+            opa_latency_ns: 0,
+        });
     }
     let (cedar_decision, cedar_policy_ids, construction_ns, authorization_ns) =
         match evaluate_case(authorizer, policy_set, schema, &case) {
@@ -956,14 +963,14 @@ fn evaluate_policy_pair(
                 return Err(message);
             }
             Err(_) => {
-                return Ok((
-                    "invalid".to_owned(),
-                    "invalid".to_owned(),
-                    Vec::new(),
-                    "invalid".to_owned(),
-                    0,
-                    0,
-                ));
+                return Ok(PolicyPairEvaluation {
+                    cedar_decision: "invalid".to_owned(),
+                    opa_decision: "invalid".to_owned(),
+                    cedar_policy_ids: Vec::new(),
+                    opa_rule_id: "invalid".to_owned(),
+                    cedar_latency_ns: 0,
+                    opa_latency_ns: 0,
+                });
             }
         };
     let (opa_effect, opa_rule, opa_elapsed_ns) =
@@ -1070,7 +1077,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     }
     let authorizer = Authorizer::new();
 
-    let initial = evaluate_policy_pair( = evaluate_policy_pair(
+    let initial = evaluate_policy_pair(
         &initial_value,
         &authorizer,
         &policy_set,
@@ -1247,7 +1254,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &schema,
         &pinned_opa.path,
         &pinned_rego.path,
-)?;
+    )?;
     let minimized_cedar = minimized.cedar_decision;
     let minimized_opa = minimized.opa_decision;
     let minimized_cedar_policy_ids = minimized.cedar_policy_ids;
