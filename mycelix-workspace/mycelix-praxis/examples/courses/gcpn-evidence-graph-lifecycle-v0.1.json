@@ -1,0 +1,252 @@
+{
+  "benchmark_id": "GCPN-EVIDENCE-GRAPH-LIFECYCLE",
+  "version": "0.1.0",
+  "status": "research-specification-not-yet-executable",
+  "parent_issue": 5646,
+  "parent_integration": {
+    "pull_request": 5640,
+    "branch": "research/gcpn-integrated-evaluation-v0-6"
+  },
+  "interoperability": {
+    "provenance_model": "W3C_PROV_D​​M_PROV_N_inspired",
+    "alert_message_standard": "CAP_1_2",
+    "itu_recommendation": "X.1303_bis",
+    "gcpn_role": "separate_versioned_evidence_and_audit_sidecar",
+    "must_not_replace": [
+      "national_warning_authority",
+      "national_MHEWS",
+      "CAP_message_format",
+      "forecast_producer",
+      "emergency_response_organization"
+    ]
+  },
+  "temporal_model": {
+    "clocks": [
+      "valid_or_event_time",
+      "transaction_or_knowledge_time"
+    ],
+    "fields": [
+      "valid_from",
+      "valid_to",
+      "recorded_at",
+      "source_created_at",
+      "observed_at",
+      "superseded_at",
+      "revocation_effective_at",
+      "revocation_recorded_at",
+      "policy_version"
+    ],
+    "required_queries": [
+      "current_view",
+      "transaction_time_as_of_view"
+    ],
+    "invariant": "later_arrival_or_revocation_must_not_rewrite_prior_transaction_time_snapshot"
+  },
+  "node_classes": {
+    "entity": [
+      "source_observation",
+      "forecast_product",
+      "authority_assertion",
+      "cap_message_version",
+      "delivery_receipt",
+      "accessible_rendering",
+      "comprehension_observation",
+      "action_record",
+      "outcome_evaluation"
+    ],
+    "activity": [
+      "observe",
+      "ingest",
+      "forecast",
+      "verify",
+      "authorize",
+      "publish",
+      "transform",
+      "transmit",
+      "render",
+      "assess",
+      "act",
+      "evaluate",
+      "revoke"
+    ],
+    "agent": [
+      "source_institution",
+      "forecast_provider",
+      "warning_authority",
+      "channel_provider",
+      "intermediary",
+      "reviewer",
+      "independent_evaluator"
+    ]
+  },
+  "relation_types": [
+    "used",
+    "wasGeneratedBy",
+    "wasAssociatedWith",
+    "wasAttributedTo",
+    "wasDerivedFrom",
+    "supports",
+    "contradicts",
+    "supersedes",
+    "revokes",
+    "references",
+    "deliveredAs",
+    "renderedAs",
+    "assessedBy",
+    "actionEvidenceFor",
+    "evaluatedBy"
+  ],
+  "evidence_dimensions": {
+    "integrity": [
+      "unchecked",
+      "digest_valid",
+      "digest_mismatch"
+    ],
+    "authenticity": [
+      "unknown",
+      "verified",
+      "failed",
+      "revoked_key"
+    ],
+    "authority": [
+      "not_asserted",
+      "in_scope",
+      "out_of_scope",
+      "expired",
+      "revoked",
+      "disputed"
+    ],
+    "evidence_validity": [
+      "unknown",
+      "valid_under_policy",
+      "invalid",
+      "stale",
+      "incomplete"
+    ],
+    "corroboration": [
+      "uncorroborated",
+      "independent_support",
+      "dependent_support",
+      "contradiction_present"
+    ],
+    "lifecycle": [
+      "current",
+      "superseded",
+      "cancelled",
+      "expired",
+      "withdrawn"
+    ],
+    "privacy": [
+      "public_safe",
+      "restricted",
+      "prohibited_leak"
+    ]
+  },
+  "cap_lifecycle": {
+    "message_types": [
+      "Alert",
+      "Update",
+      "Cancel",
+      "Ack",
+      "Error"
+    ],
+    "preserved_fields": [
+      "sender",
+      "identifier",
+      "sent",
+      "status",
+      "msgType",
+      "references",
+      "expires",
+      "scope",
+      "info"
+    ],
+    "controls": [
+      "update_requires_exact_prior_reference",
+      "cancel_requires_exact_prior_reference",
+      "predecessor_bytes_immutable",
+      "expiry_distinct_from_cancel",
+      "receipt_not_comprehension_or_action"
+    ]
+  },
+  "cryptography": {
+    "payload_digest": "SHA-256-or-explicitly-versioned-cryptographic-alternative",
+    "record_algorithm_and_exact_input_bytes": true,
+    "fnv1a_role": "fixture_regression_checksum_only",
+    "fnv1a_is_secure_digest": false
+  },
+  "mutation_families": [
+    "missing_source",
+    "missing_derivation",
+    "late_arrival",
+    "exact_duplicate",
+    "conflicting_duplicate",
+    "payload_tamper",
+    "message_replay",
+    "update_without_reference",
+    "wrong_update_reference",
+    "cancel_without_reference",
+    "late_supersession",
+    "authenticated_contradiction",
+    "shared_upstream_provider",
+    "revoked_key",
+    "authority_out_of_scope",
+    "authority_expired",
+    "stale_evidence",
+    "orphan_or_dangling_edge",
+    "forbidden_cycle",
+    "public_projection_privacy_leak",
+    "receipt_digest_mismatch",
+    "detached_accessible_rendering",
+    "invalid_delivery_to_comprehension_inference",
+    "predecessor_payload_mutation"
+  ],
+  "required_metrics": [
+    "typed_node_and_edge_counts",
+    "missing_lineage",
+    "orphan_and_dangling_reference_counts",
+    "forbidden_cycle_count",
+    "exact_duplicate_count",
+    "conflicting_identity_count",
+    "digest_mismatch_count",
+    "signature_verification_diagnostics",
+    "replay_diagnostics",
+    "bitemporal_as_of_accuracy",
+    "late_evidence_and_revocation_visibility",
+    "supersession_lineage_completeness",
+    "predecessor_immutability",
+    "authority_scope_expiry_revocation_conformance",
+    "contradiction_preservation",
+    "source_independence_classification",
+    "privacy_violations",
+    "message_receipt_digest_match",
+    "rendering_version_lineage_match",
+    "invalid_semantic_inference_count",
+    "false_accepts_and_false_rejects_by_mutation",
+    "deterministic_replay",
+    "runtime",
+    "memory"
+  ],
+  "semantic_non_implications": [
+    "delivery_does_not_imply_comprehension",
+    "comprehension_does_not_imply_action",
+    "action_does_not_imply_causal_impact",
+    "authenticity_does_not_imply_measurement_truth",
+    "digest_integrity_does_not_imply_authority"
+  ],
+  "integration_policy": {
+    "current_gate_count": 8,
+    "new_ninth_gate_now": false,
+    "standalone_qualification_first": true,
+    "preserve_non_compensatory_conjunction": true
+  },
+  "non_claims": [
+    "live_alert_dispatch",
+    "operational_warning_authority",
+    "physical_truth_certification",
+    "legal_authority_certification",
+    "human_subject_outcomes",
+    "causal_lives_saved_claim",
+    "operational_MHEWS_readiness"
+  ]
+}
