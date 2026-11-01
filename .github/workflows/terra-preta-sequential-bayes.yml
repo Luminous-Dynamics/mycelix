@@ -1,0 +1,70 @@
+name: Terra Preta sequential Bayesian design benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "research/terra-preta/**"
+      - ".github/workflows/terra-preta-sequential-bayes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-preta-sequential-bayes-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sequential-bayes-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Parse scenario and report schemas
+        run: |
+          jq empty research/terra-preta/tools/sequential-bayes-design/scenario.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
+      - name: Format and test standalone crate
+        run: |
+          cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
+          cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- --check
+          cargo test --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
+      - name: Validate scenario schema
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
+      - name: Execute seeded sequential benchmark
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json \
+            "$RUNNER_TEMP/sequential-bayes-report.json"
+          jq -e '
+            .status == "synthetic_sequential_bayesian_benchmark_only" and
+            .replicate_count == 128 and
+            (.policy_summaries | length == 5) and
+            all(.policy_summaries[];
+              .replicate_count == 128 and
+              .mean_total_cost_units <= 4 and
+              .mean_true_decision_regret >= 0 and
+              .mean_predictive_log_score >= 0 and
+              .mean_predictive_brier_score >= 0 and
+              .mean_predictive_brier_score <= 2)
+          ' "$RUNNER_TEMP/sequential-bayes-report.json"
+          jq -e '
+            (.policy_summaries[] | select(.policy_id == "discrepancy_guarded_evsi")) as $guarded |
+            (.policy_summaries[] | select(.policy_id == "seeded_random")) as $random |
+            $guarded.mean_diagnostic_actions >= $random.mean_diagnostic_actions
+          ' "$RUNNER_TEMP/sequential-bayes-report.json"
+      - name: Validate report schema
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/report.schema.json \
+            "$RUNNER_TEMP/sequential-bayes-report.json"
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --all-targets -- -D warnings
