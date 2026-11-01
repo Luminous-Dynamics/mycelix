@@ -200,3 +200,16 @@ The Rust library now contains `tools/sequential-bayes-design/src/robust_informat
 Six authored tests cover zero-information independence, convergence to Shannon MI as α approaches one, monotonicity over a preregistered alpha grid, CT–tracer correlation-only complementarity, posterior tempering, and invalid inputs. An independent formula check for the complementary discrete fixture gives Shannon MI 0.368064 nats and Sibson MI values 0.097772, 0.184551, 0.258413, 0.290396, 0.319208 and 0.356878 nats at alpha 0.2, 0.4, 0.6, 0.7, 0.8 and 0.95 respectively.
 
 This is the exact deterministic discrete reference stage of #5648. It is not the full maximin game, ambiguity-radius-to-alpha optimizer, nested Monte Carlo estimator or PAC-Bayes stochastic design policy. Exact-head CI must establish compilation and tests.
+
+
+## 13. Finite worst-case joint and KL-radius inversion — 2026-11-01
+
+The exact finite-discrete robust-information module now implements the geometric-mixture worst-case joint distribution:
+
+```text
+q*(m,x) ∝ [p(m) p_alpha(x)]^(1-alpha) [p(m,x)]^alpha
+```
+
+It returns the alpha-tilted outcome marginal, q* model/outcome marginals and joint weights, plus (D_{KL}(q^*\|p)). It verifies the conditional identity (q^*(m\mid x)\propto p(m)p(x\mid m)^\alpha). A bisection routine numerically inverts the single-design KL cost to find alpha for a declared ambiguity radius, checking monotonicity across a grid and refusing radii beyond the configured minimum-alpha range.
+
+Independent analytical calculations for the complementary CT–tracer finite fixture give KL radius 0.092332 nats at alpha 0.5, decreasing toward zero at alpha 1. This is a deterministic single-design reference, not the paper's average-radius stochastic-policy optimization. The paper's PAC-Bayes bound and nested estimator remain unimplemented; no robust policy superiority is claimed.
