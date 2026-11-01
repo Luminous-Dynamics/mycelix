@@ -162,7 +162,7 @@ pub struct ReachReport {
     pub unique_reach_unknown_cells: u32,
     pub accessibility_unknown_cells: u32,
     pub channel_receipt_total: u64,
-    pub duplicate_receipts_above_union: u64,
+    pub duplicate_receipts_above_union: Option<u64>,
     pub effective_timely_reach: Option<f64>,
     pub effective_accessible_reach: Option<f64>,
     pub per_cohort: Vec<CohortReach>,
@@ -199,11 +199,14 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
             if count > cell.exposed {
                 return Err("accessible receipts exceed exposed denominator".into());
             }
-            if cell.unique_timely_receipts.is_some_and(|timely_count| count > timely_count) {
-                return Err("accessible reach cannot exceed timely unique reach".into());
-            }
-            if cell.accessibility_required && cell.unique_timely_receipts.is_none() {
-                unknown_accessibility += 1;
+            match cell.unique_timely_receipts {
+                Some(timely_count) if count > timely_count => {
+                    return Err("accessible reach cannot exceed timely unique reach".into());
+                }
+                None => {
+                    return Err("accessible unique union cannot be known when timely unique union is unknown".into());
+                }
+                _ => {}
             }
         } else {
             unknown_accessibility += 1;
@@ -252,7 +255,7 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
         unique_reach_unknown_cells: unknown_unique,
         accessibility_unknown_cells: unknown_accessibility,
         channel_receipt_total: channel_total,
-        duplicate_receipts_above_union: channel_total.saturating_sub(timely),
+        duplicate_receipts_above_union: (unknown_unique == 0).then_some(channel_total.saturating_sub(timely)),
         effective_timely_reach,
         effective_accessible_reach,
         per_cohort: per.into_values().collect(),
@@ -415,16 +418,23 @@ mod tests {
         let report=evaluate_reach(&cells).unwrap();
         assert_eq!(report.timely_unique_reach,80);
         assert_eq!(report.channel_receipt_total,150);
-        assert_eq!(report.duplicate_receipts_above_union,70);
+        assert_eq!(report.duplicate_receipts_above_union,Some(70));
         assert_eq!(report.effective_timely_reach,Some(0.8));
     }
 
     #[test]
-    fn missing_unique_union_makes_effective_reach_unknown(){
+    fn missing_unique_union_makes_effective_and_duplicate_reach_unknown(){
         let cells=vec![cell("transit",CohortClass::Transit,"hub",50,None,None,30)];
         let report=evaluate_reach(&cells).unwrap();
         assert_eq!(report.effective_timely_reach,None);
         assert_eq!(report.unique_reach_unknown_cells,1);
+        assert_eq!(report.duplicate_receipts_above_union,None);
+    }
+
+    #[test]
+    fn accessible_union_cannot_be_claimed_without_timely_union(){
+        let cells=vec![cell("transit",CohortClass::Transit,"hub",50,None,Some(20),30)];
+        assert!(evaluate_reach(&cells).unwrap_err().contains("timely unique union is unknown"));
     }
 
     #[test]
@@ -467,6 +477,6 @@ mod tests {
         assert!(evaluate_reach(&[first.clone(),duplicate.clone()]).is_err());
         duplicate.time_bucket=2;
         let report=evaluate_reach(&[first,duplicate]).unwrap();
-        assert_eq!(report.duplicate_receipts_above_union,14);
+        assert_eq!(report.duplicate_receipts_above_union,Some(14));
     }
 }
