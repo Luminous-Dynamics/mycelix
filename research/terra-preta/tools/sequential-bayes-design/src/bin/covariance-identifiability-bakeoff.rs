@@ -3,7 +3,8 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::{env, fs};
 use terra_preta_sequential_bayes_design::covariance_identifiability::{
-    CovarianceComponentDesign, CovarianceObservation, VarianceComponent,
+    CovarianceComponentDesign, CovarianceComponentHypothesis, CovarianceObservation,
+    VarianceComponent,
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -13,6 +14,7 @@ struct Scenario {
     data_class: String,
     scenario_id: String,
     true_variance_components: Vec<f64>,
+    hypotheses: Vec<HypothesisInput>,
     designs: Vec<DesignInput>,
 }
 
@@ -21,6 +23,15 @@ struct Scenario {
 struct DesignInput {
     design_id: String,
     observations: Vec<ObservationInput>,
+    observed_values: Vec<f64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HypothesisInput {
+    model_id: String,
+    prior_weight: f64,
+    variance_components: Vec<f64>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -45,6 +56,8 @@ struct DesignSummary {
     recovery_status: String,
     recovered_variance_components: Option<Vec<f64>>,
     relative_fit_residual: Option<f64>,
+    posterior_log_evidence: f64,
+    hypothesis_posterior_weights: BTreeMap<String, f64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -76,6 +89,26 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
     {
         return Err("four finite non-negative variance components are required".into());
     }
+    if scenario.hypotheses.is_empty() {
+        return Err("at least one covariance hypothesis is required".into());
+    }
+    let mut hypothesis_ids = std::collections::BTreeSet::new();
+    for hypothesis in &scenario.hypotheses {
+        if hypothesis.model_id.trim().is_empty() || !hypothesis_ids.insert(&hypothesis.model_id) {
+            return Err("covariance hypothesis IDs must be non-empty and unique".into());
+        }
+        if hypothesis.variance_components.len() != VarianceComponent::ALL.len()
+            || hypothesis.variance_components.iter().any(|value| !value.is_finite() || *value < 0.0)
+            || !hypothesis.prior_weight.is_finite()
+            || hypothesis.prior_weight < 0.0
+        {
+            return Err(format!("covariance hypothesis {:?} has invalid priors/variances", hypothesis.model_id));
+        }
+    }
+    let prior_total: f64 = scenario.hypotheses.iter().map(|item| item.prior_weight).sum();
+    if !prior_total.is_finite() || prior_total <= 0.0 {
+        return Err("covariance hypothesis prior weights must have positive sum".into());
+    }
     if scenario.designs.is_empty() {
         return Err("at least one covariance design is required".into());
     }
@@ -86,6 +119,11 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
         }
         if design.observations.is_empty() {
             return Err(format!("design {:?} has no observations", design.design_id));
+        }
+        if design.observed_values.len() != design.observations.len()
+            || design.observed_values.iter().any(|value| !value.is_finite())
+        {
+            return Err(format!("design {:?} has invalid observed values", design.design_id));
         }
         let mut ids = std::collections::BTreeSet::new();
         for observation in &design.observations {
@@ -103,6 +141,7 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
 fn summarize_design(
     design_input: &DesignInput,
     true_variances: &[f64],
+    hypotheses: &[HypothesisInput],
 ) -> Result<DesignSummary, String> {
     let observations: Vec<CovarianceObservation> = design_input.observations.iter()
         .map(|observation| CovarianceObservation {
@@ -139,6 +178,25 @@ fn summarize_design(
             )
         };
 
+    let covariance_hypotheses: Vec<CovarianceComponentHypothesis> = hypotheses.iter()
+        .map(|hypothesis| CovarianceComponentHypothesis {
+            model_id: hypothesis.model_id.clone(),
+            prior_weight: hypothesis.prior_weight,
+            mean: vec![0.0; design_input.observations.len()],
+            variance_components: hypothesis.variance_components.clone(),
+        })
+        .collect();
+    let observed_indices: Vec<usize> = (0..design_input.observations.len()).collect();
+    let posterior = design.update_hypothesis_posterior(
+        &covariance_hypotheses,
+        &observed_indices,
+        &design_input.observed_values,
+    )?;
+    let hypothesis_posterior_weights: BTreeMap<String, f64> =
+        posterior.model_ids.iter().cloned()
+            .zip(posterior.weights.iter().copied())
+            .collect();
+
     Ok(DesignSummary {
         design_id: design_input.design_id.clone(),
         observation_count: audit.observation_count,
@@ -150,13 +208,19 @@ fn summarize_design(
         recovery_status,
         recovered_variance_components,
         relative_fit_residual,
+        posterior_log_evidence: posterior.log_evidence,
+        hypothesis_posterior_weights,
     })
 }
 
 fn build_report(scenario: &Scenario, input: &[u8]) -> Result<Report, String> {
     validate(scenario)?;
     let design_summaries = scenario.designs.iter()
-        .map(|design| summarize_design(design, &scenario.true_variance_components))
+        .map(|design| summarize_design(
+            design,
+            &scenario.true_variance_components,
+            &scenario.hypotheses,
+        ))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Report {
         schema_version: "0.1.0".into(),
