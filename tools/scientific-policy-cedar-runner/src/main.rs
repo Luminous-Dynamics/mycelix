@@ -10,8 +10,9 @@ use scientific_policy_metamorphic::shrink::{
 use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::env;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 use std::str::FromStr;
@@ -25,6 +26,58 @@ const MAX_MANIFEST_BYTES: u64 = 1 * 1024 * 1024;
 const MAX_POLICY_FILE_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_SOURCE_FILE_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_TOOL_BINARY_BYTES: u64 = 512 * 1024 * 1024;
+
+static TEMP_ARTIFACT_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+struct TempArtifact {
+    path: PathBuf,
+}
+
+impl Drop for TempArtifact {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+/// Materialize exactly the bytes already read and hashed into a private file.
+/// create_new prevents symlink/pre-existing-path substitution; the resulting
+/// path, not the caller's mutable path, is used by the evaluator.
+fn create_pinned_temp_artifact(
+    bytes: &[u8],
+    extension: &str,
+    executable: bool,
+) -> Result<TempArtifact, String> {
+    #[cfg(not(unix))]
+    if executable {
+        return Err("pinned executable artifacts currently require Unix file permissions".to_owned());
+    }
+
+    let sequence = TEMP_ARTIFACT_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let digest = sha256(bytes);
+    let path = env::temp_dir().join(format!(
+        "mycelix-policy-artifact-{}-{sequence}-{}.{}",
+        std::process::id(),
+        &digest[..16],
+        extension
+    ));
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(if executable { 0o700 } else { 0o600 });
+    }
+    let mut file = options
+        .open(&path)
+        .map_err(|error| format!("create private pinned artifact {}: {error}", path.display()))?;
+    let artifact = TempArtifact { path };
+    file.write_all(bytes)
+        .map_err(|error| format!("write private pinned artifact {}: {error}", artifact.path.display()))?;
+    file.sync_all()
+        .map_err(|error| format!("sync private pinned artifact {}: {error}", artifact.path.display()))?;
+    drop(file);
+    Ok(artifact)
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -579,6 +632,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn pinned_temp_artifact_contains_exact_subject_bytes() {
+        let subject = b"exact policy subject bytes";
+        let artifact = create_pinned_temp_artifact(subject, "rego", false)
+            .expect("private pinned policy copy is created");
+        let copied = read_bounded_file(&artifact.path, 1024, "pinned test artifact")
+            .expect("pinned policy copy is readable");
+        assert_eq!(copied, subject);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pinned_executable_artifact_is_executable_and_byte_identical() {
+        use std::os::unix::fs::PermissionsExt;
+        let subject = b"binary subject bytes";
+        let artifact = create_pinned_temp_artifact(subject, "bin", true)
+            .expect("private pinned executable copy is created");
+        let metadata = fs::metadata(&artifact.path).expect("pinned artifact metadata");
+        assert_eq!(metadata.permissions().mode() & 0o777, 0o700);
+        assert_eq!(
+            read_bounded_file(&artifact.path, 1024, "pinned test executable")
+                .expect("pinned executable bytes are readable"),
+            subject
+        );
+    }
+
+    #[test]
     fn bounded_file_reader_rejects_non_regular_files() {
         assert!(read_bounded_file(Path::new("."), 1024, "test artifact")
             .expect_err("directory is not a regular file")
@@ -930,21 +1009,6 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     let initial_case: EngineInputCase = serde_json::from_value(initial_value.clone())
         .map_err(|error| format!("parse original engine case: {error}"))?;
 
-    let opa_version = Command::new(&opa_binary)
-        .arg("version")
-        .output()
-        .map_err(|error| format!("read OPA version: {error}"))?;
-    if !opa_version.status.success() {
-        return Err(format!(
-            "OPA version command failed: {}",
-            String::from_utf8_lossy(&opa_version.stderr)
-        ));
-    }
-    let opa_version_text = String::from_utf8_lossy(&opa_version.stdout).into_owned();
-    if !opa_version_text.contains("1.22.0") {
-        return Err(format!("expected OPA 1.22.0, got {opa_version_text:?}"));
-    }
-
     let cedar_policy_bytes = read_bounded_file(&cedar_policy_path, MAX_POLICY_FILE_BYTES, "Cedar policy")?;
     let cedar_schema_bytes = read_bounded_file(&cedar_schema_path, MAX_POLICY_FILE_BYTES, "Cedar schema")?;
     let rego_policy_bytes = read_bounded_file(&rego_policy_path, MAX_POLICY_FILE_BYTES, "Rego policy")?;
@@ -952,6 +1016,25 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     let runner_binary_path = env::current_exe()
         .map_err(|error| format!("resolve Cedar runner binary: {error}"))?;
     let runner_binary_bytes = read_bounded_file(&runner_binary_path, MAX_TOOL_BINARY_BYTES, "Cedar runner binary for provenance")?;
+
+    // All OPA execution must consume the exact bytes represented in the
+    // provenance digests. Do not invoke the caller-controlled paths again.
+    let pinned_opa = create_pinned_temp_artifact(&opa_binary_bytes, "bin", true)?;
+    let pinned_rego = create_pinned_temp_artifact(&rego_policy_bytes, "rego", false)?;
+    let opa_version = Command::new(&pinned_opa.path)
+        .arg("version")
+        .output()
+        .map_err(|error| format!("read pinned OPA version: {error}"))?;
+    if !opa_version.status.success() {
+        return Err(format!(
+            "pinned OPA version command failed: {}",
+            String::from_utf8_lossy(&opa_version.stderr)
+        ));
+    }
+    let opa_version_text = String::from_utf8_lossy(&opa_version.stdout).into_owned();
+    if !opa_version_text.contains("1.22.0") {
+        return Err(format!("expected pinned OPA 1.22.0, got {opa_version_text:?}"));
+    }
 
     let cedar_policy_source = std::str::from_utf8(&cedar_policy_bytes)
         .map_err(|error| format!("Cedar policy is not UTF-8: {error}"))?;
@@ -980,8 +1063,8 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &authorizer,
         &policy_set,
         &schema,
-        &opa_binary,
-        &rego_policy_path,
+        &pinned_opa.path,
+        &pinned_rego.path,
     )?;
     if !matches!(initial_cedar.as_str(), "allow" | "deny")
         || !matches!(initial_opa.as_str(), "allow" | "deny")
@@ -1018,6 +1101,8 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     let evaluation_config = serde_json::to_vec(&serde_json::json!({
         "cedar_sdk": "4.14.0",
         "opa_version": opa_version_text.trim(),
+        "opa_execution_subject_sha256": sha256(&opa_binary_bytes),
+        "rego_execution_subject_sha256": sha256(&rego_policy_bytes),
         "opa_query": "data.mycelix.authz.decision",
         "opa_flags": ["eval", "--strict", "--timeout=5s", "--format=json", "--stdin-input"],
         "predicate": "preserve_initial_cedar_opa_decision_and_reason_divergence",
@@ -1060,8 +1145,8 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                 &authorizer,
                 &policy_set,
                 &schema,
-                &opa_binary,
-                &rego_policy_path,
+                &pinned_opa.path,
+                &pinned_rego.path,
             ) {
                 Ok((cedar, opa, cedar_policy_ids, opa_rule, cedar_ns, opa_ns))
                     if cedar == "invalid" && opa == "invalid" =>
@@ -1150,8 +1235,8 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &authorizer,
         &policy_set,
         &schema,
-        &opa_binary,
-        &rego_policy_path,
+        &pinned_opa.path,
+        &pinned_rego.path,
     )?;
     fs::create_dir_all(&output_directory)
         .map_err(|error| format!("create shrink output directory: {error}"))?;
