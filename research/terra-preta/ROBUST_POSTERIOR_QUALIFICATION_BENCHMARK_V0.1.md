@@ -178,3 +178,12 @@ The methods are comparators and qualification inputs, not methods originated by 
 ## 10. Evidence and safety boundary
 
 Synthetic mathematical/software work only. No physical experiment, land access, sample collection, CT scan, tracer injection, soil amendment or agronomic recommendation is authorized. All robustness claims are relative to an explicit ambiguity set and do not imply robustness to arbitrary unknown mechanisms or real-world conditions.
+
+
+## 11. Implemented finite posterior-SBC control — 2026-11-01
+
+A reference implementation of the conditional Posterior-SBC identity is now authored in `tools/sequential-bayes-design/src/posterior_sbc.rs` and registered only under `cfg(test)`.
+
+It fixes an observed dataset, forms the exact conditional finite posterior, samples an original model state from that posterior, simulates an additional observation from the posterior predictive, and computes the exact augmented posterior. Randomized discrete PIT ranks are checked for both model identity and the joint log-likelihood test quantity over 4,096 replicates. The exact-update control must fall within a 7–13% per-bin reference frequency band; a deliberate likelihood-power-4 overconfidence negative control must violate at least one histogram.
+
+This is an executable finite categorical Posterior-SBC reference test. It does not validate continuous covariance/discrepancy samplers or model adequacy, and it does not replace prior SBC or posterior predictive checks. Exact-head CI is required before calling it a passing test.
