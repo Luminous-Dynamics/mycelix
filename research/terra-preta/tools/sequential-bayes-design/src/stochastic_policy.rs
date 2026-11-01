@@ -184,7 +184,7 @@ fn expected_sibson_at_beta(
     let mut expected_information = 0.0;
     for (candidate, probability) in candidates.iter().zip(probabilities) {
         if *probability > 0.0 {
-            let action_information = if alpha <= 1e-10 {
+            let action_information = if alpha <= 0.0 {
                 0.0
             } else if alpha >= 1.0 - 1e-12 {
                 candidate.design.shannon_mutual_information()?
@@ -492,7 +492,7 @@ fn evaluate_gibbs_policy_at_beta(
         action_ids.push(candidate.action_id.clone());
         eligible.push(candidate.eligible);
         costs.push(candidate.cost_units);
-        let information = if alpha <= 1e-10 {
+        let information = if alpha <= 0.0 {
             0.0
         } else if alpha >= 1.0 - 1e-12 {
             candidate.design.shannon_mutual_information()?
