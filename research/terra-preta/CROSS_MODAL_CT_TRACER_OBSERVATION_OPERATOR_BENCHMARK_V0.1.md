@@ -287,3 +287,8 @@ q_exchange(t) = wetted_interfacial_area(t) * macropore_flux_density(t)
 ```
 
 It linearly interpolates the two inputs and analytically integrates their product (quadratic within each interval), with unit/sign validation and a paired macropore-loss/matrix-gain storage check. It does not derive the interface from CT, solve Richards flow, or reproduce the complete published model. The paper's raw CT/infiltration data are stated as available upon request; no such data were acquired. See #5658 for the full comparative work plan.
+
+
+## State–parameter assimilation comparator update
+
+A new 2026 reduced-adjoint VDA study provides a useful comparator for joint state–parameter estimation: Heidary, Farhadi & Altaf, Environmental Modelling & Software 203, 107035, DOI [10.1016/j.envsoft.2026.107035](https://doi.org/10.1016/j.envsoft.2026.107035). It combines POD model reduction with a reduced-order adjoint in HYDRUS-1D and tests structural, initial-state and forcing uncertainty in synthetic experiments. This should be included as a matched comparator in #5658. The public accompanying repository is MATLAB-based; no code was imported or executed by this update.
