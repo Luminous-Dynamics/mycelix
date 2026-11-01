@@ -74,6 +74,7 @@ pub struct ForecastSummary {
     pub unverified_outcome_records: u32,
     pub missing_outcome_records: u32,
     pub invalid_probability_records: u32,
+    pub invalid_reference_probability_records: u32,
     pub out_of_domain_records: u32,
     pub abstentions: u32,
     pub partition_leak_events: u32,
@@ -82,6 +83,9 @@ pub struct ForecastSummary {
     pub candidate_calibration_brier: f64,
     pub candidate_evaluation_samples: u64,
     pub candidate_evaluation_brier: f64,
+    pub candidate_evaluation_log_loss: f64,
+    pub candidate_evaluation_ece: f64,
+    pub candidate_evaluation_calibration_in_large: f64,
     pub candidate_evaluation_brier_skill: f64,
     pub lead_reference_evaluation_samples: u64,
     pub lead_reference_evaluation_brier: f64,
@@ -142,6 +146,9 @@ impl IntegratedReport {
             && self.forecast.candidate_heat_72h_evaluation_samples == 2
             && (self.forecast.candidate_calibration_brier - 0.01).abs() < 1e-12
             && (self.forecast.candidate_evaluation_brier - 0.17168333333333333).abs() < 1e-12
+            && self.forecast.candidate_evaluation_log_loss.is_finite()
+            && self.forecast.candidate_evaluation_ece.is_finite()
+            && self.forecast.candidate_evaluation_calibration_in_large.is_finite()
             && (self.forecast.candidate_evaluation_brier_skill - 0.3132666666666667).abs() < 1e-12
             && (self.forecast.lead_reference_evaluation_brier_skill - 0.84).abs() < 1e-12
             && (self.forecast.candidate_heat_72h_evaluation_brier_skill - (-2.9204)).abs() < 1e-12
@@ -310,6 +317,7 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
             unverified_outcome_records: forecast.unverified_outcome_records,
             missing_outcome_records: forecast.missing_outcome_records,
             invalid_probability_records: forecast.invalid_probability_records,
+            invalid_reference_probability_records: forecast.invalid_reference_probability_records,
             out_of_domain_records: forecast.out_of_domain_records,
             abstentions: forecast.abstentions,
             partition_leak_events: forecast.partition_leak_events,
@@ -318,6 +326,9 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
             candidate_calibration_brier: candidate_calibration.brier_score,
             candidate_evaluation_samples: candidate_evaluation.sample_count,
             candidate_evaluation_brier: candidate_evaluation.brier_score,
+            candidate_evaluation_log_loss: candidate_evaluation.log_loss,
+            candidate_evaluation_ece: candidate_evaluation.expected_calibration_error,
+            candidate_evaluation_calibration_in_large: candidate_evaluation.calibration_in_large,
             candidate_evaluation_brier_skill: candidate_evaluation.brier_skill_score.unwrap_or(0.0),
             lead_reference_evaluation_samples: lead_reference_evaluation.sample_count,
             lead_reference_evaluation_brier: lead_reference_evaluation.brier_score,
