@@ -534,11 +534,15 @@ mod tests {
     #[test]
     fn proper_score_and_decision_value_can_rank_models_differently() {
         let report = evaluate_decision_value(&ranking_reversal_fixture(), &profile()).unwrap();
+        assert!((report.candidate_brier_score.unwrap() - 0.184575).abs() < 1e-12);
+        assert!((report.reference_brier_score.unwrap() - 0.3341).abs() < 1e-12);
         assert!(report.candidate_brier_score.unwrap() < report.reference_brier_score.unwrap());
         assert!(report.candidate.total_loss > report.reference.total_loss);
         assert!(report.net_benefit_vs_reference < 0.0);
         assert_eq!(report.candidate.total_loss, 120.0);
         assert_eq!(report.reference.total_loss, 80.0);
+        assert_eq!(report.candidate.missed_events, 1);
+        assert_eq!(report.reference.false_actions, 2);
     }
 
     #[test]
