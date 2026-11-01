@@ -28,6 +28,8 @@ jobs:
         run: |
           jq empty research/terra-preta/tools/sequential-bayes-design/scenario.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/observation-support.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-observation-support.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-discrepancy-state-control.json
@@ -38,6 +40,9 @@ jobs:
           cargo test --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
       - name: Validate scenario schema
         run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/observation-support.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-observation-support.json
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
