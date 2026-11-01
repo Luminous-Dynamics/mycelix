@@ -17,3 +17,4 @@ pub mod stochastic_policy;
 pub mod transient_exchange;
 pub mod state_parameter_assimilation;
 pub mod ct_wetted_interface;
+pub mod ensemble_assimilation;
