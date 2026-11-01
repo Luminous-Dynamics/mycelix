@@ -107,6 +107,7 @@ pub struct CostEvaluation {
     pub base_cost_per_unique_receiver_reached: Option<f64>,
     pub base_cost_per_accessible_receiver_reached: Option<f64>,
     pub annual_staff_hours: f64,
+    pub staff_hours_over_horizon: f64,
     pub components: Vec<ComponentCost>,
 }
 
@@ -430,7 +431,7 @@ pub fn evaluate_at(
             component.high_present_value += high;
 
             if row.component == "annual_staffing" && row.pattern == CostPattern::Annual {
-                annual_staff_hours += row.annual_staff_hours * f64::from(service_horizon_years);
+                annual_staff_hours += row.annual_staff_hours;
             }
         }
 
@@ -460,6 +461,7 @@ pub fn evaluate_at(
             base_cost_per_unique_receiver_reached: unit_cost(base_total, outcome.unique_receivers_reached),
             base_cost_per_accessible_receiver_reached: unit_cost(base_total, outcome.accessible_receivers_reached),
             annual_staff_hours,
+            staff_hours_over_horizon: annual_staff_hours * f64::from(service_horizon_years),
             components,
         });
     }
@@ -544,9 +546,12 @@ mod tests {
         assert!((central.base_cost_per_accessible_receiver_reached.unwrap() - 15.57021032426856).abs() < 1e-6);
         assert!((regional.base_cost_per_accessible_receiver_reached.unwrap() - 16.99631904833441).abs() < 1e-6);
         assert!((local.base_cost_per_accessible_receiver_reached.unwrap() - 20.44603627836978).abs() < 1e-6);
-        assert_eq!(central.annual_staff_hours, 8_000.0);
-        assert_eq!(regional.annual_staff_hours, 9_750.0);
-        assert_eq!(local.annual_staff_hours, 12_000.0);
+        assert_eq!(central.annual_staff_hours, 1_600.0);
+        assert_eq!(regional.annual_staff_hours, 1_950.0);
+        assert_eq!(local.annual_staff_hours, 2_400.0);
+        assert_eq!(central.staff_hours_over_horizon, 8_000.0);
+        assert_eq!(regional.staff_hours_over_horizon, 9_750.0);
+        assert_eq!(local.staff_hours_over_horizon, 12_000.0);
     }
 
     #[test]
