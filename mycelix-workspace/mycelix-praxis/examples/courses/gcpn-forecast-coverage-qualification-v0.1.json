@@ -1,0 +1,179 @@
+{
+  "benchmark_id": "GCPN-FORECAST-COVERAGE-QUALIFICATION",
+  "version": "0.1.0",
+  "status": "research-specification-not-yet-executable",
+  "parent_issue": 5644,
+  "parent_integration": {
+    "pull_request": 5640,
+    "branch": "research/gcpn-integrated-evaluation-v0-6"
+  },
+  "estimands": {
+    "primary": {
+      "id": "case_weighted_mean_paired_score_difference",
+      "definition": "E[sum_i_in_g d_i] / E[n_g]",
+      "sample_estimator": "sum_g D_g / sum_g n_g",
+      "bootstrap_recompute": "resample complete independent top-level units; recompute ratio of sums"
+    },
+    "secondary": {
+      "id": "cluster_weighted_mean_paired_score_difference",
+      "definition": "E[D_g / n_g]",
+      "warning": "Distinct from the case-weighted estimand; never substitute silently."
+    }
+  },
+  "record_hierarchy": [
+    "forecast_case",
+    "event_id",
+    "dependence_cluster_id",
+    "independent_sampling_block"
+  ],
+  "scoring": {
+    "primary": "binary_brier_loss_difference",
+    "sign_convention": "candidate_minus_reference; negative favours candidate",
+    "paired_case_requirement": true,
+    "analytic_conditional_expectation": "E[(p-Y)^2 | q] = (p-q)^2 + q(1-q)",
+    "no_row_or_model_repooling": true
+  },
+  "dgp_matrix": {
+    "independent_unit_counts": [
+      6,
+      8,
+      12,
+      20,
+      40,
+      80,
+      160,
+      320
+    ],
+    "base_rates": [
+      0.01,
+      0.05,
+      0.2,
+      0.5
+    ],
+    "within_system_dependence_strength": [
+      0,
+      0.2,
+      0.5,
+      0.8
+    ],
+    "serial_dependence_strength": [
+      0,
+      0.3,
+      0.6,
+      0.8
+    ],
+    "cluster_size_profiles": [
+      "balanced",
+      "moderately_imbalanced",
+      "heavy_tailed",
+      "informative_cluster_size"
+    ],
+    "skill_profiles": [
+      "null_homogeneous",
+      "null_heterogeneous",
+      "candidate_better",
+      "candidate_worse",
+      "sign_reversing_strata"
+    ],
+    "regime_profiles": [
+      "stationary",
+      "abrupt_shift",
+      "gradual_shift"
+    ],
+    "integrity_mutations": [
+      "missing",
+      "late",
+      "invalid_probability",
+      "exact_duplicate",
+      "conflicting_duplicate",
+      "partition_leak",
+      "outcome_vintage_mismatch",
+      "contaminated_outcome"
+    ]
+  },
+  "methods": [
+    {
+      "id": "iid_case_percentile",
+      "role": "negative_control_when_dependent"
+    },
+    {
+      "id": "event_id_percentile",
+      "role": "under_clustering_negative_control"
+    },
+    {
+      "id": "independent_unit_percentile",
+      "role": "primary_candidate_under_independent_units"
+    },
+    {
+      "id": "independent_unit_basic",
+      "role": "interval_method_comparison"
+    },
+    {
+      "id": "independent_unit_studentized",
+      "role": "interval_method_comparison_when_variance_stable"
+    },
+    {
+      "id": "independent_unit_bca",
+      "role": "interval_method_comparison_when_jackknife_estimable"
+    },
+    {
+      "id": "stationary_or_circular_block",
+      "role": "candidate_for_ordered_serial_dependence"
+    },
+    {
+      "id": "wild_cluster_bootstrap_t",
+      "role": "research_candidate_requires_derivation"
+    }
+  ],
+  "nominal_interval_levels": [
+    0.9,
+    0.95,
+    0.99
+  ],
+  "confirmatory_design": {
+    "outer_monte_carlo_datasets_target": 10000,
+    "report_actual_mcse": true,
+    "report_binomial_confidence_interval": true,
+    "pilot_and_confirmatory_seeds_separate": true,
+    "bootstrap_replicates_per_method": "predeclared; pilot before confirmatory; enough tail draws for 99% endpoints"
+  },
+  "qualification_targets": {
+    "nominal_95_coverage": [
+      0.93,
+      0.97
+    ],
+    "target_status": "proposed_research_target_not_standard",
+    "zero_rowwise_leakage": true,
+    "reject_missing_or_inconsistent_dependence_oracle": true,
+    "deterministic_replay": true,
+    "explicit_abstention_for_unsupported_regimes": true
+  },
+  "required_outputs": [
+    "empirical_coverage",
+    "coverage_mcse",
+    "coverage_binomial_interval",
+    "lower_tail_miss_rate",
+    "upper_tail_miss_rate",
+    "mean_interval_width",
+    "median_interval_width",
+    "estimator_bias",
+    "estimator_rmse",
+    "invalid_interval_rate",
+    "abstention_rate",
+    "type_i_error",
+    "power",
+    "false_superiority_rate",
+    "false_inferiority_rate",
+    "runtime",
+    "outer_simulation_count",
+    "bootstrap_replicate_count"
+  ],
+  "non_claims": [
+    "real_meteorological_dependence_validation",
+    "real_forecast_skill",
+    "operational_warning_qualification",
+    "universal_minimum_cluster_count",
+    "universal_superiority_of_any_interval_method",
+    "official_wmo_ecmwf_itu_undrr_or_sadc_standard"
+  ]
+}
