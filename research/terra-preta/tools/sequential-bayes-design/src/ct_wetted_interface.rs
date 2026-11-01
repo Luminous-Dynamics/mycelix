@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn every_voxel_face_is_counted_once() {
-        // Two x-oriented macro/matrix faces and one y-oriented face.
+        // Two x-oriented and two y-oriented macro/matrix faces.
         let volume = grid(
             [2, 2, 1],
             [1.0, 1.0, 1.0],
@@ -261,9 +261,9 @@ mod tests {
                 cell(VoxelPhase::Macropore, 1.0),
             ],
         ).measure_wetted_interface().unwrap();
-        assert_eq!(volume.geometric_interface_face_count, 3);
-        assert!((volume.geometric_interface_area_m2 - 3.0).abs() < 1e-12);
-        assert!((volume.wetted_interface_area_m2 - 3.0).abs() < 1e-12);
+        assert_eq!(volume.geometric_interface_face_count, 4);
+        assert!((volume.geometric_interface_area_m2 - 4.0).abs() < 1e-12);
+        assert!((volume.wetted_interface_area_m2 - 4.0).abs() < 1e-12);
     }
 
     #[test]
