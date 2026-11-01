@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Terra Preta robust one-step information report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "data_class", "scenario_id", "scenario_sha256", "status",
+    "candidate_count", "feasible_candidate_count", "budget_units", "sibson_alpha",
+    "requested_kl_radius_nats", "nominal_shannon_selection",
+    "fixed_alpha_sibson_selection", "fixed_kl_radius_selection",
+    "candidate_summaries", "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "data_class": { "const": "synthetic-known-truth" },
+    "scenario_id": { "type": "string" },
+    "scenario_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "status": { "const": "synthetic_one_step_robust_information_benchmark_only" },
+    "candidate_count": { "type": "integer", "minimum": 1 },
+    "feasible_candidate_count": { "type": "integer", "minimum": 0 },
+    "budget_units": { "type": "integer", "minimum": 0 },
+    "sibson_alpha": { "type": "number" },
+    "requested_kl_radius_nats": { "type": "number", "minimum": 0 },
+    "nominal_shannon_selection": { "$ref": "#/$defs/selection" },
+    "fixed_alpha_sibson_selection": { "$ref": "#/$defs/selection" },
+    "fixed_kl_radius_selection": { "$ref": "#/$defs/selection" },
+    "candidate_summaries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/candidate_summary" }
+    },
+    "limitations": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "selection": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["action_id", "cost_units", "objective_value_nats", "alpha_used"],
+      "properties": {
+        "action_id": { "type": "string" },
+        "cost_units": { "type": "integer", "minimum": 0 },
+        "objective_value_nats": { "type": "number" },
+        "alpha_used": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "candidate_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id", "eligible", "cost_units", "feasible_under_budget",
+        "shannon_information_nats", "sibson_information_nats",
+        "per_design_alpha", "per_design_sibson_information_nats",
+        "effective_kl_radius_nats", "alpha_search_clamped"
+      ],
+      "properties": {
+        "action_id": { "type": "string" },
+        "eligible": { "type": "boolean" },
+        "cost_units": { "type": "integer", "minimum": 0 },
+        "feasible_under_budget": { "type": "boolean" },
+        "shannon_information_nats": { "type": "number" },
+        "sibson_information_nats": { "type": "number" },
+        "per_design_alpha": { "type": "number", "minimum": 0, "maximum": 1 },
+        "per_design_sibson_information_nats": { "type": "number" },
+        "effective_kl_radius_nats": { "type": "number", "minimum": 0 },
+        "alpha_search_clamped": { "type": "boolean" }
+      }
+    }
+  }
+}
