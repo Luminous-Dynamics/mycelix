@@ -367,21 +367,27 @@ pub fn detect_single_cell_differencing(
                 .collect();
             if left_only.len() == 1 && right_only.is_empty() {
                 let cell_id = left_only[0];
-                if cell_sizes.get(cell_id).is_some_and(|count| *count < minimum_cell_size) {
-                    findings.push((
-                        left.query_id.clone(),
-                        right.query_id.clone(),
-                        cell_id.clone(),
-                    ));
+                if let Some(cell_count) = cell_sizes.get(cell_id) {
+                    let difference = left.published_total.checked_sub(right.published_total);
+                    if *cell_count < minimum_cell_size && difference == Some(*cell_count) {
+                        findings.push((
+                            left.query_id.clone(),
+                            right.query_id.clone(),
+                            cell_id.clone(),
+                        ));
+                    }
                 }
             } else if right_only.len() == 1 && left_only.is_empty() {
                 let cell_id = right_only[0];
-                if cell_sizes.get(cell_id).is_some_and(|count| *count < minimum_cell_size) {
-                    findings.push((
-                        right.query_id.clone(),
-                        left.query_id.clone(),
-                        cell_id.clone(),
-                    ));
+                if let Some(cell_count) = cell_sizes.get(cell_id) {
+                    let difference = right.published_total.checked_sub(left.published_total);
+                    if *cell_count < minimum_cell_size && difference == Some(*cell_count) {
+                        findings.push((
+                            right.query_id.clone(),
+                            left.query_id.clone(),
+                            cell_id.clone(),
+                        ));
+                    }
                 }
             }
         }
@@ -496,6 +502,9 @@ mod tests {
         ];
         let findings=detect_single_cell_differencing(&queries,&cells,10);
         assert_eq!(findings,vec![("q1".into(),"q2".into(),"b".into())]);
+        let mut inconsistent=queries.clone();
+        inconsistent[0].published_total=99;
+        assert!(detect_single_cell_differencing(&inconsistent,&cells,10).is_empty());
     }
 
     #[test]
