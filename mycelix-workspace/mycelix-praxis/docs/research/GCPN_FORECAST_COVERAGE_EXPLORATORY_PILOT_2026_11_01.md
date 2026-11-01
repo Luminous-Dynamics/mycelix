@@ -33,12 +33,12 @@ The exploratory generator used NumPy PCG64 with seed `20261102 + independent_sys
 
 ## 3. Results
 
-| Independent systems | Case bootstrap | Event bootstrap | Independent-system bootstrap |
-|---:|---:|---:|---:|
-| 40 | 83.27% | 88.60% | 93.07% |
-| 80 | 81.87% | 88.27% | 93.47% |
-| 160 | 81.73% | 89.00% | 94.13% |
-| 320 | 81.67% | 89.13% | 94.27% |
+| Independent systems | Case percentile | Event percentile | System percentile | System basic |
+|---:|---:|---:|---:|---:|
+| 40 | 83.27% | 88.60% | 93.07% | 92.67% |
+| 80 | 81.87% | 88.27% | 93.47% | 93.40% |
+| 160 | 81.73% | 89.00% | 94.13% | 93.47% |
+| 320 | 81.67% | 89.13% | 94.27% | 94.33% |
 
 Measured coverage MCSEs were approximately:
 - case bootstrap: 0.96–1.00 percentage points;
@@ -59,7 +59,7 @@ The pilot supports three limited conclusions:
 
 1. Resampling individual cases badly understates uncertainty under this nested shared-system DGP.
 2. Resampling event IDs is better than resampling rows, but still under-covers because two event IDs within each system share the latent state.
-3. Resampling independent systems is materially better, but the percentile interval is not demonstrated to achieve nominal 95% coverage at small cluster counts. At 40 and 80 systems, the Monte Carlo Wilson intervals are below 95%; at 160 and 320 systems they include 95%, but the pilot is too small to certify calibration.
+3. Resampling independent systems is materially better, but neither percentile nor reflected/basic intervals are demonstrated to achieve nominal 95% coverage at small cluster counts. At 40 and 80 systems, the percentile Monte Carlo Wilson intervals are below 95%; at 160 and 320 systems they include 95%, but the pilot is too small to certify calibration. The basic interval changes coverage only modestly in this pilot.
 
 The result reinforces the rule that `event_id` does not prove independence. It also shows that choosing the correct cluster is necessary but may not be sufficient for accurate finite-sample coverage.
 
