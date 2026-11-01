@@ -313,6 +313,52 @@ mod tests {
     }
 
     #[test]
+    fn ct_wetting_history_drives_conservative_transient_exchange_end_to_end() {
+        use crate::transient_exchange::{
+            check_paired_exchange_balance, TransientExchangeSeries,
+        };
+
+        let dry_event = grid(
+            [2, 1, 1],
+            [1.0, 1.0, 1.0],
+            vec![
+                cell(VoxelPhase::Macropore, 0.2),
+                cell(VoxelPhase::MatrixPore, 0.5),
+            ],
+        ).measure_wetted_interface().unwrap();
+        let wet_event = grid(
+            [2, 1, 1],
+            [1.0, 1.0, 1.0],
+            vec![
+                cell(VoxelPhase::Macropore, 1.0),
+                cell(VoxelPhase::MatrixPore, 0.8),
+            ],
+        ).measure_wetted_interface().unwrap();
+
+        let series = TransientExchangeSeries::new(&[
+            dry_event.to_exchange_observation(0.0, 0.02).unwrap(),
+            wet_event.to_exchange_observation(10.0, 0.02).unwrap(),
+        ]).unwrap();
+
+        let early = series.sample_at(0.0).unwrap();
+        let late = series.sample_at(10.0).unwrap();
+        assert!((early.wetted_area_per_m - 0.1).abs() < 1e-12);
+        assert!((late.wetted_area_per_m - 0.4).abs() < 1e-12);
+        assert!((early.exchange_rate_per_s - 0.002).abs() < 1e-12);
+        assert!((late.exchange_rate_per_s - 0.008).abs() < 1e-12);
+
+        let transferred = series.integrate_full().unwrap();
+        assert!((transferred - 0.05).abs() < 1e-12);
+        let balance = check_paired_exchange_balance(
+            -transferred,
+            transferred,
+            transferred,
+            1e-12,
+        ).unwrap();
+        assert!(balance.balanced);
+    }
+
+    #[test]
     fn rejects_bad_grid_dimensions_spacing_phases_and_support_id() {
         assert!(grid([0, 1, 1], [1.0, 1.0, 1.0], vec![]).measure_wetted_interface().is_err());
         assert!(grid([1, 1, 1], [0.0, 1.0, 1.0], vec![
