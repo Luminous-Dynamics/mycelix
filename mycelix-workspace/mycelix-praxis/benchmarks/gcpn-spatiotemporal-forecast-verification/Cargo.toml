@@ -1,0 +1,15 @@
+[package]
+name = "gcpn-spatiotemporal-forecast-verification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Matched ensemble and spatial proper-score verification primitives for GCPN"
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-spatiotemporal-forecast-verification"
+path = "src/main.rs"
