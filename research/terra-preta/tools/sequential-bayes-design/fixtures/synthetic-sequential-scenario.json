@@ -421,5 +421,89 @@
         0.5
       ]
     }
+  ],
+  "validation_probes": [
+    {
+      "probe_id": "V_SANDY_TRACER",
+      "stratum_id": "SANDY",
+      "modality": "heldout_event_tracer",
+      "outcomes": [
+        "matrix_like",
+        "preferential_like",
+        "unmodeled"
+      ],
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.85,
+            0.14,
+            0.01
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.15,
+            0.84,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.4,
+            0.59,
+            0.01
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.1,
+        0.2,
+        0.7
+      ]
+    },
+    {
+      "probe_id": "V_WEATHERED_GAS",
+      "stratum_id": "WEATHERED",
+      "modality": "heldout_gas_permeability",
+      "outcomes": [
+        "low_exchange",
+        "high_exchange",
+        "unmodeled"
+      ],
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.72,
+            0.27,
+            0.01
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.3,
+            0.69,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.25,
+            0.74,
+            0.01
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.2,
+        0.1,
+        0.7
+      ]
+    }
   ]
 }
