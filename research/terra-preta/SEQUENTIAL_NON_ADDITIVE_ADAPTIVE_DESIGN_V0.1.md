@@ -751,3 +751,28 @@ random effects, or link support metadata to an empirical covariance matrix.
 The tests are behind `cfg(test)` so the unused reference routine does not
 enter the production selector. Integration with a support-aware joint
 likelihood remains open under #5632.
+
+
+## 29. Exact adaptive decision-tree oracle for finite categorical worlds
+
+The test suite now includes an exact finite-horizon adaptive-design oracle over
+the declared candidate-model posterior. At every node it considers stopping
+(if hard target-stratum coverage is already met) or selecting every eligible
+remaining action that preserves budget and future coverage feasibility. It
+branches over each possible categorical observation using the model-averaged
+posterior predictive probability, applies the exact Bayes update, and recurses
+on the remaining action set and budget.
+
+This is a dynamic-programming reference for the declared finite decision
+problem, not an oracle with access to hidden physical truth. Its objective is
+the maximum expected declared service-decision utility under the candidate
+model mixture. The regression test requires the exact adaptive value to be at
+least as high as both the current decision under the prior and the expected
+value of the conditional-greedy EVSI trajectory.
+
+The oracle is currently a test-only small-case reference; it is not reported in
+the policy JSON and it is not suitable for larger action/observation spaces.
+Before scaling, add memoization over canonical posterior/action/budget states,
+a search-node cap, and solver-gap reporting. For continuous models the
+reference must be a separately validated approximation or upper/lower bound,
+not an unlabelled heuristic.
