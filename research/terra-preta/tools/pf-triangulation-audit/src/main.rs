@@ -690,8 +690,8 @@ mod tests {
                 review_claim: ReferenceReviewClaim::ClaimsIndependentReviewBlinded,
                 quality_status: ReferenceQualityStatus::Qualified,
                 reviewer_evidence_ref_claimed: Some(
-                "synthetic self-declared review reference".to_owned(),
-            ),
+                    "synthetic self-declared review reference".to_owned(),
+                ),
                 evidence_ref: "synthetic tracer truth".to_owned(),
                 detection_limit_or_resolution: "arrival detected at lower boundary".to_owned(),
             }],
