@@ -297,3 +297,10 @@ A new 2026 reduced-adjoint VDA study provides a useful comparator for joint stat
 ## End-to-end correlated action-information bake-off
 
 The Rust binary `conditional-information-bakeoff` now connects the stable coordinate layout, retained CT observation history, multivariate Gaussian conditional predictions and seeded information-gain estimator. Its fixture encodes two candidate models with identical one-dimensional CT and tracer marginals but opposite cross-modal correlations. The executable compares CT-only, tracer-only and joint acquisition from the prior, then scores tracer conditional on an observed CT value. Focused CI asserts zero individual marginal information, positive joint information, positive post-CT tracer information and hard budget/eligibility compliance; it validates the report schema and uploads a digest-bound artifact. This is a synthetic model-discrimination benchmark, not field validation or decision EVSI.
+
+
+## Joint state–parameter assimilation oracle
+
+The Rust crate adds `state_parameter_assimilation.rs`, an exact linear-Gaussian reference for the augmented latent vector of physical states, hydraulic/exchange parameters, bias and nuisance variables. Given a prior (z\sim N(\mu,P)), a linear observation operator (H) and noise covariance (R), it constructs the joint ([z,y]) Gaussian and conditions on the measurement. This preserves cross-covariance between water state and hydraulic/exchange parameters. It returns posterior means/covariance, innovation and log marginal likelihood.
+
+The nine initial reference tests cover analytical scalar recovery, physical-state/exchange-parameter covariance, observation predictive covariance, batch-versus-sequential equality for independent noise, correlated cross-modal measurement noise, stable variable-role metadata, evidence/innovation output and fail-closed inputs. This is a synthetic conjugate oracle, not a substitute for nonlinear Richards/dual-permeability assimilation.
