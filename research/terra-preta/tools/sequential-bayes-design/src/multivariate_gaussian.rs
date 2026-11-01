@@ -386,6 +386,59 @@ pub fn update_multivariate_model_posterior(
     })
 }
 
+
+/// A candidate model's posterior weight and conditional predictive law for
+/// not-yet-observed coordinates, given a retained measurement history.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ConditionalGaussianModel {
+    pub model_id: String,
+    pub posterior_weight: f64,
+    pub predictive_distribution: MultivariateGaussian,
+}
+
+/// Build the model-averaged conditional predictive components for a proposed
+/// next measurement. The posterior model weight is updated from the *joint*
+/// observed history, and each component is conditioned on that same history.
+///
+/// The returned components define the predictive mixture
+/// `p(Y_target | Y_observed) = Σ_m p(M_m | Y_observed)
+/// p(Y_target | Y_observed, M_m)`. This function does not approximate the
+/// mixture's entropy or expected information gain.
+pub fn conditional_predictive_models(
+    models: &[MultivariateGaussianModel],
+    observed_indices: &[usize],
+    observed_values: &[f64],
+    target_indices: &[usize],
+) -> Result<Vec<ConditionalGaussianModel>, String> {
+    if models.is_empty() {
+        return Err("at least one multivariate Gaussian model is required".into());
+    }
+    if observed_indices.len() != observed_values.len() {
+        return Err("observed indices and values must have equal length".into());
+    }
+    if target_indices.is_empty() {
+        return Err("target index set must be non-empty".into());
+    }
+
+    // This validates shared dimension/index identity and computes the model
+    // posterior from the observed joint-history likelihood.
+    let posterior =
+        update_multivariate_model_posterior(models, observed_indices, observed_values)?;
+
+    models.iter().zip(posterior.weights.iter()).map(|(model, weight)| {
+        let predictive_distribution = model.observation_model.conditional(
+            observed_indices,
+            observed_values,
+            target_indices,
+        )?;
+        Ok(ConditionalGaussianModel {
+            model_id: model.model_id.clone(),
+            posterior_weight: *weight,
+            predictive_distribution,
+        })
+    }).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,6 +456,78 @@ mod tests {
                 vec![vec![1.0, rho], vec![rho, 1.0]],
             ),
         }
+    }
+
+    #[test]
+    fn conditional_predictive_components_preserve_model_uncertainty() {
+        let models = vec![model("positive", 0.5, 0.8), model("negative", 0.5, -0.8)];
+        let components =
+            conditional_predictive_models(&models, &[0], &[1.0], &[1]).unwrap();
+
+        assert_eq!(components.len(), 2);
+        assert!((components[0].posterior_weight - 0.5).abs() < 1e-12);
+        assert!((components[1].posterior_weight - 0.5).abs() < 1e-12);
+        assert!((components[0].predictive_distribution.mean[0] - 0.8).abs() < 1e-12);
+        assert!((components[1].predictive_distribution.mean[0] + 0.8).abs() < 1e-12);
+        assert!((components[0].predictive_distribution.covariance[0][0] - 0.36).abs() < 1e-12);
+        assert!((components.iter().map(|item| item.posterior_weight).sum::<f64>() - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn conditional_predictive_components_use_joint_history_model_posterior() {
+        let models = vec![model("positive", 0.5, 0.8), model("negative", 0.5, -0.8)];
+        let components =
+            conditional_predictive_models(&models, &[0, 1], &[1.0, 1.0], &[0]).unwrap();
+
+        assert!(components[0].posterior_weight > 0.98);
+        assert!(components[1].posterior_weight < 0.02);
+        assert!((components[0].predictive_distribution.mean[0] - 0.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn conditional_predictive_components_are_invariant_to_history_order() {
+        let models = vec![
+            MultivariateGaussianModel {
+                model_id: "a".into(),
+                prior_weight: 0.6,
+                observation_model: gaussian(
+                    vec![0.0, 0.0, 0.2],
+                    vec![
+                        vec![1.0, 0.4, 0.2],
+                        vec![0.4, 1.0, 0.3],
+                        vec![0.2, 0.3, 1.0],
+                    ],
+                ),
+            },
+            MultivariateGaussianModel {
+                model_id: "b".into(),
+                prior_weight: 0.4,
+                observation_model: gaussian(
+                    vec![0.1, -0.1, 0.0],
+                    vec![
+                        vec![1.2, -0.2, 0.1],
+                        vec![-0.2, 0.9, 0.2],
+                        vec![0.1, 0.2, 1.1],
+                    ],
+                ),
+            },
+        ];
+        let forward = conditional_predictive_models(&models, &[0, 1], &[0.5, -0.3], &[2]).unwrap();
+        let reverse = conditional_predictive_models(&models, &[1, 0], &[-0.3, 0.5], &[2]).unwrap();
+
+        for (left, right) in forward.iter().zip(reverse.iter()) {
+            assert_eq!(left.model_id, right.model_id);
+            assert!((left.posterior_weight - right.posterior_weight).abs() < 1e-12);
+            assert!((left.predictive_distribution.mean[0] - right.predictive_distribution.mean[0]).abs() < 1e-12);
+            assert!((left.predictive_distribution.covariance[0][0] - right.predictive_distribution.covariance[0][0]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn conditional_predictive_components_reject_target_history_overlap() {
+        let models = vec![model("only", 1.0, 0.2)];
+        assert!(conditional_predictive_models(&models, &[0], &[1.0], &[0]).is_err());
+        assert!(conditional_predictive_models(&models, &[0], &[1.0], &[2]).is_err());
     }
 
     #[test]
