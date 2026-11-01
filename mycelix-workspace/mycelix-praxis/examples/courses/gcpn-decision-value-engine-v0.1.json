@@ -1,0 +1,73 @@
+{
+  "benchmark_id": "GCPN-DECISION-VALUE-ENGINE",
+  "version": "0.1.0",
+  "status": "rust-source-authored-execution-outstanding",
+  "package": "benchmarks/gcpn-decision-value-verification",
+  "dependencies": [],
+  "parent_issue": 5665,
+  "specification_pull_request": 5666,
+  "default_profile": {
+    "profile_id": "synthetic-cost-loss-20-100",
+    "action_cost": 20,
+    "avoidable_event_loss": 100,
+    "residual_event_loss_under_action": 0,
+    "minimum_action_lead_seconds": 30,
+    "analytic_threshold": 0.2
+  },
+  "ranking_reversal_fixture": {
+    "outcomes": [
+      true,
+      true,
+      false,
+      false
+    ],
+    "candidate_probabilities": [
+      0.9,
+      0.19,
+      0.19,
+      0.19
+    ],
+    "reference_probabilities": [
+      0.21,
+      0.21,
+      0.21,
+      0.21
+    ],
+    "candidate_brier": 0.184575,
+    "reference_brier": 0.3341,
+    "candidate_policy_loss": 120,
+    "reference_policy_loss": 80,
+    "never_act_loss": 200,
+    "always_act_loss": 80,
+    "perfect_information_infeasible_loss": 40,
+    "net_benefit_candidate_vs_reference": -40,
+    "candidate_decision_regret": 80
+  },
+  "implemented": [
+    "analytic_cost_loss_threshold",
+    "realized_policy_loss_for_candidate_reference_climatology",
+    "never_act_and_always_act_baselines",
+    "perfect_information_infeasible_oracle",
+    "net_benefit_vs_named_baselines",
+    "decision_regret",
+    "late_forecast_and_action_lead_accounting",
+    "paired_brier_score_same_pre_event_forecast_subset",
+    "strict_verification_source_version_equality",
+    "predeclared_threshold_grid_sensitivity"
+  ],
+  "tests_authored": 12,
+  "execution": {
+    "cargo_build": "not_run",
+    "rust_tests": "not_run",
+    "cli": "not_run",
+    "decision_uncertainty_bootstrap": "not_implemented",
+    "ci": "not_claimed"
+  },
+  "non_claims": [
+    "operational_warning_threshold",
+    "real_action_recommendation",
+    "real_user_preferences",
+    "lives_saved",
+    "causal_impact"
+  ]
+}
