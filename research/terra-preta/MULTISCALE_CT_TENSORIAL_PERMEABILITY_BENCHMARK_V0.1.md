@@ -269,3 +269,16 @@ The following resources can make the first solver qualification reproducible. Th
 ### Admission checklist before acquisition
 
 For every candidate, pin exact DOI/version, file inventory, license text, checksums, specimen/sample IDs, imaging resolution/FOV, segmentation provenance, boundary conditions, solver/version, observed vs simulated hydraulic variables, independent experimental-unit structure, and whether raw volumes are actually available. Store raw assets outside Git; no source is promoted to confirmatory external validation until this audit passes.
+
+
+## State–parameter assimilation reference implementation
+
+Issue #5658 now has a reusable exact linear-Gaussian state/parameter assimilation oracle in `src/state_parameter_assimilation.rs`. It augments physical water states and exchange/hydraulic parameters into one Gaussian vector, applies (y=Hz+\epsilon), and calculates the exact posterior by conditioning the joint Gaussian. It keeps state/parameter cross-covariance visible instead of fitting the state first and then treating hydraulic parameters as fixed.
+
+Use this exact oracle to qualify approximations:
+- deterministic/ensemble Kalman filter and square-root variants;
+- particle filter / resample-move;
+- reduced-adjoint variational assimilation with POD;
+- batch Bayesian state/parameter calibration.
+
+Each method must be evaluated on identical synthetic worlds, with posterior means, covariance/credible coverage, CRPS/log score, innovations, conservation and compute cost. The linear oracle does not replace nonlinear hydraulic-model validation.
