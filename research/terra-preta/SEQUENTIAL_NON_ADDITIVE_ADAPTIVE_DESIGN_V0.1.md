@@ -589,3 +589,43 @@ validates the fixture through the standalone schema-audit tool. This verifies
 the metadata contract only; the current categorical Bayesian engine does not
 yet consume the support records or use a covariance matrix. That is a distinct
 next implementation gate under #5632.
+
+
+## 25. Discrete simulation-based calibration (SBC) reference gate
+
+The sequential Bayesian crate now contains an in-family finite-model SBC test
+with a data-dependent joint-likelihood test quantity. Across 4,096 deterministic
+prior-predictive worlds, the test:
+
+1. samples the true candidate model from the declared prior;
+2. generates two categorical observations from that model's likelihoods;
+3. updates the posterior with the same declared model likelihoods;
+4. computes a randomized posterior rank for the true discrete model index;
+5. computes a randomized posterior rank for the joint log likelihood of the
+   realized data under each candidate model.
+
+The parameter-index rank is a basic discrete SBC quantity. The joint
+log-likelihood rank is data-dependent and is included because marginal
+parameter-rank checks alone can miss important posterior pathologies. The
+regression negative control deliberately misspecifies one model/action
+likelihood while keeping the truth generator unchanged; at least one rank
+histogram must then fail the same tolerance.
+
+An independent reproduction of the exact deterministic seed construction
+gave in-family parameter-rank bin counts from 383 to 432 and joint-likelihood
+bin counts from 394 to 443 (4,096 replicates; 10 bins). The deliberate
+misspecification produced parameter-rank counts from 280 to 691 and
+joint-likelihood counts from 318 to 671. The authored Rust test uses the
+preregistered broad 7–13% frequency band for each bin. These counts are
+independent calculations, not Rust test output; only exact-head CI can
+establish that the Rust test compiles and passes.
+
+This is a discrete reference case, not an SBC certification of the whole
+engine. Next steps must add more test quantities, including model indicator,
+decision functional and joint data likelihood; multiple priors and model
+families; and independent scenario-generation seeds. A continuous simulator
+requires its own SBC design, including prior predictive simulation and
+posterior draws for discrepancy and sensor-covariance parameters. Refer to
+Modrák et al. (Bayesian Analysis, 2025), who show the sensitivity of SBC to
+test-quantity choice and emphasize data-dependent quantities such as the
+joint likelihood: https://doi.org/10.1214/23-BA1404.
