@@ -60,6 +60,28 @@ DIAGNOSE_FIRST at the preregistered synthetic threshold. This is sensitivity
 analysis for an author-specified state, not empirical prior calibration.
 
 
+## Transient macropore–matrix exchange
+
+The `transient_exchange` module implements a time-resolved reference for
+`q_exchange(t) = a_wetted(t) * j_macropore(t)`, following the dimensional
+structure proposed by Chaif et al. (2025, Journal of Hydrology 661, 133791,
+DOI 10.1016/j.jhydrol.2025.133791). It takes synchronized wetted-interface
+area and macropore-flux histories as explicit inputs, linearly interpolates
+each signal, computes their product, and analytically integrates that product
+between samples. It also provides a paired macropore-loss / matrix-gain
+balance check.
+
+The synthetic tests include constant-input exact integration, exact
+integration of the product of two linear signals, partial irregular intervals,
+rainfall-onset exchange decaying to zero, reverse flux, invalid-input rejection,
+and paired storage closure.
+
+**Boundary:** this is not the full paper model. It does not derive interface
+area from CT, solve the horizontal Richards equation, estimate the flux from
+macropore dynamics, assimilate states, or establish field performance. The
+source paper's infiltration and CT data are available upon request, not a
+publicly bundled fixture.
+
 ## Covariance-component identifiability
 
 The `covariance_identifiability` module builds exact upper-triangle covariance
