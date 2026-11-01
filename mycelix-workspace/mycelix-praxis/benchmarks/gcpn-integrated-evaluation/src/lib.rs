@@ -118,9 +118,12 @@ pub struct LifecycleCostSummary {
     pub centralized_cost_per_accessible_receiver: f64,
     pub regional_cost_per_accessible_receiver: f64,
     pub local_first_cost_per_accessible_receiver: f64,
-    pub centralized_staff_hours: f64,
-    pub regional_staff_hours: f64,
-    pub local_first_staff_hours: f64,
+    pub centralized_annual_staff_hours: f64,
+    pub regional_annual_staff_hours: f64,
+    pub local_first_annual_staff_hours: f64,
+    pub centralized_staff_hours_over_horizon: f64,
+    pub regional_staff_hours_over_horizon: f64,
+    pub local_first_staff_hours_over_horizon: f64,
     pub zero_accessible_cost_is_undefined: bool,
     pub central_hub_restoration_is_scenario_scoped: bool,
 }
@@ -202,6 +205,12 @@ impl IntegratedReport {
             && (self.lifecycle_cost.centralized_cost_per_accessible_receiver - 15.57021032426856).abs() < 1e-6
             && (self.lifecycle_cost.regional_cost_per_accessible_receiver - 16.99631904833441).abs() < 1e-6
             && (self.lifecycle_cost.local_first_cost_per_accessible_receiver - 20.44603627836978).abs() < 1e-6
+            && self.lifecycle_cost.centralized_annual_staff_hours == 1_600.0
+            && self.lifecycle_cost.regional_annual_staff_hours == 1_950.0
+            && self.lifecycle_cost.local_first_annual_staff_hours == 2_400.0
+            && self.lifecycle_cost.centralized_staff_hours_over_horizon == 8_000.0
+            && self.lifecycle_cost.regional_staff_hours_over_horizon == 9_750.0
+            && self.lifecycle_cost.local_first_staff_hours_over_horizon == 12_000.0
             && self.lifecycle_cost.zero_accessible_cost_is_undefined
             && self.lifecycle_cost.central_hub_restoration_is_scenario_scoped
     }
@@ -424,9 +433,12 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
             centralized_cost_per_accessible_receiver: centralized_cost.base_cost_per_accessible_receiver_reached.unwrap_or(0.0),
             regional_cost_per_accessible_receiver: regional_cost.base_cost_per_accessible_receiver_reached.unwrap_or(0.0),
             local_first_cost_per_accessible_receiver: local_first_cost.base_cost_per_accessible_receiver_reached.unwrap_or(0.0),
-            centralized_staff_hours: centralized_cost.annual_staff_hours,
-            regional_staff_hours: regional_cost.annual_staff_hours,
-            local_first_staff_hours: local_first_cost.annual_staff_hours,
+            centralized_annual_staff_hours: centralized_cost.annual_staff_hours,
+            regional_annual_staff_hours: regional_cost.annual_staff_hours,
+            local_first_annual_staff_hours: local_first_cost.annual_staff_hours,
+            centralized_staff_hours_over_horizon: centralized_cost.staff_hours_over_horizon,
+            regional_staff_hours_over_horizon: regional_cost.staff_hours_over_horizon,
+            local_first_staff_hours_over_horizon: local_first_cost.staff_hours_over_horizon,
             zero_accessible_cost_is_undefined: zero_reach_cost.base_cost_per_accessible_receiver_reached.is_none(),
             central_hub_restoration_is_scenario_scoped,
         },
