@@ -1,0 +1,74 @@
+{
+  "evaluation_id": "GCPN-INTEGRATED-SYNTHETIC-EVALUATION",
+  "version": "0.3.0",
+  "status": "synthetic-composition-only",
+  "component_packages": [
+    {
+      "name": "gcpn-civil-conformance",
+      "version": "0.1.1",
+      "fixture": "gcpn-001-v0.1.1.csv",
+      "fnv1a64": "0x8e5118bf74fc7b13"
+    },
+    {
+      "name": "gcpn-topology-resilience",
+      "version": "0.1.0",
+      "fixture": "topology-fault-matrix-v0.1.csv",
+      "fnv1a64": "0xe6f6679f94c93e31"
+    },
+    {
+      "name": "gcpn-last-mile",
+      "version": "0.1.0",
+      "fixtures": [
+        {"name": "receiver-cohorts-v0.1.csv", "fnv1a64": "0x59f956045ca16c3d"},
+        {"name": "channel-fault-matrix-v0.1.csv", "fnv1a64": "0x2a7269d9a7d4caee"}
+      ]
+    },
+    {
+      "name": "gcpn-warning-to-action",
+      "version": "0.1.1",
+      "fixture": "action-chain-v0.1.1.csv",
+      "fnv1a64": "0x4084062a6c04598f"
+    },
+    {
+      "name": "gcpn-forecast-calibration",
+      "version": "0.1.0",
+      "fixture": "forecast-cases-v0.1.csv",
+      "fnv1a64": "0x81af0b6779196770"
+    }
+  ],
+  "forecast_evaluation": {
+    "calibration_samples_per_model": 6,
+    "evaluation_samples_per_model": 12,
+    "candidate_evaluation_brier": 0.17168333333333333,
+    "candidate_brier_skill_vs_climatology": 0.3132666666666667,
+    "lead_reference_evaluation_brier": 0.04,
+    "lead_reference_brier_skill_vs_climatology": 0.84,
+    "candidate_heat_72h_sample_count": 2,
+    "candidate_heat_72h_brier": 0.9801,
+    "candidate_heat_72h_brier_skill": -2.9204,
+    "interpretation": "synthetic adverse subgroup regression; not real forecast performance"
+  },
+  "non_compensatory_gates": [
+    "civil_record_integrity",
+    "topology_authority_and_continuity",
+    "last_mile_unique_and_accessible_reach",
+    "warning_to_action_evidence_oracle",
+    "forecast_verification_data_integrity",
+    "forecast_subgroup_quality_regression",
+    "funded_action_positive_control",
+    "unfunded_action_positive_control",
+    "authorized_abstention_positive_control"
+  ],
+  "forbidden_composite": "weighted_quality_score",
+  "non_claims": [
+    "no_live_alert_dispatch",
+    "no_live_forecasts_or_hazard_prediction",
+    "no_forecast_threshold_or_warning_policy",
+    "no_resource_or_fund_release",
+    "no_real_population_coverage_claim",
+    "no_human_comprehension_or_action_claim_from_transport_receipts",
+    "no_causal_lives_saved_claim",
+    "no_replacement_for_national_warning_authorities_sadc_shoc_or_amhewas",
+    "nrvdef_is_a_separate_evidence_and_treaty-boundary-programme"
+  ]
+}
