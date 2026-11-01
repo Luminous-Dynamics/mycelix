@@ -754,12 +754,14 @@ mod tests {
     fn lead_conditioned_reference_is_scored_alongside_climatology_and_candidate() {
         let report = fixture_report().unwrap();
         let lead_reference = report.model_summary("lead_reference", Partition::Evaluation).unwrap();
+        let candidate = report.model_summary("candidate", Partition::Evaluation).unwrap();
         let climatology = report.model_summary("climatology", Partition::Evaluation).unwrap();
         assert_eq!(lead_reference.sample_count, 12);
         assert!((lead_reference.brier_score - 0.04).abs() < 1e-12);
         assert!((lead_reference.brier_skill_score.unwrap() - 0.84).abs() < 1e-12);
         assert_eq!(climatology.sample_count, 12);
         assert!((climatology.brier_score - 0.25).abs() < 1e-12);
+        assert!(candidate.brier_score > lead_reference.brier_score);
     }
 
     #[test]
