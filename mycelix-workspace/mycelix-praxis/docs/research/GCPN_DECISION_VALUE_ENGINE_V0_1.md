@@ -39,7 +39,7 @@ Separately, it calculates realized losses under:
 
 It then reports net benefit relative to each named baseline and candidate regret relative to the perfect-information oracle. A late forecast can still be a valid pre-event forecast score while being unusable at the decision cutoff. The engine keeps those two properties separate.
 
-The policy engine records false actions, missed events, late forecasts, insufficient action lead, infeasible cases and usable decision cases separately.
+The policy engine records false actions, missed events, late forecasts, insufficient action lead, infeasible cases and usable decision cases separately. The result report carries the complete frozen profile values (action cost, avoidable loss, residual loss and minimum action lead), the analytic threshold, and verification source/version so that a policy-loss number is not detached from the assumptions that produced it.
 
 ## 3. Ranking-reversal oracle
 
