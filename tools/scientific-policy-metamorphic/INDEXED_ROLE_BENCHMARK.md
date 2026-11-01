@@ -42,31 +42,44 @@ This is Rego representation equivalence over the frozen input panel. It does not
 
 ## 4. Performance qualification
 
-For each of the eight actions, the workflow selects the first source-corpus representative. The indexed projection generator selects the same first occurrence in the same JSONL order; CI checks the case ID. It also checks the generated indexed-input SHA-256 against its manifest.
+The workflow retains the original first-occurrence input for each of the eight actions as a smoke panel. It then runs a wider deterministic, stratified panel built from the source generator's explicit semantic dimensions:
 
-OPA's native opa bench --benchmem --metrics --count=5 runs against:
-- the original role-array input and original Rego policy;
-- the indexed role-object input and indexed Rego policy.
+- role cardinality: 0, 1–2, 3–4, 5+;
+- claim stream: absent or present;
+- actor/claim relationship: not applicable, owner, non-owner;
+- acting/creator organization relationship: absent, equal, different, or present without a creator organization;
+- attestation kind: ordinary or independent replication;
+- target attestation: absent, authored by the actor, or authored by another actor.
 
-Record raw JSON for every action and both representations. Report the query distributions and allocation/byte metrics emitted by OPA. Do not compare separate action cases or aggregate inputs with different policy branches.
+Each action retains up to two lowest SHA-256-ranked case IDs per populated stratum, then performs deterministic round-robin selection across hash-ranked strata. This produces 16–24 matched cases per action (128–192 total); the manifest records the exact stratum, case ID, rank, paths, byte lengths and SHA-256 digests for both representations. The sample profile and rank inputs are versioned. The selector operates only on the frozen 62,464 source-pinned corpus; it does not infer expected decisions.
+
+For every selected case, CI:
+1. verifies the baseline and indexed input bytes against the sample manifest;
+2. invokes OPA's native \`opa bench --benchmem --metrics --count=5\` using the original array policy and original input;
+3. invokes the same command using the indexed policy and the derived input;
+4. preserves both raw JSON outputs and the complete paired sample manifest.
+
+OPA's native benchmark reports repeated query evaluation; policy loading, parsing, compilation and process setup are excluded. The per-case raw outputs must remain paired by case ID and stratum. Do not compare different cases or action branches as though they were the same workload.
 
 The workflow separately records:
 - projection-generation elapsed time;
 - indexed JSONL bytes vs original JSONL bytes;
-- full-corpus one-shot indexed OPA evaluation time;
-- native repeated-query benchmark output;
+- full-corpus one-shot baseline and indexed OPA evaluation time;
+- the eight-case smoke panel;
+- the 128–192-case stratified native query panel;
 - policy, source, projected input, binary and host digests.
 
-This separates query-only improvement from projection and transport costs. The native query result is not by itself an end-to-end throughput claim.
+This separates query-only improvement from projection and transport costs. A query-level win is not an end-to-end throughput claim; the added projection, serialization, network/storage bytes and cold-start path must still be included in any production evaluation.
 
 ## 5. Target criteria
 
 - Zero decision and determining-rule divergence across all 62,464 inputs.
 - Zero duplicate/invalid-role acceptance in the transform unit panel.
-- All eight action representatives bound to exact source case IDs and SHA-256 digests.
-- Raw native OPA benchmark outputs published for baseline and indexed variants.
+- All eight smoke representatives bound to exact source case IDs and SHA-256 digests.
+- At least 16 and at most 24 stratified samples for every action, with exact source and projected hashes.
+- Raw native OPA benchmark outputs published for both representations for every matched sample.
 - Report p50/p95/p99 where the native benchmark output supports them; retain raw five-run samples and allocation/byte results.
-- Compare indexed and baseline distributions per action. A candidate optimization is retained only when it improves a relevant latency or allocation metric beyond observed run noise without material regression on other actions, and when its projection overhead is reported.
+- Compare baseline and indexed distributions within each matched action/stratum. A candidate optimization is retained only when relevant latency/allocation metrics improve beyond observed noise without material regression across the represented strata, and the projection overhead is separately reported.
 
 No fixed nanoseconds/op target is asserted before the first pinned benchmark is available.
 
