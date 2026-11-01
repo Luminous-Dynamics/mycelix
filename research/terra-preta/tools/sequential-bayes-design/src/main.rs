@@ -1029,6 +1029,98 @@ mod tests {
             .expect("valid fixture")
     }
 
+    fn exact_adaptive_value(
+        context: &SelectorContext,
+        actions: &[SelectorAction],
+        decisions: &[SelectorDecision],
+        selected_ids: &[String],
+        spent: u32,
+        posterior: &[f64],
+    ) -> f64 {
+        let covered = context.strata.iter().all(|stratum| {
+            selected_stratum_count(actions, selected_ids, &stratum.stratum_id)
+                >= stratum.minimum_selected_actions
+        });
+        let mut best = if covered {
+            best_decision_utility(posterior, decisions)
+        } else {
+            f64::NEG_INFINITY
+        };
+        for action in actions.iter().filter(|action| {
+            !selected_ids.contains(&action.action_id)
+                && preserves_coverage_with_candidate(
+                    context, actions, selected_ids, action, spent,
+                )
+        }) {
+            let predictive = predictive_probabilities(action, posterior);
+            let mut expected = 0.0;
+            for (outcome_index, probability) in predictive.iter().enumerate() {
+                if *probability <= ALERT_EPSILON {
+                    continue;
+                }
+                let (updated, _) = posterior_after(action, posterior, outcome_index);
+                let mut next_ids = selected_ids.to_vec();
+                next_ids.push(action.action_id.clone());
+                expected += probability * exact_adaptive_value(
+                    context, actions, decisions, &next_ids,
+                    spent + action.cost_units, &updated,
+                );
+            }
+            best = best.max(expected);
+        }
+        best
+    }
+
+    fn greedy_evsi_value(
+        context: &SelectorContext,
+        actions: &[SelectorAction],
+        decisions: &[SelectorDecision],
+        selected_ids: &[String],
+        spent: u32,
+        posterior: &[f64],
+        initial_posterior: &[f64],
+    ) -> f64 {
+        let covered = context.strata.iter().all(|stratum| {
+            selected_stratum_count(actions, selected_ids, &stratum.stratum_id)
+                >= stratum.minimum_selected_actions
+        });
+        let state = SelectionState {
+            selected_ids,
+            spent,
+            posterior,
+            initial_posterior,
+            discrepancy_active: false,
+            seed: 1,
+            replicate: 0,
+            step: selected_ids.len(),
+        };
+        let selected = next_action(
+            context, actions, decisions, &state, Policy::DecisionEvsi,
+        );
+        let Some(action) = selected else {
+            return if covered {
+                best_decision_utility(posterior, decisions)
+            } else {
+                f64::NEG_INFINITY
+            };
+        };
+        let predictive = predictive_probabilities(action, posterior);
+        let mut expected = 0.0;
+        for (outcome_index, probability) in predictive.iter().enumerate() {
+            if *probability <= ALERT_EPSILON {
+                continue;
+            }
+            let (updated, _) = posterior_after(action, posterior, outcome_index);
+            let mut next_ids = selected_ids.to_vec();
+            next_ids.push(action.action_id.clone());
+            expected += probability * greedy_evsi_value(
+                context, actions, decisions, &next_ids,
+                spent + action.cost_units, &updated, initial_posterior,
+            );
+        }
+        expected
+    }
+
     fn selector_fixture() -> (SelectorContext, Vec<SelectorAction>, Vec<SelectorDecision>, Vec<f64>) {
         let scenario = fixture();
         (
@@ -1150,6 +1242,26 @@ mod tests {
             !bad_histograms_are_uniform,
             "negative control: a misspecified update should break at least one SBC rank histogram"
         );
+    }
+
+    #[test]
+    fn exact_adaptive_decision_tree_oracle_dominates_greedy_evsi() {
+        let scenario = fixture();
+        let context = selector_context(&scenario);
+        let actions = selector_actions(&scenario);
+        let decisions = selector_decisions(&scenario);
+        let posterior: Vec<f64> = scenario.models.iter()
+            .map(|model| model.prior_weight).collect();
+        let exact = exact_adaptive_value(
+            &context, &actions, &decisions, &[], 0, &posterior,
+        );
+        let greedy = greedy_evsi_value(
+            &context, &actions, &decisions, &[], 0, &posterior, &posterior,
+        );
+        assert!(exact.is_finite());
+        assert!(greedy.is_finite());
+        assert!(exact + 1e-10 >= greedy);
+        assert!(exact + 1e-10 >= best_decision_utility(&posterior, &decisions));
     }
 
     #[test]
