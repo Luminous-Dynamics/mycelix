@@ -1,0 +1,43 @@
+{
+  "benchmark_id": "GCPN-LIFECYCLE-COST-ACCESSIBLE-REACH-001",
+  "version": "0.1.0",
+  "status": "synthetic-cost-and-service-arithmetic",
+  "cost_unit": "synthetic-unit-not-currency",
+  "service_horizon_years": 5,
+  "real_discount_rate": 0.05,
+  "architectures": ["centralized", "regional", "local-first"],
+  "cost_components": [
+    "capital_setup",
+    "channel_setup",
+    "annual_operations",
+    "annual_staffing",
+    "annual_maintenance",
+    "scheduled_replacement",
+    "scenario_restoration"
+  ],
+  "service_denominators": [
+    "intended_receivers",
+    "unique_receivers_reached",
+    "accessible_receivers_reached",
+    "duplicate_channel_receipts"
+  ],
+  "unit_costs": [
+    "base_cost_per_intended_receiver",
+    "base_cost_per_unique_receiver_reached",
+    "base_cost_per_accessible_receiver_reached"
+  ],
+  "undefined_denominator_policy": "return-null-when-zero",
+  "sensitivity_tests": [
+    {"horizon_years": 5, "discount_rate": 0.05},
+    {"horizon_years": 10, "discount_rate": 0.05},
+    {"horizon_years": 5, "discount_rate": 0.0}
+  ],
+  "non_claims": [
+    "no_market_price",
+    "no_procurement_estimate",
+    "no_country_budget",
+    "no_public_funding_recommendation",
+    "no_weighted_architecture_winner",
+    "no_real_population_coverage_claim"
+  ]
+}
