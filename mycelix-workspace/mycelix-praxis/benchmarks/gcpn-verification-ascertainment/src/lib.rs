@@ -830,10 +830,19 @@ mod tests {
 
     #[test]
     fn paired_mode_requires_a_reference_score_for_every_observed_case() {
-        let frame = paired_frame(vec![
-            case("a", "sys-1", "zone-a", Some(1.0), observed("a", 0.2, None, 90)),
-        ]);
-        assert!(frame.validate().unwrap_err().contains("reference score case id"));
+        let mut scores = match observed("a", 0.2, None, 90) {
+            OutcomeStatus::Observed(value) => value,
+            _ => unreachable!(),
+        };
+        scores.reference_case_id = Some("a".into());
+        let frame = paired_frame(vec![case(
+            "a",
+            "sys-1",
+            "zone-a",
+            Some(1.0),
+            OutcomeStatus::Observed(scores),
+        )]);
+        assert!(frame.validate().unwrap_err().contains("reference score is missing"));
     }
 
     #[test]
