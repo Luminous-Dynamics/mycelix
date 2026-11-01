@@ -9,6 +9,9 @@ cargo test --manifest-path research/terra-preta/tools/sequential-bayes-design/Ca
 cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
   research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json \
   sequential-bayes-report.json
+cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
+  research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json \
+  sequential-bayes-infamily-report.json
 ```
 
 ## Policies
