@@ -29,6 +29,8 @@ pub enum NodeKind {
 pub enum DigestStatus {
     Unchecked,
     VerifiedByExternalAdapter,
+    /// Accepted only by the frozen synthetic fixture oracle; not a cryptographic result.
+    FixtureOracleAccepted,
     Mismatch,
 }
 
@@ -179,6 +181,7 @@ pub struct GraphReport {
     pub edge_count: u32,
     pub exact_duplicate_nodes: u32,
     pub conflicting_node_identities: u32,
+    pub conflicting_edge_identities: u32,
     pub dangling_edges: u32,
     pub invalid_relation_types: u32,
     pub transaction_time_violations: u32,
@@ -234,7 +237,7 @@ fn relation_endpoints_valid(kind: RelationKind, from: NodeKind, to: NodeKind) ->
 }
 
 fn has_forbidden_cycle(nodes: &BTreeMap<String, EvidenceNode>, edges: &[EvidenceEdge]) -> bool {
-    let mut adjacency: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    let mut adjacency: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for edge in edges {
         if matches!(
             edge.kind,
@@ -243,23 +246,23 @@ fn has_forbidden_cycle(nodes: &BTreeMap<String, EvidenceNode>, edges: &[Evidence
             && nodes.contains_key(&edge.to)
         {
             adjacency
-                .entry(edge.from.as_str())
+                .entry(edge.from.clone())
                 .or_default()
-                .push(edge.to.as_str());
+                .push(edge.to.clone());
         }
     }
 
-    fn visit<'a>(
-        node: &'a str,
-        adjacency: &BTreeMap<&'a str, Vec<&'a str>>,
-        state: &mut BTreeMap<&'a str, u8>,
+    fn visit(
+        node: &str,
+        adjacency: &BTreeMap<String, Vec<String>>,
+        state: &mut BTreeMap<String, u8>,
     ) -> bool {
         match state.get(node).copied().unwrap_or(0) {
             1 => return true,
             2 => return false,
             _ => {}
         }
-        state.insert(node, 1);
+        state.insert(node.to_string(), 1);
         if let Some(children) = adjacency.get(node) {
             for child in children {
                 if visit(child, adjacency, state) {
@@ -267,13 +270,13 @@ fn has_forbidden_cycle(nodes: &BTreeMap<String, EvidenceNode>, edges: &[Evidence
                 }
             }
         }
-        state.insert(node, 2);
+        state.insert(node.to_string(), 2);
         false
     }
 
-    let mut state: BTreeMap<&str, u8> = BTreeMap::new();
+    let mut state: BTreeMap<String, u8> = BTreeMap::new();
     for node in nodes.keys() {
-        if visit(node.as_str(), &adjacency, &mut state) {
+        if visit(node, &adjacency, &mut state) {
             return true;
         }
     }
@@ -301,7 +304,7 @@ fn validate_parts(
             match node.digest_status {
                 DigestStatus::Unchecked => report.unverified_payload_digests += 1,
                 DigestStatus::Mismatch => report.digest_mismatches += 1,
-                DigestStatus::VerifiedByExternalAdapter => {}
+                DigestStatus::VerifiedByExternalAdapter | DigestStatus::FixtureOracleAccepted => {}
             }
         }
     }
@@ -309,7 +312,7 @@ fn validate_parts(
     let mut edge_ids = BTreeSet::new();
     for edge in edges {
         if !edge_ids.insert(edge.id.as_str()) {
-            report.conflicting_node_identities += 1;
+            report.conflicting_edge_identities += 1;
         }
         let from = nodes.get(&edge.from);
         let to = nodes.get(&edge.to);
@@ -347,6 +350,8 @@ pub enum CapMessageType {
 pub enum DigestVerification {
     Unchecked,
     VerifiedByExternalAdapter,
+    /// Fixture-only trust marker; never treat this as a production digest check.
+    FixtureOracleAccepted,
     Mismatch,
 }
 
@@ -401,24 +406,33 @@ impl CapLifecycleReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapLifecycleAudit {
+    pub report: CapLifecycleReport,
+    /// Preserve conflicting payloads for independent review; do not silently
+    /// select one record for a reused CAP extended identifier.
+    pub conflicting_messages: Vec<CapMessage>,
+}
+
 /// Validate an append-ordered synthetic CAP message history.
 ///
 /// Update and Cancel must resolve exact earlier extended identifiers. The
 /// function never edits predecessor message bytes. CAP XML parsing and actual
 /// cryptographic verification are separate adapters and are not implemented
 /// by this core.
-pub fn validate_cap_lifecycle(messages: &[CapMessage]) -> CapLifecycleReport {
+pub fn validate_cap_lifecycle(messages: &[CapMessage]) -> CapLifecycleAudit {
     let mut report = CapLifecycleReport {
         messages_seen: messages.len() as u32,
         ..CapLifecycleReport::default()
     };
+    let mut conflicting_messages = Vec::new();
     let mut seen: BTreeMap<String, &CapMessage> = BTreeMap::new();
 
     for message in messages {
         match message.digest_verification {
             DigestVerification::Unchecked => report.unverified_digests += 1,
             DigestVerification::Mismatch => report.digest_mismatches += 1,
-            DigestVerification::VerifiedByExternalAdapter => {}
+            DigestVerification::VerifiedByExternalAdapter | DigestVerification::FixtureOracleAccepted => {}
         }
 
         let extended_id = message.extended_identifier();
@@ -429,6 +443,7 @@ pub fn validate_cap_lifecycle(messages: &[CapMessage]) -> CapLifecycleReport {
                 report.exact_duplicates += 1;
             } else {
                 report.conflicting_identifiers += 1;
+                conflicting_messages.push(message.clone());
             }
             continue;
         }
@@ -462,7 +477,7 @@ pub fn validate_cap_lifecycle(messages: &[CapMessage]) -> CapLifecycleReport {
         }
         seen.insert(extended_id, message);
     }
-    report
+    CapLifecycleAudit { report, conflicting_messages }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -506,9 +521,10 @@ pub fn validate_receipts(messages: &[CapMessage], receipts: &[DeliveryReceipt]) 
             Some(message) => {
                 if receipt.message_digest != message.declared_digest {
                     report.digest_mismatches += 1;
-                } else if message.digest_verification
-                    != DigestVerification::VerifiedByExternalAdapter
-                {
+                } else if !matches!(
+                    message.digest_verification,
+                    DigestVerification::VerifiedByExternalAdapter | DigestVerification::FixtureOracleAccepted
+                ) {
                     report.unverified_message_digests += 1;
                 } else {
                     report.exact_message_matches += 1;
@@ -578,7 +594,7 @@ mod tests {
             recorded_at: sent_at,
             wire_bytes: bytes.to_vec(),
             declared_digest: format!("sha256-fixture-{identifier}"),
-            digest_verification: DigestVerification::VerifiedByExternalAdapter,
+            digest_verification: DigestVerification::FixtureOracleAccepted,
         }
     }
 
@@ -776,7 +792,8 @@ mod tests {
             Some(600),
             b"alert-v2",
         );
-        let report = validate_cap_lifecycle(&[alert.clone(), update]);
+        let audit = validate_cap_lifecycle(&[alert.clone(), update]);
+        let report = audit.report;
         assert!(report.is_conformant());
         assert_eq!(report.updates, 1);
         assert_eq!(alert.wire_bytes, b"alert-v1");
@@ -792,7 +809,8 @@ mod tests {
             None,
             b"alert-v2",
         );
-        let report = validate_cap_lifecycle(&[update]);
+        let audit = validate_cap_lifecycle(&[update]);
+        let report = audit.report;
         assert_eq!(report.missing_references, 1);
         assert!(!report.is_conformant());
     }
@@ -823,7 +841,8 @@ mod tests {
             None,
             b"cancel-v1",
         );
-        let report = validate_cap_lifecycle(&[first, expired_update, unknown_cancel]);
+        let audit = validate_cap_lifecycle(&[first, expired_update, unknown_cancel]);
+        let report = audit.report;
         assert_eq!(report.expired_references, 1);
         assert_eq!(report.unknown_references, 1);
     }
@@ -840,8 +859,10 @@ mod tests {
         );
         let mut changed = original.clone();
         changed.wire_bytes = b"tampered".to_vec();
-        let report = validate_cap_lifecycle(&[original, changed]);
+        let audit = validate_cap_lifecycle(&[original, changed]);
+        let report = audit.report;
         assert_eq!(report.conflicting_identifiers, 1);
+        assert_eq!(audit.conflicting_messages.len(), 1);
     }
 
     #[test]
@@ -854,7 +875,8 @@ mod tests {
             Some(500),
             b"original",
         );
-        let report = validate_cap_lifecycle(&[original.clone(), original]);
+        let audit = validate_cap_lifecycle(&[original.clone(), original]);
+        let report = audit.report;
         assert_eq!(report.exact_duplicates, 1);
         assert_eq!(report.conflicting_identifiers, 0);
     }
