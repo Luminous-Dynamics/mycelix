@@ -186,19 +186,15 @@ fn parse_utc(
     Ok(parsed)
 }
 
-fn validate_theta(
-    theta: Option<f64>,
-    status: SampleStatus,
-    label: &str,
-) -> Result<(), String> {
+fn validate_theta(theta: Option<f64>, status: SampleStatus, label: &str) -> Result<(), String> {
     match (status, theta) {
         (SampleStatus::Missing, None) => Ok(()),
-        (SampleStatus::Missing, Some(_)) => {
-            Err(format!("{label}: missing status must have a null theta value"))
-        }
-        (SampleStatus::Observed | SampleStatus::LinearInterpolatedGapLt6h, None) => {
-            Err(format!("{label}: observed/interpolated status requires a theta value"))
-        }
+        (SampleStatus::Missing, Some(_)) => Err(format!(
+            "{label}: missing status must have a null theta value"
+        )),
+        (SampleStatus::Observed | SampleStatus::LinearInterpolatedGapLt6h, None) => Err(format!(
+            "{label}: observed/interpolated status requires a theta value"
+        )),
         (_, Some(value)) if !value.is_finite() || !(0.0..=1.0).contains(&value) => {
             Err(format!("{label}: theta must be finite and within [0, 1]"))
         }
@@ -208,7 +204,10 @@ fn validate_theta(
 
 fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSensor>), String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     for (value, label) in [
         (&input.study_id, "study_id"),
@@ -222,9 +221,7 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
             return Err(format!("{label} must not be blank"));
         }
     }
-    if !(MIN_RESOLUTION_SECONDS..=MAX_RESOLUTION_SECONDS)
-        .contains(&input.time_resolution_seconds)
-    {
+    if !(MIN_RESOLUTION_SECONDS..=MAX_RESOLUTION_SECONDS).contains(&input.time_resolution_seconds) {
         return Err(format!(
             "time_resolution_seconds must be between {MIN_RESOLUTION_SECONDS} and {MAX_RESOLUTION_SECONDS}"
         ));
@@ -236,7 +233,9 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
         return Err("response_threshold_m3_m3 must be finite and in (0, 1]".to_owned());
     }
     if input.sensors.len() < 2 {
-        return Err("at least two sensors are required to quantify spatial heterogeneity".to_owned());
+        return Err(
+            "at least two sensors are required to quantify spatial heterogeneity".to_owned(),
+        );
     }
     if input.distance_bins.is_empty() {
         return Err("at least one distance bin is required".to_owned());
@@ -267,15 +266,16 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
             || bin.upper_inclusive_m <= bin.lower_exclusive_m
             || (index > 0 && bin.lower_exclusive_m < previous_upper)
         {
-            return Err(format!("distance_bins[{index}] must be finite, positive-width, ordered and non-overlapping"));
+            return Err(format!(
+                "distance_bins[{index}] must be finite, positive-width, ordered and non-overlapping"
+            ));
         }
         previous_upper = bin.upper_inclusive_m;
     }
 
     let step = i64::from(input.time_resolution_seconds);
     let first_time = event_start.clone() - Duration::seconds(step);
-    let interval_seconds =
-        (observation_end.clone() - first_time.clone()).num_seconds();
+    let interval_seconds = (observation_end.clone() - first_time.clone()).num_seconds();
     if interval_seconds < 0 || interval_seconds % step != 0 {
         return Err("event window does not align with the declared sampling cadence".to_owned());
     }
@@ -289,13 +289,17 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
     let mut parsed_sensors = Vec::with_capacity(input.sensors.len());
     for (sensor_index, sensor) in input.sensors.iter().enumerate() {
         if sensor.sensor_id.trim().is_empty() {
-            return Err(format!("sensors[{sensor_index}].sensor_id must not be blank"));
+            return Err(format!(
+                "sensors[{sensor_index}].sensor_id must not be blank"
+            ));
         }
         if sensor.plot_id.trim().is_empty() {
             return Err(format!("sensors[{sensor_index}].plot_id must not be blank"));
         }
         if sensor.depth_group_id.trim().is_empty() {
-            return Err(format!("sensors[{sensor_index}].depth_group_id must not be blank"));
+            return Err(format!(
+                "sensors[{sensor_index}].depth_group_id must not be blank"
+            ));
         }
         if !ids.insert(sensor.sensor_id.as_str()) {
             return Err(format!("duplicate sensor_id {:?}", sensor.sensor_id));
@@ -310,7 +314,9 @@ fn validate(input: &Input) -> Result<(Vec<DateTime<FixedOffset>>, Vec<ParsedSens
             }
         }
         if !sensor.depth_cm.is_finite() || sensor.depth_cm <= 0.0 {
-            return Err(format!("sensors[{sensor_index}].depth_cm must be greater than zero"));
+            return Err(format!(
+                "sensors[{sensor_index}].depth_cm must be greater than zero"
+            ));
         }
         if sensor.observations.len() != sample_count {
             return Err(format!(
@@ -418,7 +424,10 @@ fn semivariogram(
 
 fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let (expected_times, sensors) = validate(input)?;
-    let mut depth_groups: Vec<String> = sensors.iter().map(|sensor| sensor.depth_group_id.clone()).collect();
+    let mut depth_groups: Vec<String> = sensors
+        .iter()
+        .map(|sensor| sensor.depth_group_id.clone())
+        .collect();
     depth_groups.sort();
     depth_groups.dedup();
 
@@ -429,11 +438,16 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 .iter()
                 .filter(|sensor| sensor.depth_group_id == *depth_group_id)
                 .collect();
-            let mut sorted_depths: Vec<f64> = depth_sensors.iter().map(|sensor| sensor.depth_cm).collect();
+            let mut sorted_depths: Vec<f64> =
+                depth_sensors.iter().map(|sensor| sensor.depth_cm).collect();
             sorted_depths.sort_by(f64::total_cmp);
             let median_depth_cm = median(&sorted_depths).expect("depth group has sensor metadata");
-            let minimum_sensor_depth_cm = *sorted_depths.first().expect("depth group has sensor metadata");
-            let maximum_sensor_depth_cm = *sorted_depths.last().expect("depth group has sensor metadata");
+            let minimum_sensor_depth_cm = *sorted_depths
+                .first()
+                .expect("depth group has sensor metadata");
+            let maximum_sensor_depth_cm = *sorted_depths
+                .last()
+                .expect("depth group has sensor metadata");
             let mut plot_counts: BTreeMap<String, usize> = BTreeMap::new();
             for sensor in &depth_sensors {
                 *plot_counts.entry(sensor.plot_id.clone()).or_insert(0) += 1;
@@ -489,9 +503,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                                     interpolated_count += 1;
                                     None
                                 }
-                                SampleStatus::Observed => {
-                                    sample.theta.map(|theta| theta - sensor.baseline_theta.unwrap())
-                                }
+                                SampleStatus::Observed => sample
+                                    .theta
+                                    .map(|theta| theta - sensor.baseline_theta.unwrap()),
                             }
                         }
                     }
@@ -503,28 +517,36 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 deltas.push(delta);
             }
 
-            distinct_positions.sort_by(|a, b| {
-                a.0.total_cmp(&b.0).then_with(|| a.1.total_cmp(&b.1))
-            });
-            distinct_positions.dedup_by(|a, b| a.0.total_cmp(&b.0).is_eq() && a.1.total_cmp(&b.1).is_eq());
+            distinct_positions
+                .sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.total_cmp(&b.1)));
+            distinct_positions
+                .dedup_by(|a, b| a.0.total_cmp(&b.0).is_eq() && a.1.total_cmp(&b.1).is_eq());
 
             let mut sorted = valid_values.clone();
             sorted.sort_by(f64::total_cmp);
-            let mean = (!sorted.is_empty())
-                .then(|| sorted.iter().sum::<f64>() / sorted.len() as f64);
+            let mean =
+                (!sorted.is_empty()).then(|| sorted.iter().sum::<f64>() / sorted.len() as f64);
             let median_value = quantile(&sorted, 0.5);
             let q1 = quantile(&sorted, 0.25);
             let q3 = quantile(&sorted, 0.75);
             let mad = median_value.map(|centre| {
-                let deviations: Vec<f64> = sorted.iter().map(|value| (value - centre).abs()).collect();
+                let deviations: Vec<f64> =
+                    sorted.iter().map(|value| (value - centre).abs()).collect();
                 median(&deviations).unwrap_or(0.0)
             });
             let population_std = mean.map(|average| {
-                (sorted.iter().map(|value| (value - average).powi(2)).sum::<f64>()
+                (sorted
+                    .iter()
+                    .map(|value| (value - average).powi(2))
+                    .sum::<f64>()
                     / sorted.len() as f64)
                     .sqrt()
             });
-            let positive_values: Vec<f64> = sorted.iter().copied().filter(|value| *value > 0.0).collect();
+            let positive_values: Vec<f64> = sorted
+                .iter()
+                .copied()
+                .filter(|value| *value > 0.0)
+                .collect();
             let positive_median = median(&positive_values);
             let positive_max = positive_values.iter().copied().max_by(f64::total_cmp);
             let positive_ratio = match (positive_max, positive_median) {
@@ -544,8 +566,8 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 .filter(|value| **value >= input.response_threshold_m3_m3)
                 .count();
             let valid_count = valid_values.len();
-            let positive_fraction = (valid_count > 0)
-                .then_some(positive_count as f64 / valid_count as f64);
+            let positive_fraction =
+                (valid_count > 0).then_some(positive_count as f64 / valid_count as f64);
 
             summaries.push(DepthTimeSummary {
                 timestamp_utc: time.to_rfc3339(),
@@ -569,7 +591,9 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
                 mean_delta_theta_m3_m3: mean,
                 median_delta_theta_m3_m3: median_value,
                 population_std_delta_theta_m3_m3: population_std,
-                interquartile_range_delta_theta_m3_m3: q1.zip(q3).map(|(lower, upper)| upper - lower),
+                interquartile_range_delta_theta_m3_m3: q1
+                    .zip(q3)
+                    .map(|(lower, upper)| upper - lower),
                 median_absolute_deviation_delta_theta_m3_m3: mad,
                 robust_coefficient_of_variation: robust_cv,
                 positive_max_to_median_ratio: positive_ratio,
@@ -614,7 +638,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "usage: spatial-heterogeneity-audit <normalized-profile-event.json> <new-report.json>",
-        ).into());
+        )
+        .into());
     }
     let bytes = fs::read(&args[1])?;
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
@@ -626,10 +651,15 @@ fn run() -> Result<(), Box<dyn Error>> {
         .write(true)
         .create_new(true)
         .open(&args[2])
-        .map_err(|error| io::Error::new(
-            error.kind(),
-            format!("refusing overwrite or cannot create output {}: {error}", args[2]),
-        ))?;
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!(
+                    "refusing overwrite or cannot create output {}: {error}",
+                    args[2]
+                ),
+            )
+        })?;
     output.write_all(&encoded)?;
     output.write_all(b"\n")?;
     output.sync_all()?;
@@ -668,11 +698,15 @@ mod tests {
             y_m: y,
             depth_cm: 20.0,
             condition: SensorCondition::Usable,
-            observations: [-10, 0, 10].into_iter().enumerate().map(|(index, minute)| Observation {
-                timestamp_utc: stamp(minute),
-                volumetric_water_content_m3_m3: Some(values[index]),
-                status: SampleStatus::Observed,
-            }).collect(),
+            observations: [-10, 0, 10]
+                .into_iter()
+                .enumerate()
+                .map(|(index, minute)| Observation {
+                    timestamp_utc: stamp(minute),
+                    volumetric_water_content_m3_m3: Some(values[index]),
+                    status: SampleStatus::Observed,
+                })
+                .collect(),
         }
     }
 
@@ -690,15 +724,32 @@ mod tests {
             response_threshold_m3_m3: 0.01,
             source_evidence_ref: "synthetic fixture; not field data".to_owned(),
             distance_bins: vec![
-                DistanceBin { lower_exclusive_m: 0.0, upper_inclusive_m: 1.1 },
-                DistanceBin { lower_exclusive_m: 9.0, upper_inclusive_m: 11.0 },
-                DistanceBin { lower_exclusive_m: 11.0, upper_inclusive_m: 12.0 },
+                DistanceBin {
+                    lower_exclusive_m: 0.0,
+                    upper_inclusive_m: 1.1,
+                },
+                DistanceBin {
+                    lower_exclusive_m: 9.0,
+                    upper_inclusive_m: 11.0,
+                },
+                DistanceBin {
+                    lower_exclusive_m: 11.0,
+                    upper_inclusive_m: 12.0,
+                },
             ],
             sensors: vec![
                 sensor("A", 0.0, 0.0, [0.20, 0.20, 0.22]),
                 sensor("B", 1.0, 0.0, [0.20, 0.20, 0.20]),
-                SensorSeries { plot_id: "P02".to_owned(), x_m: 10.0, ..sensor("C", 0.0, 1.0, [0.20, 0.20, 0.21]) },
-                SensorSeries { plot_id: "P02".to_owned(), x_m: 11.0, ..sensor("D", 1.0, 1.0, [0.20, 0.20, 0.20]) },
+                SensorSeries {
+                    plot_id: "P02".to_owned(),
+                    x_m: 10.0,
+                    ..sensor("C", 0.0, 1.0, [0.20, 0.20, 0.21])
+                },
+                SensorSeries {
+                    plot_id: "P02".to_owned(),
+                    x_m: 11.0,
+                    ..sensor("D", 1.0, 1.0, [0.20, 0.20, 0.20])
+                },
             ],
         }
     }
@@ -730,7 +781,13 @@ mod tests {
         assert_eq!(last.plot_sensor_counts[1].sensor_count, 2);
         assert_eq!(last.positive_response_count, 2);
         assert_eq!(last.positive_response_fraction, Some(0.5));
-        assert_eq!(last.semivariogram.iter().map(|bin| bin.pair_count).sum::<usize>(), 6);
+        assert_eq!(
+            last.semivariogram
+                .iter()
+                .map(|bin| bin.pair_count)
+                .sum::<usize>(),
+            6
+        );
         assert!(last.median_absolute_deviation_delta_theta_m3_m3.unwrap() > 0.0);
     }
 
@@ -750,7 +807,8 @@ mod tests {
         assert_eq!(last.maximum_delta_theta_m3_m3, Some(0.0));
         assert_eq!(last.population_std_delta_theta_m3_m3, Some(0.0));
         assert!(last.semivariogram.iter().all(|bin| {
-            bin.semivariance_theta_squared.is_none_or(|value| value == 0.0)
+            bin.semivariance_theta_squared
+                .is_none_or(|value| value == 0.0)
         }));
     }
 
@@ -763,12 +821,20 @@ mod tests {
         let second = evaluate(&reordered, "b".repeat(64)).unwrap();
         assert_eq!(first.summaries.len(), second.summaries.len());
         for (left, right) in first.summaries.iter().zip(&second.summaries) {
-            assert_eq!(left.valid_observed_sensor_count, right.valid_observed_sensor_count);
+            assert_eq!(
+                left.valid_observed_sensor_count,
+                right.valid_observed_sensor_count
+            );
             assert_eq!(left.positive_response_count, right.positive_response_count);
             assert_eq!(left.semivariogram.len(), right.semivariogram.len());
             for (a, b) in left.semivariogram.iter().zip(&right.semivariogram) {
                 assert_eq!(a.pair_count, b.pair_count);
-                assert!((a.semivariance_theta_squared.unwrap_or(0.0) - b.semivariance_theta_squared.unwrap_or(0.0)).abs() < 1e-12);
+                assert!(
+                    (a.semivariance_theta_squared.unwrap_or(0.0)
+                        - b.semivariance_theta_squared.unwrap_or(0.0))
+                    .abs()
+                        < 1e-12
+                );
             }
         }
     }
@@ -788,7 +854,12 @@ mod tests {
         for (left, right) in first.summaries.iter().zip(&second.summaries) {
             for (a, b) in left.semivariogram.iter().zip(&right.semivariogram) {
                 assert_eq!(a.pair_count, b.pair_count);
-                assert!((a.semivariance_theta_squared.unwrap_or(0.0) - b.semivariance_theta_squared.unwrap_or(0.0)).abs() < 1e-12);
+                assert!(
+                    (a.semivariance_theta_squared.unwrap_or(0.0)
+                        - b.semivariance_theta_squared.unwrap_or(0.0))
+                    .abs()
+                        < 1e-12
+                );
             }
         }
     }
@@ -825,21 +896,32 @@ mod tests {
         let report = evaluate(&input, "a".repeat(64)).unwrap();
         assert_eq!(report.summaries[1].valid_observed_sensor_count, 3);
         assert_eq!(report.summaries[1].non_usable_condition_count, 1);
-        assert_eq!(report.summaries[1].observed_sample_count_excluded_by_condition, 1);
+        assert_eq!(
+            report.summaries[1].observed_sample_count_excluded_by_condition,
+            1
+        );
     }
 
     #[test]
     fn rejects_overlapping_or_unordered_distance_bins() {
         let mut input = fixture();
         input.distance_bins[1].lower_exclusive_m = 0.9;
-        assert!(validate(&input).unwrap_err().contains("ordered and non-overlapping"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("ordered and non-overlapping")
+        );
     }
 
     #[test]
     fn rejects_duplicate_sensor_ids_and_non_utc_timestamps() {
         let mut input = fixture();
         input.sensors[1].sensor_id = "A".to_owned();
-        assert!(validate(&input).unwrap_err().contains("duplicate sensor_id"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("duplicate sensor_id")
+        );
         let mut input = fixture();
         input.sensors[0].observations[0].timestamp_utc = "2026-05-01T02:50:00+03:00".to_owned();
         assert!(validate(&input).unwrap_err().contains("zero UTC offset"));
