@@ -6,6 +6,9 @@
 //! appends a typed block of observations exactly once. It does not estimate
 //! dependence or infer correlation from support overlap.
 
+use crate::multivariate_gaussian::{
+    conditional_predictive_models, ConditionalGaussianModel, MultivariateGaussianModel,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// One coordinate in a globally ordered candidate observation vector.
@@ -192,6 +195,31 @@ impl ObservationHistory {
     }
 }
 
+
+/// Resolve the retained stable-ID history and a candidate action directly into
+/// posterior-weighted conditional predictive components for that action.
+///
+/// This is the library bridge between physical observation identities and
+/// correlated Gaussian acquisition. The supplied candidate covariance is
+/// still explicit; support metadata is not converted into a correlation.
+pub fn conditional_prediction_for_action(
+    models: &[MultivariateGaussianModel],
+    layout: &ObservationLayout,
+    history: &ObservationHistory,
+    action: &ObservationAction,
+) -> Result<Vec<ConditionalGaussianModel>, String> {
+    history.validate(layout)?;
+    action.validate(layout)?;
+    let observed_indices = history.layout_indices(layout)?;
+    let target_indices = action.layout_indices(layout)?;
+    conditional_predictive_models(
+        models,
+        &observed_indices,
+        history.values(),
+        &target_indices,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,6 +239,111 @@ mod tests {
             coordinate("tracer:arrival:core-A", "tracer", "core-A:depth-10-20", "hour"),
             coordinate("tracer:tail:core-A", "tracer", "core-A:depth-10-20", "mg/L"),
         ]).unwrap()
+    }
+
+    #[test]
+    fn stable_history_maps_ct_to_conditional_tracer_prediction() {
+        let layout = ObservationLayout::new(vec![
+            coordinate("ct:pore-connectivity:core-A", "ct", "core-A:volume", "1"),
+            coordinate("tracer:arrival:core-A", "tracer", "core-A:depth-10-20", "hour"),
+        ]).unwrap();
+        let models = vec![
+            MultivariateGaussianModel {
+                model_id: "positive-correlation".into(),
+                prior_weight: 0.5,
+                observation_model: crate::multivariate_gaussian::MultivariateGaussian {
+                    mean: vec![0.0, 0.0],
+                    covariance: vec![vec![1.0, 0.8], vec![0.8, 1.0]],
+                },
+            },
+            MultivariateGaussianModel {
+                model_id: "negative-correlation".into(),
+                prior_weight: 0.5,
+                observation_model: crate::multivariate_gaussian::MultivariateGaussian {
+                    mean: vec![0.0, 0.0],
+                    covariance: vec![vec![1.0, -0.8], vec![-0.8, 1.0]],
+                },
+            },
+        ];
+        let ct_action = ObservationAction {
+            action_id: "ct-scan".into(),
+            coordinate_ids: vec!["ct:pore-connectivity:core-A".into()],
+        };
+        let tracer_action = ObservationAction {
+            action_id: "tracer-test".into(),
+            coordinate_ids: vec!["tracer:arrival:core-A".into()],
+        };
+        let history = ObservationHistory::empty()
+            .with_appended(&layout, &ct_action, &[1.0]).unwrap();
+
+        let predictive = conditional_prediction_for_action(
+            &models, &layout, &history, &tracer_action,
+        ).unwrap();
+        assert!((predictive[0].posterior_weight - 0.5).abs() < 1e-12);
+        assert!((predictive[1].posterior_weight - 0.5).abs() < 1e-12);
+        assert!((predictive[0].predictive_distribution.mean[0] - 0.8).abs() < 1e-12);
+        assert!((predictive[1].predictive_distribution.mean[0] + 0.8).abs() < 1e-12);
+    }
+
+    #[test]
+    fn stable_history_step_zero_uses_prior_predictive_for_candidate_action() {
+        let layout = ObservationLayout::new(vec![
+            coordinate("ct:porosity:core-A", "ct", "core-A:volume", "1"),
+            coordinate("tracer:tail:core-A", "tracer", "core-A:depth-10-20", "mg/L"),
+        ]).unwrap();
+        let models = vec![
+            MultivariateGaussianModel {
+                model_id: "model-a".into(),
+                prior_weight: 0.75,
+                observation_model: crate::multivariate_gaussian::MultivariateGaussian {
+                    mean: vec![0.1, 0.2],
+                    covariance: vec![vec![1.0, 0.3], vec![0.3, 2.0]],
+                },
+            },
+            MultivariateGaussianModel {
+                model_id: "model-b".into(),
+                prior_weight: 0.25,
+                observation_model: crate::multivariate_gaussian::MultivariateGaussian {
+                    mean: vec![0.0, -0.2],
+                    covariance: vec![vec![1.0, -0.1], vec![-0.1, 1.0]],
+                },
+            },
+        ];
+        let action = ObservationAction {
+            action_id: "first-tracer".into(),
+            coordinate_ids: vec!["tracer:tail:core-A".into()],
+        };
+        let components = conditional_prediction_for_action(
+            &models, &layout, &ObservationHistory::empty(), &action,
+        ).unwrap();
+        assert!((components[0].posterior_weight - 0.75).abs() < 1e-12);
+        assert!((components[1].posterior_weight - 0.25).abs() < 1e-12);
+        assert!((components[0].predictive_distribution.mean[0] - 0.2).abs() < 1e-12);
+        assert!((components[1].predictive_distribution.mean[0] + 0.2).abs() < 1e-12);
+    }
+
+    #[test]
+    fn stable_history_rejects_already_observed_candidate_target() {
+        let layout = ObservationLayout::new(vec![
+            coordinate("ct:porosity:core-A", "ct", "core-A:volume", "1"),
+        ]).unwrap();
+        let model = MultivariateGaussianModel {
+            model_id: "model".into(),
+            prior_weight: 1.0,
+            observation_model: crate::multivariate_gaussian::MultivariateGaussian {
+                mean: vec![0.0],
+                covariance: vec![vec![1.0]],
+            },
+        };
+        let action = ObservationAction {
+            action_id: "ct-scan".into(),
+            coordinate_ids: vec!["ct:porosity:core-A".into()],
+        };
+        let history = ObservationHistory::empty()
+            .with_appended(&layout, &action, &[0.4]).unwrap();
+        assert!(conditional_prediction_for_action(
+            &[model], &layout, &history, &action,
+        ).is_err());
     }
 
     #[test]
