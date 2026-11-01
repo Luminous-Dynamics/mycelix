@@ -72,8 +72,9 @@ pub fn apply_aggregate_flows(
     }
 
     let total_before = cells.values().try_fold(0u64, |sum, value| {
-        sum.checked_add(*value)
-            .ok_or_else(|| "total population exceeds the supported aggregate count range".to_string())
+        sum.checked_add(*value).ok_or_else(|| {
+            "total population exceeds the supported aggregate count range".to_string()
+        })
     })?;
     let mut outgoing: BTreeMap<PopulationKey, u64> = BTreeMap::new();
     let mut incoming: BTreeMap<PopulationKey, u64> = BTreeMap::new();
@@ -92,15 +93,25 @@ pub fn apply_aggregate_flows(
             zone_id: flow.to_zone.clone(),
         };
         if !cells.contains_key(&from) {
-            return Err(format!("unknown flow origin: {}/{}", from.cohort_id, from.zone_id));
+            return Err(format!(
+                "unknown flow origin: {}/{}",
+                from.cohort_id, from.zone_id
+            ));
         }
         if from == to {
             return Err("movement flow origin and destination must differ".into());
         }
         if !cells.contains_key(&to) {
-            return Err(format!("unknown flow destination: {}/{}", to.cohort_id, to.zone_id));
+            return Err(format!(
+                "unknown flow destination: {}/{}",
+                to.cohort_id, to.zone_id
+            ));
         }
-        checked_add_count(outgoing.entry(from).or_default(), flow.count, "outgoing flow")?;
+        checked_add_count(
+            outgoing.entry(from).or_default(),
+            flow.count,
+            "outgoing flow",
+        )?;
         checked_add_count(incoming.entry(to).or_default(), flow.count, "incoming flow")?;
         checked_add_count(&mut moved, flow.count, "moved population")?;
     }
@@ -116,14 +127,16 @@ pub fn apply_aggregate_flows(
         }
         let retained = count - departures;
         let arrivals = incoming.get(key).copied().unwrap_or(0);
-        let final_count = retained.checked_add(arrivals)
-            .ok_or_else(|| "destination population exceeds the supported aggregate count range".to_string())?;
+        let final_count = retained.checked_add(arrivals).ok_or_else(|| {
+            "destination population exceeds the supported aggregate count range".to_string()
+        })?;
         after.insert(key.clone(), final_count);
     }
 
     let total_after = after.values().try_fold(0u64, |sum, value| {
-        sum.checked_add(*value)
-            .ok_or_else(|| "final population exceeds the supported aggregate count range".to_string())
+        sum.checked_add(*value).ok_or_else(|| {
+            "final population exceeds the supported aggregate count range".to_string()
+        })
     })?;
     if total_before != total_after {
         return Err(format!(
@@ -214,10 +227,13 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
                 return Err("unique timely receipts exceed exposed denominator".into());
             }
             if cell.channel_receipt_count < count {
-                return Err("channel receipt total cannot be smaller than unique receipt union".into());
+                return Err(
+                    "channel receipt total cannot be smaller than unique receipt union".into(),
+                );
             }
         } else {
-            unknown_unique = unknown_unique.checked_add(1)
+            unknown_unique = unknown_unique
+                .checked_add(1)
                 .ok_or_else(|| "unknown reach cell counter overflow".to_string())?;
         }
         if let Some(count) = cell.unique_accessible_receipts {
@@ -234,54 +250,97 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
                 _ => {}
             }
         } else {
-            unknown_accessibility = unknown_accessibility.checked_add(1)
+            unknown_accessibility = unknown_accessibility
+                .checked_add(1)
                 .ok_or_else(|| "unknown accessibility cell counter overflow".to_string())?;
         }
 
         checked_add_count(&mut total_exposed, cell.exposed, "total exposure")?;
-        checked_add_count(&mut timely, cell.unique_timely_receipts.unwrap_or(0), "unique timely reach")?;
-        checked_add_count(&mut accessible, cell.unique_accessible_receipts.unwrap_or(0), "accessible reach")?;
+        checked_add_count(
+            &mut timely,
+            cell.unique_timely_receipts.unwrap_or(0),
+            "unique timely reach",
+        )?;
+        checked_add_count(
+            &mut accessible,
+            cell.unique_accessible_receipts.unwrap_or(0),
+            "accessible reach",
+        )?;
         if cell.accessibility_required {
-            if let (Some(timely_count), Some(accessible_count)) = (cell.unique_timely_receipts, cell.unique_accessible_receipts) {
-                checked_add_count(&mut accessibility_required_unserved, timely_count - accessible_count, "accessibility shortfall")?;
+            if let (Some(timely_count), Some(accessible_count)) =
+                (cell.unique_timely_receipts, cell.unique_accessible_receipts)
+            {
+                checked_add_count(
+                    &mut accessibility_required_unserved,
+                    timely_count - accessible_count,
+                    "accessibility shortfall",
+                )?;
             }
         }
-        checked_add_count(&mut channel_total, cell.channel_receipt_count, "channel receipt total")?;
-        let row = per.entry(cell.cohort_id.clone()).or_insert_with(|| CohortReach {
-            cohort_id: cell.cohort_id.clone(),
-            cohort_class: Some(cell.cohort_class),
-            ..CohortReach::default()
-        });
+        checked_add_count(
+            &mut channel_total,
+            cell.channel_receipt_count,
+            "channel receipt total",
+        )?;
+        let row = per
+            .entry(cell.cohort_id.clone())
+            .or_insert_with(|| CohortReach {
+                cohort_id: cell.cohort_id.clone(),
+                cohort_class: Some(cell.cohort_class),
+                ..CohortReach::default()
+            });
         if row.cohort_class != Some(cell.cohort_class) {
             return Err("cohort class changes across cells".into());
         }
         checked_add_count(&mut row.exposed, cell.exposed, "cohort exposure")?;
-        checked_add_count(&mut row.timely_covered, cell.unique_timely_receipts.unwrap_or(0), "cohort timely reach")?;
-        checked_add_count(&mut row.accessible_covered, cell.unique_accessible_receipts.unwrap_or(0), "cohort accessible reach")?;
+        checked_add_count(
+            &mut row.timely_covered,
+            cell.unique_timely_receipts.unwrap_or(0),
+            "cohort timely reach",
+        )?;
+        checked_add_count(
+            &mut row.accessible_covered,
+            cell.unique_accessible_receipts.unwrap_or(0),
+            "cohort accessible reach",
+        )?;
         if cell.accessibility_required {
-            if let (Some(timely_count), Some(accessible_count)) = (cell.unique_timely_receipts, cell.unique_accessible_receipts) {
-                checked_add_count(&mut row.accessibility_required_unserved, timely_count - accessible_count, "cohort accessibility shortfall")?;
+            if let (Some(timely_count), Some(accessible_count)) =
+                (cell.unique_timely_receipts, cell.unique_accessible_receipts)
+            {
+                checked_add_count(
+                    &mut row.accessibility_required_unserved,
+                    timely_count - accessible_count,
+                    "cohort accessibility shortfall",
+                )?;
             }
         }
         if cell.unique_timely_receipts.is_none() {
-            row.unknown_unique_reach_cells = row.unknown_unique_reach_cells.checked_add(1)
+            row.unknown_unique_reach_cells = row
+                .unknown_unique_reach_cells
+                .checked_add(1)
                 .ok_or_else(|| "cohort unknown reach counter overflow".to_string())?;
         }
         if cell.unique_accessible_receipts.is_none() {
-            row.unknown_accessibility_cells = row.unknown_accessibility_cells.checked_add(1)
+            row.unknown_accessibility_cells = row
+                .unknown_accessibility_cells
+                .checked_add(1)
                 .ok_or_else(|| "cohort unknown accessibility counter overflow".to_string())?;
         }
-        checked_add_count(&mut row.channel_receipts, cell.channel_receipt_count, "cohort channel receipt total")?;
+        checked_add_count(
+            &mut row.channel_receipts,
+            cell.channel_receipt_count,
+            "cohort channel receipt total",
+        )?;
     }
 
-    let effective_timely_reach = (unknown_unique == 0 && total_exposed > 0)
-        .then_some(timely as f64 / total_exposed as f64);
-    let effective_accessible_reach =
-        (unknown_accessibility == 0 && total_exposed > 0)
-            .then_some(accessible as f64 / total_exposed as f64);
-    let worst_cohort_effective_reach = if per.values().all(|row| {
-        row.unknown_unique_reach_cells == 0 && row.exposed > 0
-    }) {
+    let effective_timely_reach =
+        (unknown_unique == 0 && total_exposed > 0).then_some(timely as f64 / total_exposed as f64);
+    let effective_accessible_reach = (unknown_accessibility == 0 && total_exposed > 0)
+        .then_some(accessible as f64 / total_exposed as f64);
+    let worst_cohort_effective_reach = if per
+        .values()
+        .all(|row| row.unknown_unique_reach_cells == 0 && row.exposed > 0)
+    {
         per.values()
             .map(|row| row.timely_covered as f64 / row.exposed as f64)
             .min_by(f64::total_cmp)
@@ -299,7 +358,8 @@ pub fn evaluate_reach(cells: &[ReachCell]) -> Result<ReachReport, String> {
         unique_reach_unknown_cells: unknown_unique,
         accessibility_unknown_cells: unknown_accessibility,
         channel_receipt_total: channel_total,
-        duplicate_receipts_above_union: (unknown_unique == 0).then_some(channel_total.saturating_sub(timely)),
+        duplicate_receipts_above_union: (unknown_unique == 0)
+            .then_some(channel_total.saturating_sub(timely)),
         effective_timely_reach,
         effective_accessible_reach,
         per_cohort: per.into_values().collect(),
@@ -332,7 +392,9 @@ pub fn validate_handoff(handoff: &AuthorityHandoff) -> HandoffStatus {
     if handoff.source_jurisdiction.trim().is_empty()
         || handoff.destination_jurisdiction.trim().is_empty()
         || handoff.destination_authority_id.trim().is_empty()
-        || handoff.acknowledged_at.is_some_and(|ack| ack < handoff.request_recorded_at)
+        || handoff
+            .acknowledged_at
+            .is_some_and(|ack| ack < handoff.request_recorded_at)
     {
         return HandoffStatus::RejectedInvalidHandoff;
     }
@@ -438,130 +500,285 @@ mod tests {
 
     #[test]
     fn aggregate_flows_conserve_totals_and_keep_constrained_cohort() {
-        let population = vec![pop("commuter", "home", 100), pop("commuter", "work", 0),
-            pop("constrained", "home", 40), pop("constrained", "work", 0)];
+        let population = vec![
+            pop("commuter", "home", 100),
+            pop("commuter", "work", 0),
+            pop("constrained", "home", 40),
+            pop("constrained", "work", 0),
+        ];
         let flows = vec![AggregateFlow {
-            cohort_id: "commuter".into(), from_zone: "home".into(), to_zone: "work".into(), count: 65,
+            cohort_id: "commuter".into(),
+            from_zone: "home".into(),
+            to_zone: "work".into(),
+            count: 65,
         }];
         let result = apply_aggregate_flows(&population, &flows).unwrap();
         assert_eq!(result.total_before, 140);
         assert_eq!(result.total_after, 140);
         assert_eq!(result.moved, 65);
-        let constrained = result.populations.iter().find(|p| p.key.cohort_id == "constrained" && p.key.zone_id == "home").unwrap();
+        let constrained = result
+            .populations
+            .iter()
+            .find(|p| p.key.cohort_id == "constrained" && p.key.zone_id == "home")
+            .unwrap();
         assert_eq!(constrained.count, 40);
     }
 
     #[test]
     fn self_zone_and_aggregate_count_overflow_are_rejected() {
-        let population = vec![pop("cohort","a",u64::MAX),pop("cohort","b",0)];
-        let self_flow = vec![AggregateFlow{cohort_id:"cohort".into(),from_zone:"a".into(),to_zone:"a".into(),count:1}];
-        assert!(apply_aggregate_flows(&population,&self_flow).unwrap_err().contains("must differ"));
+        let population = vec![pop("cohort", "a", u64::MAX), pop("cohort", "b", 0)];
+        let self_flow = vec![AggregateFlow {
+            cohort_id: "cohort".into(),
+            from_zone: "a".into(),
+            to_zone: "a".into(),
+            count: 1,
+        }];
+        assert!(
+            apply_aggregate_flows(&population, &self_flow)
+                .unwrap_err()
+                .contains("must differ")
+        );
         let overflow = vec![
-            AggregateFlow{cohort_id:"cohort".into(),from_zone:"a".into(),to_zone:"b".into(),count:u64::MAX},
-            AggregateFlow{cohort_id:"cohort".into(),from_zone:"a".into(),to_zone:"b".into(),count:1},
+            AggregateFlow {
+                cohort_id: "cohort".into(),
+                from_zone: "a".into(),
+                to_zone: "b".into(),
+                count: u64::MAX,
+            },
+            AggregateFlow {
+                cohort_id: "cohort".into(),
+                from_zone: "a".into(),
+                to_zone: "b".into(),
+                count: 1,
+            },
         ];
-        assert!(apply_aggregate_flows(&population,&overflow).unwrap_err().contains("outgoing flow exceeds"));
+        assert!(
+            apply_aggregate_flows(&population, &overflow)
+                .unwrap_err()
+                .contains("outgoing flow exceeds")
+        );
     }
 
     #[test]
     fn overdrawn_and_unknown_flows_fail_closed() {
         let population = vec![pop("cohort", "a", 10), pop("cohort", "b", 0)];
-        let overdraw = vec![AggregateFlow { cohort_id:"cohort".into(),from_zone:"a".into(),to_zone:"b".into(),count:11 }];
-        assert!(apply_aggregate_flows(&population,&overdraw).unwrap_err().contains("overdraws"));
-        let unknown = vec![AggregateFlow { cohort_id:"cohort".into(),from_zone:"a".into(),to_zone:"c".into(),count:1 }];
-        assert!(apply_aggregate_flows(&population,&unknown).unwrap_err().contains("unknown flow destination"));
+        let overdraw = vec![AggregateFlow {
+            cohort_id: "cohort".into(),
+            from_zone: "a".into(),
+            to_zone: "b".into(),
+            count: 11,
+        }];
+        assert!(
+            apply_aggregate_flows(&population, &overdraw)
+                .unwrap_err()
+                .contains("overdraws")
+        );
+        let unknown = vec![AggregateFlow {
+            cohort_id: "cohort".into(),
+            from_zone: "a".into(),
+            to_zone: "c".into(),
+            count: 1,
+        }];
+        assert!(
+            apply_aggregate_flows(&population, &unknown)
+                .unwrap_err()
+                .contains("unknown flow destination")
+        );
     }
 
     #[test]
     fn duplicate_population_cells_are_rejected() {
-        let population = vec![pop("c","a",1),pop("c","a",1)];
-        assert!(apply_aggregate_flows(&population,&[]).is_err());
+        let population = vec![pop("c", "a", 1), pop("c", "a", 1)];
+        assert!(apply_aggregate_flows(&population, &[]).is_err());
     }
 
-    fn cell(cohort:&str,class:CohortClass,zone:&str,exposed:u64,timely:Option<u64>,accessible:Option<u64>,receipts:u64)->ReachCell{
-        ReachCell{cohort_id:cohort.into(),cohort_class:class,zone_id:zone.into(),time_bucket:1,exposed,unique_timely_receipts:timely,unique_accessible_receipts:accessible,channel_receipt_count:receipts,accessibility_required:true}
+    fn cell(
+        cohort: &str,
+        class: CohortClass,
+        zone: &str,
+        exposed: u64,
+        timely: Option<u64>,
+        accessible: Option<u64>,
+        receipts: u64,
+    ) -> ReachCell {
+        ReachCell {
+            cohort_id: cohort.into(),
+            cohort_class: class,
+            zone_id: zone.into(),
+            time_bucket: 1,
+            exposed,
+            unique_timely_receipts: timely,
+            unique_accessible_receipts: accessible,
+            channel_receipt_count: receipts,
+            accessibility_required: true,
+        }
     }
 
     #[test]
-    fn aggregate_channel_receipts_never_substitute_for_unique_reach(){
-        let cells=vec![cell("commuters",CohortClass::Commuter,"work",100,Some(80),Some(70),150)];
-        let report=evaluate_reach(&cells).unwrap();
-        assert_eq!(report.timely_unique_reach,80);
-        assert_eq!(report.channel_receipt_total,150);
-        assert_eq!(report.duplicate_receipts_above_union,Some(70));
-        assert_eq!(report.effective_timely_reach,Some(0.8));
-        assert_eq!(report.accessibility_required_unserved,10);
+    fn aggregate_channel_receipts_never_substitute_for_unique_reach() {
+        let cells = vec![cell(
+            "commuters",
+            CohortClass::Commuter,
+            "work",
+            100,
+            Some(80),
+            Some(70),
+            150,
+        )];
+        let report = evaluate_reach(&cells).unwrap();
+        assert_eq!(report.timely_unique_reach, 80);
+        assert_eq!(report.channel_receipt_total, 150);
+        assert_eq!(report.duplicate_receipts_above_union, Some(70));
+        assert_eq!(report.effective_timely_reach, Some(0.8));
+        assert_eq!(report.accessibility_required_unserved, 10);
     }
 
     #[test]
-    fn missing_unique_union_makes_effective_and_duplicate_reach_unknown(){
-        let cells=vec![cell("transit",CohortClass::Transit,"hub",50,None,None,30)];
-        let report=evaluate_reach(&cells).unwrap();
-        assert_eq!(report.effective_timely_reach,None);
-        assert_eq!(report.unique_reach_unknown_cells,1);
-        assert_eq!(report.duplicate_receipts_above_union,None);
+    fn missing_unique_union_makes_effective_and_duplicate_reach_unknown() {
+        let cells = vec![cell(
+            "transit",
+            CohortClass::Transit,
+            "hub",
+            50,
+            None,
+            None,
+            30,
+        )];
+        let report = evaluate_reach(&cells).unwrap();
+        assert_eq!(report.effective_timely_reach, None);
+        assert_eq!(report.unique_reach_unknown_cells, 1);
+        assert_eq!(report.duplicate_receipts_above_union, None);
     }
 
     #[test]
-    fn accessible_union_cannot_be_claimed_without_timely_union(){
-        let cells=vec![cell("transit",CohortClass::Transit,"hub",50,None,Some(20),30)];
-        assert!(evaluate_reach(&cells).unwrap_err().contains("timely unique union is unknown"));
+    fn accessible_union_cannot_be_claimed_without_timely_union() {
+        let cells = vec![cell(
+            "transit",
+            CohortClass::Transit,
+            "hub",
+            50,
+            None,
+            Some(20),
+            30,
+        )];
+        assert!(
+            evaluate_reach(&cells)
+                .unwrap_err()
+                .contains("timely unique union is unknown")
+        );
     }
 
     #[test]
     fn reach_aggregate_count_overflow_fails_closed() {
         let cells = vec![
-            cell("c1", CohortClass::Resident, "z1", u64::MAX, Some(0), Some(0), 0),
+            cell(
+                "c1",
+                CohortClass::Resident,
+                "z1",
+                u64::MAX,
+                Some(0),
+                Some(0),
+                0,
+            ),
             cell("c2", CohortClass::Commuter, "z2", 1, Some(0), Some(0), 0),
         ];
-        assert!(evaluate_reach(&cells).unwrap_err().contains("total exposure exceeds"));
+        assert!(
+            evaluate_reach(&cells)
+                .unwrap_err()
+                .contains("total exposure exceeds")
+        );
     }
 
     #[test]
-    fn accessible_reach_cannot_exceed_timely_unique_reach(){
-        let cells=vec![cell("c",CohortClass::Resident,"z",10,Some(5),Some(6),6)];
+    fn accessible_reach_cannot_exceed_timely_unique_reach() {
+        let cells = vec![cell(
+            "c",
+            CohortClass::Resident,
+            "z",
+            10,
+            Some(5),
+            Some(6),
+            6,
+        )];
         assert!(evaluate_reach(&cells).is_err());
     }
 
     #[test]
-    fn cross_jurisdiction_handoff_never_reissues_without_ack_or_scope(){
-        let base=AuthorityHandoff{source_jurisdiction:"A".into(),destination_jurisdiction:"B".into(),request_recorded_at:10,acknowledged_at:Some(12),destination_authority_id:"authority-B".into(),scope_matches_hazard_and_zone:true,permission_to_reissue:false};
-        assert_eq!(validate_handoff(&base),HandoffStatus::AcceptedForRelay);
-        let mut no_ack=base.clone();no_ack.acknowledged_at=None;
-        assert_eq!(validate_handoff(&no_ack),HandoffStatus::AwaitingAcknowledgement);
-        let mut bad_scope=base.clone();bad_scope.scope_matches_hazard_and_zone=false;
-        assert_eq!(validate_handoff(&bad_scope),HandoffStatus::RejectedScopeMismatch);
-        let mut time_reversed=base.clone();time_reversed.acknowledged_at=Some(9);
-        assert_eq!(validate_handoff(&time_reversed),HandoffStatus::RejectedInvalidHandoff);
+    fn cross_jurisdiction_handoff_never_reissues_without_ack_or_scope() {
+        let base = AuthorityHandoff {
+            source_jurisdiction: "A".into(),
+            destination_jurisdiction: "B".into(),
+            request_recorded_at: 10,
+            acknowledged_at: Some(12),
+            destination_authority_id: "authority-B".into(),
+            scope_matches_hazard_and_zone: true,
+            permission_to_reissue: false,
+        };
+        assert_eq!(validate_handoff(&base), HandoffStatus::AcceptedForRelay);
+        let mut no_ack = base.clone();
+        no_ack.acknowledged_at = None;
+        assert_eq!(
+            validate_handoff(&no_ack),
+            HandoffStatus::AwaitingAcknowledgement
+        );
+        let mut bad_scope = base.clone();
+        bad_scope.scope_matches_hazard_and_zone = false;
+        assert_eq!(
+            validate_handoff(&bad_scope),
+            HandoffStatus::RejectedScopeMismatch
+        );
+        let mut time_reversed = base.clone();
+        time_reversed.acknowledged_at = Some(9);
+        assert_eq!(
+            validate_handoff(&time_reversed),
+            HandoffStatus::RejectedInvalidHandoff
+        );
     }
 
     #[test]
-    fn small_cell_suppression_masks_below_threshold_counts(){
-        let cells=vec![PublicCell{cell_id:"large".into(),count:30},PublicCell{cell_id:"small".into(),count:3}];
-        assert_eq!(suppress_small_cells(&cells,10),vec![Some(30),None]);
-    }
-
-    #[test]
-    fn simple_differencing_attack_on_suppressed_cell_is_detected(){
-        let cells=BTreeMap::from([("a".to_string(),20),("b".to_string(),2)]);
-        let queries=vec![
-            AggregateQuery{query_id:"q1".into(),member_cell_ids:BTreeSet::from(["a".to_string(),"b".to_string()]),published_total:22},
-            AggregateQuery{query_id:"q2".into(),member_cell_ids:BTreeSet::from(["a".to_string()]),published_total:20},
+    fn small_cell_suppression_masks_below_threshold_counts() {
+        let cells = vec![
+            PublicCell {
+                cell_id: "large".into(),
+                count: 30,
+            },
+            PublicCell {
+                cell_id: "small".into(),
+                count: 3,
+            },
         ];
-        let findings=detect_single_cell_differencing(&queries,&cells,10);
-        assert_eq!(findings,vec![("q1".into(),"q2".into(),"b".into())]);
-        let mut inconsistent=queries.clone();
-        inconsistent[0].published_total=99;
-        assert!(detect_single_cell_differencing(&inconsistent,&cells,10).is_empty());
+        assert_eq!(suppress_small_cells(&cells, 10), vec![Some(30), None]);
     }
 
     #[test]
-    fn duplicate_reach_cells_and_receipt_overcounts_are_visible(){
-        let first=cell("c",CohortClass::Resident,"z",10,Some(5),Some(5),12);
-        let mut duplicate=first.clone();
-        assert!(evaluate_reach(&[first.clone(),duplicate.clone()]).is_err());
-        duplicate.time_bucket=2;
-        let report=evaluate_reach(&[first,duplicate]).unwrap();
-        assert_eq!(report.duplicate_receipts_above_union,Some(14));
+    fn simple_differencing_attack_on_suppressed_cell_is_detected() {
+        let cells = BTreeMap::from([("a".to_string(), 20), ("b".to_string(), 2)]);
+        let queries = vec![
+            AggregateQuery {
+                query_id: "q1".into(),
+                member_cell_ids: BTreeSet::from(["a".to_string(), "b".to_string()]),
+                published_total: 22,
+            },
+            AggregateQuery {
+                query_id: "q2".into(),
+                member_cell_ids: BTreeSet::from(["a".to_string()]),
+                published_total: 20,
+            },
+        ];
+        let findings = detect_single_cell_differencing(&queries, &cells, 10);
+        assert_eq!(findings, vec![("q1".into(), "q2".into(), "b".into())]);
+        let mut inconsistent = queries.clone();
+        inconsistent[0].published_total = 99;
+        assert!(detect_single_cell_differencing(&inconsistent, &cells, 10).is_empty());
+    }
+
+    #[test]
+    fn duplicate_reach_cells_and_receipt_overcounts_are_visible() {
+        let first = cell("c", CohortClass::Resident, "z", 10, Some(5), Some(5), 12);
+        let mut duplicate = first.clone();
+        assert!(evaluate_reach(&[first.clone(), duplicate.clone()]).is_err());
+        duplicate.time_bucket = 2;
+        let report = evaluate_reach(&[first, duplicate]).unwrap();
+        assert_eq!(report.duplicate_receipts_above_union, Some(14));
     }
 }
