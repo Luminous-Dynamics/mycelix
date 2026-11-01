@@ -7,23 +7,68 @@
   "budget_cost_units": 4,
   "predictive_surprise_threshold": 0.05,
   "strata": [
-    { "stratum_id": "SANDY", "minimum_selected_actions": 1 },
-    { "stratum_id": "WEATHERED", "minimum_selected_actions": 1 }
+    {
+      "stratum_id": "SANDY",
+      "minimum_selected_actions": 1
+    },
+    {
+      "stratum_id": "WEATHERED",
+      "minimum_selected_actions": 1
+    }
   ],
   "models": [
-    { "model_id": "MATRIX_FLOW", "prior_weight": 0.40 },
-    { "model_id": "DUAL_PERMEABILITY", "prior_weight": 0.35 },
-    { "model_id": "ROOT_CHANNEL", "prior_weight": 0.25 }
+    {
+      "model_id": "MATRIX_FLOW",
+      "prior_weight": 0.4
+    },
+    {
+      "model_id": "DUAL_PERMEABILITY",
+      "prior_weight": 0.35
+    },
+    {
+      "model_id": "ROOT_CHANNEL",
+      "prior_weight": 0.25
+    }
   ],
   "decisions": [
-    { "decision_id": "RETAIN_WATER", "model_utilities": [0.90, 0.30, 0.45] },
-    { "decision_id": "DRAIN_FAST", "model_utilities": [0.30, 0.90, 0.50] },
-    { "decision_id": "DIAGNOSE_FIRST", "model_utilities": [0.55, 0.55, 0.55] }
+    {
+      "decision_id": "RETAIN_WATER",
+      "model_utilities": [
+        0.9,
+        0.3,
+        0.3
+      ]
+    },
+    {
+      "decision_id": "DRAIN_FAST",
+      "model_utilities": [
+        0.3,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "decision_id": "DIAGNOSE_FIRST",
+      "model_utilities": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    }
   ],
   "truth_decisions": [
-    { "decision_id": "RETAIN_WATER", "utility": 0.42 },
-    { "decision_id": "DRAIN_FAST", "utility": 0.92 },
-    { "decision_id": "DIAGNOSE_FIRST", "utility": 0.65 }
+    {
+      "decision_id": "RETAIN_WATER",
+      "utility": 0.42
+    },
+    {
+      "decision_id": "DRAIN_FAST",
+      "utility": 0.92
+    },
+    {
+      "decision_id": "DIAGNOSE_FIRST",
+      "utility": 0.65
+    }
   ],
   "actions": [
     {
@@ -34,13 +79,42 @@
       "eligible": true,
       "exclusion_reason": null,
       "diagnostic_action": false,
-      "outcomes": ["low_storage", "high_storage", "unmodeled"],
-      "likelihoods": [
-        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.80, 0.19, 0.01] },
-        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.20, 0.79, 0.01] },
-        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.45, 0.54, 0.01] }
+      "outcomes": [
+        "low_storage",
+        "high_storage",
+        "unmodeled"
       ],
-      "truth_outcome_probabilities": [0.55, 0.44, 0.01]
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.8,
+            0.19,
+            0.01
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.2,
+            0.79,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.45,
+            0.54,
+            0.01
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.55,
+        0.44,
+        0.01
+      ]
     },
     {
       "action_id": "B_SANDY_EVENT_TRACER",
@@ -50,13 +124,42 @@
       "eligible": true,
       "exclusion_reason": null,
       "diagnostic_action": false,
-      "outcomes": ["matrix_like", "preferential_like", "unmodeled"],
-      "likelihoods": [
-        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.85, 0.14, 0.01] },
-        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.15, 0.84, 0.01] },
-        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.40, 0.59, 0.01] }
+      "outcomes": [
+        "matrix_like",
+        "preferential_like",
+        "unmodeled"
       ],
-      "truth_outcome_probabilities": [0.05, 0.25, 0.70]
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.85,
+            0.14,
+            0.01
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.15,
+            0.84,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.4,
+            0.59,
+            0.01
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.05,
+        0.25,
+        0.7
+      ]
     },
     {
       "action_id": "C_SANDY_CT_DIAGNOSTIC",
@@ -66,13 +169,42 @@
       "eligible": true,
       "exclusion_reason": null,
       "diagnostic_action": true,
-      "outcomes": ["matrix_like", "connected", "unmodeled"],
-      "likelihoods": [
-        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.60, 0.39, 0.01] },
-        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.65, 0.34, 0.01] },
-        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.20, 0.79, 0.01] }
+      "outcomes": [
+        "matrix_like",
+        "connected",
+        "unmodeled"
       ],
-      "truth_outcome_probabilities": [0.15, 0.15, 0.70]
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.6,
+            0.39,
+            0.01
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.65,
+            0.34,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.2,
+            0.79,
+            0.01
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.15,
+        0.15,
+        0.7
+      ]
     },
     {
       "action_id": "D_WEATHERED_RETENTION",
@@ -82,13 +214,42 @@
       "eligible": true,
       "exclusion_reason": null,
       "diagnostic_action": false,
-      "outcomes": ["low_storage", "high_storage", "unmodeled"],
-      "likelihoods": [
-        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.72, 0.27, 0.01] },
-        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.35, 0.64, 0.01] },
-        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.48, 0.51, 0.01] }
+      "outcomes": [
+        "low_storage",
+        "high_storage",
+        "unmodeled"
       ],
-      "truth_outcome_probabilities": [0.70, 0.29, 0.01]
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.72,
+            0.27,
+            0.01
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.35,
+            0.64,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.48,
+            0.51,
+            0.01
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.7,
+        0.29,
+        0.01
+      ]
     },
     {
       "action_id": "E_WEATHERED_EVENT_TRACER",
@@ -98,13 +259,42 @@
       "eligible": true,
       "exclusion_reason": null,
       "diagnostic_action": false,
-      "outcomes": ["matrix_like", "preferential_like", "unmodeled"],
-      "likelihoods": [
-        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.80, 0.19, 0.01] },
-        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.12, 0.87, 0.01] },
-        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.35, 0.64, 0.01] }
+      "outcomes": [
+        "matrix_like",
+        "preferential_like",
+        "unmodeled"
       ],
-      "truth_outcome_probabilities": [0.15, 0.15, 0.70]
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.8,
+            0.19,
+            0.01
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.12,
+            0.87,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.35,
+            0.64,
+            0.01
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.15,
+        0.15,
+        0.7
+      ]
     },
     {
       "action_id": "F_WEATHERED_GAS_DIAGNOSTIC",
@@ -114,13 +304,82 @@
       "eligible": true,
       "exclusion_reason": null,
       "diagnostic_action": true,
-      "outcomes": ["low_exchange", "high_exchange", "unmodeled"],
-      "likelihoods": [
-        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.72, 0.27, 0.01] },
-        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.30, 0.69, 0.01] },
-        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.25, 0.74, 0.01] }
+      "outcomes": [
+        "low_exchange",
+        "high_exchange",
+        "unmodeled"
       ],
-      "truth_outcome_probabilities": [0.20, 0.10, 0.70]
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.72,
+            0.27,
+            0.01
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.3,
+            0.69,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.25,
+            0.74,
+            0.01
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.2,
+        0.1,
+        0.7
+      ]
+    },
+    {
+      "action_id": "G_SANDY_NUISANCE_SIGNATURE",
+      "stratum_id": "SANDY",
+      "modality": "non_decision_relevant_signature",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "diagnostic_action": false,
+      "outcomes": [
+        "signature_a",
+        "signature_b"
+      ],
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.5,
+            0.5
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.99,
+            0.01
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.01,
+            0.99
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.5,
+        0.5
+      ]
     },
     {
       "action_id": "X_INELIGIBLE",
@@ -130,13 +389,37 @@
       "eligible": false,
       "exclusion_reason": "Synthetic example of a measurement action that has not passed required approval.",
       "diagnostic_action": true,
-      "outcomes": ["low", "high"],
-      "likelihoods": [
-        { "model_id": "MATRIX_FLOW", "outcome_probabilities": [0.5, 0.5] },
-        { "model_id": "DUAL_PERMEABILITY", "outcome_probabilities": [0.5, 0.5] },
-        { "model_id": "ROOT_CHANNEL", "outcome_probabilities": [0.5, 0.5] }
+      "outcomes": [
+        "low",
+        "high"
       ],
-      "truth_outcome_probabilities": [0.5, 0.5]
+      "likelihoods": [
+        {
+          "model_id": "MATRIX_FLOW",
+          "outcome_probabilities": [
+            0.5,
+            0.5
+          ]
+        },
+        {
+          "model_id": "DUAL_PERMEABILITY",
+          "outcome_probabilities": [
+            0.5,
+            0.5
+          ]
+        },
+        {
+          "model_id": "ROOT_CHANNEL",
+          "outcome_probabilities": [
+            0.5,
+            0.5
+          ]
+        }
+      ],
+      "truth_outcome_probabilities": [
+        0.5,
+        0.5
+      ]
     }
   ]
 }
