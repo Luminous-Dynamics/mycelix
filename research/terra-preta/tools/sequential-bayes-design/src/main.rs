@@ -1036,6 +1036,119 @@ mod tests {
         )
     }
 
+    fn sbc_rank_histograms(misspecified_update: bool) -> ([usize; 10], [usize; 10]) {
+        const REPLICATES: usize = 4096;
+        const PRIOR: [f64; 3] = [0.40, 0.35, 0.25];
+        const TRUTH_LIKELIHOODS: [[[f64; 2]; 2]; 3] = [
+            [[0.80, 0.20], [0.70, 0.30]],
+            [[0.40, 0.60], [0.30, 0.70]],
+            [[0.20, 0.80], [0.10, 0.90]],
+        ];
+        let mut inference_likelihoods = TRUTH_LIKELIHOODS;
+        if misspecified_update {
+            // Deliberate likelihood error in one model/action. The truth
+            // generator remains unchanged, so SBC should detect the mismatch.
+            inference_likelihoods[1][1] = [0.80, 0.20];
+        }
+
+        fn draw_category(probabilities: &[f64], uniform: f64) -> usize {
+            let mut cumulative = 0.0;
+            for (index, probability) in probabilities.iter().enumerate() {
+                cumulative += probability;
+                if uniform < cumulative || index + 1 == probabilities.len() {
+                    return index;
+                }
+            }
+            probabilities.len() - 1
+        }
+
+        let mut parameter_ranks = [0usize; 10];
+        let mut joint_likelihood_ranks = [0usize; 10];
+        for replicate in 0..REPLICATES {
+            let true_model = draw_category(
+                &PRIOR,
+                deterministic_uniform(20261101, replicate, 0, "sbc-true-model"),
+            );
+            let observations = [
+                draw_category(
+                    &TRUTH_LIKELIHOODS[true_model][0],
+                    deterministic_uniform(20261101, replicate, 1, "sbc-action-a"),
+                ),
+                draw_category(
+                    &TRUTH_LIKELIHOODS[true_model][1],
+                    deterministic_uniform(20261101, replicate, 2, "sbc-action-b"),
+                ),
+            ];
+
+            let mut posterior = PRIOR;
+            let mut joint_log_likelihoods = [0.0f64; 3];
+            for model_index in 0..3 {
+                for action_index in 0..2 {
+                    let probability =
+                        inference_likelihoods[model_index][action_index][observations[action_index]];
+                    posterior[model_index] *= probability;
+                    joint_log_likelihoods[model_index] += probability.max(ALERT_EPSILON).ln();
+                }
+            }
+            let normalizer = posterior.iter().sum::<f64>();
+            for weight in &mut posterior {
+                *weight /= normalizer;
+            }
+
+            // Randomized discrete posterior rank for model identity.
+            let parameter_tie = deterministic_uniform(
+                20261101, replicate, 3, "sbc-parameter-rank-tie",
+            );
+            let parameter_rank =
+                posterior[..true_model].iter().sum::<f64>() + parameter_tie * posterior[true_model];
+
+            // Data-dependent SBC quantity: joint log likelihood of the full
+            // observed data under each posterior model draw.
+            let true_joint_log_likelihood = joint_log_likelihoods[true_model];
+            let mut below_mass = 0.0;
+            let mut tied_mass = 0.0;
+            for model_index in 0..3 {
+                if joint_log_likelihoods[model_index] < true_joint_log_likelihood - 1e-12 {
+                    below_mass += posterior[model_index];
+                } else if (joint_log_likelihoods[model_index] - true_joint_log_likelihood).abs() <= 1e-12 {
+                    tied_mass += posterior[model_index];
+                }
+            }
+            let likelihood_tie = deterministic_uniform(
+                20261101, replicate, 4, "sbc-joint-likelihood-rank-tie",
+            );
+            let likelihood_rank = below_mass + likelihood_tie * tied_mass;
+
+            let parameter_bin = ((parameter_rank * 10.0).floor() as usize).min(9);
+            let likelihood_bin = ((likelihood_rank * 10.0).floor() as usize).min(9);
+            parameter_ranks[parameter_bin] += 1;
+            joint_likelihood_ranks[likelihood_bin] += 1;
+        }
+        (parameter_ranks, joint_likelihood_ranks)
+    }
+
+    #[test]
+    fn simulation_based_calibration_checks_parameter_and_joint_likelihood_ranks() {
+        const REPLICATES: usize = 4096;
+        let (parameter_ranks, joint_likelihood_ranks) = sbc_rank_histograms(false);
+        for count in parameter_ranks.iter().chain(joint_likelihood_ranks.iter()) {
+            let frequency = *count as f64 / REPLICATES as f64;
+            assert!(
+                (0.07..=0.13).contains(&frequency),
+                "in-family SBC rank bin outside preregistered tolerance: {frequency:.4}"
+            );
+        }
+
+        let (bad_parameter_ranks, bad_joint_likelihood_ranks) = sbc_rank_histograms(true);
+        let bad_histograms_are_uniform = bad_parameter_ranks.iter()
+            .chain(bad_joint_likelihood_ranks.iter())
+            .all(|count| (0.07..=0.13).contains(&(*count as f64 / REPLICATES as f64)));
+        assert!(
+            !bad_histograms_are_uniform,
+            "negative control: a misspecified update should break at least one SBC rank histogram"
+        );
+    }
+
     #[test]
     fn posterior_update_normalizes_and_changes_belief() {
         let (_, actions, _, prior) = selector_fixture();
