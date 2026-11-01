@@ -326,7 +326,7 @@ fn select_stratified_candidates(
             let candidate = candidates
                 .first()
                 .ok_or_else(|| role_index_error(format!("action {action} has an empty stratum")))?;
-            selected.push(candidate.clone());
+            selected.push((*candidate).clone());
             for dimension in stratum.split(';') {
                 covered_dimensions.insert(dimension.to_owned());
             }
