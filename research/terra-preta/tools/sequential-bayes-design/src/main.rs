@@ -548,9 +548,10 @@ fn draw_outcome(
     action: &Action,
     seed: u64,
     replicate: usize,
-    step: usize,
 ) -> usize {
-    let draw = deterministic_uniform(seed, replicate, step, &action.action_id);
+    // Common random numbers: an action has the same potential observation
+    // in a given replicate regardless of the step at which a policy selects it.
+    let draw = deterministic_uniform(seed, replicate, 0, &action.action_id);
     let mut cumulative = 0.0;
     for (index, probability) in action.truth_outcome_probabilities.iter().enumerate() {
         cumulative += probability;
@@ -778,7 +779,7 @@ fn summarize_trajectory(
         let evaluator_action = scenario.actions.iter()
             .find(|action| action.action_id == selected.action_id)
             .expect("selector action has evaluator action");
-        let observed_index = draw_outcome(evaluator_action, scenario.seed, replicate, step);
+        let observed_index = draw_outcome(evaluator_action, scenario.seed, replicate);
         let predictive = predictive_probabilities(selected, &posterior);
         let observed_probability = predictive[observed_index];
         log_score_sum += -observed_probability.max(ALERT_EPSILON).ln();
