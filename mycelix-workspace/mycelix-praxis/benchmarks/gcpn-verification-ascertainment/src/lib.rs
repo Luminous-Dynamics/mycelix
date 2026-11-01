@@ -248,10 +248,10 @@ impl EvaluationFrame {
             return Err("target frame must contain at least one eligible case".into());
         }
 
-        if let Some(model_id) = &self.propensity_model_id {
-            if model_id.trim().is_empty() {
-                return Err("propensity model identifier must not be empty when supplied".into());
-            }
+        if let Some(model_id) = &self.propensity_model_id
+            && model_id.trim().is_empty()
+        {
+            return Err("propensity model identifier must not be empty when supplied".into());
         }
 
         let mut case_ids = BTreeSet::new();
@@ -266,13 +266,13 @@ impl EvaluationFrame {
                 return Err(format!("duplicate eligible case id: {}", case.case_id));
             }
 
-            if let Some(probability) = case.inclusion_probability {
-                if !probability.is_finite() || !(0.0..=1.0).contains(&probability) {
-                    return Err(format!(
-                        "case {} has an inclusion probability outside [0, 1]",
-                        case.case_id
-                    ));
-                }
+            if let Some(probability) = case.inclusion_probability
+                && (!probability.is_finite() || !(0.0..=1.0).contains(&probability))
+            {
+                return Err(format!(
+                    "case {} has an inclusion probability outside [0, 1]",
+                    case.case_id
+                ));
             }
 
             if let OutcomeStatus::Observed(scores) = &case.outcome {
