@@ -167,7 +167,10 @@ fn optional_string_field<'a>(
 ) -> Result<Option<&'a str>, RoleIndexError> {
     match object.get(field) {
         None => Ok(None),
-        Some(Value::String(value)) => Ok(Some(value.as_str())),
+        Some(Value::String(value)) if !value.trim().is_empty() => Ok(Some(value.as_str())),
+        Some(Value::String(_)) => Err(role_index_error(format!(
+            "{label}.{field} must be non-empty when present"
+        ))),
         Some(_) => Err(role_index_error(format!(
             "{label}.{field} must be a string when present"
         ))),
@@ -182,7 +185,8 @@ fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
     let actor_id = actor
         .get("id")
         .and_then(Value::as_str)
-        .ok_or_else(|| role_index_error("Rego input.actor.id must be a string for stratification"))?;
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| role_index_error("Rego input.actor.id must be a non-empty string for stratification"))?;
     let roles = actor
         .get("roles")
         .and_then(Value::as_array)
@@ -230,7 +234,11 @@ fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
     let attestation_bucket = match attestation_kind {
         "ordinary" => "ordinary",
         "independent_replication" => "independent_replication",
-        _ => "other",
+        other => {
+            return Err(role_index_error(format!(
+                "unsupported attestation kind {other:?} in stratified benchmark profile"
+            )));
+        }
     };
 
     let target = input
@@ -661,6 +669,36 @@ mod tests {
         assert!(changed_key.contains("org=absent"));
         assert!(changed_key.contains("attestation=independent_replication"));
         assert!(changed_key.contains("target=absent"));
+    }
+
+    #[test]
+    fn stratification_rejects_empty_identity_fields_and_unknown_attestation_classes() {
+        let empty_actor = serde_json::json!({
+            "action":"attestation_recorded",
+            "actor":{"id":" ","roles":[]},
+            "claim":{"exists":false},
+            "attestation":{"kind":"ordinary"},
+            "targetAttestation":{"exists":false}
+        });
+        assert!(stratum_key(&empty_actor).is_err());
+
+        let empty_creator = serde_json::json!({
+            "action":"attestation_recorded",
+            "actor":{"id":"actor:a","roles":[]},
+            "claim":{"exists":true,"creatorActorId":""},
+            "attestation":{"kind":"ordinary"},
+            "targetAttestation":{"exists":false}
+        });
+        assert!(stratum_key(&empty_creator).is_err());
+
+        let unknown_kind = serde_json::json!({
+            "action":"attestation_recorded",
+            "actor":{"id":"actor:a","roles":[]},
+            "claim":{"exists":false},
+            "attestation":{"kind":"future_kind"},
+            "targetAttestation":{"exists":false}
+        });
+        assert!(stratum_key(&unknown_kind).is_err());
     }
 
     #[test]
