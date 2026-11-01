@@ -77,8 +77,8 @@ mod tests {
     ) -> ([usize; BIN_COUNT], [usize; BIN_COUNT]) {
         // Fixed observed-data fixture: prior multiplied by the likelihood of
         // y_obs, producing a new conditional prior for posterior SBC.
-        let prior = [0.2, 0.5, 0.3];
-        let observed_data_likelihood = [0.2, 0.8, 0.4];
+        let prior: [f64; 3] = [0.2, 0.5, 0.3];
+        let observed_data_likelihood: [f64; 3] = [0.2, 0.8, 0.4];
         let unnormalized: Vec<f64> = prior.iter()
             .zip(observed_data_likelihood)
             .map(|(weight, likelihood)| weight * likelihood)
@@ -88,7 +88,7 @@ mod tests {
             unnormalized.iter().map(|weight| weight / normalizer).collect();
 
         // Two possible posterior-predictive outcomes for each latent model.
-        let likelihoods = [[0.9, 0.1], [0.5, 0.5], [0.1, 0.9]];
+        let likelihoods: [[f64; 2]; 3] = [[0.9, 0.1], [0.5, 0.5], [0.1, 0.9]];
         let joint_log_likelihood = |model: usize, outcome: usize| {
             observed_data_likelihood[model].ln() + likelihoods[model][outcome].ln()
         };
