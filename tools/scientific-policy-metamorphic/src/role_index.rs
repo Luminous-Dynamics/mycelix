@@ -15,8 +15,28 @@ pub const ROLE_INDEX_PROFILE: &str = "mycelix-rego-role-index-v0.1";
 pub const MAX_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_STRATIFIED_SAMPLES_PER_ACTION: usize = 24;
 pub const MIN_STRATIFIED_SAMPLES_PER_ACTION: usize = 20;
-const MAX_SAMPLES_PER_STRATUM: usize = 2;
+const MAX_SAMPLES_PER_STRATUM: usize = 1;
 const STRATIFIED_SAMPLE_PROFILE: &str = "mycelix-role-index-stratified-sample-v0.1";
+const REQUIRED_STRATUM_DIMENSIONS: [&str; 18] = [
+    "roles=0",
+    "roles=1-2",
+    "roles=3-4",
+    "roles=5+",
+    "claim=absent",
+    "claim=present",
+    "owner=not_applicable",
+    "owner=owner",
+    "owner=non_owner",
+    "org=absent",
+    "org=same",
+    "org=different",
+    "org=orphan",
+    "attestation=ordinary",
+    "attestation=independent_replication",
+    "target=absent",
+    "target=self",
+    "target=other",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoleIndexError(pub String);
@@ -276,26 +296,39 @@ fn select_stratified_candidates(
             .iter()
             .filter(|((candidate_action, _), _)| candidate_action == action)
             .map(|((_, stratum), candidates)| {
-                (
-                    stratum_rank(action, stratum),
-                    candidates,
-                )
+                (stratum_rank(action, stratum), stratum.clone(), candidates)
             })
             .collect::<Vec<_>>();
-        strata.sort_by(|left, right| left.0.cmp(&right.0));
 
         let action_start = selected.len();
-        for round in 0..MAX_SAMPLES_PER_STRATUM {
-            for (_, candidates) in &strata {
-                if selected.len() - action_start >= MAX_STRATIFIED_SAMPLES_PER_ACTION {
-                    break;
-                }
-                if let Some(candidate) = candidates.get(round) {
-                    selected.push(candidate.clone());
+        let mut covered_dimensions = BTreeSet::<String>::new();
+        while selected.len() - action_start < MAX_STRATIFIED_SAMPLES_PER_ACTION
+            && !strata.is_empty()
+        {
+            // Greedily maximize newly covered semantic dimension values. SHA-ranked
+            // strata break ties reproducibly, without input-order dependence.
+            let mut best_index = 0usize;
+            let mut best_score = 0usize;
+            let mut best_rank = String::new();
+            for (index, (rank, stratum, _)) in strata.iter().enumerate() {
+                let score = stratum
+                    .split(';')
+                    .filter(|dimension| !covered_dimensions.contains(*dimension))
+                    .count();
+                if score > best_score || (score == best_score && (best_rank.is_empty() || rank < &best_rank)) {
+                    best_index = index;
+                    best_score = score;
+                    best_rank = rank.clone();
                 }
             }
-            if selected.len() - action_start >= MAX_STRATIFIED_SAMPLES_PER_ACTION {
-                break;
+
+            let (_, stratum, candidates) = strata.remove(best_index);
+            let candidate = candidates
+                .first()
+                .ok_or_else(|| role_index_error(format!("action {action} has an empty stratum")))?;
+            selected.push(candidate.clone());
+            for dimension in stratum.split(';') {
+                covered_dimensions.insert(dimension.to_owned());
             }
         }
 
@@ -303,6 +336,17 @@ fn select_stratified_candidates(
         if count < MIN_STRATIFIED_SAMPLES_PER_ACTION {
             return Err(role_index_error(format!(
                 "action {action} produced only {count} stratified samples; at least {MIN_STRATIFIED_SAMPLES_PER_ACTION} are required"
+            )));
+        }
+        let missing_dimensions = REQUIRED_STRATUM_DIMENSIONS
+            .iter()
+            .filter(|dimension| !covered_dimensions.contains(**dimension))
+            .copied()
+            .collect::<Vec<_>>();
+        if !missing_dimensions.is_empty() {
+            return Err(role_index_error(format!(
+                "action {action} stratified panel omitted required semantic dimensions: {}",
+                missing_dimensions.join(", ")
             )));
         }
         counts.insert((*action).to_owned(), count);
@@ -609,33 +653,48 @@ mod tests {
     }
 
     #[test]
-    fn stratified_selector_round_robins_hash_ranked_strata() {
+    fn stratified_selector_greedily_covers_every_required_dimension() {
+        let role = ["0", "1-2", "3-4", "5+"];
+        let claim = ["absent", "present"];
+        let owner = ["not_applicable", "owner", "non_owner"];
+        let organization = ["absent", "same", "different", "orphan"];
+        let attestation = ["ordinary", "independent_replication"];
+        let target = ["absent", "self", "other"];
         let mut buckets = BTreeMap::new();
-        for stratum_index in 0..32 {
-            for candidate_index in 0..2 {
-                let case_id = format!("case-{stratum_index:02}-{candidate_index}");
-                insert_stratified_candidate(
-                    &mut buckets,
-                    StratifiedCandidate {
-                        action: "claim_proposed".to_owned(),
-                        case_id: case_id.clone(),
-                        stratum: format!("stratum-{stratum_index:02}"),
-                        rank_sha256: sample_rank("claim_proposed", &case_id),
-                        baseline_bytes: case_id.as_bytes().to_vec(),
-                        indexed_bytes: case_id.as_bytes().to_vec(),
-                    },
-                );
-            }
+
+        for index in 0..MAX_STRATIFIED_SAMPLES_PER_ACTION {
+            let stratum = format!(
+                "roles={};claim={};owner={};org={};attestation={};target={}",
+                role[index % role.len()],
+                claim[(index / 4) % claim.len()],
+                owner[(index / 8) % owner.len()],
+                organization[(index / 12) % organization.len()],
+                attestation[(index / 2) % attestation.len()],
+                target[(index / 3) % target.len()],
+            );
+            let case_id = format!("case-{index:02}");
+            insert_stratified_candidate(
+                &mut buckets,
+                StratifiedCandidate {
+                    action: "claim_proposed".to_owned(),
+                    case_id: case_id.clone(),
+                    stratum,
+                    rank_sha256: sample_rank("claim_proposed", &case_id),
+                    baseline_bytes: case_id.as_bytes().to_vec(),
+                    indexed_bytes: case_id.as_bytes().to_vec(),
+                },
+            );
         }
+
         let (selected, counts) = select_stratified_candidates(&buckets, &["claim_proposed"])
-            .expect("enough semantic strata should meet the minimum sample count");
+            .expect("panel covers every required semantic dimension");
         assert_eq!(counts["claim_proposed"], MAX_STRATIFIED_SAMPLES_PER_ACTION);
         assert_eq!(selected.len(), MAX_STRATIFIED_SAMPLES_PER_ACTION);
-        let distinct_strata = selected
+        let covered = selected
             .iter()
-            .map(|candidate| candidate.stratum.as_str())
+            .flat_map(|candidate| candidate.stratum.split(';'))
             .collect::<BTreeSet<_>>();
-        assert_eq!(distinct_strata.len(), MAX_STRATIFIED_SAMPLES_PER_ACTION);
+        assert!(REQUIRED_STRATUM_DIMENSIONS.iter().all(|dimension| covered.contains(dimension)));
     }
 
     #[test]
