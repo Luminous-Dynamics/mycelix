@@ -51,7 +51,7 @@ The workflow retains the original first-occurrence input for each of the eight a
 - attestation kind: ordinary or independent replication;
 - target attestation: absent, authored by the actor, or authored by another actor.
 
-Each action retains up to two lowest SHA-256-ranked case IDs per populated stratum, then performs deterministic round-robin selection across hash-ranked strata. This produces 16–24 matched cases per action (128–192 total); the manifest records the exact stratum, case ID, rank, paths, byte lengths and SHA-256 digests for both representations. The sample profile and rank inputs are versioned. The selector operates only on the frozen 62,464 source-pinned corpus; it does not infer expected decisions.
+Each action retains up to two lowest SHA-256-ranked case IDs per populated stratum, then performs deterministic round-robin selection across hash-ranked strata. A greedy set-cover selector chooses the next stratum that covers the most not-yet-seen marginal values, with SHA-ranked tie breaks. Each action must cover all 18 required marginal values across the six dimensions. This produces 20–24 matched cases per action (160–192 total); the manifest records the exact stratum, case ID, rank, paths, byte lengths and SHA-256 digests for both representations. The sample profile and rank inputs are versioned. The selector operates only on the frozen 62,464 source-pinned corpus; it does not infer expected decisions.
 
 For every selected case, CI:
 1. verifies the baseline and indexed input bytes against the sample manifest;
@@ -76,7 +76,7 @@ This separates query-only improvement from projection and transport costs. A que
 - Zero decision and determining-rule divergence across all 62,464 inputs.
 - Zero duplicate/invalid-role acceptance in the transform unit panel.
 - All eight smoke representatives bound to exact source case IDs and SHA-256 digests.
-- At least 16 and at most 24 stratified samples for every action, with exact source and projected hashes.
+- At least 20 and at most 24 stratified samples for every action, covering all 18 required marginal dimension values, with exact source and projected hashes.
 - Raw native OPA benchmark outputs published for both representations for every matched sample.
 - Report p50/p95/p99 where the native benchmark output supports them; retain raw five-run samples and allocation/byte results.
 - Compare baseline and indexed distributions within each matched action/stratum. A candidate optimization is retained only when relevant latency/allocation metrics improve beyond observed noise without material regression across the represented strata, and the projection overhead is separately reported.
