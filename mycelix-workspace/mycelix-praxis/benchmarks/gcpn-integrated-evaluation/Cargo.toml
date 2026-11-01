@@ -1,9 +1,9 @@
 [package]
 name = "gcpn-integrated-evaluation"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
-description = "Integrated synthetic GCPN evaluation across forecast, integrity, topology, last-mile, early-action and lifecycle-cost evidence"
+description = "Integrated synthetic GCPN evaluation with forecast decomposition, drift, integrity, topology, last-mile, early-action and lifecycle-cost evidence"
 
 # Keep this integration package isolated from the parent Praxis workspace.
 [workspace]
