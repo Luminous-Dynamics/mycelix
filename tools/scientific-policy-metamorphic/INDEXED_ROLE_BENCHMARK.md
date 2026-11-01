@@ -18,6 +18,18 @@ The transform rejects non-array role values, non-string or empty roles, duplicat
 
 The source input SHA is checked before processing. Each source JSONL line uses the duplicate-aware strict parser. Case IDs must be unique. Exactly 62,464 rows and all eight known actions are required.
 
+
+## Input resource boundary
+
+The projection generator opens the source JSONL first, checks regular-file
+metadata on that same handle, and reads at most 256 MiB plus one byte. The
+actual byte count is checked before SHA-256 validation, parsing or output
+generation. The boundary test accepts exactly 256 MiB only through the same
+bounded-reader helper semantics (the unit test uses a small exact-limit
+fixture) and rejects the first byte over the configured cap. This limits
+resource consumption and closes the path-stat/open replacement gap; it does
+not authenticate the file producer or replace the source manifest digest.
+
 ## 3. Functional qualification
 
 1. Generate the baseline 62,464 paired inputs from the pinned source corpus.
