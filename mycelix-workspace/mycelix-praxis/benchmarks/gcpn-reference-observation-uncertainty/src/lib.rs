@@ -478,14 +478,25 @@ mod tests {
         }
     }
 
-    fn pair(
-        id: &str,
-        forecast: f64,
-        observed: f64,
+    fn error_model(
         bias: Option<f64>,
         measurement: Option<f64>,
         representativeness: Option<f64>,
         covariance: Option<f64>,
+    ) -> ObservationErrorModel {
+        ObservationErrorModel {
+            known_bias: bias,
+            measurement_variance: measurement,
+            representativeness_variance: representativeness,
+            cross_error_covariance: covariance,
+        }
+    }
+
+    fn pair(
+        id: &str,
+        forecast: f64,
+        observed: f64,
+        error_model: ObservationErrorModel,
         lineage: &str,
     ) -> ForecastObservationPair {
         ForecastObservationPair {
@@ -503,12 +514,7 @@ mod tests {
             observation_operator_id: None,
             recorded_at: 90,
             error_lineage_root: lineage.into(),
-            error_model: ObservationErrorModel {
-                known_bias: bias,
-                measurement_variance: measurement,
-                representativeness_variance: representativeness,
-                cross_error_covariance: covariance,
-            },
+            error_model,
         }
     }
 
