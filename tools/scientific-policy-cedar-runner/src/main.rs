@@ -21,6 +21,10 @@ const EXPECTED_BASELINE_REVISION: &str = "f89b4bcdcfb901961e2ca11a577775acbf53a7
 const EXPECTED_BASELINE_SOURCE_BLOB_SHA: &str = "dd9ea9267cdae2e2c67244e8a90821defaacefb3";
 const EXPECTED_CASE_COUNT: usize = 62_464;
 const MAX_INPUT_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_MANIFEST_BYTES: u64 = 1 * 1024 * 1024;
+const MAX_POLICY_FILE_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_SOURCE_FILE_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_TOOL_BINARY_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -168,6 +172,22 @@ fn sha256(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+fn read_bounded_file(path: &Path, maximum: u64, label: &str) -> Result<Vec<u8>, String> {
+    let file = File::open(path).map_err(|error| format!("open {label}: {error}"))?;
+    let metadata = file
+        .metadata()
+        .map_err(|error| format!("inspect opened {label}: {error}"))?;
+    if !metadata.is_file() {
+        return Err(format!("{label} must be a regular file"));
+    }
+    if metadata.len() > maximum {
+        return Err(format!("{label} exceeds {maximum} byte limit"));
+    }
+    let initial_capacity = usize::try_from(metadata.len().min(maximum))
+        .map_err(|error| format!("{label} size does not fit memory index: {error}"))?;
+    read_bounded_input(file, maximum, initial_capacity, label)
+}
+
 fn length_prefixed_material(parts: &[&[u8]]) -> Vec<u8> {
     let mut output = Vec::new();
     for part in parts {
@@ -185,7 +205,7 @@ fn git_blob_oid(bytes: &[u8]) -> String {
 }
 
 fn verify_exact_file(path: &Path, expected_sha256: &str) -> Result<(), String> {
-    let bytes = fs::read(path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    let bytes = read_bounded_file(path, MAX_INPUT_BYTES, "pinned abstract corpus")?;
     if sha256(&bytes) != expected_sha256 {
         return Err(format!("SHA-256 mismatch for {}", path.display()));
     }
@@ -559,6 +579,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bounded_file_reader_rejects_non_regular_files() {
+        assert!(read_bounded_file(Path::new("."), 1024, "test artifact")
+            .expect_err("directory is not a regular file")
+            .contains("regular file"));
+    }
+
+    #[test]
     fn bounded_input_read_accepts_limit_and_rejects_one_byte_over() {
         let at_limit = read_bounded_input(
             std::io::Cursor::new(b"1234".as_slice()),
@@ -918,18 +945,13 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         return Err(format!("expected OPA 1.22.0, got {opa_version_text:?}"));
     }
 
-    let cedar_policy_bytes = fs::read(&cedar_policy_path)
-        .map_err(|error| format!("read Cedar policy: {error}"))?;
-    let cedar_schema_bytes = fs::read(&cedar_schema_path)
-        .map_err(|error| format!("read Cedar schema: {error}"))?;
-    let rego_policy_bytes = fs::read(&rego_policy_path)
-        .map_err(|error| format!("read Rego policy: {error}"))?;
-    let opa_binary_bytes = fs::read(&opa_binary)
-        .map_err(|error| format!("read OPA binary for provenance: {error}"))?;
+    let cedar_policy_bytes = read_bounded_file(&cedar_policy_path, MAX_POLICY_FILE_BYTES, "Cedar policy")?;
+    let cedar_schema_bytes = read_bounded_file(&cedar_schema_path, MAX_POLICY_FILE_BYTES, "Cedar schema")?;
+    let rego_policy_bytes = read_bounded_file(&rego_policy_path, MAX_POLICY_FILE_BYTES, "Rego policy")?;
+    let opa_binary_bytes = read_bounded_file(&opa_binary, MAX_TOOL_BINARY_BYTES, "OPA binary for provenance")?;
     let runner_binary_path = env::current_exe()
         .map_err(|error| format!("resolve Cedar runner binary: {error}"))?;
-    let runner_binary_bytes = fs::read(&runner_binary_path)
-        .map_err(|error| format!("read Cedar runner binary for provenance: {error}"))?;
+    let runner_binary_bytes = read_bounded_file(&runner_binary_path, MAX_TOOL_BINARY_BYTES, "Cedar runner binary for provenance")?;
 
     let cedar_policy_source = std::str::from_utf8(&cedar_policy_bytes)
         .map_err(|error| format!("Cedar policy is not UTF-8: {error}"))?;
@@ -1217,8 +1239,7 @@ fn run() -> Result<(), String> {
     }
     let manifest_path = PathBuf::from(manifest_path);
     let output_directory = PathBuf::from(output_directory);
-    let manifest_bytes = fs::read(&manifest_path)
-        .map_err(|error| format!("read generator manifest: {error}"))?;
+    let manifest_bytes = read_bounded_file(&manifest_path, MAX_MANIFEST_BYTES, "generator manifest")?;
     let input_manifest: InputManifest = serde_json::from_slice(&manifest_bytes)
         .map_err(|error| format!("parse generator manifest: {error}"))?;
     validate_manifest(&input_manifest)?;
@@ -1232,8 +1253,7 @@ fn run() -> Result<(), String> {
     let baseline_source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../")
         .join(&input_manifest.baseline_source_path);
-    let baseline_source_bytes = fs::read(&baseline_source_path)
-        .map_err(|error| format!("read pinned Rust authorization source: {error}"))?;
+    let baseline_source_bytes = read_bounded_file(&baseline_source_path, MAX_SOURCE_FILE_BYTES, "pinned Rust authorization source")?;
     let actual_blob_oid = git_blob_oid(&baseline_source_bytes);
     if actual_blob_oid != EXPECTED_BASELINE_SOURCE_BLOB_SHA {
         return Err(format!(
@@ -1245,10 +1265,8 @@ fn run() -> Result<(), String> {
         .join("../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar");
     let schema_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json");
-    let policy_bytes = fs::read(&policy_path)
-        .map_err(|error| format!("read Cedar policy: {error}"))?;
-    let schema_bytes = fs::read(&schema_path)
-        .map_err(|error| format!("read Cedar schema: {error}"))?;
+    let policy_bytes = read_bounded_file(&policy_path, MAX_POLICY_FILE_BYTES, "Cedar policy")?;
+    let schema_bytes = read_bounded_file(&schema_path, MAX_POLICY_FILE_BYTES, "Cedar schema")?;
     let policy_source = std::str::from_utf8(&policy_bytes)
         .map_err(|error| format!("Cedar policy is not UTF-8: {error}"))?;
     let schema_source = std::str::from_utf8(&schema_bytes)
