@@ -170,6 +170,7 @@ pub struct CovarianceComponentDesign {
     upper_triangle_weights: Vec<f64>,
     upper_triangle_indices: Vec<(usize, usize)>,
     observation_loadings: Vec<CovarianceComponentLoadings>,
+    physical_support_kernel: Option<Vec<Vec<f64>>>,
 }
 
 fn validate_observations(observations: &[CovarianceObservation]) -> Result<(), String> {
@@ -209,6 +210,50 @@ fn component_group(
         VarianceComponent::Instrument => observation.instrument_id.as_deref(),
         VarianceComponent::IndependentResidual => None,
     }
+}
+
+fn validate_physical_support_kernel(
+    observations: &[CovarianceObservation],
+    kernel: &[Vec<f64>],
+) -> Result<(), String> {
+    let dimension = observations.len();
+    if kernel.len() != dimension || kernel.iter().any(|row| row.len() != dimension) {
+        return Err("physical support kernel must be square and align with observations".into());
+    }
+    if kernel.iter().flatten().any(|value| !value.is_finite() || value.abs() > 1.0 + 1e-10) {
+        return Err("physical support kernel entries must be finite and within [-1, 1]".into());
+    }
+    for row in 0..dimension {
+        for column in 0..dimension {
+            if (kernel[row][column] - kernel[column][row]).abs() > 1e-10 {
+                return Err("physical support kernel must be symmetric".into());
+            }
+            if observations[row].physical_support_id.is_none()
+                && kernel[row][column].abs() > 1e-10
+            {
+                return Err("observations without physical support cannot have kernel overlap".into());
+            }
+        }
+        let expected_diagonal = if observations[row].physical_support_id.is_some() { 1.0 } else { 0.0 };
+        if (kernel[row][row] - expected_diagonal).abs() > 1e-10 {
+            return Err("physical support kernel diagonal must be one for supported observations and zero otherwise".into());
+        }
+    }
+    for row in 0..dimension {
+        for column in 0..dimension {
+            if observations[row].physical_support_id.is_some()
+                && observations[row].physical_support_id == observations[column].physical_support_id
+                && (kernel[row][column] - 1.0).abs() > 1e-10
+            {
+                return Err("identical physical support IDs must have unit kernel overlap".into());
+            }
+        }
+    }
+    let eigenvalues = symmetric_eigenvalues(kernel)?;
+    if eigenvalues.iter().any(|value| *value < -1e-10) {
+        return Err("physical support kernel must be positive semidefinite".into());
+    }
+    Ok(())
 }
 
 fn upper_triangle_pairs(dimension: usize) -> Vec<(usize, usize)> {
@@ -500,12 +545,39 @@ impl CovarianceComponentDesign {
         observations: Vec<CovarianceObservation>,
         observation_loadings: Vec<CovarianceComponentLoadings>,
     ) -> Result<Self, String> {
+        Self::build(observations, observation_loadings, None)
+    }
+
+    /// Build a design from a fixed, normalized physical-support covariance kernel.
+    ///
+    /// The supplied matrix is a positive-semidefinite correlation kernel computed
+    /// from externally defined spatial support/overlap operators. Its diagonal is
+    /// one for supported observations, zero for unsupported observations, and
+    /// identical support IDs must have unit overlap. Different support IDs may
+    /// have nonzero partial overlap. This API consumes an audited kernel; it does
+    /// not infer spatial overlap from the support labels themselves.
+    pub fn new_with_support_kernel(
+        observations: Vec<CovarianceObservation>,
+        observation_loadings: Vec<CovarianceComponentLoadings>,
+        physical_support_kernel: Vec<Vec<f64>>,
+    ) -> Result<Self, String> {
+        Self::build(observations, observation_loadings, Some(physical_support_kernel))
+    }
+
+    fn build(
+        observations: Vec<CovarianceObservation>,
+        observation_loadings: Vec<CovarianceComponentLoadings>,
+        physical_support_kernel: Option<Vec<Vec<f64>>>,
+    ) -> Result<Self, String> {
         validate_observations(&observations)?;
         if observation_loadings.len() != observations.len() {
             return Err("one loading record is required for every observation".into());
         }
         for loading in &observation_loadings {
             loading.validate()?;
+        }
+        if let Some(kernel) = &physical_support_kernel {
+            validate_physical_support_kernel(&observations, kernel)?;
         }
 
         let component_ids = VarianceComponent::ALL.to_vec();
@@ -520,6 +592,18 @@ impl CovarianceComponentDesign {
                 let right_loading = observation_loadings[*column].for_component(*component);
                 if *component == VarianceComponent::IndependentResidual {
                     if row == column { left_loading * right_loading } else { 0.0 }
+                } else if *component == VarianceComponent::SharedPhysicalSupport {
+                    let overlap = if let Some(kernel) = &physical_support_kernel {
+                        kernel[*row][*column]
+                    } else {
+                        let left = component_group(&observations[*row], *component);
+                        let right = component_group(&observations[*column], *component);
+                        match (left, right) {
+                            (Some(left), Some(right)) if left == right => 1.0,
+                            _ => 0.0,
+                        }
+                    };
+                    left_loading * right_loading * overlap
                 } else {
                     let left = component_group(&observations[*row], *component);
                     let right = component_group(&observations[*column], *component);
@@ -540,6 +624,7 @@ impl CovarianceComponentDesign {
             upper_triangle_weights,
             upper_triangle_indices,
             observation_loadings,
+            physical_support_kernel,
         })
     }
 
@@ -891,6 +976,41 @@ mod tests {
             }
         }
         CovarianceComponentDesign::new(observations).unwrap()
+    }
+
+    #[test]
+    fn partial_physical_support_overlap_generates_cross_modal_covariance() {
+        let observations = vec![
+            observation("ct-subvolume", "ct", Some("support-A"), Some("batch-A"), Some("ct-device")),
+            observation("tracer-aliquot", "tracer", Some("support-B"), Some("batch-B"), Some("tracer-device")),
+        ];
+        let design = CovarianceComponentDesign::new_with_support_kernel(
+            observations,
+            vec![CovarianceComponentLoadings::default(); 2],
+            vec![vec![1.0, 0.25], vec![0.25, 1.0]],
+        ).unwrap();
+        let covariance = design.covariance_from_variances(&[2.0, 0.0, 0.0, 0.1]).unwrap();
+        assert!((covariance[0][1] - 0.5).abs() < 1e-12);
+        assert!((covariance[0][0] - 2.1).abs() < 1e-12);
+        assert!((covariance[1][1] - 2.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn support_kernel_rejects_non_psd_or_identity_inconsistent_inputs() {
+        let observations = vec![
+            observation("ct-1", "ct", Some("support-A"), Some("batch-A"), Some("ct-device")),
+            observation("tracer-1", "tracer", Some("support-B"), Some("batch-B"), Some("tracer-device")),
+        ];
+        assert!(CovarianceComponentDesign::new_with_support_kernel(
+            observations.clone(),
+            vec![CovarianceComponentLoadings::default(); 2],
+            vec![vec![1.0, 1.5], vec![1.5, 1.0]],
+        ).is_err());
+        assert!(CovarianceComponentDesign::new_with_support_kernel(
+            observations,
+            vec![CovarianceComponentLoadings::default(); 2],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        ).is_ok());
     }
 
     #[test]
