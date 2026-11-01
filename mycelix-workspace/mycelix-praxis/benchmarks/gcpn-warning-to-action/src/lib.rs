@@ -181,7 +181,7 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
     const HEADER: &str = "case_id,cap_message_id,protocol_version,alert_authorized,decision,decision_authorized,alert_time,decision_time,finance_required,finance_prearranged,finance_authorized,funds_released,finance_time,action_authorized,action_started,action_completed,action_start_time,action_complete_time,intended_people,service_records,unique_people_served,duplicate_service_records,grievances_reported,grievances_recorded,grievances_resolved,outcome_observed,outcome_independent,counterfactual_identified,impact_claim_submitted";
     let mut lines = input.lines();
     if lines.next() != Some(HEADER) {
-        return Err("warning-to-action fixture header does not match frozen v0.1 contract".into());
+        return Err("warning-to-action fixture header does not match frozen v0.1.1 contract".into());
     }
 
     let mut cases = Vec::new();
@@ -191,8 +191,8 @@ pub fn parse_fixture(input: &str) -> Result<Vec<Case>, String> {
             continue;
         }
         let f: Vec<&str> = line.split(',').collect();
-        if f.len() != 28 {
-            return Err(format!("line {}: expected 28 fields, got {}", line_idx + 2, f.len()));
+        if f.len() != 29 {
+            return Err(format!("line {}: expected 29 fields, got {}", line_idx + 2, f.len()));
         }
 
         let case = Case {
