@@ -681,6 +681,126 @@ fn wilson_interval(successes: usize, trials: usize) -> (f64, f64) {
 /// Pilot/confirmatory coverage driver. Callers must use separate seeds for
 /// pilot and confirmatory runs and must freeze the DGP/method matrix before
 /// interpreting confirmatory results.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AlternativeCoverageSummary {
+    pub interval_method: &'static str,
+    pub outer_datasets: usize,
+    pub valid_intervals: usize,
+    pub covered_intervals: usize,
+    pub empirical_coverage: Option<f64>,
+    pub coverage_mcse: Option<f64>,
+    pub coverage_wilson_95_low: Option<f64>,
+    pub coverage_wilson_95_high: Option<f64>,
+    pub abstentions: usize,
+    pub mean_interval_width: Option<f64>,
+}
+
+/// Exploratory coverage comparison for the basic and studentized independent-
+/// system intervals. Pilot and confirmatory runs must use separately frozen
+/// seeds, counts and DGP matrices.
+pub fn alternative_coverage_study(
+    config: &DgpConfig,
+    outer_datasets: usize,
+    bootstrap_replicates: usize,
+    confidence_level: f64,
+    seed: u64,
+) -> Result<Vec<AlternativeCoverageSummary>, String> {
+    config.validate()?;
+    if outer_datasets == 0 {
+        return Err("outer Monte Carlo dataset count must be positive".into());
+    }
+    if bootstrap_replicates < 100 {
+        return Err("at least 100 bootstrap replicates are required".into());
+    }
+    if !confidence_level.is_finite() || !(0.0..1.0).contains(&confidence_level) {
+        return Err("confidence level must be finite and strictly between 0 and 1".into());
+    }
+    let truth = analytic_truth(config)?.case_weighted;
+    let methods = [
+        ("independent_system_basic", false),
+        ("independent_system_studentized_t", true),
+    ];
+    let mut summaries = Vec::with_capacity(methods.len());
+
+    for (label, studentized_method) in methods {
+        let mut valid = 0usize;
+        let mut covered = 0usize;
+        let mut abstentions = 0usize;
+        let mut width_sum = 0.0;
+
+        for trial in 0..outer_datasets {
+            let dataset = generate_dataset(config, derive_seed(seed, trial as u64))?;
+            let method_seed = derive_seed(seed ^ if studentized_method {
+                0x5be0_cd19_137e_2179
+            } else {
+                0x1f83_d9ab_fb41_bd6b
+            }, trial as u64 + 1);
+            let interval = if studentized_method {
+                studentized_system_bootstrap_interval(
+                    &dataset,
+                    confidence_level,
+                    bootstrap_replicates,
+                    method_seed,
+                )
+                .map(|interval| (interval.lower, interval.upper))
+            } else {
+                basic_bootstrap_interval(
+                    &dataset,
+                    BootstrapUnit::IndependentSystem,
+                    confidence_level,
+                    bootstrap_replicates,
+                    method_seed,
+                )
+                .map(|interval| (interval.lower, interval.upper))
+            };
+
+            match interval {
+                Ok((lower, upper)) if lower.is_finite() && upper.is_finite() && lower <= upper => {
+                    valid += 1;
+                    if lower <= truth && truth <= upper {
+                        covered += 1;
+                    }
+                    width_sum += upper - lower;
+                }
+                _ => abstentions += 1,
+            }
+        }
+
+        if valid == 0 {
+            summaries.push(AlternativeCoverageSummary {
+                interval_method: label,
+                outer_datasets,
+                valid_intervals: 0,
+                covered_intervals: 0,
+                empirical_coverage: None,
+                coverage_mcse: None,
+                coverage_wilson_95_low: None,
+                coverage_wilson_95_high: None,
+                abstentions,
+                mean_interval_width: None,
+            });
+            continue;
+        }
+
+        let coverage = covered as f64 / valid as f64;
+        let mcse = (coverage * (1.0 - coverage) / valid as f64).sqrt();
+        let (wilson_low, wilson_high) = wilson_interval(covered, valid);
+        summaries.push(AlternativeCoverageSummary {
+            interval_method: label,
+            outer_datasets,
+            valid_intervals: valid,
+            covered_intervals: covered,
+            empirical_coverage: Some(coverage),
+            coverage_mcse: Some(mcse),
+            coverage_wilson_95_low: Some(wilson_low),
+            coverage_wilson_95_high: Some(wilson_high),
+            abstentions,
+            mean_interval_width: Some(width_sum / valid as f64),
+        });
+    }
+    Ok(summaries)
+}
+
 pub fn coverage_study(
     config: &DgpConfig,
     outer_datasets: usize,
@@ -887,6 +1007,18 @@ mod tests {
                 result.coverage_wilson_95_low,
                 result.coverage_wilson_95_high,
             ) {
+                assert!(low <= high);
+            }
+        }
+    }
+
+    #[test]
+    fn alternative_coverage_study_reports_basic_and_studentized_methods_and_abstentions() {
+        let report = alternative_coverage_study(&DgpConfig::default(), 20, 100, 0.95, 8821).unwrap();
+        assert_eq!(report.len(), 2);
+        for method in report {
+            assert_eq!(method.valid_intervals + method.abstentions, 20);
+            if let (Some(low), Some(high)) = (method.coverage_wilson_95_low, method.coverage_wilson_95_high) {
                 assert!(low <= high);
             }
         }
