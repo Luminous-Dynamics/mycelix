@@ -6,6 +6,7 @@
 //! Every row remains pending evaluation by the authentic compiled Rust oracle.
 
 use serde::Serialize;
+#[cfg(test)]
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
