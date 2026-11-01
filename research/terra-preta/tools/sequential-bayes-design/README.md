@@ -240,6 +240,22 @@ information remains positive. The implementation scores it at the minimum
 alpha and marks the requested positive radius as unattainable/clamped rather
 than incorrectly returning zero information.
 
+A second executable path now jointly re-evaluates alpha and the Gibbs
+distribution as the common beta varies. For each beta it forms
+`alpha=beta/(1+beta)`, computes all finite Sibson rewards, obtains the exact
+Gibbs maximizer of
+`E_pi[reward] - KL(pi||pi0)/lambda`, and searches the resulting
+`E_pi[I_alpha] - KL(pi||pi0)/lambda - beta*rho` objective over the declared
+finite beta bracket. It reports the common beta, alpha, action probabilities,
+policy KL, complexity penalty, adversarial penalty and robust regularized
+value. The zero-radius limit uses Shannon information and beta→infinity.
+
+This joint finite Gibbs/dual reference is stronger than evaluating a
+fixed-alpha Gibbs policy at a separate beta, but it still uses exact finite
+Sibson rewards. It is not the paper's nested-Monte-Carlo empirical reward
+estimator or PAC-Bayes lower-bound certificate, and its numeric outer search
+does not certify global optimality beyond the declared finite search settings.
+
 This is a deterministic fixed-design ambiguity comparison. It is **not** the
 paper's stochastic-policy problem with one shared *average* KL budget over
 the policy distribution; that problem needs a common dual parameter and the
