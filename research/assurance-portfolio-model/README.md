@@ -42,7 +42,7 @@ The crate has no third-party dependencies and no default features. It is intenti
 
 ## Initial qualification panel
 
-The unit tests include:
+The 16 unit tests include:
 - hard-invariant refutation with multiple supporting evaluators;
 - exact replay deduplication;
 - shared implementation lineage despite distinct executable digests;
@@ -51,6 +51,10 @@ The unit tests include:
 - exact-subject substitution;
 - non-hard refutation;
 - contradictory outcomes from one evaluator/profile;
-- shared CI provider visibility without falsely claiming provider independence.
+- shared CI provider visibility without falsely claiming provider independence;
+- an exhaustive 400-state product over five evaluator outcomes and four evidence-validity states for each of two required roles;
+- assessment-order invariance;
+- stale hard-invariant refutation and wrong-subject refutation controls;
+- repeated exact replay idempotence across five duplicate batches.
 
 Targets are 100% expected disposition on this finite authored panel, zero false MeetsDeclaredProfile outcomes on the adversarial controls, and deterministic replay. These are fixture targets, not a claim of universal assurance correctness.
