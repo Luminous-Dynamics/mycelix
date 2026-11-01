@@ -198,6 +198,19 @@ closed-form Sibson calculation and is checked to 1e-10 on multiple alpha
 values. Do not confuse the nominal posterior in the Rényi divergence with the
 alpha-tilted worst-case posterior used for robust belief updates.
 
+### Small-alpha numerical stability
+
+Sibson alpha-MI and the associated q* outcome/joint distributions are
+evaluated in the log domain using log-sum-exp. This matters for low alpha:
+directly computing (p(x|m)^\alpha), raising the result to (1/\alpha), and
+summing can underflow on deterministic or nearly deterministic channels.
+The stable rewrite preserves the finite alpha-to-zero behavior: a perfect
+binary measurement remains at ln(2) nats, while an independent channel remains
+at zero. The conditional-Rényi identity is checked down to alpha=1e-9, and
+the shared-KL policy path no longer substitutes zero information for small
+positive alpha. This is a numerical correctness control, not a new physical
+result.
+
 ## Exact discrete robust-information reference
 
 The `robust_information` module computes exact finite-discrete Shannon
