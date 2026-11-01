@@ -555,6 +555,7 @@ fn next_action<'a>(
         };
         score(b).total_cmp(&score(a))
             .then_with(|| a.cost_units.cmp(&b.cost_units))
+            .then_with(|| a.modality.cmp(&b.modality))
             .then_with(|| a.action_id.cmp(&b.action_id))
     });
     eligible.first().copied()
