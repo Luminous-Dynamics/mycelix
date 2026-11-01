@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-lifecycle-cost"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Synthetic lifecycle cost, resilience and accessible-reach efficiency benchmark"
+
+# Keep this benchmark isolated from the parent Praxis workspace.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-lifecycle-cost"
+path = "src/main.rs"
