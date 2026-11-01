@@ -354,6 +354,108 @@ impl DiscreteDesignModel {
     }
 }
 
+
+/// One candidate discrete measurement action for a one-step design comparison.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DiscreteDesignCandidate {
+    pub action_id: String,
+    pub cost_units: u64,
+    pub eligible: bool,
+    pub outcome_ids: Vec<String>,
+    /// Row-major p(outcome | model), in the common model order.
+    pub likelihoods: Vec<Vec<f64>>,
+}
+
+/// Objective used to rank feasible one-step candidate measurement actions.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum DesignInformationObjective {
+    Shannon,
+    SibsonAlpha(f64),
+}
+
+/// Deterministic selection result with hard-feasibility accounting.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DiscreteDesignSelection {
+    pub action_id: String,
+    pub cost_units: u64,
+    pub objective: DesignInformationObjective,
+    pub objective_value_nats: f64,
+    pub candidate_count: usize,
+    pub feasible_candidate_count: usize,
+}
+
+/// Select the best single action by nominal Shannon MI or finite Sibson alpha-MI.
+///
+/// This is a deterministic one-step reference with hard eligibility and budget
+/// filters. It is not a multi-step stochastic policy, a PAC-Bayes policy
+/// optimizer or a sequential EVSI controller.
+pub fn select_discrete_design(
+    model_ids: &[String],
+    prior_weights: &[f64],
+    candidates: &[DiscreteDesignCandidate],
+    budget_units: u64,
+    objective: DesignInformationObjective,
+) -> Result<Option<DiscreteDesignSelection>, String> {
+    let mut action_ids = BTreeSet::new();
+    let mut best: Option<DiscreteDesignSelection> = None;
+    let mut feasible_candidate_count = 0;
+
+    for candidate in candidates {
+        if candidate.action_id.trim().is_empty()
+            || !action_ids.insert(candidate.action_id.as_str())
+        {
+            return Err("candidate action IDs must be non-empty and unique".into());
+        }
+        let design = DiscreteDesignModel {
+            model_ids: model_ids.to_vec(),
+            prior_weights: prior_weights.to_vec(),
+            outcome_ids: candidate.outcome_ids.clone(),
+            likelihoods: candidate.likelihoods.clone(),
+        };
+        // Validate even ineligible candidates so malformed model inputs cannot
+        // be hidden behind a feasibility flag.
+        design.validate()?;
+
+        if !candidate.eligible || candidate.cost_units > budget_units {
+            continue;
+        }
+        feasible_candidate_count += 1;
+        let value = match objective {
+            DesignInformationObjective::Shannon => design.shannon_mutual_information()?,
+            DesignInformationObjective::SibsonAlpha(alpha) => {
+                design.sibson_alpha_mutual_information(alpha)?
+            }
+        };
+        if !value.is_finite() {
+            return Err(format!("objective for action {:?} is not finite", candidate.action_id));
+        }
+
+        let should_replace = match &best {
+            None => true,
+            Some(current) => {
+                value > current.objective_value_nats + 1e-12
+                    || ((value - current.objective_value_nats).abs() <= 1e-12
+                        && candidate.action_id < current.action_id)
+            }
+        };
+        if should_replace {
+            best = Some(DiscreteDesignSelection {
+                action_id: candidate.action_id.clone(),
+                cost_units: candidate.cost_units,
+                objective,
+                objective_value_nats: value,
+                candidate_count: candidates.len(),
+                feasible_candidate_count: 0,
+            });
+        }
+    }
+
+    if let Some(selection) = &mut best {
+        selection.feasible_candidate_count = feasible_candidate_count;
+    }
+    Ok(best)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -378,6 +480,136 @@ mod tests {
                 vec![0.05, 0.45, 0.45, 0.05],
             ],
         }
+    }
+
+    fn robust_ranking_fixture() -> Vec<DiscreteDesignCandidate> {
+        vec![
+            DiscreteDesignCandidate {
+                action_id: "nominal_sharp".into(),
+                cost_units: 2,
+                eligible: true,
+                outcome_ids: vec!["x0".into(), "x1".into(), "x2".into()],
+                likelihoods: vec![
+                    vec![0.025, 0.938, 0.037],
+                    vec![0.958, 0.018, 0.024],
+                ],
+            },
+            DiscreteDesignCandidate {
+                action_id: "robust_balanced".into(),
+                cost_units: 2,
+                eligible: true,
+                outcome_ids: vec!["y0".into(), "y1".into(), "y2".into()],
+                likelihoods: vec![
+                    vec![0.486, 0.514, 0.0],
+                    vec![0.0, 0.208, 0.792],
+                ],
+            },
+        ]
+    }
+
+    #[test]
+    fn robust_sibson_selection_can_differ_from_nominal_shannon_selection() {
+        let candidates = robust_ranking_fixture();
+        let model_ids = vec!["m0".into(), "m1".into()];
+        let prior = vec![0.5, 0.5];
+
+        let nominal = select_discrete_design(
+            &model_ids,
+            &prior,
+            &candidates,
+            2,
+            DesignInformationObjective::Shannon,
+        ).unwrap().unwrap();
+        let robust = select_discrete_design(
+            &model_ids,
+            &prior,
+            &candidates,
+            2,
+            DesignInformationObjective::SibsonAlpha(0.3),
+        ).unwrap().unwrap();
+
+        assert_eq!(nominal.action_id, "nominal_sharp");
+        assert_eq!(robust.action_id, "robust_balanced");
+        assert!(nominal.objective_value_nats > robust.objective_value_nats);
+        assert_eq!(robust.feasible_candidate_count, 2);
+    }
+
+    #[test]
+    fn robust_selector_enforces_eligibility_and_budget_before_ranking() {
+        let mut candidates = robust_ranking_fixture();
+        candidates[0].cost_units = 5;
+        candidates[1].eligible = false;
+        candidates.push(DiscreteDesignCandidate {
+            action_id: "feasible".into(),
+            cost_units: 1,
+            eligible: true,
+            outcome_ids: vec!["negative".into(), "positive".into()],
+            likelihoods: vec![vec![0.8, 0.2], vec![0.2, 0.8]],
+        });
+
+        let selected = select_discrete_design(
+            &["m0".into(), "m1".into()],
+            &[0.5, 0.5],
+            &candidates,
+            2,
+            DesignInformationObjective::SibsonAlpha(0.5),
+        ).unwrap().unwrap();
+        assert_eq!(selected.action_id, "feasible");
+        assert_eq!(selected.cost_units, 1);
+        assert_eq!(selected.feasible_candidate_count, 1);
+    }
+
+    #[test]
+    fn robust_selector_returns_none_when_no_candidate_is_feasible() {
+        let mut candidates = robust_ranking_fixture();
+        candidates[0].eligible = false;
+        candidates[1].cost_units = 10;
+        assert!(select_discrete_design(
+            &["m0".into(), "m1".into()],
+            &[0.5, 0.5],
+            &candidates,
+            2,
+            DesignInformationObjective::SibsonAlpha(0.5),
+        ).unwrap().is_none());
+    }
+
+    #[test]
+    fn robust_selector_uses_deterministic_action_id_tie_break() {
+        let make_candidate = |id: &str| DiscreteDesignCandidate {
+            action_id: id.into(),
+            cost_units: 1,
+            eligible: true,
+            outcome_ids: vec!["a".into(), "b".into()],
+            likelihoods: vec![vec![0.8, 0.2], vec![0.2, 0.8]],
+        };
+        let candidates = vec![make_candidate("z_action"), make_candidate("a_action")];
+        let selected = select_discrete_design(
+            &["m0".into(), "m1".into()],
+            &[0.5, 0.5],
+            &candidates,
+            1,
+            DesignInformationObjective::SibsonAlpha(0.5),
+        ).unwrap().unwrap();
+        assert_eq!(selected.action_id, "a_action");
+    }
+
+    #[test]
+    fn robust_selector_rejects_duplicate_action_ids_and_invalid_objectives() {
+        let candidate = robust_ranking_fixture().remove(0);
+        assert!(select_discrete_design(
+            &["m0".into(), "m1".into()],
+            &[0.5, 0.5],
+            &[candidate.clone(), candidate],
+            2,
+            DesignInformationObjective::SibsonAlpha(0.5),
+        ).is_err());
+        assert!(select_discrete_design(
+            &["m0".into(), "m1".into()],
+            &[0.5, 0.5],
+            &[robust_ranking_fixture().remove(0)],
+            2,
+            DesignInformationObjective::SibsonAlpha(1.0),
+        ).is_err());
     }
 
     #[test]
