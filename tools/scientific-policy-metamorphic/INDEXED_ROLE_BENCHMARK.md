@@ -16,7 +16,7 @@ The mycelix-rego-role-index-v0.1 profile maps an actor object with roles ["contr
 
 The transform rejects non-array role values, non-string or empty roles, duplicate roles and pre-existing role_index fields. It preserves every other input field. The output JSONL manifest binds the exact source engine-input SHA-256, projected JSONL SHA-256, row counts, profile ID and one input digest per action representative.
 
-The source input SHA is checked before processing. Each source JSONL line uses the duplicate-aware strict parser. Case IDs must be unique. Exactly 62,464 rows and all eight known actions are required.
+The source input SHA is checked before processing. Each source JSONL line uses the duplicate-aware strict parser. Case IDs must be unique. Exactly 62,464 rows and all eight known actions are required. The frozen stratification profile rejects role names and attestation kinds it does not enumerate; adding a policy role requires a deliberate sample-profile version change and corresponding marginal coverage values.
 
 
 ## Input resource boundary
