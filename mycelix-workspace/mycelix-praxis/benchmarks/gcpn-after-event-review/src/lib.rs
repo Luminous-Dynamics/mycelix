@@ -196,7 +196,10 @@ pub fn assess_causal_claim(claim: &CausalClaim, truth: &KnownDgpTruth) -> Causal
             CausalAssessment::DescriptiveOnly
         }
         CausalClaimLevel::ProcessContribution => {
-            if claim.evidence_ids.is_empty() || claim.proposed_cause.is_empty() {
+            if claim.evidence_ids.is_empty()
+                || claim.proposed_cause.trim().is_empty()
+                || claim.proposed_effect.trim().is_empty()
+            {
                 CausalAssessment::CausalFieldsIncomplete
             } else {
                 CausalAssessment::ProcessEvidenceSupported
