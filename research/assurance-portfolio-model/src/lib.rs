@@ -48,6 +48,8 @@ pub enum EvidenceValidity {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum FaultDomainDimension {
+    EvaluatorIdentity,
+    EvaluatorProfileIdentity,
     ImplementationLineage,
     SpecificationLineage,
     ExpectedAnswerLineage,
@@ -64,7 +66,9 @@ pub enum FaultDomainDimension {
 }
 
 impl FaultDomainDimension {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 15] = [
+        Self::EvaluatorIdentity,
+        Self::EvaluatorProfileIdentity,
         Self::ImplementationLineage,
         Self::SpecificationLineage,
         Self::ExpectedAnswerLineage,
@@ -282,6 +286,19 @@ struct EvaluatorObservation {
     fault_domains: BTreeSet<FaultDomains>,
 }
 
+fn assessment_identity(
+    assessment: &Assessment,
+    dimension: FaultDomainDimension,
+) -> Option<Digest> {
+    match dimension {
+        FaultDomainDimension::EvaluatorIdentity => Some(assessment.evaluator_digest),
+        FaultDomainDimension::EvaluatorProfileIdentity => {
+            Some(assessment.evaluator_profile_digest)
+        }
+        _ => assessment.fault_domains.identity(dimension),
+    }
+}
+
 pub fn compose(
     profile: &ClaimProfile,
     assessments: &[Assessment],
@@ -452,10 +469,8 @@ pub fn compose(
         for left_assessment in &left {
             for right_assessment in &right {
                 match (
-                    left_assessment.fault_domains.identity(separation.dimension),
-                    right_assessment
-                        .fault_domains
-                        .identity(separation.dimension),
+                    assessment_identity(left_assessment, separation.dimension),
+                    assessment_identity(right_assessment, separation.dimension),
                 ) {
                     (Some(left_id), Some(right_id)) if left_id != right_id => {}
                     (Some(left_id), Some(right_id)) if left_id == right_id => {
@@ -530,7 +545,7 @@ fn summarize_fault_domains(current: &[&Assessment]) -> Vec<FaultDomainReport> {
             let mut unknown_observation_count = 0;
 
             for assessment in current {
-                match assessment.fault_domains.identity(dimension) {
+                match assessment_identity(assessment, dimension) {
                     Some(identity) => {
                         identities.insert(identity);
                     }
@@ -595,6 +610,16 @@ mod tests {
                 EvaluatorRole::IndependentImplementation,
             ],
             required_separations: vec![
+                PairwiseSeparation {
+                    left_role: EvaluatorRole::NormativeContract,
+                    right_role: EvaluatorRole::IndependentImplementation,
+                    dimension: FaultDomainDimension::EvaluatorIdentity,
+                },
+                PairwiseSeparation {
+                    left_role: EvaluatorRole::NormativeContract,
+                    right_role: EvaluatorRole::IndependentImplementation,
+                    dimension: FaultDomainDimension::EvaluatorProfileIdentity,
+                },
                 PairwiseSeparation {
                     left_role: EvaluatorRole::NormativeContract,
                     right_role: EvaluatorRole::IndependentImplementation,
@@ -780,6 +805,33 @@ mod tests {
         assert!(has_reason(
             &replay,
             CompositionReason::DuplicateReplaySuppressed
+        ));
+    }
+
+    #[test]
+    fn the_same_executable_cannot_fill_two_required_independent_roles() {
+        let mut pair = required_pair();
+        pair[1].evaluator_digest = pair[0].evaluator_digest;
+        pair[1].evaluator_profile_digest = pair[0].evaluator_profile_digest;
+
+        let result = compose(&profile(false), &pair).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(has_reason(
+            &result,
+            CompositionReason::RequiredFaultDomainShared
+        ));
+    }
+
+    #[test]
+    fn different_executables_with_the_same_evaluator_profile_are_not_independent() {
+        let mut pair = required_pair();
+        pair[1].evaluator_profile_digest = pair[0].evaluator_profile_digest;
+
+        let result = compose(&profile(false), &pair).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(has_reason(
+            &result,
+            CompositionReason::RequiredFaultDomainShared
         ));
     }
 
