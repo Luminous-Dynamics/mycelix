@@ -233,9 +233,6 @@ fn decide(
         None => case.action_feasible && lead_sufficient,
     };
     let late = issue_time.is_some_and(|issued_at| !case.forecast_is_available_by_cutoff(issued_at));
-    let insufficient_lead = !lead_sufficient;
-    let infeasible = !case.action_feasible;
-
     let action = match policy {
         PolicyForecast::Candidate => usable && case.candidate_probability >= threshold,
         PolicyForecast::Reference => usable && case.reference_probability >= threshold,
