@@ -60,20 +60,29 @@ DIAGNOSE_FIRST at the preregistered synthetic threshold. This is sensitivity
 analysis for an author-specified state, not empirical prior calibration.
 
 
-## Correlated continuous-likelihood reference tests
+## Correlated continuous-likelihood posterior component
 
-A test-only mathematical reference module now verifies the exact bivariate
-Gaussian joint log density for paired continuous measurements. It checks
-independence equivalence at zero correlation, conditional Gaussian
-factorization, the expected behavior for concordant/discordant residual pairs,
-and rejection of singular covariance and invalid/nonfinite inputs.
+The crate now exposes a reusable library module, `correlated_likelihood`,
+with an exact bivariate-Gaussian joint log density and a stable log-sum-exp
+update over a finite set of candidate physical models. Each model declares
+its prior mass, two-dimensional observation mean, marginal standard
+deviations and correlation. The update returns normalized model posterior
+weights and joint log evidence.
 
-The module is deliberately test-only: it is not yet wired into the categorical
-Bayesian acquisition engine, and no real measurement correlation is inferred
-from support overlap. The next implementation must estimate or preregister
-dependence using paired repeatability/cross-instrument evidence or a declared
-simulator, then integrate the joint likelihood into sequential posterior
-updates.
+Tests cover independence equivalence at zero correlation, conditional
+Gaussian factorization, model discrimination from correlation despite equal
+marginals, preservation of prior odds under equal likelihoods, channel-swap
+symmetry, zero-prior exclusion, evidence calculation, invalid covariance and
+prior inputs, and numerical failure when every candidate likelihood is
+unrepresentable.
+
+**Integration boundary:** this is production library code, not just a test
+helper, but the categorical CLI selector does not yet consume continuous
+observations. It updates one jointly observed pair; it does not yet retain
+cross-action covariance through a sequential history, estimate covariance
+from paired data, support general multivariate covariance, or consume CT /
+tracer support metadata. Correlation must come from an explicit simulator or
+appropriate paired/repeatability evidence, never support overlap alone.
 
 
 ## Exact adaptive decision-tree reference
