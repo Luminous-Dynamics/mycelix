@@ -1,0 +1,118 @@
+{
+  "benchmark_id": "GCPN-FORECAST-COVERAGE-STUDENTIZED-PILOT",
+  "version": "0.1.0",
+  "status": "exploratory_python_method_pilot_not_confirmatory_not_rust",
+  "date": "2026-11-01",
+  "dgp": {
+    "independent_systems": [
+      40,
+      80,
+      160,
+      320
+    ],
+    "high_risk_system_probability": 0.2,
+    "events_per_system": 2,
+    "low_cases_per_event": 1,
+    "high_cases_per_event": 4,
+    "low_event_probability": 0.1,
+    "high_event_probability": 0.6,
+    "candidate_probability": 0.2,
+    "reference_probability": 0.35,
+    "case_weighted_truth": 0.0225,
+    "system_weighted_truth": -0.0225
+  },
+  "simulation": {
+    "outer_datasets": 1200,
+    "bootstrap_replicates": 500,
+    "nominal_level": 0.95,
+    "rng": "NumPy PCG64",
+    "seed_rule": "20261102 + independent_system_count",
+    "resampling_unit": "complete_independent_system",
+    "studentized_se_rule": "cluster_ratio_estimator_delta_method",
+    "minimum_valid_studentized_replicates_fraction": 0.8
+  },
+  "results": [
+    {
+      "independent_systems": 40,
+      "percentile_coverage": 0.9225,
+      "basic_coverage": 0.9191666667,
+      "studentized_coverage": 0.9666666667,
+      "studentized_mcse": 0.0051818773,
+      "studentized_wilson95": [
+        0.9549286966,
+        0.9754263695
+      ],
+      "mean_interval_widths": {
+        "percentile": 0.0703572904,
+        "basic": 0.0703572904,
+        "studentized": 0.0792277275
+      }
+    },
+    {
+      "independent_systems": 80,
+      "percentile_coverage": 0.9308333333,
+      "basic_coverage": 0.9325,
+      "studentized_coverage": 0.9566666667,
+      "studentized_mcse": 0.0058776097,
+      "studentized_wilson95": [
+        0.9436159879,
+        0.9668028983
+      ],
+      "mean_interval_widths": {
+        "percentile": 0.0500040379,
+        "basic": 0.0500040379,
+        "studentized": 0.0522440527
+      }
+    },
+    {
+      "independent_systems": 160,
+      "percentile_coverage": 0.9366666667,
+      "basic_coverage": 0.94,
+      "studentized_coverage": 0.9491666667,
+      "studentized_mcse": 0.0063409585,
+      "studentized_wilson95": [
+        0.9352426636,
+        0.9602240876
+      ],
+      "mean_interval_widths": {
+        "percentile": 0.0355298378,
+        "basic": 0.0355298378,
+        "studentized": 0.0362383959
+      }
+    },
+    {
+      "independent_systems": 320,
+      "percentile_coverage": 0.9508333333,
+      "basic_coverage": 0.9475,
+      "studentized_coverage": 0.9533333333,
+      "studentized_mcse": 0.0060888483,
+      "studentized_wilson95": [
+        0.9398843847,
+        0.963889108
+      ],
+      "mean_interval_widths": {
+        "percentile": 0.025191674,
+        "basic": 0.025191674,
+        "studentized": 0.0254176991
+      }
+    }
+  ],
+  "studentized_outer_abstentions": 0,
+  "limitations": [
+    "1200_outer_datasets_only",
+    "500_inner_bootstrap_replicates",
+    "one_stationary_DGP",
+    "not_Rust_execution",
+    "not_confirmatory",
+    "not_real_weather_data"
+  ],
+  "follow_up": [
+    "inner_quantile_stability_500_to_5000_plus",
+    "10000_outer_datasets",
+    "null_and_nonnull_DGPs",
+    "rare_events",
+    "informative_cluster_size",
+    "heterogeneous_effects",
+    "qualify_80_percent_valid_replicate_guard"
+  ]
+}

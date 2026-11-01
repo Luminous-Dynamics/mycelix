@@ -1,0 +1,103 @@
+{
+  "benchmark_id": "GCPN-FORECAST-COVERAGE-ENGINE",
+  "version": "0.1.0",
+  "status": "rust-source-authored-execution-outstanding",
+  "package": "benchmarks/gcpn-forecast-coverage-qualification",
+  "dependencies": [],
+  "parent_issue": 5644,
+  "specification_pull_request": 5645,
+  "dgp": {
+    "independent_systems": 40,
+    "high_risk_probability": 0.2,
+    "events_per_system": 2,
+    "low_cases_per_event": 1,
+    "high_cases_per_event": 4,
+    "low_event_probability": 0.1,
+    "high_event_probability": 0.6,
+    "candidate_probability": 0.2,
+    "reference_probability": 0.35,
+    "expected_cases_per_system": 3.2
+  },
+  "analytic_oracle": {
+    "low_state_expected_paired_brier_difference": -0.0525,
+    "high_state_expected_paired_brier_difference": 0.0975,
+    "case_weighted_population_difference": 0.0225,
+    "system_weighted_population_difference": -0.0225,
+    "interpretation": "Case- and system-weighted estimands have opposite signs because cluster size is informative."
+  },
+  "methods": [
+    {
+      "id": "iid_case_percentile",
+      "role": "negative_control_under_dependence",
+      "implemented": true
+    },
+    {
+      "id": "event_id_percentile",
+      "role": "under_clustering_negative_control",
+      "implemented": true
+    },
+    {
+      "id": "independent_system_percentile",
+      "role": "primary_candidate_under_independent_systems",
+      "implemented": true
+    },
+    {
+      "id": "independent_system_basic",
+      "role": "reflected_percentile_comparison",
+      "implemented": true
+    },
+    {
+      "id": "independent_system_studentized_bootstrap_t",
+      "role": "ratio_cluster_standard_error_candidate",
+      "implemented": true
+    },
+    {
+      "id": "bca_block_wild_cluster",
+      "role": "future_qualification_work",
+      "implemented": false
+    }
+  ],
+  "coverage_study_outputs": [
+    "conditional_empirical_coverage",
+    "coverage_mcse",
+    "wilson_95_interval",
+    "mean_interval_width",
+    "estimator_bias",
+    "estimator_rmse",
+    "abstention_count",
+    "alternative_basic_studentized_empirical_coverage",
+    "studentized_valid_replicates",
+    "studentized_abstentions"
+  ],
+  "defaults": {
+    "outer_monte_carlo_datasets": "caller-supplied",
+    "bootstrap_replicates_per_interval": 20000,
+    "default_confidence_level": 0.95
+  },
+  "tests_authored": 13,
+  "execution": {
+    "cargo_build": "not_run",
+    "rust_tests": "not_run",
+    "cli": "not_run",
+    "ci": "not_claimed",
+    "statistical_coverage_qualification": "not_run"
+  },
+  "non_claims": [
+    "real_forecast_skill",
+    "real_meteorological_dependence",
+    "qualified_interval_coverage",
+    "sota_superiority",
+    "operational_warning_readiness"
+  ],
+  "limitations": [
+    "BCa_interval_not_implemented",
+    "stationary_or_circular_block_bootstrap_not_implemented",
+    "wild_cluster_bootstrap_t_not_implemented",
+    "confirmatory_coverage_runs_not_performed"
+  ],
+  "exploratory_pilots": [
+    "GCPN_FORECAST_COVERAGE_EXPLORATORY_PILOT_2026_11_01.md",
+    "GCPN_FORECAST_COVERAGE_STUDENTIZED_PILOT_2026_11_01.md"
+  ],
+  "note": "Studentized bootstrap appears promising on one exploratory DGP but is not qualified; 40-cluster pilot over-coverage and untested regimes remain."
+}

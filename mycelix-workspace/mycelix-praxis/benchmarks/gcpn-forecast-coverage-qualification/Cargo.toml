@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-forecast-coverage-qualification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Known-DGP qualification core for paired probabilistic forecast uncertainty"
+
+# Standalone benchmark: do not couple it to the parent Praxis workspace.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-forecast-coverage-qualification"
+path = "src/main.rs"

@@ -1,0 +1,99 @@
+{
+  "benchmark_id": "GCPN-FORECAST-COVERAGE-PILOT",
+  "version": "0.1.0",
+  "status": "exploratory_separately_coded_numpy_pilot_not_confirmatory",
+  "date": "2026-11-01",
+  "dgp": {
+    "independent_systems": [
+      40,
+      80,
+      160,
+      320
+    ],
+    "high_risk_system_probability": 0.2,
+    "events_per_system": 2,
+    "low_cases_per_event": 1,
+    "high_cases_per_event": 4,
+    "low_event_probability": 0.1,
+    "high_event_probability": 0.6,
+    "candidate_probability": 0.2,
+    "reference_probability": 0.35,
+    "exact_case_weighted_population_difference": 0.0225,
+    "exact_system_weighted_population_difference": -0.0225
+  },
+  "simulation": {
+    "outer_datasets_per_cluster_count": 1500,
+    "bootstrap_replicates_per_dataset": 500,
+    "nominal_interval_level": 0.95,
+    "rng": "NumPy PCG64",
+    "seed_rule": "20261102 + independent_system_count",
+    "estimand": "case_weighted_ratio_of_sums",
+    "interval": "paired_percentile"
+  },
+  "results": [
+    {
+      "independent_systems": 40,
+      "case_bootstrap_coverage": 0.8327,
+      "event_bootstrap_coverage": 0.886,
+      "system_bootstrap_coverage": 0.9307,
+      "system_bootstrap_wilson95": [
+        0.9167,
+        0.9425
+      ],
+      "system_basic_bootstrap_coverage": 0.9267
+    },
+    {
+      "independent_systems": 80,
+      "case_bootstrap_coverage": 0.8187,
+      "event_bootstrap_coverage": 0.8827,
+      "system_bootstrap_coverage": 0.9347,
+      "system_bootstrap_wilson95": [
+        0.921,
+        0.9461
+      ],
+      "system_basic_bootstrap_coverage": 0.934
+    },
+    {
+      "independent_systems": 160,
+      "case_bootstrap_coverage": 0.8173,
+      "event_bootstrap_coverage": 0.89,
+      "system_bootstrap_coverage": 0.9413,
+      "system_bootstrap_wilson95": [
+        0.9283,
+        0.9521
+      ],
+      "system_basic_bootstrap_coverage": 0.9347
+    },
+    {
+      "independent_systems": 320,
+      "case_bootstrap_coverage": 0.8167,
+      "event_bootstrap_coverage": 0.8913,
+      "system_bootstrap_coverage": 0.9427,
+      "system_bootstrap_wilson95": [
+        0.9297,
+        0.9533
+      ],
+      "system_basic_bootstrap_coverage": 0.9433
+    }
+  ],
+  "interpretation": [
+    "Case-level bootstrap undercovers for this dependent DGP.",
+    "Event-level bootstrap undercovers because multiple events share a higher-level system state.",
+    "Independent-system bootstrap materially improves coverage but is not proven nominal at small cluster counts."
+  ],
+  "follow_up": [
+    "10000_outer_confirmatory_datasets",
+    "larger_inner_bootstrap_for_99_percent_tails",
+    "small_cluster_interval_comparisons",
+    "null_and_alternative_DGPs",
+    "rare_event_and_heterogeneous_effect_DGPs",
+    "independent_Rust_reproduction"
+  ],
+  "non_claims": [
+    "Rust_execution",
+    "confirmatory_coverage_qualification",
+    "real_meteorological_cluster_validation",
+    "real_forecast_comparison",
+    "SOTA_superiority"
+  ]
+}
