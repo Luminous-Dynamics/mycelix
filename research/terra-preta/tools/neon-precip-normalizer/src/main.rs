@@ -206,14 +206,21 @@ fn nonblank(value: &str, label: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn parse_utc(value: &str, label: &str, interval_seconds: i64) -> Result<DateTime<FixedOffset>, String> {
+fn parse_utc(
+    value: &str,
+    label: &str,
+    interval_seconds: i64,
+) -> Result<DateTime<FixedOffset>, String> {
     let parsed = DateTime::parse_from_rfc3339(value)
         .map_err(|error| format!("{label}: invalid RFC3339 timestamp: {error}"))?;
     if parsed.offset().local_minus_utc() != 0 {
         return Err(format!("{label}: timestamp must use a zero UTC offset"));
     }
-    if parsed.timestamp().rem_euclid(interval_seconds) != 0 || parsed.timestamp_subsec_nanos() != 0 {
-        return Err(format!("{label}: timestamp must align to the declared UTC interval"));
+    if parsed.timestamp().rem_euclid(interval_seconds) != 0 || parsed.timestamp_subsec_nanos() != 0
+    {
+        return Err(format!(
+            "{label}: timestamp must align to the declared UTC interval"
+        ));
     }
     Ok(parsed)
 }
@@ -249,7 +256,9 @@ fn validate_source(source: &SourceConfig, expected_kind: SourceKind) -> Result<(
     match expected_kind {
         SourceKind::PrimaryWeighing => {
             if source.interval_seconds != 300 {
-                return Err("primary weighing-gauge input must use 300-second observations".to_owned());
+                return Err(
+                    "primary weighing-gauge input must use 300-second observations".to_owned(),
+                );
             }
             if source.product_code != "DP1.00006.001" {
                 return Err("primary 5-minute weighing-gauge reproduction requires historical DP1.00006.001; DP1.00044.001 hourly/daily data cannot reconstruct 10-minute intensity".to_owned());
@@ -257,7 +266,9 @@ fn validate_source(source: &SourceConfig, expected_kind: SourceKind) -> Result<(
         }
         SourceKind::SecondaryTipping => {
             if source.interval_seconds != 60 {
-                return Err("secondary tipping-bucket input must use 60-second observations".to_owned());
+                return Err(
+                    "secondary tipping-bucket input must use 60-second observations".to_owned(),
+                );
             }
             if source.product_code != "DP1.00006.001" && source.product_code != "DP1.00045.001" {
                 return Err("secondary tipping-bucket input must use DP1.00006.001 historical data or DP1.00045.001 current data".to_owned());
@@ -265,23 +276,39 @@ fn validate_source(source: &SourceConfig, expected_kind: SourceKind) -> Result<(
         }
     }
     if source.quality_filters.is_empty() {
-        return Err(format!("{} must declare at least one explicit QA filter", expected_kind.as_str()));
+        return Err(format!(
+            "{} must declare at least one explicit QA filter",
+            expected_kind.as_str()
+        ));
     }
     for (index, filter) in source.quality_filters.iter().enumerate() {
-        nonblank(&filter.column, &format!("{expected_kind:?} quality_filters[{index}].column"))?;
+        nonblank(
+            &filter.column,
+            &format!("{expected_kind:?} quality_filters[{index}].column"),
+        )?;
         if filter.accepted_values.is_empty() {
-            return Err(format!("{expected_kind:?} quality_filters[{index}] must declare accepted_values"));
+            return Err(format!(
+                "{expected_kind:?} quality_filters[{index}] must declare accepted_values"
+            ));
         }
         for value in &filter.accepted_values {
-            nonblank(value, &format!("{expected_kind:?} quality_filters[{index}].accepted_values"))?;
+            nonblank(
+                value,
+                &format!("{expected_kind:?} quality_filters[{index}].accepted_values"),
+            )?;
         }
     }
     Ok(())
 }
 
-fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffset>), String> {
+fn validate_config(
+    config: &Config,
+) -> Result<(DateTime<FixedOffset>, DateTime<FixedOffset>), String> {
     if config.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", config.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            config.schema_version
+        ));
     }
     nonblank(&config.study_id, "study_id")?;
     nonblank(&config.site_id, "site_id")?;
@@ -289,13 +316,17 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
         return Err("v0.1 target_resolution_seconds must equal 600 (10-minute bins)".to_owned());
     }
     if config.paper_minimum_good_observations != PAPER_MIN_GOOD_ROWS {
-        return Err(format!("v0.1 paper_minimum_good_observations must equal {PAPER_MIN_GOOD_ROWS}"));
+        return Err(format!(
+            "v0.1 paper_minimum_good_observations must equal {PAPER_MIN_GOOD_ROWS}"
+        ));
     }
     if !config.coverage_aware_minimum_good_fraction.is_finite()
         || config.coverage_aware_minimum_good_fraction <= 0.0
         || config.coverage_aware_minimum_good_fraction > 1.0
     {
-        return Err("coverage_aware_minimum_good_fraction must be finite and within (0, 1]".to_owned());
+        return Err(
+            "coverage_aware_minimum_good_fraction must be finite and within (0, 1]".to_owned(),
+        );
     }
     if config.primary.is_none() && config.secondary.is_none() {
         return Err("at least one precipitation source must be configured".to_owned());
@@ -311,14 +342,22 @@ fn validate_config(config: &Config) -> Result<(DateTime<FixedOffset>, DateTime<F
     if start >= end {
         return Err("end_utc must be after start_utc".to_owned());
     }
-    if (end.clone() - start.clone()).num_seconds().rem_euclid(TARGET_SECONDS) != 0 {
-        return Err("declared time window must contain an integer number of 10-minute bins".to_owned());
+    if (end.clone() - start.clone())
+        .num_seconds()
+        .rem_euclid(TARGET_SECONDS)
+        != 0
+    {
+        return Err(
+            "declared time window must contain an integer number of 10-minute bins".to_owned(),
+        );
     }
     Ok((start, end))
 }
 
 fn column_index(headers: &StringRecord, name: &str, label: &str) -> Result<usize, String> {
-    headers.iter().position(|header| header == name)
+    headers
+        .iter()
+        .position(|header| header == name)
         .ok_or_else(|| format!("{label}: required CSV column {:?} is missing", name))
 }
 
@@ -329,7 +368,8 @@ fn load_source(
     start: DateTime<FixedOffset>,
     end: DateTime<FixedOffset>,
 ) -> Result<LoadedSource, Box<dyn Error>> {
-    validate_source(source, expected_kind).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    validate_source(source, expected_kind)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let digest = format!("{:x}", Sha256::digest(bytes));
     let mut reader = csv::ReaderBuilder::new().flexible(false).from_reader(bytes);
     let headers = reader.headers()?.clone();
@@ -357,7 +397,11 @@ fn load_source(
             continue;
         }
         let timestamp_text = record.get(timestamp_index).unwrap_or_default();
-        let timestamp = parse_utc(timestamp_text, &format!("source row {}", row_index + 2), interval)?;
+        let timestamp = parse_utc(
+            timestamp_text,
+            &format!("source row {}", row_index + 2),
+            interval,
+        )?;
         let interval_start = match source.timestamp_convention {
             TimestampConvention::IntervalStart => timestamp,
             TimestampConvention::IntervalEnd => timestamp - Duration::seconds(interval),
@@ -370,8 +414,13 @@ fn load_source(
         if !seen_times.insert(interval_start.timestamp()) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("duplicate {} observation timestamp {}", expected_kind.as_str(), interval_start),
-            ).into());
+                format!(
+                    "duplicate {} observation timestamp {}",
+                    expected_kind.as_str(),
+                    interval_start
+                ),
+            )
+            .into());
         }
         let bin_start = interval_start.timestamp().div_euclid(TARGET_SECONDS) * TARGET_SECONDS;
         let accumulator = bins.entry(bin_start).or_insert_with(BinAccumulator::new);
@@ -389,19 +438,33 @@ fn load_source(
         let value: f64 = value_text.parse().map_err(|error| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("{} row {} precipitation value {:?} is not numeric: {error}", expected_kind.as_str(), row_index + 2, value_text),
+                format!(
+                    "{} row {} precipitation value {:?} is not numeric: {error}",
+                    expected_kind.as_str(),
+                    row_index + 2,
+                    value_text
+                ),
             )
         })?;
         if !value.is_finite() || value < 0.0 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("{} row {} precipitation depth must be finite and non-negative", expected_kind.as_str(), row_index + 2),
-            ).into());
+                format!(
+                    "{} row {} precipitation depth must be finite and non-negative",
+                    expected_kind.as_str(),
+                    row_index + 2
+                ),
+            )
+            .into());
         }
         accumulator.good_rows += 1;
         accumulator.sum_mm += value;
         if !accumulator.sum_mm.is_finite() {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "precipitation bin sum overflowed").into());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "precipitation bin sum overflowed",
+            )
+            .into());
         }
     }
 
@@ -428,7 +491,9 @@ fn make_bin(
     // The paper says to prefer secondary where both types are available. Presence
     // means a source row exists in the bin; poor secondary QA does not silently
     // trigger fallback to the primary gauge.
-    let (selected, source_kind, accumulator) = if let Some(accumulator) = secondary_accumulator.filter(|value| value.present_rows > 0) {
+    let (selected, source_kind, accumulator) = if let Some(accumulator) =
+        secondary_accumulator.filter(|value| value.present_rows > 0)
+    {
         (secondary, "secondary_tipping", Some(accumulator))
     } else if let Some(accumulator) = primary_accumulator.filter(|value| value.present_rows > 0) {
         (primary, "primary_weighing", Some(accumulator))
@@ -436,22 +501,31 @@ fn make_bin(
         (None, "none", None)
     };
 
-    let (product_code, release, gauge_id, evidence_ref, raw_rows, good_rows, rejected_rows, expected_rows, sum_mm) =
-        if let (Some(source), Some(accumulator)) = (selected, accumulator) {
-            (
-                Some(source.config.product_code.clone()),
-                Some(source.config.release.clone()),
-                Some(source.config.gauge_id.clone()),
-                Some(source.config.source_evidence_ref.clone()),
-                accumulator.present_rows,
-                accumulator.good_rows,
-                accumulator.rejected_rows,
-                Some((TARGET_SECONDS / i64::from(source.config.interval_seconds)) as usize),
-                Some(accumulator.sum_mm),
-            )
-        } else {
-            (None, None, None, None, 0, 0, 0, None, None)
-        };
+    let (
+        product_code,
+        release,
+        gauge_id,
+        evidence_ref,
+        raw_rows,
+        good_rows,
+        rejected_rows,
+        expected_rows,
+        sum_mm,
+    ) = if let (Some(source), Some(accumulator)) = (selected, accumulator) {
+        (
+            Some(source.config.product_code.clone()),
+            Some(source.config.release.clone()),
+            Some(source.config.gauge_id.clone()),
+            Some(source.config.source_evidence_ref.clone()),
+            accumulator.present_rows,
+            accumulator.good_rows,
+            accumulator.rejected_rows,
+            Some((TARGET_SECONDS / i64::from(source.config.interval_seconds)) as usize),
+            Some(accumulator.sum_mm),
+        )
+    } else {
+        (None, None, None, None, 0, 0, 0, None, None)
+    };
 
     let paper = if let Some(sum) = sum_mm {
         if good_rows < paper_minimum_good {
@@ -618,12 +692,17 @@ fn source_audit(source: &LoadedSource) -> SourceAudit {
         timestamp_convention: match source.config.timestamp_convention {
             TimestampConvention::IntervalStart => "interval_start",
             TimestampConvention::IntervalEnd => "interval_end",
-        }.to_owned(),
+        }
+        .to_owned(),
         source_evidence_ref: source.config.source_evidence_ref.clone(),
         source_sha256: source.source_sha256.clone(),
         ignored_other_gauge_rows: source.ignored_other_gauge_rows,
         out_of_window_rows: source.out_of_window_rows,
-        target_bins_with_rows: source.bins.values().filter(|bin| bin.present_rows > 0).count(),
+        target_bins_with_rows: source
+            .bins
+            .values()
+            .filter(|bin| bin.present_rows > 0)
+            .count(),
         raw_rows_present: raw_rows,
         quality_pass_rows: good_rows,
         quality_rejected_rows: rejected_rows,
@@ -679,16 +758,10 @@ fn gauge_overlap_audit(
 
     for index in 0..bin_count {
         let timestamp = start.clone() + Duration::seconds(TARGET_SECONDS * index as i64);
-        let (primary_present, primary_depth) = coverage_qualified_depth(
-            primary,
-            timestamp.timestamp(),
-            minimum_good_fraction,
-        );
-        let (secondary_present, secondary_depth) = coverage_qualified_depth(
-            secondary,
-            timestamp.timestamp(),
-            minimum_good_fraction,
-        );
+        let (primary_present, primary_depth) =
+            coverage_qualified_depth(primary, timestamp.timestamp(), minimum_good_fraction);
+        let (secondary_present, secondary_depth) =
+            coverage_qualified_depth(secondary, timestamp.timestamp(), minimum_good_fraction);
 
         if primary_present && secondary_present {
             both_present += 1;
@@ -765,16 +838,52 @@ fn evaluate(
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
 
     let primary = match (&config.primary, primary_bytes) {
-        (Some(source), Some(bytes)) => Some(load_source(bytes, source, SourceKind::PrimaryWeighing, start.clone(), end.clone())?),
+        (Some(source), Some(bytes)) => Some(load_source(
+            bytes,
+            source,
+            SourceKind::PrimaryWeighing,
+            start.clone(),
+            end.clone(),
+        )?),
         (None, None) => None,
-        (Some(_), None) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "primary source is configured but primary CSV path is absent").into()),
-        (None, Some(_)) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "primary CSV supplied without primary source config").into()),
+        (Some(_), None) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "primary source is configured but primary CSV path is absent",
+            )
+            .into());
+        }
+        (None, Some(_)) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "primary CSV supplied without primary source config",
+            )
+            .into());
+        }
     };
     let secondary = match (&config.secondary, secondary_bytes) {
-        (Some(source), Some(bytes)) => Some(load_source(bytes, source, SourceKind::SecondaryTipping, start.clone(), end.clone())?),
+        (Some(source), Some(bytes)) => Some(load_source(
+            bytes,
+            source,
+            SourceKind::SecondaryTipping,
+            start.clone(),
+            end.clone(),
+        )?),
         (None, None) => None,
-        (Some(_), None) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "secondary source is configured but secondary CSV path is absent").into()),
-        (None, Some(_)) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "secondary CSV supplied without secondary source config").into()),
+        (Some(_), None) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "secondary source is configured but secondary CSV path is absent",
+            )
+            .into());
+        }
+        (None, Some(_)) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "secondary CSV supplied without secondary source config",
+            )
+            .into());
+        }
     };
 
     let mut paper_bins = Vec::new();
@@ -811,7 +920,9 @@ fn evaluate(
         "The paired gauge-overlap audit compares only bins where both source series independently meet the coverage-aware threshold. It does not average the two sources or declare either one to be truth.".to_owned(),
     ];
     if let Some(source) = &primary {
-        if config.paper_minimum_good_observations > (TARGET_SECONDS / i64::from(source.config.interval_seconds)) as usize {
+        if config.paper_minimum_good_observations
+            > (TARGET_SECONDS / i64::from(source.config.interval_seconds)) as usize
+        {
             warnings.push("The literal five-good-observation threshold exceeds the maximum number of primary 5-minute observations in a 10-minute bin; all selected primary bins with data will be paper-zero-imputed. Resolve against author code before claiming exact reproduction.".to_owned());
         }
     }
@@ -847,8 +958,16 @@ fn run() -> Result<(), Box<dyn Error>> {
     let config_bytes = fs::read(&args[1])?;
     let config_sha256 = format!("{:x}", Sha256::digest(&config_bytes));
     let config: Config = serde_json::from_slice(&config_bytes)?;
-    let primary_bytes = if args[2] == "-" { None } else { Some(fs::read(&args[2])?) };
-    let secondary_bytes = if args[3] == "-" { None } else { Some(fs::read(&args[3])?) };
+    let primary_bytes = if args[2] == "-" {
+        None
+    } else {
+        Some(fs::read(&args[2])?)
+    };
+    let secondary_bytes = if args[3] == "-" {
+        None
+    } else {
+        Some(fs::read(&args[3])?)
+    };
     let report = evaluate(
         &config,
         config_sha256,
@@ -860,7 +979,12 @@ fn run() -> Result<(), Box<dyn Error>> {
         .write(true)
         .create_new(true)
         .open(&args[4])
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create report: {error}")))?;
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("refusing overwrite or cannot create report: {error}"),
+            )
+        })?;
     output.write_all(&encoded)?;
     output.write_all(b"\n")?;
     output.sync_all()?;
@@ -913,7 +1037,10 @@ mod tests {
                 timestamp_convention: TimestampConvention::IntervalStart,
                 interval_seconds: 300,
                 precipitation_column: "precipitation_mm".to_owned(),
-                quality_filters: vec![QualityFilter { column: "finalQF".to_owned(), accepted_values: vec!["0".to_owned()] }],
+                quality_filters: vec![QualityFilter {
+                    column: "finalQF".to_owned(),
+                    accepted_values: vec!["0".to_owned()],
+                }],
                 source_evidence_ref: "synthetic-primary".to_owned(),
             }),
             secondary: Some(SourceConfig {
@@ -927,8 +1054,14 @@ mod tests {
                 interval_seconds: 60,
                 precipitation_column: "precipitation_mm".to_owned(),
                 quality_filters: vec![
-                    QualityFilter { column: "rangeQF".to_owned(), accepted_values: vec!["0".to_owned()] },
-                    QualityFilter { column: "scienceQF".to_owned(), accepted_values: vec!["0".to_owned()] },
+                    QualityFilter {
+                        column: "rangeQF".to_owned(),
+                        accepted_values: vec!["0".to_owned()],
+                    },
+                    QualityFilter {
+                        column: "scienceQF".to_owned(),
+                        accepted_values: vec!["0".to_owned()],
+                    },
                 ],
                 source_evidence_ref: "synthetic-secondary".to_owned(),
             }),
@@ -950,22 +1083,61 @@ mod tests {
     #[test]
     fn prefers_secondary_when_present_without_pooling_primary() {
         let config = config();
-        let report = evaluate(&config, "a".repeat(64), Some(primary_csv()), Some(secondary_csv())).unwrap();
-        assert_eq!(report.paper_reproduction.bins[0].selected_source, "secondary_tipping");
-        assert_eq!(report.paper_reproduction.bins[0].status, "paper_zero_imputed_lt5_good");
-        assert_eq!(report.coverage_aware_sensitivity.bins[0].selected_source, "secondary_tipping");
-        assert_eq!(report.coverage_aware_sensitivity.bins[0].status, "missing_below_coverage_threshold");
-        assert_eq!(report.paper_reproduction.bins[1].selected_source, "primary_weighing");
-        assert_eq!(report.paper_reproduction.bins[1].status, "paper_zero_imputed_lt5_good");
-        assert_eq!(report.coverage_aware_sensitivity.bins[1].selected_source, "primary_weighing");
-        assert_eq!(report.coverage_aware_sensitivity.bins[1].status, "observed_sum_coverage_qualified");
-        assert_eq!(report.coverage_aware_sensitivity.bins[1].precipitation_mm_per_10min, Some(1.5));
+        let report = evaluate(
+            &config,
+            "a".repeat(64),
+            Some(primary_csv()),
+            Some(secondary_csv()),
+        )
+        .unwrap();
+        assert_eq!(
+            report.paper_reproduction.bins[0].selected_source,
+            "secondary_tipping"
+        );
+        assert_eq!(
+            report.paper_reproduction.bins[0].status,
+            "paper_zero_imputed_lt5_good"
+        );
+        assert_eq!(
+            report.coverage_aware_sensitivity.bins[0].selected_source,
+            "secondary_tipping"
+        );
+        assert_eq!(
+            report.coverage_aware_sensitivity.bins[0].status,
+            "missing_below_coverage_threshold"
+        );
+        assert_eq!(
+            report.paper_reproduction.bins[1].selected_source,
+            "primary_weighing"
+        );
+        assert_eq!(
+            report.paper_reproduction.bins[1].status,
+            "paper_zero_imputed_lt5_good"
+        );
+        assert_eq!(
+            report.coverage_aware_sensitivity.bins[1].selected_source,
+            "primary_weighing"
+        );
+        assert_eq!(
+            report.coverage_aware_sensitivity.bins[1].status,
+            "observed_sum_coverage_qualified"
+        );
+        assert_eq!(
+            report.coverage_aware_sensitivity.bins[1].precipitation_mm_per_10min,
+            Some(1.5)
+        );
     }
 
     #[test]
     fn compares_gauges_only_on_common_coverage_without_pooling() {
         let config = config();
-        let report = evaluate(&config, "overlap-config".to_owned(), Some(primary_csv()), Some(full_secondary_csv())).unwrap();
+        let report = evaluate(
+            &config,
+            "overlap-config".to_owned(),
+            Some(primary_csv()),
+            Some(full_secondary_csv()),
+        )
+        .unwrap();
         let overlap = &report.gauge_overlap_audit;
         assert_eq!(overlap.bins_with_both_sources_present, 1);
         assert_eq!(overlap.bins_with_both_sources_coverage_qualified, 1);
@@ -984,24 +1156,36 @@ mod tests {
         config.primary = None;
         let secondary = b"gauge_id,timestamp_utc,precipitation_mm,rangeQF,scienceQF\nSEC-01,2026-01-01T00:00:00Z,0.1,0,0\nSEC-01,2026-01-01T00:01:00Z,0.2,0,0\nSEC-01,2026-01-01T00:02:00Z,0.3,0,0\nSEC-01,2026-01-01T00:03:00Z,0.4,0,0\nSEC-01,2026-01-01T00:04:00Z,0.5,0,0\n".as_slice();
         let report = evaluate(&config, "b".repeat(64), None, Some(secondary)).unwrap();
-        assert_eq!(report.paper_reproduction.bins[0].precipitation_mm_per_10min, Some(1.5));
-        assert_eq!(report.paper_reproduction.bins[0].precipitation_rate_mm_h, Some(9.0));
+        assert_eq!(
+            report.paper_reproduction.bins[0].precipitation_mm_per_10min,
+            Some(1.5)
+        );
+        assert_eq!(
+            report.paper_reproduction.bins[0].precipitation_rate_mm_h,
+            Some(9.0)
+        );
     }
 
     #[test]
     fn rejects_current_hourly_weighing_gauge_as_ten_minute_input() {
         let mut config = config();
         config.primary.as_mut().unwrap().product_code = "DP1.00044.001".to_owned();
-        assert!(validate_config(&config).unwrap_err().contains("hourly/daily"));
+        assert!(
+            validate_config(&config)
+                .unwrap_err()
+                .contains("hourly/daily")
+        );
     }
 
     #[test]
     fn rejects_throughfall_as_open_rainfall() {
         let mut config = config();
         config.secondary.as_mut().unwrap().product_code = "DP1.00046.001".to_owned();
-        assert!(validate_config(&config)
-            .unwrap_err()
-            .contains("not open precipitation"));
+        assert!(
+            validate_config(&config)
+                .unwrap_err()
+                .contains("not open precipitation")
+        );
     }
 
     #[test]
@@ -1009,7 +1193,14 @@ mod tests {
         let mut config = config();
         config.primary = None;
         let csv = b"gauge_id,timestamp_utc,precipitation_mm,rangeQF,scienceQF\nSEC-01,2026-01-01T00:00:00Z,0.1,0,0\nSEC-01,2026-01-01T00:00:00Z,0.2,0,0\n";
-        let error = load_source(csv, config.secondary.as_ref().unwrap(), SourceKind::SecondaryTipping, parse_utc(&config.start_utc,"start",TARGET_SECONDS).unwrap(), parse_utc(&config.end_utc,"end",TARGET_SECONDS).unwrap()).unwrap_err();
+        let error = load_source(
+            csv,
+            config.secondary.as_ref().unwrap(),
+            SourceKind::SecondaryTipping,
+            parse_utc(&config.start_utc, "start", TARGET_SECONDS).unwrap(),
+            parse_utc(&config.end_utc, "end", TARGET_SECONDS).unwrap(),
+        )
+        .unwrap_err();
         assert!(error.to_string().contains("duplicate"));
     }
 
@@ -1022,6 +1213,9 @@ mod tests {
         let csv = b"gauge_id,timestamp_utc,precipitation_mm,rangeQF,scienceQF\nSEC-01,2026-01-01T00:01:00Z,0.1,0,0\nSEC-01,2026-01-01T00:02:00Z,0.1,0,0\nSEC-01,2026-01-01T00:03:00Z,0.1,0,0\nSEC-01,2026-01-01T00:04:00Z,0.1,0,0\nSEC-01,2026-01-01T00:05:00Z,0.1,0,0\n";
         let report = evaluate(&config, "c".repeat(64), None, Some(csv)).unwrap();
         assert_eq!(report.paper_reproduction.bins[0].status, "observed_sum");
-        assert_eq!(report.paper_reproduction.bins[0].precipitation_mm_per_10min, Some(0.5));
+        assert_eq!(
+            report.paper_reproduction.bins[0].precipitation_mm_per_10min,
+            Some(0.5)
+        );
     }
 }
