@@ -1,3 +1,4 @@
+#[cfg(test)]
 mod correlated_likelihood;
 
 //! Synthetic-only sequential Bayesian experiment design benchmark.
