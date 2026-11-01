@@ -1,0 +1,77 @@
+{
+  "benchmark_id": "GCPN-HUMAN-OUTCOMES",
+  "version": "0.1.0",
+  "status": "synthetic-test-vector-only",
+  "package": "benchmarks/gcpn-human-outcomes",
+  "fixture": {
+    "name": "message-comprehension-v0.1.csv",
+    "rows": 18,
+    "profiles": 6,
+    "message_variants": 3,
+    "trials_per_cell": 100,
+    "total_intended_trials": 1800,
+    "fnv1a64": "0xf784d7e59e19e31f"
+  },
+  "interaction_profiles": [
+    "standard_smartphone",
+    "low_bandwidth_text",
+    "screen_reader",
+    "sign_language_video",
+    "audio_only_radio",
+    "language_mismatch"
+  ],
+  "message_variants": [
+    "dense_technical",
+    "plain_language",
+    "accessible_multimodal"
+  ],
+  "effective_denominator": "all intended trials, including trials without accessible representation",
+  "accessible_multimodal_synthetic_oracle": {
+    "trials": 600,
+    "accessible_trials": 530,
+    "comprehension_correct": 484,
+    "action_intent_correct": 452,
+    "uncertainty_understood": 422,
+    "false_certainty": 87,
+    "effective_comprehension": 0.8066666666666666,
+    "comprehension_given_access": 0.9132075471698113,
+    "worst_profile_effective_comprehension": 0.55,
+    "profile_gap": 0.39,
+    "max_profile_p90_seconds": 34
+  },
+  "research_targets_not_standards": {
+    "accessible_format_each_stratum": 0.95,
+    "effective_comprehension": 0.9,
+    "effective_action_intent_identification": 0.9,
+    "false_certainty_max": 0.05,
+    "max_comprehension_gap": 0.1,
+    "p90_seconds_max": 10
+  },
+  "non_compensatory_dimensions": [
+    "accessibility",
+    "effective_comprehension",
+    "action_intent_identification",
+    "uncertainty_understanding",
+    "false_certainty",
+    "worst_profile",
+    "profile_gap",
+    "latency"
+  ],
+  "forbidden_claims": [
+    "actual protective behaviour",
+    "trust",
+    "lives saved",
+    "real population coverage",
+    "real-world human performance",
+    "causal harm reduction",
+    "operational readiness"
+  ],
+  "governance_boundary": [
+    "no_person_level_records",
+    "no_demographic_or_protected_attributes",
+    "no_recipient_profiling",
+    "no_live_alerting",
+    "national_authority_retains_authority",
+    "human_subjects_research_requires_independent_ethics_review"
+  ]
+}
