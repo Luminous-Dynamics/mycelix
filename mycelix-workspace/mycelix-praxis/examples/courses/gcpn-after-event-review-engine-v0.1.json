@@ -15,9 +15,10 @@
     "as_of_evidence_visibility_for_claims",
     "system_finding_alternative_explanations",
     "recommendation_evidence_and_followup_traceability",
-    "non_composite_review_summary"
+    "non_composite_review_summary",
+    "select_earliest_verified_stage_and_plan_version_matched_milestone_evidence"
   ],
-  "tests_authored": 14,
+  "tests_authored": 16,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
