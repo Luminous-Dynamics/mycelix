@@ -347,14 +347,11 @@ pub fn compose(
 
     let has_qualified_hard_refutation = profile.hard_invariant
         && current.iter().any(|assessment| {
-            let explicitly_authorized = profile.authorized_hard_refuters.iter().any(
-                |authorized| {
-                    authorized.role == assessment.role
-                        && authorized.evaluator_digest == assessment.evaluator_digest
-                        && authorized.evaluator_profile_digest
-                            == assessment.evaluator_profile_digest
-                },
-            );
+            let explicitly_authorized = profile.authorized_hard_refuters.iter().any(|authorized| {
+                authorized.role == assessment.role
+                    && authorized.evaluator_digest == assessment.evaluator_digest
+                    && authorized.evaluator_profile_digest == assessment.evaluator_profile_digest
+            });
             if assessment.outcome != AssessmentOutcome::Refutes || !explicitly_authorized {
                 return false;
             }
@@ -683,11 +680,13 @@ mod tests {
         );
 
         let mut unexpected_authority = profile(false);
-        unexpected_authority.authorized_hard_refuters.push(AuthorizedEvaluator {
-            role: EvaluatorRole::InvariantChecker,
-            evaluator_digest: digest(13),
-            evaluator_profile_digest: digest(113),
-        });
+        unexpected_authority
+            .authorized_hard_refuters
+            .push(AuthorizedEvaluator {
+                role: EvaluatorRole::InvariantChecker,
+                evaluator_digest: digest(13),
+                evaluator_profile_digest: digest(113),
+            });
         assert_eq!(
             unexpected_authority.validate(),
             Err(CompositionError::AuthorizedRefuterWithoutHardInvariant)
