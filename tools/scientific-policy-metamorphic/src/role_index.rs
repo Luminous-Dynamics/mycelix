@@ -3,7 +3,7 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -13,6 +13,10 @@ use crate::shrink::parse_unique_json_bytes;
 
 pub const ROLE_INDEX_PROFILE: &str = "mycelix-rego-role-index-v0.1";
 pub const MAX_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
+pub const MAX_STRATIFIED_SAMPLES_PER_ACTION: usize = 24;
+pub const MIN_STRATIFIED_SAMPLES_PER_ACTION: usize = 16;
+const MAX_SAMPLES_PER_STRATUM: usize = 2;
+const STRATIFIED_SAMPLE_PROFILE: &str = "mycelix-role-index-stratified-sample-v0.1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoleIndexError(pub String);
@@ -77,6 +81,21 @@ pub struct ActionInputDigest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct StratifiedActionInputDigest {
+    pub action: String,
+    pub sample_index: usize,
+    pub case_id: String,
+    pub stratum: String,
+    pub sample_rank_sha256: String,
+    pub baseline_path: String,
+    pub indexed_path: String,
+    pub baseline_sha256: String,
+    pub indexed_sha256: String,
+    pub baseline_byte_length: usize,
+    pub indexed_byte_length: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct RoleIndexManifest {
     pub schema_version: String,
     pub projection_profile: String,
@@ -87,6 +106,10 @@ pub struct RoleIndexManifest {
     pub action_count: usize,
     pub action_inputs: Vec<String>,
     pub action_input_digests: Vec<ActionInputDigest>,
+    pub stratified_sample_profile: String,
+    pub stratified_sample_count: usize,
+    pub stratified_action_sample_counts: BTreeMap<String, usize>,
+    pub stratified_action_inputs: Vec<StratifiedActionInputDigest>,
     pub claim_ceiling: String,
 }
 
@@ -106,6 +129,219 @@ fn read_bounded_source<R: Read>(
     }
     Ok(bytes)
 }
+
+#[derive(Debug, Clone)]
+struct StratifiedCandidate {
+    action: String,
+    case_id: String,
+    stratum: String,
+    rank_sha256: String,
+    baseline_bytes: Vec<u8>,
+    indexed_bytes: Vec<u8>,
+}
+
+fn stratum_key(input: &Value) -> Result<String, RoleIndexError> {
+    let actor = input
+        .get("actor")
+        .and_then(Value::as_object)
+        .ok_or_else(|| role_index_error("Rego input.actor must be an object for stratification"))?;
+    let actor_id = actor
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| role_index_error("Rego input.actor.id must be a string for stratification"))?;
+    let roles = actor
+        .get("roles")
+        .and_then(Value::as_array)
+        .ok_or_else(|| role_index_error("Rego input.actor.roles must be an array for stratification"))?;
+    let role_bucket = match roles.len() {
+        0 => "0",
+        1..=2 => "1-2",
+        3..=4 => "3-4",
+        _ => "5+",
+    };
+
+    let claim = input
+        .get("claim")
+        .and_then(Value::as_object)
+        .ok_or_else(|| role_index_error("Rego input.claim must be an object for stratification"))?;
+    let claim_exists = claim
+        .get("exists")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| role_index_error("Rego input.claim.exists must be boolean for stratification"))?;
+    let creator_actor = claim.get("creatorActorId").and_then(Value::as_str);
+    let owner_relation = if !claim_exists || creator_actor.is_none() {
+        "not_applicable"
+    } else if creator_actor == Some(actor_id) {
+        "owner"
+    } else {
+        "non_owner"
+    };
+
+    let creator_org = claim.get("creatorOrganizationId").and_then(Value::as_str);
+    let acting_org = input.get("actingOrganizationId").and_then(Value::as_str);
+    let organization_relation = match (acting_org, creator_org) {
+        (None, _) => "absent",
+        (Some(_), None) => "orphan",
+        (Some(acting), Some(creator)) if acting == creator => "same",
+        (Some(_), Some(_)) => "different",
+    };
+
+    let attestation_kind = input
+        .pointer("/attestation/kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| role_index_error("Rego input.attestation.kind must be a string for stratification"))?;
+    let attestation_bucket = match attestation_kind {
+        "ordinary" => "ordinary",
+        "independent_replication" => "independent_replication",
+        _ => "other",
+    };
+
+    let target = input
+        .get("targetAttestation")
+        .and_then(Value::as_object)
+        .ok_or_else(|| role_index_error("Rego input.targetAttestation must be an object for stratification"))?;
+    let target_exists = target
+        .get("exists")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| role_index_error("Rego input.targetAttestation.exists must be boolean for stratification"))?;
+    let target_relation = if !target_exists {
+        "absent"
+    } else if target.get("authorActorId").and_then(Value::as_str) == Some(actor_id) {
+        "self"
+    } else {
+        "other"
+    };
+
+    Ok(format!(
+        "roles={role_bucket};claim={};owner={owner_relation};org={organization_relation};attestation={attestation_bucket};target={target_relation}",
+        if claim_exists { "present" } else { "absent" }
+    ))
+}
+
+fn sample_rank(action: &str, case_id: &str) -> String {
+    sha256(
+        format!("{STRATIFIED_SAMPLE_PROFILE}\n{action}\n{case_id}").as_bytes(),
+    )
+}
+
+fn stratum_rank(action: &str, stratum: &str) -> String {
+    sha256(
+        format!("{STRATIFIED_SAMPLE_PROFILE}\n{action}\n{stratum}").as_bytes(),
+    )
+}
+
+fn insert_stratified_candidate(
+    buckets: &mut BTreeMap<(String, String), Vec<StratifiedCandidate>>,
+    candidate: StratifiedCandidate,
+) {
+    let key = (candidate.action.clone(), candidate.stratum.clone());
+    let bucket = buckets.entry(key).or_default();
+    bucket.push(candidate);
+    bucket.sort_by(|left, right| left.rank_sha256.cmp(&right.rank_sha256));
+    bucket.truncate(MAX_SAMPLES_PER_STRATUM);
+}
+
+fn select_stratified_candidates(
+    buckets: &BTreeMap<(String, String), Vec<StratifiedCandidate>>,
+    actions: &[&str],
+) -> Result<(Vec<StratifiedCandidate>, BTreeMap<String, usize>), RoleIndexError> {
+    let mut selected = Vec::new();
+    let mut counts = BTreeMap::new();
+
+    for action in actions {
+        let mut strata = buckets
+            .iter()
+            .filter(|((candidate_action, _), _)| candidate_action == action)
+            .map(|((_, stratum), candidates)| {
+                (
+                    stratum_rank(action, stratum),
+                    candidates,
+                )
+            })
+            .collect::<Vec<_>>();
+        strata.sort_by(|left, right| left.0.cmp(&right.0));
+
+        let action_start = selected.len();
+        for round in 0..MAX_SAMPLES_PER_STRATUM {
+            for (_, candidates) in &strata {
+                if selected.len() - action_start >= MAX_STRATIFIED_SAMPLES_PER_ACTION {
+                    break;
+                }
+                if let Some(candidate) = candidates.get(round) {
+                    selected.push(candidate.clone());
+                }
+            }
+            if selected.len() - action_start >= MAX_STRATIFIED_SAMPLES_PER_ACTION {
+                break;
+            }
+        }
+
+        let count = selected.len() - action_start;
+        if count < MIN_STRATIFIED_SAMPLES_PER_ACTION {
+            return Err(role_index_error(format!(
+                "action {action} produced only {count} stratified samples; at least {MIN_STRATIFIED_SAMPLES_PER_ACTION} are required"
+            )));
+        }
+        counts.insert((*action).to_owned(), count);
+    }
+
+    Ok((selected, counts))
+}
+
+fn write_stratified_samples(
+    output_directory: &Path,
+    buckets: &BTreeMap<(String, String), Vec<StratifiedCandidate>>,
+    actions: &[&str],
+) -> Result<(Vec<StratifiedActionInputDigest>, BTreeMap<String, usize>), RoleIndexError> {
+    let (selected, counts) = select_stratified_candidates(buckets, actions)?;
+    let mut manifest_rows = Vec::with_capacity(selected.len());
+    let mut per_action_index = BTreeMap::<String, usize>::new();
+
+    for candidate in selected {
+        let sample_index = per_action_index
+            .entry(candidate.action.clone())
+            .and_modify(|index| *index += 1)
+            .or_insert(1);
+        let baseline_path = format!(
+            "stratified-inputs/baseline/{}/sample-{:02}.json",
+            candidate.action, *sample_index
+        );
+        let indexed_path = format!(
+            "stratified-inputs/indexed/{}/sample-{:02}.json",
+            candidate.action, *sample_index
+        );
+        for relative_path in [&baseline_path, &indexed_path] {
+            let path = output_directory.join(relative_path);
+            let parent = path
+                .parent()
+                .ok_or_else(|| role_index_error("stratified sample path has no parent"))?;
+            fs::create_dir_all(parent).map_err(|error| {
+                role_index_error(format!("create stratified sample directory: {error}"))
+            })?;
+        }
+        fs::write(output_directory.join(&baseline_path), &candidate.baseline_bytes)
+            .map_err(|error| role_index_error(format!("write baseline stratified sample: {error}")))?;
+        fs::write(output_directory.join(&indexed_path), &candidate.indexed_bytes)
+            .map_err(|error| role_index_error(format!("write indexed stratified sample: {error}")))?;
+
+        manifest_rows.push(StratifiedActionInputDigest {
+            action: candidate.action,
+            sample_index: *sample_index,
+            case_id: candidate.case_id,
+            stratum: candidate.stratum,
+            sample_rank_sha256: candidate.rank_sha256,
+            baseline_path,
+            indexed_path,
+            baseline_sha256: sha256(&candidate.baseline_bytes),
+            indexed_sha256: sha256(&candidate.indexed_bytes),
+            baseline_byte_length: candidate.baseline_bytes.len(),
+            indexed_byte_length: candidate.indexed_bytes.len(),
+        });
+    }
+
+    Ok((manifest_rows, counts))
+}
+
 
 /// Read the exact source-pinned paired engine-input JSONL, create one
 /// indexed Rego input per case, and export the first source-bound representative
@@ -162,6 +398,7 @@ pub fn generate_indexed_role_corpus(
     ];
     let mut action_inputs = BTreeSet::new();
     let mut action_input_digests = Vec::with_capacity(expected_actions.len());
+    let mut stratified_buckets = BTreeMap::<(String, String), Vec<StratifiedCandidate>>::new();
     let mut action_count = 0usize;
     let mut case_count = 0usize;
 
@@ -190,19 +427,40 @@ pub fn generate_indexed_role_corpus(
             .and_then(Value::as_str)
             .ok_or_else(|| role_index_error(format!("source case {case_id} has no action")))?;
 
-        if expected_actions.contains(&action) && action_inputs.insert(action.to_owned()) {
-            let action_path = action_directory.join(format!("{action}.json"));
-            let bytes = serde_json::to_vec_pretty(&indexed)
-                .map_err(|error| role_index_error(format!("serialize indexed action input: {error}")))?;
-            fs::write(&action_path, &bytes)
-                .map_err(|error| role_index_error(format!("write indexed action input: {error}")))?;
-            action_input_digests.push(ActionInputDigest {
-                action: action.to_owned(),
-                case_id: case_id.to_owned(),
-                sha256: sha256(&bytes),
-                byte_length: bytes.len(),
-            });
-            action_count += 1;
+        if expected_actions.contains(&action) {
+            if !action_inputs.contains(&action) {
+                action_inputs.insert(action.to_owned());
+                let action_path = action_directory.join(format!("{action}.json"));
+                let bytes = serde_json::to_vec_pretty(&indexed)
+                    .map_err(|error| role_index_error(format!("serialize indexed action input: {error}")))?;
+                fs::write(&action_path, &bytes)
+                    .map_err(|error| role_index_error(format!("write indexed action input: {error}")))?;
+                action_input_digests.push(ActionInputDigest {
+                    action: action.to_owned(),
+                    case_id: case_id.to_owned(),
+                    sha256: sha256(&bytes),
+                    byte_length: bytes.len(),
+                });
+                action_count += 1;
+            }
+
+            let stratum = stratum_key(input)?;
+            let rank_sha256 = sample_rank(action, case_id);
+            let baseline_bytes = serde_json::to_vec_pretty(input)
+                .map_err(|error| role_index_error(format!("serialize baseline stratified input: {error}")))?;
+            let indexed_bytes = serde_json::to_vec_pretty(&indexed)
+                .map_err(|error| role_index_error(format!("serialize indexed stratified input: {error}")))?;
+            insert_stratified_candidate(
+                &mut stratified_buckets,
+                StratifiedCandidate {
+                    action: action.to_owned(),
+                    case_id: case_id.to_owned(),
+                    stratum,
+                    rank_sha256,
+                    baseline_bytes,
+                    indexed_bytes,
+                },
+            );
         }
 
         let mut output_row = serde_json::to_vec(&serde_json::json!({
@@ -230,6 +488,10 @@ pub fn generate_indexed_role_corpus(
         )));
     }
 
+    let (stratified_action_inputs, stratified_action_sample_counts) =
+        write_stratified_samples(output_directory, &stratified_buckets, &expected_actions)?;
+    let stratified_sample_count = stratified_action_inputs.len();
+
     let manifest = RoleIndexManifest {
         schema_version: "mycelix-indexed-role-corpus-v0.1".to_owned(),
         projection_profile: ROLE_INDEX_PROFILE.to_owned(),
@@ -240,6 +502,10 @@ pub fn generate_indexed_role_corpus(
         action_count,
         action_inputs: action_inputs.into_iter().collect(),
         action_input_digests,
+        stratified_sample_profile: STRATIFIED_SAMPLE_PROFILE.to_owned(),
+        stratified_sample_count,
+        stratified_action_sample_counts,
+        stratified_action_inputs,
         claim_ceiling: concat!(
             "deterministic role-array to boolean-keyed-object input projection over the frozen paired corpus; ",
             "no policy decision, Cedar result, or authentic Rust authorization parity is inferred"
@@ -272,6 +538,64 @@ mod tests {
             4,
         );
         assert!(over_limit.is_err(), "one byte over the cap must be rejected");
+    }
+
+    #[test]
+    fn stratification_covers_declared_semantic_dimensions() {
+        let base = serde_json::json!({
+            "action":"attestation_recorded",
+            "actor":{"id":"actor:a","roles":["reviewer"]},
+            "claim":{"exists":true,"creatorActorId":"actor:b","creatorOrganizationId":"org:a"},
+            "attestation":{"kind":"ordinary"},
+            "targetAttestation":{"exists":true,"authorActorId":"actor:a"},
+            "actingOrganizationId":"org:a"
+        });
+        let base_key = stratum_key(&base).expect("base input has valid strata");
+        assert!(base_key.contains("roles=1-2"));
+        assert!(base_key.contains("owner=non_owner"));
+        assert!(base_key.contains("org=same"));
+        assert!(base_key.contains("attestation=ordinary"));
+        assert!(base_key.contains("target=self"));
+
+        let changed = serde_json::json!({
+            "action":"attestation_recorded",
+            "actor":{"id":"actor:a","roles":["reviewer","editor","institution","contributor","service"]},
+            "claim":{"exists":true,"creatorActorId":"actor:a"},
+            "attestation":{"kind":"independent_replication"},
+            "targetAttestation":{"exists":false}
+        });
+        let changed_key = stratum_key(&changed).expect("changed input has valid strata");
+        assert_ne!(base_key, changed_key);
+        assert!(changed_key.contains("roles=5+"));
+        assert!(changed_key.contains("owner=owner"));
+        assert!(changed_key.contains("org=absent"));
+        assert!(changed_key.contains("attestation=independent_replication"));
+        assert!(changed_key.contains("target=absent"));
+    }
+
+    #[test]
+    fn stratified_candidate_retention_is_hash_ranked_and_bounded() {
+        let mut buckets = BTreeMap::new();
+        for case_id in ["case-z", "case-a", "case-m"] {
+            let rank = sample_rank("claim_proposed", case_id);
+            insert_stratified_candidate(
+                &mut buckets,
+                StratifiedCandidate {
+                    action: "claim_proposed".to_owned(),
+                    case_id: case_id.to_owned(),
+                    stratum: "roles=0;claim=absent".to_owned(),
+                    rank_sha256: rank,
+                    baseline_bytes: case_id.as_bytes().to_vec(),
+                    indexed_bytes: case_id.as_bytes().to_vec(),
+                },
+            );
+        }
+        let kept = buckets
+            .get(&("claim_proposed".to_owned(), "roles=0;claim=absent".to_owned()))
+            .expect("stratum exists");
+        assert_eq!(kept.len(), MAX_SAMPLES_PER_STRATUM);
+        assert!(kept[0].rank_sha256 <= kept[1].rank_sha256);
+        assert_ne!(kept[0].case_id, "case-m");
     }
 
     #[test]
