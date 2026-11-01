@@ -1055,12 +1055,17 @@ mod tests {
 
     #[test]
     fn invalid_dgp_parameters_fail_closed() {
-        let mut config = DgpConfig::default();
-        config.high_risk_probability = f64::NAN;
-        assert!(config.validate().is_err());
-        config.high_risk_probability = 0.2;
-        config.independent_systems = 1;
-        assert!(config.validate().is_err());
+        let non_finite_probability = DgpConfig {
+            high_risk_probability: f64::NAN,
+            ..DgpConfig::default()
+        };
+        assert!(non_finite_probability.validate().is_err());
+
+        let too_few_systems = DgpConfig {
+            independent_systems: 1,
+            ..DgpConfig::default()
+        };
+        assert!(too_few_systems.validate().is_err());
     }
 
     #[test]
