@@ -278,3 +278,14 @@ It numerically optimizes one common beta across all actions in the policy, as in
 A PAC-Bayes lower-bound arithmetic helper implements Proposition 6's expression and checks the stated inner-sample threshold. It explicitly labels the result conditional on externally verified regularity/boundedness assumptions; it cannot certify the constants or assumptions. The nested Monte Carlo estimator is not yet implemented.
 
 This correct shared-policy dual is distinct from the earlier deterministic per-design KL-radius selector. Both are retained as different comparators; the per-design selector must not be labelled as the published shared-average-KL stochastic-policy method.
+
+
+## 20. Clarification: shared-policy KL dual vs per-design radius
+
+The literature-grounded implementation now includes `src/stochastic_policy.rs`, which computes the published shared-average-KL dual for a fixed stochastic policy using a **single common beta**:
+
+```text
+sup_beta { E_pi[I^S_{beta/(1+beta)}(design)] - beta * rho }
+```
+
+It is distinct from the earlier `robust_information_at_kl_radius` comparator, which solves a separate KL inversion for each deterministic design. The new module additionally implements the finite Gibbs optimizer for the PAC-Bayes variational objective and a lower-bound arithmetic helper conditional on externally verified concentration assumptions. It does not implement the nested Monte Carlo estimator yet, and it does not claim PAC-Bayes certification from unverified constants.
