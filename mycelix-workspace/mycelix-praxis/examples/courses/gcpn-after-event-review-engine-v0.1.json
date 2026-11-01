@@ -1,0 +1,37 @@
+{
+  "benchmark_id": "GCPN-AFTER-EVENT-REVIEW-ENGINE",
+  "version": "0.1.0",
+  "status": "rust-source-authored-execution-outstanding",
+  "package": "benchmarks/gcpn-after-event-review",
+  "dependencies": [],
+  "implemented": [
+    "transaction_time_as_of_timeline",
+    "event_time_ordering",
+    "plan_milestone_comparison",
+    "plan_version_and_stage_matching",
+    "causal_claim_level_separation",
+    "causal_required_field_validation",
+    "known_dgp_causal_claim_oracle",
+    "as_of_evidence_visibility_for_claims",
+    "system_finding_alternative_explanations",
+    "recommendation_evidence_and_followup_traceability",
+    "non_composite_review_summary",
+    "select_earliest_verified_stage_and_plan_version_matched_milestone_evidence",
+    "causal_claim_requires_at_least_one_as_of_evidence_id"
+  ],
+  "tests_authored": 17,
+  "execution": {
+    "cargo_build": "not_run",
+    "rust_tests": "not_run",
+    "cli": "not_run",
+    "ci": "not_claimed"
+  },
+  "non_claims": [
+    "general_causal_inference",
+    "real_after_event_review",
+    "individual_blame",
+    "institutional_ranking",
+    "causal_lives_saved",
+    "operational_warning_decisions"
+  ]
+}

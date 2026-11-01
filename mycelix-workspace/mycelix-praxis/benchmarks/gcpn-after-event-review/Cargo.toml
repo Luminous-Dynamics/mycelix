@@ -1,0 +1,15 @@
+[package]
+name = "gcpn-after-event-review"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Evidence-reconstructible after-event review benchmark for synthetic civil-warning scenarios"
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-after-event-review"
+path = "src/main.rs"
