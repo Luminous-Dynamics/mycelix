@@ -16,7 +16,7 @@ pub const MAX_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_STRATIFIED_SAMPLES_PER_ACTION: usize = 32;
 pub const MIN_STRATIFIED_SAMPLES_PER_ACTION: usize = 24;
 const MAX_SAMPLES_PER_STRATUM: usize = 1;
-const STRATIFIED_SAMPLE_PROFILE: &str = "mycelix-role-index-stratified-sample-v0.1";
+const STRATIFIED_SAMPLE_PROFILE: &str = "mycelix-role-index-stratified-sample-v0.2";
 const ROLE_IDENTITY_DIMENSIONS: [&str; 7] = [
     "contributor",
     "reviewer",
