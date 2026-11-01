@@ -36,6 +36,9 @@ jobs:
           jq empty research/terra-preta/tools/sequential-bayes-design/robust-scenario.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/robust-report.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-robust-information-scenario.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/covariance-identifiability.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/covariance-identifiability-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json
       - name: Format and test standalone crate
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
@@ -58,6 +61,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/robust-scenario.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-robust-information-scenario.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/covariance-identifiability.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json
       - name: Execute misspecified and in-family controls
         run: |
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
@@ -144,6 +150,34 @@ jobs:
             ([.candidate_summaries[] | select(.action_id == "over_budget_perfect_measurement") | .feasible_under_budget][0] == false) and
             ([.candidate_summaries[] | select(.action_id == "ineligible_perfect_measurement") | .sibson_information_nats][0] > .fixed_alpha_sibson_selection.objective_value_nats)
           ' "$RUNNER_TEMP/robust-information-report.json"
+      - name: Execute physical-versus-nuisance covariance identifiability bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin covariance-identifiability-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json \
+            "$RUNNER_TEMP/covariance-identifiability-report.json"
+          jq -e '
+            .status == "synthetic_covariance_identifiability_reference_only" and
+            .scenario_id == "physical-versus-nuisance-covariance-identifiability-v0" and
+            .design_count == 3 and
+            (.design_summaries | length == 3) and
+            (.design_summaries[] | select(.design_id == "single_ct_tracer_pair") |
+              .structural_rank == 2 and .component_count == 4 and
+              .fully_identifiable == false and
+              .individually_identifiable.shared_physical_support == false and
+              .recovery_status == "structurally_non_identifiable") and
+            (.design_summaries[] | select(.design_id == "batch_only_pair") |
+              .structural_rank == 2 and
+              .individually_identifiable.shared_physical_support == false and
+              .individually_identifiable.preparation_batch == true and
+              .fully_identifiable == false) and
+            (.design_summaries[] | select(.design_id == "crossed_support_batch_instrument") |
+              .structural_rank == 4 and .component_count == 4 and
+              .fully_identifiable == true and
+              .recovery_status == "exact_synthetic_recovery" and
+              .relative_fit_residual < 1e-10 and
+              ([.recovered_variance_components[0],.recovered_variance_components[1],.recovered_variance_components[2],.recovered_variance_components[3]] ==
+                [0.7,0.4,0.2,0.1]))
+          ' "$RUNNER_TEMP/covariance-identifiability-report.json"
       - name: Validate all three report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
@@ -158,6 +192,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/robust-report.schema.json \
             "$RUNNER_TEMP/robust-information-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/covariance-identifiability-report.schema.json \
+            "$RUNNER_TEMP/covariance-identifiability-report.json"
       - name: Upload deterministic synthetic report
         uses: actions/upload-artifact@v4
         with:
@@ -167,6 +204,7 @@ jobs:
             ${{ runner.temp }}/sequential-bayes-infamily-report.json
             ${{ runner.temp }}/sequential-bayes-discrepancy-state-report.json
             ${{ runner.temp }}/robust-information-report.json
+            ${{ runner.temp }}/covariance-identifiability-report.json
           if-no-files-found: error
           retention-days: 30
       - name: Clippy
