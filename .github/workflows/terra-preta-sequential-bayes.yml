@@ -29,6 +29,7 @@ jobs:
           jq empty research/terra-preta/tools/sequential-bayes-design/scenario.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/report.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json
       - name: Format and test standalone crate
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
@@ -39,6 +40,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json
       - name: Execute misspecified and in-family controls
         run: |
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
