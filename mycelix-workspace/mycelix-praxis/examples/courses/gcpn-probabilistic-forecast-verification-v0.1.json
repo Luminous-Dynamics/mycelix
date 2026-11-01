@@ -1,0 +1,53 @@
+{
+  "benchmark_id": "GCPN-PROBABILISTIC-FORECAST-VERIFICATION-001",
+  "version": "0.1.0",
+  "status": "synthetic-scoring-and-data-quality-controls",
+  "forecast_type": "binary-event-probability",
+  "partitions": ["calibration", "evaluation"],
+  "models": ["climatology", "lead_reference", "candidate"],
+  "proper_scores": [
+    "brier_score",
+    "logarithmic_loss"
+  ],
+  "calibration_diagnostics": [
+    "calibration_in_large",
+    "fixed_four_bin_reliability",
+    "expected_calibration_error"
+  ],
+  "sharpness_diagnostics": [
+    "mean_bernoulli_entropy"
+  ],
+  "stratification": [
+    "model",
+    "hazard",
+    "region",
+    "lead_hours",
+    "partition"
+  ],
+  "negative_controls": [
+    "duplicate_forecast_record",
+    "late_forecast",
+    "unverified_observation",
+    "missing_observation",
+    "invalid_probability",
+    "out_of_domain_forecast",
+    "abstained_forecast",
+    "calibration_evaluation_partition_leak",
+    "event_metadata_mismatch"
+  ],
+  "model_comparison_rules": [
+    "paired_event_denominators",
+    "held_out_evaluation",
+    "reference_forecast_skill",
+    "per_hazard_and_horizon_reporting",
+    "no_overall_score_may_hide_subgroup_failure"
+  ],
+  "non_claims": [
+    "not_an_operational_forecast_model",
+    "no_alert_threshold_selection",
+    "no_warning_authority",
+    "no_live_alert_dispatch",
+    "no_operational_action_authorization",
+    "synthetic_sample_not_scientifically_representative"
+  ]
+}
