@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-verification-ascertainment"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Outcome ascertainment and verification representativeness qualification for GCPN"
+
+# Standalone research benchmark; do not couple it to the parent Praxis workspace.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-verification-ascertainment"
+path = "src/main.rs"
