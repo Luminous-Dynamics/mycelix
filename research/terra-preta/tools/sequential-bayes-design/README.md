@@ -65,17 +65,23 @@ analysis for an author-specified state, not empirical prior calibration.
 The `information_gain` module estimates model-identity information in a
 candidate next measurement from conditional Gaussian mixture components:
 `I(M; Y_next | Y_history)`. It uses deterministic seeded Gaussian sampling,
-stable log-mixture-density evaluation and reports the Monte Carlo standard
-error and total sample count. Identical predictive components and a
-single-positive-weight model are exact zero-information controls. The
-cross-covariance-only positive control distinguishes two models with equal
-marginals but opposite correlation.
+stable log-mixture-density evaluation and reports Monte Carlo standard error
+and total sample count. Identical predictive components and a single-positive-
+weight model are exact zero-information controls.
+
+Its `estimate_action_information_gain` API connects the estimator directly to
+the stable observation layout, retained history and a candidate action. An
+adversarial CT–tracer control has identical univariate marginals under two
+candidate models but opposite cross-modal correlations: CT alone and tracer
+alone carry zero model information, while the joint pair has positive
+information. After observing CT, the same tracer action gains positive
+conditional information. This is an executable synthetic demonstration of
+complementarity through a correlated observation history.
 
 This estimate concerns model discrimination, not scientific decision value.
 It does not include Monte Carlo finite-sample bias, covariance-estimation
 uncertainty, model-family uncertainty or physical-model discrepancy. It is
 not yet consumed by the categorical CLI selector and is not EVSI.
-
 ## Stable observation identities and append-only history
 
 The library now includes `observation_history` with a canonical
