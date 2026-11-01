@@ -203,3 +203,37 @@ fairer comparison.
 The strategic SOTA claim must eventually be narrow and empirical: improved
 decision value, predictive calibration or experiment cost under matched
 physics, data, compute, measurement support and held-out target populations.
+
+
+## 10. Acquisition-method and physical-observation benchmark refresh — 2026-11-01
+
+### Current sequential Bayesian design comparators
+
+The next comparison must cover more than the classic EIG/entropy baseline:
+
+- **Prediction-oriented sequential Bayesian design:** Zhu and Hainy (2026, v2 revised 2026-09-29) use the Kennedy–O'Hagan simulator/discrepancy/noise framework, coupled Gaussian processes, mutual information plus a local response-complexity criterion, Gaussian-mixture compression and Schur/rank-one covariance updates. Their paper includes synthetic problems and a Duffing oscillator case. Our finite categorical engine is not a reproduction of this method; a fair later comparison must share observation operators, simulator calls and held-out prediction targets. https://arxiv.org/abs/2603.16756
+- **Discrepancy-aware design:** Yang, Dong and Wu (JCP 545, 114469; 2026-01-15) combine Bayesian design for low-dimensional physical parameters with auto-differentiable ensemble Kalman inversion for high-dimensional discrepancy parameters. The method includes Gaussian assumptions and an approximate information-gain calculation; benchmark approximation error and calibration rather than treating speed as accuracy. https://doi.org/10.1016/j.jcp.2025.114469
+- **Compute-efficient pooled posterior estimation:** Yang, Dong and Wu (2026-04-20 preprint) group outer samples and construct geometric pooled posterior proposals with EKI, with an importance-sampling diagnostic for proposal-target alignment. It is relevant to future simulator-call and nested-inference budgets, not an implemented baseline yet. https://arxiv.org/abs/2604.18505
+- **Misspecification-robust active learning:** Tang, Sloman and Kaski (AISTATS 2026) propose balancing representativeness, informativeness and de-amplification. Our local R-IDeA-inspired score remains only a transparent heuristic, not their published objective. https://proceedings.mlr.press/v300/tang26d.html
+- **SBC test-quantity design:** Modrák et al. (Bayesian Analysis 20(2), 2025) show that calibration checks depend on the chosen test quantities and recommend data-dependent statistics such as joint data likelihood. Our discrete SBC control is a reference test, not a certification of the continuous inverse problem. https://doi.org/10.1214/23-BA1404
+
+### New HYDRUS DualPerm comparison insight
+
+A recently published Chandel et al. study (Journal of Contaminant Hydrology 284, 105144; online 2026-10-20) combines a stratified porous-medium tracer experiment with HYDRUS DualPerm, global sensitivity analysis and PEST parameter estimation. It reports different controlling parameter groups on early breakthrough, the rising limb and the tail. The authors note that fitting breakthrough-curve concentration can emphasize peak concentration while overlooking cumulative mass recovery, residence time and spatial variance; they evaluate cumulative mass recovery as an alternative feature. DOI: https://doi.org/10.1016/j.jconhyd.2026.105144
+
+This sharpens the physical benchmark. A tracer case must score at least:
+- early breakthrough / arrival-time interval;
+- peak concentration and peak timing;
+- curve shape and inflection points;
+- cumulative recovered mass and mass-balance residual;
+- residence-time distribution / tailing;
+- spatial variance where the experimental support permits it.
+
+Do not tune only to peak concentration and then call the resulting parameters identified. Profile likelihood, global sensitivity, equifinality and held-out prediction must be reported alongside goodness of fit.
+
+### Fair dimensionality
+
+HYDRUS 6 standard capabilities span 1D, 2D and 3D depending on edition; its documented DualPerm add-on is specifically a 2D matrix/macropore dual-permeability model. Do not attribute every HYDRUS capability to DualPerm or force MACRO/RZWQM2 into unsupported 2D/3D configurations. The 2026 HYDRUS review synthesizes 3,154 articles (1993–2024) and identifies persistent parameterization, nonequilibrium-process and validation challenges. Sources:
+- https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/HYDRUSOverview.html
+- https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/DualPermModule.html
+- https://doi.org/10.1016/j.envsoft.2025.106801
