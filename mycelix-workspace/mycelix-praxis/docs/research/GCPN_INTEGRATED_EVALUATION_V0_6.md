@@ -6,13 +6,15 @@
 **Version:** 0.6.0.  
 **Dependencies:** eight local Rust benchmark packages; no third-party Cargo dependencies.
 
-## 1. What changed from v0.4
+## 1. What changed from v0.5
 
-v0.4 already composed six independent modules: civil warning-record integrity, topology resilience, multi-channel last-mile reach, warning-to-action evidence, probabilistic forecast verification, and lifecycle cost.
+v0.5 composed six independent modules and upgraded probabilistic forecast verification to exact Murphy Brier decomposition plus chronological drift diagnostics.
 
-v0.5 retains those six non-compensatory modules and upgrades forecast verification from v0.1 to v0.2. The forecast component now exposes exact Murphy Brier reliability, resolution and uncertainty terms, a reconstruction residual, separate fixed-bin ECE, chronological rolling-window scores, and fixed-parameter CUSUM diagnostics across stable, gradual-drift and abrupt-shift synthetic profiles.
+v0.6 retains the original six gates and adds two separately evaluated local components:
+- **Human outcomes:** accessibility after rendering, core-message comprehension, action-intent identification, uncertainty understanding, false-certainty interpretation and worst-profile response-time diagnostics.
+- **Forecast uncertainty:** paired event-level bootstrap intervals for candidate-versus-climatology and candidate-versus-lead-reference Brier differences.
 
-The added diagnostics do not create a warning threshold, invalidate a live forecast, select an operational model, or authorize an action. Aggregate forecast scores cannot compensate for subgroup regressions or drift-profile failures. Lifecycle cost also remains a separate trade-off: no cheaper architecture is automatically preferred, and greater reach does not erase staffing or replacement obligations.
+Neither module introduces a blended quality score. Human comprehension is not inferred from channel receipts or accessibility alone. Bootstrap intervals are descriptive under an explicit synthetic event_id resampling assumption; they do not prove real forecast superiority or real meteorological independence.
 
 ## 2. Eight independent evaluation gates
 
@@ -27,7 +29,7 @@ The added diagnostics do not create a warning threshold, invalidate a live forec
 | Human outcomes v0.1 | 18 synthetic cells; 6 interaction profiles × 3 presentations | Accessible denominator, effective comprehension/action intent, uncertainty understanding, false certainty, worst profile and p90 latency |
 | Forecast uncertainty v0.1 | 65 source rows; 12 complete paired event IDs | Deterministic 20,000-replicate paired event bootstrap, two 95% intervals, dependence caveat |
 
-The final integrated reproduction status remains a strict conjunction of frozen fixture invariants. It is not a weighted quality score, a ranking or a real-world readiness certification.
+The final integrated reproduction status is a strict conjunction of eight frozen fixture invariants. It is not a weighted quality score, a ranking or a real-world readiness certification.
 
 ## 3. Lifecycle-cost module
 
@@ -137,7 +139,7 @@ The integrated forecast module also verifies 90 chronological synthetic rows acr
 
 ## 6. No composite or automatic winner
 
-The integration predicate checks six module oracles independently. Tests mutate a cost invariant while the other five module summaries remain passing and require the integrated reproduction predicate to fail.
+The integration predicate checks eight module oracles independently. Separate mutation tests make human-outcomes and forecast-uncertainty failures visible while the other seven module summaries remain passing.
 
 No weighted score is produced. In particular:
 - cost per message is not substituted for cost per unique accessible receiver;
