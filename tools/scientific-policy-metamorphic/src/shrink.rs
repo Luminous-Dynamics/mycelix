@@ -935,7 +935,7 @@ mod tests {
     #[test]
     fn accepts_unique_json_with_nested_arrays_and_unicode() {
         let parsed = parse_unique_json_bytes(
-            br#"{"outer":[{"music":"\uD834\uDD1E"}],"plain":"é"}"#,
+            r#"{"outer":[{"music":"\uD834\uDD1E"}],"plain":"é"}"#.as_bytes(),
         )
         .unwrap();
         assert_eq!(parsed["plain"], "é");
