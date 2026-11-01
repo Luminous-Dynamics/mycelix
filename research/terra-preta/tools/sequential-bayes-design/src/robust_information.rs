@@ -156,6 +156,96 @@ impl DiscreteDesignModel {
         Ok(information.max(0.0))
     }
 
+    /// Rényi alpha-divergence D_alpha[p(model | outcome) || p(model)]
+    /// for one outcome under the nominal Bayesian posterior.
+    ///
+    /// This is the conditional robust-information quantity in the
+    /// maximin-design paper. It uses the ordinary posterior in the divergence;
+    /// the alpha-tilted posterior is a distinct worst-case belief update.
+    pub fn conditional_renyi_information(
+        &self,
+        outcome_index: usize,
+        alpha: f64,
+    ) -> Result<f64, String> {
+        if !alpha.is_finite() || !(0.0..1.0).contains(&alpha) {
+            return Err("Rényi alpha must be finite and strictly between zero and one".into());
+        }
+        if outcome_index >= self.outcome_ids.len() {
+            return Err("outcome index is out of range".into());
+        }
+        let prior = self.validate()?;
+        let marginal: f64 = self.likelihoods.iter()
+            .zip(&prior)
+            .map(|(row, weight)| weight * row[outcome_index])
+            .sum();
+        if marginal <= 0.0 {
+            return Err("conditional Rényi information is undefined for a zero-probability outcome".into());
+        }
+
+        let posterior: Vec<f64> = self.likelihoods.iter()
+            .zip(&prior)
+            .map(|(row, weight)| weight * row[outcome_index] / marginal)
+            .collect();
+        let affinity: f64 = posterior.iter()
+            .zip(&prior)
+            .map(|(post, prior)| {
+                if *post == 0.0 || *prior == 0.0 {
+                    0.0
+                } else {
+                    post.powf(alpha) * prior.powf(1.0 - alpha)
+                }
+            })
+            .sum();
+        if !affinity.is_finite() || affinity <= 0.0 || affinity > 1.0 + 1e-10 {
+            return Err("Rényi affinity is invalid".into());
+        }
+        let divergence = affinity.min(1.0).ln() / (alpha - 1.0);
+        if divergence.is_finite() && divergence >= -1e-10 {
+            Ok(divergence.max(0.0))
+        } else {
+            Err("conditional Rényi divergence is invalid".into())
+        }
+    }
+
+    /// Reconstruct Sibson alpha-MI as the risk-sensitive exponential average
+    /// of conditional Rényi divergences under the nominal outcome marginal:
+    ///
+    /// I^S_alpha = alpha/(alpha-1) * log E_p(x)[
+    ///     exp((alpha-1)/alpha * D_alpha[p(model|x) || p(model)])
+    /// ].
+    ///
+    /// This is an independent identity-based qualification path for the
+    /// direct Sibson formula.
+    pub fn sibson_from_conditional_renyi(&self, alpha: f64) -> Result<f64, String> {
+        if !alpha.is_finite() || !(0.0..1.0).contains(&alpha) {
+            return Err("Rényi alpha must be finite and strictly between zero and one".into());
+        }
+        let prior = self.validate()?;
+        let mut risk_sensitive_expectation = 0.0;
+
+        for outcome in 0..self.outcome_ids.len() {
+            let marginal: f64 = self.likelihoods.iter()
+                .zip(&prior)
+                .map(|(row, weight)| weight * row[outcome])
+                .sum();
+            if marginal == 0.0 {
+                continue;
+            }
+            let conditional_gain = self.conditional_renyi_information(outcome, alpha)?;
+            let exponent = (alpha - 1.0) / alpha * conditional_gain;
+            risk_sensitive_expectation += marginal * exponent.exp();
+        }
+        if !risk_sensitive_expectation.is_finite() || risk_sensitive_expectation <= 0.0 {
+            return Err("risk-sensitive expectation is invalid".into());
+        }
+        let value = alpha / (alpha - 1.0) * risk_sensitive_expectation.ln();
+        if value.is_finite() && value >= -1e-10 {
+            Ok(value.max(0.0))
+        } else {
+            Err("risk-sensitive Sibson information is invalid".into())
+        }
+    }
+
     /// Construct the finite worst-case joint distribution q* associated
     /// with Sibson alpha-MI, using the published geometric-mixture form:
     ///
@@ -700,6 +790,37 @@ mod tests {
         assert!((nominal[0] - 0.9).abs() < 1e-12);
         assert!((robust[0] - 0.75).abs() < 1e-12);
         assert!(robust[0] < nominal[0]);
+    }
+
+    #[test]
+    fn risk_sensitive_renyi_identity_matches_direct_sibson_information() {
+        let design = complementary_ct_tracer_pair();
+        for alpha in [0.1, 0.2, 0.4, 0.6, 0.7, 0.8, 0.95, 0.999] {
+            let direct = design.sibson_alpha_mutual_information(alpha).unwrap();
+            let conditional = design.sibson_from_conditional_renyi(alpha).unwrap();
+            assert!(
+                (direct - conditional).abs() < 1e-10,
+                "alpha={alpha}: direct={direct}, conditional={conditional}"
+            );
+        }
+    }
+
+    #[test]
+    fn uninformative_outcomes_have_zero_conditional_renyi_gain() {
+        let design = independent_design();
+        for outcome in 0..design.outcome_ids.len() {
+            assert!(design.conditional_renyi_information(outcome, 0.5).unwrap().abs() < 1e-12);
+        }
+        assert!(design.sibson_from_conditional_renyi(0.5).unwrap().abs() < 1e-12);
+    }
+
+    #[test]
+    fn conditional_renyi_gain_handles_zero_likelihood_support() {
+        let design = complementary_ct_tracer_pair();
+        let gain = design.conditional_renyi_information(0, 0.5).unwrap();
+        assert!(gain.is_finite() && gain > 0.0);
+        assert!(design.conditional_renyi_information(999, 0.5).is_err());
+        assert!(design.conditional_renyi_information(0, 1.0).is_err());
     }
 
     #[test]
