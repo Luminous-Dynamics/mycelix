@@ -114,6 +114,38 @@ jobs:
             docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json \
             target/policy-counterexample-shrink \
             2000
+          echo "### Counterexample shrink qualification diagnostics"
+          jq '{
+            initial_case_id,
+            minimized_case_id,
+            initial_cedar_decision,
+            minimized_cedar_decision,
+            initial_opa_decision,
+            minimized_opa_decision,
+            initial_opa_rule_id,
+            minimized_opa_rule_id,
+            initial_cedar_determining_policy_ids,
+            minimized_cedar_determining_policy_ids,
+            candidate_evaluations,
+            input_rejected_candidate_count,
+            valid_engine_evaluation_count,
+            opa_candidate_process_evaluations,
+            cedar_candidate_latency_count:.cedar_candidate_latency.count,
+            opa_cli_candidate_latency_count:.opa_cli_candidate_latency.count,
+            accepted_reductions,
+            complete,
+            is_one_minimal
+          }' target/policy-counterexample-shrink/shrink-summary.json
+          jq -s '{
+            sidecar_rows:length,
+            status_counts:(group_by(.candidate_status)|map({status:.[0].candidate_status,count:length})),
+            input_rejected_rows:map(select(.candidate_status=="input_rejected_before_engines")),
+            evaluated_rows:map(select(.candidate_status=="evaluated")),
+            engine_error_rows:map(select(.candidate_status=="engine_evaluation_error")),
+            predicate_false_count:map(select(.predicate_preserved==false))|length,
+            predicate_true_count:map(select(.predicate_preserved==true))|length
+          }' target/policy-counterexample-shrink/candidate-engine-outcomes.jsonl
+
           jq -e '
             .initial_case_id == .minimized_case_id and
             .initial_cedar_decision == "allow" and
