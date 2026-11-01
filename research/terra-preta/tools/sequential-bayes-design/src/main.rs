@@ -110,6 +110,18 @@ struct SelectorDecision {
     model_utilities: Vec<f64>,
 }
 
+#[derive(Clone, Debug)]
+struct SelectionState<'a> {
+    selected_ids: &'a [String],
+    spent: u32,
+    posterior: &'a [f64],
+    initial_posterior: &'a [f64],
+    discrepancy_active: bool,
+    seed: u64,
+    replicate: usize,
+    step: usize,
+}
+
 #[derive(Clone, Copy, Debug)]
 enum Policy {
     StaticEig,
@@ -539,33 +551,28 @@ fn next_action<'a>(
     context: &SelectorContext,
     actions: &'a [SelectorAction],
     decisions: &[SelectorDecision],
-    selected_ids: &[String],
-    spent: u32,
-    posterior: &[f64],
-    initial_posterior: &[f64],
+    state: &SelectionState<'_>,
     policy: Policy,
-    discrepancy_active: bool,
-    seed: u64,
-    replicate: usize,
-    step: usize,
 ) -> Option<&'a SelectorAction> {
-    let remaining = context.budget_cost_units.saturating_sub(spent);
+    let remaining = context.budget_cost_units.saturating_sub(state.spent);
     let candidates: Vec<&SelectorAction> = actions.iter().filter(|action| {
-        !selected_ids.contains(&action.action_id)
+        !state.selected_ids.contains(&action.action_id)
             && action.cost_units <= remaining
-            && preserves_coverage_with_candidate(context, actions, selected_ids, action, spent)
+            && preserves_coverage_with_candidate(
+                context, actions, state.selected_ids, action, state.spent,
+            )
     }).collect();
     if candidates.is_empty() {
         return None;
     }
 
     let missing_stratum = context.strata.iter().find(|stratum| {
-        selected_stratum_count(actions, selected_ids, &stratum.stratum_id)
+        selected_stratum_count(actions, state.selected_ids, &stratum.stratum_id)
             < stratum.minimum_selected_actions
     });
     let mut eligible: Vec<&SelectorAction> = if let Some(stratum) = missing_stratum {
         candidates.into_iter().filter(|action| action.stratum_id == stratum.stratum_id).collect()
-    } else if matches!(policy, Policy::DiscrepancyGuardedEvsi) && discrepancy_active {
+    } else if matches!(policy, Policy::DiscrepancyGuardedEvsi) && state.discrepancy_active {
         let diagnostics: Vec<&SelectorAction> = candidates.iter().copied()
             .filter(|action| action.diagnostic_action).collect();
         if diagnostics.is_empty() {
@@ -583,14 +590,16 @@ fn next_action<'a>(
     eligible.sort_by(|a, b| {
         let score = |action: &SelectorAction| -> f64 {
             if matches!(policy, Policy::SeededRandom) {
-                return deterministic_u64(seed, replicate, step, &action.action_id) as f64;
+                return deterministic_u64(
+                    state.seed, state.replicate, state.step, &action.action_id,
+                ) as f64;
             }
             let acquisition = match policy {
-                Policy::StaticEig => eig(action, initial_posterior),
-                Policy::ConditionalEig => eig(action, posterior),
-                Policy::DecisionEvsi => evsi(action, posterior, decisions),
+                Policy::StaticEig => eig(action, state.initial_posterior),
+                Policy::ConditionalEig => eig(action, state.posterior),
+                Policy::DecisionEvsi => evsi(action, state.posterior, decisions),
                 Policy::DiscrepancyGuardedEvsi => {
-                    evsi(action, posterior, decisions) + 0.05 * eig(action, posterior)
+                    evsi(action, state.posterior, decisions) + 0.05 * eig(action, state.posterior)
                 }
                 Policy::SeededRandom => 0.0,
             };
@@ -626,11 +635,17 @@ fn summarize_trajectory(
 
     loop {
         let step = selected_ids.len();
-        let selected = next_action(
-            context, actions, decisions, &selected_ids, spent, &posterior,
-            &initial_posterior, policy, discrepancy_active, scenario.seed,
-            replicate, step,
-        );
+        let selection_state = SelectionState {
+            selected_ids: &selected_ids,
+            spent,
+            posterior: &posterior,
+            initial_posterior: &initial_posterior,
+            discrepancy_active,
+            seed: scenario.seed,
+            replicate,
+            step,
+        };
+        let selected = next_action(context, actions, decisions, &selection_state, policy);
         let Some(selected) = selected else { break; };
         let Some(spent_next) = spent.checked_add(selected.cost_units) else { break; };
         if spent_next > context.budget_cost_units {
@@ -858,9 +873,18 @@ mod tests {
         let actions = selector_actions(&original);
         let decisions = selector_decisions(&original);
         let prior: Vec<f64> = original.models.iter().map(|m| m.prior_weight).collect();
+        let before_state = SelectionState {
+            selected_ids: &[],
+            spent: 0,
+            posterior: &prior,
+            initial_posterior: &prior,
+            discrepancy_active: false,
+            seed: original.seed,
+            replicate: 0,
+            step: 0,
+        };
         let before = next_action(
-            &context, &actions, &decisions, &[], 0, &prior, &prior,
-            Policy::DecisionEvsi, false, original.seed, 0, 0,
+            &context, &actions, &decisions, &before_state, Policy::DecisionEvsi,
         ).unwrap().action_id.clone();
 
         let mut mutated = original.clone();
@@ -873,10 +897,20 @@ mod tests {
         let after_actions = selector_actions(&mutated);
         let after_decisions = selector_decisions(&mutated);
         let after_prior: Vec<f64> = mutated.models.iter().map(|m| m.prior_weight).collect();
+        let after_context = selector_context(&mutated);
+        let after_state = SelectionState {
+            selected_ids: &[],
+            spent: 0,
+            posterior: &after_prior,
+            initial_posterior: &after_prior,
+            discrepancy_active: false,
+            seed: mutated.seed,
+            replicate: 0,
+            step: 0,
+        };
         let after = next_action(
-            &selector_context(&mutated), &after_actions, &after_decisions,
-            &[], 0, &after_prior, &after_prior, Policy::DecisionEvsi,
-            false, mutated.seed, 0, 0,
+            &after_context, &after_actions, &after_decisions, &after_state,
+            Policy::DecisionEvsi,
         ).unwrap().action_id.clone();
         assert_eq!(before, after);
     }
@@ -887,11 +921,22 @@ mod tests {
         let tracer = actions.iter().find(|a| a.action_id == "B_SANDY_EVENT_TRACER").unwrap();
         let (updated, probability) = posterior_after(tracer, &prior, 2);
         assert!(probability < context.predictive_surprise_threshold);
+        let selected_ids = vec![
+            "B_SANDY_EVENT_TRACER".to_owned(),
+            "D_WEATHERED_RETENTION".to_owned(),
+        ];
+        let state = SelectionState {
+            selected_ids: &selected_ids,
+            spent: 2,
+            posterior: &updated,
+            initial_posterior: &prior,
+            discrepancy_active: true,
+            seed: 7,
+            replicate: 0,
+            step: 1,
+        };
         let chosen = next_action(
-            &context, &actions, &decisions,
-            &["B_SANDY_EVENT_TRACER".into(), "D_WEATHERED_RETENTION".into()],
-            2, &updated, &prior, Policy::DiscrepancyGuardedEvsi,
-            true, 7, 0, 1,
+            &context, &actions, &decisions, &state, Policy::DiscrepancyGuardedEvsi,
         ).unwrap();
         assert!(chosen.diagnostic_action);
     }
