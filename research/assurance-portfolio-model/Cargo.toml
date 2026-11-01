@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-assurance-portfolio-model"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Finite-state research model for typed assurance portfolio composition"
+
+[dependencies]
+
+[workspace]
