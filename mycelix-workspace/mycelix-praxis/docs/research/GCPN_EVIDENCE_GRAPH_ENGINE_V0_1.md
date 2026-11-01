@@ -49,7 +49,9 @@ The CAP sidecar validator consumes already-parsed synthetic messages. It checks:
 - conflicting identity diagnostics and preservation of conflicting payload objects;
 - required references for Update and Cancel;
 - exact references to earlier messages in the append-ordered fixture;
-- chronology and expiration of referenced messages;
+- chronology and expiration of referenced messages.
+
+Expiry is reported separately from core CAP structural conformance. The base evaluator checks that Update/Cancel references resolve to earlier messages; an optional stricter active-reference profile additionally requires the referenced message to remain unexpired. That stricter profile is an explicit GCPN policy choice, not a claim that CAP 1.2's core syntax imposes one universal expiry rule.
 - externally supplied digest-verification state;
 - receipts bound to exact extended message identity and exact declared digest.
 
