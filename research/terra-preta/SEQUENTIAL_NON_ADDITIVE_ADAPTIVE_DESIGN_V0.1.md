@@ -529,3 +529,28 @@ calibrate discrepancy structure with data-dependent checks, distinguish it
 from observation error and parameter uncertainty, and test sensitivity to
 prior/likelihood choice. Never add a broad component merely to make model
 surprises disappear.
+
+
+## 23. Paired synthetic outcomes and replicate uncertainty
+
+The evaluator now uses common random numbers keyed by
+`(scenario seed, replicate ID, action ID)`, not by acquisition step. Thus an
+action's potential synthetic outcome is stable across policies in the same
+replicate even when selected at different sequence positions. This reduces
+Monte Carlo noise in cross-policy comparisons and makes same-action contrasts
+paired at the replicate/action level. Random policy tie-breaking remains keyed
+by step, because acquisition order is part of that policy.
+
+Every policy summary now reports the standard error and 95% normal-approximation
+interval for mean decision regret and common held-out expected log/Brier
+scores. These intervals use sample variance across the 128 independent
+replicates and are clamped to each metric's known support where applicable.
+They are Monte Carlo uncertainty intervals for a fixed synthetic scenario,
+not Bayesian credible intervals and not intervals over the population of
+possible scenario families.
+
+The benchmark still needs paired bootstrap intervals for policy differences,
+scenario-family random effects or hierarchical summaries, and independent
+seed suites. Common random numbers reduce action-level noise but do not remove
+the need for many worlds, independent data-generating mechanisms, or matched
+compute and measurement budgets.
