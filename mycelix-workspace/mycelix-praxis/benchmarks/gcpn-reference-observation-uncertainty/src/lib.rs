@@ -521,26 +521,8 @@ mod tests {
     #[test]
     fn zero_error_model_matches_naive_observation_mse() {
         let data = vec![
-            pair(
-                "a",
-                1.0,
-                2.0,
-                Some(0.0),
-                Some(0.0),
-                Some(0.0),
-                Some(0.0),
-                "sensor-a",
-            ),
-            pair(
-                "b",
-                2.0,
-                4.0,
-                Some(0.0),
-                Some(0.0),
-                Some(0.0),
-                Some(0.0),
-                "sensor-b",
-            ),
+            pair("a", 1.0, 2.0, error_model(Some(0.0), Some(0.0), Some(0.0), Some(0.0)), "sensor-a"),
+            pair("b", 2.0, 4.0, error_model(Some(0.0), Some(0.0), Some(0.0), Some(0.0)), "sensor-b"),
         ];
         let report = evaluate(&contract(), &data).unwrap();
         assert!((report.naive_observation_mse - 2.5).abs() < 1e-12);
@@ -550,26 +532,8 @@ mod tests {
     #[test]
     fn known_additive_bias_is_removed_before_squared_error_correction() {
         let data = vec![
-            pair(
-                "a",
-                10.0,
-                13.0,
-                Some(3.0),
-                Some(0.0),
-                Some(0.0),
-                Some(0.0),
-                "sensor-a",
-            ),
-            pair(
-                "b",
-                12.0,
-                15.0,
-                Some(3.0),
-                Some(0.0),
-                Some(0.0),
-                Some(0.0),
-                "sensor-b",
-            ),
+            pair("a", 10.0, 13.0, error_model(Some(3.0), Some(0.0), Some(0.0), Some(0.0)), "sensor-a"),
+            pair("b", 12.0, 15.0, error_model(Some(3.0), Some(0.0), Some(0.0), Some(0.0)), "sensor-b"),
         ];
         let report = evaluate(&contract(), &data).unwrap();
         assert!((report.naive_observation_mse - 9.0).abs() < 1e-12);
@@ -580,26 +544,8 @@ mod tests {
     #[test]
     fn measurement_and_representativeness_variance_are_subtracted_separately() {
         let data = vec![
-            pair(
-                "a",
-                2.0,
-                4.0,
-                Some(0.0),
-                Some(1.5),
-                Some(2.0),
-                Some(0.0),
-                "sensor-a",
-            ),
-            pair(
-                "b",
-                2.0,
-                4.0,
-                Some(0.0),
-                Some(1.5),
-                Some(2.0),
-                Some(0.0),
-                "sensor-b",
-            ),
+            pair("a", 2.0, 4.0, error_model(Some(0.0), Some(1.5), Some(2.0), Some(0.0)), "sensor-a"),
+            pair("b", 2.0, 4.0, error_model(Some(0.0), Some(1.5), Some(2.0), Some(0.0)), "sensor-b"),
         ];
         let report = evaluate(&contract(), &data).unwrap();
         assert!((report.naive_observation_mse - 4.0).abs() < 1e-12);
@@ -619,26 +565,8 @@ mod tests {
     #[test]
     fn heteroscedastic_error_uses_case_specific_variance() {
         let data = vec![
-            pair(
-                "a",
-                0.0,
-                1.0,
-                Some(0.0),
-                Some(0.5),
-                Some(0.0),
-                Some(0.0),
-                "sensor-a",
-            ),
-            pair(
-                "b",
-                0.0,
-                3.0,
-                Some(0.0),
-                Some(2.5),
-                Some(0.0),
-                Some(0.0),
-                "sensor-b",
-            ),
+            pair("a", 0.0, 1.0, error_model(Some(0.0), Some(0.5), Some(0.0), Some(0.0)), "sensor-a"),
+            pair("b", 0.0, 3.0, error_model(Some(0.0), Some(2.5), Some(0.0), Some(0.0)), "sensor-b"),
         ];
         let report = evaluate(&contract(), &data).unwrap();
         assert!((report.naive_observation_mse - 5.0).abs() < 1e-12);
@@ -648,16 +576,7 @@ mod tests {
 
     #[test]
     fn negative_finite_sample_corrected_mse_is_not_clipped() {
-        let data = vec![pair(
-            "a",
-            1.0,
-            1.0,
-            Some(0.0),
-            Some(2.0),
-            Some(0.0),
-            Some(0.0),
-            "sensor-a",
-        )];
+        let data = vec![pair("a", 1.0, 1.0, error_model(Some(0.0), Some(2.0), Some(0.0), Some(0.0)), "sensor-a")];
         let report = evaluate(&contract(), &data).unwrap();
         assert!(report.error_corrected_mse.unwrap() < 0.0);
         assert!((report.error_corrected_mse.unwrap() + 2.0).abs() < 1e-12);
@@ -665,16 +584,7 @@ mod tests {
 
     #[test]
     fn unknown_covariance_disables_corrected_estimate() {
-        let data = vec![pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            Some(1.0),
-            None,
-            "sensor-a",
-        )];
+        let data = vec![pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), None), "sensor-a")];
         let report = evaluate(&contract(), &data).unwrap();
         assert_eq!(
             report.correction_unavailable_reason,
@@ -685,16 +595,7 @@ mod tests {
 
     #[test]
     fn unknown_bias_disables_corrected_estimate() {
-        let data = vec![pair(
-            "a",
-            1.0,
-            2.0,
-            None,
-            Some(1.0),
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        )];
+        let data = vec![pair("a", 1.0, 2.0, error_model(None, Some(1.0), Some(1.0), Some(0.0)), "sensor-a")];
         let report = evaluate(&contract(), &data).unwrap();
         assert_eq!(
             report.correction_unavailable_reason,
@@ -704,16 +605,7 @@ mod tests {
 
     #[test]
     fn unknown_measurement_variance_disables_corrected_estimate() {
-        let data = vec![pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            None,
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        )];
+        let data = vec![pair("a", 1.0, 2.0, error_model(Some(0.0), None, Some(1.0), Some(0.0)), "sensor-a")];
         let report = evaluate(&contract(), &data).unwrap();
         assert_eq!(
             report.correction_unavailable_reason,
@@ -723,16 +615,7 @@ mod tests {
 
     #[test]
     fn unknown_representativeness_variance_disables_corrected_estimate() {
-        let data = vec![pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            None,
-            Some(0.0),
-            "sensor-a",
-        )];
+        let data = vec![pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), None, Some(0.0)), "sensor-a")];
         let report = evaluate(&contract(), &data).unwrap();
         assert_eq!(
             report.correction_unavailable_reason,
@@ -742,16 +625,7 @@ mod tests {
 
     #[test]
     fn valid_measurement_representativeness_covariance_is_included() {
-        let data = vec![pair(
-            "a",
-            2.0,
-            4.0,
-            Some(0.0),
-            Some(1.0),
-            Some(2.0),
-            Some(0.5),
-            "sensor-a",
-        )];
+        let data = vec![pair("a", 2.0, 4.0, error_model(Some(0.0), Some(1.0), Some(2.0), Some(0.5)), "sensor-a")];
         let report = evaluate(&contract(), &data).unwrap();
         assert!(report.error_corrected_mse.unwrap().abs() < 1e-12);
         assert!((report.error_components.mean_twice_cross_covariance.unwrap() - 1.0).abs() < 1e-12);
@@ -760,16 +634,7 @@ mod tests {
 
     #[test]
     fn incoherent_error_covariance_is_rejected() {
-        let record = pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            Some(1.0),
-            Some(2.0),
-            "sensor-a",
-        );
+        let record = pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(2.0)), "sensor-a");
         assert_eq!(
             evaluate(&contract(), &[record]).unwrap_err().violations,
             vec![ContractViolation::IncoherentErrorCovariance]
@@ -779,36 +644,9 @@ mod tests {
     #[test]
     fn common_error_lineage_is_reported_separately_from_case_count() {
         let data = vec![
-            pair(
-                "a",
-                1.0,
-                2.0,
-                Some(0.0),
-                Some(0.1),
-                Some(0.1),
-                Some(0.0),
-                "shared-network-root",
-            ),
-            pair(
-                "b",
-                1.0,
-                2.0,
-                Some(0.0),
-                Some(0.1),
-                Some(0.1),
-                Some(0.0),
-                "shared-network-root",
-            ),
-            pair(
-                "c",
-                1.0,
-                2.0,
-                Some(0.0),
-                Some(0.1),
-                Some(0.1),
-                Some(0.0),
-                "independent-sensor",
-            ),
+            pair("a", 1.0, 2.0, error_model(Some(0.0), Some(0.1), Some(0.1), Some(0.0)), "shared-network-root"),
+            pair("b", 1.0, 2.0, error_model(Some(0.0), Some(0.1), Some(0.1), Some(0.0)), "shared-network-root"),
+            pair("c", 1.0, 2.0, error_model(Some(0.0), Some(0.1), Some(0.1), Some(0.0)), "independent-sensor"),
         ];
         let report = evaluate(&contract(), &data).unwrap();
         assert_eq!(report.cases, 3);
@@ -818,16 +656,7 @@ mod tests {
 
     #[test]
     fn spatial_support_mismatch_requires_a_declared_observation_operator() {
-        let mut record = pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        );
+        let mut record = pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-a");
         record.native_spatial_support_digest = "point-sensor-7".into();
         assert_eq!(
             evaluate(&contract(), &[record.clone()])
@@ -841,16 +670,7 @@ mod tests {
 
     #[test]
     fn evaluated_support_must_match_the_predictand() {
-        let mut record = pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        );
+        let mut record = pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-a");
         record.evaluated_spatial_support_digest = "wrong-grid-cell".into();
         record.observation_operator_id = Some("operator-v1".into());
         assert_eq!(
@@ -861,16 +681,7 @@ mod tests {
 
     #[test]
     fn temporal_support_must_match() {
-        let mut record = pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        );
+        let mut record = pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-a");
         record.temporal_support_id = "instantaneous".into();
         assert_eq!(
             evaluate(&contract(), &[record]).unwrap_err().violations,
@@ -880,16 +691,7 @@ mod tests {
 
     #[test]
     fn source_version_and_calibration_epoch_are_frozen() {
-        let mut record = pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        );
+        let mut record = pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-a");
         record.source_version = "release-8".into();
         assert_eq!(
             evaluate(&contract(), &[record.clone()])
@@ -907,16 +709,7 @@ mod tests {
 
     #[test]
     fn post_cutoff_observations_are_rejected() {
-        let mut record = pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        );
+        let mut record = pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-a");
         record.recorded_at = 101;
         assert_eq!(
             evaluate(&contract(), &[record]).unwrap_err().violations,
@@ -926,16 +719,7 @@ mod tests {
 
     #[test]
     fn negative_variance_is_rejected() {
-        let record = pair(
-            "a",
-            1.0,
-            2.0,
-            Some(0.0),
-            Some(-1.0),
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        );
+        let record = pair("a", 1.0, 2.0, error_model(Some(0.0), Some(-1.0), Some(1.0), Some(0.0)), "sensor-a");
         assert_eq!(
             evaluate(&contract(), &[record]).unwrap_err().violations,
             vec![ContractViolation::InvalidErrorVariance]
@@ -944,16 +728,7 @@ mod tests {
 
     #[test]
     fn nonfinite_values_are_rejected() {
-        let record = pair(
-            "a",
-            f64::NAN,
-            2.0,
-            Some(0.0),
-            Some(1.0),
-            Some(1.0),
-            Some(0.0),
-            "sensor-a",
-        );
+        let record = pair("a", f64::NAN, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-a");
         assert_eq!(
             evaluate(&contract(), &[record]).unwrap_err().violations,
             vec![ContractViolation::NonFiniteForecast]
@@ -963,26 +738,8 @@ mod tests {
     #[test]
     fn duplicate_case_ids_are_rejected() {
         let data = vec![
-            pair(
-                "a",
-                1.0,
-                2.0,
-                Some(0.0),
-                Some(1.0),
-                Some(1.0),
-                Some(0.0),
-                "sensor-a",
-            ),
-            pair(
-                "a",
-                2.0,
-                3.0,
-                Some(0.0),
-                Some(1.0),
-                Some(1.0),
-                Some(0.0),
-                "sensor-b",
-            ),
+            pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-a"),
+            pair("a", 2.0, 3.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-b"),
         ];
         assert_eq!(
             evaluate(&contract(), &data).unwrap_err().violations,
@@ -1002,16 +759,7 @@ mod tests {
     fn report_preserves_predictand_units_and_source_lineage() {
         let report = evaluate(
             &contract(),
-            &[pair(
-                "a",
-                1.0,
-                2.0,
-                Some(0.0),
-                Some(1.0),
-                Some(1.0),
-                Some(0.0),
-                "sensor-a",
-            )],
+            &[pair("a", 1.0, 2.0, error_model(Some(0.0), Some(1.0), Some(1.0), Some(0.0)), "sensor-a")],
         )
         .unwrap();
         assert_eq!(report.predictand_id, "temperature-2m");
