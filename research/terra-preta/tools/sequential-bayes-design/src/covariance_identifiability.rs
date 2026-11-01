@@ -121,6 +121,26 @@ pub struct CovarianceIdentifiabilityAudit {
     pub individually_identifiable: Vec<bool>,
 }
 
+/// Expected Fisher information for covariance-component variances under one
+/// jointly observed Gaussian vector with known mean.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CovarianceFisherInformation {
+    pub component_ids: Vec<VarianceComponent>,
+    pub nominal_variances: Vec<f64>,
+    /// I[k,l] = 1/2 tr(Sigma^-1 A_k Sigma^-1 A_l), in the declared
+    /// variance-parameter units.
+    pub information_matrix: Vec<Vec<f64>>,
+    /// Sorted ascending, including zero eigenvalues for non-identifiable directions.
+    pub eigenvalues: Vec<f64>,
+    pub structural_rank: usize,
+    pub smallest_eigenvalue: f64,
+    pub largest_eigenvalue: f64,
+    /// Largest/smallest retained eigenvalue; absent when rank deficient.
+    pub condition_number: Option<f64>,
+    /// Present only when every declared variance component is locally identifiable.
+    pub log_determinant: Option<f64>,
+}
+
 /// Exact noiseless recovery of the declared covariance-component coefficients.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExactCovarianceRecovery {
@@ -318,6 +338,90 @@ fn rank_and_condition(gram: &[Vec<f64>]) -> Result<(usize, Option<f64>), String>
     Ok((rank, condition))
 }
 
+fn invert_spd_matrix(matrix: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, String> {
+    let dimension = matrix.len();
+    if dimension == 0 || matrix.iter().any(|row| row.len() != dimension) {
+        return Err("covariance matrix must be non-empty and square".into());
+    }
+    if matrix.iter().flatten().any(|value| !value.is_finite()) {
+        return Err("covariance matrix entries must be finite".into());
+    }
+    let scale = matrix.iter().flatten()
+        .map(|value| value.abs())
+        .fold(0.0_f64, f64::max);
+    if scale <= 0.0 {
+        return Err("covariance matrix must be positive definite".into());
+    }
+    for row in 0..dimension {
+        for column in 0..row {
+            if (matrix[row][column] - matrix[column][row]).abs() > 1e-10 * scale {
+                return Err("covariance matrix must be symmetric".into());
+            }
+        }
+    }
+
+    // Normalize first so a physically small covariance is not mistaken for a
+    // singular matrix merely because its units make every entry less than one.
+    let normalized: Vec<Vec<f64>> = matrix.iter()
+        .map(|row| row.iter().map(|value| value / scale).collect())
+        .collect();
+    let mut lower = vec![vec![0.0; dimension]; dimension];
+    for row in 0..dimension {
+        for column in 0..=row {
+            let mut value = normalized[row][column];
+            for inner in 0..column {
+                value -= lower[row][inner] * lower[column][inner];
+            }
+            if row == column {
+                if !value.is_finite() || value <= 0.0 {
+                    return Err("covariance matrix must be positive definite".into());
+                }
+                lower[row][column] = value.sqrt();
+            } else {
+                let pivot = lower[column][column];
+                if !pivot.is_finite() || pivot <= 0.0 {
+                    return Err("covariance Cholesky factor is singular".into());
+                }
+                lower[row][column] = value / pivot;
+            }
+        }
+    }
+
+    let mut inverse = vec![vec![0.0; dimension]; dimension];
+    for target_column in 0..dimension {
+        let mut forward = vec![0.0; dimension];
+        for row in 0..dimension {
+            let rhs = if row == target_column { 1.0 } else { 0.0 };
+            let accumulated: f64 = (0..row)
+                .map(|column| lower[row][column] * forward[column])
+                .sum();
+            forward[row] = (rhs - accumulated) / lower[row][row];
+        }
+
+        let mut solution = vec![0.0; dimension];
+        for row in (0..dimension).rev() {
+            let accumulated: f64 = (row + 1..dimension)
+                .map(|column| lower[column][row] * solution[column])
+                .sum();
+            solution[row] = (forward[row] - accumulated) / lower[row][row];
+        }
+        for row in 0..dimension {
+            inverse[row][target_column] = solution[row] / scale;
+        }
+    }
+    for row in 0..dimension {
+        for column in 0..row {
+            let average = 0.5 * (inverse[row][column] + inverse[column][row]);
+            inverse[row][column] = average;
+            inverse[column][row] = average;
+        }
+    }
+    if inverse.iter().flatten().any(|value| !value.is_finite()) {
+        return Err("covariance inverse is non-finite".into());
+    }
+    Ok(inverse)
+}
+
 fn solve_linear_system(matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>, String> {
     let dimension = matrix.len();
     if dimension == 0
@@ -477,6 +581,120 @@ impl CovarianceComponentDesign {
             gram_condition_number,
             fully_identifiable: structural_rank == component_count,
             individually_identifiable,
+        })
+    }
+
+    /// Calculate expected Fisher information for the component variances.
+    ///
+    /// For one jointly observed Gaussian vector with fixed/known mean and
+    /// covariance Sigma = sum_k theta_k A_k, this returns
+    /// I[k,l] = 1/2 tr(Sigma^-1 A_k Sigma^-1 A_l).
+    /// It is a local, model-conditional precision diagnostic, not observed
+    /// information, posterior precision, or evidence that the covariance model
+    /// is physically correct. If mean parameters are estimated jointly, their
+    /// nuisance-information block must also be accounted for by a Schur
+    /// complement before interpreting this as efficient variance information.
+    pub fn expected_fisher_information(
+        &self,
+        nominal_variances: &[f64],
+    ) -> Result<CovarianceFisherInformation, String> {
+        if nominal_variances.len() != self.component_ids.len()
+            || nominal_variances.iter().any(|value| !value.is_finite() || *value < 0.0)
+        {
+            return Err("nominal component variances must be finite, non-negative and aligned".into());
+        }
+        let covariance = self.covariance_from_variances(nominal_variances)?;
+        let inverse = invert_spd_matrix(&covariance)?;
+        let dimension = self.observations.len();
+        let component_count = self.component_ids.len();
+
+        let basis_matrices: Vec<Vec<Vec<f64>>> = self.basis_vectors.iter().map(|basis| {
+            let mut matrix = vec![vec![0.0; dimension]; dimension];
+            for ((row, column), value) in self.upper_triangle_indices.iter().zip(basis) {
+                matrix[*row][*column] = *value;
+                matrix[*column][*row] = *value;
+            }
+            matrix
+        }).collect();
+
+        let inverse_times_basis: Vec<Vec<Vec<f64>>> = basis_matrices.iter().map(|basis| {
+            let mut product = vec![vec![0.0; dimension]; dimension];
+            for row in 0..dimension {
+                for inner in 0..dimension {
+                    let left = inverse[row][inner];
+                    for column in 0..dimension {
+                        product[row][column] += left * basis[inner][column];
+                    }
+                }
+            }
+            product
+        }).collect();
+
+        let mut information_matrix = vec![vec![0.0; component_count]; component_count];
+        for left in 0..component_count {
+            for right in left..component_count {
+                let mut trace = 0.0;
+                for row in 0..dimension {
+                    for column in 0..dimension {
+                        trace += inverse_times_basis[left][row][column]
+                            * inverse_times_basis[right][column][row];
+                    }
+                }
+                let value = 0.5 * trace;
+                if !value.is_finite() {
+                    return Err("expected Fisher information is non-finite".into());
+                }
+                information_matrix[left][right] = value;
+                information_matrix[right][left] = value;
+            }
+        }
+
+        let information_scale = information_matrix.iter().flatten()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        if information_scale <= 0.0 || !information_scale.is_finite() {
+            return Err("expected Fisher information has no positive scale".into());
+        }
+        let normalized_information: Vec<Vec<f64>> = information_matrix.iter()
+            .map(|row| row.iter().map(|value| value / information_scale).collect())
+            .collect();
+        let mut eigenvalues: Vec<f64> = symmetric_eigenvalues(&normalized_information)?
+            .into_iter()
+            .map(|value| value * information_scale)
+            .collect();
+        eigenvalues.sort_by(f64::total_cmp);
+        let largest_eigenvalue = *eigenvalues.last()
+            .ok_or_else(|| "Fisher information eigensystem is empty".to_string())?;
+        if !largest_eigenvalue.is_finite() || largest_eigenvalue <= 0.0 {
+            return Err("expected Fisher information is not positive semidefinite".into());
+        }
+        let rank_threshold = largest_eigenvalue * 1e-10;
+        let retained: Vec<f64> = eigenvalues.iter().copied()
+            .filter(|value| *value > rank_threshold)
+            .collect();
+        let structural_rank = retained.len();
+        let smallest_eigenvalue = eigenvalues[0];
+        let condition_number = if structural_rank == component_count {
+            retained.first().map(|minimum| largest_eigenvalue / minimum)
+        } else {
+            None
+        };
+        let log_determinant = if structural_rank == component_count {
+            Some(retained.iter().map(|value| value.ln()).sum())
+        } else {
+            None
+        };
+
+        Ok(CovarianceFisherInformation {
+            component_ids: self.component_ids.clone(),
+            nominal_variances: nominal_variances.to_vec(),
+            information_matrix,
+            eigenvalues,
+            structural_rank,
+            smallest_eigenvalue,
+            largest_eigenvalue,
+            condition_number,
+            log_determinant,
         })
     }
 
@@ -673,6 +891,44 @@ mod tests {
             }
         }
         CovarianceComponentDesign::new(observations).unwrap()
+    }
+
+    #[test]
+    fn expected_fisher_information_distinguishes_crossed_from_confounded_designs() {
+        let crossed = crossed_support_batch_instrument_design();
+        let crossed_information = crossed.expected_fisher_information(&[0.7, 0.4, 0.2, 0.1]).unwrap();
+        assert_eq!(crossed_information.structural_rank, 4);
+        assert_eq!(crossed_information.information_matrix.len(), 4);
+        assert!(crossed_information.condition_number.unwrap().is_finite());
+        assert!(crossed_information.log_determinant.unwrap().is_finite());
+        assert!(crossed_information.eigenvalues.windows(2).all(|pair| pair[0] <= pair[1]));
+
+        let confounded = confounded_pair();
+        let confounded_information = confounded.expected_fisher_information(&[0.7, 0.4, 0.2, 0.1]).unwrap();
+        assert_eq!(confounded_information.structural_rank, 2);
+        assert_eq!(confounded_information.condition_number, None);
+        assert_eq!(confounded_information.log_determinant, None);
+    }
+
+    #[test]
+    fn expected_fisher_information_respects_covariance_scale() {
+        let design = crossed_support_batch_instrument_design();
+        let small = design.expected_fisher_information(&[0.7, 0.4, 0.2, 0.1]).unwrap();
+        let large = design.expected_fisher_information(&[7.0, 4.0, 2.0, 1.0]).unwrap();
+        for row in 0..4 {
+            for column in 0..4 {
+                assert!((small.information_matrix[row][column]
+                    / large.information_matrix[row][column] - 100.0).abs() < 1e-7);
+            }
+        }
+    }
+
+    #[test]
+    fn expected_fisher_information_rejects_invalid_or_singular_covariance() {
+        let design = crossed_support_batch_instrument_design();
+        assert!(design.expected_fisher_information(&[0.7, 0.4, 0.2]).is_err());
+        assert!(design.expected_fisher_information(&[0.7, f64::NAN, 0.2, 0.1]).is_err());
+        assert!(design.expected_fisher_information(&[0.0, 0.0, 0.0, 0.0]).is_err());
     }
 
     #[test]
