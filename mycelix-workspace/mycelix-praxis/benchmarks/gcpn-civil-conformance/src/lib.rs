@@ -436,11 +436,18 @@ mod tests {
 
     #[test]
     fn malformed_receiver_counts_and_unissued_alert_receipts_are_rejected() {
-        let invalid = FIXTURE.replace("4,4,4,true,3,false,false,true,false,false", "4,5,4,true,3,false,false,true,false,false");
+        let normal_row =
+            "reference,gcpn-normal,authenticated,validated,validated,3,3,independent,true,true,true,true,true,false,false,4,4,4,true,3,false,false,authority-gcpn-normal,false,false";
+        let normal_with_too_many_receipts =
+            "reference,gcpn-normal,authenticated,validated,validated,3,3,independent,true,true,true,true,true,false,false,4,5,4,true,3,false,false,authority-gcpn-normal,false,false";
+        let invalid = FIXTURE.replace(normal_row, normal_with_too_many_receipts);
+        assert_ne!(invalid, FIXTURE);
         assert!(parse_fixture(&invalid).is_err());
 
-        let stale_row = "reference,gcpn-stale,authenticated,stale,stale,2,2,independent,true,false,true,true,true,false,false,0,0,0,true,2,false,false,false,false,false";
-        let stale_with_receipt = "reference,gcpn-stale,authenticated,stale,stale,2,2,independent,true,false,true,true,true,false,false,4,1,1,true,2,false,false,false,false,false";
+        let stale_row =
+            "reference,gcpn-stale,authenticated,stale,stale,2,2,independent,true,false,true,true,true,false,false,0,0,0,true,2,false,false,,false,false";
+        let stale_with_receipt =
+            "reference,gcpn-stale,authenticated,stale,stale,2,2,independent,true,false,true,true,true,false,false,4,1,1,true,2,false,false,,false,false";
         let unissued_with_receipt = FIXTURE.replace(stale_row, stale_with_receipt);
         assert_ne!(unissued_with_receipt, FIXTURE);
         assert!(parse_fixture(&unissued_with_receipt).is_err());
