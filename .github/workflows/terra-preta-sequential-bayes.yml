@@ -166,20 +166,20 @@ jobs:
             .shared_kl_policy.common_dual_beta >= 0 and
             (.shared_kl_policy.alpha - (.shared_kl_policy.common_dual_beta / (1 + .shared_kl_policy.common_dual_beta))) | fabs < 1e-9 and
             .shared_kl_policy.expected_cost_units <= .budget_units and
-            (.shared_kl_policy.robust_policy_value_nats -
-              (.shared_kl_policy.expected_sibson_information_nats - .shared_kl_policy.adversarial_kl_penalty_nats)) | fabs < 1e-9 and
+            ((.shared_kl_policy.robust_policy_value_nats -
+              (.shared_kl_policy.expected_sibson_information_nats - .shared_kl_policy.adversarial_kl_penalty_nats)) | fabs) < 1e-9 and
             (.shared_kl_policy.adversarial_kl_penalty_nats >= 0) and
             ([.shared_kl_policy.action_probabilities[].probability] | add | . - 1 | fabs < 1e-9) and
             all(.shared_kl_policy.action_probabilities[]; .probability >= 0) and
             .optimized_robust_gibbs_policy.precision_lambda == 5.0 and
             .optimized_robust_gibbs_policy.expected_cost_units <= .budget_units and
             .optimized_robust_gibbs_policy.policy_kl_to_prior_nats >= 0 and
-            (.optimized_robust_gibbs_policy.policy_complexity_penalty_nats -
-              (.optimized_robust_gibbs_policy.policy_kl_to_prior_nats / .optimized_robust_gibbs_policy.precision_lambda) | fabs) < 1e-9 and
-            (.optimized_robust_gibbs_policy.robust_regularized_value_nats -
+            ((.optimized_robust_gibbs_policy.policy_complexity_penalty_nats -
+              (.optimized_robust_gibbs_policy.policy_kl_to_prior_nats / .optimized_robust_gibbs_policy.precision_lambda)) | fabs) < 1e-9 and
+            ((.optimized_robust_gibbs_policy.robust_regularized_value_nats -
               (.optimized_robust_gibbs_policy.expected_sibson_information_nats -
                .optimized_robust_gibbs_policy.policy_complexity_penalty_nats -
-               .optimized_robust_gibbs_policy.adversarial_kl_penalty_nats) | fabs) < 1e-9 and
+               .optimized_robust_gibbs_policy.adversarial_kl_penalty_nats)) | fabs) < 1e-9 and
             ([.optimized_robust_gibbs_policy.actions[].probability] | add | . - 1 | fabs < 1e-9) and
             ([.optimized_robust_gibbs_policy.actions[] | select(.action_id == "ineligible_perfect_measurement") | .probability][0] == 0) and
             ([.optimized_robust_gibbs_policy.actions[] | select(.action_id == "over_budget_perfect_measurement") | .probability][0] == 0) and
@@ -251,14 +251,14 @@ jobs:
             (.exact_posterior_mean | length == 2) and
             ((.exact_posterior_mean[0] - 0.19047619047619047) | fabs < 1e-9) and
             ((.exact_posterior_mean[1] - 0.38095238095238093) | fabs < 1e-9) and
-            .ensemble_size_summaries | length == 3 and
-            all(.ensemble_size_summaries[]; .replicate_count == 8 and .mean_posterior_mean_rmse >= 0 and .posterior_mean_rmse_standard_error >= 0 and .mean_posterior_covariance_relative_error >= 0 and .posterior_covariance_relative_error_standard_error >= 0) and
+            (.ensemble_size_summaries | length == 3) and
+            (.ensemble_size_summaries | all(.[]; .replicate_count == 8 and .mean_posterior_mean_rmse >= 0 and .posterior_mean_rmse_standard_error >= 0 and .mean_posterior_covariance_relative_error >= 0 and .posterior_covariance_relative_error_standard_error >= 0)) and
             ([.ensemble_size_summaries[] | select(.ensemble_size == 2048) | .mean_posterior_mean_rmse][0] < 0.05) and
             ([.ensemble_size_summaries[] | select(.ensemble_size == 2048) | .mean_posterior_covariance_relative_error][0] < 0.15) and
             (.runs | length == 24) and
             all(.runs[]; .posterior_mean_rmse >= 0 and .posterior_covariance_relative_frobenius_error >= 0)
           ' "$RUNNER_TEMP/state-parameter-assimilation-report.json"
-      - name: Validate all three report schemas
+      - name: Validate all report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/report.schema.json \
