@@ -193,7 +193,7 @@ pub fn integrated_report() -> Result<IntegratedReport, String> {
     let receiver_denominators_consistent = topology_rows.iter().all(|row| {
         topology_rows
             .iter()
-            .filter(|other| other.scenario_id == row.scenario_id)
+            .filter(|other| other.scenario_id.as_str() == row.scenario_id.as_str())
             .all(|other| other.outcome.intended_receivers == row.outcome.intended_receivers)
     });
 
