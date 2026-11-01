@@ -1,0 +1,81 @@
+{
+  "benchmark_id": "GCPN-DECISION-VALUE-VERIFICATION",
+  "version": "0.1.0",
+  "status": "research-specification-not-yet-executable",
+  "parent_issue": 5665,
+  "integration_baseline": "research/gcpn-integrated-evaluation-v0-6",
+  "simple_loss_matrix": {
+    "no_action_no_event": 0,
+    "no_action_event": "C_loss",
+    "action_any_outcome": "C_action",
+    "analytic_threshold": "C_action / C_loss",
+    "required_constraint": "0 < C_action < C_loss"
+  },
+  "dgp_families": [
+    "cost_loss_sweep",
+    "better_proper_score_lower_decision_value",
+    "worse_proper_score_higher_decision_value",
+    "asymmetric_loss",
+    "partial_action_effectiveness",
+    "lead_time_feasibility",
+    "rare_events",
+    "subgroup_miscalibration",
+    "predeclared_threshold_value_curve",
+    "missing_late_records",
+    "independent_system_dependence",
+    "undefined_or_infeasible_action"
+  ],
+  "baselines": [
+    "never_act",
+    "always_act_when_allowed",
+    "climatology_policy",
+    "reference_forecast_policy",
+    "perfect_information_infeasible_oracle"
+  ],
+  "metrics": [
+    "proper_forecast_score",
+    "realized_policy_loss",
+    "expected_policy_loss",
+    "incremental_value_vs_each_baseline",
+    "false_action_count",
+    "missed_event_count",
+    "perfect_information_loss_lower_bound",
+    "decision_regret",
+    "predeclared_threshold_value_curve",
+    "late_missing_infeasible_case_rate",
+    "per_profile_utility",
+    "worst_profile_value",
+    "paired_cluster_uncertainty"
+  ],
+  "controls": [
+    "freeze_cost_loss_profile_before_confirmatory_evaluation",
+    "no_confirmatory_threshold_tuning",
+    "identical_candidate_reference_cases_and_truth_source",
+    "chronological_decision_cutoff",
+    "late_forecasts_visible",
+    "independent_system_cluster_uncertainty",
+    "proper_score_separate_from_utility",
+    "undefined_profiles_abstain"
+  ],
+  "targets": {
+    "exact_profile_fingerprint": true,
+    "exact_threshold_derivation": true,
+    "zero_confirmatory_threshold_tuning": true,
+    "paired_case_equality": 1,
+    "exact_analytic_expected_loss_oracle": true,
+    "no_score_utility_conflation": true,
+    "per_profile_results_always_reported": true
+  },
+  "integration": {
+    "new_gate_now": false,
+    "preserve_eight_gate_conjunction": true
+  },
+  "non_claims": [
+    "operational_warning_threshold",
+    "real_user_preference_model",
+    "lives_saved",
+    "causal_impact",
+    "automatic_action",
+    "national_authority"
+  ]
+}
