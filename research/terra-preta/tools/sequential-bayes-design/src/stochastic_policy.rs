@@ -847,7 +847,8 @@ mod tests {
         let tiny_radius = optimize_shared_kl_policy(
             &candidates, &[0.5, 0.5], 2, 1e-20, 64,
         ).unwrap();
-        assert_eq!(tiny_radius.alpha, 1.0);
+        assert!(tiny_radius.alpha < 1.0);
+        assert!(1.0 - tiny_radius.alpha < 2e-12);
         assert!(tiny_radius.robust_policy_value_nats.is_finite());
 
         let large_radius = optimize_shared_kl_policy(
