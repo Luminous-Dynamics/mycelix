@@ -51,3 +51,10 @@ data-dependent joint log likelihood. A deliberate likelihood-misspecification
 negative control must violate the 7–13% frequency band in at least one of the
 two rank histograms. This is an exact finite categorical reference test, not
 SBC certification for continuous physical, covariance or discrepancy models.
+
+
+The discrepancy-state tests also vary its prior weight and residual-outcome
+likelihood. The posterior discrepancy weight must be monotonic in both, and the
+declared decision must switch from acting under physical candidates to
+DIAGNOSE_FIRST at the preregistered synthetic threshold. This is sensitivity
+analysis for an author-specified state, not empirical prior calibration.
