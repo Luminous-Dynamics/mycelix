@@ -340,3 +340,50 @@ misspecification (Tang et al., AISTATS 2026), and strengthened SBC checks using
 data-dependent quantities (Modrák et al., 2025). These methods must be
 implemented or fairly adapted and compared under identical observation
 operators, simulator calls, measurement budgets, seeds and target strata.
+
+
+## 19. Common held-out predictive calibration
+
+The sequential engine now requires a fixed `validation_probes` array. These probes
+are evaluator-only: they are not passed into the selector, are not eligible
+acquisition actions, and do not consume the experiment budget. Every policy's
+final posterior is scored on the same held-out probe definitions, candidate
+likelihoods and evaluator-truth outcome distribution.
+
+For a probe with posterior predictive probabilities \(p_k\) and known synthetic
+truth probabilities \(q_k\), expected negative log score and expected
+multiclass Brier score are computed as:
+
+\[
+\operatorname{NLS}(p,q) = -\sum_k q_k\log p_k
+\]
+
+\[
+\operatorname{Brier}(p,q) =
+\sum_k q_k\sum_j(p_j-\mathbb{1}[j=k])^2
+\]
+
+This is evaluated per target stratum and pooled by probe count. The report
+distinguishes:
+- **prequential selected-stream scores**, which describe predictions for
+  different measurement operators chosen by each policy; and
+- **common held-out scores**, which compare final posteriors on identical
+  evaluation probes.
+
+The latter are the matched cross-policy predictive comparison. The former
+remain useful operational diagnostics, but should not be interpreted as a
+fully controlled calibration contest because adaptive policies change the
+observed measurement mix.
+
+The in-family regression fixture sets each held-out truth distribution equal
+to the DUAL_PERMEABILITY candidate likelihood. A test requires a posterior
+concentrated on that model to obtain strictly better expected log and Brier
+scores than a competing model posterior. Another negative control mutates
+held-out truth without changing the selector's first choice. These are
+software/reference-case tests, not calibration certification on a real
+physical process.
+
+This addition addresses one fairness problem but does not replace SBC. A
+posterior can score well on a small fixed probe set and still be miscalibrated
+elsewhere; future #5632 work must use prior-predictive worlds, independent
+truths and data-dependent SBC quantities, including joint likelihood checks.
