@@ -1046,6 +1046,9 @@ mod tests {
         for decision in &mut mutated.truth_decisions {
             decision.utility = 1.0 - decision.utility;
         }
+        for probe in &mut mutated.validation_probes {
+            probe.truth_outcome_probabilities.reverse();
+        }
         let after_actions = selector_actions(&mutated);
         let after_decisions = selector_decisions(&mutated);
         let after_prior: Vec<f64> = mutated.models.iter().map(|m| m.prior_weight).collect();
@@ -1166,9 +1169,65 @@ mod tests {
             let result = summarize_trajectory(&scenario, policy, 0, &context, &actions, &decisions);
             assert!(result.predictive_log_score.is_finite());
             assert!(result.predictive_brier_score.is_finite());
+            assert!(result.heldout_validation_log_score.is_finite());
+            assert!(result.heldout_validation_brier_score.is_finite());
+            assert_eq!(result.validation_by_stratum.len(), scenario.strata.len());
             assert!(result.decision_regret >= 0.0);
             assert!(result.total_cost_units <= scenario.budget_cost_units);
         }
+    }
+
+    #[test]
+    fn heldout_calibration_uses_common_truth_and_rewards_correct_forecast() {
+        let scenario: Scenario = serde_json::from_str(include_str!(
+            "../fixtures/synthetic-sequential-infamily-control.json"
+        )).expect("in-family validation fixture");
+        let model_index = scenario.models.iter()
+            .position(|model| model.model_id == "DUAL_PERMEABILITY")
+            .expect("dual-permeability model");
+        let mut correct = vec![0.0; scenario.models.len()];
+        correct[model_index] = 1.0;
+        let wrong_index = (model_index + 1) % scenario.models.len();
+        let mut wrong = vec![0.0; scenario.models.len()];
+        wrong[wrong_index] = 1.0;
+
+        let (correct_log, correct_brier, correct_strata) = heldout_validation_scores(
+            &correct, &scenario.models, &scenario.validation_probes, &scenario.strata,
+        );
+        let (wrong_log, wrong_brier, wrong_strata) = heldout_validation_scores(
+            &wrong, &scenario.models, &scenario.validation_probes, &scenario.strata,
+        );
+        assert!(correct_log + 1e-8 < wrong_log);
+        assert!(correct_brier + 1e-8 < wrong_brier);
+        assert_eq!(correct_strata.len(), scenario.strata.len());
+        assert_eq!(wrong_strata.len(), scenario.strata.len());
+    }
+
+    #[test]
+    fn every_policy_is_scored_on_the_same_heldout_probes() {
+        let scenario = fixture();
+        let report = build_report(&scenario, b"fixture").expect("report");
+        assert_eq!(report.validation_probe_count, scenario.validation_probes.len());
+        for summary in &report.policy_summaries {
+            assert_eq!(summary.validation_by_stratum.len(), scenario.strata.len());
+            assert!(summary.mean_heldout_validation_log_score.is_finite());
+            assert!(summary.mean_heldout_validation_brier_score.is_finite());
+            assert!(summary.validation_by_stratum.iter().all(|entry| {
+                entry.probe_count > 0
+                    && entry.expected_log_score.is_finite()
+                    && entry.expected_brier_score.is_finite()
+            }));
+        }
+    }
+
+    #[test]
+    fn reject_invalid_heldout_probe_distribution() {
+        let mut scenario = fixture();
+        scenario.validation_probes[0].truth_outcome_probabilities[0] = 0.0;
+        assert!(validate_scenario(&scenario).is_err());
+        let mut scenario = fixture();
+        scenario.validation_probes[0].likelihoods[0].outcome_probabilities[0] = f64::NAN;
+        assert!(validate_scenario(&scenario).is_err());
     }
 
     #[test]
