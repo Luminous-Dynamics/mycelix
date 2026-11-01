@@ -165,9 +165,7 @@ impl ClaimProfile {
             if separation.left_role == separation.right_role {
                 return Err(CompositionError::SelfSeparation);
             }
-            if !roles.contains(&separation.left_role)
-                || !roles.contains(&separation.right_role)
-            {
+            if !roles.contains(&separation.left_role) || !roles.contains(&separation.right_role) {
                 return Err(CompositionError::SeparationRoleNotRequired);
             }
             if !separations.insert(*separation) {
@@ -320,7 +318,10 @@ pub fn compose(
             .insert(assessment.fault_domains.clone());
     }
 
-    if evaluator_observations.values().any(|observation| observation.outcomes.len() > 1) {
+    if evaluator_observations
+        .values()
+        .any(|observation| observation.outcomes.len() > 1)
+    {
         reasons.insert(CompositionReason::ContradictoryEvaluatorOutput);
     }
     if evaluator_observations
@@ -564,10 +565,7 @@ mod tests {
             result.disposition,
             CompositionDisposition::HardInvariantRefuted
         );
-        assert!(has_reason(
-            &result,
-            CompositionReason::HardInvariantRefuted
-        ));
+        assert!(has_reason(&result, CompositionReason::HardInvariantRefuted));
     }
 
     #[test]
@@ -591,8 +589,7 @@ mod tests {
     #[test]
     fn different_executable_digests_do_not_hide_shared_implementation_lineage() {
         let mut pair = required_pair();
-        pair[1].fault_domains.implementation_lineage =
-            pair[0].fault_domains.implementation_lineage;
+        pair[1].fault_domains.implementation_lineage = pair[0].fault_domains.implementation_lineage;
 
         let result = compose(&profile(false), &pair).unwrap();
         assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
@@ -619,18 +616,11 @@ mod tests {
     fn missing_required_role_cannot_be_filled_by_extra_supporting_runs() {
         let mut pair = required_pair();
         pair.retain(|assessment| assessment.role == EvaluatorRole::NormativeContract);
-        pair.push(assessment(
-            EvaluatorRole::InvariantChecker,
-            14,
-            4,
-        ));
+        pair.push(assessment(EvaluatorRole::InvariantChecker, 14, 4));
 
         let result = compose(&profile(false), &pair).unwrap();
         assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
-        assert!(has_reason(
-            &result,
-            CompositionReason::RequiredRoleMissing
-        ));
+        assert!(has_reason(&result, CompositionReason::RequiredRoleMissing));
     }
 
     #[test]
@@ -641,19 +631,12 @@ mod tests {
         let result = compose(&profile(false), &pair).unwrap();
         assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
         assert_eq!(result.non_current_assessment_count, 1);
-        assert!(has_reason(
-            &result,
-            CompositionReason::RequiredRoleMissing
-        ));
+        assert!(has_reason(&result, CompositionReason::RequiredRoleMissing));
     }
 
     #[test]
     fn subject_substitution_cannot_reuse_an_old_support_assessment() {
-        let mut old_subject = assessment(
-            EvaluatorRole::IndependentImplementation,
-            12,
-            2,
-        );
+        let mut old_subject = assessment(EvaluatorRole::IndependentImplementation, 12, 2);
         old_subject.subject_digest = digest(99);
         let assessments = vec![
             assessment(EvaluatorRole::NormativeContract, 11, 1),
@@ -702,8 +685,7 @@ mod tests {
     #[test]
     fn invalid_profile_cannot_request_self_separation() {
         let mut invalid = profile(false);
-        invalid.required_separations[0].right_role =
-            EvaluatorRole::NormativeContract;
+        invalid.required_separations[0].right_role = EvaluatorRole::NormativeContract;
 
         assert_eq!(
             invalid.validate(),
