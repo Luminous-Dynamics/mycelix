@@ -251,3 +251,26 @@ These publications motivate the test cases; they do not establish that our imple
 ## 11. Evidence and safety boundary
 
 Software and synthetic benchmark only. This specification does not authorize sample collection, CT scanning, tracer injection, land access, amendment application, material handling or field trials. Empirical data use requires source/license review, provenance, data governance and qualified review. No agronomic recommendation, product efficacy or field-transfer claim follows from synthetic success.
+
+
+## Multiscale CT and tensorial hydraulic bridge — 2026 literature update
+
+A new physical qualification dependency is tracked in [#5650 TERRA-PHYS-002](https://github.com/Luminous-Dynamics/mycelix/issues/5650) and specified in `MULTISCALE_CT_TENSORIAL_PERMEABILITY_BENCHMARK_V0.1.md`.
+
+The cross-modal operator benchmark must now treat resolution, ROI / field-of-view and core diameter as joint design variables. Kaur et al. (2025) report that these choices change pore counts, isolated volume, connectivity and anisotropy. Jiang et al. (2025) show how segmentation uncertainty can propagate into hydraulic-property uncertainty. Gerke et al. (2026) show that pore-scale solver agreement does not guarantee agreement with experimental Ksat and report directional anisotropy. Sobucki et al. (2026) show domain-dependent CT–hydraulic relationships across cohesive and non-cohesive horizons.
+
+For CT–tracer experiments, preserve both:
+- a multiscale geometric observation with uncertainty; and
+- an independently supported directional hydraulic response / tensor where identified.
+
+Do not infer event-specific hydraulic activation from a saturated conductivity tensor alone. The link remains:
+
+```text
+CT geometry ensemble
+ -> directional saturated-flow properties
+ -> antecedent state + event forcing
+ -> active pathways and exchange
+ -> tracer breakthrough operator
+```
+
+The tensor is a bridge/physical prior, not a shortcut to tracer prediction. No solver or physical dataset was run by this update.
