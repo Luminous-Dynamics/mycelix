@@ -358,17 +358,7 @@ fn common_batches(doses: &BTreeMap<u64, Vec<UnitMean>>) -> Vec<String> {
     common.unwrap_or_default().into_iter().collect()
 }
 
-fn common_batches(doses: &BTreeMap<u64, Vec<UnitMean>>) -> Vec<String> {
-    let mut common: Option<BTreeSet<String>> = None;
-    for units in doses.values() {
-        let batches: BTreeSet<String> = units.iter().map(|u| u.batch.clone()).collect();
-        common = Some(match common {
-            Some(previous) => previous.intersection(&batches).cloned().collect(),
-            None => batches,
-        });
-    }
-    common.unwrap_or_default().into_iter().collect()
-}
+
 
 fn shape(doses: &BTreeMap<u64, Vec<UnitMean>>, floor: usize, tol: f64) -> &'static str {
     if doses.values().any(|units| units.len() < floor) {
