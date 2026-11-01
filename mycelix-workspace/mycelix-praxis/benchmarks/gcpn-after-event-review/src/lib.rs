@@ -160,6 +160,7 @@ pub enum CausalAssessment {
     CausalClaimConsistentWithKnownDgp,
     CausalEffectUnidentified,
     CausalEvidenceNotVisibleAsOf,
+    CausalEvidenceUnverified,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,9 +176,16 @@ pub fn assess_causal_claim_as_of(
     truth: &KnownDgpTruth,
     snapshot: &TimelineSnapshot,
 ) -> CausalAssessment {
-    let visible: BTreeSet<&str> = snapshot.events.iter().map(|event| event.evidence_id.as_str()).collect();
-    if claim.evidence_ids.iter().any(|id| !visible.contains(id.as_str())) {
+    let visible: BTreeMap<&str, bool> = snapshot
+        .events
+        .iter()
+        .map(|event| (event.evidence_id.as_str(), event.verified_under_fixture_policy))
+        .collect();
+    if claim.evidence_ids.iter().any(|id| !visible.contains_key(id.as_str())) {
         return CausalAssessment::CausalEvidenceNotVisibleAsOf;
+    }
+    if claim.evidence_ids.iter().any(|id| !visible.get(id.as_str()).copied().unwrap_or(false)) {
+        return CausalAssessment::CausalEvidenceUnverified;
     }
     assess_causal_claim(claim, truth)
 }
@@ -263,6 +271,7 @@ pub enum RecommendationStatus {
     TraceableAndActionable,
     MissingEvidence,
     UnknownEvidence,
+    UnverifiedEvidence,
     MissingSystemIssue,
     MissingOwnerRole,
     MissingFollowUp,
@@ -278,10 +287,10 @@ pub fn validate_recommendations(
     recommendations: &[Recommendation],
     snapshot: &TimelineSnapshot,
 ) -> Vec<RecommendationFinding> {
-    let visible: BTreeSet<&str> = snapshot
+    let visible: BTreeMap<&str, bool> = snapshot
         .events
         .iter()
-        .map(|event| event.evidence_id.as_str())
+        .map(|event| (event.evidence_id.as_str(), event.verified_under_fixture_policy))
         .collect();
     recommendations
         .iter()
@@ -291,9 +300,15 @@ pub fn validate_recommendations(
             } else if recommendation
                 .evidence_ids
                 .iter()
-                .any(|id| !visible.contains(id.as_str()))
+                .any(|id| !visible.contains_key(id.as_str()))
             {
                 RecommendationStatus::UnknownEvidence
+            } else if recommendation
+                .evidence_ids
+                .iter()
+                .any(|id| !visible.get(id.as_str()).copied().unwrap_or(false))
+            {
+                RecommendationStatus::UnverifiedEvidence
             } else if recommendation.system_issue.trim().is_empty() {
                 RecommendationStatus::MissingSystemIssue
             } else if recommendation.owner_role.trim().is_empty() {
@@ -358,7 +373,7 @@ pub fn summarize_review(
             CausalAssessment::CausalFieldsIncomplete => report.causal_claims_incomplete += 1,
             CausalAssessment::CausalClaimUnsupportedByKnownDgp => report.causal_claims_unsupported += 1,
             CausalAssessment::CausalEffectUnidentified => report.causal_effects_unidentified += 1,
-            CausalAssessment::CausalEvidenceNotVisibleAsOf => report.causal_claims_incomplete += 1,
+            CausalAssessment::CausalEvidenceNotVisibleAsOf | CausalAssessment::CausalEvidenceUnverified => report.causal_claims_incomplete += 1,
             _ => {}
         }
     }
@@ -449,6 +464,22 @@ mod tests {
         let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
         let snapshot=reconstruct_as_of(&[event("evidence-1","m1",100,300,true)],200);
         assert_eq!(assess_causal_claim_as_of(&claim,&truth,&snapshot),CausalAssessment::CausalEvidenceNotVisibleAsOf);
+    }
+
+    #[test]
+    fn unverified_as_of_evidence_cannot_support_causal_claim(){
+        let claim=complete_causal_claim();
+        let truth=KnownDgpTruth{causal_effect_identified:true,supported_links:BTreeSet::from([("warning_delay".into(),"reduced_timely_reach".into())])};
+        let snapshot=reconstruct_as_of(&[event("evidence-1","m1",100,101,false)],200);
+        assert_eq!(assess_causal_claim_as_of(&claim,&truth,&snapshot),CausalAssessment::CausalEvidenceUnverified);
+    }
+
+    #[test]
+    fn recommendations_do_not_treat_unverified_evidence_as_traceable(){
+        let snapshot=reconstruct_as_of(&[event("e1","m1",100,101,false)],200);
+        let recommendation=Recommendation{recommendation_id:"r".into(),system_issue:"system issue".into(),owner_role:"coordination role".into(),evidence_ids:vec!["e1".into()],follow_up_due:Some(500),measurable_follow_up:Some("measure handoff time".into())};
+        let result=validate_recommendations(&[recommendation],&snapshot);
+        assert_eq!(result[0].status,RecommendationStatus::UnverifiedEvidence);
     }
 
     #[test]
