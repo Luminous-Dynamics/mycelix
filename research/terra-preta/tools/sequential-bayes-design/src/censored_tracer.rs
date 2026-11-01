@@ -186,6 +186,11 @@ pub fn update_censored_model_posterior(
 ) -> Result<CensoredModelPosterior, String> {
     let prior = validate_components(components)?;
     let mut likelihoods = Vec::with_capacity(components.len());
+    let observation_was_missing = matches!(
+        observation,
+        CensoredTracerObservation::MissingAtRandom
+            | CensoredTracerObservation::MissingWithModelProbabilities { .. }
+    );
 
     match observation {
         CensoredTracerObservation::MissingAtRandom => {
@@ -243,7 +248,7 @@ pub fn update_censored_model_posterior(
         weights,
         log_evidence,
         model_event_probabilities: likelihoods,
-        observation_was_missing: false,
+        observation_was_missing,
     })
 }
 
@@ -389,6 +394,19 @@ mod tests {
         assert_eq!(posterior.weights, vec![0.5, 0.5]);
         assert_eq!(posterior.model_event_probabilities, vec![1.0, 1.0]);
         assert_eq!(posterior.log_evidence, 0.0);
+    }
+
+    #[test]
+    fn informative_missingness_is_labelled_as_missing_and_uses_declared_model_likelihood() {
+        let posterior = update_censored_model_posterior(
+            &tracer_components(),
+            &CensoredTracerObservation::MissingWithModelProbabilities {
+                probabilities: vec![0.8, 0.2],
+            },
+        ).unwrap();
+        assert!(posterior.observation_was_missing);
+        assert!((posterior.model_event_probabilities[0] - 0.8).abs() < 1e-12);
+        assert!(posterior.weights[0] > 0.79);
     }
 
     #[test]
