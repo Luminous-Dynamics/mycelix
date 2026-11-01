@@ -479,14 +479,12 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
 
     let forecast_activity = (forecast_activity_squared_sum / total_weight).sqrt();
     let truth_activity = (truth_activity_squared_sum / total_weight).sqrt();
-    let anomaly_centered_error_std =
-        (anomaly_centered_squared_error_sum / total_weight).sqrt();
+    let anomaly_centered_error_std = (anomaly_centered_squared_error_sum / total_weight).sqrt();
 
     // Raw RMSE includes the separate mean bias; its centered-error identity
     // is an independent negative-control invariant.
-    let reconstructed_raw_rmse = (raw_bias * raw_bias
-        + anomaly_centered_error_std * anomaly_centered_error_std)
-        .sqrt();
+    let reconstructed_raw_rmse =
+        (raw_bias * raw_bias + anomaly_centered_error_std * anomaly_centered_error_std).sqrt();
     let raw_identity_tolerance = 1e-10 * raw_rmse.max(1.0);
     if (reconstructed_raw_rmse - raw_rmse).abs() > raw_identity_tolerance {
         return Err(ContractError::new(
@@ -831,7 +829,10 @@ mod tests {
         let first = &evaluate(&contract(), &[base]).unwrap().cases[0];
         let second = &evaluate(&contract(), &[scaled]).unwrap().cases[0];
         near(first.raw_rmse, second.raw_rmse);
-        near(first.anomaly_centered_error_std, second.anomaly_centered_error_std);
+        near(
+            first.anomaly_centered_error_std,
+            second.anomaly_centered_error_std,
+        );
         near(
             first.forecast_information.unwrap(),
             second.forecast_information.unwrap(),
