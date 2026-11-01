@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{env, error::Error, fs, fs::OpenOptions, io::{self, Write}};
+use std::{
+    env,
+    error::Error,
+    fs,
+    fs::OpenOptions,
+    io::{self, Write},
+};
 
 const AUDIT_VERSION: &str = "0.1.0";
 const MIN_THRESHOLD: f64 = 0.000_001;
@@ -118,7 +124,9 @@ fn nonblank(value: &str, label: &str) -> Result<(), String> {
 
 fn valid_sha256(value: &str, label: &str) -> Result<(), String> {
     if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(format!("{label} must contain exactly 64 hexadecimal characters"));
+        return Err(format!(
+            "{label} must contain exactly 64 hexadecimal characters"
+        ));
     }
     Ok(())
 }
@@ -141,11 +149,16 @@ fn is_tied(ordering: &str) -> bool {
 
 fn validate(input: &Input) -> Result<(), String> {
     if input.schema_version != "0.1.0" {
-        return Err(format!("unsupported schema_version {:?}", input.schema_version));
+        return Err(format!(
+            "unsupported schema_version {:?}",
+            input.schema_version
+        ));
     }
     nonblank(&input.source_evidence_ref, "source_evidence_ref")?;
     if input.profile_reports.len() < 2 {
-        return Err("at least two profile reports from distinct thresholds are required".to_owned());
+        return Err(
+            "at least two profile reports from distinct thresholds are required".to_owned(),
+        );
     }
 
     let first = &input.profile_reports[0];
@@ -159,10 +172,18 @@ fn validate(input: &Input) -> Result<(), String> {
                 report.audit_version
             ));
         }
-        valid_sha256(&report.input_sha256, &format!("profile_reports[{index}].input_sha256"))?;
-        valid_sha256(&report.source_sha256, &format!("profile_reports[{index}].source_sha256"))?;
+        valid_sha256(
+            &report.input_sha256,
+            &format!("profile_reports[{index}].input_sha256"),
+        )?;
+        valid_sha256(
+            &report.source_sha256,
+            &format!("profile_reports[{index}].source_sha256"),
+        )?;
         if !seen_report_digests.insert(report.input_sha256.as_str()) {
-            return Err(format!("duplicate profile report input digest at index {index}"));
+            return Err(format!(
+                "duplicate profile report input digest at index {index}"
+            ));
         }
         for (value, label) in [
             (&report.study_id, "study_id"),
@@ -171,7 +192,10 @@ fn validate(input: &Input) -> Result<(), String> {
             (&report.profile_id, "profile_id"),
             (&report.event_id, "event_id"),
             (&report.event_start_utc, "event_start_utc"),
-            (&report.observation_window_end_utc, "observation_window_end_utc"),
+            (
+                &report.observation_window_end_utc,
+                "observation_window_end_utc",
+            ),
             (&report.response_onset_method, "response_onset_method"),
             (&report.profile_coverage_status, "profile_coverage_status"),
             (&report.profile_classification, "profile_classification"),
@@ -190,7 +214,10 @@ fn validate(input: &Input) -> Result<(), String> {
             ));
         }
         if threshold <= previous_threshold {
-            return Err("profile reports must be supplied in strictly increasing response-threshold order".to_owned());
+            return Err(
+                "profile reports must be supplied in strictly increasing response-threshold order"
+                    .to_owned(),
+            );
         }
         previous_threshold = threshold;
 
@@ -240,7 +267,10 @@ fn validate(input: &Input) -> Result<(), String> {
                     "profile_reports[{index}].pair_results[{pair_index}] must identify shallow and deeper positive depths"
                 ));
             }
-            let key = (pair.shallow_sensor_id.as_str(), pair.deep_sensor_id.as_str());
+            let key = (
+                pair.shallow_sensor_id.as_str(),
+                pair.deep_sensor_id.as_str(),
+            );
             if !pair_ids.insert(key) {
                 return Err(format!(
                     "profile_reports[{index}] contains duplicate sensor pair {:?}",
@@ -279,10 +309,26 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
     let mut incomplete_profile_threshold_count = 0usize;
 
     for report in &input.profile_reports {
-        let nsr_count = report.pair_results.iter().filter(|pair| is_nsr(&pair.ordering)).count();
-        let sequential_count = report.pair_results.iter().filter(|pair| is_sequential(&pair.ordering)).count();
-        let ambiguous_count = report.pair_results.iter().filter(|pair| is_ambiguous(&pair.ordering)).count();
-        let tied_count = report.pair_results.iter().filter(|pair| is_tied(&pair.ordering)).count();
+        let nsr_count = report
+            .pair_results
+            .iter()
+            .filter(|pair| is_nsr(&pair.ordering))
+            .count();
+        let sequential_count = report
+            .pair_results
+            .iter()
+            .filter(|pair| is_sequential(&pair.ordering))
+            .count();
+        let ambiguous_count = report
+            .pair_results
+            .iter()
+            .filter(|pair| is_ambiguous(&pair.ordering))
+            .count();
+        let tied_count = report
+            .pair_results
+            .iter()
+            .filter(|pair| is_tied(&pair.ordering))
+            .count();
         if nsr_count > 0 {
             nsr_detected_threshold_count += 1;
         } else {
@@ -310,8 +356,7 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
             let key = (pair.shallow_sensor_id.clone(), pair.deep_sensor_id.clone());
             let value = (pair.shallow_depth_cm, pair.deep_depth_cm);
             if let Some(existing) = pair_keys.get(&key) {
-                if existing.0.total_cmp(&value.0).is_ne()
-                    || existing.1.total_cmp(&value.1).is_ne()
+                if existing.0.total_cmp(&value.0).is_ne() || existing.1.total_cmp(&value.1).is_ne()
                 {
                     return Err(format!(
                         "sensor pair {:?} has inconsistent depths across thresholds",
@@ -385,29 +430,41 @@ fn evaluate(input: &Input, input_sha256: String) -> Result<Report, String> {
         });
     }
 
-    let persistent_nsr_pair_count = pair_stability.iter()
+    let persistent_nsr_pair_count = pair_stability
+        .iter()
         .filter(|pair| pair.persistence_status == "persistent_nsr_all_thresholds")
         .count();
-    let threshold_sensitive_pair_count = pair_stability.iter()
-        .filter(|pair| matches!(pair.persistence_status, "threshold_sensitive_ordering" | "mixed_non_nsr_ordering"))
+    let threshold_sensitive_pair_count = pair_stability
+        .iter()
+        .filter(|pair| {
+            matches!(
+                pair.persistence_status,
+                "threshold_sensitive_ordering" | "mixed_non_nsr_ordering"
+            )
+        })
         .count();
-    let non_evaluable_pair_count = pair_stability.iter()
-        .filter(|pair| pair.persistence_status == "not_evaluable_across_all_thresholds" || pair.persistence_status == "partially_evaluable_nsr")
+    let non_evaluable_pair_count = pair_stability
+        .iter()
+        .filter(|pair| {
+            pair.persistence_status == "not_evaluable_across_all_thresholds"
+                || pair.persistence_status == "partially_evaluable_nsr"
+        })
         .count();
 
-    let profile_nsr_persistence_status = if persistent_nsr_pair_count > 0 && incomplete_profile_threshold_count > 0 {
-        "nsr_pair_persistent_with_incomplete_profile_coverage"
-    } else if persistent_nsr_pair_count > 0 {
-        "nsr_pair_persistent_across_all_thresholds"
-    } else if nsr_detected_threshold_count > 0 && nsr_absent_threshold_count > 0 {
-        "profile_nsr_threshold_sensitive"
-    } else if nsr_detected_threshold_count == threshold_count {
-        "nsr_present_at_all_thresholds_but_no_pair_persistent"
-    } else if incomplete_profile_threshold_count > 0 {
-        "no_nsr_detected_with_incomplete_profile_evidence"
-    } else {
-        "no_nsr_signature_detected_across_declared_thresholds"
-    };
+    let profile_nsr_persistence_status =
+        if persistent_nsr_pair_count > 0 && incomplete_profile_threshold_count > 0 {
+            "nsr_pair_persistent_with_incomplete_profile_coverage"
+        } else if persistent_nsr_pair_count > 0 {
+            "nsr_pair_persistent_across_all_thresholds"
+        } else if nsr_detected_threshold_count > 0 && nsr_absent_threshold_count > 0 {
+            "profile_nsr_threshold_sensitive"
+        } else if nsr_detected_threshold_count == threshold_count {
+            "nsr_present_at_all_thresholds_but_no_pair_persistent"
+        } else if incomplete_profile_threshold_count > 0 {
+            "no_nsr_detected_with_incomplete_profile_evidence"
+        } else {
+            "no_nsr_signature_detected_across_declared_thresholds"
+        };
 
     Ok(Report {
         audit_version: AUDIT_VERSION,
@@ -451,7 +508,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "usage: profile-threshold-stability-audit <threshold-reports.json> <new-report.json>",
-        ).into());
+        )
+        .into());
     }
     let bytes = fs::read(&args[1])?;
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
@@ -460,14 +518,27 @@ fn run() -> Result<(), Box<dyn Error>> {
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let mut encoded = serde_json::to_vec_pretty(&report)?;
     encoded.push(b'\n');
-    let mut output = OpenOptions::new().write(true).create_new(true).open(&args[2])
-        .map_err(|error| io::Error::new(error.kind(), format!("refusing overwrite or cannot create report {}: {error}", args[2])))?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&args[2])
+        .map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!(
+                    "refusing overwrite or cannot create report {}: {error}",
+                    args[2]
+                ),
+            )
+        })?;
     output.write_all(&encoded)?;
     output.sync_all()?;
     println!(
         "profile threshold stability audit complete: {} thresholds; {} persistent NSR pairs; {} threshold-sensitive pairs; input SHA-256 {}",
-        report.threshold_count, report.persistent_nsr_pair_count,
-        report.threshold_sensitive_pair_count, report.input_sha256
+        report.threshold_count,
+        report.persistent_nsr_pair_count,
+        report.threshold_sensitive_pair_count,
+        report.input_sha256
     );
     Ok(())
 }
@@ -488,7 +559,13 @@ mod tests {
             shallow_sensor_id: shallow.to_owned(),
             shallow_depth_cm: if shallow == "D10" { 10.0 } else { 30.0 },
             deep_sensor_id: deep.to_owned(),
-            deep_depth_cm: if deep == "D90" { 90.0 } else if deep == "D60" { 60.0 } else { 30.0 },
+            deep_depth_cm: if deep == "D90" {
+                90.0
+            } else if deep == "D60" {
+                60.0
+            } else {
+                30.0
+            },
             ordering: ordering.to_owned(),
         }
     }
@@ -521,20 +598,56 @@ mod tests {
             schema_version: "0.1.0".to_owned(),
             source_evidence_ref: "synthetic test only".to_owned(),
             profile_reports: vec![
-                profile(0.01, &"b".repeat(64), vec![
-                    pair("D10", "D30", "nonsequential_deeper_first_interval_separated"),
-                    pair("D10", "D60", "sequential_shallower_first_interval_separated"),
-                    pair("D30", "D90", "nonsequential_deeper_first_interval_separated"),
-                ]),
-                profile(0.02, &"c".repeat(64), vec![
-                    pair("D10", "D30", "nonsequential_deeper_first_interval_separated"),
-                    pair("D10", "D60", "ambiguous_overlapping_response_intervals"),
-                    pair("D30", "D90", "nonsequential_deeper_first_interval_separated"),
-                ]),
-                profile(0.03, &"d".repeat(64), vec![
-                    pair("D10", "D30", "ambiguous_overlapping_response_intervals"),
-                    pair("D10", "D60", "sequential_shallower_first_interval_separated"),
-                ]),
+                profile(
+                    0.01,
+                    &"b".repeat(64),
+                    vec![
+                        pair(
+                            "D10",
+                            "D30",
+                            "nonsequential_deeper_first_interval_separated",
+                        ),
+                        pair(
+                            "D10",
+                            "D60",
+                            "sequential_shallower_first_interval_separated",
+                        ),
+                        pair(
+                            "D30",
+                            "D90",
+                            "nonsequential_deeper_first_interval_separated",
+                        ),
+                    ],
+                ),
+                profile(
+                    0.02,
+                    &"c".repeat(64),
+                    vec![
+                        pair(
+                            "D10",
+                            "D30",
+                            "nonsequential_deeper_first_interval_separated",
+                        ),
+                        pair("D10", "D60", "ambiguous_overlapping_response_intervals"),
+                        pair(
+                            "D30",
+                            "D90",
+                            "nonsequential_deeper_first_interval_separated",
+                        ),
+                    ],
+                ),
+                profile(
+                    0.03,
+                    &"d".repeat(64),
+                    vec![
+                        pair("D10", "D30", "ambiguous_overlapping_response_intervals"),
+                        pair(
+                            "D10",
+                            "D60",
+                            "sequential_shallower_first_interval_separated",
+                        ),
+                    ],
+                ),
             ],
         }
     }
@@ -554,10 +667,16 @@ mod tests {
         let object = value.as_object_mut().unwrap();
         object.insert("detected_sensor_count".to_owned(), serde_json::json!(3));
         object.insert("not_detected_sensor_count".to_owned(), serde_json::json!(1));
-        object.insert("distinct_detecting_depth_count".to_owned(), serde_json::json!(2));
+        object.insert(
+            "distinct_detecting_depth_count".to_owned(),
+            serde_json::json!(2),
+        );
         object.insert("comparable_pair_count".to_owned(), serde_json::json!(1));
         object.insert("tied_pair_count".to_owned(), serde_json::json!(0));
-        object.insert("interpretation_boundary".to_owned(), serde_json::json!("upstream profile response only"));
+        object.insert(
+            "interpretation_boundary".to_owned(),
+            serde_json::json!("upstream profile response only"),
+        );
         object.insert("warnings".to_owned(), serde_json::json!([]));
         let parsed: ProfileReport = serde_json::from_value(value).unwrap();
         assert_eq!(parsed.pair_results.len(), 1);
@@ -566,18 +685,28 @@ mod tests {
     #[test]
     fn recognizes_nsr_pair_that_persists_at_all_thresholds() {
         let report = evaluate(&fixture_input(), "e".repeat(64)).unwrap();
-        assert_eq!(report.profile_nsr_persistence_status, "nsr_pair_persistent_across_all_thresholds");
+        assert_eq!(
+            report.profile_nsr_persistence_status,
+            "nsr_pair_persistent_across_all_thresholds"
+        );
         assert_eq!(report.persistent_nsr_pair_count, 1);
-        let persistent = report.pair_stability.iter()
+        let persistent = report
+            .pair_stability
+            .iter()
             .find(|pair| pair.shallow_sensor_id == "D30" && pair.deep_sensor_id == "D90")
             .unwrap();
-        assert_eq!(persistent.persistence_status, "persistent_nsr_all_thresholds");
+        assert_eq!(
+            persistent.persistence_status,
+            "persistent_nsr_all_thresholds"
+        );
     }
 
     #[test]
     fn reports_threshold_sensitive_pair_without_forcing_majority_vote() {
         let report = evaluate(&fixture_input(), "f".repeat(64)).unwrap();
-        let pair = report.pair_stability.iter()
+        let pair = report
+            .pair_stability
+            .iter()
             .find(|pair| pair.shallow_sensor_id == "D10" && pair.deep_sensor_id == "D30")
             .unwrap();
         assert_eq!(pair.persistence_status, "threshold_sensitive_ordering");
@@ -589,10 +718,15 @@ mod tests {
     #[test]
     fn absent_pair_is_not_treated_as_a_negative_result() {
         let report = evaluate(&fixture_input(), "1".repeat(64)).unwrap();
-        let pair = report.pair_stability.iter()
+        let pair = report
+            .pair_stability
+            .iter()
             .find(|pair| pair.shallow_sensor_id == "D10" && pair.deep_sensor_id == "D60")
             .unwrap();
-        assert_eq!(pair.persistence_status, "not_evaluable_across_all_thresholds");
+        assert_eq!(
+            pair.persistence_status,
+            "not_evaluable_across_all_thresholds"
+        );
         assert_eq!(pair.sequential_threshold_count, 1);
         assert_eq!(pair.ambiguous_threshold_count, 1);
         assert_eq!(pair.absent_pair_threshold_count, 1);
@@ -609,21 +743,35 @@ mod tests {
     fn rejects_reports_in_nonincreasing_threshold_order() {
         let mut input = fixture_input();
         input.profile_reports[1].response_threshold_m3_m3 = 0.01;
-        assert!(validate(&input).unwrap_err().contains("strictly increasing"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("strictly increasing")
+        );
     }
 
     #[test]
     fn rejects_mismatched_sensor_roster() {
         let mut input = fixture_input();
         input.profile_reports[2].sensor_count = 3;
-        assert!(validate(&input).unwrap_err().contains("declared sensor roster"));
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("declared sensor roster")
+        );
     }
 
     #[test]
     fn rejects_invalid_or_duplicate_sensor_pairs() {
         let mut input = fixture_input();
-        input.profile_reports[1].pair_results.push(input.profile_reports[1].pair_results[0].clone());
-        assert!(validate(&input).unwrap_err().contains("duplicate sensor pair"));
+        input.profile_reports[1]
+            .pair_results
+            .push(input.profile_reports[1].pair_results[0].clone());
+        assert!(
+            validate(&input)
+                .unwrap_err()
+                .contains("duplicate sensor pair")
+        );
     }
 
     #[test]
