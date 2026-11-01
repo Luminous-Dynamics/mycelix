@@ -60,6 +60,29 @@ DIAGNOSE_FIRST at the preregistered synthetic threshold. This is sensitivity
 analysis for an author-specified state, not empirical prior calibration.
 
 
+## Executable covariance-identifiability bake-off
+
+The `covariance-identifiability-bakeoff` binary reads a strict synthetic JSON
+fixture and emits a SHA-256-bound report. The three designs are: a single
+confounded CT–tracer pair, a batch-only pair, and a fully crossed
+support × batch × instrument × modality replication design. The report
+includes structural rank, per-component identifiability, Gram condition
+number, and exact noiseless coefficient recovery where identified.
+
+Run:
+
+```sh
+cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml \
+  --bin covariance-identifiability-bakeoff -- \
+  research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json \
+  covariance-identifiability-report.json
+```
+
+The focused workflow validates both schemas, executes the CLI, asserts
+rank/attribution and recovered coefficients, validates the report, and uploads
+the artifact. It is a structural covariance-design oracle, not a noisy
+variance estimator.
+
 ## Transient macropore–matrix exchange
 
 The `transient_exchange` module implements a time-resolved reference for
