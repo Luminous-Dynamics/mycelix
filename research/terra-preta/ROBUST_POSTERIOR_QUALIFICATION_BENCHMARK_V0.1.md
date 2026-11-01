@@ -296,3 +296,12 @@ It is distinct from the earlier `robust_information_at_kl_radius` comparator, wh
 The robust CLI now imports the finite stochastic-policy implementation. It builds a Gibbs policy from the exact finite Sibson action rewards, with a uniform reference policy over feasible actions and zero probability for ineligible or over-budget actions. It then evaluates this *stochastic distribution over designs* under the shared-average-KL robust dual using one common beta.
 
 The SHA-bound report now includes action-level prior/posterior probabilities, reward, cost, expected information, (KL(\pi\|\pi_0)), variational objective, expected cost, common dual beta, alpha, expected robust information, adversarial penalty and robust policy value. Workflow assertions check distribution normalization, zero probability for infeasible actions, expected budget compliance, and the dual identity. This is an executable finite stochastic-policy comparator. Rewards are exact synthetic Sibson calculations rather than nested Monte Carlo estimates, and the PAC-Bayes lower-bound assumptions/constants are not validated by this CLI; no certificate or empirical superiority is claimed.
+
+
+## 22. Joint Gibbs/shared-KL finite policy search — 2026-11-01
+
+Added `optimize_gibbs_shared_kl_policy`. For each candidate common dual beta, the implementation maps to α=β/(1+β), recomputes each design's exact finite Sibson reward, and computes the Gibbs maximizer of (E_\pi[r]-KL(\pi\|\pi_0)/\lambda). It then evaluates the combined entropy-regularized shared-KL objective (E_\pi[I_\alpha]-KL(\pi\|\pi_0)/\lambda-\beta\rho) and performs a bounded one-dimensional numerical outer search.
+
+The resulting report records lambda, beta, alpha, policy action probabilities, expected information, policy KL, both complexity/ambiguity penalties and the robust regularized value. At zero ambiguity radius it returns the nominal Shannon limit with no finite beta. Infeasible actions are excluded from the policy support.
+
+This is an exact-reward finite Gibbs/shared-dual reference, not the paper's nested-Monte-Carlo α-information estimator. It does not produce a valid PAC-Bayes LCB because no concentration constants or regularity assumptions are externally validated. The numerical beta search is reported but is not a formal global-optimality certificate.
