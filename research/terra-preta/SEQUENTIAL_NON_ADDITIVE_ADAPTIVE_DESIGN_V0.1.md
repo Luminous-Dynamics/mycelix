@@ -694,3 +694,38 @@ mandatory before drawing any practical conclusion.
 Report artifact digest and source SHA are pinned above. Do not replace the
 negative findings from earlier runs; retain all versioned outputs so the
 benchmark history remains auditable.
+
+
+## 27. Discrepancy prior / likelihood sensitivity
+
+The discrepancy-state regression now includes a sensitivity control rather than
+only testing the nominal 0.05 prior / 0.70 residual likelihood. With a residual
+observation assigned probability 0.01 by the aggregate physical candidate
+models, the posterior discrepancy weight is:
+
+\[
+w_D = \frac{p_D \ell_D}
+{p_D\ell_D + (1-p_D)\,0.01}.
+\]
+
+For the test grid:
+- prior 0.001, residual likelihood 0.30 gives posterior discrepancy mass
+  0.0292 and the declared optimal decision remains RETAIN_WATER;
+- prior 0.001, residual likelihood 0.90 gives posterior mass 0.0826 and
+  changes the expected decision to DIAGNOSE_FIRST;
+- prior 0.01, residual likelihood 0.30 gives posterior mass 0.2326;
+- nominal fixture prior 0.05, likelihood 0.70 gives posterior mass 0.7865
+  and DIAGNOSE_FIRST.
+
+The regression requires posterior mass to increase monotonically with prior
+weight and residual likelihood, and checks the policy-relevant decision
+threshold at the stated settings. This exposes how a "diagnose first" decision
+depends on prior and likelihood assumptions instead of hiding those choices
+inside an opaque surprise score.
+
+The test does not identify an empirically correct prior or likelihood. The
+catch-all model can still soak up corrupted data, sensor faults, omitted
+boundary conditions or true process discrepancy. Future qualification needs
+prior sensitivity over a broad grid, model expansion penalties/complexity
+control, false-alert costs, alternative residual shapes and calibration against
+independent repeatability / instrument QA evidence.
