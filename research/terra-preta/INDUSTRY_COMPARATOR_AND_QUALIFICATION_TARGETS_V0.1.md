@@ -141,3 +141,65 @@ A proposed operational goal is ≥20% lower cost per *decision-qualified* experi
 At this revision the repository has evidence/source-register tooling, grouped split/leakage checks, water-retention metrology audits, response-surface audits, a static additive adaptive-design bake-off, and a new static pairwise complementarity prototype. It does not yet establish physical-model parity with HYDRUS, MACRO or RZWQM2, nor external predictive superiority, field efficacy, operational savings or local South African transfer.
 
 The benchmark plan is designed to make such comparisons possible and falsifiable. Passing software tests is necessary but not sufficient for physical validation.
+
+
+## 8. Capability verification refresh — 2026-11-01
+
+The current official documentation adds useful dimensional nuance to the
+comparison table above:
+
+- HYDRUS 6 is a unified environment for 1D, 2D and 3D variably saturated water,
+  heat and solute modelling. The documented DualPerm add-on specifically
+  represents two-dimensional matrix/macropore dual-permeability flow and
+  transport; it is not interchangeable with every 3D HYDRUS configuration.
+  The module documentation also advises using smaller transport domains.
+  Sources: HYDRUS 6 overview
+  https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/HYDRUSOverview.html and
+  DualPerm module
+  https://www.pc-progress.com/en/OnlineHelp/HYDRUS6/DualPermModule.html
+- SLU's MACRO 5.2 capability page was reviewed on 2026-07-06. It describes a
+  one-dimensional process-oriented dual-permeability model with Richards flow
+  and convection-dispersion transport in micropores, gravity-driven macropore
+  flow and first-order approximate inter-domain exchange:
+  https://www.slu.se/en/about-slu/organisation/collaborative-centres/slu-centre-for-pesticides-in-the-environment/areas-of-operation/macro-models/macro-5.2
+- USDA ARS lists RZWQM2 4.8 as the latest version, released 2026-08-28. It
+  describes a one-dimensional model with pseudo-2D drainage / water-table
+  dynamics, preferential flow, management/crop modules, sub-hourly water and
+  chemical movement, automated calibration and non-linear uncertainty
+  analysis:
+  https://www.ars.usda.gov/research/software/download/?softwareid=412
+
+A 2026 review of HYDRUS analysed 3,154 peer-reviewed articles published over
+1993–2024 and discusses continuing knowledge gaps in parameterisation and
+process representation. The implication is not that HYDRUS is deficient as a
+whole; rather, model-data coupling, parameter identifiability, and
+process-specific external validation remain legitimate research questions
+even for a mature and widely used simulator:
+https://doi.org/10.1016/j.envsoft.2025.106801
+
+## 9. Updated acquisition-method baseline
+
+The current sequential work must compare methods with different objectives:
+
+| Method family | Primary objective | Failure mode to test |
+|---|---|---|
+| Static EIG / entropy reduction | Reduce prior model uncertainty | Can buy information irrelevant to the predeclared service decision |
+| Conditional EIG | Recompute information after each observation | Can still focus on model entropy rather than predictive or decision quality |
+| Decision-focused EVSI | Improve expected downstream decision utility | Depends on a meaningful, validated utility/loss function |
+| Batch / joint design | Account for correlated observations and complementary measurements | Joint design can be expensive; approximation gap must be recorded |
+| Prediction-oriented sequential design | Improve response prediction in regions with local model complexity | May be compute-intensive and still depends on the observation/discrepancy model |
+| Discrepancy-aware design | Learn model-system mismatch alongside physical parameters | Discrepancy can be confounded with parameters or measurement error |
+| Representative/informative/de-amplifying design | Reduce error amplification under shift and misspecification | Target representativeness must be measured rather than asserted |
+| Random / expert-fixed / OFAT | Establish practical baselines | Useful controls, not sufficient competitive baselines alone |
+
+The newly executable categorical engine provides a controlled finite baseline for
+static EIG, conditional EIG, EVSI and surprise-triggered diagnostic selection.
+It does not yet reproduce prediction-oriented Gaussian-process design, the
+Kennedy–O'Hagan discrepancy framework, differentiable ensemble Kalman
+inversion, or the published R-IDeA objective. Issue #5632 tracks covariance,
+discrepancy posterior and simulation-based calibration work required for a
+fairer comparison.
+
+The strategic SOTA claim must eventually be narrow and empirical: improved
+decision value, predictive calibration or experiment cost under matched
+physics, data, compute, measurement support and held-out target populations.
