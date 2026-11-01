@@ -547,6 +547,10 @@ mod tests {
         assert!(report.candidate_brier_score.unwrap() < report.reference_brier_score.unwrap());
         assert!(report.candidate.total_loss > report.reference.total_loss);
         assert!(report.net_benefit_vs_reference < 0.0);
+        assert_eq!(report.action_cost, 20.0);
+        assert_eq!(report.avoidable_event_loss, 100.0);
+        assert_eq!(report.residual_event_loss_under_action, 0.0);
+        assert_eq!(report.minimum_action_lead_seconds, 30);
         assert_eq!(report.candidate.total_loss, 120.0);
         assert_eq!(report.reference.total_loss, 80.0);
         assert_eq!(report.candidate.missed_events, 1);
