@@ -51,7 +51,7 @@ The workflow retains the original first-occurrence input for each of the eight a
 - attestation kind: ordinary or independent replication;
 - target attestation: absent, authored by the actor, or authored by another actor.
 
-Each action retains up to two lowest SHA-256-ranked case IDs per populated stratum, then performs deterministic round-robin selection across hash-ranked strata. A greedy set-cover selector chooses the next stratum that covers the most not-yet-seen marginal values, with SHA-ranked tie breaks. Each action must cover all 18 required marginal values across the six dimensions. This produces 20–24 matched cases per action (160–192 total); the manifest records the exact stratum, case ID, rank, paths, byte lengths and SHA-256 digests for both representations. The sample profile and rank inputs are versioned. The selector operates only on the frozen 62,464 source-pinned corpus; it does not infer expected decisions.
+Each action retains the single lowest SHA-256-ranked case ID per populated stratum. A greedy set-cover selector then chooses the next stratum that covers the most not-yet-seen marginal values, with SHA-ranked tie breaks. Each action must cover all 18 required marginal values across the six dimensions. This produces 20–24 matched cases per action (160–192 total); the manifest records the exact stratum, case ID, rank, paths, byte lengths and SHA-256 digests for both representations. The sample profile and rank inputs are versioned. The selector operates only on the frozen 62,464 source-pinned corpus; it does not infer expected decisions.
 
 For every selected case, CI:
 1. verifies the baseline and indexed input bytes against the sample manifest;
@@ -66,7 +66,7 @@ The workflow separately records:
 - indexed JSONL bytes vs original JSONL bytes;
 - full-corpus one-shot baseline and indexed OPA evaluation time;
 - the eight-case smoke panel;
-- the 128–192-case stratified native query panel;
+- the 160–192-case stratified native query panel (20–24 per action);
 - policy, source, projected input, binary and host digests.
 
 This separates query-only improvement from projection and transport costs. A query-level win is not an end-to-end throughput claim; the added projection, serialization, network/storage bytes and cold-start path must still be included in any production evaluation.
