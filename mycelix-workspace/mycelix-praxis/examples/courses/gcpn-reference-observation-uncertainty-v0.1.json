@@ -1,0 +1,11 @@
+{
+  "document_id": "GCPN-REFERENCE-OBSERVATION-UNCERTAINTY",
+  "version": "0.1.0",
+  "status": "synthetic-known-error-research-contract",
+  "required_predictand_fields": ["predictand_id", "unit", "temporal_support_id", "forecast_spatial_support_digest"],
+  "required_observation_lineage": ["source_id", "source_version", "calibration_epoch_id", "observation_model_id", "as_of_cutoff"],
+  "error_components": ["known_additive_bias", "measurement_variance", "representativeness_variance", "cross_error_covariance"],
+  "correction_requires": ["known_bias", "measurement_variance", "representativeness_variance", "cross_error_covariance"],
+  "fail_closed_controls": ["unknown_bias_disables_correction", "unknown_measurement_variance_disables_correction", "unknown_representativeness_variance_disables_correction", "unknown_covariance_disables_correction", "support_mismatch_rejected", "temporal_support_mismatch_rejected", "source_version_mismatch_rejected", "calibration_epoch_mismatch_rejected", "post_cutoff_observation_rejected", "covariance_matrix_psd_required"],
+  "claim_ceiling": ["no_universal_latent_truth_identification", "no_sensor_calibration_certification", "no_forecast_generation", "no_operational_warning", "no_causal_impact_estimation"]
+}
