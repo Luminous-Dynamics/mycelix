@@ -756,7 +756,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn stratified_selector_greedily_covers_every_required_dimension() {
         let role_names = ROLE_IDENTITY_DIMENSIONS;
         let mut buckets = BTreeMap::new();
