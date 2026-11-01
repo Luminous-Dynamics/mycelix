@@ -62,6 +62,21 @@ analysis for an author-specified state, not empirical prior calibration.
 
 ## Correlated continuous-likelihood posterior component
 
+The crate also exposes `multivariate_gaussian`, a dense-covariance
+reference for vector-valued measurement histories. It computes multivariate
+Gaussian log densities, scores arbitrary observed subsets, updates finite
+candidate-model posterior weights, and derives conditional Gaussian
+predictions for unobserved coordinates using the Schur complement. The module
+fails closed on asymmetric or non-positive-definite covariance, repeated or
+out-of-range indices, dimension mismatches and non-finite values. It performs
+no silent jitter or eigenvalue clipping.
+
+This supports the mathematical form of a sequential update where the
+candidate observation is conditioned on a retained correlated history. It is
+still not wired into the acquisition policy or CT/tracer operator and does not
+estimate covariance parameters; those are separate integration and
+calibration tasks.
+
 The crate now exposes a reusable library module, `correlated_likelihood`,
 with an exact bivariate-Gaussian joint log density and a stable log-sum-exp
 update over a finite set of candidate physical models. Each model declares
