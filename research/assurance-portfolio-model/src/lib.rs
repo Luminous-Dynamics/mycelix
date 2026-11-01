@@ -749,8 +749,7 @@ mod tests {
     #[test]
     fn different_implementations_with_a_shared_specification_are_not_independent() {
         let mut pair = required_pair();
-        pair[1].fault_domains.specification_lineage =
-            pair[0].fault_domains.specification_lineage;
+        pair[1].fault_domains.specification_lineage = pair[0].fault_domains.specification_lineage;
 
         let result = compose(&profile(false), &pair).unwrap();
         assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
