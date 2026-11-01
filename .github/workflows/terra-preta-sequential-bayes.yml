@@ -214,16 +214,25 @@ jobs:
             (.design_summaries | length == 3) and
             (.design_summaries[] | select(.design_id == "single_ct_tracer_pair") |
               .structural_rank == 2 and .component_count == 4 and
+              .fisher_rank == 2 and .fisher_condition_number == null and
+              .fisher_log_determinant == null and
               .fully_identifiable == false and
               .individually_identifiable.shared_physical_support == false and
               .recovery_status == "structurally_non_identifiable") and
             (.design_summaries[] | select(.design_id == "batch_only_pair") |
-              .structural_rank == 2 and
+              .structural_rank == 2 and .fisher_rank == 2 and
+              .fisher_condition_number == null and
+              .fisher_log_determinant == null and
               .individually_identifiable.shared_physical_support == false and
               .individually_identifiable.preparation_batch == true and
               .fully_identifiable == false) and
             (.design_summaries[] | select(.design_id == "crossed_support_batch_instrument") |
               .structural_rank == 4 and .component_count == 4 and
+              .fisher_rank == 4 and .fisher_condition_number > 0 and
+              .fisher_log_determinant != null and
+              (.fisher_information | length == 4) and
+              all(.fisher_information[]; length == 4) and
+              (.fisher_eigenvalues | length == 4) and
               .fully_identifiable == true and
               .recovery_status == "exact_synthetic_recovery" and
               .relative_fit_residual < 1e-10 and
