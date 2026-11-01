@@ -475,9 +475,34 @@ mod tests {
 
     #[test]
     fn conditional_predictive_components_use_joint_history_model_posterior() {
-        let models = vec![model("positive", 0.5, 0.8), model("negative", 0.5, -0.8)];
+        let models = vec![
+            MultivariateGaussianModel {
+                model_id: "positive".into(),
+                prior_weight: 0.5,
+                observation_model: gaussian(
+                    vec![0.0, 0.0, 0.0],
+                    vec![
+                        vec![1.0, 0.8, 0.0],
+                        vec![0.8, 1.0, 0.0],
+                        vec![0.0, 0.0, 1.0],
+                    ],
+                ),
+            },
+            MultivariateGaussianModel {
+                model_id: "negative".into(),
+                prior_weight: 0.5,
+                observation_model: gaussian(
+                    vec![0.0, 0.0, 0.0],
+                    vec![
+                        vec![1.0, -0.8, 0.0],
+                        vec![-0.8, 1.0, 0.0],
+                        vec![0.0, 0.0, 1.0],
+                    ],
+                ),
+            },
+        ];
         let components =
-            conditional_predictive_models(&models, &[0, 1], &[1.0, 1.0], &[0]).unwrap();
+            conditional_predictive_models(&models, &[0, 1], &[1.0, 1.0], &[2]).unwrap();
 
         assert!(components[0].posterior_weight > 0.98);
         assert!(components[1].posterior_weight < 0.02);
