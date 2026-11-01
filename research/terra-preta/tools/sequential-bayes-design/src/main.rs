@@ -1244,7 +1244,7 @@ mod tests {
                                 (1.0 - residual_likelihood) / 2.0,
                                 (1.0 - residual_likelihood) / 2.0,
                                 residual_likelihood,
-                            ];
+                            ].to_vec();
                         }
                     }
                 }
