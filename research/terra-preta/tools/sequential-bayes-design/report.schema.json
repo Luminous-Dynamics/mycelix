@@ -3,49 +3,204 @@
   "title": "Terra Preta sequential Bayesian design report",
   "type": "object",
   "additionalProperties": false,
-  "required": ["report_version", "status", "scenario_id", "input_sha256", "replicate_count", "candidate_count", "eligible_candidate_count", "ineligible_candidate_count", "budget_cost_units", "predictive_surprise_threshold", "policy_summaries", "interpretation_boundary", "warnings"],
+  "required": [
+    "report_version",
+    "status",
+    "scenario_id",
+    "input_sha256",
+    "replicate_count",
+    "candidate_count",
+    "eligible_candidate_count",
+    "ineligible_candidate_count",
+    "budget_cost_units",
+    "predictive_surprise_threshold",
+    "policy_summaries",
+    "interpretation_boundary",
+    "warnings",
+    "validation_probe_count"
+  ],
   "properties": {
-    "report_version": { "const": "0.1.0" },
-    "status": { "const": "synthetic_sequential_bayesian_benchmark_only" },
-    "scenario_id": { "type": "string" },
-    "input_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "replicate_count": { "type": "integer", "minimum": 16 },
-    "candidate_count": { "type": "integer", "minimum": 1 },
-    "eligible_candidate_count": { "type": "integer", "minimum": 0 },
-    "ineligible_candidate_count": { "type": "integer", "minimum": 0 },
-    "budget_cost_units": { "type": "integer", "minimum": 1 },
-    "predictive_surprise_threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "report_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "synthetic_sequential_bayesian_benchmark_only"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "replicate_count": {
+      "type": "integer",
+      "minimum": 16
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "eligible_candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ineligible_candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "budget_cost_units": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "predictive_surprise_threshold": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1
+    },
     "policy_summaries": {
-      "type": "array", "minItems": 5,
+      "type": "array",
+      "minItems": 5,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["policy_id", "replicate_count", "mean_truth_decision_utility", "mean_true_decision_regret", "mean_surprise_events", "mean_diagnostic_actions", "mean_total_cost_units", "mean_final_posterior_entropy", "mean_predictive_log_score", "mean_predictive_brier_score", "selected_action_frequency"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_id",
+          "replicate_count",
+          "mean_truth_decision_utility",
+          "mean_true_decision_regret",
+          "mean_surprise_events",
+          "mean_diagnostic_actions",
+          "mean_total_cost_units",
+          "mean_final_posterior_entropy",
+          "mean_predictive_log_score",
+          "mean_predictive_brier_score",
+          "selected_action_frequency",
+          "mean_heldout_validation_log_score",
+          "mean_heldout_validation_brier_score",
+          "validation_by_stratum"
+        ],
         "properties": {
-          "policy_id": { "type": "string" },
-          "replicate_count": { "type": "integer", "minimum": 16 },
-          "mean_truth_decision_utility": { "type": "number", "minimum": 0, "maximum": 1 },
-          "mean_true_decision_regret": { "type": "number", "minimum": 0, "maximum": 1 },
-          "mean_surprise_events": { "type": "number", "minimum": 0 },
-          "mean_diagnostic_actions": { "type": "number", "minimum": 0 },
-          "mean_total_cost_units": { "type": "number", "minimum": 0 },
-          "mean_final_posterior_entropy": { "type": "number", "minimum": 0 },
-          "mean_predictive_log_score": { "type": "number", "minimum": 0 },
-          "mean_predictive_brier_score": { "type": "number", "minimum": 0, "maximum": 2 },
+          "policy_id": {
+            "type": "string"
+          },
+          "replicate_count": {
+            "type": "integer",
+            "minimum": 16
+          },
+          "mean_truth_decision_utility": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "mean_true_decision_regret": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "mean_surprise_events": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mean_diagnostic_actions": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mean_total_cost_units": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mean_final_posterior_entropy": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mean_predictive_log_score": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mean_predictive_brier_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
           "selected_action_frequency": {
             "type": "array",
             "items": {
-              "type": "object", "additionalProperties": false,
-              "required": ["action_id", "selection_rate"],
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "action_id",
+                "selection_rate"
+              ],
               "properties": {
-                "action_id": { "type": "string" },
-                "selection_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+                "action_id": {
+                  "type": "string"
+                },
+                "selection_rate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          },
+          "mean_heldout_validation_log_score": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mean_heldout_validation_brier_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "validation_by_stratum": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "stratum_id",
+                "probe_count",
+                "expected_log_score",
+                "expected_brier_score"
+              ],
+              "properties": {
+                "stratum_id": {
+                  "type": "string"
+                },
+                "probe_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "expected_log_score": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "expected_brier_score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2
+                }
               }
             }
           }
         }
       }
     },
-    "interpretation_boundary": { "type": "string", "minLength": 1 },
-    "warnings": { "type": "array", "items": { "type": "string" } }
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "validation_probe_count": {
+      "type": "integer",
+      "minimum": 1
+    }
   }
 }
