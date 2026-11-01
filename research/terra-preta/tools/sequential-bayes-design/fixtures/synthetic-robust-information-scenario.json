@@ -2,8 +2,14 @@
   "schema_version": "0.1.0",
   "data_class": "synthetic-known-truth",
   "scenario_id": "sibson-ct-tracer-ranking-reversal-v0",
-  "model_ids": ["model_a", "model_b"],
-  "prior_weights": [0.5, 0.5],
+  "model_ids": [
+    "model_a",
+    "model_b"
+  ],
+  "prior_weights": [
+    0.5,
+    0.5
+  ],
   "budget_units": 2,
   "sibson_alpha": 0.3,
   "kl_radius_nats": 0.3,
@@ -14,36 +20,103 @@
       "action_id": "nominal_sharp",
       "cost_units": 2,
       "eligible": true,
-      "outcome_ids": ["x0", "x1", "x2"],
-      "likelihoods": [[0.025, 0.938, 0.037], [0.958, 0.018, 0.024]]
+      "outcome_ids": [
+        "x0",
+        "x1",
+        "x2"
+      ],
+      "likelihoods": [
+        [
+          0.025,
+          0.938,
+          0.037
+        ],
+        [
+          0.958,
+          0.018,
+          0.024
+        ]
+      ]
     },
     {
       "action_id": "robust_balanced",
       "cost_units": 2,
       "eligible": true,
-      "outcome_ids": ["y0", "y1", "y2"],
-      "likelihoods": [[0.486, 0.514, 0.0], [0.0, 0.208, 0.792]]
+      "outcome_ids": [
+        "y0",
+        "y1",
+        "y2"
+      ],
+      "likelihoods": [
+        [
+          0.486,
+          0.514,
+          0
+        ],
+        [
+          0,
+          0.208,
+          0.792
+        ]
+      ]
     },
     {
       "action_id": "redundant_ct_repeat",
       "cost_units": 1,
       "eligible": true,
-      "outcome_ids": ["ct_low", "ct_high"],
-      "likelihoods": [[0.5, 0.5], [0.5, 0.5]]
+      "outcome_ids": [
+        "ct_low",
+        "ct_high"
+      ],
+      "likelihoods": [
+        [
+          0.5,
+          0.5
+        ],
+        [
+          0.5,
+          0.5
+        ]
+      ]
     },
     {
       "action_id": "ineligible_perfect_measurement",
       "cost_units": 1,
       "eligible": false,
-      "outcome_ids": ["perfect_a", "perfect_b"],
-      "likelihoods": [[1.0, 0.0], [0.0, 1.0]]
+      "outcome_ids": [
+        "perfect_a",
+        "perfect_b"
+      ],
+      "likelihoods": [
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ]
     },
     {
       "action_id": "over_budget_perfect_measurement",
       "cost_units": 3,
       "eligible": true,
-      "outcome_ids": ["perfect_a", "perfect_b"],
-      "likelihoods": [[1.0, 0.0], [0.0, 1.0]]
+      "outcome_ids": [
+        "perfect_a",
+        "perfect_b"
+      ],
+      "likelihoods": [
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ]
     }
-  ]
+  ],
+  "gibbs_precision_lambda": 5
 }
