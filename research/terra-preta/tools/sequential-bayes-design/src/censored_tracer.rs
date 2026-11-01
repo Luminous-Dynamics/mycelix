@@ -369,7 +369,9 @@ mod tests {
                 upper_bound: 1.2,
             },
         ).unwrap();
-        assert!(posterior.weights[1] > 0.99);
+        assert!((posterior.model_event_probabilities[0] - 0.009_692_462_238_68).abs() < 5e-7);
+        assert!((posterior.model_event_probabilities[1] - 0.495_014_924_906_15).abs() < 5e-7);
+        assert!((posterior.weights[1] - 0.980_795_877_997).abs() < 5e-5);
     }
 
     #[test]
@@ -380,7 +382,9 @@ mod tests {
                 upper_quantification_limit: 0.8,
             },
         ).unwrap();
-        assert!(posterior.weights[1] > 0.99);
+        assert!((posterior.model_event_probabilities[0] - 0.009_815_328_628_65).abs() < 5e-7);
+        assert!((posterior.model_event_probabilities[1] - 0.747_507_462_453_08).abs() < 5e-7);
+        assert!((posterior.weights[1] - 0.987_039_438_474).abs() < 5e-5);
     }
 
     #[test]
