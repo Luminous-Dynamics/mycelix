@@ -66,6 +66,14 @@ For (r=0), EAC is (PV/T).
 
 The model reports low/base/high present value, annualized base cost, component breakdown and annual staff hours. It does not infer hidden costs or automatically add a replacement reserve.
 
+### Staffing units
+
+The evaluator now reports both:
+- annual staff hours: the recurring staffing assumption for one representative year;
+- staff hours over horizon: annual hours multiplied by the service horizon.
+
+The baseline profiles therefore imply 1,600 / 1,950 / 2,400 staff hours per year for centralized / regional / local-first architectures, respectively, and 8,000 / 9,750 / 12,000 staff hours over the five-year horizon. No salary or wage rate is inferred from these hours.
+
 ## 4. Service and unit-cost denominators
 
 Report separately:
