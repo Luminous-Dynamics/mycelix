@@ -1,0 +1,89 @@
+{
+  "benchmark_id": "GCPN-EVIDENCE-GRAPH-LIFECYCLE-ENGINE",
+  "version": "0.1.0",
+  "status": "rust-source-authored-execution-outstanding",
+  "package": "benchmarks/gcpn-evidence-graph-lifecycle",
+  "dependencies": [],
+  "parent_issue": 5646,
+  "specification_pull_request": 5647,
+  "implemented": {
+    "node_kinds": [
+      "source_observation",
+      "forecast_product",
+      "authority_assertion",
+      "cap_message",
+      "delivery_receipt",
+      "accessible_rendering",
+      "comprehension_evidence",
+      "action_evidence",
+      "outcome_evaluation",
+      "activity",
+      "agent"
+    ],
+    "relation_kinds": [
+      "derived_from",
+      "supports",
+      "contradicts",
+      "supersedes",
+      "revokes",
+      "references",
+      "delivered_as",
+      "rendered_as",
+      "assessed_by",
+      "action_evidence_for",
+      "evaluated_by"
+    ],
+    "features": [
+      "valid_time_and_transaction_time",
+      "as_of_snapshot",
+      "typed_relation_validation",
+      "forbidden_cycle_detection",
+      "exact_duplicate_node_idempotency",
+      "conflicting_node_payload_preservation",
+      "CAP_update_cancel_reference_validation",
+      "exact_message_receipt_binding",
+      "receipt_validator_rejects_ambiguous_conflicting_message_identity"
+    ],
+    "cap_message_types": [
+      "Alert",
+      "Update",
+      "Cancel",
+      "Ack",
+      "Error"
+    ],
+    "digest_statuses": [
+      "unchecked",
+      "verified_by_external_adapter",
+      "fixture_oracle_accepted",
+      "mismatch"
+    ],
+    "digest_status_note": "fixture_oracle_accepted is test-only; actual digest computation and signature verification are not implemented."
+  },
+  "tests_authored": 16,
+  "execution": {
+    "cargo_build": "not_run",
+    "rust_tests": "not_run",
+    "cli": "not_run",
+    "cap_xml_validation": "not_implemented",
+    "cryptographic_digest_calculation": "not_implemented",
+    "ci": "not_claimed"
+  },
+  "deferred": [
+    "CAP_XML_parser_and_XSD_validation",
+    "RFC3339_timezone_precision_parser",
+    "SHA256_and_signature_adapter",
+    "persistent_append_only_event_log",
+    "privacy_projection",
+    "source_independence_policy",
+    "complete_mutation_fixture_corpus",
+    "property_based_fuzzing",
+    "independent_review"
+  ],
+  "non_claims": [
+    "physical_truth",
+    "legal_warning_authority",
+    "cryptographic_verification_by_this_crate",
+    "lives_saved",
+    "operational_MHEWS_readiness"
+  ]
+}

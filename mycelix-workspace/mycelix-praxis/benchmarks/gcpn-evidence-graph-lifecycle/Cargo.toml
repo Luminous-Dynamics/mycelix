@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-evidence-graph-lifecycle"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Bitemporal provenance and CAP lifecycle conformance core for synthetic GCPN evidence graphs"
+
+# Keep the audit benchmark independently buildable.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-evidence-graph-lifecycle"
+path = "src/main.rs"
