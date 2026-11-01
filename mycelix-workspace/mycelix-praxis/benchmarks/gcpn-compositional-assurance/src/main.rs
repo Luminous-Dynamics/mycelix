@@ -83,6 +83,7 @@ fn main() {
                 reference_version: "v1".into(),
             }),
             causal_claim: Some(CausalClaim {
+                claim_id: "review-valid".into(),
                 claim_made: false,
                 identification_method_id: None,
                 design_id: None,
