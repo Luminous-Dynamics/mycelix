@@ -506,6 +506,8 @@ pub struct ReceiptReport {
     pub receipts_seen: u32,
     pub exact_message_matches: u32,
     pub unknown_messages: u32,
+    pub conflicting_message_identities: u32,
+    pub receipts_for_ambiguous_messages: u32,
     pub digest_mismatches: u32,
     pub unverified_message_digests: u32,
 }
@@ -513,22 +515,42 @@ pub struct ReceiptReport {
 impl ReceiptReport {
     pub fn is_conformant(&self) -> bool {
         self.unknown_messages == 0
+            && self.conflicting_message_identities == 0
+            && self.receipts_for_ambiguous_messages == 0
             && self.digest_mismatches == 0
             && self.unverified_message_digests == 0
     }
 }
 
 pub fn validate_receipts(messages: &[CapMessage], receipts: &[DeliveryReceipt]) -> ReceiptReport {
-    let by_id: BTreeMap<String, &CapMessage> = messages
-        .iter()
-        .map(|message| (message.extended_identifier(), message))
-        .collect();
+    let mut by_id: BTreeMap<String, &CapMessage> = BTreeMap::new();
+    let mut ambiguous_ids: BTreeSet<String> = BTreeSet::new();
+    for message in messages {
+        let id = message.extended_identifier();
+        match by_id.get(&id) {
+            None => {
+                by_id.insert(id, message);
+            }
+            Some(previous)
+                if previous.wire_bytes == message.wire_bytes
+                    && previous.declared_digest == message.declared_digest => {}
+            Some(_) => {
+                ambiguous_ids.insert(id);
+            }
+        }
+    }
+
     let mut report = ReceiptReport {
         receipts_seen: receipts.len() as u32,
+        conflicting_message_identities: ambiguous_ids.len() as u32,
         ..ReceiptReport::default()
     };
 
     for receipt in receipts {
+        if ambiguous_ids.contains(&receipt.message_reference) {
+            report.receipts_for_ambiguous_messages += 1;
+            continue;
+        }
         match by_id.get(&receipt.message_reference) {
             None => report.unknown_messages += 1,
             Some(message) => {
@@ -950,6 +972,32 @@ mod tests {
         graph.append_node(record).unwrap();
         assert_eq!(graph.validate().unverified_payload_digests, 1);
         assert!(!graph.validate().is_conformant());
+    }
+
+    #[test]
+    fn receipt_cannot_select_one_of_conflicting_cap_payloads() {
+        let original = cap_message(
+            "alert-conflict",
+            100,
+            CapMessageType::Alert,
+            vec![],
+            Some(500),
+            b"original",
+        );
+        let mut conflicting = original.clone();
+        conflicting.wire_bytes = b"changed-payload".to_vec();
+        conflicting.declared_digest = "sha256:other".into();
+        let receipt = DeliveryReceipt {
+            receipt_id: "receipt-ambiguous".into(),
+            message_reference: original.extended_identifier(),
+            message_digest: original.declared_digest.clone(),
+            recorded_at: 110,
+        };
+        let report = validate_receipts(&[original, conflicting], &[receipt]);
+        assert_eq!(report.conflicting_message_identities, 1);
+        assert_eq!(report.receipts_for_ambiguous_messages, 1);
+        assert_eq!(report.exact_message_matches, 0);
+        assert!(!report.is_conformant());
     }
 
     #[test]
