@@ -69,5 +69,15 @@
     "real_user_preferences",
     "lives_saved",
     "causal_impact"
+  ],
+  "report_fields": [
+    "profile_id",
+    "verification_source",
+    "verification_version",
+    "action_cost",
+    "avoidable_event_loss",
+    "residual_event_loss_under_action",
+    "minimum_action_lead_seconds",
+    "analytic_decision_threshold"
   ]
 }
