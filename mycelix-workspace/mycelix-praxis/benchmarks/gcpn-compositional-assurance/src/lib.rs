@@ -482,14 +482,16 @@ impl Scenario {
         }
 
         let fact_violations = self.audit_facts();
-        for violation in fact_violations {
-            all_violations.insert(violation);
+        for violation in &fact_violations {
+            all_violations.insert(*violation);
         }
 
-        // Any scenario-level violation also makes the corresponding stage
-        // claim non-supporting. This is intentionally fail-closed.
+        // Scenario-level facts are stage-scoped. Claim-local evidence
+        // violations stay attached only to the claim they actually concern.
+        // This prevents a stale forecast receipt, for example, from
+        // contaminating an unrelated observation claim.
         for claim in &mut claims {
-            let stage_violations: Vec<ViolationCode> = all_violations
+            let stage_violations: Vec<ViolationCode> = fact_violations
                 .iter()
                 .copied()
                 .filter(|violation| violation.stage() == claim.stage)
@@ -891,6 +893,26 @@ mod tests {
             .unwrap();
         assert_eq!(forecast.disposition, ClaimDisposition::Indeterminate);
         assert!(forecast.violations.contains(&ViolationCode::StaleEvidence));
+    }
+
+    #[test]
+    fn stage_local_evidence_violations_do_not_contaminate_other_stages() {
+        let mut input = scenario();
+        input.evidence[0].validity = EvidenceValidity::Stale;
+        let report = input.audit().unwrap();
+        let forecast = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Forecast)
+            .unwrap();
+        let observation = report
+            .claims
+            .iter()
+            .find(|claim| claim.stage == Stage::Observation)
+            .unwrap();
+        assert_eq!(forecast.disposition, ClaimDisposition::Indeterminate);
+        assert_eq!(observation.disposition, ClaimDisposition::Supports);
+        assert!(!observation.violations.contains(&ViolationCode::StaleEvidence));
     }
 
     #[test]
