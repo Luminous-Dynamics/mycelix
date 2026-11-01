@@ -263,3 +263,18 @@ The executable report now records `minimum_alpha` and `alpha_bisection_iteration
 A fixed-design KL-radius audit identified that (D_{KL}(q^*\|p)=0) does not imply zero measurement information. For a deterministic perfectly discriminating observation, the q* joint can equal the nominal joint (hence zero ambiguity cost) while Sibson MI remains (H(M)>0). The previous edge branch incorrectly returned zero information whenever the maximum q* KL cost was zero.
 
 The implementation now evaluates Sibson MI at `minimum_alpha` and marks a positive requested radius as clamped/unattainable. An uninformative action still returns zero MI; a perfect binary measurement returns (ln 2) nats under the same zero-KL condition. Dedicated regression tests distinguish these cases. This is an important fail-closed interpretation: zero ambiguity movement is not evidence of zero information.
+
+
+## 19. Shared-average-KL stochastic policy reference — 2026-11-01
+
+The new `stochastic_policy.rs` implements the shared dual for a fixed finite stochastic policy:
+
+```text
+sup_{beta > 0} { E_pi[ I^S_{beta/(1+beta)}(design) ] - beta * rho }
+```
+
+It numerically optimizes one common beta across all actions in the policy, as in the paper's average-KL ambiguity constraint. At radius zero it returns the nominal policy-averaged Shannon information. It also implements the closed-form finite Gibbs policy optimizer `pi*(xi) ∝ pi0(xi) exp(lambda * reward(xi))`, which exactly maximizes `E_pi[reward] - KL(pi||pi0)/lambda` for supplied finite rewards.
+
+A PAC-Bayes lower-bound arithmetic helper implements Proposition 6's expression and checks the stated inner-sample threshold. It explicitly labels the result conditional on externally verified regularity/boundedness assumptions; it cannot certify the constants or assumptions. The nested Monte Carlo estimator is not yet implemented.
+
+This correct shared-policy dual is distinct from the earlier deterministic per-design KL-radius selector. Both are retained as different comparators; the per-design selector must not be labelled as the published shared-average-KL stochastic-policy method.
