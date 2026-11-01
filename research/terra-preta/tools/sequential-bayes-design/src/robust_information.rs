@@ -41,6 +41,44 @@ pub struct WorstCaseJointDistribution {
     pub kl_to_nominal_nats: f64,
 }
 
+fn log_sum_exp(values: &[f64]) -> Option<f64> {
+    let maximum = values.iter().copied()
+        .filter(|value| value.is_finite())
+        .fold(f64::NEG_INFINITY, f64::max);
+    if !maximum.is_finite() {
+        return None;
+    }
+    let scaled_sum: f64 = values.iter()
+        .filter(|value| value.is_finite())
+        .map(|value| (*value - maximum).exp())
+        .sum();
+    if scaled_sum.is_finite() && scaled_sum > 0.0 {
+        Some(maximum + scaled_sum.ln())
+    } else {
+        None
+    }
+}
+
+fn log_alpha_outcome_terms(
+    likelihoods: &[Vec<f64>],
+    prior: &[f64],
+    alpha: f64,
+) -> Vec<f64> {
+    (0..likelihoods[0].len()).map(|outcome| {
+        let terms: Vec<f64> = likelihoods.iter().zip(prior)
+            .filter_map(|(row, weight)| {
+                let likelihood = row[outcome];
+                if *weight > 0.0 && likelihood > 0.0 {
+                    Some(weight.ln() + alpha * likelihood.ln())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        log_sum_exp(&terms).unwrap_or(f64::NEG_INFINITY)
+    }).collect()
+}
+
 /// Validate identifiers, prior and likelihood matrix, returning normalized prior.
 impl DiscreteDesignModel {
     pub fn validate(&self) -> Result<Vec<f64>, String> {
@@ -136,22 +174,36 @@ impl DiscreteDesignModel {
             return Err("Sibson alpha must be finite and strictly between zero and one".into());
         }
         let prior = self.validate()?;
-        let mut inner_sums = vec![0.0; self.outcome_ids.len()];
-        for (row, weight) in self.likelihoods.iter().zip(&prior) {
-            for (inner_sum, likelihood) in inner_sums.iter_mut().zip(row) {
-                *inner_sum += weight * likelihood.powf(alpha);
-            }
-        }
-        let outer_sum: f64 = inner_sums.iter()
-            .map(|inner_sum| inner_sum.powf(1.0 / alpha))
-            .sum();
-        if !outer_sum.is_finite() || outer_sum <= 0.0 {
-            return Err("Sibson outer sum must be finite and positive".into());
+        if alpha >= 1.0 - 1e-12 {
+            return self.shannon_mutual_information();
         }
 
-        let information = alpha / (alpha - 1.0) * outer_sum.ln();
+        // Work in the log domain. The direct p(x|m)^alpha formulation can
+        // underflow for small alpha, especially on deterministic channels.
+        // Rewriting alpha*log(sum_x exp(log_inner_x/alpha)) as
+        // max(log_inner) + alpha*log(sum_x exp((log_inner-max)/alpha))
+        // preserves the finite alpha -> 0 limit without forming huge powers.
+        let log_inner = log_alpha_outcome_terms(&self.likelihoods, &prior, alpha);
+        let maximum = log_inner.iter().copied()
+            .filter(|value| value.is_finite())
+            .fold(f64::NEG_INFINITY, f64::max);
+        if !maximum.is_finite() {
+            return Err("Sibson objective has no supported outcome".into());
+        }
+        let scaled_outer_sum: f64 = log_inner.iter()
+            .filter(|value| value.is_finite())
+            .map(|value| ((*value - maximum) / alpha).exp())
+            .sum();
+        if !scaled_outer_sum.is_finite() || scaled_outer_sum <= 0.0 {
+            return Err("Sibson scaled outer sum is invalid".into());
+        }
+        let alpha_log_outer = maximum + alpha * scaled_outer_sum.ln();
+        let information = -alpha_log_outer / (1.0 - alpha);
         if !information.is_finite() {
             return Err("Sibson mutual information is not finite".into());
+        }
+        if information < -1e-10 {
+            return Err(format!("Sibson mutual information is negative: {information}"));
         }
         Ok(information.max(0.0))
     }
@@ -221,7 +273,7 @@ impl DiscreteDesignModel {
             return Err("Rényi alpha must be finite and strictly between zero and one".into());
         }
         let prior = self.validate()?;
-        let mut risk_sensitive_expectation = 0.0;
+        let mut log_expectation_terms = Vec::new();
 
         for outcome in 0..self.outcome_ids.len() {
             let marginal: f64 = self.likelihoods.iter()
@@ -233,12 +285,11 @@ impl DiscreteDesignModel {
             }
             let conditional_gain = self.conditional_renyi_information(outcome, alpha)?;
             let exponent = (alpha - 1.0) / alpha * conditional_gain;
-            risk_sensitive_expectation += marginal * exponent.exp();
+            log_expectation_terms.push(marginal.ln() + exponent);
         }
-        if !risk_sensitive_expectation.is_finite() || risk_sensitive_expectation <= 0.0 {
-            return Err("risk-sensitive expectation is invalid".into());
-        }
-        let value = alpha / (alpha - 1.0) * risk_sensitive_expectation.ln();
+        let log_expectation = log_sum_exp(&log_expectation_terms)
+            .ok_or_else(|| "risk-sensitive expectation is invalid".to_string())?;
+        let value = alpha / (alpha - 1.0) * log_expectation;
         if value.is_finite() && value >= -1e-10 {
             Ok(value.max(0.0))
         } else {
@@ -262,50 +313,66 @@ impl DiscreteDesignModel {
         let prior = self.validate()?;
         let outcome_count = self.outcome_ids.len();
 
-        let mut alpha_inner_sums = vec![0.0; outcome_count];
-        for (row, weight) in self.likelihoods.iter().zip(&prior) {
-            for (inner_sum, likelihood) in alpha_inner_sums.iter_mut().zip(row) {
-                *inner_sum += weight * likelihood.powf(alpha);
-            }
+        // p_alpha(x) is proportional to exp(log_inner_x / alpha).
+        // Subtract max(log_inner) before division/exponentiation so small-alpha
+        // cases cannot underflow every outcome to zero.
+        let log_inner = log_alpha_outcome_terms(&self.likelihoods, &prior, alpha);
+        let max_log_inner = log_inner.iter().copied()
+            .filter(|value| value.is_finite())
+            .fold(f64::NEG_INFINITY, f64::max);
+        if !max_log_inner.is_finite() {
+            return Err("alpha outcome marginal has no supported outcomes".into());
         }
-        let mut alpha_outcome_marginal: Vec<f64> = alpha_inner_sums.iter()
-            .map(|inner_sum| inner_sum.powf(1.0 / alpha))
+        let scaled_alpha_outcome: Vec<f64> = log_inner.iter()
+            .map(|value| {
+                if value.is_finite() {
+                    ((*value - max_log_inner) / alpha).exp()
+                } else {
+                    0.0
+                }
+            })
             .collect();
-        let alpha_total: f64 = alpha_outcome_marginal.iter().sum();
+        let alpha_total: f64 = scaled_alpha_outcome.iter().sum();
         if !alpha_total.is_finite() || alpha_total <= 0.0 {
             return Err("alpha outcome marginal has no finite positive mass".into());
         }
-        for probability in &mut alpha_outcome_marginal {
-            *probability /= alpha_total;
-        }
+        let alpha_outcome_marginal: Vec<f64> = scaled_alpha_outcome.iter()
+            .map(|value| value / alpha_total)
+            .collect();
 
-        let mut joint_weights = vec![vec![0.0; outcome_count]; self.model_ids.len()];
-        let mut joint_total = 0.0;
-        for ((row, weight), joint_row) in self.likelihoods.iter()
-            .zip(&prior)
-            .zip(joint_weights.iter_mut())
-        {
-            for ((likelihood, alpha_outcome), joint_value) in row.iter()
-                .zip(&alpha_outcome_marginal)
-                .zip(joint_row.iter_mut())
-            {
-                let nominal_joint = weight * likelihood;
-                let alpha_reference = weight * alpha_outcome;
-                let value = if nominal_joint == 0.0 || alpha_reference == 0.0 {
-                    0.0
+        // Compute q* in log space:
+        // q*(m,x) ∝ [p(m) p_alpha(x)]^(1-alpha) [p(m)p(x|m)]^alpha.
+        let mut log_joint = vec![vec![f64::NEG_INFINITY; outcome_count]; self.model_ids.len()];
+        let mut flattened_log_weights = Vec::with_capacity(self.model_ids.len() * outcome_count);
+        for (model_index, (row, weight)) in self.likelihoods.iter().zip(&prior).enumerate() {
+            for (outcome, likelihood) in row.iter().enumerate() {
+                if *weight > 0.0 && *likelihood > 0.0 && alpha_outcome_marginal[outcome] > 0.0 {
+                    let log_alpha_reference =
+                        weight.ln() + alpha_outcome_marginal[outcome].ln();
+                    let log_nominal_joint = weight.ln() + likelihood.ln();
+                    let value = (1.0 - alpha) * log_alpha_reference
+                        + alpha * log_nominal_joint;
+                    log_joint[model_index][outcome] = value;
+                    flattened_log_weights.push(value);
                 } else {
-                    alpha_reference.powf(1.0 - alpha)
-                        * nominal_joint.powf(alpha)
-                };
-                if !value.is_finite() || value < 0.0 {
-                    return Err("worst-case joint weight is invalid".into());
+                    flattened_log_weights.push(f64::NEG_INFINITY);
                 }
-                *joint_value = value;
-                joint_total += value;
             }
         }
+        let log_normalizer = log_sum_exp(&flattened_log_weights)
+            .ok_or_else(|| "worst-case joint has no finite supported mass".to_string())?;
+        let mut joint_weights = vec![vec![0.0; outcome_count]; self.model_ids.len()];
+        for model in 0..self.model_ids.len() {
+            for outcome in 0..outcome_count {
+                let value = log_joint[model][outcome];
+                if value.is_finite() {
+                    joint_weights[model][outcome] = (value - log_normalizer).exp();
+                }
+            }
+        }
+        let joint_total: f64 = joint_weights.iter().flatten().sum();
         if !joint_total.is_finite() || joint_total <= 0.0 {
-            return Err("worst-case joint distribution has no finite positive mass".into());
+            return Err("worst-case joint normalization failed".into());
         }
         for row in &mut joint_weights {
             for value in row {
@@ -1026,6 +1093,60 @@ mod tests {
             2,
             DesignInformationObjective::SibsonAlpha(1.0),
         ).is_err());
+    }
+
+    #[test]
+    fn small_alpha_sibson_preserves_information_for_perfect_deterministic_measurements() {
+        let design = DiscreteDesignModel {
+            model_ids: vec!["state_a".into(), "state_b".into()],
+            prior_weights: vec![0.5, 0.5],
+            outcome_ids: vec!["only_a".into(), "only_b".into()],
+            likelihoods: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        };
+        for alpha in [0.1, 1e-3, 1e-6, 1e-9, 1e-12] {
+            let information = design.sibson_alpha_mutual_information(alpha).unwrap();
+            assert!((information - std::f64::consts::LN_2).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn small_alpha_worst_case_joint_is_normalized_and_zero_kl_for_perfect_channel() {
+        let design = DiscreteDesignModel {
+            model_ids: vec!["state_a".into(), "state_b".into()],
+            prior_weights: vec![0.5, 0.5],
+            outcome_ids: vec!["only_a".into(), "only_b".into()],
+            likelihoods: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        };
+        for alpha in [1e-3, 1e-6, 1e-9] {
+            let q = design.worst_case_joint_distribution(alpha).unwrap();
+            assert!((q.joint_weights.iter().flatten().sum::<f64>() - 1.0).abs() < 1e-12);
+            assert!(q.kl_to_nominal_nats.abs() < 1e-9);
+            assert!((q.outcome_marginal[0] - 0.5).abs() < 1e-9);
+            assert!((q.outcome_marginal[1] - 0.5).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn small_alpha_sibson_zero_information_channel_remains_zero() {
+        let design = independent_design();
+        for alpha in [1e-3, 1e-6, 1e-9, 1e-12] {
+            assert!(design.sibson_alpha_mutual_information(alpha).unwrap().abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn conditional_renyi_identity_matches_direct_sibson_at_small_alpha() {
+        let design = DiscreteDesignModel {
+            model_ids: vec!["state_a".into(), "state_b".into()],
+            prior_weights: vec![0.5, 0.5],
+            outcome_ids: vec!["only_a".into(), "only_b".into()],
+            likelihoods: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        };
+        for alpha in [0.1, 1e-2, 1e-3] {
+            let direct = design.sibson_alpha_mutual_information(alpha).unwrap();
+            let via_renyi = design.sibson_from_conditional_renyi(alpha).unwrap();
+            assert!((direct - via_renyi).abs() < 1e-8);
+        }
     }
 
     #[test]
