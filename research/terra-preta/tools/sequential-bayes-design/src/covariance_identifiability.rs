@@ -6,6 +6,10 @@
 //! covariance-design reference, not a fitted mixed-effects model or an
 //! empirical variance estimator.
 
+use crate::multivariate_gaussian::{
+    update_multivariate_model_posterior, MultivariateGaussian,
+    MultivariateGaussianModel, MultivariateGaussianPosterior,
+};
 use std::collections::BTreeSet;
 
 /// One scalar observation and its physical/nuisance group identities.
@@ -72,6 +76,16 @@ pub struct ExactCovarianceRecovery {
     /// Relative Frobenius residual between supplied covariance and its
     /// projection onto the declared component span.
     pub relative_fit_residual: f64,
+}
+
+/// One scientific hypothesis for the source of observed covariance.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CovarianceComponentHypothesis {
+    pub model_id: String,
+    pub prior_weight: f64,
+    pub mean: Vec<f64>,
+    /// Variance coefficients in `VarianceComponent::ALL` order.
+    pub variance_components: Vec<f64>,
 }
 
 /// A covariance design matrix represented by its upper-triangle basis vectors.
@@ -407,6 +421,48 @@ impl CovarianceComponentDesign {
         Ok(covariance)
     }
 
+    /// Update a finite posterior over physical/nuisance covariance hypotheses.
+    ///
+    /// This connects declared support/batch/instrument incidence matrices to
+    /// the multivariate Gaussian posterior. If two hypotheses induce the same
+    /// covariance on a non-identifying design, their likelihoods are equal
+    /// and the data cannot distinguish their attribution.
+    pub fn update_hypothesis_posterior(
+        &self,
+        hypotheses: &[CovarianceComponentHypothesis],
+        observed_indices: &[usize],
+        observations: &[f64],
+    ) -> Result<MultivariateGaussianPosterior, String> {
+        if hypotheses.is_empty() {
+            return Err("at least one covariance hypothesis is required".into());
+        }
+        let mut models = Vec::with_capacity(hypotheses.len());
+        for hypothesis in hypotheses {
+            if hypothesis.mean.len() != self.observations.len()
+                || hypothesis.mean.iter().any(|value| !value.is_finite())
+            {
+                return Err(format!(
+                    "mean vector for covariance hypothesis {:?} must match the design dimension",
+                    hypothesis.model_id
+                ));
+            }
+            let covariance = self.covariance_from_variances(&hypothesis.variance_components)?;
+            models.push(MultivariateGaussianModel {
+                model_id: hypothesis.model_id.clone(),
+                prior_weight: hypothesis.prior_weight,
+                observation_model: MultivariateGaussian {
+                    mean: hypothesis.mean.clone(),
+                    covariance,
+                },
+            });
+        }
+        update_multivariate_model_posterior(
+            &models,
+            observed_indices,
+            observations,
+        )
+    }
+
     /// Recover variance coefficients from a noiseless covariance matrix.
     ///
     /// This solves the linear span problem exactly up to floating-point
@@ -579,6 +635,123 @@ mod tests {
         ]).unwrap();
         let covariance = design.covariance_from_variances(&[1.0, 0.5, 0.25, 0.1]).unwrap();
         assert!((covariance[0][1] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn nonidentifying_single_pair_cannot_update_physical_batch_instrument_attribution() {
+        let design = confounded_pair();
+        let hypotheses = vec![
+            CovarianceComponentHypothesis {
+                model_id: "physical_only".into(),
+                prior_weight: 0.4,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![1.0, 0.0, 0.0, 0.1],
+            },
+            CovarianceComponentHypothesis {
+                model_id: "batch_only".into(),
+                prior_weight: 0.35,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![0.0, 1.0, 0.0, 0.1],
+            },
+            CovarianceComponentHypothesis {
+                model_id: "instrument_only".into(),
+                prior_weight: 0.25,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![0.0, 0.0, 1.0, 0.1],
+            },
+        ];
+        let posterior = design.update_hypothesis_posterior(
+            &hypotheses,
+            &[0, 1],
+            &[1.0, 0.7],
+        ).unwrap();
+        for (actual, expected) in posterior.weights.iter()
+            .zip([0.4_f64, 0.35, 0.25])
+        {
+            assert!((actual - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn batch_only_pair_supports_batch_attribution_but_not_physical_support() {
+        let design = CovarianceComponentDesign::new(vec![
+            observation("ct-1", "ct", Some("support-A"), Some("shared-batch"), Some("ct-device")),
+            observation("tracer-1", "tracer", Some("support-B"), Some("shared-batch"), Some("tracer-device")),
+        ]).unwrap();
+        let hypotheses = vec![
+            CovarianceComponentHypothesis {
+                model_id: "physical_only".into(),
+                prior_weight: 0.5,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![1.0, 0.0, 0.0, 0.1],
+            },
+            CovarianceComponentHypothesis {
+                model_id: "batch_only".into(),
+                prior_weight: 0.5,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![0.0, 1.0, 0.0, 0.1],
+            },
+        ];
+        let posterior = design.update_hypothesis_posterior(
+            &hypotheses,
+            &[0, 1],
+            &[1.0, 1.0],
+        ).unwrap();
+        assert!(posterior.weights[1] > 0.99);
+    }
+
+    #[test]
+    fn crossed_design_can_discriminate_shared_physics_from_batch_covariance() {
+        let design = crossed_support_batch_instrument_design();
+        let hypotheses = vec![
+            CovarianceComponentHypothesis {
+                model_id: "physical_only".into(),
+                prior_weight: 0.5,
+                mean: vec![0.0; 16],
+                variance_components: vec![1.0, 0.0, 0.0, 0.1],
+            },
+            CovarianceComponentHypothesis {
+                model_id: "batch_only".into(),
+                prior_weight: 0.5,
+                mean: vec![0.0; 16],
+                variance_components: vec![0.0, 1.0, 0.0, 0.1],
+            },
+        ];
+        // Shared-support signal: repeated CT/tracer measurements within each
+        // support have a common latent effect, while the two supports differ.
+        let observations = vec![
+            1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5,
+            -1.5, -1.5, -1.5, -1.5, -1.5, -1.5, -1.5, -1.5,
+        ];
+        let posterior = design.update_hypothesis_posterior(
+            &hypotheses,
+            &(0..16).collect::<Vec<_>>(),
+            &observations,
+        ).unwrap();
+        assert!(posterior.weights[0] > 0.999);
+    }
+
+    #[test]
+    fn covariance_hypothesis_update_rejects_invalid_means_and_variances() {
+        let design = confounded_pair();
+        let invalid_mean = CovarianceComponentHypothesis {
+            model_id: "bad_mean".into(),
+            prior_weight: 1.0,
+            mean: vec![0.0],
+            variance_components: vec![1.0, 0.0, 0.0, 0.1],
+        };
+        assert!(design.update_hypothesis_posterior(
+            &[invalid_mean], &[0, 1], &[0.0, 0.0],
+        ).is_err());
+        let invalid_variance = CovarianceComponentHypothesis {
+            model_id: "bad_variance".into(),
+            prior_weight: 1.0,
+            mean: vec![0.0, 0.0],
+            variance_components: vec![1.0, -1.0, 0.0, 0.1],
+        };
+        assert!(design.update_hypothesis_posterior(
+            &[invalid_variance], &[0, 1], &[0.0, 0.0],
+        ).is_err());
     }
 
     #[test]
