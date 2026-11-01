@@ -391,11 +391,66 @@ jobs:
             | @tsv
           ' "$indexed_manifest" > target/opa-indexed-role-bench/stratified/sample-manifest.tsv
 
-          while IFS=
+          # Execute each paired sample as its own query benchmark. JSONL records
+          # avoid shell/TSV escaping of case IDs and stratum descriptions.
+          while IFS= read -r sample_record; do
+            action="$(jq -r '.action' <<< "$sample_record")"
+            sample_index="$(jq -r '.sample_index' <<< "$sample_record")"
+            baseline_relative="$(jq -r '.baseline_path' <<< "$sample_record")"
+            indexed_relative="$(jq -r '.indexed_path' <<< "$sample_record")"
+            baseline_sha="$(jq -r '.baseline_sha256' <<< "$sample_record")"
+            indexed_sha_sample="$(jq -r '.indexed_sha256' <<< "$sample_record")"
+            baseline_input="target/scientific-policy-indexed-role/$baseline_relative"
+            indexed_input="target/scientific-policy-indexed-role/$indexed_relative"
+            baseline_output="target/opa-indexed-role-bench/stratified/$action-$sample_index-baseline.json"
+            indexed_output="target/opa-indexed-role-bench/stratified/$action-$sample_index-indexed.json"
+            test -s "$baseline_input"
+            test -s "$indexed_input"
+            test "$(sha256sum "$baseline_input" | cut -d ' ' -f 1)" = "$baseline_sha"
+            test "$(sha256sum "$indexed_input" | cut -d ' ' -f 1)" = "$indexed_sha_sample"
+            jq -e --arg action "$action" '.action == $action' "$baseline_input"
+            jq -e --arg action "$action" '.action == $action and (.actor.role_index | type == "object") and (.actor.roles == null)' "$indexed_input"
+
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$baseline_input" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+              'data.mycelix.authz.decision' > "$baseline_output"
+            /tmp/opa bench --format=json --metrics --benchmem --count=5 \
+              --input "$indexed_input" \
+              --data docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy-indexed.rego \
+              'data.mycelix.authz.decision' > "$indexed_output"
+            test -s "$baseline_output"
+            test -s "$indexed_output"
+          done < <(jq -c '.stratified_action_inputs[]' "$indexed_manifest")
+
+          baseline_sample_count="$(find target/opa-indexed-role-bench/stratified -maxdepth 1 -name '*-baseline.json' | wc -l)"
+          indexed_sample_count="$(find target/opa-indexed-role-bench/stratified -maxdepth 1 -name '*-indexed.json' | wc -l)"
+          expected_sample_count="$(jq -r '.stratified_sample_count' "$indexed_manifest")"
+          test "$baseline_sample_count" -eq "$expected_sample_count"
+          test "$indexed_sample_count" -eq "$expected_sample_count"
+
+          jq -n \
+            --arg source_sha256 "$source_sha" \
+            --arg indexed_sha256 "$indexed_sha" \
+            --slurpfile manifest "$indexed_manifest" \
+            '{
+              sample_profile:$manifest[0].stratified_sample_profile,
+              source_inputs_sha256:$source_sha256,
+              indexed_inputs_sha256:$indexed_sha256,
+              sample_count:$manifest[0].stratified_sample_count,
+              per_action_counts:$manifest[0].stratified_action_sample_counts,
+              sample_subjects:$manifest[0].stratified_action_inputs,
+              evaluation_method:"paired OPA native opa bench --benchmem --metrics --count=5 on exact baseline/indexed per-case inputs; raw samples retained",
+              claim_ceiling:"stratified query-level Rego representation measurements over deterministic source-derived strata; not Cedar equivalence or Rust authorization parity"
+            }' > target/opa-indexed-role-bench/stratified/qualification.json
+
+          {
+            printf 'projection_profile=mycelix-rego-role-index-v0.1\n'
             printf 'source_sha256=%s\n' "$source_sha"
             printf 'indexed_jsonl_sha256=%s\n' "$indexed_sha"
             printf 'projection_generation_elapsed_ns=%s\n' "$projection_elapsed_ns"
             printf 'indexed_batch_eval_elapsed_ns=%s\n' "$batch_elapsed_ns"
+            printf 'stratified_sample_count=%s\n' "$expected_sample_count"
             printf 'source_bytes=%s\n' "$(wc -c < "$source_file")"
             printf 'indexed_bytes=%s\n' "$(wc -c < "$indexed_file")"
             printf 'opa_version='; /tmp/opa version
@@ -405,6 +460,7 @@ jobs:
             uname -a
             printf 'logical_cpus=%s\n' "$(nproc)"
             sha256sum target/opa-indexed-role-bench/*-baseline.json target/opa-indexed-role-bench/*-indexed.json
+            sha256sum target/opa-indexed-role-bench/stratified/*-baseline.json target/opa-indexed-role-bench/stratified/*-indexed.json
           } > target/opa-indexed-role-bench/reproducibility.txt
 
       - name: Evaluate each metamorphic corpus through Cedar and OPA
