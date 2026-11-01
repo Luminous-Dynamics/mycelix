@@ -232,6 +232,30 @@ not finite-sample precision, posterior calibration or empirical covariance
 estimation. Support equality must be explicitly declared; overlap does not
 automatically become a correlation coefficient.
 
+## Censored tracer observations and detection-aware information
+
+The `censored_tracer` module treats a tracer nondetect as the event
+`Y <= LOD`, a sampling-interval observation as `lower < Y <= upper`, an
+upper-range censor as `Y > UQL`, and missing-at-random as no update. It
+computes Gaussian CDF/survival/interval probabilities, updates a finite model
+posterior from those probabilities, and can convert predictive Gaussian
+mixtures into finite censored-bin designs for Shannon/Sibson scoring. Missing-
+not-at-random is only accepted with explicit model-specific missingness
+probabilities.
+
+The executable `censored-tracer-bakeoff` first conditions tracer predictions
+on an observed CT measurement, then scores below-LOD / in-range / above-UQL
+bins. It compares the proper below-LOD posterior against an explicitly
+labelled **incorrect zero-substitution** negative control, and verifies that
+missing-at-random preserves the prior.
+
+The likelihood is for a scalar Gaussian feature in a caller-declared scale
+(e.g. log concentration or arrival time). It does not calibrate the LOD/UQL,
+model background subtraction, false positives, false negatives, heteroscedastic
+errors or non-Gaussian tracer tails. The normal CDF uses a documented
+approximation; interval-bin sensitivity must be checked against a higher-
+accuracy library before high-stakes use.
+
 ## Conditional information gain
 
 The `information_gain` module estimates model-identity information in a
