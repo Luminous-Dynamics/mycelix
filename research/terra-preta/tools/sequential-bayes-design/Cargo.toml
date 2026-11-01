@@ -1,5 +1,6 @@
 [package]
 name = "terra-preta-sequential-bayes-design"
+default-run = "terra-preta-sequential-bayes-design"
 version = "0.1.0"
 edition = "2024"
 publish = false
