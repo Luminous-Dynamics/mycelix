@@ -70,7 +70,7 @@ The engine distinguishes missing evidence, unknown/not-visible evidence, missing
 
 ## 5. Authored tests
 
-Sixteen Rust tests are included:
+Seventeen Rust tests are included:
 1. later-recorded evidence excluded from historical snapshot;
 2. deterministic replay and event-time sorting;
 3. plan comparison distinguishes on-time, late and missing;
