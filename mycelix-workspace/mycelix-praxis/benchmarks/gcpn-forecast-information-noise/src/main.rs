@@ -1,6 +1,4 @@
-use gcpn_forecast_information_noise::{
-    ForecastCase, PredictandContract, evaluate,
-};
+use gcpn_forecast_information_noise::{ForecastCase, PredictandContract, evaluate};
 
 fn main() {
     let contract = PredictandContract {
