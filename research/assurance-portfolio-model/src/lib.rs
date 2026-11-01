@@ -49,6 +49,11 @@ pub enum EvidenceValidity {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum FaultDomainDimension {
     ImplementationLineage,
+    SpecificationLineage,
+    ExpectedAnswerLineage,
+    TestCorpusLineage,
+    SourceEvidenceLineage,
+    ToolchainDistribution,
     RepositoryControl,
     ExecutionProvider,
     RunnerImage,
@@ -59,8 +64,13 @@ pub enum FaultDomainDimension {
 }
 
 impl FaultDomainDimension {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 13] = [
         Self::ImplementationLineage,
+        Self::SpecificationLineage,
+        Self::ExpectedAnswerLineage,
+        Self::TestCorpusLineage,
+        Self::SourceEvidenceLineage,
+        Self::ToolchainDistribution,
         Self::RepositoryControl,
         Self::ExecutionProvider,
         Self::RunnerImage,
@@ -74,6 +84,11 @@ impl FaultDomainDimension {
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FaultDomains {
     pub implementation_lineage: Option<Digest>,
+    pub specification_lineage: Option<Digest>,
+    pub expected_answer_lineage: Option<Digest>,
+    pub test_corpus_lineage: Option<Digest>,
+    pub source_evidence_lineage: Option<Digest>,
+    pub toolchain_distribution: Option<Digest>,
     pub repository_control: Option<Digest>,
     pub execution_provider: Option<Digest>,
     pub runner_image: Option<Digest>,
@@ -87,6 +102,11 @@ impl FaultDomains {
     pub fn identity(&self, dimension: FaultDomainDimension) -> Option<Digest> {
         match dimension {
             FaultDomainDimension::ImplementationLineage => self.implementation_lineage,
+            FaultDomainDimension::SpecificationLineage => self.specification_lineage,
+            FaultDomainDimension::ExpectedAnswerLineage => self.expected_answer_lineage,
+            FaultDomainDimension::TestCorpusLineage => self.test_corpus_lineage,
+            FaultDomainDimension::SourceEvidenceLineage => self.source_evidence_lineage,
+            FaultDomainDimension::ToolchainDistribution => self.toolchain_distribution,
             FaultDomainDimension::RepositoryControl => self.repository_control,
             FaultDomainDimension::ExecutionProvider => self.execution_provider,
             FaultDomainDimension::RunnerImage => self.runner_image,
@@ -531,6 +551,11 @@ mod tests {
     fn domains(implementation: u8) -> FaultDomains {
         FaultDomains {
             implementation_lineage: Some(digest(implementation)),
+            specification_lineage: Some(digest(20 + implementation)),
+            expected_answer_lineage: Some(digest(30 + implementation)),
+            test_corpus_lineage: Some(digest(40 + implementation)),
+            source_evidence_lineage: Some(digest(50)),
+            toolchain_distribution: Some(digest(60)),
             repository_control: Some(digest(9)),
             execution_provider: Some(digest(7)),
             runner_image: Some(digest(8)),
@@ -555,11 +580,23 @@ mod tests {
                 EvaluatorRole::NormativeContract,
                 EvaluatorRole::IndependentImplementation,
             ],
-            required_separations: vec![PairwiseSeparation {
-                left_role: EvaluatorRole::NormativeContract,
-                right_role: EvaluatorRole::IndependentImplementation,
-                dimension: FaultDomainDimension::ImplementationLineage,
-            }],
+            required_separations: vec![
+                PairwiseSeparation {
+                    left_role: EvaluatorRole::NormativeContract,
+                    right_role: EvaluatorRole::IndependentImplementation,
+                    dimension: FaultDomainDimension::ImplementationLineage,
+                },
+                PairwiseSeparation {
+                    left_role: EvaluatorRole::NormativeContract,
+                    right_role: EvaluatorRole::IndependentImplementation,
+                    dimension: FaultDomainDimension::SpecificationLineage,
+                },
+                PairwiseSeparation {
+                    left_role: EvaluatorRole::NormativeContract,
+                    right_role: EvaluatorRole::IndependentImplementation,
+                    dimension: FaultDomainDimension::ExpectedAnswerLineage,
+                },
+            ],
         }
     }
 
@@ -706,6 +743,47 @@ mod tests {
         assert!(has_reason(
             &replay,
             CompositionReason::DuplicateReplaySuppressed
+        ));
+    }
+
+    #[test]
+    fn different_implementations_with_a_shared_specification_are_not_independent() {
+        let mut pair = required_pair();
+        pair[1].fault_domains.specification_lineage =
+            pair[0].fault_domains.specification_lineage;
+
+        let result = compose(&profile(false), &pair).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(has_reason(
+            &result,
+            CompositionReason::RequiredFaultDomainShared
+        ));
+    }
+
+    #[test]
+    fn different_implementations_with_shared_expected_answers_are_not_independent() {
+        let mut pair = required_pair();
+        pair[1].fault_domains.expected_answer_lineage =
+            pair[0].fault_domains.expected_answer_lineage;
+
+        let result = compose(&profile(false), &pair).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(has_reason(
+            &result,
+            CompositionReason::RequiredFaultDomainShared
+        ));
+    }
+
+    #[test]
+    fn unknown_specification_lineage_cannot_satisfy_required_separation() {
+        let mut pair = required_pair();
+        pair[1].fault_domains.specification_lineage = None;
+
+        let result = compose(&profile(false), &pair).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(has_reason(
+            &result,
+            CompositionReason::RequiredFaultDomainUnknown
         ));
     }
 
