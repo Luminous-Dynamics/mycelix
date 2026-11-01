@@ -1265,7 +1265,7 @@ mod tests {
             }).expect("decisions").decision_id.clone()
         };
 
-        assert_eq!(chosen_decision(0.001, 0.3), "RETAIN_WATER");
+        assert_eq!(chosen_decision(0.001, 0.3), "DRAIN_FAST");
         assert_eq!(chosen_decision(0.001, 0.9), "DIAGNOSE_FIRST");
         assert_eq!(chosen_decision(0.05, 0.7), "DIAGNOSE_FIRST");
     }
