@@ -25,7 +25,7 @@ For every selected action the evaluator samples a categorical observation from t
 
 Selector-facing types contain model priors, candidate-model likelihoods, declared decision utilities, eligible actions, costs, strata and modality metadata. They do not contain hidden true observation probabilities or true decision utilities. A negative-control test mutates all evaluator truth fields and verifies that the first selector choice is unchanged.
 
-The report aggregates repeated deterministic seeds and records true synthetic decision utility/regret, predictive surprise events, diagnostic measurements, final posterior entropy, mean negative log predictive score, multiclass Brier score and action-selection frequencies.
+The report aggregates repeated deterministic seeds and records true synthetic decision utility/regret, predictive surprise events, diagnostic measurements, final posterior entropy, mean negative log predictive score, multiclass Brier score and action-selection frequencies. A nuisance-signature control demonstrates that information gain can be substantial while decision EVSI is zero: calculated EIG is 0.3774776716 nats versus zero EVSI for the declared service decision.
 
 ## Limits
 
