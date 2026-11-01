@@ -34,6 +34,7 @@ struct Scenario {
     decisions: Vec<Decision>,
     truth_decisions: Vec<TruthDecision>,
     actions: Vec<Action>,
+    validation_probes: Vec<ValidationProbe>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -75,6 +76,16 @@ struct Action {
     eligible: bool,
     exclusion_reason: Option<String>,
     diagnostic_action: bool,
+    outcomes: Vec<String>,
+    likelihoods: Vec<ModelLikelihood>,
+    truth_outcome_probabilities: Vec<f64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ValidationProbe {
+    probe_id: String,
+    stratum_id: String,
+    modality: String,
     outcomes: Vec<String>,
     likelihoods: Vec<ModelLikelihood>,
     truth_outcome_probabilities: Vec<f64>,
@@ -161,7 +172,18 @@ struct TrajectoryMetrics {
     final_posterior_entropy: f64,
     predictive_log_score: f64,
     predictive_brier_score: f64,
+    heldout_validation_log_score: f64,
+    heldout_validation_brier_score: f64,
+    validation_by_stratum: Vec<ValidationStratumScore>,
     selected_action_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ValidationStratumScore {
+    stratum_id: String,
+    probe_count: usize,
+    expected_log_score: f64,
+    expected_brier_score: f64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -176,6 +198,9 @@ struct PolicySummary {
     mean_final_posterior_entropy: f64,
     mean_predictive_log_score: f64,
     mean_predictive_brier_score: f64,
+    mean_heldout_validation_log_score: f64,
+    mean_heldout_validation_brier_score: f64,
+    validation_by_stratum: Vec<ValidationStratumScore>,
     selected_action_frequency: Vec<ActionFrequency>,
 }
 
@@ -197,6 +222,7 @@ struct Report {
     ineligible_candidate_count: usize,
     budget_cost_units: u32,
     predictive_surprise_threshold: f64,
+    validation_probe_count: usize,
     policy_summaries: Vec<PolicySummary>,
     interpretation_boundary: &'static str,
     warnings: Vec<String>,
@@ -284,6 +310,45 @@ fn validate_scenario(scenario: &Scenario) -> Result<(), String> {
     }
     if truth_decision_ids.len() != decision_ids.len() {
         return Err("every candidate decision needs one evaluator truth utility".into());
+    }
+
+    if scenario.validation_probes.is_empty() {
+        return Err("at least one common held-out validation probe is required".into());
+    }
+    let mut probe_ids = BTreeSet::new();
+    for probe in &scenario.validation_probes {
+        if probe.probe_id.trim().is_empty()
+            || !probe_ids.insert(probe.probe_id.as_str())
+            || !strata.contains(probe.stratum_id.as_str())
+            || probe.modality.trim().is_empty()
+        {
+            return Err(format!("invalid validation probe {:?}", probe.probe_id));
+        }
+        let mut outcomes = BTreeSet::new();
+        if probe.outcomes.len() < 2 || probe.outcomes.iter().any(|outcome| {
+            outcome.trim().is_empty() || !outcomes.insert(outcome.as_str())
+        }) {
+            return Err(format!("validation probe {:?} has invalid outcomes", probe.probe_id));
+        }
+        if probe.truth_outcome_probabilities.len() != probe.outcomes.len()
+            || !probabilities_valid(&probe.truth_outcome_probabilities)
+            || probe.likelihoods.len() != scenario.models.len()
+        {
+            return Err(format!("invalid truth or model likelihood on probe {:?}", probe.probe_id));
+        }
+        let mut likelihood_ids = BTreeSet::new();
+        for likelihood in &probe.likelihoods {
+            if !model_ids.contains(likelihood.model_id.as_str())
+                || !likelihood_ids.insert(likelihood.model_id.as_str())
+                || likelihood.outcome_probabilities.len() != probe.outcomes.len()
+                || !probabilities_valid(&likelihood.outcome_probabilities)
+            {
+                return Err(format!("invalid candidate likelihood on probe {:?}", probe.probe_id));
+            }
+        }
+        if likelihood_ids.len() != model_ids.len() {
+            return Err(format!("validation probe {:?} omits a model", probe.probe_id));
+        }
     }
 
     let mut action_ids = BTreeSet::new();
@@ -613,6 +678,64 @@ fn next_action<'a>(
     eligible.first().copied()
 }
 
+fn heldout_validation_scores(
+    posterior: &[f64],
+    models: &[Model],
+    probes: &[ValidationProbe],
+    strata: &[Stratum],
+) -> (f64, f64, Vec<ValidationStratumScore>) {
+    let model_index: std::collections::BTreeMap<&str, usize> = models.iter()
+        .enumerate().map(|(index, model)| (model.model_id.as_str(), index)).collect();
+    let mut by_stratum = Vec::new();
+
+    for stratum in strata {
+        let selected_probes: Vec<&ValidationProbe> = probes.iter()
+            .filter(|probe| probe.stratum_id == stratum.stratum_id).collect();
+        if selected_probes.is_empty() {
+            continue;
+        }
+        let mut log_sum = 0.0;
+        let mut brier_sum = 0.0;
+        for probe in &selected_probes {
+            let mut model_probs = vec![Vec::new(); models.len()];
+            for likelihood in &probe.likelihoods {
+                let index = *model_index.get(likelihood.model_id.as_str())
+                    .expect("validated validation likelihood model");
+                model_probs[index] = likelihood.outcome_probabilities.clone();
+            }
+            let predictive: Vec<f64> = (0..probe.outcomes.len()).map(|outcome_index| {
+                posterior.iter().enumerate().map(|(model_index, weight)| {
+                    weight * model_probs[model_index][outcome_index]
+                }).sum()
+            }).collect();
+            for (observed_index, truth_probability) in
+                probe.truth_outcome_probabilities.iter().enumerate()
+            {
+                log_sum += truth_probability
+                    * -predictive[observed_index].max(ALERT_EPSILON).ln();
+                brier_sum += truth_probability * predictive.iter().enumerate()
+                    .map(|(index, probability)| {
+                        let observed = if index == observed_index { 1.0 } else { 0.0 };
+                        (probability - observed).powi(2)
+                    }).sum::<f64>();
+            }
+        }
+        by_stratum.push(ValidationStratumScore {
+            stratum_id: stratum.stratum_id.clone(),
+            probe_count: selected_probes.len(),
+            expected_log_score: log_sum / selected_probes.len() as f64,
+            expected_brier_score: brier_sum / selected_probes.len() as f64,
+        });
+    }
+
+    let probe_count = probes.len().max(1) as f64;
+    let total_log: f64 = by_stratum.iter()
+        .map(|entry| entry.expected_log_score * entry.probe_count as f64).sum();
+    let total_brier: f64 = by_stratum.iter()
+        .map(|entry| entry.expected_brier_score * entry.probe_count as f64).sum();
+    (total_log / probe_count, total_brier / probe_count, by_stratum)
+}
+
 fn summarize_trajectory(
     scenario: &Scenario,
     policy: Policy,
@@ -679,6 +802,11 @@ fn summarize_trajectory(
         selected_ids.push(selected.action_id.clone());
     }
 
+    let (heldout_log, heldout_brier, validation_by_stratum) =
+        heldout_validation_scores(
+            &posterior, &scenario.models, &scenario.validation_probes, &scenario.strata,
+        );
+
     let chosen_decision = decisions.iter().max_by(|a, b| {
         let utility = |decision: &SelectorDecision| posterior.iter()
             .zip(&decision.model_utilities)
@@ -705,6 +833,9 @@ fn summarize_trajectory(
         predictive_brier_score: if observation_count == 0 { 0.0 } else {
             brier_score_sum / observation_count as f64
         },
+        heldout_validation_log_score: heldout_log,
+        heldout_validation_brier_score: heldout_brier,
+        validation_by_stratum,
         selected_action_ids: selected_ids,
     }
 }
@@ -744,6 +875,24 @@ fn summarize_policy(
         mean_final_posterior_entropy: mean(|m| m.final_posterior_entropy),
         mean_predictive_log_score: mean(|m| m.predictive_log_score),
         mean_predictive_brier_score: mean(|m| m.predictive_brier_score),
+        mean_heldout_validation_log_score: mean(|m| m.heldout_validation_log_score),
+        mean_heldout_validation_brier_score: mean(|m| m.heldout_validation_brier_score),
+        validation_by_stratum: scenario.strata.iter().filter_map(|stratum| {
+            let entries: Vec<&ValidationStratumScore> = trajectories.iter()
+                .flat_map(|trajectory| trajectory.validation_by_stratum.iter())
+                .filter(|entry| entry.stratum_id == stratum.stratum_id)
+                .collect();
+            if entries.is_empty() {
+                return None;
+            }
+            let count = entries.len() as f64;
+            Some(ValidationStratumScore {
+                stratum_id: stratum.stratum_id.clone(),
+                probe_count: entries[0].probe_count,
+                expected_log_score: entries.iter().map(|entry| entry.expected_log_score).sum::<f64>() / count,
+                expected_brier_score: entries.iter().map(|entry| entry.expected_brier_score).sum::<f64>() / count,
+            })
+        }).collect(),
         selected_action_frequency,
     }
 }
@@ -773,12 +922,15 @@ fn build_report(scenario: &Scenario, input: &[u8]) -> Result<Report, String> {
         ineligible_candidate_count: scenario.actions.iter().filter(|action| !action.eligible).count(),
         budget_cost_units: scenario.budget_cost_units,
         predictive_surprise_threshold: scenario.predictive_surprise_threshold,
+        validation_probe_count: scenario.validation_probes.len(),
         policy_summaries,
         interpretation_boundary: "Synthetic categorical Bayesian benchmark only; no empirical soil evidence, physical simulator validation, field authorization, efficacy claim, or SOTA claim.",
         warnings: vec![
             "Candidate likelihoods are finite categorical distributions. The engine does not yet support continuous, censored, heteroscedastic or correlated-noise observations.".into(),
             "The synthetic true observation generator may be outside the candidate model family. Surprise events are diagnostic flags, not proof of a specific missing physical mechanism.".into(),
             "The discrepancy-guarded policy can select a predeclared diagnostic modality after a surprise; it does not yet update an explicit discrepancy posterior.".into(),
+            "Prequential scores are policy-selected and differ in measurement support; use the common held-out validation scores for matched cross-policy predictive comparison.".into(),
+            "The common held-out validation probes are evaluator-only and do not consume acquisition budget; their scores are expected proper scores under the declared synthetic truth distribution.".into(),
             "A finite synthetic scenario and fixed seed ensemble cannot establish external predictive calibration or field utility.".into(),
             "The engine's decision regret is measured against the evaluator's known best decision in the synthetic world, not a real management outcome.".into(),
         ],
