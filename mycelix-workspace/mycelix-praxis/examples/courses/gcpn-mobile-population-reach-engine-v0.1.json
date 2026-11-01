@@ -16,7 +16,7 @@
     "minimum_cell_suppression",
     "single_cell_query_differencing_negative_control"
   ],
-  "tests_authored": 12,
+  "tests_authored": 11,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
