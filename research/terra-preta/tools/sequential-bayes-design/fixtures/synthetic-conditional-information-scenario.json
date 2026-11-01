@@ -1,0 +1,101 @@
+{
+  "schema_version": "0.1.0",
+  "data_class": "synthetic-known-truth",
+  "scenario_id": "ct-tracer-correlated-complementarity-v0",
+  "models": [
+    {
+      "model_id": "positive-correlation",
+      "prior_weight": 0.5,
+      "mean": [
+        0,
+        0
+      ],
+      "covariance": [
+        [
+          1,
+          0.8
+        ],
+        [
+          0.8,
+          1
+        ]
+      ]
+    },
+    {
+      "model_id": "negative-correlation",
+      "prior_weight": 0.5,
+      "mean": [
+        0,
+        0
+      ],
+      "covariance": [
+        [
+          1,
+          -0.8
+        ],
+        [
+          -0.8,
+          1
+        ]
+      ]
+    }
+  ],
+  "coordinates": [
+    {
+      "coordinate_id": "ct:pore-connectivity:core-A",
+      "modality": "ct",
+      "support_id": "core-A:imaged-volume",
+      "unit": "1"
+    },
+    {
+      "coordinate_id": "tracer:arrival:core-A",
+      "modality": "tracer",
+      "support_id": "core-A:depth-10-20cm",
+      "unit": "hour"
+    }
+  ],
+  "prior_actions": [
+    {
+      "action_id": "ct_only",
+      "cost_units": 1,
+      "eligible": true,
+      "coordinate_ids": [
+        "ct:pore-connectivity:core-A"
+      ]
+    },
+    {
+      "action_id": "tracer_only",
+      "cost_units": 1,
+      "eligible": true,
+      "coordinate_ids": [
+        "tracer:arrival:core-A"
+      ]
+    },
+    {
+      "action_id": "joint_ct_tracer",
+      "cost_units": 2,
+      "eligible": true,
+      "coordinate_ids": [
+        "ct:pore-connectivity:core-A",
+        "tracer:arrival:core-A"
+      ]
+    }
+  ],
+  "history_action_id": "ct_only",
+  "history_values": [
+    1
+  ],
+  "conditional_actions": [
+    {
+      "action_id": "tracer_after_ct",
+      "cost_units": 1,
+      "eligible": true,
+      "coordinate_ids": [
+        "tracer:arrival:core-A"
+      ]
+    }
+  ],
+  "budget_units": 2,
+  "samples_per_model": 4096,
+  "seed": 20261101
+}
