@@ -102,21 +102,21 @@ impl DiscreteDesignModel {
     /// Nominal Shannon mutual information I(M; X) for this candidate design.
     pub fn shannon_mutual_information(&self) -> Result<f64, String> {
         let prior = self.validate()?;
-        let outcome_count = self.outcome_ids.len();
-        let mut information = 0.0;
-
-        for outcome in 0..outcome_count {
-            let marginal: f64 = self.likelihoods.iter()
-                .zip(&prior)
-                .map(|(row, weight)| weight * row[outcome])
-                .sum();
-            if marginal == 0.0 {
-                continue;
+        let mut marginal_outcomes = vec![0.0; self.outcome_ids.len()];
+        for (row, weight) in self.likelihoods.iter().zip(&prior) {
+            for (marginal, likelihood) in marginal_outcomes.iter_mut().zip(row) {
+                *marginal += weight * likelihood;
             }
-            for (model, row) in self.likelihoods.iter().enumerate() {
-                let joint = prior[model] * row[outcome];
-                if joint > 0.0 {
-                    information += joint * (row[outcome] / marginal).ln();
+        }
+
+        let mut information = 0.0;
+        for (row, weight) in self.likelihoods.iter().zip(&prior) {
+            for (likelihood, marginal) in row.iter().zip(&marginal_outcomes) {
+                if *marginal > 0.0 {
+                    let joint = weight * likelihood;
+                    if joint > 0.0 {
+                        information += joint * (likelihood / marginal).ln();
+                    }
                 }
             }
         }
@@ -136,15 +136,15 @@ impl DiscreteDesignModel {
             return Err("Sibson alpha must be finite and strictly between zero and one".into());
         }
         let prior = self.validate()?;
-        let mut outer_sum = 0.0;
-
-        for outcome in 0..self.outcome_ids.len() {
-            let inner_sum: f64 = self.likelihoods.iter()
-                .zip(&prior)
-                .map(|(row, weight)| weight * row[outcome].powf(alpha))
-                .sum();
-            outer_sum += inner_sum.powf(1.0 / alpha);
+        let mut inner_sums = vec![0.0; self.outcome_ids.len()];
+        for (row, weight) in self.likelihoods.iter().zip(&prior) {
+            for (inner_sum, likelihood) in inner_sums.iter_mut().zip(row) {
+                *inner_sum += weight * likelihood.powf(alpha);
+            }
         }
+        let outer_sum: f64 = inner_sums.iter()
+            .map(|inner_sum| inner_sum.powf(1.0 / alpha))
+            .sum();
         if !outer_sum.is_finite() || outer_sum <= 0.0 {
             return Err("Sibson outer sum must be finite and positive".into());
         }
@@ -172,14 +172,14 @@ impl DiscreteDesignModel {
         let prior = self.validate()?;
         let outcome_count = self.outcome_ids.len();
 
-        let mut alpha_outcome_marginal: Vec<f64> = (0..outcome_count)
-            .map(|outcome| {
-                self.likelihoods.iter()
-                    .zip(&prior)
-                    .map(|(row, weight)| weight * row[outcome].powf(alpha))
-                    .sum::<f64>()
-                    .powf(1.0 / alpha)
-            })
+        let mut alpha_inner_sums = vec![0.0; outcome_count];
+        for (row, weight) in self.likelihoods.iter().zip(&prior) {
+            for (inner_sum, likelihood) in alpha_inner_sums.iter_mut().zip(row) {
+                *inner_sum += weight * likelihood.powf(alpha);
+            }
+        }
+        let mut alpha_outcome_marginal: Vec<f64> = alpha_inner_sums.iter()
+            .map(|inner_sum| inner_sum.powf(1.0 / alpha))
             .collect();
         let alpha_total: f64 = alpha_outcome_marginal.iter().sum();
         if !alpha_total.is_finite() || alpha_total <= 0.0 {
@@ -191,10 +191,16 @@ impl DiscreteDesignModel {
 
         let mut joint_weights = vec![vec![0.0; outcome_count]; self.model_ids.len()];
         let mut joint_total = 0.0;
-        for (model, row) in self.likelihoods.iter().enumerate() {
-            for outcome in 0..outcome_count {
-                let nominal_joint = prior[model] * row[outcome];
-                let alpha_reference = prior[model] * alpha_outcome_marginal[outcome];
+        for ((row, weight), joint_row) in self.likelihoods.iter()
+            .zip(&prior)
+            .zip(joint_weights.iter_mut())
+        {
+            for ((likelihood, alpha_outcome), joint_value) in row.iter()
+                .zip(&alpha_outcome_marginal)
+                .zip(joint_row.iter_mut())
+            {
+                let nominal_joint = weight * likelihood;
+                let alpha_reference = weight * alpha_outcome;
                 let value = if nominal_joint == 0.0 || alpha_reference == 0.0 {
                     0.0
                 } else {
@@ -204,7 +210,7 @@ impl DiscreteDesignModel {
                 if !value.is_finite() || value < 0.0 {
                     return Err("worst-case joint weight is invalid".into());
                 }
-                joint_weights[model][outcome] = value;
+                *joint_value = value;
                 joint_total += value;
             }
         }
@@ -220,12 +226,19 @@ impl DiscreteDesignModel {
         let mut model_marginal = vec![0.0; self.model_ids.len()];
         let mut outcome_marginal = vec![0.0; outcome_count];
         let mut kl_to_nominal_nats = 0.0;
-        for (model, row) in joint_weights.iter().enumerate() {
-            for (outcome, probability) in row.iter().enumerate() {
-                model_marginal[model] += probability;
-                outcome_marginal[outcome] += probability;
+        for (((joint_row, nominal_row), model_prior), model_total) in joint_weights.iter()
+            .zip(&self.likelihoods)
+            .zip(&prior)
+            .zip(model_marginal.iter_mut())
+        {
+            for ((probability, likelihood), outcome_total) in joint_row.iter()
+                .zip(nominal_row)
+                .zip(outcome_marginal.iter_mut())
+            {
+                *model_total += probability;
+                *outcome_total += probability;
                 if *probability > 0.0 {
-                    let nominal = prior[model] * self.likelihoods[model][outcome];
+                    let nominal = model_prior * likelihood;
                     if nominal <= 0.0 {
                         return Err("worst-case distribution escaped nominal support".into());
                     }
