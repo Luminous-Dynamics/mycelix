@@ -725,6 +725,26 @@ mod tests {
     }
 
     #[test]
+    fn an_authorized_executable_with_an_unlisted_profile_cannot_refute() {
+        let mut assessments = required_pair();
+        let mut wrong_profile = assessment(EvaluatorRole::InvariantChecker, 13, 8);
+        wrong_profile.evaluator_profile_digest = digest(222);
+        wrong_profile.outcome = AssessmentOutcome::Refutes;
+        assessments.push(wrong_profile);
+
+        let result = compose(&profile(true), &assessments).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(!has_reason(
+            &result,
+            CompositionReason::HardInvariantRefuted
+        ));
+        assert!(has_reason(
+            &result,
+            CompositionReason::NonHardRefutationObserved
+        ));
+    }
+
+    #[test]
     fn a_role_label_without_the_authorized_evaluator_digest_cannot_refute() {
         let mut assessments = required_pair();
         let mut role_spoof = assessment(EvaluatorRole::InvariantChecker, 14, 8);
