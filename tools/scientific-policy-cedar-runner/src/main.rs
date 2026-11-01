@@ -347,10 +347,25 @@ fn validate_manifest(manifest: &InputManifest) -> Result<(), String> {
 
 fn load_cases(path: &Path, expected_sha256: &str) -> Result<Vec<EngineInputCase>, String> {
     let metadata = fs::metadata(path).map_err(|error| format!("stat engine input corpus: {error}"))?;
+    if !metadata.is_file() {
+        return Err("engine input corpus must be a regular file".to_owned());
+    }
     if metadata.len() > MAX_INPUT_BYTES {
         return Err(format!("engine input corpus exceeds {MAX_INPUT_BYTES} byte cap"));
     }
-    let bytes = fs::read(path).map_err(|error| format!("read engine input corpus: {error}"))?;
+    let initial_capacity = usize::try_from(metadata.len().min(MAX_INPUT_BYTES))
+        .map_err(|error| format!("engine input corpus size does not fit memory index: {error}"))?;
+    let mut bytes = Vec::with_capacity(initial_capacity);
+    File::open(path)
+        .map_err(|error| format!("open engine input corpus: {error}"))?
+        .take(MAX_INPUT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("bounded-read engine input corpus: {error}"))?;
+    // Metadata is an early rejection only. Cap the actual read as well so a
+    // concurrent file replacement or growth cannot bypass the input limit.
+    if bytes.len() as u64 > MAX_INPUT_BYTES {
+        return Err(format!("engine input corpus exceeds {MAX_INPUT_BYTES} byte cap"));
+    }
     if sha256(&bytes) != expected_sha256 {
         return Err("engine input corpus SHA-256 does not match its manifest".to_owned());
     }
