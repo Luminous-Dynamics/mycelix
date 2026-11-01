@@ -311,3 +311,10 @@ The nine initial reference tests cover analytical scalar recovery, physical-stat
 The `ct_wetted_interface.rs` module now calculates a geometric voxel-face approximation of the macropore–matrix pore interface, using anisotropic physical voxel spacing and an explicit local wet fraction per pore voxel. Each unique face is counted once; its wetted area is weighted by the lesser wet fraction of the adjacent macropore and matrix-pore voxels. Total wetted interface area is normalized by the complete CT support volume to obtain specific wetted area (a_{wetted}\,[m^{-1}]), and the result converts into a transient exchange observation with a synchronized macropore flux.
 
 This closes the software interface from **segmented CT + supplied wetting state → wetted interface area → time-varying exchange operator**. It does not close the physics: wet fractions are inputs, and the minimum-fraction rule is a simple synthetic proxy. A validated dynamic wetting/retention model, partial-volume treatment and experimental interfacial-area calibration remain open. It also assumes co-located/consistent CT support metadata; it does not infer cross-support covariance.
+
+
+## Exact oracle vs finite-ensemble Kalman approximation
+
+The crate now has a deterministic finite-ensemble Gaussian-moment comparator in `ensemble_assimilation.rs`. It samples the augmented state/parameter prior with a recorded seed, estimates empirical prior mean/covariance, and performs a linear EnKF-style moment update using the same (H,R,y) as the exact joint-Gaussian oracle. This allows posterior mean/covariance error to be measured against an exact truth under controlled ensemble sizes.
+
+The current reference does not implement perturbed-observation or square-root EnKF variants, nonlinear Richards dynamics or particle filtering. It is the first matched approximation control; the next benchmark should vary ensemble size, parameter correlation, observation sparsity, skew/multimodal posterior mismatch and process-noise misspecification.
