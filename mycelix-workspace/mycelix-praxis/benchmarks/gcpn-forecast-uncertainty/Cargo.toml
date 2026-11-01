@@ -1,0 +1,19 @@
+[package]
+name = "gcpn-forecast-uncertainty"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Paired event-cluster bootstrap uncertainty for synthetic GCPN forecast comparisons"
+
+# Keep this benchmark isolated from the parent Praxis workspace.
+[workspace]
+
+[dependencies]
+gcpn-forecast-calibration = { path = "../gcpn-forecast-calibration" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-forecast-uncertainty"
+path = "src/main.rs"
