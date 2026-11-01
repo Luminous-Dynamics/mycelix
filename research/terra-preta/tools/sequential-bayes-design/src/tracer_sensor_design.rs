@@ -119,7 +119,6 @@ pub fn compare_tracer_sensor_options(
     }
     validate_sensor_options(options)?;
 
-    let mut designs = Vec::with_capacity(options.len());
     let mut candidates = Vec::with_capacity(options.len());
     let mut scores = Vec::with_capacity(options.len());
 
@@ -149,7 +148,6 @@ pub fn compare_tracer_sensor_options(
             alpha_search_clamped: robust.alpha_search_clamped,
         });
         candidates.push(as_candidate(option, &design));
-        designs.push(design);
     }
 
     let model_ids = components.iter()
@@ -262,8 +260,8 @@ mod tests {
         assert!(result.nominal_selection.is_some());
         assert!(result.fixed_alpha_selection.is_some());
         assert!(result.fixed_kl_radius_selection.is_some());
-        assert_eq!(result.scores[2].feasible, false);
-        assert_eq!(result.scores[3].feasible, false);
+        assert!(!result.scores[2].feasible);
+        assert!(!result.scores[3].feasible);
         assert!(result.nominal_selection.unwrap().cost_units <= 2);
         assert!(result.fixed_alpha_selection.unwrap().cost_units <= 2);
     }
