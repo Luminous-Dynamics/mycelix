@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-forecast-calibration"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Synthetic probabilistic hazard-forecast verification and calibration benchmark"
+
+# Keep this benchmark isolated from the parent Praxis workspace.
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-forecast-calibration"
+path = "src/main.rs"
