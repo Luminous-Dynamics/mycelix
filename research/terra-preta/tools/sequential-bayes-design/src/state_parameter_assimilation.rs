@@ -133,17 +133,6 @@ fn add_matrices(left: &[Vec<f64>], right: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, 
     }).collect())
 }
 
-fn subtract_matrices(left: &[Vec<f64>], right: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, String> {
-    if left.len() != right.len()
-        || left.iter().zip(right).any(|(a, b)| a.len() != b.len())
-    {
-        return Err("matrix subtraction dimensions do not align".into());
-    }
-    Ok(left.iter().zip(right).map(|(left_row, right_row)| {
-        left_row.iter().zip(right_row).map(|(a, b)| a - b).collect()
-    }).collect())
-}
-
 fn subtract_vectors(left: &[f64], right: &[f64]) -> Result<Vec<f64>, String> {
     if left.len() != right.len() {
         return Err("vector subtraction dimensions do not align".into());
