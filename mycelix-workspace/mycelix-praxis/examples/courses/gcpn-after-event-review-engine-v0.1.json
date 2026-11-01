@@ -17,7 +17,7 @@
     "recommendation_evidence_and_followup_traceability",
     "non_composite_review_summary"
   ],
-  "tests_authored": 12,
+  "tests_authored": 14,
   "execution": {
     "cargo_build": "not_run",
     "rust_tests": "not_run",
