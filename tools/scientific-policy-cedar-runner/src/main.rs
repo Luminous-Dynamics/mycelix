@@ -1151,7 +1151,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                 &pinned_opa.path,
                 &pinned_rego.path,
             ) {
-                Ok((cedar, opa, _cedar_policy_ids, opa_rule, cedar_ns, opa_ns))
+                Ok((cedar, opa, _cedar_policy_ids, _opa_rule, _cedar_ns, _opa_ns))
                     if cedar == "invalid" && opa == "invalid" =>
                 {
                     // Candidate did not satisfy the paired input/schema boundary;
@@ -1450,7 +1450,7 @@ fn run() -> Result<(), String> {
         policy_sha256: sha256(&policy_bytes),
         schema_sha256: sha256(&schema_bytes),
         output_file: "cedar-decisions-v0.1.jsonl".to_owned(),
-        output_sha256,
+        output_sha256: output_sha256.clone(),
         case_count: cases.len(),
         allow_count,
         deny_count,
