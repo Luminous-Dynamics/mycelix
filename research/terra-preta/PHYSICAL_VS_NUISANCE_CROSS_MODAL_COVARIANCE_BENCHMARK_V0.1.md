@@ -180,3 +180,15 @@ The reference controls show one CT/tracer pair sharing support/batch/instrument 
 Added `covariance-identifiability-bakeoff` with a five-field synthetic fixture / report contract and workflow assertion. It executes three designs and requires the expected structural pattern: single paired CT/tracer rank 2/4; batch-only pair rank 2/4 with batch identifiable but physical support not individually identifiable; crossed support × batch × instrument × modality rank 4/4 with exact coefficient recovery [0.7, 0.4, 0.2, 0.1]. The workflow validates schemas, report output and hashes the input fixture.
 
 Recent statistical references support explicit design-identifiability checks: the 2024 crossed random-effects study shows repeated group measurements and functional complexity affect recoverability (Rohloff et al., DOI 10.1111/bmsp.12334); necessary/sufficient covariance-matrix identifiability conditions for linear mixed models are derived in DOI 10.1080/03610926.2023.2272003. Structural rank here is a transparent finite reference, not a replacement for finite-sample parameter-recovery simulations or posterior calibration.
+
+
+## 13. Posterior attribution over covariance hypotheses — 2026-11-01
+
+The identifiability module now has `update_hypothesis_posterior`, which composes a declared support/batch/instrument incidence design with the multivariate Gaussian posterior updater. Each candidate hypothesis supplies a prior weight, mean and four variance components. The routine constructs its covariance from the basis matrices and updates the model posterior on a selected joint observation history.
+
+The executable covariance bake-off now reports per-design posterior probabilities for physical-only, batch-only and instrument-only hypotheses:
+- **Single confounded CT–tracer pair:** the three hypotheses induce identical covariance matrices; the posterior must remain exactly [0.40, 0.35, 0.25].
+- **Batch-only pair:** the two supports differ but share a preparation batch; a concordant pair moves posterior mass toward batch covariance, without making physical-support variance identifiable.
+- **Crossed design:** a synthetic support-clustered observation vector yields posterior probability >0.999 for the physical-only hypothesis, with independent batch/instrument replication in the design.
+
+This is synthetic model discrimination under explicit Gaussian covariance hypotheses. It does not prove that those covariance components are identifiable from one empirical CT–tracer dataset; the crossed replication assumptions, variance priors, Gaussian likelihood and mean model remain declared assumptions. Predictive fit and mechanism attribution stay separate scores.
