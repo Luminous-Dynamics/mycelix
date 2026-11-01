@@ -437,7 +437,6 @@ fn evaluate_case(case: &ForecastCase) -> Result<CaseMetrics, ContractError> {
         raw_squared_error_sum += weight * raw_error * raw_error;
 
         let truth_anomaly = observed - climatology;
-        let forecast_anomaly = forecast - climatology;
         truth_activity_squared_sum += weight * truth_anomaly * truth_anomaly;
     }
 
