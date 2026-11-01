@@ -22,7 +22,7 @@ const EXPECTED_BASELINE_REVISION: &str = "f89b4bcdcfb901961e2ca11a577775acbf53a7
 const EXPECTED_BASELINE_SOURCE_BLOB_SHA: &str = "dd9ea9267cdae2e2c67244e8a90821defaacefb3";
 const EXPECTED_CASE_COUNT: usize = 62_464;
 const MAX_INPUT_BYTES: u64 = 256 * 1024 * 1024;
-const MAX_MANIFEST_BYTES: u64 = 1 * 1024 * 1024;
+const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
 const MAX_POLICY_FILE_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_SOURCE_FILE_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_TOOL_BINARY_BYTES: u64 = 512 * 1024 * 1024;
@@ -903,6 +903,15 @@ fn opa_decision(
     Ok((effect.to_owned(), rule.to_owned(), started.elapsed().as_nanos()))
 }
 
+struct PolicyPairEvaluation {
+    cedar_decision: String,
+    opa_decision: String,
+    cedar_policy_ids: Vec<String>,
+    opa_rule_id: String,
+    cedar_latency_ns: u128,
+    opa_latency_ns: u128,
+}
+
 fn evaluate_policy_pair(
     candidate: &Value,
     authorizer: &Authorizer,
@@ -910,22 +919,29 @@ fn evaluate_policy_pair(
     schema: &Schema,
     opa_binary: &Path,
     rego_policy_path: &Path,
-) -> Result<(String, String, Vec<String>, String, u128, u128), String> {
+) -> Result<PolicyPairEvaluation, String> {
     let case: EngineInputCase = match serde_json::from_value(candidate.clone()) {
         Ok(case) => case,
         Err(_) => {
-            return Ok((
-                "invalid".to_owned(),
-                "invalid".to_owned(),
-                Vec::new(),
-                "invalid".to_owned(),
-                0,
-                0,
-            ));
+            return Ok(PolicyPairEvaluation {
+                cedar_decision: "invalid".to_owned(),
+                opa_decision: "invalid".to_owned(),
+                cedar_policy_ids: Vec::new(),
+                opa_rule_id: "invalid".to_owned(),
+                cedar_latency_ns: 0,
+                opa_latency_ns: 0,
+            });
         }
     };
     if case.case_id != case.cedar.case_id || case.case_id != case.rego.case_id {
-        return Ok(("invalid".to_owned(), "invalid".to_owned(), Vec::new(), "invalid".to_owned(), 0, 0));
+        return Ok(PolicyPairEvaluation {
+            cedar_decision: "invalid".to_owned(),
+            opa_decision: "invalid".to_owned(),
+            cedar_policy_ids: Vec::new(),
+            opa_rule_id: "invalid".to_owned(),
+            cedar_latency_ns: 0,
+            opa_latency_ns: 0,
+        });
     }
     if validate_explicit_entities(&case, 0).is_err()
         || !case.cedar.request.context.is_object()
@@ -952,14 +968,14 @@ fn evaluate_policy_pair(
         };
     let (opa_effect, opa_rule, opa_elapsed_ns) =
         opa_decision(opa_binary, rego_policy_path, &case.rego.input)?;
-    Ok((
-        cedar_decision.to_owned(),
-        opa_effect,
+    Ok(PolicyPairEvaluation {
+        cedar_decision: cedar_decision.to_owned(),
+        opa_decision: opa_effect,
         cedar_policy_ids,
-        opa_rule,
-        construction_ns + authorization_ns,
-        opa_elapsed_ns,
-    ))
+        opa_rule_id: opa_rule,
+        cedar_latency_ns: construction_ns + authorization_ns,
+        opa_latency_ns: opa_elapsed_ns,
+    })
 }
 
 fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
@@ -1054,14 +1070,7 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     }
     let authorizer = Authorizer::new();
 
-    let (
-        initial_cedar,
-        initial_opa,
-        initial_cedar_policy_ids,
-        initial_opa_rule,
-        _,
-        _,
-    ) = evaluate_policy_pair(
+    let initial = evaluate_policy_pair( = evaluate_policy_pair(
         &initial_value,
         &authorizer,
         &policy_set,
@@ -1069,6 +1078,10 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
         &pinned_opa.path,
         &pinned_rego.path,
     )?;
+    let initial_cedar = initial.cedar_decision;
+    let initial_opa = initial.opa_decision;
+    let initial_cedar_policy_ids = initial.cedar_policy_ids;
+    let initial_opa_rule = initial.opa_rule_id;
     if !matches!(initial_cedar.as_str(), "allow" | "deny")
         || !matches!(initial_opa.as_str(), "allow" | "deny")
         || initial_cedar == initial_opa
@@ -1151,8 +1164,8 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                 &pinned_opa.path,
                 &pinned_rego.path,
             ) {
-                Ok((cedar, opa, _cedar_policy_ids, _opa_rule, _cedar_ns, _opa_ns))
-                    if cedar == "invalid" && opa == "invalid" =>
+                Ok(result)
+                    if result.cedar_decision == "invalid" && result.opa_decision == "invalid" =>
                 {
                     // Candidate did not satisfy the paired input/schema boundary;
                     // neither authorization engine produced a decision.
@@ -1173,21 +1186,22 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                     });
                     Ok(false)
                 }
-                Ok((cedar, opa, cedar_policy_ids, opa_rule, cedar_ns, opa_ns)) => {
-                    if !matches!(cedar.as_str(), "allow" | "deny")
-                        || !matches!(opa.as_str(), "allow" | "deny")
+                Ok(result) => {
+                    if !matches!(result.cedar_decision.as_str(), "allow" | "deny")
+                        || !matches!(result.opa_decision.as_str(), "allow" | "deny")
                     {
                         return Err(format!(
-                            "unexpected non-decision candidate result: Cedar={cedar}, OPA={opa}"
+                            "unexpected non-decision candidate result: Cedar={}, OPA={}",
+                            result.cedar_decision, result.opa_decision
                         ));
                     }
-                    let preserved = cedar == initial_cedar
-                        && opa == initial_opa
-                        && cedar != opa
-                        && cedar_policy_ids == initial_cedar_policy_ids
-                        && opa_rule == initial_opa_rule;
-                    cedar_candidate_times.push(cedar_ns);
-                    opa_cli_candidate_times.push(opa_ns);
+                    let preserved = result.cedar_decision == initial_cedar
+                        && result.opa_decision == initial_opa
+                        && result.cedar_decision != result.opa_decision
+                        && result.cedar_policy_ids == initial_cedar_policy_ids
+                        && result.opa_rule_id == initial_opa_rule;
+                    cedar_candidate_times.push(result.cedar_latency_ns);
+                    opa_cli_candidate_times.push(result.opa_latency_ns);
                     opa_candidate_process_evaluations.set(
                         opa_candidate_process_evaluations.get() + 1
                     );
@@ -1196,10 +1210,10 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
                         candidate_sha256: candidate_digest,
                         candidate_status: "evaluated".to_owned(),
                         input_rejection: None,
-                        cedar_decision: Some(cedar),
-                        cedar_determining_policy_ids: cedar_policy_ids,
-                        opa_decision: Some(opa),
-                        opa_rule_id: Some(opa_rule),
+                        cedar_decision: Some(result.cedar_decision),
+                        cedar_determining_policy_ids: result.cedar_policy_ids,
+                        opa_decision: Some(result.opa_decision),
+                        opa_rule_id: Some(result.opa_rule_id),
                         predicate_preserved: Some(preserved),
                         evaluation_error: None,
                     });
@@ -1226,21 +1240,18 @@ fn run_shrink_pair(args: &[std::ffi::OsString]) -> Result<(), String> {
     .map_err(|error| format!("counterexample minimization incomplete: {error}"))?;
     let minimization_wall_ns = minimization_started.elapsed().as_nanos();
 
-    let (
-        minimized_cedar,
-        minimized_opa,
-        minimized_cedar_policy_ids,
-        minimized_opa_rule,
-        _,
-        _,
-    ) = evaluate_policy_pair(
+    let minimized = evaluate_policy_pair(
         &result.minimized_value,
         &authorizer,
         &policy_set,
         &schema,
         &pinned_opa.path,
         &pinned_rego.path,
-    )?;
+)?;
+    let minimized_cedar = minimized.cedar_decision;
+    let minimized_opa = minimized.opa_decision;
+    let minimized_cedar_policy_ids = minimized.cedar_policy_ids;
+    let minimized_opa_rule = minimized.opa_rule_id;
     fs::create_dir_all(&output_directory)
         .map_err(|error| format!("create shrink output directory: {error}"))?;
     let minimized_bytes = serde_json::to_vec_pretty(&result.minimized_value)
