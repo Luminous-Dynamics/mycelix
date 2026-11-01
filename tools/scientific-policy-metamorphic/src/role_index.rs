@@ -900,12 +900,12 @@ mod tests {
     fn role_projection_exhaustively_preserves_all_128_role_subsets() {
         let role_names = ROLE_IDENTITY_DIMENSIONS;
         for mask in 0_u8..128 {
-            let roles = role_names
-                .iter()
-                .enumerate()
-                .filter(|(bit, _)| mask & (1 << bit) != 0)
-                .map(|(_, role)| Value::String((*role).to_owned()))
-                .collect::<Vec<_>>();
+            let mut roles = Vec::new();
+            for (bit, role) in role_names.iter().enumerate() {
+                if mask & (1_u8 << bit) != 0 {
+                    roles.push(Value::String((*role).to_owned()));
+                }
+            }
             let input = serde_json::json!({
                 "action":"attestation_recorded",
                 "actor":{"id":"actor:exhaustive", "roles":roles},
@@ -923,7 +923,7 @@ mod tests {
             for (bit, role) in role_names.iter().enumerate() {
                 assert_eq!(
                     role_index.get(*role).and_then(Value::as_bool),
-                    if mask & (1 << bit) != 0 { Some(true) } else { None },
+                    if mask & (1_u8 << bit) != 0 { Some(true) } else { None },
                     "role membership projection differs for {role} under mask {mask:#09b}"
                 );
             }
