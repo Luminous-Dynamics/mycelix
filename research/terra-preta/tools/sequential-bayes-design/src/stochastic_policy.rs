@@ -813,6 +813,24 @@ mod tests {
     }
 
     #[test]
+    fn tiny_positive_common_beta_preserves_perfect_measurement_information() {
+        let perfect = candidate(
+            "perfect",
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            1,
+        );
+        let result = evaluate_shared_kl_policy_at_beta(
+            &[perfect],
+            &[1.0],
+            1,
+            0.1,
+            1e-9,
+        ).unwrap();
+        assert!((result.alpha - 1e-9 / (1.0 + 1e-9)).abs() < 1e-18);
+        assert!((result.expected_sibson_information_nats - std::f64::consts::LN_2).abs() < 1e-9);
+    }
+
+    #[test]
     fn zero_shared_kl_radius_recovers_policy_average_shannon_information() {
         let candidates = ranking_candidates();
         let result = optimize_shared_kl_policy(&candidates, &[0.25, 0.75], 2, 0.0, 64).unwrap();
