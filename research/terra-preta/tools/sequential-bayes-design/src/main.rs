@@ -790,6 +790,16 @@ mod tests {
     }
 
     #[test]
+    fn high_eig_can_have_zero_decision_evsi() {
+        let (_, actions, decisions, prior) = selector_fixture();
+        let nuisance = actions.iter()
+            .find(|action| action.action_id == "G_SANDY_NUISANCE_SIGNATURE")
+            .expect("nuisance signature action");
+        assert!(eig(nuisance, &prior) > 0.1);
+        assert!(evsi(nuisance, &prior, &decisions) < 1e-10);
+    }
+
+    #[test]
     fn surprise_observation_is_detected() {
         let (_, actions, _, prior) = selector_fixture();
         let action = actions.iter().find(|a| a.action_id == "B_SANDY_EVENT_TRACER").unwrap();
