@@ -1227,6 +1227,7 @@ mod tests {
             bin_counts: [1, 0, 0, 0],
             bin_probability_sums: [LOG_LOSS_FLOOR, 0.0, 0.0, 0.0],
             bin_outcome_sums: [1.0, 0.0, 0.0, 0.0],
+            probability_categories: BTreeMap::new(),
         };
         let metrics = value.finish().unwrap();
         assert!(metrics.log_loss.is_finite());
@@ -1278,8 +1279,8 @@ mod tests {
         assert!(parse_drift_fixture(&invalid_order).is_err());
 
         let invalid_time = DRIFT_FIXTURE.replace(
-            "stable_control-event-002,flood,synthetic-region,24,candidate,evaluation,2,107200",
-            "stable_control-event-002,flood,synthetic-region,24,candidate,evaluation,2,100001",
+            "stable_control,stable_control-event-002,flood,synthetic-region,24,candidate,evaluation,2,107200,0.2,0",
+            "stable_control,stable_control-event-002,flood,synthetic-region,24,candidate,evaluation,2,100001,0.2,0",
         );
         assert_ne!(invalid_time, DRIFT_FIXTURE);
         assert!(parse_drift_fixture(&invalid_time).is_err());
