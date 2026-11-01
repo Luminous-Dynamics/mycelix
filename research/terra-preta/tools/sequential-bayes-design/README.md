@@ -217,10 +217,15 @@ structurally rank-deficient.
 
 The controls demonstrate:
 - one CT–tracer pair sharing support, batch and instrument has rank 2/4 and
-  cannot attribute its shared covariance;
-- a crossed support × batch × instrument × modality design reaches rank 4/4;
-- a batch-only CT/tracer pair identifies batch dependence but cannot certify
-  a physical shared-support variance component.
+  cannot attribute its shared covariance; physical-only, batch-only and
+  instrument-only hypotheses induce identical likelihoods, so the posterior
+  remains exactly at its prior;
+- a batch-only CT/tracer pair updates toward batch covariance while physical
+  support is not identified separately;
+- a crossed support × batch × instrument × modality design reaches rank 4/4,
+  recovers known coefficients noiselessly, and its posterior favors the
+  physical-support covariance hypothesis for a support-clustered synthetic
+  observation vector.
 
 This is structural identifiability of the declared linear covariance basis,
 not finite-sample precision, posterior calibration or empirical covariance
