@@ -58,3 +58,19 @@ likelihood. The posterior discrepancy weight must be monotonic in both, and the
 declared decision must switch from acting under physical candidates to
 DIAGNOSE_FIRST at the preregistered synthetic threshold. This is sensitivity
 analysis for an author-specified state, not empirical prior calibration.
+
+
+## Correlated continuous-likelihood reference tests
+
+A test-only mathematical reference module now verifies the exact bivariate
+Gaussian joint log density for paired continuous measurements. It checks
+independence equivalence at zero correlation, conditional Gaussian
+factorization, the expected behavior for concordant/discordant residual pairs,
+and rejection of singular covariance and invalid/nonfinite inputs.
+
+The module is deliberately test-only: it is not yet wired into the categorical
+Bayesian acquisition engine, and no real measurement correlation is inferred
+from support overlap. The next implementation must estimate or preregister
+dependence using paired repeatability/cross-instrument evidence or a declared
+simulator, then integrate the joint likelihood into sequential posterior
+updates.
