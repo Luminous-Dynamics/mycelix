@@ -387,3 +387,57 @@ This addition addresses one fairness problem but does not replace SBC. A
 posterior can score well on a small fixed probe set and still be miscalibrated
 elsewhere; future #5632 work must use prior-predictive worlds, independent
 truths and data-dependent SBC quantities, including joint likelihood checks.
+
+
+## 20. Preliminary policy-run evidence: preserve negative results
+
+A previous exact Rust workflow execution produced two 128-replicate JSON reports
+before the later selector-state Clippy refactor and common-held-out-probe
+extension. The workflow passed formatting, all 14 then-authored tests, both
+scenario schema validations, both report schema validations, execution, and
+artifact upload; it failed only at Clippy because `next_action` had too many
+arguments. The selector was then refactored into `SelectionState`.
+
+Run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41289633870
+Artifact ID: 13077010803 (the two synthetic JSON reports).
+
+On the deliberately out-of-family preferential-flow scenario, the preliminary
+**mean true decision regret** over 128 replicates was:
+
+| Policy | Mean regret |
+|---|---:|
+| Seeded random feasible | 0.0664 |
+| Discrepancy-guarded EVSI | 0.1328 |
+| Conditional EIG | 0.1641 |
+| Static EIG | 0.1992 |
+| Decision-focused EVSI | 0.2109 |
+
+The discrepancy-guarded heuristic selected a mean 1.92 diagnostic actions and
+recorded 2.77 surprise events per trajectory, yet its *prequential
+selected-stream* negative log score (3.423) and Brier score (1.195) were worse
+than the random baseline (3.070 / 1.119). Static EIG had better prequential
+scores still (2.132 / 0.875) while having worse decision regret. These metrics
+refer to policy-selected measurement streams and are not the common held-out
+comparison introduced in section 19.
+
+In the in-family DUAL_PERMEABILITY control, the random baseline again had the
+lowest decision regret (0.000); decision EVSI (0.0188) and discrepancy-guarded
+EVSI (0.0234) followed, while static and conditional EIG both had 0.0609. Static
+EIG had the best prequential log/Brier scores in that fixture (0.595 / 0.382).
+This single designed control does not establish random as generally superior,
+but it does show that the new heuristics do not yet dominate simple baselines.
+
+**Interpretation:** the current discrepancy flag plus diagnostic-action rule
+is not a successful discrepancy-learning policy in the stress case. It can
+spend heavily on diagnostics while leaving the posterior inadequately
+calibrated. The current observation outcome labelled `unmodeled` has nearly
+uniform low likelihood across the candidate physical models, so it does not
+provide a direction for posterior correction. A real next step is an explicit
+discrepancy state / model-expansion mechanism with calibrated uncertainty and
+abstention—not a stronger score multiplier on the same heuristic.
+
+These report values are preliminary outputs from the prior code snapshot; the
+latest implementation adds common held-out probe scores and additional tests.
+Re-run the latest exact commit before using any figures as current benchmark
+evidence. No external, physical or field-performance claim follows from these
+synthetic results.
