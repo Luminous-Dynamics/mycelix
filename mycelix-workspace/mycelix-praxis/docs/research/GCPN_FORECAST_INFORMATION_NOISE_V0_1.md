@@ -42,21 +42,26 @@ Each case must declare:
 - forecast, verifying and climatology vectors on identical support;
 - positive finite area/cell weights.
 
-The engine receives forecast values, verifying values, climatology values and weights. It computes the weighted forecast bias, then constructs the bias-adjusted forecast anomaly and the verifying anomaly under the frozen baseline.
+The engine receives forecast values, verifying values, climatology values and weights. It first computes raw weighted mean bias and raw RMSE. It then forms forecast and verifying anomalies relative to the frozen climatology and subtracts the **separate weighted mean of each anomaly vector**. This is the operationally important mean-correction: both forecast and verification anomalies are centered, while raw bias remains a separate reported component.
 
-The v0.1 weighted inner product is normalized by total weight. Let F be the bias-adjusted forecast-anomaly vector and T the verifying-anomaly vector:
+The v0.1 weighted inner product is normalized by total weight. Let F be the mean-centered forecast-anomaly vector and T the separately mean-centered verifying-anomaly vector:
 
 - p = <F,T>_w / ||T||_w
 - FI = p / ||T||_w when ||T||_w > 0
 - IE = abs(||T||_w - p)
 - NE = ||F - projection_T(F)||_w
-- debiased_RMSE² = IE² + NE²
+- anomaly_centered_error_std² = IE² + NE²
 
 where projection_T(F) = (p / ||T||_w) T.
 
-The engine reports raw bias, raw RMSE, debiased RMSE, forecast activity, truth activity, FI, IE and NE separately. It must preserve negative FI and FI above one. No clipping to [-1,1] is allowed.
+Two identities are checked independently:
 
-If truth anomaly norm is zero, FI/IE/NE are undefined for the case and must be reported unavailable/degenerate; raw and debiased RMSE remain reportable.
+- anomaly_centered_error_std² = IE² + NE²
+- raw_RMSE² = raw_bias² + anomaly_centered_error_std²
+
+The engine reports raw bias, raw RMSE, the separate forecast and verifying anomaly means, anomaly-centered error standard deviation, forecast activity, truth activity, FI, IE and NE. It preserves negative FI and FI above one; no clipping to [-1,1] is allowed.
+
+If the separately centered verifying-anomaly norm is zero, FI/IE/NE are undefined for the case and must be reported unavailable/degenerate; raw bias, raw RMSE and anomaly-centered error spread remain reportable.
 
 ## 4. DGP and diagnostic families
 
@@ -93,10 +98,10 @@ Report raw and processed results side by side. Do not claim calibration improvem
 
 ## 6. Negative controls and metamorphic invariants
 
-- Perfect forecast produces zero raw and debiased RMSE, zero IE and NE, and FI=1 when truth norm is positive.
+- Perfect forecast produces zero raw bias, raw RMSE and anomaly-centered error spread; IE=0, NE=0 and FI=1 when centered truth norm is positive.
 - Pure orthogonal perturbation leaves projection information unchanged while increasing NE.
 - Under-activity and smoothing can lower total RMSE in a selected DGP while worsening IE relative to a more informative noisier forecast.
-- Bias-only perturbation changes reported bias and raw error; post-bias projection diagnostics use only the declared bias correction.
+- Bias-only perturbation changes reported raw bias and raw RMSE while separately mean-centered projection diagnostics are unchanged.
 - Negative FI remains negative; over-amplified forecasts can have FI greater than one.
 - Zero truth norm yields explicit degenerate status, not NaN or fabricated FI.
 - Reordering grid cells with corresponding weights preserves metrics.
