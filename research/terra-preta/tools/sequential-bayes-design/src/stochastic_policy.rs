@@ -164,11 +164,18 @@ fn expected_sibson_at_beta(
     let mut expected_information = 0.0;
     for (candidate, probability) in candidates.iter().zip(probabilities) {
         if *probability > 0.0 {
-            expected_information += probability
-                * candidate.design.sibson_alpha_mutual_information(alpha)?;
+            let action_information = if alpha <= 1e-10 {
+                0.0
+            } else if alpha >= 1.0 - 1e-12 {
+                candidate.design.shannon_mutual_information()?
+            } else {
+                candidate.design.sibson_alpha_mutual_information(alpha)?
+            };
+            expected_information += probability * action_information;
         }
     }
-    Ok((alpha, expected_information))
+    let reported_alpha = if alpha >= 1.0 - 1e-12 { 1.0 } else { alpha };
+    Ok((reported_alpha, expected_information))
 }
 
 /// Evaluate a *fixed* stochastic policy with a single common dual beta.
@@ -610,6 +617,22 @@ mod tests {
         assert_eq!(result.alpha, 1.0);
         assert_eq!(result.common_dual_beta, None);
         assert!((result.robust_policy_value_nats - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn shared_kl_dual_handles_extreme_radii_without_alpha_rounding_failure() {
+        let candidates = ranking_candidates();
+        let tiny_radius = optimize_shared_kl_policy(
+            &candidates, &[0.5, 0.5], 2, 1e-20, 64,
+        ).unwrap();
+        assert_eq!(tiny_radius.alpha, 1.0);
+        assert!(tiny_radius.robust_policy_value_nats.is_finite());
+
+        let large_radius = optimize_shared_kl_policy(
+            &candidates, &[0.5, 0.5], 2, 1e6, 64,
+        ).unwrap();
+        assert!(large_radius.alpha.is_finite());
+        assert!(large_radius.robust_policy_value_nats.is_finite());
     }
 
     #[test]
