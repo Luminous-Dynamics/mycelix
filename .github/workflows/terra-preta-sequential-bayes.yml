@@ -48,6 +48,9 @@ jobs:
           jq empty research/terra-preta/tools/sequential-bayes-design/censored-tracer.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/censored-tracer-report.schema.json
           jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-censored-tracer-scenario.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/tracer-sensor-design.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/tracer-sensor-design-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-tracer-sensor-design.json
       - name: Format and test standalone crate
         run: |
           cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
@@ -82,6 +85,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/censored-tracer.schema.json \
             research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-censored-tracer-scenario.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/tracer-sensor-design.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-tracer-sensor-design.json
       - name: Execute misspecified and in-family controls
         run: |
           cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
@@ -287,6 +293,26 @@ jobs:
             ((.incorrect_zero_substitution_posterior.weights[0] - 0.5) | fabs < 1e-9) and
             ((.incorrect_zero_substitution_posterior.weights[1] - 0.5) | fabs < 1e-9)
           ' "$RUNNER_TEMP/censored-tracer-report.json"
+      - name: Execute detection-aware tracer sensor co-design bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin tracer-sensor-design-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-tracer-sensor-design.json \
+            "$RUNNER_TEMP/tracer-sensor-design-report.json"
+          jq -e '
+            .status == "synthetic_detection_aware_tracer_sensor_design_only" and
+            .scenario_id == "tracer-detector-threshold-budget-frontier-v0" and
+            (.sensor_scores | length == 4) and
+            ([.sensor_scores[] | select(.sensor_id == "coarse_detector") | .feasible][0] == true) and
+            ([.sensor_scores[] | select(.sensor_id == "sensitive_detector") | .feasible][0] == true) and
+            ([.sensor_scores[] | select(.sensor_id == "ultra_sensitive_over_budget") | .feasible][0] == false) and
+            ([.sensor_scores[] | select(.sensor_id == "ineligible_high_resolution") | .feasible][0] == false) and
+            .nominal_shannon_selection.sensor_id == "sensitive_detector" and
+            .fixed_alpha_sibson_selection.sensor_id == "sensitive_detector" and
+            .nominal_shannon_selection.cost_units <= .budget_units and
+            .fixed_alpha_sibson_selection.cost_units <= .budget_units and
+            .fixed_kl_radius_selection.cost_units <= .budget_units and
+            all(.sensor_scores[]; .shannon_information_nats >= 0 and .sibson_information_nats >= 0 and .per_design_robust_information_nats >= 0)
+          ' "$RUNNER_TEMP/tracer-sensor-design-report.json"
       - name: Validate all report schemas
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
@@ -313,6 +339,9 @@ jobs:
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/censored-tracer-report.schema.json \
             "$RUNNER_TEMP/censored-tracer-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/tracer-sensor-design-report.schema.json \
+            "$RUNNER_TEMP/tracer-sensor-design-report.json"
       - name: Upload deterministic synthetic report
         uses: actions/upload-artifact@v4
         with:
@@ -326,6 +355,7 @@ jobs:
             ${{ runner.temp }}/conditional-information-report.json
             ${{ runner.temp }}/state-parameter-assimilation-report.json
             ${{ runner.temp }}/censored-tracer-report.json
+            ${{ runner.temp }}/tracer-sensor-design-report.json
           if-no-files-found: error
           retention-days: 30
       - name: Clippy
