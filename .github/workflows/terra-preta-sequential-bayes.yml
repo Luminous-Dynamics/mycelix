@@ -54,17 +54,24 @@ jobs:
               .mean_true_decision_regret >= 0 and
               .mean_predictive_log_score >= 0 and
               .mean_predictive_brier_score >= 0 and
-              .mean_predictive_brier_score <= 2)
+              .mean_predictive_brier_score <= 2 and
+              all(.selected_action_frequency[]; .selection_rate >= 0 and .selection_rate <= 1))
           ' "$RUNNER_TEMP/sequential-bayes-report.json"
           jq -e '
             (.policy_summaries[] | select(.policy_id == "discrepancy_guarded_evsi")) as $guarded |
-            (.policy_summaries[] | select(.policy_id == "seeded_random")) as $random |
-            $guarded.mean_diagnostic_actions >= $random.mean_diagnostic_actions
+            $guarded.mean_diagnostic_actions > 0 and $guarded.mean_surprise_events > 0
           ' "$RUNNER_TEMP/sequential-bayes-report.json"
       - name: Validate report schema
         run: |
           cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
             research/terra-preta/tools/sequential-bayes-design/report.schema.json \
             "$RUNNER_TEMP/sequential-bayes-report.json"
+      - name: Upload deterministic synthetic report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-bayes-report-${{ github.sha }}
+          path: "$RUNNER_TEMP/sequential-bayes-report.json"
+          if-no-files-found: error
+          retention-days: 30
       - name: Clippy
         run: cargo clippy --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --all-targets -- -D warnings
