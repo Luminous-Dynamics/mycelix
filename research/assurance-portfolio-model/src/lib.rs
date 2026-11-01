@@ -137,14 +137,21 @@ pub struct PairwiseSeparation {
     pub dimension: FaultDomainDimension,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct AuthorizedEvaluator {
+    pub role: EvaluatorRole,
+    pub evaluator_digest: Digest,
+    pub evaluator_profile_digest: Digest,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClaimProfile {
     pub claim_id: String,
     pub subject_digest: Digest,
     pub hard_invariant: bool,
-    /// Roles explicitly permitted to make a dispositive hard-invariant refutation.
-    /// A refutation from any other role remains a non-hard conflict.
-    pub hard_refutation_roles: Vec<EvaluatorRole>,
+    /// Exact evaluator identities authorized to issue dispositive hard
+    /// refutations. A role label alone is not an evaluator credential.
+    pub authorized_hard_refuters: Vec<AuthorizedEvaluator>,
     pub required_roles: Vec<EvaluatorRole>,
     pub required_separations: Vec<PairwiseSeparation>,
 }
@@ -154,9 +161,9 @@ pub enum CompositionError {
     EmptyClaimId,
     EmptyRequiredRoles,
     DuplicateRequiredRole,
-    HardInvariantRequiresRefutationRole,
-    RefutationRoleWithoutHardInvariant,
-    DuplicateHardRefutationRole,
+    HardInvariantRequiresAuthorizedRefuter,
+    AuthorizedRefuterWithoutHardInvariant,
+    DuplicateAuthorizedRefuter,
     SelfSeparation,
     SeparationRoleNotRequired,
     DuplicateSeparation,
@@ -186,16 +193,16 @@ impl ClaimProfile {
             }
         }
 
-        if self.hard_invariant && self.hard_refutation_roles.is_empty() {
-            return Err(CompositionError::HardInvariantRequiresRefutationRole);
+        if self.hard_invariant && self.authorized_hard_refuters.is_empty() {
+            return Err(CompositionError::HardInvariantRequiresAuthorizedRefuter);
         }
-        if !self.hard_invariant && !self.hard_refutation_roles.is_empty() {
-            return Err(CompositionError::RefutationRoleWithoutHardInvariant);
+        if !self.hard_invariant && !self.authorized_hard_refuters.is_empty() {
+            return Err(CompositionError::AuthorizedRefuterWithoutHardInvariant);
         }
-        let mut hard_refutation_roles = BTreeSet::new();
-        for role in &self.hard_refutation_roles {
-            if !hard_refutation_roles.insert(*role) {
-                return Err(CompositionError::DuplicateHardRefutationRole);
+        let mut authorized_hard_refuters = BTreeSet::new();
+        for evaluator in &self.authorized_hard_refuters {
+            if !authorized_hard_refuters.insert(*evaluator) {
+                return Err(CompositionError::DuplicateAuthorizedRefuter);
             }
         }
 
@@ -340,9 +347,15 @@ pub fn compose(
 
     let has_qualified_hard_refutation = profile.hard_invariant
         && current.iter().any(|assessment| {
-            if assessment.outcome != AssessmentOutcome::Refutes
-                || !profile.hard_refutation_roles.contains(&assessment.role)
-            {
+            let explicitly_authorized = profile.authorized_hard_refuters.iter().any(
+                |authorized| {
+                    authorized.role == assessment.role
+                        && authorized.evaluator_digest == assessment.evaluator_digest
+                        && authorized.evaluator_profile_digest
+                            == assessment.evaluator_profile_digest
+                },
+            );
+            if assessment.outcome != AssessmentOutcome::Refutes || !explicitly_authorized {
                 return false;
             }
 
@@ -571,8 +584,12 @@ mod tests {
             claim_id: CLAIM_ID.to_owned(),
             subject_digest: digest(42),
             hard_invariant,
-            hard_refutation_roles: if hard_invariant {
-                vec![EvaluatorRole::InvariantChecker]
+            authorized_hard_refuters: if hard_invariant {
+                vec![AuthorizedEvaluator {
+                    role: EvaluatorRole::InvariantChecker,
+                    evaluator_digest: digest(13),
+                    evaluator_profile_digest: digest(113),
+                }]
             } else {
                 vec![]
             },
@@ -658,30 +675,51 @@ mod tests {
 
     #[test]
     fn hard_invariant_profiles_require_an_explicit_refutation_role() {
-        let mut missing_role = profile(true);
-        missing_role.hard_refutation_roles.clear();
+        let mut missing_authority = profile(true);
+        missing_authority.authorized_hard_refuters.clear();
         assert_eq!(
-            missing_role.validate(),
-            Err(CompositionError::HardInvariantRequiresRefutationRole)
+            missing_authority.validate(),
+            Err(CompositionError::HardInvariantRequiresAuthorizedRefuter)
         );
 
-        let mut unexpected_role = profile(false);
-        unexpected_role
-            .hard_refutation_roles
-            .push(EvaluatorRole::InvariantChecker);
+        let mut unexpected_authority = profile(false);
+        unexpected_authority.authorized_hard_refuters.push(AuthorizedEvaluator {
+            role: EvaluatorRole::InvariantChecker,
+            evaluator_digest: digest(13),
+            evaluator_profile_digest: digest(113),
+        });
         assert_eq!(
-            unexpected_role.validate(),
-            Err(CompositionError::RefutationRoleWithoutHardInvariant)
+            unexpected_authority.validate(),
+            Err(CompositionError::AuthorizedRefuterWithoutHardInvariant)
         );
 
-        let mut duplicate_role = profile(true);
-        duplicate_role
-            .hard_refutation_roles
-            .push(EvaluatorRole::InvariantChecker);
+        let mut duplicate_authority = profile(true);
+        duplicate_authority
+            .authorized_hard_refuters
+            .push(duplicate_authority.authorized_hard_refuters[0]);
         assert_eq!(
-            duplicate_role.validate(),
-            Err(CompositionError::DuplicateHardRefutationRole)
+            duplicate_authority.validate(),
+            Err(CompositionError::DuplicateAuthorizedRefuter)
         );
+    }
+
+    #[test]
+    fn a_role_label_without_the_authorized_evaluator_digest_cannot_refute() {
+        let mut assessments = required_pair();
+        let mut role_spoof = assessment(EvaluatorRole::InvariantChecker, 14, 8);
+        role_spoof.outcome = AssessmentOutcome::Refutes;
+        assessments.push(role_spoof);
+
+        let result = compose(&profile(true), &assessments).unwrap();
+        assert_eq!(result.disposition, CompositionDisposition::Indeterminate);
+        assert!(!has_reason(
+            &result,
+            CompositionReason::HardInvariantRefuted
+        ));
+        assert!(has_reason(
+            &result,
+            CompositionReason::NonHardRefutationObserved
+        ));
     }
 
     #[test]
@@ -707,7 +745,7 @@ mod tests {
     fn a_hard_refutation_from_a_self_contradictory_evaluator_is_not_dispositive() {
         let mut assessments = required_pair();
         let refutation = {
-            let mut item = assessment(EvaluatorRole::InvariantChecker, 19, 9);
+            let mut item = assessment(EvaluatorRole::InvariantChecker, 13, 9);
             item.outcome = AssessmentOutcome::Refutes;
             item
         };
