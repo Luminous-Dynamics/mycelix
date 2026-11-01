@@ -146,6 +146,18 @@ jobs:
             predicate_true_count:map(select(.predicate_preserved==true))|length
           }' target/policy-counterexample-shrink/candidate-engine-outcomes.jsonl
 
+          jq -e --slurpfile summary target/policy-counterexample-shrink/shrink-summary.json --slurpfile trace target/policy-counterexample-shrink/shrink-trace.json '
+            .candidate_status == "initial_seed_confirmation" and
+            .predicate_preserved == true and
+            .evaluation_error == null and
+            .input_rejection == null and
+            .candidate_sha256 == $trace[0].original_value_sha256 and
+            .cedar_decision == $summary[0].initial_cedar_decision and
+            .opa_decision == $summary[0].initial_opa_decision and
+            .cedar_determining_policy_ids == $summary[0].initial_cedar_determining_policy_ids and
+            .opa_rule_id == $summary[0].initial_opa_rule_id
+          ' target/policy-counterexample-shrink/initial-seed-engine-outcome.json
+
           jq -e '
             .initial_case_id == .minimized_case_id and
             .initial_cedar_decision == "allow" and
