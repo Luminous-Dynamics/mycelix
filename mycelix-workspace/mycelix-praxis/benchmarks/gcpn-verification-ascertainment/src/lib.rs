@@ -1385,6 +1385,49 @@ mod tests {
     }
 
     #[test]
+    fn outcome_dependent_verification_can_reverse_complete_case_ranking() {
+        let mut cases = Vec::new();
+        let mut latent_truth_differences = Vec::new();
+
+        for index in 0..4 {
+            let case_id = format!("observed-{index}");
+            let system_id = format!("system-{index}");
+            cases.push(case(
+                &case_id,
+                &system_id,
+                "observed",
+                Some(0.5),
+                observed(&case_id, 0.2, Some(0.6), 90),
+            ));
+            latent_truth_differences.push(-0.4);
+        }
+
+        for index in 0..6 {
+            let case_id = format!("unobserved-{index}");
+            let system_id = format!("system-{}", index + 4);
+            cases.push(case(
+                &case_id,
+                &system_id,
+                "unobserved",
+                Some(0.5),
+                missing(MissingReason::NotCollected),
+            ));
+            // Held outside the evaluator as the known-truth DGP oracle.
+            latent_truth_differences.push(0.6);
+        }
+
+        let report = paired_frame(cases).report().unwrap();
+        let difference = report.paired_difference.unwrap();
+        let latent_truth_mean =
+            latent_truth_differences.iter().sum::<f64>() / latent_truth_differences.len() as f64;
+
+        assert!(difference.observed_mean.unwrap() < 0.0);
+        assert!(latent_truth_mean > 0.0);
+        assert!(difference.population_bounds.lower <= latent_truth_mean);
+        assert!(difference.population_bounds.upper >= latent_truth_mean);
+    }
+
+    #[test]
     fn declared_system_and_stratum_denominators_are_reported() {
         let frame = single_frame(vec![
             case(
