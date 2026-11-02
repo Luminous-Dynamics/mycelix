@@ -165,11 +165,13 @@ A passing result establishes only that the exact finite manifest, profile rules 
 
 The standalone Rust crate in this directory implements the first finite research slice:
 
-- A strict profile checker requires each required role to account for all 15 domain dimensions. Missing or unknown dimensions make the profile incomplete for this v0.1 strict tier. Shared and not-applicable declarations require non-empty rationales.
-- Required pairwise role/dimension separations pass only when both sides supply known, unequal digest identities. Equal, unknown, shared or not-applicable identities cannot satisfy a mandatory separation.
-- Repeated domain identities across roles are reported as observed common dependencies even if an input labels them `Distinct`; the report does not infer independence from different executable hashes.
+- The claimed tier resolves to mandatory evaluator roles and pairwise role/domain separation obligations from a **separately supplied, digest-pinned assurance policy**. The candidate profile cannot provide or weaken its own mandatory separation list; a policy-digest mismatch and unknown tier are rejected.
+- The profile checker requires every policy-required role to be represented and each role manifest to account for all 15 dimensions. Missing/unknown dimensions make the profile incomplete for this v0.1 strict tier. Shared and not-applicable declarations require non-empty rationales.
+- Required pairwise role/domain separations pass only when both sides supply known, unequal digest identities. Equal, unknown, shared or not-applicable identities cannot satisfy a mandatory separation. A profile cannot remove a required role to weaken the policy.
+- Repeated domain identities across roles are reported as observed shared domains even if an input labels them `Distinct`; an explicit shared label without a matching cross-role identity is incomplete. The report does not infer independence from different executable hashes.
 - A dependency-free incremental minimal-hitting-set reference enumerates every minimal set of domain compromises that hits every role dependency set under the explicit assumption that compromise of any listed dependency invalidates that role's output.
-- Unknown or empty dependency manifests return `Incomplete` with no cut-set cardinality. State-budget exhaustion returns `BudgetExceeded` with no partial cut sets. It never publishes a partial list as a complete result.
+- Each dependency role must classify every dimension as exactly one of known, not-applicable (with a non-empty rationale), or unknown. Unknown, omitted, contradictory or empty dependency manifests return `Incomplete` with no cut-set cardinality. State-budget exhaustion returns `BudgetExceeded` with no partial cut sets. It never publishes a partial list as a complete result.
+- Cut-set reports bind the claim ID, subject digest, dependency-manifest digest and attack-model digest.
 
 Run from the repository root:
 
@@ -180,6 +182,6 @@ cargo test --locked --all-targets --manifest-path research/assurance-portfolio-c
 cargo clippy --locked --all-targets --manifest-path research/assurance-portfolio-cut/Cargo.toml -- -D warnings
 ```
 
-The initial unit panel covers complete/incomplete/expired profiles, shared and unknown mandatory domains, observed common dependencies, exact 2-role and 3-role minimal cut sets, unknown dependency fail-closed behavior, state-budget exhaustion without partial output, duplicate roles and deterministic role-pair normalization. The pinned CI workflow checks the exact PR head with formatting, locked compile, tests and strict Clippy.
+The unit panel covers policy-owned role/separation requirements, complete/incomplete/expired profiles, shared/unknown/omitted domain classifications, observed common dependencies, exact 2-role and 3-role minimal cut sets, unknown dependency fail-closed behavior, state-budget exhaustion without partial output, duplicate roles and deterministic role-pair normalization. The pinned CI workflow checks the exact PR head with formatting, locked compile, tests and strict Clippy.
 
-These are finite model tests. The identity manifest is still supplied data: passing profile and cut-set tests do not authenticate its owner, prove organizational independence, or establish that all real common-cause failures have been enumerated.
+These are finite model tests. Policy and identity manifests are still supplied data: passing profile and cut-set tests do not authenticate ownership, prove organizational independence, or establish that all real common-cause failures have been enumerated.
