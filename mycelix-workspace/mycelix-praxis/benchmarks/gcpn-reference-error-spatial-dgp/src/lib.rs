@@ -1616,6 +1616,49 @@ mod tests {
     }
 
     #[test]
+    fn ensemble_sizes_are_nested_prefixes_for_a_fixed_trial_seed() {
+        let fixture = fixture();
+        let small = generate_members(&fixture, &fixture.candidate_forecast, 3, 77, 0.25);
+        let large = generate_members(&fixture, &fixture.candidate_forecast, 7, 77, 0.25);
+        assert_eq!(&large[..3], small.as_slice());
+    }
+
+    #[test]
+    fn paired_forecast_systems_use_common_random_member_perturbations() {
+        let fixture = fixture();
+        let candidate = generate_members(&fixture, &fixture.candidate_forecast, 4, 91, 0.25);
+        let reference = generate_members(&fixture, &fixture.reference_forecast, 4, 91, 0.25);
+        for member in 0..4 {
+            for cell in 0..fixture.latent_truth.len() {
+                let candidate_perturbation =
+                    candidate[member][cell].unwrap() - fixture.candidate_forecast[cell];
+                let reference_perturbation =
+                    reference[member][cell].unwrap() - fixture.reference_forecast[cell];
+                assert!((candidate_perturbation - reference_perturbation).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn ensemble_trial_csv_records_reconstructible_member_seed() {
+        let report = run_ensemble_size_study(
+            &fixture(),
+            &dgp(ErrorFamily::ZeroError, 0.0),
+            &trials(),
+            &[1, 3],
+            3,
+            0.2,
+        )
+        .unwrap();
+        let csv = report.to_trial_csv();
+        assert!(csv.starts_with(
+            "family,severity,sensitivity_only,ensemble_size,seed,member_seed,event_block_id,"
+        ));
+        let first = &report.severity_reports[0].trials[0];
+        assert!(csv.contains(&format!(",{},{},", first.seed, first.member_seed)));
+    }
+
+    #[test]
     fn unknown_observation_error_range_is_a_sensitivity_only_ensemble_study() {
         let mut config = dgp(ErrorFamily::SpatiallyCorrelated, 0.3);
         config.parameter_knowledge = ParameterKnowledge::UnknownRange {
