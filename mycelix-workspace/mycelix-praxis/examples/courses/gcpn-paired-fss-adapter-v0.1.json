@@ -1,0 +1,51 @@
+{
+  "schema_version": "gcpn-course-profile-v0.1",
+  "id": "gcpn-paired-fss-adapter-v0.1",
+  "title": "Common-source paired pFSS adapter",
+  "category": "research_benchmark",
+  "status": "specification",
+  "upstream": [
+    "gcpn-common-source-comparison-v0.1",
+    "gcpn-probabilistic-fss-v0.1"
+  ],
+  "paired_denominator": "eligible_and_candidate_available_and_reference_available_and_verification_available_by_same_as_of_cutoff",
+  "required_invariant": "scored_case_ids == common_source.paired_verifiable_case_ids",
+  "uncertainty": {
+    "method": "paired_event_block_bootstrap",
+    "same_draws_for_both_systems": true,
+    "grid_cells_iid": false,
+    "estimand": "candidate_pFSS_minus_reference_pFSS"
+  },
+  "exact_support": [
+    "case_id",
+    "initialization_time",
+    "valid_time",
+    "lead_seconds",
+    "forecast_artifact_sha256",
+    "verification_artifact_sha256",
+    "grid_sha256",
+    "mask_sha256",
+    "area_weights",
+    "threshold",
+    "threshold_operator",
+    "neighbourhood_width",
+    "boundary_policy",
+    "missing_policy"
+  ],
+  "benchmark_targets": {
+    "false_paired_comparisons": 0,
+    "silent_denominator_changes": 0,
+    "artifact_digest_binding": "100_percent",
+    "same_event_block_draws": "100_percent",
+    "deterministic_reproduction": "100_percent"
+  },
+  "explicit_non_claims": [
+    "Does not fetch or redistribute datasets.",
+    "Does not regrid or silently align mismatched arrays.",
+    "Does not generate forecasts.",
+    "Does not establish calibration, decision value or disaster impact.",
+    "Does not replace WeatherBench 2, operational verification or national meteorological authorities."
+  ],
+  "toolchain": "Rust 1.98.1",
+  "external_dependencies": 0
+}
