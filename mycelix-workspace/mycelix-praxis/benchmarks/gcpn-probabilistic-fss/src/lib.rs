@@ -274,7 +274,11 @@ impl FssCase {
         for value in self
             .observation
             .iter()
-            .chain(self.forecast_members.iter().flat_map(|member| member.iter()))
+            .chain(
+                self.forecast_members
+                    .iter()
+                    .flat_map(|member| member.iter()),
+            )
             .flatten()
         {
             if !value.is_finite() {
@@ -317,8 +321,7 @@ pub fn random_reference(
     }
 
     let prepared = prepare_case(case, config)?;
-    let observed_score =
-        evaluate_events(case, config, &prepared, &prepared.member_events)?;
+    let observed_score = evaluate_events(case, config, &prepared, &prepared.member_events)?;
     let Some(observed_p_fss) = observed_score.p_fss else {
         return Err(FssError::RandomBaselineRequiresQualifiedScore);
     };
@@ -355,8 +358,7 @@ pub fn random_reference(
         .iter()
         .filter(|score| **score >= observed_p_fss)
         .count();
-    let upper_tail_p_value =
-        (exceedances as f64 + 1.0) / (random_config.draws as f64 + 1.0);
+    let upper_tail_p_value = (exceedances as f64 + 1.0) / (random_config.draws as f64 + 1.0);
 
     Ok(RandomBaselineReport {
         case_id: case.case_id.clone(),
@@ -422,9 +424,8 @@ fn prepare_case(case: &FssCase, config: &FssConfig) -> Result<PreparedCase, FssE
         }
 
         for (member_index, value) in values.into_iter().enumerate() {
-            member_events[member_index][index] = config
-                .threshold_operator
-                .exceeds(value, config.threshold);
+            member_events[member_index][index] =
+                config.threshold_operator.exceeds(value, config.threshold);
         }
     }
 
@@ -503,12 +504,9 @@ fn evaluate_events(
                     observation_weighted_sum += weight;
                 }
 
-                let member_event_count = member_events
-                    .iter()
-                    .filter(|member| member[index])
-                    .count();
-                let ensemble_probability =
-                    member_event_count as f64 / member_events.len() as f64;
+                let member_event_count =
+                    member_events.iter().filter(|member| member[index]).count();
+                let ensemble_probability = member_event_count as f64 / member_events.len() as f64;
                 forecast_weighted_sum += weight * ensemble_probability;
             }
         }
@@ -528,8 +526,7 @@ fn evaluate_events(
         observation_fraction_sum += centre_weight * observation_fraction;
         fbs_sum += centre_weight * difference * difference;
         wfbs_sum += centre_weight
-            * (forecast_fraction * forecast_fraction
-                + observation_fraction * observation_fraction);
+            * (forecast_fraction * forecast_fraction + observation_fraction * observation_fraction);
     }
 
     if centre_count == 0 || centre_weight_sum <= 0.0 {
@@ -697,8 +694,7 @@ pub fn block_bootstrap(
             for sample_index in selected {
                 let score = evaluate(&samples[*sample_index].case, config)?;
                 if score.status == FssStatus::Qualified {
-                    fbs_component_sum +=
-                        score.fractions_brier_score * score.centre_weight_sum;
+                    fbs_component_sum += score.fractions_brier_score * score.centre_weight_sum;
                     wfbs_component_sum +=
                         score.worst_fractions_brier_score * score.centre_weight_sum;
                 }
@@ -788,16 +784,8 @@ mod tests {
 
     #[test]
     fn perfect_single_member_forecast_scores_one() {
-        let events = [
-            false, false, false, false, true, true, false, false, true,
-        ];
-        let input = case(
-            "perfect",
-            3,
-            3,
-            vec![values(&events)],
-            values(&events),
-        );
+        let events = [false, false, false, false, true, true, false, false, true];
+        let input = case("perfect", 3, 3, vec![values(&events)], values(&events));
         let score = evaluate(&input, &config(1)).expect("perfect forecast must score");
         assert_eq!(score.status, FssStatus::Qualified);
         assert_eq!(score.p_fss, Some(1.0));
@@ -817,7 +805,11 @@ mod tests {
 
         let score = evaluate(&input, &config(3)).expect("one-member FSS must score");
         assert_eq!(score.status, FssStatus::Qualified);
-        assert!(score.p_fss.is_some_and(|value| (0.0..=1.0).contains(&value)));
+        assert!(
+            score
+                .p_fss
+                .is_some_and(|value| (0.0..=1.0).contains(&value))
+        );
     }
 
     #[test]
@@ -867,28 +859,18 @@ mod tests {
     #[test]
     fn same_pointwise_event_count_can_have_different_spatial_scores() {
         let observed = [
-            false, false, false, false, false,
-            false, true, true, false, false,
-            false, false, false, false, false,
-            false, false, false, false, false,
-            false, false, false, false, false,
+            false, false, false, false, false, false, true, true, false, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false,
         ];
         let aligned = observed;
         let displaced = [
-            false, false, false, false, false,
-            false, false, false, false, false,
-            false, false, false, false, false,
-            false, false, true, true, false,
-            false, false, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false, false, false, false, true, true, false, false, false, false, false,
+            false,
         ];
 
-        let aligned_case = case(
-            "aligned",
-            5,
-            5,
-            vec![values(&aligned)],
-            values(&observed),
-        );
+        let aligned_case = case("aligned", 5, 5, vec![values(&aligned)], values(&observed));
         let displaced_case = case(
             "displaced",
             5,
@@ -896,12 +878,13 @@ mod tests {
             vec![values(&displaced)],
             values(&observed),
         );
-        let aligned_score =
-            evaluate(&aligned_case, &config(3)).expect("aligned score");
-        let displaced_score =
-            evaluate(&displaced_case, &config(3)).expect("displaced score");
+        let aligned_score = evaluate(&aligned_case, &config(3)).expect("aligned score");
+        let displaced_score = evaluate(&displaced_case, &config(3)).expect("displaced score");
 
-        assert_eq!(aligned_score.observation_event_frequency, displaced_score.observation_event_frequency);
+        assert_eq!(
+            aligned_score.observation_event_frequency,
+            displaced_score.observation_event_frequency
+        );
         assert!(aligned_score.p_fss.unwrap() > displaced_score.p_fss.unwrap());
     }
 
@@ -994,13 +977,7 @@ mod tests {
     #[test]
     fn full_window_boundary_policy_excludes_edge_centres() {
         let events = [false; 25];
-        let input = case(
-            "boundary",
-            5,
-            5,
-            vec![values(&events)],
-            values(&events),
-        );
+        let input = case("boundary", 5, 5, vec![values(&events)], values(&events));
         let truncated = evaluate(&input, &config(3)).expect("truncated boundary");
         let mut full_config = config(3);
         full_config.boundary_policy = BoundaryPolicy::RequireFullWindow;
@@ -1012,16 +989,31 @@ mod tests {
     #[test]
     fn even_zero_and_excessive_window_widths_are_rejected() {
         let events = [false; 9];
-        let input = case("invalid-window", 3, 3, vec![values(&events)], values(&events));
+        let input = case(
+            "invalid-window",
+            3,
+            3,
+            vec![values(&events)],
+            values(&events),
+        );
         for width in [0, 2, 2049] {
-            assert_eq!(evaluate(&input, &config(width)), Err(FssError::InvalidWindowWidth));
+            assert_eq!(
+                evaluate(&input, &config(width)),
+                Err(FssError::InvalidWindowWidth)
+            );
         }
     }
 
     #[test]
     fn invalid_weights_are_rejected() {
         let events = [false; 4];
-        let mut input = case("invalid-weight", 2, 2, vec![values(&events)], values(&events));
+        let mut input = case(
+            "invalid-weight",
+            2,
+            2,
+            vec![values(&events)],
+            values(&events),
+        );
         input.cell_weights[0] = f64::NAN;
         assert_eq!(evaluate(&input, &config(1)), Err(FssError::InvalidWeight));
 
@@ -1042,7 +1034,10 @@ mod tests {
 
         let mut invalid = input.clone();
         invalid.observation[0] = Some(f64::INFINITY);
-        assert_eq!(evaluate(&invalid, &config(1)), Err(FssError::NonFiniteValue));
+        assert_eq!(
+            evaluate(&invalid, &config(1)),
+            Err(FssError::NonFiniteValue)
+        );
     }
 
     #[test]
@@ -1050,7 +1045,10 @@ mod tests {
         let events = [false; 4];
         let mut input = case("shape", 2, 2, vec![values(&events)], values(&events));
         input.observation.pop();
-        assert_eq!(evaluate(&input, &config(1)), Err(FssError::VectorLengthMismatch));
+        assert_eq!(
+            evaluate(&input, &config(1)),
+            Err(FssError::VectorLengthMismatch)
+        );
 
         input.case_id = "contains space".into();
         assert_eq!(evaluate(&input, &config(1)), Err(FssError::InvalidCaseId));
@@ -1075,34 +1073,40 @@ mod tests {
             values(&observed),
         );
         let score_one = evaluate(&one_member, &config(3)).expect("one member");
-        let score_repeated =
-            evaluate(&repeated_members, &config(3)).expect("repeated members");
+        let score_repeated = evaluate(&repeated_members, &config(3)).expect("repeated members");
         assert_eq!(score_one.p_fss, score_repeated.p_fss);
     }
 
     #[test]
     fn random_reference_is_deterministic_for_fixed_seed() {
         let observed = [
-            false, true, false, false, true, false, false, false, true,
-            false, false, false, true, false, false, false,
+            false, true, false, false, true, false, false, false, true, false, false, false, true,
+            false, false, false,
         ];
         let forecast_a = [
-            false, true, false, false, false, false, false, false, true,
-            false, false, false, true, false, false, false,
+            false, true, false, false, false, false, false, false, true, false, false, false, true,
+            false, false, false,
         ];
         let forecast_b = [
-            true, false, false, false, true, false, false, false, false,
-            false, false, false, true, false, false, false,
+            true, false, false, false, true, false, false, false, false, false, false, false, true,
+            false, false, false,
         ];
         let input = case(
             "random-null",
             4,
             4,
-            vec![values(&forecast_a), values(&forecast_b), values(&forecast_a)],
+            vec![
+                values(&forecast_a),
+                values(&forecast_b),
+                values(&forecast_a),
+            ],
             values(&observed),
         );
         let cfg = config(3);
-        let null_cfg = RandomBaselineConfig { draws: 256, seed: 42 };
+        let null_cfg = RandomBaselineConfig {
+            draws: 256,
+            seed: 42,
+        };
         let first = random_reference(&input, &cfg, &null_cfg).expect("first null");
         let second = random_reference(&input, &cfg, &null_cfg).expect("second null");
         assert_eq!(first, second);
@@ -1128,7 +1132,10 @@ mod tests {
         let null = random_reference(
             &input,
             &config(1),
-            &RandomBaselineConfig { draws: 256, seed: 9 },
+            &RandomBaselineConfig {
+                draws: 256,
+                seed: 9,
+            },
         )
         .expect("random reference");
         assert_eq!(null.ensemble_members, 5);
@@ -1143,7 +1150,10 @@ mod tests {
             random_reference(
                 &input,
                 &config(1),
-                &RandomBaselineConfig { draws: 256, seed: 1 }
+                &RandomBaselineConfig {
+                    draws: 256,
+                    seed: 1
+                }
             ),
             Err(FssError::RandomBaselineRequiresQualifiedScore)
         );
@@ -1186,11 +1196,26 @@ mod tests {
         let observed = [true, false, false, true];
         let samples = vec![
             block_sample("event-a", "case-a1", &[true, false, false, true], &observed),
-            block_sample("event-a", "case-a2", &[true, false, false, false], &observed),
+            block_sample(
+                "event-a",
+                "case-a2",
+                &[true, false, false, false],
+                &observed,
+            ),
             block_sample("event-b", "case-b1", &[false, false, true, true], &observed),
-            block_sample("event-b", "case-b2", &[false, false, false, true], &observed),
+            block_sample(
+                "event-b",
+                "case-b2",
+                &[false, false, false, true],
+                &observed,
+            ),
             block_sample("event-c", "case-c1", &[true, false, true, false], &observed),
-            block_sample("event-c", "case-c2", &[false, false, true, false], &observed),
+            block_sample(
+                "event-c",
+                "case-c2",
+                &[false, false, true, false],
+                &observed,
+            ),
         ];
         let bootstrap = BlockBootstrapConfig {
             replicates: 256,
