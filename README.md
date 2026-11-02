@@ -8,7 +8,7 @@ Fractal CivOS — decentralized civic infrastructure on Holochain. **Pre-alpha r
 
 The current migration target under evaluation is the stable Holochain 0.7.1 line. That upgrade has additional breaking changes from 0.7.0, including capability-grant re-issuance and incompatible direct-signal wire encoding. **Do not point a 0.7 conductor at existing 0.6 conductor data.** The 0.6→0.7 upgrade has no in-place conductor database migration path.
 
-See [the Holochain 0.7.1 migration and benchmark profile](research/holochain/MIGRATION_AND_BENCHMARK_PROFILE_0.7.1_V0.1.md) and [the open consumer qualification matrix (#3617)](https://github.com/Luminous-Dynamics/mycelix/issues/3617). Treat all queued, pending, skipped, cancelled, or superseded checks as unqualified.
+See [the Holochain 0.7.1 migration and benchmark profile](research/holochain/MIGRATION_AND_BENCHMARK_PROFILE_0.7.1_V0.1.md) and [the open consumer qualification matrix (#3617)](https://github.com/Luminous-Dynamics/mycelix/issues/3617). The 0.7.1 target remains an evaluation candidate because upstream documentation still lists 0.7.0 as recommended; canonical-source parity with the private umbrella monorepo exporter is also required. Treat all queued, pending, skipped, cancelled, or superseded checks as unqualified.
 
 ## What can I actually run today?
 
