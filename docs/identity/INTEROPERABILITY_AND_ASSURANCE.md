@@ -203,6 +203,14 @@ No stage implies eIDAS, EUDI Wallet, GDPR, HIPAA, or general regulatory complian
 
 ## 11. Immediate implementation tickets
 
+The following GitHub issues now track the implementation work from this source review:
+
+- [#5722 — Bind every credential-verification field into a versioned signature profile](https://github.com/Luminous-Dynamics/mycelix/issues/5722) (**P0**).
+- [#5723 — Fail closed for unverified PQC and partially verified hybrid credential signatures](https://github.com/Luminous-Dynamics/mycelix/issues/5723) (**P0**).
+- [#5724 — Verify cross-DID proofs and bind submissions to verifier-issued nonces](https://github.com/Luminous-Dynamics/mycelix/issues/5724) (**P1**).
+- [#1881 — Separate location-attestation authority and fail closed on T1 verification](https://github.com/Luminous-Dynamics/mycelix/issues/1881) (existing work; coordinate rather than duplicate).
+- [#5447 — Compare pinned SD-JWT/BBS profiles end to end](https://github.com/Luminous-Dynamics/mycelix/issues/5447) and [#5497 — Adversarial issuer, disclosure, and key-binding verification](https://github.com/Luminous-Dynamics/mycelix/issues/5497) (existing credential-interoperability work to reuse).
+
 1. **P0:** Add mutation tests for every field consumed by credential verification; fix signature coverage before widening format support.
 2. **P0:** Remove structural acceptance of pure PQC signatures from any path that returns `valid: true`; expose explicit verification assurance and unsupported/inconclusive results.
 3. **P0:** Make hybrid verification require both signature components or return partial/inconclusive.
