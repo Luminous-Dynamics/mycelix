@@ -30,16 +30,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             100,
             105,
             180,
-            98,
+            70,
         ),
         subgroup(
             "urban",
             "cohort-urban",
             &["cell-broadcast", "sms"],
-            100,
-            110,
+            150,
+            160,
             180,
-            145,
+            155,
         ),
     ];
 
