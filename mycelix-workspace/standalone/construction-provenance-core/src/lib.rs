@@ -69,6 +69,17 @@ pub struct EvidenceAssertion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExternalArtifactRef {
+    /// Stable opaque reference in the owning system.
+    pub reference: String,
+    pub owner_system: String,
+    /// Examples: design_revision, simulation_run, portfolio_alternative.
+    pub artifact_role: String,
+    pub revision_ref: String,
+    pub sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthorityAssertion {
     pub reference: String,
     pub signer_id: String,
@@ -85,6 +96,7 @@ pub struct AuthorityAssertion {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DesignRevision {
     pub revision_id: String,
+    pub source_artifact: ExternalArtifactRef,
     pub sha256: String,
     pub supersedes_revision_id: Option<String>,
     pub created_at: u64,
@@ -93,6 +105,7 @@ pub struct DesignRevision {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SimulationRun {
     pub run_id: String,
+    pub execution_artifact: ExternalArtifactRef,
     pub design_revision_id: String,
     pub design_sha256: String,
     pub solver_id: String,
@@ -174,6 +187,8 @@ pub struct ConstructionProjectTrace {
     pub schema_version: u32,
     pub project_id: String,
     pub current_design_revision_id: String,
+    /// Optional link to a Sol-Atlas Foundry alternative; never a second GIS record.
+    pub external_portfolio_context: Option<ExternalArtifactRef>,
     pub design_revisions: Vec<DesignRevision>,
     pub simulation_runs: Vec<SimulationRun>,
     pub authority_assertions: Vec<AuthorityAssertion>,
@@ -229,6 +244,31 @@ fn nonempty(value: &str) -> bool {
 
 fn valid_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn external_artifact_disposition(
+    artifact: &ExternalArtifactRef,
+    expected_owner: Option<&str>,
+    expected_role: &str,
+    expected_revision: &str,
+    expected_sha256: &str,
+) -> Disposition {
+    if !nonempty(&artifact.reference)
+        || !nonempty(&artifact.owner_system)
+        || !nonempty(&artifact.artifact_role)
+        || !nonempty(&artifact.revision_ref)
+    {
+        return Disposition::Indeterminate;
+    }
+    if expected_owner.is_some_and(|owner| artifact.owner_system != owner)
+        || artifact.artifact_role != expected_role
+        || artifact.revision_ref != expected_revision
+        || artifact.sha256 != expected_sha256
+        || !valid_sha256(&artifact.sha256)
+    {
+        return Disposition::Rejected;
+    }
+    Disposition::Accepted
 }
 
 fn valid_at(from: u64, until: Option<u64>, available_at: u64, event_at: u64) -> bool {
@@ -520,6 +560,28 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         report.push("project", &trace.project_id, Disposition::Rejected, "invalid_project_envelope");
     }
 
+    if let Some(context) = &trace.external_portfolio_context {
+        let disposition = external_artifact_disposition(
+            context,
+            Some("sol-atlas-leptos"),
+            "portfolio_alternative",
+            &context.revision_ref,
+            &context.sha256,
+        );
+        report.push(
+            "external_context",
+            &context.reference,
+            disposition,
+            match disposition {
+                Disposition::Accepted => "sol_atlas_portfolio_reference_well_formed",
+                Disposition::Rejected => "sol_atlas_portfolio_reference_rejected",
+                Disposition::Indeterminate => "sol_atlas_portfolio_reference_incomplete",
+                Disposition::Disputed => "sol_atlas_portfolio_reference_disputed",
+                Disposition::Superseded => "sol_atlas_portfolio_reference_superseded",
+            },
+        );
+    }
+
     let mut revision_ids = BTreeSet::new();
     let mut duplicate_revision_ids = BTreeSet::new();
     for revision in &trace.design_revisions {
@@ -546,11 +608,28 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
                     Some(parent_id) => design_for(trace, parent_id)
                         .is_some_and(|parent| parent.created_at < revision.created_at),
                 };
+            let disposition = if lineage_valid {
+                external_artifact_disposition(
+                    &revision.source_artifact,
+                    None,
+                    "design_revision",
+                    &revision.revision_id,
+                    &revision.sha256,
+                )
+            } else {
+                Disposition::Rejected
+            };
             report.push(
                 "design",
                 &revision.revision_id,
-                if lineage_valid { Disposition::Accepted } else { Disposition::Rejected },
-                if lineage_valid { "current_revision_identity_valid" } else { "invalid_or_nonterminal_revision_lineage" },
+                disposition,
+                match disposition {
+                    Disposition::Accepted => "current_revision_and_external_source_bound",
+                    Disposition::Rejected => "invalid_revision_lineage_or_source_binding",
+                    Disposition::Indeterminate => "external_design_source_reference_missing",
+                    Disposition::Disputed => "external_design_source_reference_disputed",
+                    Disposition::Superseded => "design_revision_superseded",
+                },
             );
         }
     }
@@ -587,7 +666,25 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         {
             report.push("simulation", &run.run_id, Disposition::Rejected, "invalid_simulation_provenance");
         } else {
-            report.push("simulation", &run.run_id, Disposition::Accepted, "exact_design_binding_valid");
+            let disposition = external_artifact_disposition(
+                &run.execution_artifact,
+                None,
+                "simulation_run",
+                &run.run_id,
+                &run.result_sha256,
+            );
+            report.push(
+                "simulation",
+                &run.run_id,
+                disposition,
+                match disposition {
+                    Disposition::Accepted => "exact_design_and_external_run_binding_valid",
+                    Disposition::Rejected => "external_simulation_run_binding_rejected",
+                    Disposition::Indeterminate => "external_simulation_run_reference_missing",
+                    Disposition::Disputed => "external_simulation_run_reference_disputed",
+                    Disposition::Superseded => "simulation_run_superseded",
+                },
+            );
         }
     }
 
@@ -826,15 +923,36 @@ mod tests {
             schema_version: 1,
             project_id: "pavilion-demo-01".into(),
             current_design_revision_id: "design-r2".into(),
+            external_portfolio_context: Some(ExternalArtifactRef {
+                reference: "sol-atlas:foundry:study-01:alternative-01".into(),
+                owner_system: "sol-atlas-leptos".into(),
+                artifact_role: "portfolio_alternative".into(),
+                revision_ref: "alternative-r1".into(),
+                sha256: D3.into(),
+            }),
             design_revisions: vec![
                 DesignRevision {
                     revision_id: "design-r1".into(),
+                    source_artifact: ExternalArtifactRef {
+                        reference: "symthaea:design:pavilion-r1".into(),
+                        owner_system: "symthaea".into(),
+                        artifact_role: "design_revision".into(),
+                        revision_ref: "design-r1".into(),
+                        sha256: D1.into(),
+                    },
                     sha256: D1.into(),
                     supersedes_revision_id: None,
                     created_at: 100,
                 },
                 DesignRevision {
                     revision_id: "design-r2".into(),
+                    source_artifact: ExternalArtifactRef {
+                        reference: "symthaea:design:pavilion-r2".into(),
+                        owner_system: "symthaea".into(),
+                        artifact_role: "design_revision".into(),
+                        revision_ref: "design-r2".into(),
+                        sha256: D2.into(),
+                    },
                     sha256: D2.into(),
                     supersedes_revision_id: Some("design-r1".into()),
                     created_at: 180,
@@ -843,6 +961,13 @@ mod tests {
             simulation_runs: vec![
                 SimulationRun {
                     run_id: "sim-r1".into(),
+                    execution_artifact: ExternalArtifactRef {
+                        reference: "symtropy:run:sim-r1".into(),
+                        owner_system: "symtropy".into(),
+                        artifact_role: "simulation_run".into(),
+                        revision_ref: "sim-r1".into(),
+                        sha256: D3.into(),
+                    },
                     design_revision_id: "design-r1".into(),
                     design_sha256: D1.into(),
                     solver_id: "symtropy-structural-adapter".into(),
@@ -852,6 +977,13 @@ mod tests {
                 },
                 SimulationRun {
                     run_id: "sim-r2".into(),
+                    execution_artifact: ExternalArtifactRef {
+                        reference: "symtropy:run:sim-r2".into(),
+                        owner_system: "symtropy".into(),
+                        artifact_role: "simulation_run".into(),
+                        revision_ref: "sim-r2".into(),
+                        sha256: D3.into(),
+                    },
                     design_revision_id: "design-r2".into(),
                     design_sha256: D2.into(),
                     solver_id: "qualified-external-solver-ref".into(),
@@ -980,6 +1112,27 @@ mod tests {
         assert_eq!(report.disposition_for("material_batch", "batch-01"), Some(Disposition::Accepted));
         assert_eq!(report.disposition_for("custody", "batch-01"), Some(Disposition::Accepted));
         assert_eq!(report.disposition_for("inspection", "inspection-01"), Some(Disposition::Accepted));
+    }
+
+    #[test]
+    fn design_and_simulation_must_bind_to_external_owner_artifacts() {
+        let mut trace = sample_trace();
+        trace.design_revisions[1].source_artifact.sha256 = D1.into();
+        assert_eq!(disposition(&trace, "design", "design-r2"), Disposition::Rejected);
+
+        let mut trace = sample_trace();
+        trace.simulation_runs[1].execution_artifact.revision_ref = "sim-r1".into();
+        assert_eq!(disposition(&trace, "simulation", "sim-r2"), Disposition::Rejected);
+    }
+
+    #[test]
+    fn portfolio_context_is_an_opaque_sol_atlas_reference_not_a_local_gis_record() {
+        let mut trace = sample_trace();
+        trace.external_portfolio_context.as_mut().unwrap().owner_system = "symtropy".into();
+        assert_eq!(
+            disposition(&trace, "external_context", "sol-atlas:foundry:study-01:alternative-01"),
+            Disposition::Rejected
+        );
     }
 
     #[test]
