@@ -14,6 +14,8 @@ A dependency-free Rust implementation of deterministic FSS-equivalent scoring an
 - Typed degenerate no-event handling; no silent conversion to perfect score.
 - Reproducible independent-Bernoulli random-reference Monte Carlo matched to observed event frequency, exact ensemble size, grid, mask, missingness and scale.
 - Random-null mean, 95th percentile, and upper-tail Monte Carlo p-value.
+- Percentile confidence intervals from a block bootstrap over independent event IDs, keeping all cases within an event together.
+- Explicit FBS/WFBS component pooling policy and qualified/degenerate bootstrap replicate counts.
 
 ## Formula
 
@@ -42,7 +44,7 @@ Rust 1.98.1 is pinned and there are no external dependencies.
 
 ## Qualification boundary
 
-Synthetic fixtures only. This crate does not fetch data, perform geospatial reprojection, wrap longitude, calculate CRPS/Brier/energy/variogram scores, assess calibration, or establish operational warning value. The rectangular grid requires a declared projection/physical scale in any real-data adapter. Confidence intervals over multiple forecast cases must resample independent event/time blocks, never individual grid cells as IID.
+Synthetic fixtures only. This crate does not fetch data, perform geospatial reprojection, wrap longitude, calculate CRPS/Brier/energy/variogram scores, assess calibration, or establish operational warning value. The rectangular grid requires a declared projection/physical scale in any real-data adapter. Confidence intervals over multiple forecast cases use an event-block bootstrap that keeps all cases in the same event together. The report names the FBS/WFBS component-pooling policy and exposes degenerate resamples. Individual grid cells are never resampled as IID.
 
 ## Research references
 
