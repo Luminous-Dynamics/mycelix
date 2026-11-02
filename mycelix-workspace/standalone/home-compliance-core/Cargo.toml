@@ -1,0 +1,14 @@
+[package]
+name = "home-compliance-core"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed review-gate core for jurisdiction-aware home-design evidence"
+publish = false
+
+# Keep this prototype independently buildable and outside the Holochain WASM workspace.
+[workspace]
+
+[[bench]]
+name = "dependency_impact"
+harness = false

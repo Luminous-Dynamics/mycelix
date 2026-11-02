@@ -1,0 +1,255 @@
+{
+  "schema_id": "org.luminousdynamics.home-design-reference-fixture",
+  "schema_version": "1.0.0",
+  "scenario_id": "home.za.johannesburg.adaptable.v1",
+  "label": "Synthetic adaptable Johannesburg home",
+  "status": "software_fixture_only_not_regulatory_or_engineering_evidence",
+  "jurisdiction_profile": {
+    "id": "ZA/Johannesburg/pilot-synthetic",
+    "authority_verified": false,
+    "rule_pack_verified": false,
+    "coordinates": null,
+    "note": "Use a selected municipality and verified site only before any real permitting assessment."
+  },
+  "owner_brief": {
+    "building_type": "single_storey_home",
+    "household_size_initial": 3,
+    "household_size_future_range": [
+      1,
+      6
+    ],
+    "floor_area_target_m2": [
+      80,
+      110
+    ],
+    "affordability": "whole_life_cost_not_lowest_initial_cost",
+    "priorities": [
+      "step_free_primary_route",
+      "passive_thermal_comfort",
+      "repairable_components",
+      "water_resilience",
+      "energy_resilience",
+      "future_room_or_annex_addition",
+      "manual_operation_if_controls_fail",
+      "vendor_independent_records"
+    ],
+    "constraints_not_yet_verified": [
+      "site_geotechnics",
+      "municipal_zoning_and_setbacks",
+      "fire_and_egress",
+      "structural_design",
+      "electrical_certificate_requirements",
+      "water_and_sanitation_connections",
+      "energy_performance_requirements"
+    ]
+  },
+  "candidate_style_families": [
+    {
+      "id": "courtyard-climate-responsive",
+      "intent": "A shaded internal or semi-internal outdoor room with cross-ventilation options.",
+      "must_not_assume": [
+        "site_orientation",
+        "wind_availability",
+        "security_solution",
+        "solar_gain"
+      ]
+    },
+    {
+      "id": "regional-vernacular-modern",
+      "intent": "Contemporary interpretation of locally appropriate proportions, shade and outdoor living.",
+      "must_not_assume": [
+        "one_universal_african_style",
+        "cultural_preference",
+        "historic_material_compliance"
+      ]
+    },
+    {
+      "id": "compact-contemporary",
+      "intent": "A compact plan with simple service runs and extension-aware structure.",
+      "must_not_assume": [
+        "lower_lifecycle_cost_without_estimate",
+        "accessibility_from_visual_appearance"
+      ]
+    },
+    {
+      "id": "multigenerational-flexible",
+      "intent": "Room adjacency and services planned for changing household composition.",
+      "must_not_assume": [
+        "future_room_is_structurally_free",
+        "future_extension_is_automatically_permitted"
+      ]
+    }
+  ],
+  "candidate_construction_families": [
+    {
+      "id": "masonry",
+      "status": "candidate_only",
+      "required_evidence": [
+        "site_specific_structural_design",
+        "thermal_model",
+        "moisture_and_durability_review",
+        "current_code_review"
+      ]
+    },
+    {
+      "id": "light_gauge_steel",
+      "status": "candidate_only",
+      "required_evidence": [
+        "corrosion_context",
+        "thermal_bridge_detailing",
+        "fire_review",
+        "supplier_and_replacement_strategy"
+      ]
+    },
+    {
+      "id": "engineered_timber",
+      "status": "candidate_only",
+      "required_evidence": [
+        "design_values_and_grade",
+        "moisture_detailing",
+        "fire_review",
+        "termite_or_biological_risk_review"
+      ]
+    },
+    {
+      "id": "stabilized_earth",
+      "status": "experimental_until_locally_verified",
+      "required_evidence": [
+        "material_test_results",
+        "site_specific_structural_design",
+        "water_erosion_detailing",
+        "authority_acceptance"
+      ]
+    },
+    {
+      "id": "panelized_or_modular",
+      "status": "candidate_only",
+      "required_evidence": [
+        "connection_design",
+        "transport_and_lifting_plan",
+        "fire_and_acoustic_evidence",
+        "supplier_exit_strategy"
+      ]
+    }
+  ],
+  "stable_artifact_ids": {
+    "floorplan": "model:floorplan",
+    "energy_model": "model:energy",
+    "energy_rule_pack_logical_id": "rulepack:za-jhb:energy",
+    "energy_finding": "finding:energy-rule",
+    "structure_finding": "finding:structure-review",
+    "permit_assessment": "assessment:permit-package",
+    "permit_submission": "permit:submission",
+    "floorplan_drawing": "drawing:floorplan",
+    "ifc_export": "export:ifc"
+  },
+  "dependency_edges": [
+    [
+      "rulepack:za-jhb:energy",
+      "finding:energy-rule"
+    ],
+    [
+      "model:energy",
+      "finding:energy-rule"
+    ],
+    [
+      "finding:energy-rule",
+      "assessment:permit-package"
+    ],
+    [
+      "finding:structure-review",
+      "assessment:permit-package"
+    ],
+    [
+      "assessment:permit-package",
+      "permit:submission"
+    ],
+    [
+      "model:floorplan",
+      "finding:structure-review"
+    ],
+    [
+      "model:floorplan",
+      "model:energy"
+    ],
+    [
+      "model:floorplan",
+      "drawing:floorplan"
+    ],
+    [
+      "drawing:floorplan",
+      "export:ifc"
+    ]
+  ],
+  "change_scenarios": [
+    {
+      "id": "energy-rule-source-revision",
+      "changed_id": "rulepack:za-jhb:energy",
+      "expected_to_invalidate": [
+        "finding:energy-rule",
+        "assessment:permit-package",
+        "permit:submission"
+      ],
+      "expected_to_remain_current_until_other_change": [
+        "finding:structure-review",
+        "model:floorplan",
+        "drawing:floorplan",
+        "export:ifc"
+      ]
+    },
+    {
+      "id": "floorplan-geometry-revision",
+      "changed_id": "model:floorplan",
+      "expected_to_invalidate": [
+        "finding:structure-review",
+        "model:energy",
+        "finding:energy-rule",
+        "drawing:floorplan",
+        "export:ifc",
+        "assessment:permit-package",
+        "permit:submission"
+      ],
+      "expected_not_to_invalidate": [
+        "rulepack:za-jhb:energy"
+      ]
+    },
+    {
+      "id": "simultaneous-floorplan-and-energy-rule-revision",
+      "changed_ids": [
+        "model:floorplan",
+        "rulepack:za-jhb:energy"
+      ],
+      "expected_to_invalidate": [
+        "assessment:permit-package",
+        "drawing:floorplan",
+        "export:ifc",
+        "finding:energy-rule",
+        "finding:structure-review",
+        "model:energy",
+        "permit:submission"
+      ]
+    },
+    {
+      "id": "proposed-amendment",
+      "expected_rule_status": "non_binding_until_status_and_effective_date_are_verified",
+      "expected_behavior": "Do_not_let_a_proposed_value_silently_replace_a_binding_current_value"
+    },
+    {
+      "id": "unknown_mandatory_analysis",
+      "expected_behavior": "block_ready_for_professional_review"
+    },
+    {
+      "id": "format_migration",
+      "expected_behavior": "preserve_declared_critical_invariants_or_surface_loss_and_block_automatic_migration"
+    }
+  ],
+  "evidence_boundary": {
+    "source_files_are_synthetic": true,
+    "design_geometry_included": false,
+    "IFC_file_included": false,
+    "engineering_solvers_included": false,
+    "legal_rule_pack_included": false,
+    "code_compliance_claim": false,
+    "automatic_construction_or_device_execution": false
+  }
+}
