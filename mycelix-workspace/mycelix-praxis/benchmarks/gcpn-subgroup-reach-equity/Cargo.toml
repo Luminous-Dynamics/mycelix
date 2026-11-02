@@ -1,0 +1,19 @@
+[package]
+name = "gcpn-subgroup-reach-equity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Aggregate-only subgroup reach and equity bounds over civil warning delivery evidence"
+
+[workspace]
+
+[dependencies]
+gcpn-civil-evidence-contracts = { path = "../gcpn-civil-evidence-contracts" }
+gcpn-compositional-assurance = { path = "../gcpn-compositional-assurance" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-subgroup-reach-equity"
+path = "src/main.rs"
