@@ -159,3 +159,27 @@ The profile verifier can establish that a supplied manifest covers a declared th
 ## 8. Claim ceiling
 
 A passing result establishes only that the exact finite manifest, profile rules and cut-set semantics were evaluated correctly. It does not prove that distinct digest identities correspond to independent teams or infrastructure, authenticate a trust root, establish truth, eliminate unknown shared failure modes, or confer production qualification or action authority.
+
+
+## Executable v0.1 model
+
+The standalone Rust crate in this directory implements the first finite research slice:
+
+- A strict profile checker requires each required role to account for all 15 domain dimensions. Missing or unknown dimensions make the profile incomplete for this v0.1 strict tier. Shared and not-applicable declarations require non-empty rationales.
+- Required pairwise role/dimension separations pass only when both sides supply known, unequal digest identities. Equal, unknown, shared or not-applicable identities cannot satisfy a mandatory separation.
+- Repeated domain identities across roles are reported as observed common dependencies even if an input labels them `Distinct`; the report does not infer independence from different executable hashes.
+- A dependency-free incremental minimal-hitting-set reference enumerates every minimal set of domain compromises that hits every role dependency set under the explicit assumption that compromise of any listed dependency invalidates that role's output.
+- Unknown or empty dependency manifests return `Incomplete` with no cut-set cardinality. State-budget exhaustion returns `BudgetExceeded` with no partial cut sets. It never publishes a partial list as a complete result.
+
+Run from the repository root:
+
+```sh
+cargo fmt --manifest-path research/assurance-portfolio-cut/Cargo.toml --check
+cargo check --locked --all-targets --manifest-path research/assurance-portfolio-cut/Cargo.toml
+cargo test --locked --all-targets --manifest-path research/assurance-portfolio-cut/Cargo.toml
+cargo clippy --locked --all-targets --manifest-path research/assurance-portfolio-cut/Cargo.toml -- -D warnings
+```
+
+The initial unit panel covers complete/incomplete/expired profiles, shared and unknown mandatory domains, observed common dependencies, exact 2-role and 3-role minimal cut sets, unknown dependency fail-closed behavior, state-budget exhaustion without partial output, duplicate roles and deterministic role-pair normalization. The pinned CI workflow checks the exact PR head with formatting, locked compile, tests and strict Clippy.
+
+These are finite model tests. The identity manifest is still supplied data: passing profile and cut-set tests do not authenticate its owner, prove organizational independence, or establish that all real common-cause failures have been enumerated.
