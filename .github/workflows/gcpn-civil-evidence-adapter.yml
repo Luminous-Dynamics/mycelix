@@ -1,0 +1,45 @@
+name: GCPN civil evidence adapter
+
+on:
+  pull_request:
+    branches: [research/gcpn-civil-evidence-contracts-v0-1]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-adapter/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-contracts/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance/**"
+      - ".github/workflows/gcpn-civil-evidence-adapter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-adapter
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-adapter
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-adapter
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic fault report
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-adapter
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-civil-adapter-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-civil-adapter-b.csv
+          cmp /tmp/gcpn-civil-adapter-a.csv /tmp/gcpn-civil-adapter-b.csv
+          grep -q "authority_registry_unknown,executed" /tmp/gcpn-civil-adapter-a.csv
+          grep -q "device_delivery_missing,executed" /tmp/gcpn-civil-adapter-a.csv
+          grep -q "accessibility_evidence_missing,executed" /tmp/gcpn-civil-adapter-a.csv
+          grep -q "action_receipt_missing,executed" /tmp/gcpn-civil-adapter-a.csv
+          grep -q "duplicate_case_key,fail_closed" /tmp/gcpn-civil-adapter-a.csv
