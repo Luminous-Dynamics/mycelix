@@ -17,7 +17,7 @@ The manifest records the dataset release citation, retrieval time, declared lice
 
 ## Paired case accounting
 
-Every case row carries candidate, reference and common-verification availability with typed missing reasons. The report retains:
+Every case row carries candidate, reference and common-verification availability with typed missing reasons. Each available forecast artifact records its exact model initialization time and archive/recording time; the initialization must equal the case key, and the recording time must not exceed the declared as-of cutoff. Verification records have their own recording time. The report retains:
 - eligible and excluded cases;
 - candidate and reference marginal forecast availability;
 - candidate-only, reference-only and both-missing cases;
