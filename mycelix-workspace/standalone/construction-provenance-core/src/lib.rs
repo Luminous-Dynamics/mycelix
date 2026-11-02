@@ -2032,7 +2032,7 @@ mod tests {
         trace.inspections[0].inspected_at = 290;
         assert_eq!(
             disposition(&trace, "inspection", "inspection-segment-01"),
-            Disposition::Indeterminate
+            Disposition::Rejected
         );
 
         let mut trace = sample_trace();
