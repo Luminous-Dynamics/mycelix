@@ -13,3 +13,5 @@ name = "gcpn-e2e-fault-interaction"
 path = "src/main.rs"
 
 [dependencies]
+
+[workspace]
