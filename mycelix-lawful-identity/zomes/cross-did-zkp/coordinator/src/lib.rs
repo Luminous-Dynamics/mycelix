@@ -21,13 +21,13 @@
 // module-level HONESTY NOTE in `cross_did_zkp_integrity`'s
 // `integrity/src/lib.rs` for the full detail.
 //
-// Replay detection: when a verifier sees a proof, it (a) checks the
-// proof's nonce_hash does not already have a CrossDidProof linked
-// from it, and (b) checks the underlying nonce was actually issued
-// by this verifier (otherwise someone replayed a proof from a
-// different session). Both checks are cheap DHT queries and are
-// independent of whether the proof itself is ever cryptographically
-// verified.
+// Current replay-bookkeeping boundary: submit_proof checks whether a
+// CrossDidProof link already exists under the caller-supplied nonce_hash,
+// using GetStrategy::Local. It does NOT check that the hash corresponds
+// to a nonce issued by a particular verifier: SubmitProofInput has no
+// verifier DID or nonce-entry reference. It also does not cryptographically
+// bind the proof to the nonce or establish global DHT-wide single use.
+// Treat nonce_was_fresh as a local bookkeeping observation only.
 
 use cross_did_zkp_integrity::{CrossDidProof, EntryTypes, LinkTypes, NonceRequest};
 use hdk::prelude::*;
