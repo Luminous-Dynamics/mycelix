@@ -1,0 +1,19 @@
+[package]
+name = "gcpn-civil-evidence-adapter"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Synthetic fault adapter for GCPN authority delivery accessibility action and case-frame contracts"
+
+[workspace]
+
+[dependencies]
+gcpn-civil-evidence-contracts = { path = "../gcpn-civil-evidence-contracts" }
+gcpn-compositional-assurance = { path = "../gcpn-compositional-assurance" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-civil-evidence-adapter"
+path = "src/main.rs"
