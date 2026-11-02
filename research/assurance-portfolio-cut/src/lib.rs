@@ -232,9 +232,6 @@ pub fn check_profile(
     {
         return Err(ProfileError::InvalidPolicyTier);
     }
-    if profile.required_roles.is_empty() {
-        return Err(ProfileError::EmptyRequiredRoles);
-    }
     if profile.required_roles.iter().any(|role| role.trim().is_empty()) {
         return Err(ProfileError::EmptyRoleId);
     }
@@ -259,7 +256,7 @@ pub fn check_profile(
     if profile
         .role_domains
         .keys()
-        .any(|role| !profile.required_roles.contains(role))
+        .any(|role| !tier.required_roles.contains(role))
     {
         return Err(ProfileError::UnexpectedRoleManifest);
     }
@@ -268,7 +265,7 @@ pub fn check_profile(
     let mut unknown_dimensions = Vec::new();
     let mut not_applicable_dimensions = Vec::new();
 
-    for role in &profile.required_roles {
+    for role in &tier.required_roles {
         let Some(domains) = profile.role_domains.get(role) else {
             reasons.insert(ProfileReason::RequiredRoleManifestMissing);
             continue;
@@ -538,7 +535,7 @@ pub fn minimal_cut_sets(
             let not_applicable = role.not_applicable_dimensions.get(&dimension);
             let unknown = role.unknown_dimensions.contains(&dimension);
             let classifications =
-                usize::from(known_count > 0) + usize::from(not_applicable.is_some()) + usize::from(unknown);
+                (known_count > 0) as usize + (not_applicable.is_some()) as usize + unknown as usize;
 
             if classifications != 1 || known_count > 1 {
                 unresolved.insert(dimension);
