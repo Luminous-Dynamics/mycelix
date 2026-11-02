@@ -4,7 +4,7 @@
 //! Legacy Bridge: Academic Credential Coordinator Zome
 //!
 //! Provides functions for:
-//! - Issuing academic credentials with W3C VC 2.0 compliance
+//! - Issuing academic credential records with VC 2.0-shaped fields and Mycelix extensions
 //! - CSV batch import from legacy systems
 //! - DNS-DID verification
 //! - Revocation management
@@ -75,7 +75,8 @@ pub fn create_academic_credential(
     // Get next revocation index (simplified - in production, coordinate with registry)
     let revocation_index = get_next_revocation_index(&input.revocation_registry_id)?;
 
-    // Build W3C VC 2.0 compliant credential
+    // Build a VC-shaped academic record. This path does not itself establish
+    // W3C Data Integrity cryptosuite or OpenID credential-exchange conformance.
     let credential = AcademicCredential {
         context: vec![
             "https://www.w3.org/ns/credentials/v2".to_string(),
