@@ -1,6 +1,6 @@
 # mycelix-lawful-identity
 
-The **legal-DID** namespace for Mycelix. Handles government-ID-backed credentials, issuer trust tiers, and cross-DID zero-knowledge bridges — strictly isolated from the primary consciousness-gated identity.
+The **legal-DID** namespace for Mycelix. It explores government-ID-backed credential references, issuer trust tiers, and privacy-preserving cross-DID coordination — strictly isolated from the primary identity namespace. The maturity and cryptographic guarantees of each flow are implementation-specific; the documents in this repository distinguish working code from planned or research-stage proof paths.
 
 Part of the [state-coexistence extensions](../MYCELIX_STATE_COEXISTENCE.md).
 
@@ -32,11 +32,11 @@ The two DIDs share **zero on-chain linkability**. Any cross-link is **ZKP-only**
 - No "legal name" field on the primary DID profile.
 - No court-order key disclosure protocol (separate `mycelix-lawful-response` cluster if ever built).
 
-## Underlying crypto
+## Underlying credential and proof components
 
-Reuses `mycelix-identity/crates/eidas-zkp/` — W3C VC 2.0, DASTARK + Dilithium5, Merkle selective disclosure, range/membership/equality proven claims. A passport credential is just an eIDAS credential with specific claim keys (see `GOV_ID_CLAIM_SHAPES.md`).
+The `mycelix-identity/crates/eidas-zkp/` crate currently provides experimental VC-shaped structures, caller-supplied proof metadata, and ordinary JSON claim filtering. It does **not** generate or verify DASTARK/ML-DSA proofs, implement an interoperable W3C Data Integrity cryptosuite, or establish eIDAS/EUDI Wallet conformance. Do not treat a `ProvenClaim` description as a verified predicate.
 
-Jurisdiction-in-credential range proofs reuse `crates/mycelix-zkp-core/src/circuits/range_proof.rs` via the new `jurisdiction_proof.rs` circuit.
+The claim-key conventions in `docs/GOV_ID_CLAIM_SHAPES.md` are data-shape guidance, not issuer assurance or proof-generation code. Any jurisdiction proof must be traced to its actual circuit implementation, verifier, and test vectors before it is described as a verified zero-knowledge claim. See the [Mycelix Identity Interoperability and Assurance Roadmap](../docs/identity/INTEROPERABILITY_AND_ASSURANCE.md).
 
 ## Build
 
