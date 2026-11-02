@@ -2,10 +2,10 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// cross-did-zkp integrity — the bridge between primary and legal DIDs.
-// The primary DID can prove "I control a legal DID that holds credential X
-// from issuer Y" without revealing which legal DID. See
-// ../../docs/THREAT_MODEL.md vectors 1 and 2.
+// cross-did-zkp integrity — data structures for a proposed primary/legal DID bridge.
+// The intended privacy-preserving statement is documented as design work;
+// the current coordinator does not generate or verify such a proof. See
+// ../../docs/THREAT_MODEL.md for the current assurance boundary.
 //
 // ============================================================================
 // HONESTY NOTE (added after a 2026-07 audit, do not remove or weaken):
