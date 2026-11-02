@@ -1,5 +1,5 @@
 use gcpn_compositional_assurance_adapter::{
-    evaluate_pair, evaluate_single, supported_pairs, Fault,
+    Fault, evaluate_pair, evaluate_single, supported_pairs,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
