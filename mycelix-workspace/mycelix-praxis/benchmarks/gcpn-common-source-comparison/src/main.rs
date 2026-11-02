@@ -1,7 +1,8 @@
 use gcpn_common_source_comparison::{
     Availability, CaseEligibility, ComparisonCase, ComparisonContract, ComparisonManifest,
-    DatasetReleaseManifest, ForecastInputRequirement, MetricManifest, ModelOutputManifest,
-    ProductKind, RedistributionPolicy, SpatialSupportContract, VerificationContract,
+    DatasetReleaseManifest, ForecastAvailability, ForecastInputRequirement, MetricManifest,
+    ModelOutputManifest, ProductKind, RedistributionPolicy, SpatialSupportContract,
+    VerificationContract,
 };
 
 const GRID: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -90,12 +91,14 @@ fn sample_manifest() -> ComparisonManifest {
             valid_time: 106,
             lead_seconds: 6,
             eligibility: CaseEligibility::Eligible,
-            candidate: Availability::Available {
+            candidate: ForecastAvailability::Available {
                 artifact_sha256: GRID.into(),
+                initialized_at: 100,
                 recorded_at: 150,
             },
-            reference: Availability::Available {
+            reference: ForecastAvailability::Available {
                 artifact_sha256: MASK.into(),
+                initialized_at: 100,
                 recorded_at: 150,
             },
             verification: Availability::Available {
