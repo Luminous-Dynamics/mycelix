@@ -660,10 +660,10 @@ mod tests {
             reference: model("reference-model", DIGEST_E),
             metric: MetricManifest {
                 metric_id: "pfss".into(),
-                definition_version: "v1".into(),
-                scoring_engine: "gcpn-pfss".into(),
-                scoring_engine_version: "v1".into(),
-                configuration_sha256: DIGEST_F.into(),
+                definition_version: "v0.1".into(),
+                scoring_engine: "gcpn-probabilistic-fss".into(),
+                scoring_engine_version: "0.1.0".into(),
+                configuration_sha256: fss_config_sha256(&config()),
                 input_requirement: ForecastInputRequirement::EnsembleOnly,
             },
             cases: vec![
@@ -790,12 +790,34 @@ mod tests {
         ]
     }
 
+    fn event_blocks() -> EventBlockManifest {
+        let mut blocks = EventBlockManifest {
+            scheme_id: "storm-event-v1".into(),
+            scheme_version: "1".into(),
+            mapping_sha256: String::new(),
+            assignments: vec![
+                EventBlockAssignment {
+                    case_id: "case-a".into(),
+                    event_block_id: "storm-a".into(),
+                },
+                EventBlockAssignment {
+                    case_id: "case-b".into(),
+                    event_block_id: "storm-b".into(),
+                },
+            ],
+        };
+        blocks.mapping_sha256 =
+            event_block_manifest_sha256(&blocks).expect("event-block mapping should hash");
+        blocks
+    }
+
     #[test]
     fn paired_score_uses_exact_common_source_intersection() {
         let comparison = manifest();
         let report = score_paired_manifest(
             &comparison,
             &artifacts(),
+            &event_blocks(),
             &config(),
             &BlockBootstrapConfig {
                 replicates: 128,
@@ -846,6 +868,7 @@ mod tests {
         let report = score_paired_manifest(
             &comparison,
             &artifacts(),
+            &event_blocks(),
             &config(),
             &BlockBootstrapConfig {
                 replicates: 128,
@@ -867,6 +890,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -891,6 +915,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -906,6 +931,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &duplicate,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -924,6 +950,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -939,6 +966,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -954,6 +982,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -972,6 +1001,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -987,6 +1017,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -1005,6 +1036,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -1020,6 +1052,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -1035,6 +1068,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &supplied,
+                &event_blocks(),
                 &config(),
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -1070,9 +1104,9 @@ mod tests {
             replicates: 128,
             seed: 20,
         };
-        let first = score_paired_manifest(&comparison, &artifacts(), &config(), &bootstrap)
+        let first = score_paired_manifest(&comparison, &artifacts(), &event_blocks(), &config(), &bootstrap)
             .expect("first score");
-        let second = score_paired_manifest(&comparison, &artifacts(), &config(), &bootstrap)
+        let second = score_paired_manifest(&comparison, &artifacts(), &event_blocks(), &config(), &bootstrap)
             .expect("second score");
 
         assert_eq!(first, second);
