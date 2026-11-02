@@ -8,6 +8,7 @@ description = "Integrated qualification matrix for six-stage and civil evidence 
 [workspace]
 
 [dependencies]
+gcpn-compositional-assurance = { path = "../gcpn-compositional-assurance" }
 gcpn-compositional-assurance-adapter = { path = "../gcpn-compositional-assurance-adapter" }
 gcpn-civil-evidence-adapter = { path = "../gcpn-civil-evidence-adapter" }
 gcpn-civil-evidence-contracts = { path = "../gcpn-civil-evidence-contracts" }
