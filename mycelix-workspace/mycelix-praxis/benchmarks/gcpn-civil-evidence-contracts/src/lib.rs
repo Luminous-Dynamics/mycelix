@@ -696,7 +696,9 @@ pub fn audit_civil_evidence(
 
     if !base_stage_supports(profile, Stage::CapLifecycle) {
         for assessment in &mut delivery {
-            assessment.disposition = ClaimDisposition::Indeterminate;
+            if assessment.disposition == ClaimDisposition::Supports {
+                assessment.disposition = ClaimDisposition::Indeterminate;
+            }
             let mut violations: BTreeSet<CivilViolation> =
                 assessment.violations.iter().copied().collect();
             violations.insert(CivilViolation::DeliveryBaseMessageNotSupporting);
@@ -708,7 +710,9 @@ pub fn audit_civil_evidence(
     let decision_supports = base_stage_supports(profile, Stage::Decision);
     if !authority_supports || !decision_supports {
         for assessment in &mut actions {
-            assessment.disposition = ClaimDisposition::Indeterminate;
+            if assessment.disposition == ClaimDisposition::Supports {
+                assessment.disposition = ClaimDisposition::Indeterminate;
+            }
             let mut violations: BTreeSet<CivilViolation> =
                 assessment.violations.iter().copied().collect();
             if !authority_supports {
@@ -2069,6 +2073,31 @@ mod tests {
         let report = audit_civil_evidence(&data).unwrap();
         assert_eq!(report.actions[0].disposition, ClaimDisposition::Indeterminate);
         assert!(report.actions[0].violations.contains(&CivilViolation::ActionReceiptBindingMismatch));
+    }
+
+    #[test]
+    fn missing_action_receipt_remains_unavailable_when_authority_is_indeterminate() {
+        let mut data = profile();
+        data.authority_assertion.as_mut().unwrap().registry_status = RegistryAuthorityStatus::Unknown;
+        data.action_receipts.clear();
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.authority.disposition, ClaimDisposition::Indeterminate);
+        assert_eq!(report.actions[0].disposition, ClaimDisposition::Unavailable);
+        assert!(report.actions[0].violations.contains(&CivilViolation::ActionAuthorityNotSupporting));
+        assert!(report.actions[0].violations.contains(&CivilViolation::ActionReceiptMissing));
+    }
+
+    #[test]
+    fn missing_delivery_remains_unavailable_when_cap_claim_is_indeterminate() {
+        let mut data = profile();
+        data.base_audit.claims.iter_mut()
+            .find(|claim| claim.stage == Stage::CapLifecycle)
+            .unwrap()
+            .disposition = ClaimDisposition::Indeterminate;
+        data.delivery_receipts.clear();
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.delivery[0].disposition, ClaimDisposition::Unavailable);
+        assert!(report.delivery[0].violations.contains(&CivilViolation::DeliveryBaseMessageNotSupporting));
     }
 
     #[test]
