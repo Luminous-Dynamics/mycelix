@@ -118,12 +118,11 @@ impl fmt::Display for AdapterError {
             Self::EventBlockMappingMismatch => {
                 formatter.write_str("event-block mapping is not exactly bound to paired case IDs")
             }
-            Self::MetricContractMismatch => {
-                formatter.write_str("scoring engine, metric version or FSS config digest differs from manifest")
-            }
-            Self::EnsembleMemberCountMismatch => {
-                formatter.write_str("scored ensemble member count differs from model output manifest")
-            }
+            Self::MetricContractMismatch => formatter.write_str(
+                "scoring engine, metric version or FSS config digest differs from manifest",
+            ),
+            Self::EnsembleMemberCountMismatch => formatter
+                .write_str("scored ensemble member count differs from model output manifest"),
             Self::PairedDenominatorMismatch => formatter
                 .write_str("scored case IDs differ from common-source paired-verifiable case IDs"),
         }
