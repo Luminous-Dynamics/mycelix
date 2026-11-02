@@ -434,6 +434,7 @@ pub struct FaultDomainKey {
 pub struct RoleDependencies {
     pub role: String,
     pub known_domains: BTreeSet<FaultDomainKey>,
+    pub not_applicable_dimensions: BTreeMap<FaultDomainDimension, String>,
     pub unknown_dimensions: BTreeSet<FaultDomainDimension>,
 }
 
@@ -527,12 +528,33 @@ pub fn minimal_cut_sets(
 
     let mut unresolved_roles = Vec::new();
     for role in roles {
-        if !role.unknown_dimensions.is_empty() || role.known_domains.is_empty() {
-            let mut unresolved: Vec<_> = role.unknown_dimensions.iter().copied().collect();
-            if role.known_domains.is_empty() && unresolved.is_empty() {
-                unresolved = FaultDomainDimension::ALL.to_vec();
+        let mut unresolved = BTreeSet::new();
+        for dimension in FaultDomainDimension::ALL {
+            let known_count = role
+                .known_domains
+                .iter()
+                .filter(|domain| domain.dimension == dimension)
+                .count();
+            let not_applicable = role.not_applicable_dimensions.get(&dimension);
+            let unknown = role.unknown_dimensions.contains(&dimension);
+            let classifications =
+                usize::from(known_count > 0) + usize::from(not_applicable.is_some()) + usize::from(unknown);
+
+            if classifications != 1 || known_count > 1 {
+                unresolved.insert(dimension);
             }
-            unresolved_roles.push((role.role.clone(), unresolved));
+            if not_applicable.is_some_and(|rationale| rationale.trim().is_empty()) {
+                unresolved.insert(dimension);
+            }
+        }
+        if role.known_domains.is_empty() {
+            // A role with no known dependency key cannot yield a meaningful
+            // finite compromise cut set, even when all dimensions are marked
+            // not applicable.
+            unresolved.extend(FaultDomainDimension::ALL);
+        }
+        if !unresolved.is_empty() {
+            unresolved_roles.push((role.role.clone(), unresolved.into_iter().collect()));
         }
     }
     if !unresolved_roles.is_empty() {
@@ -711,9 +733,25 @@ mod tests {
         role: &str,
         known: impl IntoIterator<Item = FaultDomainKey>,
     ) -> RoleDependencies {
+        let known_domains: BTreeSet<_> = known.into_iter().collect();
+        let known_dimensions: BTreeSet<_> = known_domains
+            .iter()
+            .map(|domain| domain.dimension)
+            .collect();
+        let not_applicable_dimensions = FaultDomainDimension::ALL
+            .into_iter()
+            .filter(|dimension| !known_dimensions.contains(dimension))
+            .map(|dimension| {
+                (
+                    dimension,
+                    "outside this finite fixture's declared dependency set".to_owned(),
+                )
+            })
+            .collect();
         RoleDependencies {
             role: role.to_owned(),
-            known_domains: known.into_iter().collect(),
+            known_domains,
+            not_applicable_dimensions,
             unknown_dimensions: BTreeSet::new(),
         }
     }
@@ -1010,6 +1048,8 @@ mod tests {
             "left",
             [domain(FaultDomainDimension::ImplementationLineage, 1)],
         );
+        left.not_applicable_dimensions
+            .remove(&FaultDomainDimension::TrustRoot);
         left.unknown_dimensions
             .insert(FaultDomainDimension::TrustRoot);
         let right = role_dependencies(
@@ -1019,6 +1059,55 @@ mod tests {
         let report = minimal_cut_sets(&dependency_manifest(vec![left, right]), 100).expect("valid graph");
         assert_eq!(report.disposition, CutSetDisposition::Incomplete);
         assert!(report.minimal_cut_sets.is_empty());
+        assert_eq!(report.minimum_cut_cardinality, None);
+    }
+
+    #[test]
+    fn missing_dimension_accounting_blocks_numeric_cut_claim() {
+        let mut left = role_dependencies(
+            "left",
+            [domain(FaultDomainDimension::ImplementationLineage, 1)],
+        );
+        left.not_applicable_dimensions
+            .remove(&FaultDomainDimension::TrustRoot);
+        let right = role_dependencies(
+            "right",
+            [domain(FaultDomainDimension::ImplementationLineage, 2)],
+        );
+        let report = minimal_cut_sets(
+            &dependency_manifest(vec![left, right]),
+            100,
+        )
+        .expect("well-formed but incomplete");
+        assert_eq!(report.disposition, CutSetDisposition::Incomplete);
+        assert_eq!(report.minimum_cut_cardinality, None);
+        assert!(report.minimal_cut_sets.is_empty());
+        assert_eq!(
+            report.unresolved_roles[0].1,
+            vec![FaultDomainDimension::TrustRoot]
+        );
+    }
+
+    #[test]
+    fn conflicting_domain_classification_blocks_numeric_cut_claim() {
+        let mut left = role_dependencies(
+            "left",
+            [domain(FaultDomainDimension::ImplementationLineage, 1)],
+        );
+        left.not_applicable_dimensions
+            .remove(&FaultDomainDimension::TrustRoot);
+        left.unknown_dimensions
+            .insert(FaultDomainDimension::TrustRoot);
+        let right = role_dependencies(
+            "right",
+            [domain(FaultDomainDimension::ImplementationLineage, 2)],
+        );
+        let report = minimal_cut_sets(
+            &dependency_manifest(vec![left, right]),
+            100,
+        )
+        .expect("well-formed but contradictory");
+        assert_eq!(report.disposition, CutSetDisposition::Incomplete);
         assert_eq!(report.minimum_cut_cardinality, None);
     }
 
