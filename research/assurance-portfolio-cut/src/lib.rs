@@ -166,6 +166,13 @@ pub struct SharedDependencyFinding {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ObservedSharedDependency {
+    pub dimension: FaultDomainDimension,
+    pub identity: Digest,
+    pub roles: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProfileReport {
     pub claim_id: String,
     pub subject_digest: Digest,
@@ -175,6 +182,9 @@ pub struct ProfileReport {
     pub reasons: Vec<ProfileReason>,
     pub separation_findings: Vec<SeparationFinding>,
     pub accepted_shared_dependencies: Vec<SharedDependencyFinding>,
+    /// Duplicate identities across roles, whether or not the input manifest
+    /// explicitly labelled them as accepted shared dependencies.
+    pub observed_shared_dependencies: Vec<ObservedSharedDependency>,
     pub unknown_dimensions: Vec<(String, FaultDomainDimension)>,
     pub not_applicable_dimensions: Vec<(String, FaultDomainDimension, String)>,
 }
@@ -300,6 +310,34 @@ pub fn check_profile(profile: &ThreatProfile, now: u64) -> Result<ProfileReport,
         });
     }
 
+    let mut identity_roles =
+        BTreeMap::<(FaultDomainDimension, Digest), BTreeSet<String>>::new();
+    for (role, domains) in &profile.role_domains {
+        for (dimension, disposition) in domains {
+            let identity = match disposition {
+                DomainDisposition::Distinct(identity)
+                | DomainDisposition::SharedAccepted { identity, .. } => Some(*identity),
+                DomainDisposition::NotApplicable { .. } | DomainDisposition::Unknown => None,
+            };
+            if let Some(identity) = identity {
+                identity_roles
+                    .entry((*dimension, identity))
+                    .or_default()
+                    .insert(role.clone());
+            }
+        }
+    }
+    let observed_shared_dependencies = identity_roles
+        .into_iter()
+        .filter_map(|((dimension, identity), roles)| {
+            (roles.len() > 1).then(|| ObservedSharedDependency {
+                dimension,
+                identity,
+                roles: roles.into_iter().collect(),
+            })
+        })
+        .collect();
+
     let disposition = if now < profile.valid_from {
         ProfileDisposition::NotYetEffective
     } else if profile.valid_until.is_some_and(|expiry| now > expiry) {
@@ -319,6 +357,7 @@ pub fn check_profile(profile: &ThreatProfile, now: u64) -> Result<ProfileReport,
         reasons: reasons.into_iter().collect(),
         separation_findings,
         accepted_shared_dependencies,
+        observed_shared_dependencies,
         unknown_dimensions,
         not_applicable_dimensions,
     })
@@ -597,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_mandatory_domain_blocks_separation_but_remains_visible() {
+    fn accepted_shared_unrequired_domain_remains_visible() {
         let mut candidate = profile();
         candidate
             .role_domains
@@ -624,7 +663,36 @@ mod tests {
         let report = check_profile(&candidate, 50).expect("valid rationale");
         assert_eq!(report.disposition, ProfileDisposition::CompleteForDeclaredThreatModel);
         assert_eq!(report.accepted_shared_dependencies.len(), 2);
+        assert_eq!(report.observed_shared_dependencies.len(), 1);
+        assert_eq!(
+            report.observed_shared_dependencies[0].roles,
+            vec!["formal".to_owned(), "independent".to_owned()]
+        );
         // ExecutionProvider is not a mandatory separation in this profile.
+    }
+
+
+    #[test]
+    fn equal_known_identity_is_reported_as_shared_even_without_label() {
+        let mut candidate = profile();
+        let shared = Digest::from_byte(99);
+        for role in ["formal", "independent"] {
+            candidate
+                .role_domains
+                .get_mut(role)
+                .expect("role exists")
+                .insert(
+                    FaultDomainDimension::ExecutionProvider,
+                    DomainDisposition::Distinct(shared),
+                );
+        }
+        let report = check_profile(&candidate, 50).expect("valid shape");
+        assert_eq!(report.disposition, ProfileDisposition::CompleteForDeclaredThreatModel);
+        assert_eq!(report.observed_shared_dependencies.len(), 1);
+        assert_eq!(
+            report.observed_shared_dependencies[0].identity,
+            shared
+        );
     }
 
     #[test]
