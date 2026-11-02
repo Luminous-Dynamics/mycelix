@@ -76,8 +76,19 @@ def main():
     assert fixture["design_revisions"][1]["supersedes_revision_id"] == "design-r1"
     assert fixture["approvals"][1]["simulation_run_id"] == "sim-r2"
     assert fixture["approvals"][1]["design_sha256"] == fixture["design_revisions"][1]["sha256"]
+    evidence_by_ref = {item["reference"]: item for item in fixture["evidence_assertions"]}
     assert fixture["material_batches"][0]["supplier_assertion"] is not None
     assert fixture["material_batches"][0]["certification_evidence_ref"] is not None
+    batch = fixture["material_batches"][0]
+    assert evidence_by_ref[batch["certification_evidence_ref"]]["subject_ref"] == batch["certification_scope_ref"]
+    for approval in fixture["approvals"]:
+        for reference in approval["evidence_refs"]:
+            assert evidence_by_ref[reference]["subject_ref"] == approval["scope_ref"]
+    for receipt in fixture["custody_receipts"]:
+        assert evidence_by_ref[receipt["evidence_ref"]]["subject_ref"] == receipt["receipt_id"]
+    for inspection in fixture["inspections"]:
+        for reference in inspection["evidence_refs"]:
+            assert evidence_by_ref[reference]["subject_ref"] == inspection["inspection_id"]
     assert fixture["custody_receipts"][1]["predecessor_receipt_id"] == fixture["custody_receipts"][0]["receipt_id"]
     assert fixture["inspections"][0]["terminal_custody_receipt_id"] == fixture["custody_receipts"][-1]["receipt_id"]
 
