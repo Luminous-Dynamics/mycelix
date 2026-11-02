@@ -9,6 +9,7 @@
 //! exact ensemble size. It is a reproducible Monte Carlo null, not a
 //! climatology, persistence forecast, cryptographic RNG, or operational claim.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 const MAX_WINDOW_WIDTH: usize = 2047;
@@ -146,6 +147,10 @@ pub enum FssError {
     NumericalInvariant,
     InvalidRandomDrawCount,
     RandomBaselineRequiresQualifiedScore,
+    InvalidEventBlockId,
+    DuplicateCaseId,
+    InsufficientIndependentEventBlocks,
+    NoQualifiedBootstrapReplicates,
 }
 
 impl FssError {
@@ -591,6 +596,149 @@ impl SplitMix64 {
         let mantissa = self.next_u64() >> 11;
         mantissa as f64 * (1.0 / ((1_u64 << 53) as f64))
     }
+
+    fn next_index(&mut self, length: usize) -> usize {
+        ((u128::from(self.next_u64()) * length as u128) >> 64) as usize
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FssBlockCase {
+    /// Cases in the same event block are sampled together to preserve
+    /// within-event temporal and spatial dependence.
+    pub event_block_id: String,
+    pub case: FssCase,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BootstrapPoolingPolicy {
+    AggregateFbsAndWfbsComponents,
+}
+
+impl BootstrapPoolingPolicy {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::AggregateFbsAndWfbsComponents => "aggregate_fbs_wfbs_components",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BlockBootstrapConfig {
+    pub replicates: usize,
+    pub seed: u64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BlockBootstrapReport {
+    pub case_count: usize,
+    pub independent_event_blocks: usize,
+    pub requested_replicates: usize,
+    pub qualified_replicates: usize,
+    pub degenerate_replicates: usize,
+    pub seed: u64,
+    pub pooling_policy: BootstrapPoolingPolicy,
+    pub mean_p_fss: f64,
+    pub lower_95_percent: f64,
+    pub median: f64,
+    pub upper_95_percent: f64,
+}
+
+/// Percentile bootstrap over independent event blocks, never grid cells.
+/// All cases sharing an event_block_id are kept together in each resample.
+/// The score pools FBS and WFBS components before taking their ratio.
+pub fn block_bootstrap(
+    samples: &[FssBlockCase],
+    config: &FssConfig,
+    bootstrap: &BlockBootstrapConfig,
+) -> Result<BlockBootstrapReport, FssError> {
+    if !(MIN_RANDOM_DRAWS..=MAX_RANDOM_DRAWS).contains(&bootstrap.replicates) {
+        return Err(FssError::InvalidRandomDrawCount);
+    }
+    if samples.is_empty() {
+        return Err(FssError::NoUsableCells);
+    }
+
+    let mut blocks: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
+    let mut case_ids = BTreeSet::new();
+    for (index, sample) in samples.iter().enumerate() {
+        if !valid_identifier(&sample.event_block_id) {
+            return Err(FssError::InvalidEventBlockId);
+        }
+        if !case_ids.insert(sample.case.case_id.as_str()) {
+            return Err(FssError::DuplicateCaseId);
+        }
+        sample.case.validate(config)?;
+        blocks
+            .entry(sample.event_block_id.as_str())
+            .or_default()
+            .push(index);
+    }
+    if blocks.len() < 2 {
+        return Err(FssError::InsufficientIndependentEventBlocks);
+    }
+
+    let block_indices: Vec<&Vec<usize>> = blocks.values().collect();
+    let mut rng = SplitMix64::new(bootstrap.seed);
+    let mut replicate_scores = Vec::with_capacity(bootstrap.replicates);
+    let mut degenerate_replicates = 0usize;
+
+    for _ in 0..bootstrap.replicates {
+        let mut fbs_component_sum = 0.0;
+        let mut wfbs_component_sum = 0.0;
+
+        // Draw as many independent event blocks as the original sample has.
+        for _ in 0..block_indices.len() {
+            let selected = block_indices[rng.next_index(block_indices.len())];
+            for sample_index in selected {
+                let score = evaluate(&samples[*sample_index].case, config)?;
+                if score.status == FssStatus::Qualified {
+                    fbs_component_sum +=
+                        score.fractions_brier_score * score.centre_weight_sum;
+                    wfbs_component_sum +=
+                        score.worst_fractions_brier_score * score.centre_weight_sum;
+                }
+            }
+        }
+
+        if wfbs_component_sum == 0.0 {
+            degenerate_replicates += 1;
+            continue;
+        }
+        let p_fss = 1.0 - fbs_component_sum / wfbs_component_sum;
+        if !p_fss.is_finite() || !(-1e-12..=1.0 + 1e-12).contains(&p_fss) {
+            return Err(FssError::NumericalInvariant);
+        }
+        replicate_scores.push(p_fss);
+    }
+
+    if replicate_scores.len() < 2 {
+        return Err(FssError::NoQualifiedBootstrapReplicates);
+    }
+    replicate_scores.sort_by(f64::total_cmp);
+    let mean_p_fss = replicate_scores.iter().sum::<f64>() / replicate_scores.len() as f64;
+
+    Ok(BlockBootstrapReport {
+        case_count: samples.len(),
+        independent_event_blocks: blocks.len(),
+        requested_replicates: bootstrap.replicates,
+        qualified_replicates: replicate_scores.len(),
+        degenerate_replicates,
+        seed: bootstrap.seed,
+        pooling_policy: BootstrapPoolingPolicy::AggregateFbsAndWfbsComponents,
+        mean_p_fss,
+        lower_95_percent: quantile(&replicate_scores, 0.025),
+        median: quantile(&replicate_scores, 0.5),
+        upper_95_percent: quantile(&replicate_scores, 0.975),
+    })
+}
+
+fn quantile(sorted_values: &[f64], probability: f64) -> f64 {
+    let position = probability * (sorted_values.len() - 1) as f64;
+    let lower = position.floor() as usize;
+    let upper = position.ceil() as usize;
+    let fraction = position - lower as f64;
+    sorted_values[lower] * (1.0 - fraction) + sorted_values[upper] * fraction
 }
 
 #[cfg(test)]
