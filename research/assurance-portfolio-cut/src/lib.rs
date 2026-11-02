@@ -149,6 +149,7 @@ pub enum ProfileReason {
     RequiredSeparationShared,
     RequiredSeparationNotApplicable,
     RequiredSeparationIdentityEqual,
+    SharedIdentityNotObserved,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -376,6 +377,15 @@ pub struct RoleDependencies {
     pub unknown_dimensions: BTreeSet<FaultDomainDimension>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DependencyManifest {
+    pub claim_id: String,
+    pub subject_digest: Digest,
+    pub manifest_digest: Digest,
+    pub attack_model_digest: Digest,
+    pub roles: Vec<RoleDependencies>,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CutSetDisposition {
     Complete,
@@ -385,6 +395,7 @@ pub enum CutSetDisposition {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CutSetError {
+    EmptyClaimId,
     EmptyRoles,
     EmptyRoleId,
     DuplicateRoleId,
@@ -394,6 +405,10 @@ pub enum CutSetError {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CutSetReport {
+    pub claim_id: String,
+    pub subject_digest: Digest,
+    pub manifest_digest: Digest,
+    pub attack_model_digest: Digest,
     pub disposition: CutSetDisposition,
     /// Minimal hitting sets under the declared model: compromising any key in
     /// the set invalidates every required role. Empty for incomplete/budget
@@ -404,17 +419,42 @@ pub struct CutSetReport {
     pub unresolved_roles: Vec<(String, Vec<FaultDomainDimension>)>,
 }
 
+fn cut_set_report(
+    manifest: &DependencyManifest,
+    disposition: CutSetDisposition,
+    minimal_cut_sets: Vec<BTreeSet<FaultDomainKey>>,
+    minimum_cut_cardinality: Option<usize>,
+    states_examined: usize,
+    unresolved_roles: Vec<(String, Vec<FaultDomainDimension>)>,
+) -> CutSetReport {
+    CutSetReport {
+        claim_id: manifest.claim_id.clone(),
+        subject_digest: manifest.subject_digest,
+        manifest_digest: manifest.manifest_digest,
+        attack_model_digest: manifest.attack_model_digest,
+        disposition,
+        minimal_cut_sets,
+        minimum_cut_cardinality,
+        states_examined,
+        unresolved_roles,
+    }
+}
+
 pub fn minimal_cut_sets(
-    roles: &[RoleDependencies],
+    manifest: &DependencyManifest,
     max_states: usize,
 ) -> Result<CutSetReport, CutSetError> {
-    if roles.is_empty() {
+    if manifest.claim_id.trim().is_empty() {
+        return Err(CutSetError::EmptyClaimId);
+    }
+    if manifest.roles.is_empty() {
         return Err(CutSetError::EmptyRoles);
     }
     if max_states == 0 {
         return Err(CutSetError::ZeroStateBudget);
     }
 
+    let roles = &manifest.roles;
     let mut seen_roles = BTreeSet::new();
     for role in roles {
         if role.role.trim().is_empty() {
@@ -437,13 +477,14 @@ pub fn minimal_cut_sets(
     }
     if !unresolved_roles.is_empty() {
         unresolved_roles.sort();
-        return Ok(CutSetReport {
-            disposition: CutSetDisposition::Incomplete,
-            minimal_cut_sets: Vec::new(),
-            minimum_cut_cardinality: None,
-            states_examined: 0,
+        return Ok(cut_set_report(
+            manifest,
+            CutSetDisposition::Incomplete,
+            Vec::new(),
+            None,
+            0,
             unresolved_roles,
-        });
+        ));
     }
 
     // Incremental minimal hitting-set construction. Each role contributes a
@@ -469,13 +510,14 @@ pub fn minimal_cut_sets(
                     .checked_add(1)
                     .ok_or(CutSetError::CounterOverflow)?;
                 if states_examined > max_states {
-                    return Ok(CutSetReport {
-                        disposition: CutSetDisposition::BudgetExceeded,
-                        minimal_cut_sets: Vec::new(),
-                        minimum_cut_cardinality: None,
+                    return Ok(cut_set_report(
+                        manifest,
+                        CutSetDisposition::BudgetExceeded,
+                        Vec::new(),
+                        None,
                         states_examined,
-                        unresolved_roles: Vec::new(),
-                    });
+                        Vec::new(),
+                    ));
                 }
                 let mut next = candidate.clone();
                 next.insert(*domain);
@@ -503,15 +545,16 @@ pub fn minimal_cut_sets(
             .cmp(&right.len())
             .then_with(|| left.cmp(right))
     });
-    let minimum_cut_cardinality = candidates.first().map(BTreeSet::len);
+    let minimum_cut_cardinality = candidates.first().map(|set| set.len());
 
-    Ok(CutSetReport {
-        disposition: CutSetDisposition::Complete,
-        minimal_cut_sets: candidates,
+    Ok(cut_set_report(
+        manifest,
+        CutSetDisposition::Complete,
+        candidates,
         minimum_cut_cardinality,
         states_examined,
-        unresolved_roles: Vec::new(),
-    })
+        Vec::new(),
+    ))
 }
 
 #[cfg(test)]
