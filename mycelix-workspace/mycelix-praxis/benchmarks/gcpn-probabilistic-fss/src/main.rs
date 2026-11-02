@@ -1,6 +1,6 @@
 use gcpn_probabilistic_fss::{
-    evaluate, random_reference, BoundaryPolicy, FssCase, FssConfig, MissingPolicy,
-    RandomBaselineConfig, ThresholdOperator,
+    block_bootstrap, evaluate, random_reference, BlockBootstrapConfig, BoundaryPolicy,
+    FssBlockCase, FssCase, FssConfig, MissingPolicy, RandomBaselineConfig, ThresholdOperator,
 };
 
 fn optional_values(events: &[bool]) -> Vec<Option<f64>> {
@@ -71,6 +71,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             seed: 20261102,
         },
     )?;
+    let block_samples = vec![
+        FssBlockCase {
+            event_block_id: "event-block-a".into(),
+            case: case.clone(),
+        },
+        FssBlockCase {
+            event_block_id: "event-block-b".into(),
+            case: case.clone(),
+        },
+        FssBlockCase {
+            event_block_id: "event-block-c".into(),
+            case: case.clone(),
+        },
+    ];
+    let bootstrap = block_bootstrap(
+        &block_samples,
+        &config,
+        &BlockBootstrapConfig {
+            replicates: 199,
+            seed: 20261103,
+        },
+    )?;
 
     println!("# Synthetic pFSS demonstration; no real forecast data or scores.");
     println!("case_id={}", score.case_id);
@@ -91,6 +113,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("random_null_p95={:.8}", random.null_p95);
     println!("random_null_upper_tail_p_value={:.8}", random.upper_tail_p_value);
     println!("skill_reference=empirical_independent_bernoulli_null");
+    println!("block_bootstrap_blocks={}", bootstrap.independent_event_blocks);
+    println!("block_bootstrap_replicates={}", bootstrap.requested_replicates);
+    println!("block_bootstrap_qualified={}", bootstrap.qualified_replicates);
+    println!("block_bootstrap_degenerate={}", bootstrap.degenerate_replicates);
+    println!("block_bootstrap_pooling={}", bootstrap.pooling_policy.label());
+    println!("block_bootstrap_ci95={:.8},{:.8}", bootstrap.lower_95_percent, bootstrap.upper_95_percent);
     println!("score_calibration=not_assessed");
     println!("crps_brier_energy_variogram=not_computed");
 
