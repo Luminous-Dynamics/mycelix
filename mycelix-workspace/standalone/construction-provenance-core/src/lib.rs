@@ -97,6 +97,8 @@ pub struct AuthorityAssertion {
 pub struct DesignRevision {
     pub revision_id: String,
     pub source_artifact: ExternalArtifactRef,
+    pub ifc_model_export: ExternalArtifactRef,
+    pub drawing_package: ExternalArtifactRef,
     pub sha256: String,
     pub supersedes_revision_id: Option<String>,
     pub created_at: u64,
@@ -187,6 +189,8 @@ pub struct ConstructionProjectTrace {
     pub schema_version: u32,
     pub project_id: String,
     pub current_design_revision_id: String,
+    /// Optional link to site context; never a second GIS record.
+    pub site_context: Option<ExternalArtifactRef>,
     /// Optional link to a Sol-Atlas Foundry alternative; never a second GIS record.
     pub external_portfolio_context: Option<ExternalArtifactRef>,
     pub design_revisions: Vec<DesignRevision>,
@@ -251,7 +255,7 @@ fn external_artifact_disposition(
     expected_owner: Option<&str>,
     expected_role: &str,
     expected_revision: &str,
-    expected_sha256: &str,
+    expected_sha256: Option<&str>,
 ) -> Disposition {
     if !nonempty(&artifact.reference)
         || !nonempty(&artifact.owner_system)
@@ -263,7 +267,7 @@ fn external_artifact_disposition(
     if expected_owner.is_some_and(|owner| artifact.owner_system != owner)
         || artifact.artifact_role != expected_role
         || artifact.revision_ref != expected_revision
-        || artifact.sha256 != expected_sha256
+        || expected_sha256.is_some_and(|digest| artifact.sha256 != digest)
         || !valid_sha256(&artifact.sha256)
     {
         return Disposition::Rejected;
@@ -560,13 +564,35 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         report.push("project", &trace.project_id, Disposition::Rejected, "invalid_project_envelope");
     }
 
+    if let Some(site) = &trace.site_context {
+        let disposition = external_artifact_disposition(
+            site,
+            Some("sol-atlas-leptos"),
+            "site_context",
+            &site.revision_ref,
+            None,
+        );
+        report.push(
+            "external_context",
+            &site.reference,
+            disposition,
+            match disposition {
+                Disposition::Accepted => "sol_atlas_site_reference_well_formed",
+                Disposition::Rejected => "sol_atlas_site_reference_rejected",
+                Disposition::Indeterminate => "sol_atlas_site_reference_incomplete",
+                Disposition::Disputed => "sol_atlas_site_reference_disputed",
+                Disposition::Superseded => "sol_atlas_site_reference_superseded",
+            },
+        );
+    }
+
     if let Some(context) = &trace.external_portfolio_context {
         let disposition = external_artifact_disposition(
             context,
             Some("sol-atlas-leptos"),
             "portfolio_alternative",
             &context.revision_ref,
-            &context.sha256,
+            None,
         );
         report.push(
             "external_context",
@@ -614,20 +640,35 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
                     None,
                     "design_revision",
                     &revision.revision_id,
-                    &revision.sha256,
+                    Some(&revision.sha256),
                 )
             } else {
                 Disposition::Rejected
             };
+            let ifc_status = external_artifact_disposition(
+                &revision.ifc_model_export,
+                None,
+                "ifc_model_export",
+                &revision.revision_id,
+                None,
+            );
+            let drawing_status = external_artifact_disposition(
+                &revision.drawing_package,
+                None,
+                "drawing_package",
+                &revision.revision_id,
+                None,
+            );
+            let combined = combine(combine(disposition, ifc_status), drawing_status);
             report.push(
                 "design",
                 &revision.revision_id,
-                disposition,
-                match disposition {
-                    Disposition::Accepted => "current_revision_and_external_source_bound",
-                    Disposition::Rejected => "invalid_revision_lineage_or_source_binding",
-                    Disposition::Indeterminate => "external_design_source_reference_missing",
-                    Disposition::Disputed => "external_design_source_reference_disputed",
+                combined,
+                match combined {
+                    Disposition::Accepted => "current_revision_ifc_drawing_and_source_bound",
+                    Disposition::Rejected => "invalid_revision_lineage_or_external_artifact_binding",
+                    Disposition::Indeterminate => "external_design_artifact_reference_missing",
+                    Disposition::Disputed => "external_design_artifact_reference_disputed",
                     Disposition::Superseded => "design_revision_superseded",
                 },
             );
@@ -671,7 +712,7 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
                 None,
                 "simulation_run",
                 &run.run_id,
-                &run.result_sha256,
+                Some(&run.result_sha256),
             );
             report.push(
                 "simulation",
@@ -923,6 +964,13 @@ mod tests {
             schema_version: 1,
             project_id: "pavilion-demo-01".into(),
             current_design_revision_id: "design-r2".into(),
+            site_context: Some(ExternalArtifactRef {
+                reference: "sol-atlas:site:pavilion-01".into(),
+                owner_system: "sol-atlas-leptos".into(),
+                artifact_role: "site_context".into(),
+                revision_ref: "site-r1".into(),
+                sha256: D1.into(),
+            }),
             external_portfolio_context: Some(ExternalArtifactRef {
                 reference: "sol-atlas:foundry:study-01:alternative-01".into(),
                 owner_system: "sol-atlas-leptos".into(),
@@ -940,6 +988,20 @@ mod tests {
                         revision_ref: "design-r1".into(),
                         sha256: D1.into(),
                     },
+                    ifc_model_export: ExternalArtifactRef {
+                        reference: "symthaea:ifc:pavilion-r1".into(),
+                        owner_system: "symthaea".into(),
+                        artifact_role: "ifc_model_export".into(),
+                        revision_ref: "design-r1".into(),
+                        sha256: D2.into(),
+                    },
+                    drawing_package: ExternalArtifactRef {
+                        reference: "symthaea:drawings:pavilion-r1".into(),
+                        owner_system: "symthaea".into(),
+                        artifact_role: "drawing_package".into(),
+                        revision_ref: "design-r1".into(),
+                        sha256: D3.into(),
+                    },
                     sha256: D1.into(),
                     supersedes_revision_id: None,
                     created_at: 100,
@@ -952,6 +1014,20 @@ mod tests {
                         artifact_role: "design_revision".into(),
                         revision_ref: "design-r2".into(),
                         sha256: D2.into(),
+                    },
+                    ifc_model_export: ExternalArtifactRef {
+                        reference: "symthaea:ifc:pavilion-r2".into(),
+                        owner_system: "symthaea".into(),
+                        artifact_role: "ifc_model_export".into(),
+                        revision_ref: "design-r2".into(),
+                        sha256: D1.into(),
+                    },
+                    drawing_package: ExternalArtifactRef {
+                        reference: "symthaea:drawings:pavilion-r2".into(),
+                        owner_system: "symthaea".into(),
+                        artifact_role: "drawing_package".into(),
+                        revision_ref: "design-r2".into(),
+                        sha256: D3.into(),
                     },
                     sha256: D2.into(),
                     supersedes_revision_id: Some("design-r1".into()),
@@ -1133,6 +1209,17 @@ mod tests {
             disposition(&trace, "external_context", "sol-atlas:foundry:study-01:alternative-01"),
             Disposition::Rejected
         );
+    }
+
+    #[test]
+    fn ifc_and_drawing_package_refs_must_match_the_design_revision() {
+        let mut trace = sample_trace();
+        trace.design_revisions[1].ifc_model_export.artifact_role = "simulation_run".into();
+        assert_eq!(disposition(&trace, "design", "design-r2"), Disposition::Rejected);
+
+        let mut trace = sample_trace();
+        trace.design_revisions[1].drawing_package.revision_ref = "design-r1".into();
+        assert_eq!(disposition(&trace, "design", "design-r2"), Disposition::Rejected);
     }
 
     #[test]
