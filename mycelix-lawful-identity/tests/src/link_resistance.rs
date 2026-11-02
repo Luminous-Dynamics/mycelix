@@ -12,17 +12,14 @@
 //! This is not evidence of cryptographic link resistance or unlinkability.
 //! See `mycelix-lawful-identity/docs/THREAT_MODEL.md` for current status.
 //!
-//!   1. No proof field contains the legal DID string literally.
-//!   2. No proof field contains the legal DID's base64-encoded pubkey.
-//!   3. No proof field contains a SHA-256 hash of the legal DID string
-//!      (hex or base64 representation).
-//!   4. No proof field contains a SHA-256 hash of the legal DID's
-//!      pubkey (hex or base64 representation).
-//!   5. Each proof is byte-distinct from every other proof (fresh
-//!      nonces produce cryptographically distinct proofs).
+//! The synthetic assertions below check only:
+//!   1. Literal legal-DID strings are absent from the placeholder fields.
+//!   2. Selected SHA-256 encodings derived from fixture-only keys / IDs are
+//!      absent from those placeholder fields.
+//!   3. Fixture serialization is deterministic for the generated inputs.
 //!
-//! If any of these assertions fires, the architecture is broken and
-//! the dual-DID airlock is compromised. This test is the canary.
+//! These checks say nothing about the production proof protocol, its public
+//! inputs, cryptographic hiding, DHT behavior, or architectural security.
 
 use base64::Engine;
 use cross_did_zkp_integrity::CrossDidProof;
@@ -83,9 +80,8 @@ fn synth_proof(
         h.update(nonce_b64.as_bytes());
         hex(h.finalize().as_slice())
     };
-    // `proof_value` stands in for STARK proof bytes. We deliberately
-    // fold in the nonce + issuer + claim but NOT the legal DID or
-    // its pubkey — modelling a correctly-implemented STARK.
+    // `proof_value` is only a deterministic fixture digest. It is not
+    // STARK proof data and does not model or validate a proof system.
     let proof_value = {
         let mut h = Sha256::new();
         h.update(b"proof-value:");
