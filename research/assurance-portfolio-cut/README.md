@@ -185,3 +185,43 @@ cargo clippy --locked --all-targets --manifest-path research/assurance-portfolio
 The unit panel covers caller-pinned policy identity and policy-owned role/separation requirements, attempted profile downgrade, complete/incomplete/expired and malformed-window profiles, shared/unknown/omitted domain classifications, observed common dependencies, exact 2-role and 3-role minimal cut sets, an independent brute-force differential panel, role-order invariance, unknown dependency fail-closed behavior, state-budget exhaustion without partial output, duplicate roles and deterministic role-pair normalization. The pinned CI workflow checks the exact PR head with formatting, locked compile, tests and strict Clippy.
 
 These are finite model tests. Policy and identity manifests are still supplied data: passing profile and cut-set tests do not authenticate ownership, prove organizational independence, or establish that all real common-cause failures have been enumerated.
+
+## Profile-to-cut-set binding and algorithmic comparison
+
+The downstream `analyze_profile_cut_sets` entry point is stricter than the lower-level finite enumerator. It accepts only a `CompleteForDeclaredThreatModel` profile and checks claim, subject, profile and policy identifiers; exact policy-required role set; and every role's 15 domain classifications and identities against the dependency manifest before it calls `minimal_cut_sets`. A manifest that merely repeats a matching profile digest but substitutes a dependency identity is rejected. The manifest and attack-model digests are carried into the report; the caller must still verify those digests against the exact source bytes.
+
+The incremental enumerator sorts role dependency sets by increasing cardinality, then role ID, before expansion. This provides a deterministic processing order and makes candidate-extension budget consumption invariant to the input ordering of roles. It is a practical ordering heuristic, not a proven globally optimal ordering.
+
+### What "better than SOTA" should mean here
+
+This v0.1 crate is **not** a state-of-the-art general hypergraph transversal engine. It is a small, dependency-free, budgeted reference implementation for assurance portfolios with a bounded number of evaluator roles and 15 named dependency dimensions.
+
+The surrounding algorithmic problem is nontrivial:
+- Bläsius et al. (Journal of Computer and System Sciences, 2022) give polynomial-delay and polynomial-space minimal-hitting-set enumeration results for hypergraphs arising in data profiling, using an extension problem.
+- A 2026 preprint by Mary gives new conditional lower bounds for minimal-transversal enumeration in bounded-dimension hypergraphs; this warns against promising a universally polynomial or output-insensitive solution.
+
+References:
+- Bläsius et al. (2022), *Efficiently enumerating hitting sets of hypergraphs arising in data profiling*: https://doi.org/10.1016/j.jcss.2021.10.002
+- Mary (2026 preprint), *Lower Bounds for Minimal-Transversal Enumeration of Bounded-Dimension Hypergraphs*: https://arxiv.org/abs/2610.28012
+
+A fair next benchmark compares the current incremental algorithm against:
+1. the independent brute-force subset enumerator already used for tiny differential tests;
+2. a separately implemented classic minimal-transversal enumerator (for example, a Berge-style incremental baseline);
+3. a SAT/CP-SAT model that finds one hitting set at a time and blocks previously emitted minimal sets, with exact inclusion-minimality checks;
+4. an output-sensitive extension-based minimal-transversal implementation where a reproducible implementation is available.
+
+Freeze the same hypergraph/dependency manifest and attack semantics. Report the entire output set, not just the minimum cardinality. Measure:
+- exact output-set agreement and false/missing/duplicate cut sets;
+- number of minimal cut sets and candidate extensions;
+- p50/p95 time-to-first cut set and time-to-complete enumeration;
+- peak memory and frontier high-water mark;
+- output delay and cost per emitted minimal cut set;
+- budget-exhausted cases, explicitly retaining the incomplete disposition;
+- sensitivity to role order, domain order, overlap density and number of roles/dependency keys.
+
+Start with role counts 2–5 and all 15 dimensions, then scale synthetic portfolios to 10, 20 and 50 roles while retaining bounded, explicit candidate-extension and memory ceilings. Use held-out generated graph families and publish their generator/corpus digests. An improvement target should be **at least 2× lower median candidate extensions on held-out structured portfolio families** than the naive input-order baseline, with exact output-set equality and no larger false-positive count. This is a research target, not an achieved result; do not claim superiority over published output-sensitive algorithms without a matched reproduction.
+
+The current dependency manifest model treats a dependency key as a single point whose compromise can invalidate a role. Future work must distinguish dependencies that can invalidate execution, alter expected answers, corrupt only input data, or merely reduce availability; those are different fault semantics and require separate attack-model dimensions, not a single stronger score.
+
+The added v0.2 tests also verify that a complete profile can only be combined with its exact dependency manifest, that substituted domain identities fail even when the digest labels are left unchanged, that incomplete profiles cannot be promoted into cut-set analysis, and that candidate-extension accounting is invariant under role input order.
+
