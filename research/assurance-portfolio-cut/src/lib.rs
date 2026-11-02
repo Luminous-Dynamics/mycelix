@@ -216,12 +216,29 @@ pub struct ProfileReport {
     pub not_applicable_dimensions: Vec<(String, FaultDomainDimension, String)>,
 }
 
+/// Opaque proof token created only by a successful execution of
+/// `check_profile`. Downstream functions accept this instead of a
+/// caller-built `ProfileReport`, so a public Complete disposition cannot be
+/// forged and promoted into cut-set analysis.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedProfile {
+    report: ProfileReport,
+}
+
+impl std::ops::Deref for VerifiedProfile {
+    type Target = ProfileReport;
+
+    fn deref(&self) -> &Self::Target {
+        &self.report
+    }
+}
+
 pub fn check_profile(
     profile: &ThreatProfile,
     policy: &AssurancePolicy,
     pinned_policy_digest: Digest,
     now: u64,
-) -> Result<ProfileReport, ProfileError> {
+) -> Result<VerifiedProfile, ProfileError> {
     if profile.claim_id.trim().is_empty() {
         return Err(ProfileError::EmptyClaimId);
     }
@@ -421,21 +438,23 @@ pub fn check_profile(
         ProfileDisposition::Incomplete
     };
 
-    Ok(ProfileReport {
-        claim_id: profile.claim_id.clone(),
-        subject_digest: profile.subject_digest,
-        profile_digest: profile.profile_digest,
-        policy_digest: profile.policy_digest,
-        assurance_tier: profile.assurance_tier.clone(),
-        required_roles: tier.required_roles.clone(),
-        role_domains: profile.role_domains.clone(),
-        disposition,
-        reasons: reasons.into_iter().collect(),
-        separation_findings,
-        accepted_shared_dependencies,
-        observed_shared_dependencies,
-        unknown_dimensions,
-        not_applicable_dimensions,
+    Ok(VerifiedProfile {
+        report: ProfileReport {
+            claim_id: profile.claim_id.clone(),
+            subject_digest: profile.subject_digest,
+            profile_digest: profile.profile_digest,
+            policy_digest: profile.policy_digest,
+            assurance_tier: profile.assurance_tier.clone(),
+            required_roles: tier.required_roles.clone(),
+            role_domains: profile.role_domains.clone(),
+            disposition,
+            reasons: reasons.into_iter().collect(),
+            separation_findings,
+            accepted_shared_dependencies,
+            observed_shared_dependencies,
+            unknown_dimensions,
+            not_applicable_dimensions,
+        },
     })
 }
 
@@ -700,10 +719,11 @@ impl From<CutSetError> for ProfileCutSetError {
 /// declarations that were checked. Digest equality alone is not enough:
 /// compare every role/domain classification before running the enumerator.
 pub fn analyze_profile_cut_sets(
-    profile: &ProfileReport,
+    verified_profile: &VerifiedProfile,
     manifest: &DependencyManifest,
     max_candidate_extensions: usize,
 ) -> Result<CutSetReport, ProfileCutSetError> {
+    let profile = &verified_profile.report;
     if profile.disposition != ProfileDisposition::CompleteForDeclaredThreatModel {
         return Err(ProfileCutSetError::ProfileNotComplete);
     }
