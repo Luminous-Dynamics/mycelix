@@ -846,6 +846,7 @@ mod tests {
                 recorded_at: 25,
             }),
             hazard_arrival: Some(EventTimeInterval {
+                hazard_id: "flood-1".into(),
                 earliest: 1_000,
                 latest: 1_200,
                 source_id: "hazard-model".into(),
