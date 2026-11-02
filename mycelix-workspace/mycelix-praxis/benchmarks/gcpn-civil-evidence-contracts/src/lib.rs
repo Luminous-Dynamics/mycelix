@@ -25,12 +25,33 @@ pub enum SignatureStatus {
     Invalid,
 }
 
+impl SignatureStatus {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Verified => "verified",
+            Self::Unverified => "unverified",
+            Self::Invalid => "invalid",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RegistryAuthorityStatus {
     Recognized,
     Unknown,
     Disputed,
     Revoked,
+}
+
+impl RegistryAuthorityStatus {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Recognized => "recognized",
+            Self::Unknown => "unknown",
+            Self::Disputed => "disputed",
+            Self::Revoked => "revoked",
+        }
+    }
 }
 
 /// Exact identity/scope that must be bound to the warning and decision.
@@ -195,7 +216,7 @@ impl ActionState {
         }
     }
 
-    const fn allows_transition_to(self, next: Self) -> bool {
+    fn allows_transition_to(self, next: Self) -> bool {
         if matches!(self, Self::Unknown) || self == next {
             return true;
         }
@@ -516,6 +537,7 @@ impl CivilEvidenceReport {
         let mut output = String::from(
             "scenario_id,claim_family,claim_key,qualifier,disposition,observed_value,secondary_value,violations\n",
         );
+
         output.push_str(&format!(
             "{},base_audit,required_claims,{}, {},{},{},{}\n",
             self.scenario_id,
@@ -525,16 +547,24 @@ impl CivilEvidenceReport {
             self.base_audit.required_claims.saturating_sub(self.base_audit.supporting_claims),
             violation_labels(&self.base_audit.violations)
         ));
+
+        let authority_registry = self.authority.registry_status
+            .map(RegistryAuthorityStatus::label)
+            .unwrap_or("missing");
+        let authority_signature = self.authority.signature_status
+            .map(SignatureStatus::label)
+            .unwrap_or("missing");
         output.push_str(&format!(
-            "{},authority,{},registry={:?};signature={:?},{},{},{},{}\n",
+            "{},authority,{},registry={},{},{},{},{}\n",
             self.scenario_id,
             self.authority.assertion_id.as_deref().unwrap_or("missing"),
-            self.authority.registry_status,
+            authority_registry,
             label(self.authority.disposition),
-            self.authority.signature_status.map(|status| format!("{status:?}")).unwrap_or_else(|| "missing".into()),
-            "",
+            authority_signature,
+            "signature_status_only_not_legal_authority",
             violation_labels(&self.authority.violations)
         ));
+
         for delivery in &self.delivery {
             output.push_str(&format!(
                 "{},delivery,{},channel={},{},{},accepted={};not_confirmed_delivered={},{}\n",
@@ -548,6 +578,7 @@ impl CivilEvidenceReport {
                 violation_labels(&delivery.violations)
             ));
         }
+
         for accessibility in &self.accessibility {
             output.push_str(&format!(
                 "{},accessibility,{},{}:{},{},{},{},{}\n",
@@ -556,11 +587,12 @@ impl CivilEvidenceReport {
                 accessibility.language_id,
                 accessibility.format_id,
                 label(accessibility.disposition),
-                accessibility.state.map(|state| state.label()).unwrap_or("missing"),
+                accessibility.state.map(AccessibilityState::label).unwrap_or("missing"),
                 "",
                 violation_labels(&accessibility.violations)
             ));
         }
+
         for comprehension in &self.comprehension {
             output.push_str(&format!(
                 "{},comprehension,{},language={},{},{:.4},{:.4},{}\n",
@@ -573,6 +605,7 @@ impl CivilEvidenceReport {
                 violation_labels(&comprehension.violations)
             ));
         }
+
         for action in &self.actions {
             output.push_str(&format!(
                 "{},action,{},latest_state={},{},{},{},{}\n",
@@ -585,6 +618,7 @@ impl CivilEvidenceReport {
                 violation_labels(&action.violations)
             ));
         }
+
         output.push_str(&format!(
             "{},case_frame,{},eligibility=observed+missing+disputed,{},{},{},{}\n",
             self.scenario_id,
