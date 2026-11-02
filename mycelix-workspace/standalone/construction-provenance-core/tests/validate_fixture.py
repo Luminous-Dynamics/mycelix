@@ -339,6 +339,23 @@ def main():
         fixture, schema
     )
     expect_rejected(
+        "branched custody history",
+        lambda item: item["custody_receipts"].append({
+            **item["custody_receipts"][1],
+            "receipt_id": "custody-branch",
+            "to_party_id": "site:other",
+            "predecessor_receipt_id": "custody-01-a",
+            "evidence_ref": "evidence:custody-01-b",
+            "occurred_at": 260
+        }),
+        fixture, schema
+    )
+    expect_rejected(
+        "disconnected custody root",
+        lambda item: item["custody_receipts"][1].update(predecessor_receipt_id=None),
+        fixture, schema
+    )
+    expect_rejected(
         "inspection component swap",
         lambda item: item["inspections"][0].update(component_artifact_ref="fabricator:component:other"),
         fixture, schema
