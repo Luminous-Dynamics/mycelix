@@ -4,7 +4,7 @@
 
 Mycelix Identity is a Holochain-based identity subsystem. It includes a custom `did:mycelix` identifier format, credential schemas, verifiable-credential-shaped records, credential lifecycle and revocation functions, social-recovery workflows, MFA, and cross-hApp identity interfaces.
 
-> **Interoperability and security boundary:** This repository contains W3C VC Data Model 2.0-shaped data structures and Mycelix-specific signing, proof, DID, and status mechanisms. That is not, by itself, proof of W3C VC Data Model / Data Integrity cryptosuite conformance, DID Core resolution interoperability, OpenID4VCI/VP conformance, eIDAS 2.0 or EUDI Wallet compliance, or production security. The custom `did:mycelix` method and the project cryptosuite identifiers require their own published specifications, resolver/verifier implementations, test vectors, and independent interoperability testing. See the [Identity interoperability and assurance roadmap](../../docs/identity/INTEROPERABILITY_AND_ASSURANCE.md) before relying on standards or security claims.
+> **Interoperability and security boundary:** This repository contains W3C VC Data Model 2.0-shaped data structures and Mycelix-specific signing, proof, DID, and status mechanisms. That is not, by itself, proof of W3C VC Data Model / Data Integrity cryptosuite conformance, DID Core resolution interoperability, OpenID4VCI/VP conformance, eIDAS 2.0 or EUDI Wallet compliance, or production security. The custom `did:mycelix` method and the project cryptosuite identifiers require their own published specifications, resolver/verifier implementations, test vectors, and independent interoperability testing. See the [Identity interoperability and assurance roadmap](../docs/identity/INTEROPERABILITY_AND_ASSURANCE.md) before relying on standards or security claims.
 
 ## Capabilities and implementation boundaries
 
@@ -66,7 +66,7 @@ The current architecture separates several concerns:
 5. **Verification:** check the supported signature path, proof purpose, validity period, and revocation status.
 6. **Selective disclosure:** use the separate derived-credential and ZKP-related code paths only within their documented verification guarantees.
 
-A successful local Holochain call or a schema-valid JSON object does not establish external VC interoperability. For the exact checks currently performed—including the pure-PQC structural-accept path—see [the interoperability and assurance roadmap](../../docs/identity/INTEROPERABILITY_AND_ASSURANCE.md).
+A successful local Holochain call or a schema-valid JSON object does not establish external VC interoperability. For the exact checks currently performed—including the pure-PQC structural-accept path—see [the interoperability and assurance roadmap](../docs/identity/INTEROPERABILITY_AND_ASSURANCE.md).
 
 ## Development
 
@@ -95,11 +95,11 @@ The next step is to preserve the Holochain-native identity and trust model while
 - Add OpenID4VCI issuance and OpenID4VP presentation adapters, then run the relevant conformance suites.
 - Keep Mycelix-specific trust, recovery, privacy, and governance semantics as explicit extensions instead of silently redefining standard claims.
 
-See [INTEROPERABILITY_AND_ASSURANCE.md](../../docs/identity/INTEROPERABILITY_AND_ASSURANCE.md) for the staged plan and measurable acceptance criteria.
+See [INTEROPERABILITY_AND_ASSURANCE.md](../docs/identity/INTEROPERABILITY_AND_ASSURANCE.md) for the staged plan and measurable acceptance criteria.
 
 ## Security reporting
 
-The repository's [SECURITY_STATUS.md](../../SECURITY_STATUS.md) records an internal author-binding remediation review, not a third-party audit. It was reviewed in July 2026 and explicitly documents public-export sync lag, open issues, and components not yet assessed. Do not read a "fixed internally" status as evidence that the public HEAD or a deployed bundle contains the fix. Verify the exact source revision and tests for the component under review.
+The repository's [SECURITY_STATUS.md](../SECURITY_STATUS.md) records an internal author-binding remediation review, not a third-party audit. It was reviewed in July 2026 and explicitly documents public-export sync lag, open issues, and components not yet assessed. Do not read a "fixed internally" status as evidence that the public HEAD or a deployed bundle contains the fix. Verify the exact source revision and tests for the component under review.
 
 Report security-sensitive issues privately according to the organization [security policy](https://github.com/Luminous-Dynamics/.github/blob/main/SECURITY.md); do not publish an exploitable vulnerability in a public issue.
 
