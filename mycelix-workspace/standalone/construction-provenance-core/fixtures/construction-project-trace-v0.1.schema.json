@@ -1,0 +1,502 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/construction-project-trace-v0.1.schema.json",
+  "title": "Construction Project Trace v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "current_design_revision_id",
+    "design_revisions",
+    "simulation_runs",
+    "authority_assertions",
+    "evidence_assertions",
+    "approvals",
+    "material_batches",
+    "custody_receipts",
+    "inspections"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_design_revision_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "design_revisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/design_revision"
+      }
+    },
+    "simulation_runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/simulation_run"
+      }
+    },
+    "authority_assertions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/authority_assertion"
+      }
+    },
+    "evidence_assertions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_assertion"
+      }
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/approval"
+      }
+    },
+    "material_batches": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/material_batch"
+      }
+    },
+    "custody_receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/custody_receipt"
+      }
+    },
+    "inspections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/inspection"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "time": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nullable_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "design_revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision_id",
+        "sha256",
+        "supersedes_revision_id",
+        "created_at"
+      ],
+      "properties": {
+        "revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "supersedes_revision_id": {
+          "$ref": "#/$defs/nullable_id"
+        },
+        "created_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "simulation_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "design_revision_id",
+        "design_sha256",
+        "solver_id",
+        "solver_version",
+        "result_sha256",
+        "completed_at"
+      ],
+      "properties": {
+        "run_id": {
+          "$ref": "#/$defs/id"
+        },
+        "design_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "design_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "solver_id": {
+          "$ref": "#/$defs/id"
+        },
+        "solver_version": {
+          "$ref": "#/$defs/id"
+        },
+        "result_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "completed_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "authority_assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "signer_id",
+        "role",
+        "scope_ref",
+        "status",
+        "available_at",
+        "valid_from",
+        "valid_until"
+      ],
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/id"
+        },
+        "signer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "$ref": "#/$defs/id"
+        },
+        "scope_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "revoked",
+            "disputed",
+            "unknown"
+          ]
+        },
+        "available_at": {
+          "$ref": "#/$defs/time"
+        },
+        "valid_from": {
+          "$ref": "#/$defs/time"
+        },
+        "valid_until": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "evidence_assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "sha256",
+        "status",
+        "use_permission",
+        "available_at",
+        "valid_from",
+        "valid_until"
+      ],
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/id"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "revoked",
+            "disputed",
+            "unknown"
+          ]
+        },
+        "use_permission": {
+          "type": "string",
+          "enum": [
+            "permitted",
+            "prohibited",
+            "unknown"
+          ]
+        },
+        "available_at": {
+          "$ref": "#/$defs/time"
+        },
+        "valid_from": {
+          "$ref": "#/$defs/time"
+        },
+        "valid_until": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "approval_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "condition_id",
+        "satisfied"
+      ],
+      "properties": {
+        "condition_id": {
+          "$ref": "#/$defs/id"
+        },
+        "satisfied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_id",
+        "design_revision_id",
+        "design_sha256",
+        "simulation_run_id",
+        "simulation_result_sha256",
+        "authority_ref",
+        "signer_id",
+        "role",
+        "scope_ref",
+        "supersedes_approval_id",
+        "decision",
+        "conditions",
+        "evidence_refs",
+        "dissent_refs",
+        "decided_at"
+      ],
+      "properties": {
+        "approval_id": {
+          "$ref": "#/$defs/id"
+        },
+        "design_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "design_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "simulation_run_id": {
+          "$ref": "#/$defs/id"
+        },
+        "simulation_result_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "authority_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "signer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "$ref": "#/$defs/id"
+        },
+        "scope_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "supersedes_approval_id": {
+          "$ref": "#/$defs/nullable_id"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "rejected",
+            "deferred"
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/approval_condition"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "dissent_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "decided_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "material_batch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "batch_id",
+        "supplier_party_id",
+        "receiving_site_party_id",
+        "material_description",
+        "supplier_assertion",
+        "certification_evidence_ref",
+        "declared_at"
+      ],
+      "properties": {
+        "batch_id": {
+          "$ref": "#/$defs/id"
+        },
+        "supplier_party_id": {
+          "$ref": "#/$defs/id"
+        },
+        "receiving_site_party_id": {
+          "$ref": "#/$defs/id"
+        },
+        "material_description": {
+          "$ref": "#/$defs/id"
+        },
+        "supplier_assertion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "certification_evidence_ref": {
+          "$ref": "#/$defs/nullable_id"
+        },
+        "declared_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "custody_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "batch_id",
+        "from_party_id",
+        "to_party_id",
+        "predecessor_receipt_id",
+        "evidence_ref",
+        "occurred_at"
+      ],
+      "properties": {
+        "receipt_id": {
+          "$ref": "#/$defs/id"
+        },
+        "batch_id": {
+          "$ref": "#/$defs/id"
+        },
+        "from_party_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_party_id": {
+          "$ref": "#/$defs/id"
+        },
+        "predecessor_receipt_id": {
+          "$ref": "#/$defs/nullable_id"
+        },
+        "evidence_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "inspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inspection_id",
+        "batch_id",
+        "design_revision_id",
+        "design_sha256",
+        "terminal_custody_receipt_id",
+        "authority_ref",
+        "inspector_id",
+        "role",
+        "scope_ref",
+        "evidence_refs",
+        "outcome",
+        "inspected_at"
+      ],
+      "properties": {
+        "inspection_id": {
+          "$ref": "#/$defs/id"
+        },
+        "batch_id": {
+          "$ref": "#/$defs/id"
+        },
+        "design_revision_id": {
+          "$ref": "#/$defs/id"
+        },
+        "design_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "terminal_custody_receipt_id": {
+          "$ref": "#/$defs/id"
+        },
+        "authority_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "inspector_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "$ref": "#/$defs/id"
+        },
+        "scope_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "conforming",
+            "nonconforming",
+            "inconclusive"
+          ]
+        },
+        "inspected_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    }
+  }
+}
