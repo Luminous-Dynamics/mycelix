@@ -187,18 +187,47 @@ def validate_graph(trace):
         custody_by_batch.setdefault(receipt["batch_id"], []).append(receipt)
 
     for batch_id, batch in batches.items():
-        chain = sorted(custody_by_batch.get(batch_id, []), key=lambda item: (item["occurred_at"], item["receipt_id"]))
+        chain = custody_by_batch.get(batch_id, [])
         if not chain:
             raise AssertionError(f"{batch_id}: custody chain missing")
-        if chain[0]["predecessor_receipt_id"] is not None or chain[0]["from_party_id"] != batch["supplier_party_id"]:
-            raise AssertionError(f"{batch_id}: invalid first custody receipt")
-        for index, receipt in enumerate(chain[1:], start=1):
-            previous = chain[index - 1]
-            if receipt["predecessor_receipt_id"] != previous["receipt_id"] or receipt["from_party_id"] != previous["to_party_id"]:
-                raise AssertionError(f"{batch_id}: broken custody predecessor")
-            if receipt["occurred_at"] < previous["occurred_at"]:
+        roots = [item for item in chain if item["predecessor_receipt_id"] is None]
+        if len(roots) != 1:
+            raise AssertionError(f"{batch_id}: custody chain must have exactly one root")
+
+        current = roots[0]
+        visited = set()
+        previous_to = None
+        previous_time = 0
+        while True:
+            receipt_id = current["receipt_id"]
+            if receipt_id in visited:
+                raise AssertionError(f"{batch_id}: custody cycle")
+            visited.add(receipt_id)
+            if current["occurred_at"] < batch["declared_at"]:
+                raise AssertionError(f"{batch_id}: custody predates material declaration")
+            if current["occurred_at"] < previous_time:
                 raise AssertionError(f"{batch_id}: custody time reversal")
-        if chain[-1]["to_party_id"] != batch["receiving_site_party_id"]:
+            if previous_to is None:
+                if current["from_party_id"] != batch["supplier_party_id"]:
+                    raise AssertionError(f"{batch_id}: invalid custody root supplier")
+            elif current["from_party_id"] != previous_to:
+                raise AssertionError(f"{batch_id}: custody party discontinuity")
+
+            children = [
+                item for item in chain
+                if item["predecessor_receipt_id"] == receipt_id
+            ]
+            if len(children) > 1:
+                raise AssertionError(f"{batch_id}: custody predecessor branches")
+            previous_to = current["to_party_id"]
+            previous_time = current["occurred_at"]
+            if not children:
+                break
+            current = children[0]
+
+        if len(visited) != len(chain):
+            raise AssertionError(f"{batch_id}: custody chain has orphaned receipts")
+        if previous_to != batch["receiving_site_party_id"]:
             raise AssertionError(f"{batch_id}: custody chain misses receiving site")
 
     for item in manufacturing.values():
@@ -293,6 +322,17 @@ def main():
         lambda item: next(e for e in item["evidence_assertions"] if e["reference"] == "evidence:design-r2").update(available_at=999),
         fixture, schema
     )
+    equal_time_chain = json.loads(json.dumps(fixture))
+    equal_time_chain["custody_receipts"][0]["receipt_id"] = "custody-z"
+    equal_time_chain["custody_receipts"][1]["receipt_id"] = "custody-a"
+    equal_time_chain["custody_receipts"][1]["predecessor_receipt_id"] = "custody-z"
+    equal_time_chain["custody_receipts"][0]["occurred_at"] = 250
+    equal_time_chain["custody_receipts"][1]["occurred_at"] = 250
+    next(item for item in equal_time_chain["evidence_assertions"] if item["reference"] == "evidence:custody-01-a")["subject_ref"] = "custody-z"
+    next(item for item in equal_time_chain["evidence_assertions"] if item["reference"] == "evidence:custody-01-b")["subject_ref"] = "custody-a"
+    check_schema(equal_time_chain, schema, schema)
+    validate_graph(equal_time_chain)
+
     expect_rejected(
         "broken custody predecessor",
         lambda item: item["custody_receipts"][1].update(predecessor_receipt_id="missing-receipt"),
