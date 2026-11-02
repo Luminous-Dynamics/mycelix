@@ -301,7 +301,9 @@ pub fn apply_faults(faults: &[Fault]) -> Result<CivilEvidenceProfile, AdapterErr
                 profile.case_frame.cases.push(profile.case_frame.cases[0].clone());
             }
             Fault::WrongAccessibilityDeliveryBinding => {
-                profile.accessibility_evidence[0].delivery_receipt_id = "wrong-device".into();
+                if let Some(evidence) = profile.accessibility_evidence.first_mut() {
+                    evidence.delivery_receipt_id = "wrong-device".into();
+                }
             }
             Fault::ComprehensionAccessibilityBindingMismatch => {
                 profile.comprehension_evidence[0].accessibility_evidence_id =
@@ -320,10 +322,11 @@ pub fn apply_faults(faults: &[Fault]) -> Result<CivilEvidenceProfile, AdapterErr
                 claim.disposition = ClaimDisposition::Indeterminate;
             }
             Fault::PostCutoffDeviceReceipt => {
-                let receipt = profile.delivery_receipts.iter_mut().find(|receipt| {
+                if let Some(receipt) = profile.delivery_receipts.iter_mut().find(|receipt| {
                     receipt.state == DeliveryState::DeviceDelivered
-                }).expect("device receipt");
-                receipt.recorded_at = 101;
+                }) {
+                    receipt.recorded_at = 101;
+                }
             }
         }
     }
