@@ -154,6 +154,27 @@ Static illustrative data or scenario milestones must not appear as observed infr
 
 Projects exchange versioned records and manifests, not unqualified numbers. Each model result must be traceable to its model ID and commit, dataset snapshot IDs, configuration digest, seeds, time horizon, spatial scope, output digest, and uncertainty summary. The shared API must be versioned before production implementation.
 
+### Existing implementation contracts to compose
+
+CSS is a programme charter and domain map, not a second generic evidence, scenario, or simulation-run protocol. The implementation should build on existing work:
+
+- Mycelix issue #5451 defines the shared evidence plane; #3022 defines canonical statement identity and provenance-family semantics; #3046 and #4778 cover temporal uncertainty/materialization concerns. CSS historical-source adapters should extend these contracts for archaeological context, oral-history transmission, inscriptions, translations, contested chronology, and community stewardship.
+- Symtropy PR #369 defines civilizational authority boundaries; #378 defines causal resource/inventory/shipment semantics; #391 defines a deterministic Three Worlds integration lab; #399 defines astrobiology authority and uncertainty. These are open draft PRs, not qualified releases.
+- Symtropy PR #1571 defines the Humanity Atlas scenario/run envelope and model-credibility/qualification process. The parent repository PR #3760 exports the existing multiworld simulator's model-qualified technology tree; Sol-Atlas PR #79 consumes the run artifact. CivBench should supply scientific task protocols and scoring on top of those contracts, not duplicate their schemas.
+- The existing multiworld simulator is already present in the Luminous Dynamics parent repository at `mycelix-multiworld-sim`. CSS should audit and improve it rather than creating a parallel general-purpose simulator.
+- Sol-Atlas issues #17 and #19 already define its Humanity/AI Bootstrap Atlas direction and capability vertical slice. Historical/current civilizational map layers should reuse those semantics and the Humanity Atlas consumer.
+- Symthaea issues #5774/#6287, #6688, #7046, #7188, #7193, #7201, #7205, and #8252 already cover capability closure, epistemic humility, institutional evolution, socioeconomic accounting, Goodhart failure, simulation-to-authority boundaries, and cross-tradition transfer. Social-learning experiments should be bounded additions to that work.
+
+All referenced PRs are open drafts at the time of this document's update. Their descriptions distinguish authored tests from exact-head execution and real-world validation. A design document, source file, or queued workflow must not be represented as an implemented/validated capability.
+
+### Existing null result that should shape CSS
+
+The multiworld simulator's PHASE2_FINDINGS.md (2026-04-17) records a null result for a governance-defence intervention: the report states that attacks changed governance-internal variables but did not propagate into the five inputs used by the Civilization Viability Score. The reported treatment effect was indistinguishable from zero under both arithmetic and geometric aggregation.
+
+This should motivate a CSS requirement: every causal or policy claim must identify the state-transition path from intervention to independently meaningful outcomes. Composite metrics alone are insufficient. A metric's lack of response may reveal a missing causal mechanism or an invalid outcome measure; it must not be "fixed" by arbitrarily coupling variables after observing the result. Report null and negative results.
+
+The current multiworld historical-validation module also has a concrete scoring concern: a zero/near-zero observed value is assigned zero absolute percentage error, and metric-specific MAPE values for heterogeneous variables are averaged into one overall score. Parent repository issue #3816 tracks the correction. CSS must not regard the current comparison implementation as evidence of calibration without the source, metric, holdout, and baseline audit.
+
 ## 6. CivBench: evaluate before making claims
 
 CivBench is the common benchmark programme. It must be independently runnable, versioned, and designed around falsifiable tasks.
