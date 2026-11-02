@@ -22,9 +22,9 @@ python3 mycelix-workspace/standalone/construction-provenance-core/tests/validate
 
 The trace keeps these subjects distinct:
 
-- design revisions and explicit supersession, each bound to an opaque source-system artifact reference and digest;
+- optional Sol-Atlas site-context and Foundry portfolio-alternative references, without copying GIS/portfolio state;
+- design revisions and explicit supersession, each bound to an opaque source-system artifact reference, IFC/model export, drawing package and digest;
 - simulation runs bound to an opaque execution-system run reference and result digest;
-- an optional Sol-Atlas Foundry alternative reference, without copying its GIS/portfolio state;
 - simulation runs bound to exact design revision IDs and design digests;
 - approvals bound to exact design, simulation, signer, role, authority reference,
   authority scope reference, event time and supporting evidence references;
