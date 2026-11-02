@@ -36,9 +36,21 @@ pub struct FaultCoverageRecord {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PairwiseCoverageRecord {
+    pub adapter_owner: &'static str,
+    pub first_fault: String,
+    pub second_fault: String,
+    pub detected: bool,
+    pub fail_closed: bool,
+    pub no_false_support: bool,
+    pub evidence_detail: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MatrixReport {
     pub original_fault_families: usize,
     pub single_fault_records: Vec<FaultCoverageRecord>,
+    pub pairwise_records: Vec<PairwiseCoverageRecord>,
     pub six_stage_pairwise_cases: usize,
     pub six_stage_pairwise_no_false_support: usize,
     pub civil_pairwise_cases: usize,
@@ -53,18 +65,18 @@ impl MatrixReport {
     }
 
     pub fn all_pairwise_faults_detected(&self) -> bool {
-        self.six_stage_pairwise_cases == self.six_stage_pairwise_no_false_support
-            && self.civil_pairwise_cases == self.civil_pairwise_detected
-            && self.civil_pairwise_cases == self.civil_pairwise_no_false_support
+        self.pairwise_records.iter().all(|record| {
+            record.detected && record.no_false_support
+        })
     }
 
     pub fn to_csv(&self) -> String {
         let mut output = String::from(
-            "record_type,fault_family,adapter_owner,expected_outcome,observed_outcome,detected,fail_closed,evidence_detail\n",
+            "record_type,fault_family,adapter_owner,expected_outcome,observed_outcome,detected,fail_closed,evidence_detail\\n",
         );
         for record in &self.single_fault_records {
             output.push_str(&format!(
-                "single,{},{},{},{},{},{},{}\n",
+                "single,{},{},{},{},{},{},{}\\n",
                 record.original_fault_family,
                 record.adapter_owner,
                 record.expected_outcome,
@@ -74,8 +86,20 @@ impl MatrixReport {
                 record.evidence_detail
             ));
         }
+        for record in &self.pairwise_records {
+            output.push_str(&format!(
+                "pairwise,{}+{},{},no_false_support,{}, {},{},{}\\n",
+                record.first_fault,
+                record.second_fault,
+                record.adapter_owner,
+                record.no_false_support,
+                record.detected,
+                record.fail_closed,
+                record.evidence_detail
+            ));
+        }
         output.push_str(&format!(
-            "summary,all_original_fault_families,integrated,17,{}, {},false,engine_pairs={};engine_no_false_support={};civil_pairs={};civil_detected={};civil_fail_closed={};civil_no_false_support={}\n",
+            "summary,all_original_fault_families,integrated,17,{}, {},false,engine_pairs={};engine_no_false_support={};civil_pairs={};civil_detected={};civil_fail_closed={};civil_no_false_support={}\\n",
             self.original_fault_families,
             self.all_single_faults_detected(),
             self.six_stage_pairwise_cases,
@@ -296,30 +320,36 @@ fn civil_single_assessment(
     }
 }
 
-pub fn run_six_stage_pairwise_matrix() -> Result<(usize, usize), MatrixError> {
+pub fn run_six_stage_pairwise_matrix() -> Result<Vec<PairwiseCoverageRecord>, MatrixError> {
     let pairs = supported_pairs();
-    let mut detected = 0usize;
+    let mut records = Vec::with_capacity(pairs.len());
     for pair in &pairs {
         let observation = evaluate_pair(*pair)
             .map_err(|error| MatrixError::EngineAdapter(error.to_string()))?;
-        if observation.no_false_support {
-            detected += 1;
-        }
+        records.push(PairwiseCoverageRecord {
+            adapter_owner: "six_stage_compositional",
+            first_fault: pair[0].label().into(),
+            second_fault: pair[1].label().into(),
+            detected: observation.no_false_support,
+            fail_closed: false,
+            no_false_support: observation.no_false_support,
+            evidence_detail: format!(
+                "affected_claims={};no_false_support={}",
+                observation.affected_claim_dispositions.len(),
+                observation.no_false_support
+            ),
+        });
     }
-    Ok((pairs.len(), detected))
+    Ok(records)
 }
 
-pub fn run_civil_pairwise_matrix() -> Result<(usize, usize, usize), MatrixError> {
+pub fn run_civil_pairwise_matrix() -> Result<Vec<PairwiseCoverageRecord>, MatrixError> {
     let faults = CivilFault::ALL;
-    let mut cases = 0usize;
-    let mut detected_cases = 0usize;
-    let mut fail_closed_cases = 0usize;
-    let mut no_false_support_cases = 0usize;
+    let mut records = Vec::with_capacity(45);
 
     for left_index in 0..faults.len() {
         for right in faults.iter().skip(left_index + 1) {
             let left = faults[left_index];
-            cases += 1;
             match execute_civil_faults(&[left, *right]) {
                 Err(error) => {
                     let duplicate_case = left == CivilFault::DuplicateCaseKey
@@ -331,27 +361,40 @@ pub fn run_civil_pairwise_matrix() -> Result<(usize, usize, usize), MatrixError>
                                 CivilEvidenceError::DuplicateCaseKey(_)
                             )
                         );
-                    if correctly_failed_closed {
-                        detected_cases += 1;
-                        fail_closed_cases += 1;
-                        no_false_support_cases += 1;
-                    } else {
+                    if !correctly_failed_closed {
                         return Err(MatrixError::CivilAdapter(error.to_string()));
                     }
+                    records.push(PairwiseCoverageRecord {
+                        adapter_owner: "civil_evidence_contracts",
+                        first_fault: left.label().into(),
+                        second_fault: right.label().into(),
+                        detected: true,
+                        fail_closed: true,
+                        no_false_support: true,
+                        evidence_detail: "duplicate case identity rejected before claim report".into(),
+                    });
                 }
                 Ok(report) => {
                     let left_detected = civil_fault_not_supporting(left, &report)?;
                     let right_detected = civil_fault_not_supporting(*right, &report)?;
-                    if left_detected && right_detected {
-                        detected_cases += 1;
-                        no_false_support_cases += 1;
-                    }
+                    let detected = left_detected && right_detected;
+                    records.push(PairwiseCoverageRecord {
+                        adapter_owner: "civil_evidence_contracts",
+                        first_fault: left.label().into(),
+                        second_fault: right.label().into(),
+                        detected,
+                        fail_closed: false,
+                        no_false_support: detected,
+                        evidence_detail: format!(
+                            "first_fault_non_supporting={left_detected};second_fault_non_supporting={right_detected}"
+                        ),
+                    });
                 }
             }
         }
     }
 
-    Ok((cases, detected_cases, fail_closed_cases.min(cases)))
+    Ok(records)
 }
 
 fn civil_fault_not_supporting(
@@ -431,23 +474,60 @@ fn civil_fault_not_supporting(
 
 pub fn run_full_matrix() -> Result<MatrixReport, MatrixError> {
     let single_fault_records = run_single_fault_matrix()?;
-    let (six_stage_pairwise_cases, six_stage_pairwise_no_false_support) =
-        run_six_stage_pairwise_matrix()?;
-    let (
-        civil_pairwise_cases,
-        civil_pairwise_detected,
-        civil_pairwise_fail_closed,
-    ) = run_civil_pairwise_matrix()?;
+    let six_stage_records = run_six_stage_pairwise_matrix()?;
+    let civil_records = run_civil_pairwise_matrix()?;
+    let pairwise_records: Vec<_> = six_stage_records
+        .into_iter()
+        .chain(civil_records)
+        .collect();
+
+    let six_stage_pairwise_cases = pairwise_records
+        .iter()
+        .filter(|record| record.adapter_owner == "six_stage_compositional")
+        .count();
+    let six_stage_pairwise_no_false_support = pairwise_records
+        .iter()
+        .filter(|record| {
+            record.adapter_owner == "six_stage_compositional"
+                && record.no_false_support
+        })
+        .count();
+    let civil_pairwise_cases = pairwise_records
+        .iter()
+        .filter(|record| record.adapter_owner == "civil_evidence_contracts")
+        .count();
+    let civil_pairwise_detected = pairwise_records
+        .iter()
+        .filter(|record| {
+            record.adapter_owner == "civil_evidence_contracts"
+                && record.detected
+        })
+        .count();
+    let civil_pairwise_fail_closed = pairwise_records
+        .iter()
+        .filter(|record| {
+            record.adapter_owner == "civil_evidence_contracts"
+                && record.fail_closed
+        })
+        .count();
+    let civil_pairwise_no_false_support = pairwise_records
+        .iter()
+        .filter(|record| {
+            record.adapter_owner == "civil_evidence_contracts"
+                && record.no_false_support
+        })
+        .count();
 
     Ok(MatrixReport {
         original_fault_families: single_fault_records.len(),
         single_fault_records,
+        pairwise_records,
         six_stage_pairwise_cases,
         six_stage_pairwise_no_false_support,
         civil_pairwise_cases,
         civil_pairwise_detected,
         civil_pairwise_fail_closed,
-        civil_pairwise_no_false_support: civil_pairwise_detected,
+        civil_pairwise_no_false_support,
     })
 }
 
@@ -504,17 +584,17 @@ mod tests {
 
     #[test]
     fn six_stage_all_sixty_six_supported_pairs_have_no_false_support() {
-        let (cases, no_false_support) = run_six_stage_pairwise_matrix().unwrap();
-        assert_eq!(cases, 66);
-        assert_eq!(no_false_support, 66);
+        let records = run_six_stage_pairwise_matrix().unwrap();
+        assert_eq!(records.len(), 66);
+        assert!(records.iter().all(|record| record.no_false_support));
     }
 
     #[test]
     fn civil_contract_all_forty_five_pairs_are_detected_or_fail_closed() {
-        let (cases, detected, fail_closed) = run_civil_pairwise_matrix().unwrap();
-        assert_eq!(cases, 45);
-        assert_eq!(detected, 45);
-        assert_eq!(fail_closed, 9);
+        let records = run_civil_pairwise_matrix().unwrap();
+        assert_eq!(records.len(), 45);
+        assert_eq!(records.iter().filter(|record| record.detected).count(), 45);
+        assert_eq!(records.iter().filter(|record| record.fail_closed).count(), 9);
     }
 
     #[test]
@@ -525,6 +605,7 @@ mod tests {
         assert!(report.all_pairwise_faults_detected());
         assert_eq!(report.six_stage_pairwise_cases, 66);
         assert_eq!(report.civil_pairwise_cases, 45);
+        assert_eq!(report.pairwise_records.len(), 111);
     }
 
     #[test]
