@@ -174,6 +174,10 @@ impl FssError {
             Self::RandomBaselineRequiresQualifiedScore => {
                 "random_baseline_requires_qualified_score"
             }
+            Self::InvalidEventBlockId => "invalid_event_block_id",
+            Self::DuplicateCaseId => "duplicate_case_id",
+            Self::InsufficientIndependentEventBlocks => "insufficient_independent_event_blocks",
+            Self::NoQualifiedBootstrapReplicates => "no_qualified_bootstrap_replicates",
         }
     }
 }
