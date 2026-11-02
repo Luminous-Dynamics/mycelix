@@ -9,12 +9,12 @@ It composes with—not replaces—the source-owned engineering and asset graphs.
 
 ## Run
 
-\`\`\`sh
+```sh
 cargo fmt --manifest-path mycelix-workspace/standalone/construction-provenance-core/Cargo.toml -- --check
 cargo test --locked --manifest-path mycelix-workspace/standalone/construction-provenance-core/Cargo.toml
 cargo clippy --locked --manifest-path mycelix-workspace/standalone/construction-provenance-core/Cargo.toml --all-targets -- -D warnings
 python3 mycelix-workspace/standalone/construction-provenance-core/tests/validate_fixture.py
-\`\`\`
+```
 
 ## Ownership boundaries
 
@@ -29,39 +29,39 @@ python3 mycelix-workspace/standalone/construction-provenance-core/tests/validate
   evidence/provenance governance, correction/revocation/dispute state, material
   batch custody, and cross-party manufacturing/inspection attestations.
 
-The Mycelix verifier checks only supplied owner/role/revision/digest references
-and exact subject links between them. It does not fetch source bytes, recompute
+The Mycelix verifier checks only supplied owner/role/revision/digest references,
+exact subject links, decision-time authority/evidence availability, and custody continuity. It does not fetch source bytes, recompute
 source artifact hashes, verify signatures, parse IFC, replay simulations, or
 validate the engineering adequacy of a Sol-Atlas receipt.
 
 ## Executable lifecycle trace
 
-The synthetic pavilion fixture composes:
+The synthetic pavilion fixture composes (not as a replacement for the existing Sol-Atlas artifact graph):
 
-\`Sol-Atlas design revision\`
-→ \`Symthaea design/IFC/drawing references\`
-→ \`Symtropy run + Sol-Atlas engineering receipt\`
-→ \`Mycelix participant authority/commitment\`
-→ \`material batch + scoped certificate\`
-→ \`predecessor-linked custody transfers\`
-→ \`manufacturer attestation + fabricated component\`
-→ \`independent inspection + installation + as-built references\`.
+`Sol-Atlas design revision`
+→ `Symthaea design/IFC/drawing references`
+→ `Symtropy run + Sol-Atlas engineering receipt`
+→ `Mycelix participant authority/commitment`
+→ `material batch + scoped certificate`
+→ `predecessor-linked custody transfers`
+→ `manufacturer attestation + fabricated component`
+→ `independent inspection + installation + as-built references`.
 
 Every opaque artifact pointer carries a source owner, role, revision, digest and
-optional exact subject artifact. Supporting engineering receipts must point to
+an explicit nullable subject-artifact pointer. Supporting engineering receipts must point to
 the design named by the participant commitment. Manufacturing records must
 point to the exact design and component; inspection, installation and as-built
 records must all point to the same manufactured component.
 
 Evidence and authority assertions carry both domain-valid time and
-\`available_at\`. Evidence first available after a decision cutoff cannot justify
+`available_at`. Evidence first available after a decision cutoff cannot justify
 that earlier decision. Revoked evidence is rejected, disputed evidence remains
 disputed, and unknown, stale or unavailable evidence remains indeterminate.
 Supplier claims are distinct from independently resolved certification evidence.
 
 The verifier emits per-record Accepted / Rejected / Indeterminate / Disputed /
-Superseded findings. It does not collapse these into a project-level
-\`ready\`, \`safe\`, \`compliant\` or \`approved\` boolean.
+Superseded findings and propagates rejected upstream manufacturing into inspection. It does not collapse these into a project-level
+`ready`, `safe`, `compliant` or `approved` boolean.
 
 ## Claim ceiling
 
@@ -74,7 +74,7 @@ not a professional certification or statutory acceptance.
 
 ## Wire format
 
-The versioned JSON Schema and synthetic fixture are under \`fixtures/\`. The
+The versioned JSON Schema and synthetic fixture are under `fixtures/`. The
 standard-library Python checker validates a deliberately limited JSON Schema
 keyword subset and adversarial cross-record relationships. It is test tooling,
 not a production Python dependency or a complete JSON Schema implementation.
