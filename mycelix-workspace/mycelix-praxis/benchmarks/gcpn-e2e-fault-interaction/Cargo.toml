@@ -1,0 +1,15 @@
+[package]
+name = "gcpn-e2e-fault-interaction"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Synthetic end-to-end fault-interaction oracle for GCPN evidence-chain qualification"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-e2e-fault-interaction"
+path = "src/main.rs"
+
+[dependencies]
