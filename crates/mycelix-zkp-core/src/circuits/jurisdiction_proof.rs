@@ -1,23 +1,34 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-//! STARK proof that an attested (lat, lng) falls inside a published
-//! jurisdiction bounding box — without revealing the coordinate.
+//! Winterfell-backed STARK range proofs for coordinate containment.
 //!
-//! Part of the Mycelix × Nation-State coexistence extensions. See
-//! `MYCELIX_STATE_COEXISTENCE.md` at the repo root for context. The
-//! verifier learns only "user is in jurisdiction commitment C at time T
-//! with attestation tier X"; never the coordinate, the attester's
-//! identifier beyond its hash, or the raw timestamp beyond what the
-//! commitment binds.
+//! With `backend-winterfell` enabled, this module proves that a supplied
+//! latitude/longitude pair lies within a selected bounding box without
+//! disclosing the coordinate. It proves a predicate about the prover's
+//! private numeric inputs; it does not prove that those inputs are truthful,
+//! fresh, measured by a particular device, or associated with a particular
+//! person.
 //!
-//! ## Trust model caveat — READ BEFORE USE
+//! The public result includes the box ID, attestation tier, nonce hash,
+//! commitment, and two proof byte strings. Verification also requires the
+//! verifier to supply the box, attester-public-key hash, timestamp, and
+//! expected nonce. The attester-key hash and other stable metadata can be
+//! correlation surfaces. A fresh nonce changes the commitment but does not
+//! establish general unlinkability.
 //!
-//! The STARK proves *containment of the attested value*, not that the
-//! attestation itself is truthful. A user can fake GPS. Security comes
-//! from the attester (T0..T4 tiers in `location_attestation.rs`),
-//! not from the proof. Verifiers MUST set a tier floor appropriate to
-//! their risk tolerance.
+//! ## Trust and replay boundary
+//!
+//! The circuit verifies containment of the submitted coordinate only.
+//! Signature verification, key provenance, freshness, sensor integrity,
+//! and person-to-device binding are separate responsibilities. The
+//! `location_attestation` module's T1 adapter currently performs only
+//! envelope checks; T2–T4 are not implemented in this crate.
+//!
+//! This module checks the supplied nonce against the proof's nonce hash.
+//! It does not store consumed nonces or prevent the same valid proof from
+//! being checked repeatedly. Callers must enforce one-time nonce use and
+//! the replay policy in an authoritative stateful layer.
 //!
 //! ## Construction
 //!
@@ -33,15 +44,18 @@
 //! underlying `u64` range proof while handling the Southern and Western
 //! hemispheres uniformly.
 //!
-//! ## Privacy properties
+//! ## Privacy and correlation properties
 //!
-//! - Verifier sees: `{ box_id, attestation_tier, nonce_hash, commitment,
-//!   two STARK proofs }`. That is the complete public surface.
-//! - Verifier does NOT see: lat, lng, attester identity beyond its hash,
-//!   or anything that makes two proofs from the same location linkable
-//!   (the fresh nonce makes commitments distinct).
-//! - Replay protection: verifier-supplied fresh nonce; reused nonces
-//!   MUST be rejected by the verifier (LRU window of 65,536 entries).
+//! - The proof bytes do not disclose the raw latitude or longitude under the
+//!   range-proof construction; the verifier receives the box ID, tier,
+//!   nonce hash, commitment, and two STARK proofs.
+//! - The verifier must also know or supply the attester-key hash and timestamp
+//!   used to recompute the commitment. The attester-key hash is stable unless
+//!   the caller uses a different attester identity; it can link sessions.
+//! - A fresh nonce makes commitments from separate sessions differ. This is
+//!   not a general unlinkability proof and does not hide all metadata.
+//! - This module does not maintain a replay cache. A verifier application must
+//!   reject repeated / expired nonces using its own authoritative state.
 
 #[cfg(feature = "backend-winterfell")]
 use crate::circuits::range_proof;
