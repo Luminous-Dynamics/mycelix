@@ -55,7 +55,9 @@ records must all point to the same manufactured component.
 
 Evidence and authority assertions carry both domain-valid time and
 `available_at`. Evidence first available after a decision cutoff cannot justify
-that earlier decision. Revoked evidence is rejected, disputed evidence remains
+that earlier decision. Participant commitments must predate the manufacturing
+event, and a material certificate is rechecked at manufacture time so a
+certificate that expired after delivery cannot support fabrication. Revoked evidence is rejected, disputed evidence remains
 disputed, and unknown, stale or unavailable evidence remains indeterminate.
 Supplier claims are distinct from independently resolved certification evidence.
 
