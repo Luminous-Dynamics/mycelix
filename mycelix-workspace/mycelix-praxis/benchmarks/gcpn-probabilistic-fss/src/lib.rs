@@ -1118,8 +1118,8 @@ mod tests {
     #[test]
     fn random_reference_matches_observed_base_rate_and_member_count() {
         let observed = [
-            false, true, false, false, true, false, false, false, true,
-            false, false, false, true, false, false, false,
+            false, true, false, false, true, false, false, false, true, false, false, false, true,
+            false, false, false,
         ];
         let forecast = [false; 16];
         let input = case(
