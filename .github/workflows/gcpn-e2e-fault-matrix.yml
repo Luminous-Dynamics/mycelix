@@ -1,0 +1,46 @@
+name: GCPN integrated end-to-end fault matrix
+
+on:
+  pull_request:
+    branches: [research/gcpn-civil-evidence-adapter-v0-1]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-e2e-fault-matrix/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance-adapter/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-adapter/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-contracts/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance/**"
+      - ".github/workflows/gcpn-e2e-fault-matrix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-e2e-fault-matrix
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-e2e-fault-matrix
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-e2e-fault-matrix
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic complete matrix
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-e2e-fault-matrix
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-e2e-matrix-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-e2e-matrix-b.csv
+          cmp /tmp/gcpn-e2e-matrix-a.csv /tmp/gcpn-e2e-matrix-b.csv
+          grep -q "single,authority_mismatch,civil_evidence_contracts" /tmp/gcpn-e2e-matrix-a.csv
+          grep -q "single,forecast_late,six_stage_compositional" /tmp/gcpn-e2e-matrix-a.csv
+          grep -q "pairwise," /tmp/gcpn-e2e-matrix-a.csv
+          grep -q "engine_pairs=66;engine_no_false_support=66;civil_pairs=45;civil_detected=45;civil_fail_closed=9;civil_no_false_support=45" /tmp/gcpn-e2e-matrix-a.csv
