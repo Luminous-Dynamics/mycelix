@@ -72,8 +72,20 @@ def main():
 
     assert fixture["schema_version"] == 1
     assert fixture["current_design_revision_id"] == "design-r2"
+    assert fixture["external_portfolio_context"]["owner_system"] == "sol-atlas-leptos"
+    assert fixture["external_portfolio_context"]["artifact_role"] == "portfolio_alternative"
     assert len(fixture["design_revisions"]) == 2
     assert fixture["design_revisions"][1]["supersedes_revision_id"] == "design-r1"
+    for design in fixture["design_revisions"]:
+        assert design["source_artifact"]["owner_system"] == "symthaea"
+        assert design["source_artifact"]["artifact_role"] == "design_revision"
+        assert design["source_artifact"]["revision_ref"] == design["revision_id"]
+        assert design["source_artifact"]["sha256"] == design["sha256"]
+    for run in fixture["simulation_runs"]:
+        assert run["execution_artifact"]["owner_system"] == "symtropy"
+        assert run["execution_artifact"]["artifact_role"] == "simulation_run"
+        assert run["execution_artifact"]["revision_ref"] == run["run_id"]
+        assert run["execution_artifact"]["sha256"] == run["result_sha256"]
     assert fixture["approvals"][1]["simulation_run_id"] == "sim-r2"
     assert fixture["approvals"][1]["design_sha256"] == fixture["design_revisions"][1]["sha256"]
     evidence_by_ref = {item["reference"]: item for item in fixture["evidence_assertions"]}
