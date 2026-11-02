@@ -81,12 +81,14 @@ def unique_index(items, key, label):
     return result
 
 
-def require_artifact(artifacts, reference, role=None, subject=None):
+def require_artifact(artifacts, reference, role=None, subject=None, owner=None):
     if reference not in artifacts:
         raise AssertionError(f"missing source artifact: {reference}")
     artifact = artifacts[reference]
     if role is not None and artifact["artifact_role"] != role:
         raise AssertionError(f"{reference}: expected role {role}")
+    if owner is not None and artifact["owner_system"] != owner:
+        raise AssertionError(f"{reference}: expected owner {owner}")
     if subject is not None and artifact["subject_ref"] != subject:
         raise AssertionError(f"{reference}: expected subject {subject}")
     if not HEX_SHA256.fullmatch(artifact["sha256"]):
@@ -134,9 +136,19 @@ def validate_graph(trace):
 
     require_artifact(artifacts, trace["current_design_artifact_ref"], "design_revision")
     if trace["site_context_artifact_ref"] is not None:
-        require_artifact(artifacts, trace["site_context_artifact_ref"], "site_context")
+        require_artifact(
+            artifacts,
+            trace["site_context_artifact_ref"],
+            "site_context",
+            owner="sol-atlas-leptos",
+        )
     if trace["portfolio_alternative_artifact_ref"] is not None:
-        require_artifact(artifacts, trace["portfolio_alternative_artifact_ref"], "portfolio_alternative")
+        require_artifact(
+            artifacts,
+            trace["portfolio_alternative_artifact_ref"],
+            "portfolio_alternative",
+            owner="sol-atlas-leptos",
+        )
 
     accepted_approvals = set()
     for approval in approvals.values():
@@ -264,6 +276,11 @@ def main():
     expect_rejected(
         "wrong engineering receipt design",
         lambda item: next(a for a in item["artifact_references"] if a["reference"] == "sol-atlas:engineering:receipt-r2").update(subject_ref="sol-atlas:artifact:design-r1"),
+        fixture, schema
+    )
+    expect_rejected(
+        "site context owner spoof",
+        lambda item: next(a for a in item["artifact_references"] if a["reference"] == item["site_context_artifact_ref"]).update(owner_system="fabricator-system"),
         fixture, schema
     )
     expect_rejected(
