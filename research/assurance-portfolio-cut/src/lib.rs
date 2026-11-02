@@ -199,6 +199,12 @@ pub struct ProfileReport {
     pub profile_digest: Digest,
     pub policy_digest: Digest,
     pub assurance_tier: String,
+    /// The policy-owned role set. Retained so downstream analyses can bind
+    /// their manifests to the exact tier that was checked.
+    pub required_roles: BTreeSet<String>,
+    /// Exact role/domain declarations evaluated by this report. Downstream
+    /// cut-set analysis must match this map rather than trust a digest label.
+    pub role_domains: BTreeMap<String, BTreeMap<FaultDomainDimension, DomainDisposition>>,
     pub disposition: ProfileDisposition,
     pub reasons: Vec<ProfileReason>,
     pub separation_findings: Vec<SeparationFinding>,
@@ -421,6 +427,8 @@ pub fn check_profile(
         profile_digest: profile.profile_digest,
         policy_digest: profile.policy_digest,
         assurance_tier: profile.assurance_tier.clone(),
+        required_roles: tier.required_roles.clone(),
+        role_domains: profile.role_domains.clone(),
         disposition,
         reasons: reasons.into_iter().collect(),
         separation_findings,
@@ -594,8 +602,18 @@ pub fn minimal_cut_sets(
     // subsets of the entire domain universe.
     let mut candidates = vec![BTreeSet::<FaultDomainKey>::new()];
     let mut states_examined = 0usize;
+    // Canonicalize processing order so input role ordering cannot change
+    // budget consumption or which partial search happens to hit the cap.
+    // Smaller dependency sets tend to constrain the frontier earlier.
+    let mut ordered_roles: Vec<_> = roles.iter().collect();
+    ordered_roles.sort_by(|left, right| {
+        left.known_domains
+            .len()
+            .cmp(&right.known_domains.len())
+            .then_with(|| left.role.cmp(&right.role))
+    });
 
-    for role in roles {
+    for role in ordered_roles {
         let mut expanded = BTreeSet::<BTreeSet<FaultDomainKey>>::new();
         for candidate in candidates {
             if candidate
@@ -658,6 +676,102 @@ pub fn minimal_cut_sets(
         max_states,
         Vec::new(),
     ))
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ProfileCutSetError {
+    ProfileNotComplete,
+    ClaimBindingMismatch,
+    SubjectBindingMismatch,
+    ProfileBindingMismatch,
+    PolicyBindingMismatch,
+    RequiredRoleSetMismatch,
+    DependencyDeclarationsMismatch,
+    CutSet(CutSetError),
+}
+
+impl From<CutSetError> for ProfileCutSetError {
+    fn from(value: CutSetError) -> Self {
+        Self::CutSet(value)
+    }
+}
+
+/// Analyze cut sets only for the exact complete profile and dependency
+/// declarations that were checked. Digest equality alone is not enough:
+/// compare every role/domain classification before running the enumerator.
+pub fn analyze_profile_cut_sets(
+    profile: &ProfileReport,
+    manifest: &DependencyManifest,
+    max_candidate_extensions: usize,
+) -> Result<CutSetReport, ProfileCutSetError> {
+    if profile.disposition != ProfileDisposition::CompleteForDeclaredThreatModel {
+        return Err(ProfileCutSetError::ProfileNotComplete);
+    }
+    if profile.claim_id != manifest.claim_id {
+        return Err(ProfileCutSetError::ClaimBindingMismatch);
+    }
+    if profile.subject_digest != manifest.subject_digest {
+        return Err(ProfileCutSetError::SubjectBindingMismatch);
+    }
+    if profile.profile_digest != manifest.profile_digest {
+        return Err(ProfileCutSetError::ProfileBindingMismatch);
+    }
+    if profile.policy_digest != manifest.policy_digest {
+        return Err(ProfileCutSetError::PolicyBindingMismatch);
+    }
+
+    let mut actual_roles = BTreeMap::<&str, &RoleDependencies>::new();
+    for role in &manifest.roles {
+        if actual_roles.insert(role.role.as_str(), role).is_some() {
+            return Err(ProfileCutSetError::CutSet(CutSetError::DuplicateRoleId));
+        }
+    }
+    let expected_roles: BTreeSet<_> = profile.required_roles.iter().map(String::as_str).collect();
+    let actual_role_names: BTreeSet<_> = actual_roles.keys().copied().collect();
+    if expected_roles != actual_role_names {
+        return Err(ProfileCutSetError::RequiredRoleSetMismatch);
+    }
+
+    for role in &profile.required_roles {
+        let profile_domains = profile
+            .role_domains
+            .get(role)
+            .ok_or(ProfileCutSetError::DependencyDeclarationsMismatch)?;
+        let actual = actual_roles
+            .get(role.as_str())
+            .ok_or(ProfileCutSetError::RequiredRoleSetMismatch)?;
+        let mut expected = RoleDependencies {
+            role: role.clone(),
+            known_domains: BTreeSet::new(),
+            not_applicable_dimensions: BTreeMap::new(),
+            unknown_dimensions: BTreeSet::new(),
+        };
+
+        for dimension in FaultDomainDimension::ALL {
+            match profile_domains.get(&dimension) {
+                Some(DomainDisposition::Distinct(identity))
+                | Some(DomainDisposition::SharedAccepted { identity, .. }) => {
+                    expected.known_domains.insert(FaultDomainKey {
+                        dimension,
+                        identity: *identity,
+                    });
+                }
+                Some(DomainDisposition::NotApplicable { rationale }) => {
+                    expected
+                        .not_applicable_dimensions
+                        .insert(dimension, rationale.clone());
+                }
+                Some(DomainDisposition::Unknown) | None => {
+                    expected.unknown_dimensions.insert(dimension);
+                }
+            }
+        }
+        if **actual != expected {
+            return Err(ProfileCutSetError::DependencyDeclarationsMismatch);
+        }
+    }
+
+    minimal_cut_sets(manifest, max_candidate_extensions).map_err(Into::into)
 }
 
 #[cfg(test)]
