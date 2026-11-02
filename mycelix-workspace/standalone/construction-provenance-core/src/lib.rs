@@ -391,6 +391,54 @@ fn simulation_for(
     trace.simulation_runs.iter().find(|run| run.run_id == run_id)
 }
 
+fn revision_lineage_is_valid(
+    trace: &ConstructionProjectTrace,
+    revision_id: &str,
+) -> bool {
+    let mut visited = BTreeSet::new();
+    let mut current_id = revision_id;
+
+    loop {
+        if !visited.insert(current_id.to_owned()) {
+            return false;
+        }
+        let matching = trace
+            .design_revisions
+            .iter()
+            .filter(|revision| revision.revision_id == current_id)
+            .collect::<Vec<_>>();
+        let Some(current) = matching.first().copied() else {
+            return false;
+        };
+        if matching.len() != 1 {
+            return false;
+        }
+        let Some(parent_id) = current.supersedes_revision_id.as_deref() else {
+            return true;
+        };
+        let children = trace
+            .design_revisions
+            .iter()
+            .filter(|revision| revision.supersedes_revision_id.as_deref() == Some(parent_id))
+            .count();
+        if children != 1 {
+            return false;
+        }
+        let parents = trace
+            .design_revisions
+            .iter()
+            .filter(|revision| revision.revision_id == parent_id)
+            .collect::<Vec<_>>();
+        let Some(parent) = parents.first() else {
+            return false;
+        };
+        if parents.len() != 1 || parent.created_at >= current.created_at {
+            return false;
+        }
+        current_id = parent_id;
+    }
+}
+
 fn approval_disposition(
     trace: &ConstructionProjectTrace,
     approval: &ApprovalReceipt,
@@ -628,12 +676,8 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
             let has_child = trace.design_revisions.iter().any(|candidate| {
                 candidate.supersedes_revision_id.as_deref() == Some(revision.revision_id.as_str())
             });
-            let lineage_valid = !has_child
-                && match revision.supersedes_revision_id.as_deref() {
-                    None => true,
-                    Some(parent_id) => design_for(trace, parent_id)
-                        .is_some_and(|parent| parent.created_at < revision.created_at),
-                };
+            let lineage_valid =
+                !has_child && revision_lineage_is_valid(trace, &revision.revision_id);
             let disposition = if lineage_valid {
                 external_artifact_disposition(
                     &revision.source_artifact,
@@ -690,6 +734,15 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
             report.push("simulation", &run.run_id, Disposition::Rejected, "duplicate_simulation_id");
             continue;
         }
+        if trace
+            .design_revisions
+            .iter()
+            .filter(|revision| revision.revision_id == run.design_revision_id)
+            .count() > 1
+        {
+            report.push("simulation", &run.run_id, Disposition::Rejected, "ambiguous_design_revision_identity");
+            continue;
+        }
         let Some(design) = design_for(trace, &run.design_revision_id) else {
             report.push("simulation", &run.run_id, Disposition::Indeterminate, "design_revision_missing");
             continue;
@@ -729,11 +782,6 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         }
     }
 
-    let superseded_approvals = trace
-        .approvals
-        .iter()
-        .filter_map(|approval| approval.supersedes_approval_id.clone())
-        .collect::<BTreeSet<_>>();
     let mut approval_ids = BTreeSet::new();
     let mut duplicate_approval_ids = BTreeSet::new();
     for approval in &trace.approvals {
@@ -741,6 +789,44 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
             duplicate_approval_ids.insert(approval.approval_id.clone());
         }
     }
+
+    // Supersession is only effective when a unique, later, fully accepted
+    // successor explicitly names a unique, previously accepted predecessor
+    // on the same design revision. A rejected or unknown successor cannot
+    // erase a valid earlier approval.
+    let mut superseded_approvals = BTreeSet::new();
+    for successor in &trace.approvals {
+        if duplicate_approval_ids.contains(&successor.approval_id)
+            || trace
+                .approvals
+                .iter()
+                .filter(|item| item.approval_id == successor.approval_id)
+                .count()
+                != 1
+        {
+            continue;
+        }
+        let Some(predecessor_id) = successor.supersedes_approval_id.as_deref() else {
+            continue;
+        };
+        let predecessors = trace
+            .approvals
+            .iter()
+            .filter(|item| item.approval_id == predecessor_id)
+            .collect::<Vec<_>>();
+        let Some(predecessor) = predecessors.first().copied() else {
+            continue;
+        };
+        if predecessors.len() == 1
+            && predecessor.design_revision_id == successor.design_revision_id
+            && predecessor.decided_at < successor.decided_at
+            && approval_disposition(trace, predecessor, false) == Disposition::Accepted
+            && approval_disposition(trace, successor, false) == Disposition::Accepted
+        {
+            superseded_approvals.insert(predecessor_id.to_owned());
+        }
+    }
+
     for approval in &trace.approvals {
         if duplicate_approval_ids.contains(&approval.approval_id) {
             report.push("approval", &approval.approval_id, Disposition::Rejected, "duplicate_approval_id");
@@ -1220,6 +1306,65 @@ mod tests {
         let mut trace = sample_trace();
         trace.design_revisions[1].drawing_package.revision_ref = "design-r1".into();
         assert_eq!(disposition(&trace, "design", "design-r2"), Disposition::Rejected);
+    }
+
+    #[test]
+    fn broken_ancestor_revision_link_invalidates_current_design() {
+        let mut trace = sample_trace();
+        trace.design_revisions[0].supersedes_revision_id = Some("missing-parent".into());
+        assert_eq!(
+            disposition(&trace, "design", "design-r2"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn rejected_successor_cannot_supersede_a_valid_prior_approval() {
+        let mut trace = sample_trace();
+        let mut prior = trace.approvals[1].clone();
+        prior.approval_id = "approval-prior-r2".into();
+        prior.supersedes_approval_id = None;
+        prior.decided_at = 230;
+        trace.approvals.push(prior);
+        trace.approvals[1].supersedes_approval_id = Some("approval-prior-r2".into());
+        trace.approvals[1].signer_id = "party:unauthorized".into();
+
+        assert_eq!(
+            disposition(&trace, "approval", "approval-prior-r2"),
+            Disposition::Accepted
+        );
+        assert_eq!(
+            disposition(&trace, "approval", "approval-r2"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn custody_receipt_identity_is_unique_across_all_batches() {
+        let mut trace = sample_trace();
+        trace.material_batches.push(MaterialBatch {
+            batch_id: "batch-02".into(),
+            supplier_party_id: "party:supplier-02".into(),
+            receiving_site_party_id: "site:pavilion-01".into(),
+            material_description: "structural steel members".into(),
+            supplier_assertion: Some("Supplier declares recycled content".into()),
+            certification_evidence_ref: Some("evidence:batch-cert-01".into()),
+            certification_scope_ref: Some("claim:batch-01:recycled-content".into()),
+            declared_at: 230,
+        });
+        trace.custody_receipts.push(CustodyReceipt {
+            receipt_id: "custody-01-b".into(),
+            batch_id: "batch-02".into(),
+            from_party_id: "party:supplier-02".into(),
+            to_party_id: "site:pavilion-01".into(),
+            predecessor_receipt_id: None,
+            evidence_ref: "evidence:custody-01-b".into(),
+            occurred_at: 280,
+        });
+        assert_eq!(
+            disposition(&trace, "custody", "batch-01"),
+            Disposition::Rejected
+        );
     }
 
     #[test]
