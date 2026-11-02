@@ -128,14 +128,10 @@ impl Fault {
             }
             Self::ObservationMissing
             | Self::SharedSourceLineage
-            | Self::ValidContradictoryEvidence => {
-                Some((Stage::Observation, "reference-valid"))
-            }
+            | Self::ValidContradictoryEvidence => Some((Stage::Observation, "reference-valid")),
             Self::CapMessageIdentityMismatch => Some((Stage::CapLifecycle, "receipt-valid")),
             Self::ReceiverDenominatorMissing => Some((Stage::PopulationReach, "reach-valid")),
-            Self::OutcomeUnascertained
-            | Self::ClaimOutOfScope
-            | Self::SourceUnavailable => {
+            Self::OutcomeUnascertained | Self::ClaimOutOfScope | Self::SourceUnavailable => {
                 Some((Stage::AfterEventReview, "review-valid"))
             }
             Self::AuthorityMismatch
@@ -176,12 +172,8 @@ impl Fault {
                 Some(ViolationCode::ClaimEvidenceMissing)
             }
             Self::SharedSourceLineage => Some(ViolationCode::CommonCauseLineage),
-            Self::CapMessageIdentityMismatch => {
-                Some(ViolationCode::CapReceiptMessageMismatch)
-            }
-            Self::ReceiverDenominatorMissing => {
-                Some(ViolationCode::PopulationDenominatorUnknown)
-            }
+            Self::CapMessageIdentityMismatch => Some(ViolationCode::CapReceiptMessageMismatch),
+            Self::ReceiverDenominatorMissing => Some(ViolationCode::PopulationDenominatorUnknown),
             Self::PostCutoffEvidence => Some(ViolationCode::EvidenceAfterAsOf),
             Self::HindsightLeakage => Some(ViolationCode::PostprocessingOutcomeLeakage),
             Self::ValidContradictoryEvidence
@@ -200,7 +192,10 @@ impl Fault {
 pub enum AdapterError {
     UnsupportedFault(Fault),
     DuplicateFault(Fault),
-    MissingClaim { stage: Stage, claim_id: &'static str },
+    MissingClaim {
+        stage: Stage,
+        claim_id: &'static str,
+    },
     AuditFailed(String),
 }
 
@@ -208,15 +203,26 @@ impl std::fmt::Display for AdapterError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnsupportedFault(fault) => {
-                write!(formatter, "fault is not represented by current engine: {}", fault.label())
+                write!(
+                    formatter,
+                    "fault is not represented by current engine: {}",
+                    fault.label()
+                )
             }
             Self::DuplicateFault(fault) => {
                 write!(formatter, "duplicate fault requested: {}", fault.label())
             }
             Self::MissingClaim { stage, claim_id } => {
-                write!(formatter, "audit omitted expected claim {}:{}", stage.label(), claim_id)
+                write!(
+                    formatter,
+                    "audit omitted expected claim {}:{}",
+                    stage.label(),
+                    claim_id
+                )
             }
-            Self::AuditFailed(message) => write!(formatter, "compositional audit failed: {message}"),
+            Self::AuditFailed(message) => {
+                write!(formatter, "compositional audit failed: {message}")
+            }
         }
     }
 }
@@ -244,22 +250,107 @@ pub struct PairObservation {
 
 pub fn baseline_scenario() -> Scenario {
     let requirements = vec![
-        requirement(Stage::Forecast, "forecast-valid", "forecast-source", "run-1", 1),
-        requirement(Stage::Observation, "reference-valid", "reference-source", "obs-v1", 2),
-        requirement(Stage::CapLifecycle, "receipt-valid", "cap-source", "cap-v1", 1),
-        requirement(Stage::PopulationReach, "reach-valid", "population-source", "pop-v1", 1),
-        requirement(Stage::Decision, "decision-valid", "decision-source", "decision-v1", 1),
-        requirement(Stage::AfterEventReview, "review-valid", "review-source", "review-v1", 1),
+        requirement(
+            Stage::Forecast,
+            "forecast-valid",
+            "forecast-source",
+            "run-1",
+            1,
+        ),
+        requirement(
+            Stage::Observation,
+            "reference-valid",
+            "reference-source",
+            "obs-v1",
+            2,
+        ),
+        requirement(
+            Stage::CapLifecycle,
+            "receipt-valid",
+            "cap-source",
+            "cap-v1",
+            1,
+        ),
+        requirement(
+            Stage::PopulationReach,
+            "reach-valid",
+            "population-source",
+            "pop-v1",
+            1,
+        ),
+        requirement(
+            Stage::Decision,
+            "decision-valid",
+            "decision-source",
+            "decision-v1",
+            1,
+        ),
+        requirement(
+            Stage::AfterEventReview,
+            "review-valid",
+            "review-source",
+            "review-v1",
+            1,
+        ),
     ];
 
     let evidence = vec![
-        record("forecast-e1", Stage::Forecast, "forecast-valid", "forecast-source", "run-1", "forecast-root"),
-        record("observation-e1", Stage::Observation, "reference-valid", "reference-source", "obs-v1", "sensor-root-a"),
-        record("observation-e2", Stage::Observation, "reference-valid", "reference-source", "obs-v1", "sensor-root-b"),
-        record("cap-e1", Stage::CapLifecycle, "receipt-valid", "cap-source", "cap-v1", "cap-root"),
-        record("reach-e1", Stage::PopulationReach, "reach-valid", "population-source", "pop-v1", "population-root"),
-        record("decision-e1", Stage::Decision, "decision-valid", "decision-source", "decision-v1", "decision-root"),
-        record("review-e1", Stage::AfterEventReview, "review-valid", "review-source", "review-v1", "review-root"),
+        record(
+            "forecast-e1",
+            Stage::Forecast,
+            "forecast-valid",
+            "forecast-source",
+            "run-1",
+            "forecast-root",
+        ),
+        record(
+            "observation-e1",
+            Stage::Observation,
+            "reference-valid",
+            "reference-source",
+            "obs-v1",
+            "sensor-root-a",
+        ),
+        record(
+            "observation-e2",
+            Stage::Observation,
+            "reference-valid",
+            "reference-source",
+            "obs-v1",
+            "sensor-root-b",
+        ),
+        record(
+            "cap-e1",
+            Stage::CapLifecycle,
+            "receipt-valid",
+            "cap-source",
+            "cap-v1",
+            "cap-root",
+        ),
+        record(
+            "reach-e1",
+            Stage::PopulationReach,
+            "reach-valid",
+            "population-source",
+            "pop-v1",
+            "population-root",
+        ),
+        record(
+            "decision-e1",
+            Stage::Decision,
+            "decision-valid",
+            "decision-source",
+            "decision-v1",
+            "decision-root",
+        ),
+        record(
+            "review-e1",
+            Stage::AfterEventReview,
+            "review-valid",
+            "review-source",
+            "review-v1",
+            "review-root",
+        ),
     ];
 
     Scenario {
@@ -389,7 +480,8 @@ fn apply_one(scenario: &mut Scenario, fault: Fault) {
             });
         }
         Fault::SharedSourceLineage => {
-            for evidence in find_claim_evidence_mut(scenario, Stage::Observation, "reference-valid") {
+            for evidence in find_claim_evidence_mut(scenario, Stage::Observation, "reference-valid")
+            {
                 evidence.lineage_root = "sensor-root-shared".into();
             }
         }
@@ -427,7 +519,9 @@ fn apply_one(scenario: &mut Scenario, fault: Fault) {
             }
         }
         Fault::ClaimOutOfScope => {
-            for evidence in find_claim_evidence_mut(scenario, Stage::AfterEventReview, "review-valid") {
+            for evidence in
+                find_claim_evidence_mut(scenario, Stage::AfterEventReview, "review-valid")
+            {
                 evidence.disposition = ClaimDisposition::OutOfScope;
             }
         }
@@ -556,7 +650,8 @@ mod tests {
         for fault in Fault::SUPPORTED {
             let observation = evaluate_single(fault).expect("supported fault must execute");
             assert_eq!(
-                observation.observed, observation.expected,
+                observation.observed,
+                observation.expected,
                 "wrong disposition for {}",
                 fault.label()
             );
@@ -580,8 +675,7 @@ mod tests {
 
         assert_eq!(observations.len(), 66);
         assert!(observations.iter().all(|observation| {
-            observation.no_false_support
-                && !observation.affected_claim_dispositions.is_empty()
+            observation.no_false_support && !observation.affected_claim_dispositions.is_empty()
         }));
     }
 
@@ -606,8 +700,8 @@ mod tests {
 
     #[test]
     fn source_lineage_fault_is_a_detected_common_cause_violation() {
-        let observation = evaluate_single(Fault::SharedSourceLineage)
-            .expect("lineage fault must execute");
+        let observation =
+            evaluate_single(Fault::SharedSourceLineage).expect("lineage fault must execute");
         assert_eq!(observation.observed, ClaimDisposition::Indeterminate);
         assert_eq!(
             observation.expected_violation,
@@ -626,8 +720,8 @@ mod tests {
 
     #[test]
     fn cap_identity_and_population_denominator_faults_are_stage_local() {
-        let cap = evaluate_single(Fault::CapMessageIdentityMismatch)
-            .expect("CAP fault must execute");
+        let cap =
+            evaluate_single(Fault::CapMessageIdentityMismatch).expect("CAP fault must execute");
         let reach = evaluate_single(Fault::ReceiverDenominatorMissing)
             .expect("denominator fault must execute");
 
