@@ -197,18 +197,27 @@ The incremental enumerator sorts role dependency sets by increasing cardinality,
 This v0.1 crate is **not** a state-of-the-art general hypergraph transversal engine. It is a small, dependency-free, budgeted reference implementation for assurance portfolios with a bounded number of evaluator roles and 15 named dependency dimensions.
 
 The surrounding algorithmic problem is nontrivial:
-- Bläsius et al. (Journal of Computer and System Sciences, 2022) give polynomial-delay and polynomial-space minimal-hitting-set enumeration results for hypergraphs arising in data profiling, using an extension problem.
-- A 2026 preprint by Mary gives new conditional lower bounds for minimal-transversal enumeration in bounded-dimension hypergraphs; this warns against promising a universally polynomial or output-insensitive solution.
+- Bläsius et al. (Journal of Computer and System Sciences, 2022) give polynomial-delay and polynomial-space enumeration results for minimal hitting sets in hypergraphs arising in data profiling, using an extension problem. This is a structured-class result, not a universal solution to transversal enumeration.
+- Hörmann and Schirneck (2026 preprint) analyze Minimal-to-Maximal Conversion Search (MMCS), a strong practical baseline for real-world instances, and prove that MMCS is not output-polynomial. This is a warning to measure its practical performance without treating it as a worst-case guarantee.
+- Mary (2026 preprint) derives ETH/SETH-conditional lower bounds for minimal-transversal enumeration even in bounded-dimension settings. The result rules out several overly optimistic uniform/output-polynomial expectations under those assumptions; it does not prove every specialized instance class is intractable.
+- Schirneck (2026 preprint) gives delay bounds parameterized by transversal rank and maximum degree for a specific structural regime. This is relevant if our generated portfolios empirically have low transversal rank, but the parameter and assumptions must be reported rather than assumed.
+- A 2026 implicit-hitting-set preprint uses an oracle that reveals a new hyperedge when a proposed set fails. Its power-dominating-set application is not our problem, but the oracle model may become useful if future dependency domains are expensive to enumerate.
 
 References:
 - Bläsius et al. (2022), *Efficiently enumerating hitting sets of hypergraphs arising in data profiling*: https://doi.org/10.1016/j.jcss.2021.10.002
-- Mary (2026 preprint), *Lower Bounds for Minimal-Transversal Enumeration of Bounded-Dimension Hypergraphs*: https://arxiv.org/abs/2610.28012
+- Hörmann & Schirneck (2026), *Minimal-to-Maximal Conversion Search Is Not Output-Polynomial*: https://arxiv.org/abs/2608.02159
+- Mary (2026), *Lower Bounds for Minimal-Transversal Enumeration of Bounded-Dimension Hypergraphs*: https://arxiv.org/abs/2610.28012
+- Schirneck (2026), *Transversal Rank, Conformality and Enumeration*: https://arxiv.org/abs/2603.06402
+- Bläsius, Göttlicher & Schirneck (2026), *Implicit Hitting Set Enumeration for Power Dominating Sets*: https://arxiv.org/abs/2610.24214
 
 A fair next benchmark compares the current incremental algorithm against:
 1. the independent brute-force subset enumerator already used for tiny differential tests;
-2. a separately implemented classic minimal-transversal enumerator (for example, a Berge-style incremental baseline);
-3. a SAT/CP-SAT model that finds one hitting set at a time and blocks previously emitted minimal sets, with exact inclusion-minimality checks;
-4. an output-sensitive extension-based minimal-transversal implementation where a reproducible implementation is available.
+2. Berge-style incremental transversal enumeration;
+3. MMCS (Murakami–Uno) as a practical baseline, with no output-polynomial claim;
+4. extension-problem / polynomial-delay algorithms when the instance class and assumptions match;
+5. SAT/CP-SAT that finds one hitting set at a time and blocks previously emitted minimal sets, with independent inclusion-minimality checks;
+6. rank-parameterized or implicit-hitting-set methods only when their structural/Oracle assumptions match the exact portfolio domain.
+
 
 Freeze the same hypergraph/dependency manifest and attack semantics. Report the entire output set, not just the minimum cardinality. Measure:
 - exact output-set agreement and false/missing/duplicate cut sets;
