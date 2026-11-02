@@ -99,7 +99,7 @@ impl MatrixReport {
             ));
         }
         output.push_str(&format!(
-            "summary,all_original_fault_families,integrated,17,{}, {},false,engine_pairs={};engine_no_false_support={};civil_pairs={};civil_detected={};civil_fail_closed={};civil_no_false_support={}\n",
+            "summary,all_original_fault_families,integrated,17,{},{},false,engine_pairs={};engine_no_false_support={};civil_pairs={};civil_detected={};civil_fail_closed={};civil_no_false_support={}\n",
             self.original_fault_families,
             self.all_single_faults_detected(),
             self.six_stage_pairwise_cases,
