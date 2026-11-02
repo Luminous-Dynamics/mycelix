@@ -252,6 +252,9 @@ fn evidence_disposition(
     subject_ref: &str,
     event_at: u64,
 ) -> Disposition {
+    if !nonempty(reference) || !nonempty(subject_ref) {
+        return Disposition::Indeterminate;
+    }
     let matching = trace.evidence_assertions.iter().filter(|item| item.reference == reference).collect::<Vec<_>>();
     let Some(evidence) = matching.first().copied() else {
         return Disposition::Indeterminate;
@@ -293,6 +296,9 @@ fn authority_disposition(
     scope_ref: &str,
     event_at: u64,
 ) -> Disposition {
+    if !nonempty(reference) || !nonempty(signer_id) || !nonempty(role) || !nonempty(scope_ref) {
+        return Disposition::Indeterminate;
+    }
     let matching = trace.authority_assertions.iter().filter(|item| item.reference == reference).collect::<Vec<_>>();
     let Some(authority) = matching.first().copied() else {
         return Disposition::Indeterminate;
@@ -449,7 +455,10 @@ fn custody_disposition(
     if receipts.is_empty() {
         return Disposition::Indeterminate;
     }
-    receipts.sort_by_key(|receipt| (receipt.occurred_at, receipt.receipt_id.as_str()));
+    receipts.sort_by(|left, right| {
+        (left.occurred_at, left.receipt_id.as_str())
+            .cmp(&(right.occurred_at, right.receipt_id.as_str()))
+    });
 
     let mut result = Disposition::Accepted;
     let mut receipt_ids = BTreeSet::new();
@@ -528,16 +537,20 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         } else if revision.revision_id != trace.current_design_revision_id {
             report.push("design", &revision.revision_id, Disposition::Superseded, "not_current_design_revision");
         } else {
-            let lineage_valid = match revision.supersedes_revision_id.as_deref() {
-                None => true,
-                Some(parent_id) => design_for(trace, parent_id)
-                    .is_some_and(|parent| parent.created_at < revision.created_at),
-            };
+            let has_child = trace.design_revisions.iter().any(|candidate| {
+                candidate.supersedes_revision_id.as_deref() == Some(revision.revision_id.as_str())
+            });
+            let lineage_valid = !has_child
+                && match revision.supersedes_revision_id.as_deref() {
+                    None => true,
+                    Some(parent_id) => design_for(trace, parent_id)
+                        .is_some_and(|parent| parent.created_at < revision.created_at),
+                };
             report.push(
                 "design",
                 &revision.revision_id,
                 if lineage_valid { Disposition::Accepted } else { Disposition::Rejected },
-                if lineage_valid { "current_revision_identity_valid" } else { "invalid_revision_lineage" },
+                if lineage_valid { "current_revision_identity_valid" } else { "invalid_or_nonterminal_revision_lineage" },
             );
         }
     }
@@ -721,7 +734,10 @@ fn inspection_disposition(
         .custody_receipts
         .iter()
         .filter(|receipt| receipt.batch_id == batch.batch_id)
-        .max_by_key(|receipt| (receipt.occurred_at, receipt.receipt_id.as_str()));
+        .max_by(|left, right| {
+            (left.occurred_at, left.receipt_id.as_str())
+                .cmp(&(right.occurred_at, right.receipt_id.as_str()))
+        });
     if report.disposition_for("custody", &batch.batch_id) != Some(Disposition::Accepted)
         || report.disposition_for("material_batch", &batch.batch_id) != Some(Disposition::Accepted)
         || terminal_receipt.occurred_at > inspection.inspected_at
