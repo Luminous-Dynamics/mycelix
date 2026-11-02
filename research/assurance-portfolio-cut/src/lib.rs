@@ -908,8 +908,8 @@ mod tests {
             role_dependencies("b", [shared, b]),
             role_dependencies("c", [shared, c]),
         ];
-        let first = minimal_cut_sets(&roles, 100).expect("valid graph");
-        let second = minimal_cut_sets(&roles, 100).expect("replay");
+        let first = minimal_cut_sets(&dependency_manifest(roles.clone()), 100).expect("valid graph");
+        let second = minimal_cut_sets(&dependency_manifest(roles.clone()), 100).expect("replay");
         assert_eq!(first, second);
         assert_eq!(first.minimal_cut_sets.len(), 2);
         assert!(first.minimal_cut_sets.contains(&BTreeSet::from([shared])));
