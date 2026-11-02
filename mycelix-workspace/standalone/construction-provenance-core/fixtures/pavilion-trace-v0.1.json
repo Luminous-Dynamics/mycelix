@@ -14,6 +14,20 @@
         "artifact_role": "design_revision",
         "revision_ref": "design-r1",
         "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "ifc_model_export": {
+        "reference": "symthaea:ifc:design-r1",
+        "owner_system": "symthaea",
+        "artifact_role": "ifc_model_export",
+        "revision_ref": "design-r1",
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "drawing_package": {
+        "reference": "symthaea:drawings:design-r1",
+        "owner_system": "symthaea",
+        "artifact_role": "drawing_package",
+        "revision_ref": "design-r1",
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       }
     },
     {
@@ -27,6 +41,20 @@
         "artifact_role": "design_revision",
         "revision_ref": "design-r2",
         "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "ifc_model_export": {
+        "reference": "symthaea:ifc:design-r2",
+        "owner_system": "symthaea",
+        "artifact_role": "ifc_model_export",
+        "revision_ref": "design-r2",
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "drawing_package": {
+        "reference": "symthaea:drawings:design-r2",
+        "owner_system": "symthaea",
+        "artifact_role": "drawing_package",
+        "revision_ref": "design-r2",
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       }
     }
   ],
@@ -261,5 +289,12 @@
     "artifact_role": "portfolio_alternative",
     "revision_ref": "alternative-r1",
     "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "site_context": {
+    "reference": "sol-atlas:site:pavilion-01",
+    "owner_system": "sol-atlas-leptos",
+    "artifact_role": "site_context",
+    "revision_ref": "site-r1",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   }
 }
