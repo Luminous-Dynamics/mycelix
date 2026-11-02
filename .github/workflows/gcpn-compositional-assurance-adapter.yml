@@ -1,0 +1,40 @@
+name: GCPN compositional assurance adapter
+
+on:
+  pull_request:
+    branches: [research/gcpn-compositional-assurance-engine-v0-1]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance-adapter/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance/**"
+      - ".github/workflows/gcpn-compositional-assurance-adapter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance-adapter
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance-adapter
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance-adapter
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic adapter output
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance-adapter
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-adapter-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-adapter-b.csv
+          cmp /tmp/gcpn-adapter-a.csv /tmp/gcpn-adapter-b.csv
+          grep -q "pairwise_cases=66 pairwise_no_false_support=66" /tmp/gcpn-adapter-a.csv
