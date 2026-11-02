@@ -303,9 +303,11 @@ Sources:
 - Display provenance and missingness.
 
 **Phase 2 — One historical mechanism benchmark**
-- Select a bounded case with adequate time-series and archaeological evidence.
+- Start with [HIST-001: the Shashe–Limpopo / Mapungubwe–Great Zimbabwe regional network](https://github.com/Luminous-Dynamics/symtropy/blob/research/civbench-v0-2026-11/docs/research/cases/HIST_001_MAPUNGUBWE_GREAT_ZIMBABWE.md).
+- Preserve radiocarbon calibration distributions, source-family provenance, spatial uncertainty, and the distinction between archaeological observations and interpretations.
+- Compare environmental-only, exchange-network, political/spatial, polycentric, and multi-causal hypotheses; do not assume a linear Mapungubwe-to-Great-Zimbabwe succession or a single climate-driven collapse.
 - Register forecast origin, outcome, baselines, metrics, and holdout before modelling.
-- Compare simple statistics, system dynamics, and agent-based alternatives.
+- Compare simple statistical and pattern-oriented models before adding more expressive agents.
 
 **Phase 3 — Physically constrained simulation**
 - Implement a small population-food-water-energy-institution model.
