@@ -1,8 +1,10 @@
-//! Evidence-bounded construction provenance and approval trace checks.
+//! Mycelix participant authority and material-custody trace checks.
 //!
-//! Accepted means only that this crate's v0.1 record-binding contract passed.
-//! It is not a permit, engineering certification, safety determination or
-//! professional acceptance of a constructed asset.
+//! This crate records cross-party attestations and supply-chain custody while
+//! referring to engineering artifacts owned by their native systems. It does
+//! not reproduce the Sol-Atlas built-environment artifact graph or decide
+//! engineering adequacy. "Accepted" means only that this Mycelix attestation
+//! and its supplied authority/evidence bindings pass this narrow contract.
 
 use std::collections::BTreeSet;
 
@@ -30,14 +32,14 @@ pub enum AuthorityStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ApprovalDecision {
-    Approved,
-    Rejected,
+pub enum ParticipantDecision {
+    Affirmed,
+    Objected,
     Deferred,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InspectionOutcome {
+pub enum InspectionClaim {
     Conforming,
     Nonconforming,
     Inconclusive,
@@ -52,31 +54,31 @@ pub enum Disposition {
     Superseded,
 }
 
+/// Opaque pointer to a record whose content and semantic validation remain
+/// owned by the named source system. The digest is the source-declared digest;
+/// this crate does not fetch the bytes or independently recompute it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExternalArtifactRef {
+    pub reference: String,
+    pub owner_system: String,
+    pub artifact_role: String,
+    pub revision_ref: String,
+    pub sha256: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceAssertion {
     pub reference: String,
-    /// Exact record or claim scope this evidence is permitted to support.
+    /// Exact approval, claim, custody receipt, manufacturing receipt or
+    /// inspection receipt that this evidence is permitted to support.
     pub subject_ref: String,
     pub sha256: String,
     pub status: EvidenceStatus,
     pub use_permission: UsePermission,
     /// First time this relying party could use the evidence; not source creation time.
     pub available_at: u64,
-    /// Domain-valid start, inclusive.
     pub valid_from: u64,
-    /// Domain-valid end, inclusive; None means no declared end.
     pub valid_until: Option<u64>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExternalArtifactRef {
-    /// Stable opaque reference in the owning system.
-    pub reference: String,
-    pub owner_system: String,
-    /// Examples: design_revision, simulation_run, portfolio_alternative.
-    pub artifact_role: String,
-    pub revision_ref: String,
-    pub sha256: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,33 +89,9 @@ pub struct AuthorityAssertion {
     /// Canonical scope reference issued by the external authority resolver.
     pub scope_ref: String,
     pub status: AuthorityStatus,
-    /// First time this relying party could use the authority assertion.
     pub available_at: u64,
     pub valid_from: u64,
     pub valid_until: Option<u64>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DesignRevision {
-    pub revision_id: String,
-    pub source_artifact: ExternalArtifactRef,
-    pub ifc_model_export: ExternalArtifactRef,
-    pub drawing_package: ExternalArtifactRef,
-    pub sha256: String,
-    pub supersedes_revision_id: Option<String>,
-    pub created_at: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SimulationRun {
-    pub run_id: String,
-    pub execution_artifact: ExternalArtifactRef,
-    pub design_revision_id: String,
-    pub design_sha256: String,
-    pub solver_id: String,
-    pub solver_version: String,
-    pub result_sha256: String,
-    pub completed_at: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -122,22 +100,25 @@ pub struct ApprovalCondition {
     pub satisfied: bool,
 }
 
+/// A participant's scoped commitment about an exact source-owned artifact.
+/// This is an authority/evidence receipt, not an engineering approval or
+/// authorization to fabricate, install, energize or operate an asset.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ApprovalReceipt {
+pub struct ParticipantApprovalReceipt {
     pub approval_id: String,
-    pub design_revision_id: String,
-    pub design_sha256: String,
-    pub simulation_run_id: String,
-    pub simulation_result_sha256: String,
+    pub subject_artifact_ref: String,
+    /// Opaque simulation/engineering-review artifact references. Their
+    /// physical and engineering semantics remain with the owning systems.
+    pub supporting_artifact_refs: Vec<String>,
     pub authority_ref: String,
     pub signer_id: String,
     pub role: String,
     pub scope_ref: String,
     pub supersedes_approval_id: Option<String>,
-    pub decision: ApprovalDecision,
+    pub decision: ParticipantDecision,
     pub conditions: Vec<ApprovalCondition>,
     pub evidence_refs: Vec<String>,
-    /// Dissent is retained; its presence is not silently converted into consent.
+    /// Dissent is retained; it is not silently converted into consent.
     pub dissent_refs: Vec<String>,
     pub decided_at: u64,
 }
@@ -150,9 +131,8 @@ pub struct MaterialBatch {
     pub material_description: String,
     /// Supplier statement only. It is not proof of the statement.
     pub supplier_assertion: Option<String>,
-    /// Must resolve to an externally attested certification/evidence record.
+    /// Must resolve to independently attested evidence for this exact claim.
     pub certification_evidence_ref: Option<String>,
-    /// Exact supplier claim scope covered by the certification reference.
     pub certification_scope_ref: Option<String>,
     pub declared_at: u64,
 }
@@ -168,19 +148,41 @@ pub struct CustodyReceipt {
     pub occurred_at: u64,
 }
 
+/// Manufacturer attestation joins a Mycelix material batch/custody record to
+/// source-owned manufacturing and fabricated-component artifacts. It does
+/// not certify the manufacturing process or machine capability.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManufacturingReceipt {
+    pub manufacturing_id: String,
+    pub design_artifact_ref: String,
+    pub material_batch_id: String,
+    pub manufacturing_artifact_ref: String,
+    pub component_artifact_ref: String,
+    pub authority_ref: String,
+    pub manufacturer_id: String,
+    pub role: String,
+    pub scope_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub manufactured_at: u64,
+}
+
+/// Inspector attestation binds the manufactured component to source-owned
+/// inspection/metrology, installation and as-built artifacts. The claimed
+/// outcome is recorded as an attestation; professional sufficiency is not
+/// evaluated here.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InspectionReceipt {
     pub inspection_id: String,
-    pub batch_id: String,
-    pub design_revision_id: String,
-    pub design_sha256: String,
-    pub terminal_custody_receipt_id: String,
+    pub manufacturing_id: String,
+    pub inspection_artifact_ref: String,
+    pub installation_artifact_ref: String,
+    pub as_built_artifact_ref: String,
     pub authority_ref: String,
     pub inspector_id: String,
     pub role: String,
     pub scope_ref: String,
     pub evidence_refs: Vec<String>,
-    pub outcome: InspectionOutcome,
+    pub claimed_outcome: InspectionClaim,
     pub inspected_at: u64,
 }
 
@@ -188,18 +190,18 @@ pub struct InspectionReceipt {
 pub struct ConstructionProjectTrace {
     pub schema_version: u32,
     pub project_id: String,
-    pub current_design_revision_id: String,
-    /// Optional link to site context; never a second GIS record.
-    pub site_context: Option<ExternalArtifactRef>,
-    /// Optional link to a Sol-Atlas Foundry alternative; never a second GIS record.
-    pub external_portfolio_context: Option<ExternalArtifactRef>,
-    pub design_revisions: Vec<DesignRevision>,
-    pub simulation_runs: Vec<SimulationRun>,
+    /// Points to the current design revision owned by Symthaea/Sol-Atlas or
+    /// another named design authority. Revision history stays at that owner.
+    pub current_design_artifact_ref: String,
+    pub site_context_artifact_ref: Option<String>,
+    pub portfolio_alternative_artifact_ref: Option<String>,
+    pub artifact_references: Vec<ExternalArtifactRef>,
     pub authority_assertions: Vec<AuthorityAssertion>,
     pub evidence_assertions: Vec<EvidenceAssertion>,
-    pub approvals: Vec<ApprovalReceipt>,
+    pub approvals: Vec<ParticipantApprovalReceipt>,
     pub material_batches: Vec<MaterialBatch>,
     pub custody_receipts: Vec<CustodyReceipt>,
+    pub manufacturing_receipts: Vec<ManufacturingReceipt>,
     pub inspections: Vec<InspectionReceipt>,
 }
 
@@ -247,70 +249,10 @@ fn nonempty(value: &str) -> bool {
 }
 
 fn valid_sha256(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-}
-
-fn external_artifact_disposition(
-    artifact: &ExternalArtifactRef,
-    expected_owner: Option<&str>,
-    expected_role: &str,
-    expected_revision: &str,
-    expected_sha256: Option<&str>,
-) -> Disposition {
-    if !nonempty(&artifact.reference)
-        || !nonempty(&artifact.owner_system)
-        || !nonempty(&artifact.artifact_role)
-        || !nonempty(&artifact.revision_ref)
-    {
-        return Disposition::Indeterminate;
-    }
-    if expected_owner.is_some_and(|owner| artifact.owner_system != owner)
-        || artifact.artifact_role != expected_role
-        || artifact.revision_ref != expected_revision
-        || expected_sha256.is_some_and(|digest| artifact.sha256 != digest)
-        || !valid_sha256(&artifact.sha256)
-    {
-        return Disposition::Rejected;
-    }
-    Disposition::Accepted
-}
-
-fn design_artifact_disposition(design: &DesignRevision) -> Disposition {
-    combine(
-        combine(
-            external_artifact_disposition(
-                &design.source_artifact,
-                None,
-                "design_revision",
-                &design.revision_id,
-                Some(&design.sha256),
-            ),
-            external_artifact_disposition(
-                &design.ifc_model_export,
-                None,
-                "ifc_model_export",
-                &design.revision_id,
-                None,
-            ),
-        ),
-        external_artifact_disposition(
-            &design.drawing_package,
-            None,
-            "drawing_package",
-            &design.revision_id,
-            None,
-        ),
-    )
-}
-
-fn simulation_artifact_disposition(run: &SimulationRun) -> Disposition {
-    external_artifact_disposition(
-        &run.execution_artifact,
-        None,
-        "simulation_run",
-        &run.run_id,
-        Some(&run.result_sha256),
-    )
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn valid_at(from: u64, until: Option<u64>, available_at: u64, event_at: u64) -> bool {
@@ -328,6 +270,38 @@ fn combine(current: Disposition, next: Disposition) -> Disposition {
     }
 }
 
+fn artifact_disposition(
+    trace: &ConstructionProjectTrace,
+    reference: &str,
+    expected_owner: Option<&str>,
+    expected_role: Option<&str>,
+) -> Disposition {
+    if !nonempty(reference) {
+        return Disposition::Indeterminate;
+    }
+    let matching = trace
+        .artifact_references
+        .iter()
+        .filter(|artifact| artifact.reference == reference)
+        .collect::<Vec<_>>();
+    let Some(artifact) = matching.first().copied() else {
+        return Disposition::Indeterminate;
+    };
+    if matching.len() != 1 {
+        return Disposition::Rejected;
+    }
+    if !nonempty(&artifact.owner_system)
+        || !nonempty(&artifact.artifact_role)
+        || !nonempty(&artifact.revision_ref)
+        || !valid_sha256(&artifact.sha256)
+        || expected_owner.is_some_and(|owner| artifact.owner_system != owner)
+        || expected_role.is_some_and(|role| artifact.artifact_role != role)
+    {
+        return Disposition::Rejected;
+    }
+    Disposition::Accepted
+}
+
 fn evidence_disposition(
     trace: &ConstructionProjectTrace,
     reference: &str,
@@ -337,7 +311,11 @@ fn evidence_disposition(
     if !nonempty(reference) || !nonempty(subject_ref) {
         return Disposition::Indeterminate;
     }
-    let matching = trace.evidence_assertions.iter().filter(|item| item.reference == reference).collect::<Vec<_>>();
+    let matching = trace
+        .evidence_assertions
+        .iter()
+        .filter(|item| item.reference == reference)
+        .collect::<Vec<_>>();
     let Some(evidence) = matching.first().copied() else {
         return Disposition::Indeterminate;
     };
@@ -378,10 +356,18 @@ fn authority_disposition(
     scope_ref: &str,
     event_at: u64,
 ) -> Disposition {
-    if !nonempty(reference) || !nonempty(signer_id) || !nonempty(role) || !nonempty(scope_ref) {
+    if !nonempty(reference)
+        || !nonempty(signer_id)
+        || !nonempty(role)
+        || !nonempty(scope_ref)
+    {
         return Disposition::Indeterminate;
     }
-    let matching = trace.authority_assertions.iter().filter(|item| item.reference == reference).collect::<Vec<_>>();
+    let matching = trace
+        .authority_assertions
+        .iter()
+        .filter(|item| item.reference == reference)
+        .collect::<Vec<_>>();
     let Some(authority) = matching.first().copied() else {
         return Disposition::Indeterminate;
     };
@@ -412,201 +398,19 @@ fn authority_disposition(
     }
 }
 
-fn design_for(
-    trace: &ConstructionProjectTrace,
-    revision_id: &str,
-) -> Option<&DesignRevision> {
-    trace
-        .design_revisions
+fn unique_material_batch<'a>(
+    trace: &'a ConstructionProjectTrace,
+    batch_id: &str,
+) -> Option<&'a MaterialBatch> {
+    let matches = trace
+        .material_batches
         .iter()
-        .find(|revision| revision.revision_id == revision_id)
-}
-
-fn simulation_for(
-    trace: &ConstructionProjectTrace,
-    run_id: &str,
-) -> Option<&SimulationRun> {
-    trace.simulation_runs.iter().find(|run| run.run_id == run_id)
-}
-
-fn revision_lineage_is_valid(
-    trace: &ConstructionProjectTrace,
-    revision_id: &str,
-) -> bool {
-    let mut visited = BTreeSet::new();
-    let mut current_id = revision_id;
-
-    loop {
-        if !visited.insert(current_id.to_owned()) {
-            return false;
-        }
-        let matching = trace
-            .design_revisions
-            .iter()
-            .filter(|revision| revision.revision_id == current_id)
-            .collect::<Vec<_>>();
-        let Some(current) = matching.first().copied() else {
-            return false;
-        };
-        if matching.len() != 1
-            || !valid_sha256(&current.sha256)
-            || design_artifact_disposition(current) != Disposition::Accepted
-        {
-            return false;
-        }
-        let Some(parent_id) = current.supersedes_revision_id.as_deref() else {
-            return true;
-        };
-        let children = trace
-            .design_revisions
-            .iter()
-            .filter(|revision| revision.supersedes_revision_id.as_deref() == Some(parent_id))
-            .count();
-        if children != 1 {
-            return false;
-        }
-        let parents = trace
-            .design_revisions
-            .iter()
-            .filter(|revision| revision.revision_id == parent_id)
-            .collect::<Vec<_>>();
-        let Some(parent) = parents.first() else {
-            return false;
-        };
-        if parents.len() != 1 || parent.created_at >= current.created_at {
-            return false;
-        }
-        current_id = parent_id;
-    }
-}
-
-fn revision_is_descendant_of(
-    trace: &ConstructionProjectTrace,
-    revision_id: &str,
-    ancestor_id: &str,
-) -> bool {
-    let mut visited = BTreeSet::new();
-    let mut current_id = revision_id;
-    loop {
-        if current_id == ancestor_id {
-            return true;
-        }
-        if !visited.insert(current_id.to_owned()) {
-            return false;
-        }
-        let matches = trace
-            .design_revisions
-            .iter()
-            .filter(|revision| revision.revision_id == current_id)
-            .collect::<Vec<_>>();
-        let Some(current) = matches.first() else {
-            return false;
-        };
-        if matches.len() != 1 {
-            return false;
-        }
-        let Some(parent_id) = current.supersedes_revision_id.as_deref() else {
-            return false;
-        };
-        current_id = parent_id;
-    }
-}
-
-fn approval_record_disposition(
-    trace: &ConstructionProjectTrace,
-    approval: &ApprovalReceipt,
-) -> Disposition {
-    if !valid_sha256(&approval.design_sha256)
-        || !valid_sha256(&approval.simulation_result_sha256)
-        || approval.approval_id.trim().is_empty()
-    {
-        return Disposition::Rejected;
-    }
-    if trace.design_revisions.iter().filter(|item| item.revision_id == approval.design_revision_id).count() != 1 {
-        return Disposition::Rejected;
-    }
-    let Some(design) = design_for(trace, &approval.design_revision_id) else {
-        return Disposition::Indeterminate;
-    };
-    if design.sha256 != approval.design_sha256 || !valid_sha256(&design.sha256) {
-        return Disposition::Rejected;
-    }
-    let has_child = trace.design_revisions.iter().any(|candidate| {
-        candidate.supersedes_revision_id.as_deref() == Some(approval.design_revision_id.as_str())
-    });
-    if (approval.design_revision_id == trace.current_design_revision_id && has_child)
-        || !revision_lineage_is_valid(trace, &approval.design_revision_id)
-    {
-        return Disposition::Rejected;
-    }
-    let design_artifacts = design_artifact_disposition(design);
-    if design_artifacts != Disposition::Accepted {
-        return design_artifacts;
-    }
-    if trace.simulation_runs.iter().filter(|item| item.run_id == approval.simulation_run_id).count() != 1 {
-        return Disposition::Rejected;
-    }
-    let Some(simulation) = simulation_for(trace, &approval.simulation_run_id) else {
-        return Disposition::Indeterminate;
-    };
-    let simulation_artifact = simulation_artifact_disposition(simulation);
-    if simulation_artifact != Disposition::Accepted {
-        return simulation_artifact;
-    }
-    if simulation.design_revision_id != approval.design_revision_id
-        || simulation.design_sha256 != approval.design_sha256
-        || simulation.result_sha256 != approval.simulation_result_sha256
-        || simulation.completed_at < design.created_at
-        || simulation.completed_at > approval.decided_at
-    {
-        return Disposition::Rejected;
-    }
-    if !nonempty(&simulation.solver_id) || !nonempty(&simulation.solver_version) {
-        return Disposition::Indeterminate;
-    }
-
-    let mut result = authority_disposition(
-        trace,
-        &approval.authority_ref,
-        &approval.signer_id,
-        &approval.role,
-        &approval.scope_ref,
-        approval.decided_at,
-    );
-    if approval.decision == ApprovalDecision::Rejected {
-        return Disposition::Rejected;
-    }
-    if approval.decision == ApprovalDecision::Deferred {
-        return combine(result, Disposition::Indeterminate);
-    }
-    if approval.conditions.iter().any(|condition| !condition.satisfied) {
-        result = combine(result, Disposition::Indeterminate);
-    }
-    if approval.evidence_refs.is_empty() {
-        result = combine(result, Disposition::Indeterminate);
-    }
-    for evidence_ref in &approval.evidence_refs {
-        result = combine(
-            result,
-            evidence_disposition(trace, evidence_ref, &approval.scope_ref, approval.decided_at),
-        );
-    }
-    result
-}
-
-fn approval_disposition(
-    trace: &ConstructionProjectTrace,
-    approval: &ApprovalReceipt,
-    superseded: bool,
-) -> Disposition {
-    let historical = approval_record_disposition(trace, approval);
-    if historical != Disposition::Accepted {
-        return historical;
-    }
-    if superseded || approval.design_revision_id != trace.current_design_revision_id {
-        Disposition::Superseded
+        .filter(|batch| batch.batch_id == batch_id)
+        .collect::<Vec<_>>();
+    if matches.len() == 1 {
+        matches.first().copied()
     } else {
-        Disposition::Accepted
+        None
     }
 }
 
@@ -655,19 +459,25 @@ fn custody_disposition(
     });
 
     let mut result = Disposition::Accepted;
-    let mut receipt_ids = BTreeSet::new();
     let mut previous_id: Option<&str> = None;
     let mut previous_to: Option<&str> = None;
     let mut previous_time = 0_u64;
 
     for (index, receipt) in receipts.iter().enumerate() {
-        if !receipt_ids.insert(receipt.receipt_id.as_str()) {
-            return Disposition::Rejected;
-        }
         if !nonempty(&receipt.receipt_id)
             || !nonempty(&receipt.from_party_id)
             || !nonempty(&receipt.to_party_id)
             || !nonempty(&receipt.evidence_ref)
+        {
+            return Disposition::Rejected;
+        }
+        if trace
+            .custody_receipts
+            .iter()
+            .filter(|item| item.receipt_id == receipt.receipt_id)
+            .count()
+            != 1
+            || receipt.occurred_at < batch.declared_at
         {
             return Disposition::Rejected;
         }
@@ -683,17 +493,14 @@ fn custody_disposition(
         {
             return Disposition::Rejected;
         }
-        if trace.custody_receipts
-            .iter()
-            .filter(|item| item.receipt_id == receipt.receipt_id)
-            .count() != 1
-            || receipt.occurred_at < batch.declared_at
-        {
-            return Disposition::Rejected;
-        }
         result = combine(
             result,
-            evidence_disposition(trace, &receipt.evidence_ref, &receipt.receipt_id, receipt.occurred_at),
+            evidence_disposition(
+                trace,
+                &receipt.evidence_ref,
+                &receipt.receipt_id,
+                receipt.occurred_at,
+            ),
         );
         previous_id = Some(receipt.receipt_id.as_str());
         previous_to = Some(receipt.to_party_id.as_str());
@@ -705,156 +512,444 @@ fn custody_disposition(
     result
 }
 
-/// Independently evaluate each record family without minting a project-wide
-/// readiness or safety decision.
+fn participant_approval_record_disposition(
+    trace: &ConstructionProjectTrace,
+    approval: &ParticipantApprovalReceipt,
+) -> Disposition {
+    if !nonempty(&approval.approval_id) || !nonempty(&approval.scope_ref) {
+        return Disposition::Rejected;
+    }
+    let mut result = artifact_disposition(
+        trace,
+        &approval.subject_artifact_ref,
+        None,
+        Some("design_revision"),
+    );
+    if approval.supporting_artifact_refs.is_empty() {
+        result = combine(result, Disposition::Indeterminate);
+    }
+    let mut support_ids = BTreeSet::new();
+    let mut has_engineering_receipt = false;
+    for reference in &approval.supporting_artifact_refs {
+        if !support_ids.insert(reference.as_str()) {
+            result = combine(result, Disposition::Rejected);
+            continue;
+        }
+        result = combine(
+            result,
+            artifact_disposition(trace, reference, None, None),
+        );
+        has_engineering_receipt |= trace
+            .artifact_references
+            .iter()
+            .any(|artifact| {
+                artifact.reference == *reference
+                    && artifact.artifact_role == "engineering_receipt"
+            });
+    }
+    if !has_engineering_receipt {
+        result = combine(result, Disposition::Indeterminate);
+    }
+    result = combine(
+        result,
+        authority_disposition(
+            trace,
+            &approval.authority_ref,
+            &approval.signer_id,
+            &approval.role,
+            &approval.scope_ref,
+            approval.decided_at,
+        ),
+    );
+    if approval.evidence_refs.is_empty() {
+        result = combine(result, Disposition::Indeterminate);
+    }
+    for reference in &approval.evidence_refs {
+        result = combine(
+            result,
+            evidence_disposition(
+                trace,
+                reference,
+                &approval.scope_ref,
+                approval.decided_at,
+            ),
+        );
+    }
+    if approval.conditions.iter().any(|condition| !condition.satisfied) {
+        result = combine(result, Disposition::Indeterminate);
+    }
+    match approval.decision {
+        ParticipantDecision::Affirmed => result,
+        ParticipantDecision::Objected => Disposition::Rejected,
+        ParticipantDecision::Deferred => combine(result, Disposition::Indeterminate),
+    }
+}
+
+fn participant_approval_disposition(
+    trace: &ConstructionProjectTrace,
+    approval: &ParticipantApprovalReceipt,
+    superseded: bool,
+) -> Disposition {
+    let record = participant_approval_record_disposition(trace, approval);
+    if record != Disposition::Accepted {
+        return record;
+    }
+    if superseded || approval.subject_artifact_ref != trace.current_design_artifact_ref {
+        Disposition::Superseded
+    } else {
+        Disposition::Accepted
+    }
+}
+
+fn manufacturing_disposition(
+    trace: &ConstructionProjectTrace,
+    manufacturing: &ManufacturingReceipt,
+    report: &AuditReport,
+) -> Disposition {
+    if !nonempty(&manufacturing.manufacturing_id)
+        || !nonempty(&manufacturing.manufacturer_id)
+        || !nonempty(&manufacturing.scope_ref)
+    {
+        return Disposition::Rejected;
+    }
+    let mut result = artifact_disposition(
+        trace,
+        &manufacturing.design_artifact_ref,
+        None,
+        Some("design_revision"),
+    );
+    result = combine(
+        result,
+        artifact_disposition(
+            trace,
+            &manufacturing.manufacturing_artifact_ref,
+            None,
+            Some("manufacturing_record"),
+        ),
+    );
+    result = combine(
+        result,
+        artifact_disposition(
+            trace,
+            &manufacturing.component_artifact_ref,
+            None,
+            Some("fabricated_component"),
+        ),
+    );
+
+    let Some(batch) = unique_material_batch(trace, &manufacturing.material_batch_id) else {
+        return combine(result, Disposition::Indeterminate);
+    };
+    result = combine(
+        result,
+        report
+            .disposition_for("material_batch", &batch.batch_id)
+            .unwrap_or(Disposition::Indeterminate),
+    );
+    result = combine(
+        result,
+        report
+            .disposition_for("custody", &batch.batch_id)
+            .unwrap_or(Disposition::Indeterminate),
+    );
+    let last_custody_time = trace
+        .custody_receipts
+        .iter()
+        .filter(|receipt| receipt.batch_id == batch.batch_id)
+        .map(|receipt| receipt.occurred_at)
+        .max();
+    if last_custody_time.is_none_or(|time| time > manufacturing.manufactured_at) {
+        result = combine(result, Disposition::Indeterminate);
+    }
+    result = combine(
+        result,
+        authority_disposition(
+            trace,
+            &manufacturing.authority_ref,
+            &manufacturing.manufacturer_id,
+            &manufacturing.role,
+            &manufacturing.scope_ref,
+            manufacturing.manufactured_at,
+        ),
+    );
+    if manufacturing.evidence_refs.is_empty() {
+        result = combine(result, Disposition::Indeterminate);
+    }
+    for reference in &manufacturing.evidence_refs {
+        result = combine(
+            result,
+            evidence_disposition(
+                trace,
+                reference,
+                &manufacturing.scope_ref,
+                manufacturing.manufactured_at,
+            ),
+        );
+    }
+    result
+}
+
+fn inspection_disposition(
+    trace: &ConstructionProjectTrace,
+    inspection: &InspectionReceipt,
+    report: &AuditReport,
+) -> Disposition {
+    if !nonempty(&inspection.inspection_id) || !nonempty(&inspection.scope_ref) {
+        return Disposition::Rejected;
+    }
+    let manufacturing_matches = trace
+        .manufacturing_receipts
+        .iter()
+        .filter(|item| item.manufacturing_id == inspection.manufacturing_id)
+        .collect::<Vec<_>>();
+    let Some(manufacturing) = manufacturing_matches.first().copied() else {
+        return Disposition::Indeterminate;
+    };
+    if manufacturing_matches.len() != 1 {
+        return Disposition::Rejected;
+    }
+    if report.disposition_for("manufacturing", &manufacturing.manufacturing_id)
+        != Some(Disposition::Accepted)
+        || inspection.inspected_at < manufacturing.manufactured_at
+    {
+        return Disposition::Indeterminate;
+    }
+
+    let mut result = artifact_disposition(
+        trace,
+        &inspection.inspection_artifact_ref,
+        None,
+        Some("inspection_record"),
+    );
+    result = combine(
+        result,
+        artifact_disposition(
+            trace,
+            &inspection.installation_artifact_ref,
+            None,
+            Some("installation_record"),
+        ),
+    );
+    result = combine(
+        result,
+        artifact_disposition(
+            trace,
+            &inspection.as_built_artifact_ref,
+            None,
+            Some("as_built_asset"),
+        ),
+    );
+
+    if inspection.evidence_refs.is_empty() {
+        result = combine(result, Disposition::Indeterminate);
+    }
+    for reference in &inspection.evidence_refs {
+        result = combine(
+            result,
+            evidence_disposition(
+                trace,
+                reference,
+                &inspection.scope_ref,
+                inspection.inspected_at,
+            ),
+        );
+    }
+    result = combine(
+        result,
+        authority_disposition(
+            trace,
+            &inspection.authority_ref,
+            &inspection.inspector_id,
+            &inspection.role,
+            &inspection.scope_ref,
+            inspection.inspected_at,
+        ),
+    );
+    match inspection.claimed_outcome {
+        InspectionClaim::Conforming => result,
+        InspectionClaim::Nonconforming => Disposition::Rejected,
+        InspectionClaim::Inconclusive => combine(result, Disposition::Indeterminate),
+    }
+}
+
+/// Evaluate identity, authority and custody receipts independently. A valid
+/// participant or inspection attestation is not a Sol-Atlas engineering
+/// decision, statutory permit, professional certification or operating order.
 pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
     let mut report = AuditReport::default();
-
     if trace.schema_version != 1 || !nonempty(&trace.project_id) {
-        report.push("project", &trace.project_id, Disposition::Rejected, "invalid_project_envelope");
-    }
-
-    if let Some(site) = &trace.site_context {
-        let disposition = external_artifact_disposition(
-            site,
-            Some("sol-atlas-leptos"),
-            "site_context",
-            &site.revision_ref,
-            None,
-        );
         report.push(
-            "external_context",
-            &site.reference,
-            disposition,
-            match disposition {
-                Disposition::Accepted => "sol_atlas_site_reference_well_formed",
-                Disposition::Rejected => "sol_atlas_site_reference_rejected",
-                Disposition::Indeterminate => "sol_atlas_site_reference_incomplete",
-                Disposition::Disputed => "sol_atlas_site_reference_disputed",
-                Disposition::Superseded => "sol_atlas_site_reference_superseded",
-            },
+            "project",
+            &trace.project_id,
+            Disposition::Rejected,
+            "invalid_project_envelope",
         );
     }
 
-    if let Some(context) = &trace.external_portfolio_context {
-        let disposition = external_artifact_disposition(
-            context,
-            Some("sol-atlas-leptos"),
-            "portfolio_alternative",
-            &context.revision_ref,
-            None,
-        );
-        report.push(
-            "external_context",
-            &context.reference,
-            disposition,
-            match disposition {
-                Disposition::Accepted => "sol_atlas_portfolio_reference_well_formed",
-                Disposition::Rejected => "sol_atlas_portfolio_reference_rejected",
-                Disposition::Indeterminate => "sol_atlas_portfolio_reference_incomplete",
-                Disposition::Disputed => "sol_atlas_portfolio_reference_disputed",
-                Disposition::Superseded => "sol_atlas_portfolio_reference_superseded",
-            },
-        );
-    }
-
-    let mut revision_ids = BTreeSet::new();
-    let mut duplicate_revision_ids = BTreeSet::new();
-    for revision in &trace.design_revisions {
-        if !revision_ids.insert(revision.revision_id.clone()) {
-            duplicate_revision_ids.insert(revision.revision_id.clone());
+    let mut artifact_ids = BTreeSet::new();
+    let mut duplicate_artifact_ids = BTreeSet::new();
+    for artifact in &trace.artifact_references {
+        if !artifact_ids.insert(artifact.reference.clone()) {
+            duplicate_artifact_ids.insert(artifact.reference.clone());
         }
     }
-    for revision in &trace.design_revisions {
-        if duplicate_revision_ids.contains(&revision.revision_id) {
-            report.push("design", &revision.revision_id, Disposition::Rejected, "duplicate_revision_id");
-            continue;
-        }
-        if !valid_sha256(&revision.sha256) || !nonempty(&revision.revision_id) {
-            report.push("design", &revision.revision_id, Disposition::Rejected, "invalid_revision_identity_or_digest");
-        } else if revision.revision_id != trace.current_design_revision_id {
-            report.push("design", &revision.revision_id, Disposition::Superseded, "not_current_design_revision");
+    for artifact in &trace.artifact_references {
+        let disposition = if duplicate_artifact_ids.contains(&artifact.reference) {
+            Disposition::Rejected
         } else {
-            let has_child = trace.design_revisions.iter().any(|candidate| {
-                candidate.supersedes_revision_id.as_deref() == Some(revision.revision_id.as_str())
-            });
-            let lineage_valid =
-                !has_child && revision_lineage_is_valid(trace, &revision.revision_id);
-            let combined = if lineage_valid {
-                design_artifact_disposition(revision)
-            } else {
-                Disposition::Rejected
-            };
-            report.push(
-                "design",
-                &revision.revision_id,
-                combined,
-                match combined {
-                    Disposition::Accepted => "current_revision_ifc_drawing_and_source_bound",
-                    Disposition::Rejected => "invalid_revision_lineage_or_external_artifact_binding",
-                    Disposition::Indeterminate => "external_design_artifact_reference_missing",
-                    Disposition::Disputed => "external_design_artifact_reference_disputed",
-                    Disposition::Superseded => "design_revision_superseded",
-                },
-            );
-        }
-    }
-    if design_for(trace, &trace.current_design_revision_id).is_none() {
-        report.push("design", &trace.current_design_revision_id, Disposition::Indeterminate, "current_revision_missing");
-    }
-
-    let mut simulation_ids = BTreeSet::new();
-    let mut duplicate_simulation_ids = BTreeSet::new();
-    for run in &trace.simulation_runs {
-        if !simulation_ids.insert(run.run_id.clone()) {
-            duplicate_simulation_ids.insert(run.run_id.clone());
-        }
-    }
-    for run in &trace.simulation_runs {
-        if duplicate_simulation_ids.contains(&run.run_id) {
-            report.push("simulation", &run.run_id, Disposition::Rejected, "duplicate_simulation_id");
-            continue;
-        }
-        if trace
-            .design_revisions
-            .iter()
-            .filter(|revision| revision.revision_id == run.design_revision_id)
-            .count() > 1
-        {
-            report.push("simulation", &run.run_id, Disposition::Rejected, "ambiguous_design_revision_identity");
-            continue;
-        }
-        let Some(design) = design_for(trace, &run.design_revision_id) else {
-            report.push("simulation", &run.run_id, Disposition::Indeterminate, "design_revision_missing");
-            continue;
+            artifact_disposition(trace, &artifact.reference, None, None)
         };
-        if run.design_revision_id != trace.current_design_revision_id {
-            report.push("simulation", &run.run_id, Disposition::Superseded, "simulation_targets_superseded_design");
-        } else if run.design_sha256 != design.sha256
-            || !valid_sha256(&run.design_sha256)
-            || !valid_sha256(&run.result_sha256)
-        {
-            report.push("simulation", &run.run_id, Disposition::Rejected, "simulation_design_or_result_digest_mismatch");
-        } else if run.completed_at < design.created_at
-            || !nonempty(&run.solver_id)
-            || !nonempty(&run.solver_version)
-        {
-            report.push("simulation", &run.run_id, Disposition::Rejected, "invalid_simulation_provenance");
+        report.push(
+            "artifact_reference",
+            &artifact.reference,
+            disposition,
+            match disposition {
+                Disposition::Accepted => "opaque_source_reference_well_formed",
+                Disposition::Rejected => "duplicate_or_malformed_source_reference",
+                Disposition::Indeterminate => "source_reference_missing_or_incomplete",
+                Disposition::Disputed => "source_reference_disputed",
+                Disposition::Superseded => "source_reference_superseded",
+            },
+        );
+    }
+
+    let current_design = artifact_disposition(
+        trace,
+        &trace.current_design_artifact_ref,
+        None,
+        Some("design_revision"),
+    );
+    report.push(
+        "current_design",
+        &trace.current_design_artifact_ref,
+        current_design,
+        if current_design == Disposition::Accepted {
+            "current_design_source_reference_bound"
         } else {
-            let disposition = simulation_artifact_disposition(run);
-            report.push(
-                "simulation",
-                &run.run_id,
-                disposition,
-                match disposition {
-                    Disposition::Accepted => "exact_design_and_external_run_binding_valid",
-                    Disposition::Rejected => "external_simulation_run_binding_rejected",
-                    Disposition::Indeterminate => "external_simulation_run_reference_missing",
-                    Disposition::Disputed => "external_simulation_run_reference_disputed",
-                    Disposition::Superseded => "simulation_run_superseded",
-                },
-            );
+            "current_design_source_reference_not_qualified"
+        },
+    );
+    if let Some(site_ref) = trace.site_context_artifact_ref.as_deref() {
+        let site = artifact_disposition(
+            trace,
+            site_ref,
+            Some("sol-atlas-leptos"),
+            Some("site_context"),
+        );
+        report.push(
+            "site_context",
+            site_ref,
+            site,
+            "sol_atlas_site_context_reference",
+        );
+    }
+    if let Some(portfolio_ref) = trace.portfolio_alternative_artifact_ref.as_deref() {
+        let portfolio = artifact_disposition(
+            trace,
+            portfolio_ref,
+            Some("sol-atlas-leptos"),
+            Some("portfolio_alternative"),
+        );
+        report.push(
+            "portfolio_context",
+            portfolio_ref,
+            portfolio,
+            "sol_atlas_portfolio_reference",
+        );
+    }
+
+    let mut evidence_ids = BTreeSet::new();
+    let mut duplicate_evidence_ids = BTreeSet::new();
+    for evidence in &trace.evidence_assertions {
+        if !evidence_ids.insert(evidence.reference.clone()) {
+            duplicate_evidence_ids.insert(evidence.reference.clone());
         }
+    }
+    for reference in duplicate_evidence_ids {
+        report.push(
+            "evidence_reference",
+            &reference,
+            Disposition::Rejected,
+            "duplicate_evidence_reference",
+        );
+    }
+
+    let mut authority_ids = BTreeSet::new();
+    let mut duplicate_authority_ids = BTreeSet::new();
+    for authority in &trace.authority_assertions {
+        if !authority_ids.insert(authority.reference.clone()) {
+            duplicate_authority_ids.insert(authority.reference.clone());
+        }
+    }
+    for reference in duplicate_authority_ids {
+        report.push(
+            "authority_reference",
+            &reference,
+            Disposition::Disputed,
+            "ambiguous_authority_reference",
+        );
+    }
+
+    let mut batch_ids = BTreeSet::new();
+    let mut duplicate_batch_ids = BTreeSet::new();
+    for batch in &trace.material_batches {
+        if !batch_ids.insert(batch.batch_id.clone()) {
+            duplicate_batch_ids.insert(batch.batch_id.clone());
+        }
+    }
+    for batch in &trace.material_batches {
+        let disposition = if duplicate_batch_ids.contains(&batch.batch_id) {
+            Disposition::Rejected
+        } else {
+            material_disposition(trace, batch)
+        };
+        report.push(
+            "material_batch",
+            &batch.batch_id,
+            disposition,
+            match disposition {
+                Disposition::Accepted => "supplier_claim_and_certificate_scope_bound",
+                Disposition::Rejected => "material_claim_or_certificate_rejected",
+                Disposition::Indeterminate => "material_certificate_missing_or_unknown",
+                Disposition::Disputed => "material_certificate_disputed",
+                Disposition::Superseded => "material_record_superseded",
+            },
+        );
+    }
+
+    let mut custody_ids = BTreeSet::new();
+    let mut duplicate_custody_ids = BTreeSet::new();
+    for receipt in &trace.custody_receipts {
+        if !custody_ids.insert(receipt.receipt_id.clone()) {
+            duplicate_custody_ids.insert(receipt.receipt_id.clone());
+        }
+    }
+    for receipt_id in duplicate_custody_ids {
+        report.push(
+            "custody_receipt",
+            &receipt_id,
+            Disposition::Rejected,
+            "duplicate_custody_receipt_id",
+        );
+    }
+    for batch in &trace.material_batches {
+        let disposition = if duplicate_batch_ids.contains(&batch.batch_id) {
+            Disposition::Rejected
+        } else {
+            custody_disposition(trace, batch)
+        };
+        report.push(
+            "custody",
+            &batch.batch_id,
+            disposition,
+            match disposition {
+                Disposition::Accepted => "custody_chain_contiguous_to_receiving_site",
+                Disposition::Rejected => "custody_chain_discontinuous_or_malformed",
+                Disposition::Indeterminate => "custody_chain_incomplete_or_evidence_unknown",
+                Disposition::Disputed => "custody_chain_evidence_disputed",
+                Disposition::Superseded => "custody_chain_superseded",
+            },
+        );
     }
 
     let mut approval_ids = BTreeSet::new();
@@ -864,11 +959,6 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
             duplicate_approval_ids.insert(approval.approval_id.clone());
         }
     }
-
-    // Supersession is only effective when a unique, later, fully accepted
-    // successor explicitly names a unique, previously accepted predecessor
-    // on the same design revision. A rejected or unknown successor cannot
-    // erase a valid earlier approval.
     let mut superseded_approvals = BTreeSet::new();
     for successor in &trace.approvals {
         if duplicate_approval_ids.contains(&successor.approval_id)
@@ -893,78 +983,72 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
             continue;
         };
         if predecessors.len() == 1
-            && revision_is_descendant_of(
-                trace,
-                &successor.design_revision_id,
-                &predecessor.design_revision_id,
-            )
+            && predecessor.subject_artifact_ref == successor.subject_artifact_ref
             && predecessor.decided_at < successor.decided_at
-            && approval_record_disposition(trace, predecessor) == Disposition::Accepted
-            && approval_record_disposition(trace, successor) == Disposition::Accepted
+            && participant_approval_record_disposition(trace, predecessor)
+                == Disposition::Accepted
+            && participant_approval_record_disposition(trace, successor)
+                == Disposition::Accepted
         {
             superseded_approvals.insert(predecessor_id.to_owned());
         }
     }
-
     for approval in &trace.approvals {
-        if duplicate_approval_ids.contains(&approval.approval_id) {
-            report.push("approval", &approval.approval_id, Disposition::Rejected, "duplicate_approval_id");
-            continue;
-        }
-        let disposition = approval_disposition(
-            trace,
-            approval,
-            superseded_approvals.contains(&approval.approval_id),
+        let disposition = if duplicate_approval_ids.contains(&approval.approval_id) {
+            Disposition::Rejected
+        } else {
+            participant_approval_disposition(
+                trace,
+                approval,
+                superseded_approvals.contains(&approval.approval_id),
+            )
+        };
+        report.push(
+            "participant_approval",
+            &approval.approval_id,
+            disposition,
+            match disposition {
+                Disposition::Accepted => "participant_authority_receipt_valid",
+                Disposition::Rejected => "participant_attestation_rejected",
+                Disposition::Indeterminate => "participant_authority_or_evidence_incomplete",
+                Disposition::Disputed => "participant_attestation_disputed",
+                Disposition::Superseded => "participant_attestation_not_current",
+            },
         );
-        let code = match disposition {
-            Disposition::Accepted => "approval_bindings_valid",
-            Disposition::Rejected => "approval_binding_rejected",
-            Disposition::Indeterminate => "approval_evidence_or_authority_incomplete",
-            Disposition::Disputed => "approval_depends_on_disputed_evidence",
-            Disposition::Superseded => "approval_is_not_current",
-        };
-        report.push("approval", &approval.approval_id, disposition, code);
     }
 
-    let mut batch_ids = BTreeSet::new();
-    let mut duplicate_batch_ids = BTreeSet::new();
-    for batch in &trace.material_batches {
-        if !batch_ids.insert(batch.batch_id.clone()) {
-            duplicate_batch_ids.insert(batch.batch_id.clone());
+    let mut manufacturing_ids = BTreeSet::new();
+    let mut duplicate_manufacturing_ids = BTreeSet::new();
+    for receipt in &trace.manufacturing_receipts {
+        if !manufacturing_ids.insert(receipt.manufacturing_id.clone()) {
+            duplicate_manufacturing_ids.insert(receipt.manufacturing_id.clone());
         }
     }
-    for batch in &trace.material_batches {
-        if duplicate_batch_ids.contains(&batch.batch_id) {
-            report.push("material_batch", &batch.batch_id, Disposition::Rejected, "duplicate_batch_id");
-            continue;
-        }
-        let disposition = material_disposition(trace, batch);
-        let code = match disposition {
-            Disposition::Accepted => "certification_reference_and_supplier_assertion_separated",
-            Disposition::Rejected => "material_evidence_rejected",
-            Disposition::Indeterminate => "material_certification_missing_or_unknown",
-            Disposition::Disputed => "material_certification_disputed",
-            Disposition::Superseded => "material_record_superseded",
+    let mut manufacturing_report = report.clone();
+    for receipt in &trace.manufacturing_receipts {
+        let disposition = if duplicate_manufacturing_ids.contains(&receipt.manufacturing_id) {
+            Disposition::Rejected
+        } else {
+            manufacturing_disposition(trace, receipt, &manufacturing_report)
         };
-        report.push("material_batch", &batch.batch_id, disposition, code);
-    }
-
-    let mut custody_ids = BTreeSet::new();
-    for receipt in &trace.custody_receipts {
-        if !custody_ids.insert(receipt.receipt_id.clone()) {
-            report.push("custody_receipt", &receipt.receipt_id, Disposition::Rejected, "duplicate_custody_receipt_id");
-        }
-    }
-    for batch in &trace.material_batches {
-        let disposition = custody_disposition(trace, batch);
-        let code = match disposition {
-            Disposition::Accepted => "custody_chain_contiguous_to_receiving_site",
-            Disposition::Rejected => "custody_chain_discontinuous_or_malformed",
-            Disposition::Indeterminate => "custody_chain_incomplete_or_evidence_unknown",
-            Disposition::Disputed => "custody_chain_evidence_disputed",
-            Disposition::Superseded => "custody_chain_superseded",
-        };
-        report.push("custody", &batch.batch_id, disposition, code);
+        report.push(
+            "manufacturing",
+            &receipt.manufacturing_id,
+            disposition,
+            match disposition {
+                Disposition::Accepted => "manufacturer_attestation_and_batch_link_valid",
+                Disposition::Rejected => "manufacturer_attestation_rejected",
+                Disposition::Indeterminate => "manufacturer_authority_or_input_evidence_incomplete",
+                Disposition::Disputed => "manufacturer_attestation_disputed",
+                Disposition::Superseded => "manufacturer_attestation_superseded",
+            },
+        );
+        manufacturing_report.push(
+            "manufacturing",
+            &receipt.manufacturing_id,
+            disposition,
+            "manufacturing_dependency",
+        );
     }
 
     let mut inspection_ids = BTreeSet::new();
@@ -975,111 +1059,29 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         }
     }
     for inspection in &trace.inspections {
-        if duplicate_inspection_ids.contains(&inspection.inspection_id) {
-            report.push("inspection", &inspection.inspection_id, Disposition::Rejected, "duplicate_inspection_id");
-            continue;
-        }
-        let disposition = inspection_disposition(trace, inspection, &report);
-        let code = match disposition {
-            Disposition::Accepted => "inspection_record_bindings_valid",
-            Disposition::Rejected => "inspection_record_rejected",
-            Disposition::Indeterminate => "inspection_record_incomplete",
-            Disposition::Disputed => "inspection_record_disputed",
-            Disposition::Superseded => "inspection_targets_superseded_design",
+        let disposition = if duplicate_inspection_ids.contains(&inspection.inspection_id) {
+            Disposition::Rejected
+        } else {
+            inspection_disposition(trace, inspection, &report)
         };
-        report.push("inspection", &inspection.inspection_id, disposition, code);
+        report.push(
+            "inspection",
+            &inspection.inspection_id,
+            disposition,
+            match disposition {
+                Disposition::Accepted => "inspection_attestation_bound_to_installation_and_as_built",
+                Disposition::Rejected => "inspection_attestation_or_claim_rejected",
+                Disposition::Indeterminate => "inspection_chain_or_evidence_incomplete",
+                Disposition::Disputed => "inspection_attestation_disputed",
+                Disposition::Superseded => "inspection_attestation_superseded",
+            },
+        );
     }
 
     report.findings.sort_by(|left, right| {
         (&left.subject_type, &left.subject_id).cmp(&(&right.subject_type, &right.subject_id))
     });
     report
-}
-
-fn inspection_disposition(
-    trace: &ConstructionProjectTrace,
-    inspection: &InspectionReceipt,
-    report: &AuditReport,
-) -> Disposition {
-    if inspection.design_revision_id != trace.current_design_revision_id {
-        return Disposition::Superseded;
-    }
-    let Some(design) = design_for(trace, &inspection.design_revision_id) else {
-        return Disposition::Indeterminate;
-    };
-    if inspection.design_sha256 != design.sha256 || !valid_sha256(&inspection.design_sha256) {
-        return Disposition::Rejected;
-    }
-    let Some(batch) = trace
-        .material_batches
-        .iter()
-        .find(|batch| batch.batch_id == inspection.batch_id)
-    else {
-        return Disposition::Indeterminate;
-    };
-    let terminal_matches = trace
-        .custody_receipts
-        .iter()
-        .filter(|receipt| receipt.receipt_id == inspection.terminal_custody_receipt_id)
-        .collect::<Vec<_>>();
-    let Some(terminal_receipt) = terminal_matches.first().copied() else {
-        return Disposition::Indeterminate;
-    };
-    if terminal_matches.len() != 1 {
-        return Disposition::Rejected;
-    }
-    if terminal_receipt.batch_id != batch.batch_id
-        || terminal_receipt.to_party_id != batch.receiving_site_party_id
-    {
-        return Disposition::Rejected;
-    }
-    let terminal_for_batch = trace
-        .custody_receipts
-        .iter()
-        .filter(|receipt| receipt.batch_id == batch.batch_id)
-        .max_by(|left, right| {
-            (left.occurred_at, left.receipt_id.as_str())
-                .cmp(&(right.occurred_at, right.receipt_id.as_str()))
-        });
-    if report.disposition_for("custody", &batch.batch_id) != Some(Disposition::Accepted)
-        || report.disposition_for("material_batch", &batch.batch_id) != Some(Disposition::Accepted)
-        || terminal_receipt.occurred_at > inspection.inspected_at
-        || terminal_for_batch.is_none_or(|receipt| receipt.receipt_id != terminal_receipt.receipt_id)
-    {
-        return Disposition::Indeterminate;
-    }
-    let approved = trace.approvals.iter().any(|approval| {
-        approval.design_revision_id == trace.current_design_revision_id
-            && approval.decided_at <= inspection.inspected_at
-            && report.disposition_for("approval", &approval.approval_id)
-                == Some(Disposition::Accepted)
-    });
-    if !approved {
-        return Disposition::Indeterminate;
-    }
-
-    let mut result = authority_disposition(
-        trace,
-        &inspection.authority_ref,
-        &inspection.inspector_id,
-        &inspection.role,
-        &inspection.scope_ref,
-        inspection.inspected_at,
-    );
-    if inspection.evidence_refs.is_empty() {
-        result = combine(result, Disposition::Indeterminate);
-    }
-    for evidence_ref in &inspection.evidence_refs {
-        result = combine(
-            result,
-            evidence_disposition(trace, evidence_ref, &inspection.inspection_id, inspection.inspected_at),
-        );
-    }
-    match inspection.outcome {
-        InspectionOutcome::Conforming => result,
-        InspectionOutcome::Nonconforming => Disposition::Rejected,
-        InspectionOutcome::Inconclusive => combine(result, Disposition::Indeterminate),
-    }
 }
 
 #[cfg(test)]
@@ -1089,6 +1091,37 @@ mod tests {
     const D1: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const D2: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     const D3: &str = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    const D4: &str = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+    const D5: &str = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+
+    fn artifact(
+        reference: &str,
+        owner: &str,
+        role: &str,
+        revision: &str,
+        digest: &str,
+    ) -> ExternalArtifactRef {
+        ExternalArtifactRef {
+            reference: reference.into(),
+            owner_system: owner.into(),
+            artifact_role: role.into(),
+            revision_ref: revision.into(),
+            sha256: digest.into(),
+        }
+    }
+
+    fn evidence(reference: &str, subject: &str, digest: &str) -> EvidenceAssertion {
+        EvidenceAssertion {
+            reference: reference.into(),
+            subject_ref: subject.into(),
+            sha256: digest.into(),
+            status: EvidenceStatus::Verified,
+            use_permission: UsePermission::Permitted,
+            available_at: 90,
+            valid_from: 90,
+            valid_until: Some(1_000),
+        }
+    }
 
     fn authority(reference: &str, signer: &str, role: &str, scope: &str) -> AuthorityAssertion {
         AuthorityAssertion {
@@ -1099,28 +1132,7 @@ mod tests {
             status: AuthorityStatus::Active,
             available_at: 90,
             valid_from: 90,
-            valid_until: Some(500),
-        }
-    }
-
-    fn evidence(reference: &str, digest: &str) -> EvidenceAssertion {
-        EvidenceAssertion {
-            reference: reference.into(),
-            subject_ref: match reference {
-                "evidence:design-review-r1" => "scope:design-r1",
-                "evidence:design-review-r2" => "scope:design-r2",
-                "evidence:batch-cert-01" => "claim:batch-01:recycled-content",
-                "evidence:custody-01-a" => "custody-01-a",
-                "evidence:custody-01-b" => "custody-01-b",
-                "evidence:inspection-01" => "inspection-01",
-                _ => "unknown",
-            }.into(),
-            sha256: digest.into(),
-            status: EvidenceStatus::Verified,
-            use_permission: UsePermission::Permitted,
-            available_at: 90,
-            valid_from: 90,
-            valid_until: Some(500),
+            valid_until: Some(1_000),
         }
     }
 
@@ -1128,159 +1140,82 @@ mod tests {
         ConstructionProjectTrace {
             schema_version: 1,
             project_id: "pavilion-demo-01".into(),
-            current_design_revision_id: "design-r2".into(),
-            site_context: Some(ExternalArtifactRef {
-                reference: "sol-atlas:site:pavilion-01".into(),
-                owner_system: "sol-atlas-leptos".into(),
-                artifact_role: "site_context".into(),
-                revision_ref: "site-r1".into(),
-                sha256: D1.into(),
-            }),
-            external_portfolio_context: Some(ExternalArtifactRef {
-                reference: "sol-atlas:foundry:study-01:alternative-01".into(),
-                owner_system: "sol-atlas-leptos".into(),
-                artifact_role: "portfolio_alternative".into(),
-                revision_ref: "alternative-r1".into(),
-                sha256: D3.into(),
-            }),
-            design_revisions: vec![
-                DesignRevision {
-                    revision_id: "design-r1".into(),
-                    source_artifact: ExternalArtifactRef {
-                        reference: "symthaea:design:pavilion-r1".into(),
-                        owner_system: "symthaea".into(),
-                        artifact_role: "design_revision".into(),
-                        revision_ref: "design-r1".into(),
-                        sha256: D1.into(),
-                    },
-                    ifc_model_export: ExternalArtifactRef {
-                        reference: "symthaea:ifc:pavilion-r1".into(),
-                        owner_system: "symthaea".into(),
-                        artifact_role: "ifc_model_export".into(),
-                        revision_ref: "design-r1".into(),
-                        sha256: D2.into(),
-                    },
-                    drawing_package: ExternalArtifactRef {
-                        reference: "symthaea:drawings:pavilion-r1".into(),
-                        owner_system: "symthaea".into(),
-                        artifact_role: "drawing_package".into(),
-                        revision_ref: "design-r1".into(),
-                        sha256: D3.into(),
-                    },
-                    sha256: D1.into(),
-                    supersedes_revision_id: None,
-                    created_at: 100,
-                },
-                DesignRevision {
-                    revision_id: "design-r2".into(),
-                    source_artifact: ExternalArtifactRef {
-                        reference: "symthaea:design:pavilion-r2".into(),
-                        owner_system: "symthaea".into(),
-                        artifact_role: "design_revision".into(),
-                        revision_ref: "design-r2".into(),
-                        sha256: D2.into(),
-                    },
-                    ifc_model_export: ExternalArtifactRef {
-                        reference: "symthaea:ifc:pavilion-r2".into(),
-                        owner_system: "symthaea".into(),
-                        artifact_role: "ifc_model_export".into(),
-                        revision_ref: "design-r2".into(),
-                        sha256: D1.into(),
-                    },
-                    drawing_package: ExternalArtifactRef {
-                        reference: "symthaea:drawings:pavilion-r2".into(),
-                        owner_system: "symthaea".into(),
-                        artifact_role: "drawing_package".into(),
-                        revision_ref: "design-r2".into(),
-                        sha256: D3.into(),
-                    },
-                    sha256: D2.into(),
-                    supersedes_revision_id: Some("design-r1".into()),
-                    created_at: 180,
-                },
-            ],
-            simulation_runs: vec![
-                SimulationRun {
-                    run_id: "sim-r1".into(),
-                    execution_artifact: ExternalArtifactRef {
-                        reference: "symtropy:run:sim-r1".into(),
-                        owner_system: "symtropy".into(),
-                        artifact_role: "simulation_run".into(),
-                        revision_ref: "sim-r1".into(),
-                        sha256: D3.into(),
-                    },
-                    design_revision_id: "design-r1".into(),
-                    design_sha256: D1.into(),
-                    solver_id: "symtropy-structural-adapter".into(),
-                    solver_version: "0.1.0".into(),
-                    result_sha256: D3.into(),
-                    completed_at: 130,
-                },
-                SimulationRun {
-                    run_id: "sim-r2".into(),
-                    execution_artifact: ExternalArtifactRef {
-                        reference: "symtropy:run:sim-r2".into(),
-                        owner_system: "symtropy".into(),
-                        artifact_role: "simulation_run".into(),
-                        revision_ref: "sim-r2".into(),
-                        sha256: D3.into(),
-                    },
-                    design_revision_id: "design-r2".into(),
-                    design_sha256: D2.into(),
-                    solver_id: "qualified-external-solver-ref".into(),
-                    solver_version: "vendor-build-7".into(),
-                    result_sha256: D3.into(),
-                    completed_at: 220,
-                },
+            current_design_artifact_ref: "sol-atlas:artifact:design-r2".into(),
+            site_context_artifact_ref: Some("sol-atlas:site:pavilion-01".into()),
+            portfolio_alternative_artifact_ref: Some("sol-atlas:foundry:alternative-01".into()),
+            artifact_references: vec![
+                artifact("symthaea:design:pavilion-r1", "symthaea", "design_revision", "design-r1", D1),
+                artifact("symthaea:ifc:pavilion-r1", "symthaea", "ifc_model_export", "design-r1", D2),
+                artifact("symthaea:drawings:pavilion-r1", "symthaea", "drawing_package", "design-r1", D3),
+                artifact("sol-atlas:artifact:design-r1", "sol-atlas-leptos", "design_revision", "design-r1", D1),
+                artifact("symthaea:design:pavilion-r2", "symthaea", "design_revision", "design-r2", D2),
+                artifact("symthaea:ifc:pavilion-r2", "symthaea", "ifc_model_export", "design-r2", D3),
+                artifact("symthaea:drawings:pavilion-r2", "symthaea", "drawing_package", "design-r2", D4),
+                artifact("sol-atlas:artifact:design-r2", "sol-atlas-leptos", "design_revision", "design-r2", D2),
+                artifact("symtropy:run:sim-r1", "symtropy", "simulation_run", "sim-r1", D3),
+                artifact("symtropy:run:sim-r2", "symtropy", "simulation_run", "sim-r2", D4),
+                artifact("sol-atlas:engineering:receipt-r1", "sol-atlas-leptos", "engineering_receipt", "receipt-r1", D4),
+                artifact("sol-atlas:engineering:receipt-r2", "sol-atlas-leptos", "engineering_receipt", "receipt-r2", D5),
+                artifact("sol-atlas:site:pavilion-01", "sol-atlas-leptos", "site_context", "site-r1", D1),
+                artifact("sol-atlas:foundry:alternative-01", "sol-atlas-leptos", "portfolio_alternative", "alternative-r1", D3),
+                artifact("fabricator:manufacturing:batch-01", "fabricator-system", "manufacturing_record", "mfg-r1", D4),
+                artifact("fabricator:component:segment-01", "fabricator-system", "fabricated_component", "component-r1", D5),
+                artifact("metrology:inspection:segment-01", "metrology-system", "inspection_record", "inspection-r1", D3),
+                artifact("site:installation:segment-01", "site-work-system", "installation_record", "install-r1", D4),
+                artifact("site:asbuilt:segment-01", "asbuilt-registry", "as_built_asset", "asbuilt-r1", D5),
             ],
             authority_assertions: vec![
-                authority("authority:design-r1", "party:engineer-01", "design-approver", "scope:design-r1"),
-                authority("authority:design-r2", "party:engineer-01", "design-approver", "scope:design-r2"),
-                authority("authority:inspection", "party:inspector-01", "independent-inspector", "scope:inspection:batch-01:r2"),
+                authority("authority:design-r1", "party:engineer-01", "design-representative", "scope:design-r1"),
+                authority("authority:design-r2", "party:engineer-01", "design-representative", "scope:design-r2"),
+                authority("authority:manufacturer", "party:manufacturer-01", "qualified-manufacturer", "scope:manufacture:segment-01"),
+                authority("authority:inspector", "party:inspector-01", "independent-inspector", "scope:inspection:segment-01"),
             ],
             evidence_assertions: vec![
-                evidence("evidence:design-review-r1", D1),
-                evidence("evidence:design-review-r2", D2),
-                evidence("evidence:batch-cert-01", D3),
-                evidence("evidence:custody-01-a", D1),
-                evidence("evidence:custody-01-b", D2),
-                evidence("evidence:inspection-01", D3),
+                evidence("evidence:design-r1", "scope:design-r1", D1),
+                evidence("evidence:design-r2", "scope:design-r2", D2),
+                evidence("evidence:batch-cert-01", "claim:batch-01:grade", D3),
+                evidence("evidence:custody-01-a", "custody-01-a", D1),
+                evidence("evidence:custody-01-b", "custody-01-b", D2),
+                evidence("evidence:manufacturing-01", "scope:manufacture:segment-01", D4),
+                evidence("evidence:inspection-01", "scope:inspection:segment-01", D5),
             ],
             approvals: vec![
-                ApprovalReceipt {
+                ParticipantApprovalReceipt {
                     approval_id: "approval-r1".into(),
-                    design_revision_id: "design-r1".into(),
-                    design_sha256: D1.into(),
-                    simulation_run_id: "sim-r1".into(),
-                    simulation_result_sha256: D3.into(),
+                    subject_artifact_ref: "sol-atlas:artifact:design-r1".into(),
+                    supporting_artifact_refs: vec![
+                        "symtropy:run:sim-r1".into(),
+                        "sol-atlas:engineering:receipt-r1".into(),
+                    ],
                     authority_ref: "authority:design-r1".into(),
                     signer_id: "party:engineer-01".into(),
-                    role: "design-approver".into(),
+                    role: "design-representative".into(),
                     scope_ref: "scope:design-r1".into(),
                     supersedes_approval_id: None,
-                    decision: ApprovalDecision::Approved,
+                    decision: ParticipantDecision::Affirmed,
                     conditions: vec![],
-                    evidence_refs: vec!["evidence:design-review-r1".into()],
+                    evidence_refs: vec!["evidence:design-r1".into()],
                     dissent_refs: vec![],
                     decided_at: 150,
                 },
-                ApprovalReceipt {
+                ParticipantApprovalReceipt {
                     approval_id: "approval-r2".into(),
-                    design_revision_id: "design-r2".into(),
-                    design_sha256: D2.into(),
-                    simulation_run_id: "sim-r2".into(),
-                    simulation_result_sha256: D3.into(),
+                    subject_artifact_ref: "sol-atlas:artifact:design-r2".into(),
+                    supporting_artifact_refs: vec![
+                        "symtropy:run:sim-r2".into(),
+                        "sol-atlas:engineering:receipt-r2".into(),
+                    ],
                     authority_ref: "authority:design-r2".into(),
                     signer_id: "party:engineer-01".into(),
-                    role: "design-approver".into(),
+                    role: "design-representative".into(),
                     scope_ref: "scope:design-r2".into(),
-                    supersedes_approval_id: Some("approval-r1".into()),
-                    decision: ApprovalDecision::Approved,
+                    supersedes_approval_id: None,
+                    decision: ParticipantDecision::Affirmed,
                     conditions: vec![ApprovalCondition {
                         condition_id: "condition:drawings-final".into(),
                         satisfied: true,
                     }],
-                    evidence_refs: vec!["evidence:design-review-r2".into()],
+                    evidence_refs: vec!["evidence:design-r2".into()],
                     dissent_refs: vec!["dissent:reviewer-02".into()],
                     decided_at: 240,
                 },
@@ -1289,10 +1224,10 @@ mod tests {
                 batch_id: "batch-01".into(),
                 supplier_party_id: "party:supplier-01".into(),
                 receiving_site_party_id: "site:pavilion-01".into(),
-                material_description: "structural steel members".into(),
-                supplier_assertion: Some("Supplier declares recycled content".into()),
+                material_description: "structural steel segment stock".into(),
+                supplier_assertion: Some("Supplier declares certified grade".into()),
                 certification_evidence_ref: Some("evidence:batch-cert-01".into()),
-                certification_scope_ref: Some("claim:batch-01:recycled-content".into()),
+                certification_scope_ref: Some("claim:batch-01:grade".into()),
                 declared_at: 230,
             }],
             custody_receipts: vec![
@@ -1315,19 +1250,32 @@ mod tests {
                     occurred_at: 270,
                 },
             ],
+            manufacturing_receipts: vec![ManufacturingReceipt {
+                manufacturing_id: "manufacture-segment-01".into(),
+                design_artifact_ref: "sol-atlas:artifact:design-r2".into(),
+                material_batch_id: "batch-01".into(),
+                manufacturing_artifact_ref: "fabricator:manufacturing:batch-01".into(),
+                component_artifact_ref: "fabricator:component:segment-01".into(),
+                authority_ref: "authority:manufacturer".into(),
+                manufacturer_id: "party:manufacturer-01".into(),
+                role: "qualified-manufacturer".into(),
+                scope_ref: "scope:manufacture:segment-01".into(),
+                evidence_refs: vec!["evidence:manufacturing-01".into()],
+                manufactured_at: 300,
+            }],
             inspections: vec![InspectionReceipt {
-                inspection_id: "inspection-01".into(),
-                batch_id: "batch-01".into(),
-                design_revision_id: "design-r2".into(),
-                design_sha256: D2.into(),
-                terminal_custody_receipt_id: "custody-01-b".into(),
-                authority_ref: "authority:inspection".into(),
+                inspection_id: "inspection-segment-01".into(),
+                manufacturing_id: "manufacture-segment-01".into(),
+                inspection_artifact_ref: "metrology:inspection:segment-01".into(),
+                installation_artifact_ref: "site:installation:segment-01".into(),
+                as_built_artifact_ref: "site:asbuilt:segment-01".into(),
+                authority_ref: "authority:inspector".into(),
                 inspector_id: "party:inspector-01".into(),
                 role: "independent-inspector".into(),
-                scope_ref: "scope:inspection:batch-01:r2".into(),
+                scope_ref: "scope:inspection:segment-01".into(),
                 evidence_refs: vec!["evidence:inspection-01".into()],
-                outcome: InspectionOutcome::Conforming,
-                inspected_at: 300,
+                claimed_outcome: InspectionClaim::Conforming,
+                inspected_at: 400,
             }],
         }
     }
@@ -1343,132 +1291,191 @@ mod tests {
     }
 
     #[test]
-    fn valid_trace_keeps_supersession_and_current_records_distinct() {
+    fn complete_trace_keeps_external_engineering_ownership_and_material_custody_separate() {
         let trace = sample_trace();
         let report = verify_trace(&trace);
-        assert_eq!(report.disposition_for("design", "design-r1"), Some(Disposition::Superseded));
-        assert_eq!(report.disposition_for("design", "design-r2"), Some(Disposition::Accepted));
-        assert_eq!(report.disposition_for("approval", "approval-r1"), Some(Disposition::Superseded));
-        assert_eq!(report.disposition_for("approval", "approval-r2"), Some(Disposition::Accepted));
-        assert_eq!(report.disposition_for("material_batch", "batch-01"), Some(Disposition::Accepted));
-        assert_eq!(report.disposition_for("custody", "batch-01"), Some(Disposition::Accepted));
-        assert_eq!(report.disposition_for("inspection", "inspection-01"), Some(Disposition::Accepted));
-    }
-
-    #[test]
-    fn design_and_simulation_must_bind_to_external_owner_artifacts() {
-        let mut trace = sample_trace();
-        trace.design_revisions[1].source_artifact.sha256 = D1.into();
-        assert_eq!(disposition(&trace, "design", "design-r2"), Disposition::Rejected);
-
-        let mut trace = sample_trace();
-        trace.simulation_runs[1].execution_artifact.revision_ref = "sim-r1".into();
-        assert_eq!(disposition(&trace, "simulation", "sim-r2"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn portfolio_context_is_an_opaque_sol_atlas_reference_not_a_local_gis_record() {
-        let mut trace = sample_trace();
-        trace.external_portfolio_context.as_mut().unwrap().owner_system = "symtropy".into();
         assert_eq!(
-            disposition(&trace, "external_context", "sol-atlas:foundry:study-01:alternative-01"),
+            report.disposition_for("current_design", "sol-atlas:artifact:design-r2"),
+            Some(Disposition::Accepted)
+        );
+        assert_eq!(
+            report.disposition_for("participant_approval", "approval-r1"),
+            Some(Disposition::Superseded)
+        );
+        assert_eq!(
+            report.disposition_for("participant_approval", "approval-r2"),
+            Some(Disposition::Accepted)
+        );
+        assert_eq!(
+            report.disposition_for("material_batch", "batch-01"),
+            Some(Disposition::Accepted)
+        );
+        assert_eq!(
+            report.disposition_for("custody", "batch-01"),
+            Some(Disposition::Accepted)
+        );
+        assert_eq!(
+            report.disposition_for("manufacturing", "manufacture-segment-01"),
+            Some(Disposition::Accepted)
+        );
+        assert_eq!(
+            report.disposition_for("inspection", "inspection-segment-01"),
+            Some(Disposition::Accepted)
+        );
+    }
+
+    #[test]
+    fn missing_current_design_reference_is_indeterminate() {
+        let mut trace = sample_trace();
+        trace.current_design_artifact_ref = "missing-design".into();
+        assert_eq!(
+            disposition(&trace, "current_design", "missing-design"),
+            Disposition::Indeterminate
+        );
+    }
+
+    #[test]
+    fn external_artifact_reference_duplicate_or_digest_mismatch_is_rejected() {
+        let mut trace = sample_trace();
+        trace.artifact_references.push(trace.artifact_references[0].clone());
+        assert_eq!(
+            disposition(&trace, "artifact_reference", "symthaea:design:pavilion-r1"),
+            Disposition::Rejected
+        );
+
+        let mut trace = sample_trace();
+        trace.artifact_references[0].sha256 = "not-a-digest".into();
+        assert_eq!(
+            disposition(&trace, "artifact_reference", "symthaea:design:pavilion-r1"),
             Disposition::Rejected
         );
     }
 
     #[test]
-    fn ifc_and_drawing_package_refs_must_match_the_design_revision() {
+    fn approval_requires_a_matching_authority_scope_and_engineering_reference() {
         let mut trace = sample_trace();
-        trace.design_revisions[1].ifc_model_export.artifact_role = "simulation_run".into();
-        assert_eq!(disposition(&trace, "design", "design-r2"), Disposition::Rejected);
-
-        let mut trace = sample_trace();
-        trace.design_revisions[1].drawing_package.revision_ref = "design-r1".into();
-        assert_eq!(disposition(&trace, "design", "design-r2"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn broken_ancestor_revision_link_invalidates_current_design() {
-        let mut trace = sample_trace();
-        trace.design_revisions[0].supersedes_revision_id = Some("missing-parent".into());
+        trace.approvals[1].signer_id = "party:other-engineer".into();
         assert_eq!(
-            disposition(&trace, "design", "design-r2"),
+            disposition(&trace, "participant_approval", "approval-r2"),
             Disposition::Rejected
         );
+
+        let mut trace = sample_trace();
+        trace.approvals[1].supporting_artifact_refs = vec!["missing-engineering-review".into()];
+        assert_eq!(
+            disposition(&trace, "participant_approval", "approval-r2"),
+            Disposition::Indeterminate
+        );
     }
 
     #[test]
-    fn broken_ancestor_export_binding_invalidates_current_revision() {
+    fn approval_cannot_use_disputed_revoked_or_post_cutoff_evidence() {
         let mut trace = sample_trace();
-        trace.design_revisions[0].drawing_package.artifact_role = "ifc_model_export".into();
+        trace.evidence_assertions[1].status = EvidenceStatus::Revoked;
         assert_eq!(
-            disposition(&trace, "design", "design-r2"),
+            disposition(&trace, "participant_approval", "approval-r2"),
             Disposition::Rejected
         );
-    }
 
-    #[test]
-    fn historical_approval_is_verified_before_being_marked_superseded() {
-        let trace = sample_trace();
-        assert_eq!(
-            approval_record_disposition(&trace, &trace.approvals[0]),
-            Disposition::Accepted
-        );
-        assert_eq!(
-            disposition(&trace, "approval", "approval-r1"),
-            Disposition::Superseded
-        );
-    }
-
-    #[test]
-    fn malformed_historical_approval_remains_rejected_not_hidden_as_superseded() {
         let mut trace = sample_trace();
-        trace.approvals[0].design_sha256 =
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into();
+        trace.evidence_assertions[1].available_at = 250;
         assert_eq!(
-            disposition(&trace, "approval", "approval-r1"),
-            Disposition::Rejected
+            disposition(&trace, "participant_approval", "approval-r2"),
+            Disposition::Indeterminate
         );
     }
 
     #[test]
-    fn rejected_successor_cannot_supersede_a_valid_prior_approval() {
+    fn unresolved_approval_conditions_and_dissent_are_not_erased() {
+        let mut trace = sample_trace();
+        trace.approvals[1].conditions[0].satisfied = false;
+        assert_eq!(
+            disposition(&trace, "participant_approval", "approval-r2"),
+            Disposition::Indeterminate
+        );
+        assert_eq!(trace.approvals[1].dissent_refs, vec!["dissent:reviewer-02"]);
+    }
+
+    #[test]
+    fn invalid_successor_does_not_supersede_valid_prior_participant_receipt() {
         let mut trace = sample_trace();
         let mut prior = trace.approvals[1].clone();
         prior.approval_id = "approval-prior-r2".into();
         prior.supersedes_approval_id = None;
         prior.decided_at = 230;
         trace.approvals.push(prior);
+        trace.approvals[1].subject_artifact_ref = "sol-atlas:artifact:design-r2".into();
         trace.approvals[1].supersedes_approval_id = Some("approval-prior-r2".into());
         trace.approvals[1].signer_id = "party:unauthorized".into();
 
         assert_eq!(
-            disposition(&trace, "approval", "approval-prior-r2"),
+            disposition(&trace, "participant_approval", "approval-prior-r2"),
             Disposition::Accepted
         );
         assert_eq!(
-            disposition(&trace, "approval", "approval-r2"),
+            disposition(&trace, "participant_approval", "approval-r2"),
             Disposition::Rejected
         );
     }
 
     #[test]
-    fn custody_receipt_identity_is_unique_across_all_batches() {
+    fn participant_receipt_on_previous_design_is_superseded_not_a_current_authorization() {
+        let trace = sample_trace();
+        assert_eq!(
+            disposition(&trace, "participant_approval", "approval-r1"),
+            Disposition::Superseded
+        );
+    }
+
+    #[test]
+    fn revoked_material_certification_is_rejected() {
         let mut trace = sample_trace();
-        trace.material_batches.push(MaterialBatch {
-            batch_id: "batch-02".into(),
-            supplier_party_id: "party:supplier-02".into(),
-            receiving_site_party_id: "site:pavilion-01".into(),
-            material_description: "structural steel members".into(),
-            supplier_assertion: Some("Supplier declares recycled content".into()),
-            certification_evidence_ref: Some("evidence:batch-cert-01".into()),
-            certification_scope_ref: Some("claim:batch-01:recycled-content".into()),
-            declared_at: 230,
-        });
+        trace.evidence_assertions
+            .iter_mut()
+            .find(|item| item.reference == "evidence:batch-cert-01")
+            .unwrap()
+            .status = EvidenceStatus::Revoked;
+        assert_eq!(
+            disposition(&trace, "material_batch", "batch-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn certification_must_be_bound_to_the_exact_batch_claim_scope() {
+        let mut trace = sample_trace();
+        trace.material_batches[0].certification_scope_ref =
+            Some("claim:another-batch:grade".into());
+        assert_eq!(
+            disposition(&trace, "material_batch", "batch-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn duplicate_batch_identity_is_rejected_for_every_occurrence() {
+        let mut trace = sample_trace();
+        trace.material_batches.push(trace.material_batches[0].clone());
+        assert_eq!(
+            disposition(&trace, "material_batch", "batch-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn custody_predecessor_and_cross_batch_identity_are_enforced() {
+        let mut trace = sample_trace();
+        trace.custody_receipts[1].predecessor_receipt_id = Some("missing-receipt".into());
+        assert_eq!(
+            disposition(&trace, "custody", "batch-01"),
+            Disposition::Rejected
+        );
+
+        let mut trace = sample_trace();
         trace.custody_receipts.push(CustodyReceipt {
             receipt_id: "custody-01-b".into(),
-            batch_id: "batch-02".into(),
-            from_party_id: "party:supplier-02".into(),
+            batch_id: "batch-other".into(),
+            from_party_id: "party:supplier-other".into(),
             to_party_id: "site:pavilion-01".into(),
             predecessor_receipt_id: None,
             evidence_ref: "evidence:custody-01-b".into(),
@@ -1481,141 +1488,110 @@ mod tests {
     }
 
     #[test]
-    fn approval_requires_the_exact_design_ifc_and_drawing_references() {
+    fn custody_chain_must_terminate_at_declared_receiving_site() {
         let mut trace = sample_trace();
-        trace.design_revisions[1].ifc_model_export.artifact_role = "simulation_run".into();
+        trace.custody_receipts[1].to_party_id = "site:other".into();
         assert_eq!(
-            disposition(&trace, "approval", "approval-r2"),
-            Disposition::Rejected
+            disposition(&trace, "custody", "batch-01"),
+            Disposition::Indeterminate
         );
     }
 
     #[test]
-    fn approval_requires_the_exact_external_simulation_run_reference() {
+    fn manufacturing_requires_accepted_material_and_terminal_delivery() {
         let mut trace = sample_trace();
-        trace.simulation_runs[1].execution_artifact.owner_system = "unknown-engine".into();
+        trace.manufacturing_receipts[0].manufactured_at = 260;
         assert_eq!(
-            disposition(&trace, "approval", "approval-r2"),
-            Disposition::Rejected
+            disposition(&trace, "manufacturing", "manufacture-segment-01"),
+            Disposition::Indeterminate
         );
-    }
 
-    #[test]
-    fn approval_without_resolved_authority_is_indeterminate() {
-        let mut trace = sample_trace();
-        trace.authority_assertions.clear();
-        assert_eq!(disposition(&trace, "approval", "approval-r2"), Disposition::Indeterminate);
-    }
-
-    #[test]
-    fn mismatched_signer_or_scope_is_rejected() {
-        let mut trace = sample_trace();
-        trace.approvals[1].signer_id = "party:other-engineer".into();
-        assert_eq!(disposition(&trace, "approval", "approval-r2"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn approval_cannot_bind_a_different_design_or_simulation_digest() {
-        let mut trace = sample_trace();
-        trace.approvals[1].design_sha256 = D1.into();
-        assert_eq!(disposition(&trace, "approval", "approval-r2"), Disposition::Rejected);
-
-        let mut trace = sample_trace();
-        trace.approvals[1].simulation_result_sha256 = D1.into();
-        assert_eq!(disposition(&trace, "approval", "approval-r2"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn revoked_material_certification_is_rejected() {
         let mut trace = sample_trace();
         trace.evidence_assertions
             .iter_mut()
             .find(|item| item.reference == "evidence:batch-cert-01")
             .unwrap()
             .status = EvidenceStatus::Revoked;
-        assert_eq!(disposition(&trace, "material_batch", "batch-01"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn duplicate_batch_identity_is_rejected() {
-        let mut trace = sample_trace();
-        trace.material_batches.push(trace.material_batches[0].clone());
-        assert_eq!(disposition(&trace, "material_batch", "batch-01"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn certification_must_be_bound_to_the_exact_supplier_claim_scope() {
-        let mut trace = sample_trace();
-        trace.material_batches[0].certification_scope_ref =
-            Some("claim:another-batch:recycled-content".into());
-        assert_eq!(disposition(&trace, "material_batch", "batch-01"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn stale_or_post_cutoff_evidence_is_indeterminate() {
-        let mut trace = sample_trace();
-        let evidence = trace.evidence_assertions
-            .iter_mut()
-            .find(|item| item.reference == "evidence:design-review-r2")
-            .unwrap();
-        evidence.available_at = 250;
-        assert_eq!(disposition(&trace, "approval", "approval-r2"), Disposition::Indeterminate);
-
-        let mut trace = sample_trace();
-        let evidence = trace.evidence_assertions
-            .iter_mut()
-            .find(|item| item.reference == "evidence:batch-cert-01")
-            .unwrap();
-        evidence.valid_until = Some(200);
-        assert_eq!(disposition(&trace, "material_batch", "batch-01"), Disposition::Indeterminate);
-    }
-
-    #[test]
-    fn broken_custody_predecessor_is_rejected() {
-        let mut trace = sample_trace();
-        trace.custody_receipts[1].predecessor_receipt_id = Some("custody:missing".into());
-        assert_eq!(disposition(&trace, "custody", "batch-01"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn approval_with_open_condition_is_not_accepted() {
-        let mut trace = sample_trace();
-        trace.approvals[1].conditions[0].satisfied = false;
-        assert_eq!(disposition(&trace, "approval", "approval-r2"), Disposition::Indeterminate);
-    }
-
-    #[test]
-    fn inspection_cannot_accept_a_superseded_design_or_wrong_batch() {
-        let mut trace = sample_trace();
-        trace.inspections[0].design_revision_id = "design-r1".into();
-        assert_eq!(disposition(&trace, "inspection", "inspection-01"), Disposition::Superseded);
-
-        let mut trace = sample_trace();
-        trace.inspections[0].batch_id = "batch-other".into();
-        assert_eq!(disposition(&trace, "inspection", "inspection-01"), Disposition::Indeterminate);
-    }
-
-    #[test]
-    fn nonconforming_inspection_is_rejected() {
-        let mut trace = sample_trace();
-        trace.inspections[0].outcome = InspectionOutcome::Nonconforming;
-        assert_eq!(disposition(&trace, "inspection", "inspection-01"), Disposition::Rejected);
-    }
-
-    #[test]
-    fn simulation_cannot_precede_its_exact_design_revision() {
-        let mut trace = sample_trace();
-        trace.simulation_runs[1].completed_at = 170;
         assert_eq!(
-            disposition(&trace, "approval", "approval-r2"),
+            disposition(&trace, "manufacturing", "manufacture-segment-01"),
             Disposition::Rejected
         );
     }
 
     #[test]
-    fn future_simulation_cannot_support_past_approval() {
+    fn manufacturing_artifacts_must_resolve_to_exact_roles() {
         let mut trace = sample_trace();
-        trace.simulation_runs[1].completed_at = 250;
-        assert_eq!(disposition(&trace, "approval", "approval-r2"), Disposition::Rejected);
+        let artifact = trace
+            .artifact_references
+            .iter_mut()
+            .find(|item| item.reference == "fabricator:component:segment-01")
+            .unwrap();
+        artifact.artifact_role = "design_revision".into();
+        assert_eq!(
+            disposition(&trace, "manufacturing", "manufacture-segment-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn inspection_requires_manufacturing_and_exact_installation_as_built_refs() {
+        let mut trace = sample_trace();
+        trace.inspections[0].installation_artifact_ref = "missing-installation".into();
+        assert_eq!(
+            disposition(&trace, "inspection", "inspection-segment-01"),
+            Disposition::Indeterminate
+        );
+
+        let mut trace = sample_trace();
+        trace.inspections[0].claimed_outcome = InspectionClaim::Nonconforming;
+        assert_eq!(
+            disposition(&trace, "inspection", "inspection-segment-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn inspection_cannot_precede_manufacture_or_rely_on_unaccepted_manufacturing() {
+        let mut trace = sample_trace();
+        trace.inspections[0].inspected_at = 290;
+        assert_eq!(
+            disposition(&trace, "inspection", "inspection-segment-01"),
+            Disposition::Indeterminate
+        );
+
+        let mut trace = sample_trace();
+        trace.manufacturing_receipts[0].authority_ref = "missing-authority".into();
+        assert_eq!(
+            disposition(&trace, "inspection", "inspection-segment-01"),
+            Disposition::Indeterminate
+        );
+    }
+
+    #[test]
+    fn unknown_and_disputed_authority_never_become_affirmation() {
+        let mut trace = sample_trace();
+        trace.authority_assertions[1].status = AuthorityStatus::Unknown;
+        assert_eq!(
+            disposition(&trace, "participant_approval", "approval-r2"),
+            Disposition::Indeterminate
+        );
+
+        let mut trace = sample_trace();
+        trace.authority_assertions[1].status = AuthorityStatus::Disputed;
+        assert_eq!(
+            disposition(&trace, "participant_approval", "approval-r2"),
+            Disposition::Disputed
+        );
+    }
+
+    #[test]
+    fn supplier_assertion_without_independent_certification_is_indeterminate() {
+        let mut trace = sample_trace();
+        trace.material_batches[0].certification_evidence_ref = None;
+        trace.material_batches[0].certification_scope_ref = None;
+        assert_eq!(
+            disposition(&trace, "material_batch", "batch-01"),
+            Disposition::Indeterminate
+        );
     }
 }
