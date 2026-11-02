@@ -102,7 +102,7 @@ def claim_local_digest(graph: dict, policy: dict) -> str:
             if edge[2] not in allowed:
                 continue
             relation_directions = set(directions.get(edge[2], []))
-            left, right = edge
+            left, right = edge[0], edge[1]
             if "outgoing" in relation_directions and left in included and right not in included:
                 included.add(right)
                 changed = True
