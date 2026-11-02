@@ -1,0 +1,18 @@
+[package]
+name = "gcpn-compositional-assurance-adapter"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Executable synthetic fault adapter for the GCPN compositional assurance engine"
+
+[workspace]
+
+[dependencies]
+gcpn-compositional-assurance = { path = "../gcpn-compositional-assurance" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-compositional-assurance-adapter"
+path = "src/main.rs"
