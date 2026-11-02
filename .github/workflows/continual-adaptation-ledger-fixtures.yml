@@ -98,12 +98,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          CORPUS_PATH="docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json"
+          CORPUS_SHA_BEFORE="$(sha256sum "$CORPUS_PATH" | cut -d ' ' -f1)"
           POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
           python3 docs/research/verify_continual_adaptation_ledger_properties.py \
             "$POLICY_BLOB_SHA" \
             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
-            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json \
+            "$CORPUS_PATH" \
             python-generated-properties.json
+          test "$(sha256sum "$CORPUS_PATH" | cut -d ' ' -f1)" = "$CORPUS_SHA_BEFORE"
+          test -s python-generated-properties.json
 
       - name: Run Node generated property evaluator
         shell: bash
