@@ -1,0 +1,21 @@
+[package]
+name = "gcpn-e2e-fault-matrix"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Integrated qualification matrix for six-stage and civil evidence fault adapters"
+
+[workspace]
+
+[dependencies]
+gcpn-compositional-assurance = { path = "../gcpn-compositional-assurance" }
+gcpn-compositional-assurance-adapter = { path = "../gcpn-compositional-assurance-adapter" }
+gcpn-civil-evidence-adapter = { path = "../gcpn-civil-evidence-adapter" }
+gcpn-civil-evidence-contracts = { path = "../gcpn-civil-evidence-contracts" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-e2e-fault-matrix"
+path = "src/main.rs"
