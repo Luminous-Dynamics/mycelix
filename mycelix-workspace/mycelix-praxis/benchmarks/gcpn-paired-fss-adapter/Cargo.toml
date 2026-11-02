@@ -1,0 +1,19 @@
+[package]
+name = "gcpn-paired-fss-adapter"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Paired probabilistic FSS adapter over common-source case frames"
+
+[workspace]
+
+[dependencies]
+gcpn-common-source-comparison = { path = "../gcpn-common-source-comparison" }
+gcpn-probabilistic-fss = { path = "../gcpn-probabilistic-fss" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-paired-fss-adapter"
+path = "src/main.rs"
