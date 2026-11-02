@@ -8,6 +8,7 @@
     "schema_version",
     "project_id",
     "current_design_revision_id",
+    "site_context",
     "external_portfolio_context",
     "design_revisions",
     "simulation_runs",
@@ -109,6 +110,37 @@
           "$ref": "#/$defs/digest"
         }
       }
+    },
+    "site_context": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "owner_system",
+        "artifact_role",
+        "revision_ref",
+        "sha256"
+      ],
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/id"
+        },
+        "owner_system": {
+          "$ref": "#/$defs/id"
+        },
+        "artifact_role": {
+          "$ref": "#/$defs/id"
+        },
+        "revision_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
     }
   },
   "$defs": {
@@ -137,6 +169,8 @@
       "required": [
         "revision_id",
         "source_artifact",
+        "ifc_model_export",
+        "drawing_package",
         "sha256",
         "supersedes_revision_id",
         "created_at"
@@ -155,6 +189,12 @@
           "$ref": "#/$defs/time"
         },
         "source_artifact": {
+          "$ref": "#/$defs/external_artifact_ref"
+        },
+        "ifc_model_export": {
+          "$ref": "#/$defs/external_artifact_ref"
+        },
+        "drawing_package": {
           "$ref": "#/$defs/external_artifact_ref"
         }
       }
