@@ -275,6 +275,44 @@ fn external_artifact_disposition(
     Disposition::Accepted
 }
 
+fn design_artifact_disposition(design: &DesignRevision) -> Disposition {
+    combine(
+        combine(
+            external_artifact_disposition(
+                &design.source_artifact,
+                None,
+                "design_revision",
+                &design.revision_id,
+                Some(&design.sha256),
+            ),
+            external_artifact_disposition(
+                &design.ifc_model_export,
+                None,
+                "ifc_model_export",
+                &design.revision_id,
+                None,
+            ),
+        ),
+        external_artifact_disposition(
+            &design.drawing_package,
+            None,
+            "drawing_package",
+            &design.revision_id,
+            None,
+        ),
+    )
+}
+
+fn simulation_artifact_disposition(run: &SimulationRun) -> Disposition {
+    external_artifact_disposition(
+        &run.execution_artifact,
+        None,
+        "simulation_run",
+        &run.run_id,
+        Some(&run.result_sha256),
+    )
+}
+
 fn valid_at(from: u64, until: Option<u64>, available_at: u64, event_at: u64) -> bool {
     available_at <= event_at && from <= event_at && until.is_none_or(|end| event_at <= end)
 }
@@ -462,12 +500,26 @@ fn approval_disposition(
     if design.sha256 != approval.design_sha256 || !valid_sha256(&design.sha256) {
         return Disposition::Rejected;
     }
+    let has_child = trace.design_revisions.iter().any(|candidate| {
+        candidate.supersedes_revision_id.as_deref() == Some(approval.design_revision_id.as_str())
+    });
+    if has_child || !revision_lineage_is_valid(trace, &approval.design_revision_id) {
+        return Disposition::Rejected;
+    }
+    let design_artifacts = design_artifact_disposition(design);
+    if design_artifacts != Disposition::Accepted {
+        return design_artifacts;
+    }
     if trace.simulation_runs.iter().filter(|item| item.run_id == approval.simulation_run_id).count() != 1 {
         return Disposition::Rejected;
     }
     let Some(simulation) = simulation_for(trace, &approval.simulation_run_id) else {
         return Disposition::Indeterminate;
     };
+    let simulation_artifact = simulation_artifact_disposition(simulation);
+    if simulation_artifact != Disposition::Accepted {
+        return simulation_artifact;
+    }
     if simulation.design_revision_id != approval.design_revision_id
         || simulation.design_sha256 != approval.design_sha256
         || simulation.result_sha256 != approval.simulation_result_sha256
@@ -678,32 +730,11 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
             });
             let lineage_valid =
                 !has_child && revision_lineage_is_valid(trace, &revision.revision_id);
-            let disposition = if lineage_valid {
-                external_artifact_disposition(
-                    &revision.source_artifact,
-                    None,
-                    "design_revision",
-                    &revision.revision_id,
-                    Some(&revision.sha256),
-                )
+            let combined = if lineage_valid {
+                design_artifact_disposition(revision)
             } else {
                 Disposition::Rejected
             };
-            let ifc_status = external_artifact_disposition(
-                &revision.ifc_model_export,
-                None,
-                "ifc_model_export",
-                &revision.revision_id,
-                None,
-            );
-            let drawing_status = external_artifact_disposition(
-                &revision.drawing_package,
-                None,
-                "drawing_package",
-                &revision.revision_id,
-                None,
-            );
-            let combined = combine(combine(disposition, ifc_status), drawing_status);
             report.push(
                 "design",
                 &revision.revision_id,
@@ -760,13 +791,7 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         {
             report.push("simulation", &run.run_id, Disposition::Rejected, "invalid_simulation_provenance");
         } else {
-            let disposition = external_artifact_disposition(
-                &run.execution_artifact,
-                None,
-                "simulation_run",
-                &run.run_id,
-                Some(&run.result_sha256),
-            );
+            let disposition = simulation_artifact_disposition(run);
             report.push(
                 "simulation",
                 &run.run_id,
@@ -1363,6 +1388,26 @@ mod tests {
         });
         assert_eq!(
             disposition(&trace, "custody", "batch-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn approval_requires_the_exact_design_ifc_and_drawing_references() {
+        let mut trace = sample_trace();
+        trace.design_revisions[1].ifc_model_export.artifact_role = "simulation_run".into();
+        assert_eq!(
+            disposition(&trace, "approval", "approval-r2"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn approval_requires_the_exact_external_simulation_run_reference() {
+        let mut trace = sample_trace();
+        trace.simulation_runs[1].execution_artifact.owner_system = "unknown-engine".into();
+        assert_eq!(
+            disposition(&trace, "approval", "approval-r2"),
             Disposition::Rejected
         );
     }
