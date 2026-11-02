@@ -358,11 +358,11 @@ fn record(
     }
 }
 
-fn find_claim_evidence_mut(
-    scenario: &mut Scenario,
+fn find_claim_evidence_mut<'a>(
+    scenario: &'a mut Scenario,
     stage: Stage,
-    claim_id: &str,
-) -> impl Iterator<Item = &mut StageEvidence> {
+    claim_id: &'static str,
+) -> impl Iterator<Item = &'a mut StageEvidence> + 'a {
     scenario
         .evidence
         .iter_mut()
@@ -409,10 +409,11 @@ fn apply_one(scenario: &mut Scenario, fault: Fault) {
             });
         }
         Fault::PostCutoffEvidence => {
+            let after_cutoff = scenario.as_of_cutoff.saturating_add(1);
             if let Some(evidence) =
                 find_claim_evidence_mut(scenario, Stage::Forecast, "forecast-valid").next()
             {
-                evidence.recorded_at = scenario.as_of_cutoff + 1;
+                evidence.recorded_at = after_cutoff;
             }
         }
         Fault::HindsightLeakage => {
