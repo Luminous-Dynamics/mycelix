@@ -1,80 +1,80 @@
 # Construction Provenance Core v0.1
 
-A dependency-free Rust reference verifier for one narrow Mycelix responsibility in
-the infrastructure lifecycle: checking that construction records remain bound to
-the exact design revision, simulation artifact, externally resolved authority,
-material evidence, custody chain and inspection record they claim to describe.
+A dependency-free Rust reference verifier for Mycelix's narrow responsibility in
+the infrastructure lifecycle: participant authority/commitments, evidence-use
+assertions, material certification references, batch custody, and manufacturing
+and inspection attestations.
 
-This crate is deliberately standalone under `mycelix-workspace/standalone`. It
-does not add a Holochain zome, replace Mycelix's identity/evidence/provenance
-owners, or create a second project ledger.
+It composes with—not replaces—the source-owned engineering and asset graphs.
 
 ## Run
 
-```sh
+\`\`\`sh
 cargo fmt --manifest-path mycelix-workspace/standalone/construction-provenance-core/Cargo.toml -- --check
 cargo test --locked --manifest-path mycelix-workspace/standalone/construction-provenance-core/Cargo.toml
 cargo clippy --locked --manifest-path mycelix-workspace/standalone/construction-provenance-core/Cargo.toml --all-targets -- -D warnings
 python3 mycelix-workspace/standalone/construction-provenance-core/tests/validate_fixture.py
-```
+\`\`\`
 
-## First executable contract
+## Ownership boundaries
 
-The trace keeps these subjects distinct:
+- **Sol-Atlas** owns site context, portfolio alternatives, the built-environment
+  artifact/revision graph, engineering disciplines and engineering approval
+  validation. Existing owner: PR #138.
+- **Symthaea** owns design-intent identity and source-side fabrication artifacts.
+  Existing owners include ROB-DESIGN-001A (#4806) and the Fabrication Kernel.
+- **Symtropy** owns physical/resource simulation runs and their technical
+  qualification; Mycelix records opaque run references, not solver conclusions.
+- **Mycelix** owns identity/authority resolution, participant commitments,
+  evidence/provenance governance, correction/revocation/dispute state, material
+  batch custody, and cross-party manufacturing/inspection attestations.
 
-- optional Sol-Atlas site-context and Foundry portfolio-alternative references, without copying GIS/portfolio state;
-- design revisions and explicit supersession, each bound to an opaque source-system artifact reference, IFC/model export, drawing package and digest;
-- simulation runs bound to an opaque execution-system run reference and result digest;
-- simulation runs bound to exact design revision IDs and design digests;
-- approvals bound to exact design, simulation, signer, role, authority reference,
-  authority scope reference, event time and supporting evidence references;
-- external authority assertions with explicit status, scope and time bounds;
-- supplier assertions kept separate from independently resolved certification evidence;
-- material batches and a monotonic, predecessor-linked custody chain;
-- inspection records bound to the current design, material batch, terminal custody
-  receipt, inspector authority and inspection evidence.
+The Mycelix verifier checks only supplied owner/role/revision/digest references
+and exact subject links between them. It does not fetch source bytes, recompute
+source artifact hashes, verify signatures, parse IFC, replay simulations, or
+validate the engineering adequacy of a Sol-Atlas receipt.
 
-Evidence and authority records carry both domain-valid time and
-`available_at`. An artifact that became available after a decision cannot be
-used to justify that earlier decision. Revoked evidence is rejected, disputed
-evidence remains disputed, and missing/unknown/stale evidence remains
-indeterminate.
+## Executable lifecycle trace
 
-The Rust verifier emits per-subject findings. It deliberately does not collapse
-them into a project-wide `ready`, `safe`, `compliant` or `approved` boolean.
+The synthetic pavilion fixture composes:
 
-## Ownership and trust boundary
+\`Sol-Atlas design revision\`
+→ \`Symthaea design/IFC/drawing references\`
+→ \`Symtropy run + Sol-Atlas engineering receipt\`
+→ \`Mycelix participant authority/commitment\`
+→ \`material batch + scoped certificate\`
+→ \`predecessor-linked custody transfers\`
+→ \`manufacturer attestation + fabricated component\`
+→ \`independent inspection + installation + as-built references\`.
 
-Mycelix remains the authority for identity, externally authenticated authority
-resolution, evidence/provenance references, participant commitments and
-correction/revocation history. This crate consumes resolved assertions and checks their exact bindings. Cross-system artifact pointers bind owner, role, revision and digest, but do not fetch or authenticate source bytes. The crate does not verify signatures, decide legal authority, adjudicate disputes, or operate a Holochain network.
+Every opaque artifact pointer carries a source owner, role, revision, digest and
+optional exact subject artifact. Supporting engineering receipts must point to
+the design named by the participant commitment. Manufacturing records must
+point to the exact design and component; inspection, installation and as-built
+records must all point to the same manufactured component.
 
-Symtropy remains the owner of physical/resource scenario execution and engineering
-checks. Symthaea may propose design and manufacturing hypotheses but does not
-self-certify them. Sol-Atlas remains the owner of spatial evidence and alternative
-portfolio comparison. This crate is an opt-in coordination seam between those
-owners, not a substitute for them.
+Evidence and authority assertions carry both domain-valid time and
+\`available_at\`. Evidence first available after a decision cutoff cannot justify
+that earlier decision. Revoked evidence is rejected, disputed evidence remains
+disputed, and unknown, stale or unavailable evidence remains indeterminate.
+Supplier claims are distinct from independently resolved certification evidence.
+
+The verifier emits per-record Accepted / Rejected / Indeterminate / Disputed /
+Superseded findings. It does not collapse these into a project-level
+\`ready\`, \`safe\`, \`compliant\` or \`approved\` boolean.
 
 ## Claim ceiling
 
-A finding of `Accepted` means only that this narrow record and its referenced
-bindings pass the v0.1 contract. It does not establish:
-
-- that a supplier assertion is true;
-- that a certificate issuer is competent or a certificate technically sound;
-- that a digital signature or signer identity has been cryptographically verified;
-- that a design, simulation, material, robot, structure or installation is safe;
-- that an authority has issued a permit or statutory approval;
-- that an inspection is professionally sufficient or that an asset is fit for service.
-
-The external authority/evidence resolver, byte store, engineering specialists,
-inspectors and competent public authorities remain independently accountable.
+A valid Mycelix receipt proves only that the narrow participant, authority,
+evidence-use and custody contract passed with the supplied external references.
+It does not prove that the source artifacts are authentic or technically sound,
+that an issuer is competent, that a permit exists, or that a component/asset is
+safe or fit for service. A claimed conforming inspection remains an attestation,
+not a professional certification or statutory acceptance.
 
 ## Wire format
 
-`fixtures/construction-project-trace-v0.1.schema.json` defines the versioned
-JSON wire contract. The synthetic pavilion fixture is intentionally aggregate
-and contains pseudonymous party references only. The standard-library-only
-fixture checker validates the schema's supported keyword subset and the
-fixture's cross-record relationships; it is test tooling, not a production
-Python dependency or a complete general-purpose JSON Schema implementation.
+The versioned JSON Schema and synthetic fixture are under \`fixtures/\`. The
+standard-library Python checker validates a deliberately limited JSON Schema
+keyword subset and adversarial cross-record relationships. It is test tooling,
+not a production Python dependency or a complete JSON Schema implementation.
