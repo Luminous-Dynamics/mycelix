@@ -22,7 +22,9 @@ python3 mycelix-workspace/standalone/construction-provenance-core/tests/validate
 
 The trace keeps these subjects distinct:
 
-- design revisions and explicit supersession;
+- design revisions and explicit supersession, each bound to an opaque source-system artifact reference and digest;
+- simulation runs bound to an opaque execution-system run reference and result digest;
+- an optional Sol-Atlas Foundry alternative reference, without copying its GIS/portfolio state;
 - simulation runs bound to exact design revision IDs and design digests;
 - approvals bound to exact design, simulation, signer, role, authority reference,
   authority scope reference, event time and supporting evidence references;
@@ -46,7 +48,7 @@ them into a project-wide `ready`, `safe`, `compliant` or `approved` boolean.
 Mycelix remains the authority for identity, externally authenticated authority
 resolution, evidence/provenance references, participant commitments and
 correction/revocation history. This crate consumes resolved assertions and checks
-their exact bindings; it does not verify signatures, decide legal authority,
+their exact bindings. Cross-system artifact pointers bind owner, role, revision and digest but do not authenticate source bytes; it does not verify signatures, decide legal authority,
 adjudicate disputes, or operate a Holochain network.
 
 Symtropy remains the owner of physical/resource scenario execution and engineering
