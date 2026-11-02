@@ -1865,6 +1865,31 @@ mod tests {
     }
 
     #[test]
+    fn custody_graph_rejects_branching_and_disconnected_receipts() {
+        let mut branched = sample_trace();
+        branched.custody_receipts.push(CustodyReceipt {
+            receipt_id: "custody-01-c".into(),
+            batch_id: "batch-01".into(),
+            from_party_id: "party:carrier-01".into(),
+            to_party_id: "site:pavilion-01".into(),
+            predecessor_receipt_id: Some("custody-01-a".into()),
+            evidence_ref: "evidence:custody-01-b".into(),
+            occurred_at: 260,
+        });
+        assert_eq!(
+            disposition(&branched, "custody", "batch-01"),
+            Disposition::Rejected
+        );
+
+        let mut disconnected = sample_trace();
+        disconnected.custody_receipts[1].predecessor_receipt_id = None;
+        assert_eq!(
+            disposition(&disconnected, "custody", "batch-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
     fn custody_chain_must_terminate_at_declared_receiving_site() {
         let mut trace = sample_trace();
         trace.custody_receipts[1].to_party_id = "site:other".into();
