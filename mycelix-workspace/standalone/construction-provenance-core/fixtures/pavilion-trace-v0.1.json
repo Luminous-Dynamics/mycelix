@@ -76,7 +76,8 @@
       "use_permission": "permitted",
       "available_at": 90,
       "valid_from": 90,
-      "valid_until": 500
+      "valid_until": 500,
+      "subject_ref": "scope:design-r1"
     },
     {
       "reference": "evidence:design-review-r2",
@@ -85,7 +86,8 @@
       "use_permission": "permitted",
       "available_at": 90,
       "valid_from": 90,
-      "valid_until": 500
+      "valid_until": 500,
+      "subject_ref": "scope:design-r2"
     },
     {
       "reference": "evidence:batch-cert-01",
@@ -94,7 +96,8 @@
       "use_permission": "permitted",
       "available_at": 90,
       "valid_from": 90,
-      "valid_until": 500
+      "valid_until": 500,
+      "subject_ref": "claim:batch-01:recycled-content"
     },
     {
       "reference": "evidence:custody-01-a",
@@ -103,7 +106,8 @@
       "use_permission": "permitted",
       "available_at": 90,
       "valid_from": 90,
-      "valid_until": 500
+      "valid_until": 500,
+      "subject_ref": "custody-01-a"
     },
     {
       "reference": "evidence:custody-01-b",
@@ -112,7 +116,8 @@
       "use_permission": "permitted",
       "available_at": 90,
       "valid_from": 90,
-      "valid_until": 500
+      "valid_until": 500,
+      "subject_ref": "custody-01-b"
     },
     {
       "reference": "evidence:inspection-01",
@@ -121,7 +126,8 @@
       "use_permission": "permitted",
       "available_at": 90,
       "valid_from": 90,
-      "valid_until": 500
+      "valid_until": 500,
+      "subject_ref": "inspection-01"
     }
   ],
   "approvals": [
@@ -179,7 +185,8 @@
       "material_description": "structural steel members",
       "supplier_assertion": "Supplier declares recycled content",
       "certification_evidence_ref": "evidence:batch-cert-01",
-      "declared_at": 230
+      "declared_at": 230,
+      "certification_scope_ref": "claim:batch-01:recycled-content"
     }
   ],
   "custody_receipts": [
