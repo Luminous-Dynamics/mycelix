@@ -11,6 +11,7 @@ use gcpn_subgroup_reach_equity::{SubgroupEquityReport, SubgroupReachAssessment};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EventTimeInterval {
+    pub hazard_id: String,
     pub earliest: u64,
     pub latest: u64,
     pub source_id: String,
@@ -20,6 +21,7 @@ pub struct EventTimeInterval {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DurationInterval {
+    pub action_id: String,
     pub lower_seconds: u64,
     pub upper_seconds: u64,
     pub source_id: String,
@@ -387,6 +389,29 @@ fn validate_cases(cases: &[ActionOpportunityCase]) -> Result<(), OpportunityErro
         if case.channel_ids.is_empty() {
             return Err(OpportunityError::InvalidIdentifier);
         }
+        if let Some(warning) = &case.warning_delivery {
+            for value in [
+                warning.message_id.as_str(),
+                warning.message_version.as_str(),
+                warning.source_id.as_str(),
+                warning.source_version.as_str(),
+            ] {
+                check_identifier(value)?;
+            }
+            for channel in &warning.channel_ids {
+                check_identifier(channel)?;
+            }
+        }
+        if let Some(hazard) = &case.hazard_arrival {
+            check_identifier(&hazard.hazard_id)?;
+            check_identifier(&hazard.source_id)?;
+            check_identifier(&hazard.source_version)?;
+        }
+        if let Some(duration) = &case.action_duration {
+            check_identifier(&duration.action_id)?;
+            check_identifier(&duration.source_id)?;
+            check_identifier(&duration.source_version)?;
+        }
     }
     Ok(())
 }
@@ -423,9 +448,17 @@ fn assess_case(
         }
     };
 
-    let time = assess_time(case, policy, &mut violations);
-    let resources = assess_resources(case, policy, &mut violations);
-    let net_benefit = assess_net_benefit(case, policy, &mut violations);
+    let mut time_violations = BTreeSet::new();
+    let time = assess_time(case, policy, &mut time_violations);
+    violations.extend(time_violations);
+
+    let mut resource_violations = BTreeSet::new();
+    let resources = assess_resources(case, policy, &mut resource_violations);
+    violations.extend(resource_violations);
+
+    let mut benefit_violations = BTreeSet::new();
+    let net_benefit = assess_net_benefit(case, policy, &mut benefit_violations);
+    violations.extend(benefit_violations);
 
     let dimensions = [time.disposition, resources.disposition, net_benefit.disposition];
     let disposition = if unique_reached_count.is_none_or(|count| count == 0) {
@@ -479,8 +512,16 @@ fn assess_time(
     }
     let expected_channels: BTreeSet<_> = case.channel_ids.iter().collect();
     let observed_channels: BTreeSet<_> = warning.channel_ids.iter().collect();
-    if expected_channels != observed_channels {
+    if expected_channels != observed_channels
+        || observed_channels.len() != warning.channel_ids.len()
+    {
         violations.insert(OpportunityViolation::WarningChannelSetMismatch);
+    }
+    if hazard.hazard_id != case.hazard_id {
+        violations.insert(OpportunityViolation::HazardIdentityMismatch);
+    }
+    if duration.action_id != case.action_id {
+        violations.insert(OpportunityViolation::ActionDurationSourceMismatch);
     }
     if hazard.earliest > hazard.latest || warning.earliest_delivery_at > warning.latest_delivery_at {
         violations.insert(OpportunityViolation::InvalidTimeInterval);
@@ -492,7 +533,6 @@ fn assess_time(
         || duration.recorded_at > policy.as_of_cutoff
         || warning.earliest_delivery_at > policy.as_of_cutoff
         || warning.latest_delivery_at > policy.as_of_cutoff
-        || hazard.earliest > policy.as_of_cutoff
     {
         violations.insert(OpportunityViolation::WarningEvidenceAfterCutoff);
     }
@@ -813,6 +853,7 @@ mod tests {
                 recorded_at: 30,
             }),
             action_duration: Some(DurationInterval {
+                action_id: "evacuation-support".into(),
                 lower_seconds: 300,
                 upper_seconds: 600,
                 source_id: "local-drill".into(),
