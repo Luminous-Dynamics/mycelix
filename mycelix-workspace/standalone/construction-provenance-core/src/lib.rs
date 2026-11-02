@@ -480,6 +480,14 @@ fn custody_disposition(
         {
             return Disposition::Rejected;
         }
+        if trace.custody_receipts
+            .iter()
+            .filter(|item| item.receipt_id == receipt.receipt_id)
+            .count() != 1
+            || receipt.occurred_at < batch.declared_at
+        {
+            return Disposition::Rejected;
+        }
         result = combine(
             result,
             evidence_disposition(trace, &receipt.evidence_ref, &receipt.receipt_id, receipt.occurred_at),
@@ -504,8 +512,14 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
     }
 
     let mut revision_ids = BTreeSet::new();
+    let mut duplicate_revision_ids = BTreeSet::new();
     for revision in &trace.design_revisions {
         if !revision_ids.insert(revision.revision_id.clone()) {
+            duplicate_revision_ids.insert(revision.revision_id.clone());
+        }
+    }
+    for revision in &trace.design_revisions {
+        if duplicate_revision_ids.contains(&revision.revision_id) {
             report.push("design", &revision.revision_id, Disposition::Rejected, "duplicate_revision_id");
             continue;
         }
@@ -532,8 +546,14 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
     }
 
     let mut simulation_ids = BTreeSet::new();
+    let mut duplicate_simulation_ids = BTreeSet::new();
     for run in &trace.simulation_runs {
         if !simulation_ids.insert(run.run_id.clone()) {
+            duplicate_simulation_ids.insert(run.run_id.clone());
+        }
+    }
+    for run in &trace.simulation_runs {
+        if duplicate_simulation_ids.contains(&run.run_id) {
             report.push("simulation", &run.run_id, Disposition::Rejected, "duplicate_simulation_id");
             continue;
         }
@@ -561,18 +581,24 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
     let superseded_approvals = trace
         .approvals
         .iter()
-        .filter_map(|approval| approval.supersedes_approval_id.as_deref())
+        .filter_map(|approval| approval.supersedes_approval_id.clone())
         .collect::<BTreeSet<_>>();
     let mut approval_ids = BTreeSet::new();
+    let mut duplicate_approval_ids = BTreeSet::new();
     for approval in &trace.approvals {
         if !approval_ids.insert(approval.approval_id.clone()) {
+            duplicate_approval_ids.insert(approval.approval_id.clone());
+        }
+    }
+    for approval in &trace.approvals {
+        if duplicate_approval_ids.contains(&approval.approval_id) {
             report.push("approval", &approval.approval_id, Disposition::Rejected, "duplicate_approval_id");
             continue;
         }
         let disposition = approval_disposition(
             trace,
             approval,
-            superseded_approvals.contains(approval.approval_id.as_str()),
+            superseded_approvals.contains(&approval.approval_id),
         );
         let code = match disposition {
             Disposition::Accepted => "approval_bindings_valid",
@@ -626,8 +652,14 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
     }
 
     let mut inspection_ids = BTreeSet::new();
+    let mut duplicate_inspection_ids = BTreeSet::new();
     for inspection in &trace.inspections {
         if !inspection_ids.insert(inspection.inspection_id.clone()) {
+            duplicate_inspection_ids.insert(inspection.inspection_id.clone());
+        }
+    }
+    for inspection in &trace.inspections {
+        if duplicate_inspection_ids.contains(&inspection.inspection_id) {
             report.push("inspection", &inspection.inspection_id, Disposition::Rejected, "duplicate_inspection_id");
             continue;
         }
@@ -669,26 +701,37 @@ fn inspection_disposition(
     else {
         return Disposition::Indeterminate;
     };
-    let Some(terminal_receipt) = trace
+    let terminal_matches = trace
         .custody_receipts
         .iter()
-        .find(|receipt| receipt.receipt_id == inspection.terminal_custody_receipt_id)
-    else {
+        .filter(|receipt| receipt.receipt_id == inspection.terminal_custody_receipt_id)
+        .collect::<Vec<_>>();
+    let Some(terminal_receipt) = terminal_matches.first().copied() else {
         return Disposition::Indeterminate;
     };
+    if terminal_matches.len() != 1 {
+        return Disposition::Rejected;
+    }
     if terminal_receipt.batch_id != batch.batch_id
         || terminal_receipt.to_party_id != batch.receiving_site_party_id
     {
         return Disposition::Rejected;
     }
+    let terminal_for_batch = trace
+        .custody_receipts
+        .iter()
+        .filter(|receipt| receipt.batch_id == batch.batch_id)
+        .max_by_key(|receipt| (receipt.occurred_at, receipt.receipt_id.as_str()));
     if report.disposition_for("custody", &batch.batch_id) != Some(Disposition::Accepted)
         || report.disposition_for("material_batch", &batch.batch_id) != Some(Disposition::Accepted)
         || terminal_receipt.occurred_at > inspection.inspected_at
+        || terminal_for_batch.is_none_or(|receipt| receipt.receipt_id != terminal_receipt.receipt_id)
     {
         return Disposition::Indeterminate;
     }
     let approved = trace.approvals.iter().any(|approval| {
         approval.design_revision_id == trace.current_design_revision_id
+            && approval.decided_at <= inspection.inspected_at
             && report.disposition_for("approval", &approval.approval_id)
                 == Some(Disposition::Accepted)
     });
