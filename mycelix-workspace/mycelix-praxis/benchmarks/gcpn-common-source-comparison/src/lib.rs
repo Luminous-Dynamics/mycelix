@@ -667,6 +667,17 @@ impl ComparisonReport {
 
         for case in &manifest.cases {
             let eligible = case.eligibility == CaseEligibility::Eligible;
+            cases.push(CaseReport {
+                case_id: case.case_id.clone(),
+                initialization_time: case.initialization_time,
+                valid_time: case.valid_time,
+                lead_seconds: case.lead_seconds,
+                eligibility: case.eligibility,
+                candidate: case.candidate.clone(),
+                reference: case.reference.clone(),
+                verification: case.verification.clone(),
+            });
+
             if !eligible {
                 counts.excluded_cases += 1;
                 continue;
@@ -717,16 +728,6 @@ impl ComparisonReport {
                 counts.pairs_without_verification += 1;
             }
 
-            cases.push(CaseReport {
-                case_id: case.case_id.clone(),
-                initialization_time: case.initialization_time,
-                valid_time: case.valid_time,
-                lead_seconds: case.lead_seconds,
-                eligibility: case.eligibility,
-                candidate: case.candidate.clone(),
-                reference: case.reference.clone(),
-                verification: case.verification.clone(),
-            });
         }
 
         cases.sort_by(|left, right| {
@@ -1135,7 +1136,15 @@ mod tests {
     #[test]
     fn excluded_case_remains_visible_but_is_not_in_score_denominator() {
         let report = fixture().report().expect("fixture should report");
-        assert_eq!(report.cases.len(), 3);
+        assert_eq!(report.cases.len(), 4);
+        assert_eq!(
+            report
+                .cases
+                .iter()
+                .filter(|case| case.eligibility == CaseEligibility::Eligible)
+                .count(),
+            3
+        );
         assert_eq!(report.counts.eligible_cases + report.counts.excluded_cases, 4);
     }
 
