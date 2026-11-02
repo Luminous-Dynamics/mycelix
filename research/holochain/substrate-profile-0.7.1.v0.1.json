@@ -15,7 +15,9 @@
     "holonix_ref": "main-0.7",
     "nodejs": "24",
     "hc_spin": "0.700.1",
-    "rust_client": "resolve-and-pin-exact-compatible-release"
+    "rust_client": "resolve-and-pin-exact-compatible-release",
+    "approval_state": "evaluation-candidate-only",
+    "approval_blocker": "Upstream upgrade guide specifies 0.7.1 while the compatibility table still labels 0.7.0 recommended; require maintainer/source-artifact reconciliation before production baseline approval."
   },
   "migration_boundaries": {
     "from_holochain_family": "0.6.x",
@@ -72,5 +74,25 @@
     "in-place 0.6 conductor database migration exists",
     "Mycelix outperforms industry comparators",
     "proposed benchmark targets have been achieved"
-  ]
+  ],
+  "upstream_discrepancy": {
+    "compatibility_table_recommendation": "0.7.0",
+    "upgrade_guide_dependency_tuple": "holochain 0.7.1 / hdk 0.7.1 / hdi 0.8.1 / @holochain/client 0.21.1",
+    "resolution_required_before_deployment_baseline": true
+  },
+  "canonical_source": {
+    "repository": "Luminous-Dynamics/luminous-dynamics",
+    "visibility": "private",
+    "exporter_path": "mycelix-workspace/scripts/sync-to-standalone.sh",
+    "standalone_repository": "Luminous-Dynamics/mycelix",
+    "confirmed_mirrored_consumers": [
+      "mycelix-workspace/mycelix-governance",
+      "mycelix-workspace"
+    ],
+    "canonical_governance_manifest_hdk": "0.6.1",
+    "canonical_governance_manifest_hdi": "0.7.1",
+    "canonical_ecosystem_sweettest_holochain": "0.6",
+    "source_export_parity_required": true,
+    "related_issue": "https://github.com/Luminous-Dynamics/luminous-dynamics/issues/3478"
+  }
 }
