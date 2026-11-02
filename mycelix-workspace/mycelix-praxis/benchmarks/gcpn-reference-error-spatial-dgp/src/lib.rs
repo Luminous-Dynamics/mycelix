@@ -1280,7 +1280,7 @@ fn aggregate_ensemble_size(
     let mut per_block: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
     for trial in &matching {
         let counts = per_block.entry(trial.event_block_id.as_str()).or_insert((0, 0));
-        counts.0 += usize::from(trial.rank_reversed);
+        counts.0 += if trial.rank_reversed { 1 } else { 0 };
         counts.1 += 1;
     }
     if per_block.len() < 2 {
@@ -1557,6 +1557,106 @@ mod tests {
         .unwrap();
         assert_eq!(report.to_csv(), report.to_csv());
         assert!(report.to_csv().starts_with("family,severity,parameter_knowledge,window_width,"));
+    }
+
+    #[test]
+    fn ensemble_size_study_reports_each_requested_member_count() {
+        let report = run_ensemble_size_study(
+            &fixture(),
+            &dgp(ErrorFamily::IndependentNoise, 0.2),
+            &trials(),
+            &[1, 3, 5],
+            3,
+            0.15,
+        )
+        .unwrap();
+        let counts: Vec<_> = report.severity_reports[0]
+            .aggregates
+            .iter()
+            .map(|row| row.ensemble_size)
+            .collect();
+        assert_eq!(counts, vec![1, 3, 5]);
+        assert!(report.severity_reports[0]
+            .aggregates
+            .iter()
+            .all(|row| row.independent_event_blocks == 4));
+    }
+
+    #[test]
+    fn zero_observation_error_ensemble_scores_match_latent_oracle() {
+        let report = run_ensemble_size_study(
+            &fixture(),
+            &dgp(ErrorFamily::ZeroError, 0.0),
+            &trials(),
+            &[1, 5],
+            3,
+            0.2,
+        )
+        .unwrap();
+        for row in &report.severity_reports[0].trials {
+            assert!((row.latent_candidate_p_fss - row.observed_candidate_p_fss).abs() < 1e-12);
+            assert!((row.latent_reference_p_fss - row.observed_reference_p_fss).abs() < 1e-12);
+            assert_eq!(row.latent_candidate_minus_reference, row.observed_candidate_minus_reference);
+        }
+    }
+
+    #[test]
+    fn ensemble_member_prefix_is_deterministic_for_same_trial_seed() {
+        let fixture = fixture();
+        let members_a = generate_members(&fixture, &fixture.candidate_forecast, 5, 42, 0.2);
+        let members_b = generate_members(&fixture, &fixture.candidate_forecast, 5, 42, 0.2);
+        assert_eq!(members_a, members_b);
+    }
+
+    #[test]
+    fn unknown_observation_error_range_is_a_sensitivity_only_ensemble_study() {
+        let mut config = dgp(ErrorFamily::SpatiallyCorrelated, 0.3);
+        config.parameter_knowledge = ParameterKnowledge::UnknownRange {
+            lower: 0.1,
+            upper: 0.5,
+        };
+        let report = run_ensemble_size_study(
+            &fixture(),
+            &config,
+            &trials(),
+            &[1, 5],
+            3,
+            0.2,
+        )
+        .unwrap();
+        assert_eq!(report.severity_reports.len(), 3);
+        assert!(report.severity_reports.iter().all(|scenario| scenario.sensitivity_only));
+    }
+
+    #[test]
+    fn duplicate_ensemble_sizes_are_rejected() {
+        assert_eq!(
+            run_ensemble_size_study(
+                &fixture(),
+                &dgp(ErrorFamily::ZeroError, 0.0),
+                &trials(),
+                &[1, 1],
+                3,
+                0.2,
+            )
+            .unwrap_err(),
+            DgpError::InvalidEnsembleSizes
+        );
+    }
+
+    #[test]
+    fn ensemble_size_report_is_deterministic() {
+        let report = run_ensemble_size_study(
+            &fixture(),
+            &dgp(ErrorFamily::SharedCommonMode, 0.2),
+            &trials(),
+            &[1, 3],
+            3,
+            0.15,
+        )
+        .unwrap();
+        assert_eq!(report.to_csv(), report.to_csv());
+        assert_eq!(report.to_trial_csv(), report.to_trial_csv());
     }
 
     #[test]
