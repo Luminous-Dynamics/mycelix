@@ -72,6 +72,8 @@ def main():
 
     assert fixture["schema_version"] == 1
     assert fixture["current_design_revision_id"] == "design-r2"
+    assert fixture["site_context"]["owner_system"] == "sol-atlas-leptos"
+    assert fixture["site_context"]["artifact_role"] == "site_context"
     assert fixture["external_portfolio_context"]["owner_system"] == "sol-atlas-leptos"
     assert fixture["external_portfolio_context"]["artifact_role"] == "portfolio_alternative"
     assert len(fixture["design_revisions"]) == 2
@@ -81,6 +83,10 @@ def main():
         assert design["source_artifact"]["artifact_role"] == "design_revision"
         assert design["source_artifact"]["revision_ref"] == design["revision_id"]
         assert design["source_artifact"]["sha256"] == design["sha256"]
+        assert design["ifc_model_export"]["artifact_role"] == "ifc_model_export"
+        assert design["ifc_model_export"]["revision_ref"] == design["revision_id"]
+        assert design["drawing_package"]["artifact_role"] == "drawing_package"
+        assert design["drawing_package"]["revision_ref"] == design["revision_id"]
     for run in fixture["simulation_runs"]:
         assert run["execution_artifact"]["owner_system"] == "symtropy"
         assert run["execution_artifact"]["artifact_role"] == "simulation_run"
