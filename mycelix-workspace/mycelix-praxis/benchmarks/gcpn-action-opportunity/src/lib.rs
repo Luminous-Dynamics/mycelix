@@ -262,11 +262,11 @@ impl ActionOpportunityReport {
     /// Per-group/per-action record. No global score or selected action is emitted.
     pub fn to_csv(&self) -> String {
         let mut output = String::from(
-            "record_type,group_id,cohort_id,action_id,decision_id,hazard_id,reach_disposition,unique_reached,time_disposition,time_budget_lower,time_budget_upper,required_duration_upper,resource_disposition,required_capacity_upper,available_capacity_lower,net_benefit_disposition,net_benefit_lower,net_benefit_upper,utility_unit,opportunity_disposition,violations\n",
+            "record_type,group_id,cohort_id,action_id,decision_id,hazard_id,reach_disposition,unique_reached,opportunity_scope,time_disposition,time_budget_lower,time_budget_upper,required_duration_upper,resource_disposition,required_capacity_upper,available_capacity_lower,net_benefit_disposition,net_benefit_lower,net_benefit_upper,utility_unit,opportunity_disposition,violations\n",
         );
         for assessment in &self.assessments {
             output.push_str(&format!(
-                "case,{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:.8},{:.8},{},{},{}\n",
+                "case,{},{},{},{},{},{},{},reached_population_only,{},{},{},{},{},{},{},{:.8},{:.8},{},{},{}\n",
                 assessment.group_id,
                 assessment.cohort_id,
                 assessment.action_id,
@@ -289,14 +289,26 @@ impl ActionOpportunityReport {
                 violation_labels(&assessment.violations)
             ));
         }
-        output.push_str(&format!(
-            "summary,all_groups,all_cohorts,all_actions,all_decisions,all_hazards,,,,,,,,,,,,,{},{},{},{},{}\n",
+        let mut summary_fields = vec![
+            "summary".to_string(),
+            "all_groups".to_string(),
+            "all_cohorts".to_string(),
+            "all_actions".to_string(),
+            "all_decisions".to_string(),
+            "all_hazards".to_string(),
+        ];
+        summary_fields.extend((0..14).map(|_| String::new()));
+        summary_fields.push("not_aggregated".into());
+        summary_fields.push(format!(
+            "cases={};supports={};refutes={};indeterminate={};unavailable={}",
             self.assessed_case_count,
             self.supports,
             self.refutes,
             self.indeterminate,
             self.unavailable
         ));
+        output.push_str(&summary_fields.join(","));
+        output.push('\n');
         output
     }
 }
