@@ -212,10 +212,10 @@ pub struct JurisdictionProofResult {
 
 /// Compute the binding commitment for a jurisdiction proof.
 ///
-/// The commitment is what makes two proofs from the same location
-/// unlinkable: without the verifier's fresh nonce, two commitments
-/// from the same (lat, lng, attester, time) would collide. With a
-/// fresh nonce per proof, commitments are distinct.
+/// The verifier nonce contributes to the commitment so separate
+/// sessions can produce different commitment values. This does not
+/// establish unlinkability: the proof result and verification inputs
+/// also contain stable metadata such as the attester-key hash and box ID.
 ///
 /// The commitment does NOT include the raw coordinates — those are
 /// private inputs to the underlying STARK.
@@ -525,9 +525,9 @@ mod tests {
     }
 
     #[test]
-    fn distinct_nonces_yield_distinct_proofs() {
-        // Unlinkability smoke test — two proofs from the same location
-        // with different nonces must have distinct commitments.
+    fn distinct_nonces_yield_distinct_commitments() {
+        // Commitment-variation smoke test only — this does not establish
+        // unlinkability or concealment of all public metadata.
         let (lat, lng) = roodepoort_za();
         let one = prove_jurisdiction(&JurisdictionProofRequest {
             lat_degrees: lat,
