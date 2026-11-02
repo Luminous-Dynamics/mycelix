@@ -1929,7 +1929,8 @@ mod tests {
         );
 
         let mut trace = sample_trace();
-        trace.evidence_assertions
+        trace
+            .evidence_assertions
             .iter_mut()
             .find(|item| item.reference == "evidence:batch-cert-01")
             .unwrap()
