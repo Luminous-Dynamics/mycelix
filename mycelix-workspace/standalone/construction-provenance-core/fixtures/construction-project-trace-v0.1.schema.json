@@ -214,6 +214,7 @@
       "additionalProperties": false,
       "required": [
         "reference",
+        "subject_ref",
         "sha256",
         "status",
         "use_permission",
@@ -223,6 +224,9 @@
       ],
       "properties": {
         "reference": {
+          "$ref": "#/$defs/id"
+        },
+        "subject_ref": {
           "$ref": "#/$defs/id"
         },
         "sha256": {
@@ -368,6 +372,7 @@
         "material_description",
         "supplier_assertion",
         "certification_evidence_ref",
+        "certification_scope_ref",
         "declared_at"
       ],
       "properties": {
@@ -395,6 +400,9 @@
         },
         "declared_at": {
           "$ref": "#/$defs/time"
+        },
+        "certification_scope_ref": {
+          "$ref": "#/$defs/nullable_id"
         }
       }
     },
