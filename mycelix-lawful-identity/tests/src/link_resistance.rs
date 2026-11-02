@@ -1,19 +1,16 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-//! Link-resistance test — the empirical assertion that the public
-//! surface of a `CrossDidProof` contains no material an observer can
-//! correlate back to the prover's legal DID.
+//! Synthetic record-shape smoke tests for `CrossDidProof`.
 //!
-//! This is the executable counterpart to Vector 1 of
-//! `mycelix-lawful-identity/docs/THREAT_MODEL.md`:
+//! **These tests do not generate or verify cryptographic proofs.** The
+//! `synth_proof` helper fabricates placeholder fields with SHA-256 and a
+//! nonce-derived value. The tests only check that those synthetic fields do
+//! not contain selected literal / hashed strings. They do not exercise the
+//! cross-DID coordinator, a STARK prover/verifier, or a Holochain DHT.
 //!
-//! > If the proof math is flawed, public inputs or proof bytes could
-//! > contain a deterministic hash / signature fragment / pubkey of
-//! > the `legal` DID.
-//!
-//! We generate 1000 `CrossDidProof` instances across a spread of legal
-//! DIDs and claim predicates, then assert:
+//! This is not evidence of cryptographic link resistance or unlinkability.
+//! See `mycelix-lawful-identity/docs/THREAT_MODEL.md` for current status.
 //!
 //!   1. No proof field contains the legal DID string literally.
 //!   2. No proof field contains the legal DID's base64-encoded pubkey.
@@ -59,13 +56,9 @@ fn make_legal_pubkey(seed: u64) -> Vec<u8> {
     h.finalize().to_vec()
 }
 
-/// Construct a plausible `CrossDidProof` the way the cross-did-zkp
-/// coordinator would — issuer pubkey hash and claim predicate hash
-/// are derived from *non-legal-DID* inputs; the nonce is a fresh
-/// random; `proof_value` is a placeholder byte pattern that stands
-/// in for STARK proof bytes (which for the structural test we model
-/// as a deterministic hash of the session inputs — crucially NOT
-/// including the legal DID).
+/// Construct a synthetic `CrossDidProof`-shaped record. This is not the
+/// coordinator output and not a cryptographic proof. `proof_value` is a
+/// deterministic SHA-256 placeholder used only for serialization checks.
 fn synth_proof(
     issuer_did: &str,
     claim_predicate: &str,
@@ -191,7 +184,7 @@ fn generate_sweep() -> Vec<SweepSample> {
 // ============================================================================
 
 #[test]
-fn legal_did_string_never_appears_in_proof_fields() {
+fn synthetic_record_fields_do_not_contain_legal_did_literal() {
     let samples = generate_sweep();
     for sample in &samples {
         for field in proof_field_strings(&sample.proof) {
@@ -214,7 +207,7 @@ fn legal_did_string_never_appears_in_proof_fields() {
 }
 
 #[test]
-fn legal_pubkey_base64_never_appears_in_proof_fields() {
+fn synthetic_record_fields_do_not_contain_pubkey_base64() {
     let samples = generate_sweep();
     for sample in &samples {
         let pubkey_b64 = b64(&sample.legal_pubkey);
@@ -235,7 +228,7 @@ fn legal_pubkey_base64_never_appears_in_proof_fields() {
 }
 
 #[test]
-fn legal_pubkey_hex_never_appears_in_proof_fields() {
+fn synthetic_record_fields_do_not_contain_pubkey_hex() {
     let samples = generate_sweep();
     for sample in &samples {
         let pubkey_hex = hex(&sample.legal_pubkey);
@@ -250,7 +243,7 @@ fn legal_pubkey_hex_never_appears_in_proof_fields() {
 }
 
 #[test]
-fn sha256_of_legal_did_never_appears_in_proof_fields() {
+fn synthetic_record_fields_do_not_contain_sha256_of_legal_did() {
     let samples = generate_sweep();
     for sample in &samples {
         let h = Sha256::digest(sample.legal_did.as_bytes());
@@ -270,7 +263,7 @@ fn sha256_of_legal_did_never_appears_in_proof_fields() {
 }
 
 #[test]
-fn sha256_of_legal_pubkey_never_appears_in_proof_fields() {
+fn synthetic_record_fields_do_not_contain_sha256_of_legal_pubkey() {
     let samples = generate_sweep();
     for sample in &samples {
         let h = Sha256::digest(&sample.legal_pubkey);
@@ -294,7 +287,7 @@ fn sha256_of_legal_pubkey_never_appears_in_proof_fields() {
 // ============================================================================
 
 #[test]
-fn all_1000_proofs_are_byte_distinct() {
+fn all_1000_synthetic_records_are_byte_distinct() {
     let samples = generate_sweep();
     let mut seen = HashSet::with_capacity(N_PROOFS);
     for sample in &samples {
@@ -310,7 +303,7 @@ fn all_1000_proofs_are_byte_distinct() {
 }
 
 #[test]
-fn proof_value_distinct_across_different_legal_dids() {
+fn placeholder_value_varies_across_different_seeds() {
     // If two different legal DIDs produced byte-identical proof_value,
     // the proof is trivially leaking information about the session
     // even if not the DID directly.
