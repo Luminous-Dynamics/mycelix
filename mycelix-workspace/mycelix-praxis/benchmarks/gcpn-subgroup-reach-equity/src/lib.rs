@@ -1235,6 +1235,104 @@ mod tests {
     }
 
     #[test]
+    fn delivery_report_cutoff_must_match_policy_cutoff() {
+        let mut report = delivery_report(vec![delivery("cohort-a", "sms", 100)]);
+        report.as_of_cutoff = 99;
+        let group = subgroup("group-a", "cohort-a", &["sms"], 100, 100);
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::DeliveryEvidenceNotAsOf));
+    }
+
+    #[test]
+    fn subgroup_channel_set_must_match_every_declared_delivery_channel() {
+        let report = delivery_report(vec![
+            delivery("cohort-a", "cell-broadcast", 100),
+            delivery("cohort-a", "sms", 90),
+        ]);
+        let group = subgroup("group-a", "cohort-a", &["sms"], 100, 100);
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::DeliveryChannelSetMismatch));
+    }
+
+    #[test]
+    fn dedup_method_version_is_pinned() {
+        let report = delivery_report(vec![
+            delivery("cohort-a", "cell-broadcast", 100),
+            delivery("cohort-a", "sms", 90),
+        ]);
+        let mut record = attestation(&["cell-broadcast", "sms"], 190, 150);
+        record.method_version = "2".into();
+        let mut group = subgroup("group-a", "cohort-a", &["cell-broadcast", "sms"], 100, 110);
+        group.deduplication = Some(record);
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::DeduplicationMethodMismatch));
+    }
+
+    #[test]
+    fn denominator_source_version_and_as_of_are_frozen() {
+        let report = delivery_report(vec![delivery("cohort-a", "sms", 100)]);
+        let mut group = subgroup("group-a", "cohort-a", &["sms"], 100, 100);
+        if let DenominatorState::KnownInterval {
+            source_version,
+            recorded_at,
+            ..
+        } = &mut group.denominator
+        {
+            *source_version = "release-older".into();
+            *recorded_at = 101;
+        }
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::DenominatorSourceMismatch));
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::DenominatorAfterCutoff));
+    }
+
+    #[test]
+    fn unique_union_cannot_exceed_denominator_upper_bound() {
+        let report = delivery_report(vec![
+            delivery("cohort-a", "cell-broadcast", 100),
+            delivery("cohort-a", "sms", 90),
+        ]);
+        let mut group = subgroup("group-a", "cohort-a", &["cell-broadcast", "sms"], 100, 120);
+        group.deduplication = Some(attestation(&["cell-broadcast", "sms"], 190, 130));
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::UniqueReachExceedsDenominator));
+    }
+
+    #[test]
+    fn exact_channel_set_and_dedup_source_are_required_for_support() {
+        let report = delivery_report(vec![
+            delivery("cohort-a", "cell-broadcast", 100),
+            delivery("cohort-a", "sms", 90),
+        ]);
+        let mut record = attestation(&["cell-broadcast", "sms"], 190, 150);
+        record.source_id = "unrecognized-dedup-service".into();
+        let mut group = subgroup("group-a", "cohort-a", &["cell-broadcast", "sms"], 100, 110);
+        group.deduplication = Some(record);
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::DeduplicationSourceMismatch));
+    }
+
+    #[test]
     fn duplicate_subgroup_ids_and_channel_ids_fail_closed() {
         let report = delivery_report(vec![delivery("cohort-a", "sms", 100)]);
         let group = subgroup("group-a", "cohort-a", &["sms"], 100, 100);
