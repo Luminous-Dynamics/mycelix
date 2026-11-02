@@ -7,13 +7,27 @@
       "revision_id": "design-r1",
       "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "supersedes_revision_id": null,
-      "created_at": 100
+      "created_at": 100,
+      "source_artifact": {
+        "reference": "symthaea:design:pavilion-design-r1",
+        "owner_system": "symthaea",
+        "artifact_role": "design_revision",
+        "revision_ref": "design-r1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
     },
     {
       "revision_id": "design-r2",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "supersedes_revision_id": "design-r1",
-      "created_at": 180
+      "created_at": 180,
+      "source_artifact": {
+        "reference": "symthaea:design:pavilion-design-r2",
+        "owner_system": "symthaea",
+        "artifact_role": "design_revision",
+        "revision_ref": "design-r2",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
     }
   ],
   "simulation_runs": [
@@ -24,7 +38,14 @@
       "solver_id": "symtropy-structural-adapter",
       "solver_version": "0.1.0",
       "result_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-      "completed_at": 130
+      "completed_at": 130,
+      "execution_artifact": {
+        "reference": "symtropy:run:sim-r1",
+        "owner_system": "symtropy",
+        "artifact_role": "simulation_run",
+        "revision_ref": "sim-r1",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
     },
     {
       "run_id": "sim-r2",
@@ -33,7 +54,14 @@
       "solver_id": "qualified-external-solver-ref",
       "solver_version": "vendor-build-7",
       "result_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-      "completed_at": 220
+      "completed_at": 220,
+      "execution_artifact": {
+        "reference": "symtropy:run:sim-r2",
+        "owner_system": "symtropy",
+        "artifact_role": "simulation_run",
+        "revision_ref": "sim-r2",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
     }
   ],
   "authority_assertions": [
@@ -226,5 +254,12 @@
       "outcome": "conforming",
       "inspected_at": 300
     }
-  ]
+  ],
+  "external_portfolio_context": {
+    "reference": "sol-atlas:foundry:study-01:alternative-01",
+    "owner_system": "sol-atlas-leptos",
+    "artifact_role": "portfolio_alternative",
+    "revision_ref": "alternative-r1",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  }
 }
