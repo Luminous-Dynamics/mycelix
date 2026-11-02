@@ -474,7 +474,10 @@ fn validate_metric(
                 && reference_members == expected
         }
         ForecastInputRequirement::MinimumEnsembleSize(minimum) => {
-            minimum > 0 && both_ensemble && candidate_members >= minimum && reference_members >= minimum
+            minimum > 0
+                && both_ensemble
+                && candidate_members >= minimum
+                && reference_members >= minimum
         }
     };
 
@@ -651,10 +654,7 @@ pub struct ComparisonReport {
     pub cases: Vec<CaseReport>,
 }
 
-fn add_missing_reason(
-    counts: &mut BTreeMap<MissingReason, usize>,
-    availability: &Availability,
-) {
+fn add_missing_reason(counts: &mut BTreeMap<MissingReason, usize>, availability: &Availability) {
     if let Availability::Missing { reason } = availability {
         *counts.entry(*reason).or_insert(0) += 1;
     }
@@ -727,7 +727,6 @@ impl ComparisonReport {
             if candidate_available && reference_available && !verification_available {
                 counts.pairs_without_verification += 1;
             }
-
         }
 
         cases.sort_by(|left, right| {
@@ -996,18 +995,23 @@ mod tests {
     #[test]
     fn unknown_redistribution_terms_never_become_permission() {
         let manifest = fixture();
-        assert!(!manifest
-            .dataset_release
-            .redistribution_policy
-            .permits_redistribution_by_declaration());
+        assert!(
+            !manifest
+                .dataset_release
+                .redistribution_policy
+                .permits_redistribution_by_declaration()
+        );
     }
 
     #[test]
     fn declared_terms_flag_is_not_a_legal_opinion() {
-        assert!(RedistributionPolicy::AllowedByDeclaredTerms
-            .permits_redistribution_by_declaration());
-        assert!(!RedistributionPolicy::RestrictedByDeclaredTerms
-            .permits_redistribution_by_declaration());
+        assert!(
+            RedistributionPolicy::AllowedByDeclaredTerms.permits_redistribution_by_declaration()
+        );
+        assert!(
+            !RedistributionPolicy::RestrictedByDeclaredTerms
+                .permits_redistribution_by_declaration()
+        );
     }
 
     #[test]
@@ -1034,20 +1038,14 @@ mod tests {
     fn spatial_grid_mismatch_is_rejected() {
         let mut manifest = fixture();
         manifest.candidate.grid_sha256 = DIGEST_C.into();
-        assert_eq!(
-            manifest.validate(),
-            Err(ContractViolation::GridMismatch)
-        );
+        assert_eq!(manifest.validate(), Err(ContractViolation::GridMismatch));
     }
 
     #[test]
     fn spatial_mask_mismatch_is_rejected() {
         let mut manifest = fixture();
         manifest.reference.mask_sha256 = DIGEST_C.into();
-        assert_eq!(
-            manifest.validate(),
-            Err(ContractViolation::MaskMismatch)
-        );
+        assert_eq!(manifest.validate(), Err(ContractViolation::MaskMismatch));
     }
 
     #[test]
@@ -1064,10 +1062,7 @@ mod tests {
     fn unit_mismatch_is_rejected() {
         let mut manifest = fixture();
         manifest.candidate.unit = "celsius".into();
-        assert_eq!(
-            manifest.validate(),
-            Err(ContractViolation::UnitMismatch)
-        );
+        assert_eq!(manifest.validate(), Err(ContractViolation::UnitMismatch));
     }
 
     #[test]
@@ -1094,10 +1089,7 @@ mod tests {
     fn model_digest_must_be_sha256_hex() {
         let mut manifest = fixture();
         manifest.candidate.artifact_sha256 = "not-a-digest".into();
-        assert_eq!(
-            manifest.validate(),
-            Err(ContractViolation::InvalidSha256)
-        );
+        assert_eq!(manifest.validate(), Err(ContractViolation::InvalidSha256));
     }
 
     #[test]
@@ -1116,10 +1108,7 @@ mod tests {
     fn lead_time_must_match_valid_and_initialization_times() {
         let mut manifest = fixture();
         manifest.cases[0].lead_seconds = 7;
-        assert_eq!(
-            manifest.validate(),
-            Err(ContractViolation::InvalidCaseTime)
-        );
+        assert_eq!(manifest.validate(), Err(ContractViolation::InvalidCaseTime));
     }
 
     #[test]
@@ -1145,7 +1134,10 @@ mod tests {
                 .count(),
             3
         );
-        assert_eq!(report.counts.eligible_cases + report.counts.excluded_cases, 4);
+        assert_eq!(
+            report.counts.eligible_cases + report.counts.excluded_cases,
+            4
+        );
     }
 
     #[test]
