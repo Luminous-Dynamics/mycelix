@@ -400,7 +400,7 @@ pub fn check_profile(
 
     let disposition = if now < profile.valid_from {
         ProfileDisposition::NotYetEffective
-    } else if profile.valid_until.is_some_and(|expiry| now > expiry) {
+    } else if profile.valid_until.is_some_and(|expiry| now >= expiry) {
         ProfileDisposition::Expired
     } else if reasons.is_empty() {
         ProfileDisposition::CompleteForDeclaredThreatModel
@@ -1001,7 +1001,7 @@ mod tests {
     fn profile_expiration_is_explicit() {
         let candidate = profile();
         assert_eq!(
-            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 101).expect("valid profile").disposition,
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 100).expect("valid profile").disposition,
             ProfileDisposition::Expired
         );
         assert_eq!(
@@ -1154,6 +1154,40 @@ mod tests {
             assert_eq!(actual.disposition, CutSetDisposition::Complete);
             assert_eq!(actual.minimal_cut_sets, expected, "case {case}");
         }
+    }
+
+    #[test]
+    fn cut_set_results_are_invariant_to_role_iteration_order() {
+        let shared = domain(FaultDomainDimension::ExecutionProvider, 9);
+        let left = role_dependencies(
+            "left",
+            [
+                shared,
+                domain(FaultDomainDimension::ImplementationLineage, 1),
+            ],
+        );
+        let right = role_dependencies(
+            "right",
+            [
+                shared,
+                domain(FaultDomainDimension::ImplementationLineage, 2),
+            ],
+        );
+        let forward = minimal_cut_sets(
+            &dependency_manifest(vec![left.clone(), right.clone()]),
+            100,
+        )
+        .expect("forward order");
+        let reversed = minimal_cut_sets(
+            &dependency_manifest(vec![right, left]),
+            100,
+        )
+        .expect("reversed order");
+        assert_eq!(forward.minimal_cut_sets, reversed.minimal_cut_sets);
+        assert_eq!(
+            forward.minimum_cut_cardinality,
+            reversed.minimum_cut_cardinality
+        );
     }
 
     #[test]
