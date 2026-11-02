@@ -15,6 +15,8 @@ A dependency-free Rust implementation of deterministic FSS-equivalent scoring an
 - Reproducible independent-Bernoulli random-reference Monte Carlo matched to observed event frequency, exact ensemble size, grid, mask, missingness and scale.
 - Random-null mean, 95th percentile, and upper-tail Monte Carlo p-value.
 - Percentile confidence intervals from a block bootstrap over independent event IDs, keeping all cases within an event together.
+- Paired candidate/reference block bootstrap with identical event-block draws and exact shared case IDs, observations, dimensions, masks and area weights.
+- Paired pFSS difference and percentile interval; no subtraction of independent marginal intervals.
 - Explicit FBS/WFBS component pooling policy and qualified/degenerate bootstrap replicate counts.
 
 ## Formula
@@ -45,6 +47,8 @@ Rust 1.98.1 is pinned and there are no external dependencies.
 ## Qualification boundary
 
 Synthetic fixtures only. This crate does not fetch data, perform geospatial reprojection, wrap longitude, calculate CRPS/Brier/energy/variogram scores, assess calibration, or establish operational warning value. The rectangular grid requires a declared projection/physical scale in any real-data adapter. Confidence intervals over multiple forecast cases use an event-block bootstrap that keeps all cases in the same event together. The report names the FBS/WFBS component-pooling policy and exposes degenerate resamples. Individual grid cells are never resampled as IID.
+
+For candidate/reference comparisons, use the paired bootstrap API. Each candidate/reference case pair must share case ID, observation vector, grid dimensions, mask and cell weights. Every replicate draws the same event-block IDs for both systems and reports candidate minus reference pFSS. This is the paired difference estimand; do not subtract two independently bootstrapped marginal confidence intervals.
 
 ## Research references
 
