@@ -619,6 +619,16 @@ mod tests {
     }
 
     #[test]
+    fn csv_contains_seventeen_single_faults_and_111_pairwise_records() {
+        let report = run_full_matrix().unwrap();
+        let lines: Vec<_> = report.to_csv().lines().map(str::to_owned).collect();
+        assert_eq!(lines.len(), 1 + 17 + 111 + 1);
+        assert_eq!(lines.iter().filter(|line| line.starts_with("single,")).count(), 17);
+        assert_eq!(lines.iter().filter(|line| line.starts_with("pairwise,")).count(), 111);
+        assert!(lines.iter().all(|line| line.matches(',').count() == 7));
+    }
+
+    #[test]
     fn legacy_and_civil_coverage_labels_do_not_overlap() {
         let report = run_single_fault_matrix().unwrap();
         let six_stage: BTreeSet<_> = report
