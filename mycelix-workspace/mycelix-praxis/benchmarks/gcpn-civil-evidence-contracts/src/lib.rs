@@ -298,6 +298,7 @@ pub enum CivilViolation {
     AuthorityDecisionBindingMismatch,
     AuthorityNotYetValid,
     AuthorityExpired,
+    AuthorityValidityIntervalInvalid,
     AuthorityRecordedAfterCutoff,
     DeliveryTargetMissing,
     DeliveryReceiptIdentityMismatch,
@@ -340,6 +341,7 @@ impl CivilViolation {
             Self::AuthorityDecisionBindingMismatch => "authority_decision_binding_mismatch",
             Self::AuthorityNotYetValid => "authority_not_yet_valid",
             Self::AuthorityExpired => "authority_expired",
+            Self::AuthorityValidityIntervalInvalid => "authority_validity_interval_invalid",
             Self::AuthorityRecordedAfterCutoff => "authority_recorded_after_cutoff",
             Self::DeliveryTargetMissing => "delivery_target_missing",
             Self::DeliveryReceiptIdentityMismatch => "delivery_receipt_identity_mismatch",
@@ -637,6 +639,21 @@ pub fn audit_civil_evidence(
 }
 
 fn validate_profile_identifiers(profile: &CivilEvidenceProfile) -> Result<(), CivilEvidenceError> {
+    if profile.authority_assertion.is_some() {
+        let assertion = profile.authority_assertion.as_ref().expect("checked above");
+        for value in [
+            assertion.assertion_id.as_str(),
+            assertion.authority_id.as_str(),
+            assertion.jurisdiction_id.as_str(),
+            assertion.hazard_class_id.as_str(),
+            assertion.cap_originator.as_str(),
+            assertion.cap_message_id.as_str(),
+            assertion.cap_version.as_str(),
+            assertion.decision_id.as_str(),
+        ] {
+            check_identifier(value)?;
+        }
+    }
     for value in [
         profile.scenario_id.as_str(),
         profile.delivery_message_id.as_str(),
@@ -663,13 +680,57 @@ fn validate_profile_identifiers(profile: &CivilEvidenceProfile) -> Result<(), Ci
         check_identifier(&target.cohort_id)?;
         check_identifier(&target.channel_id)?;
     }
+    for receipt in &profile.delivery_receipts {
+        for value in [
+            receipt.receipt_id.as_str(),
+            receipt.message_id.as_str(),
+            receipt.message_version.as_str(),
+            receipt.cohort_id.as_str(),
+            receipt.channel_id.as_str(),
+        ] {
+            check_identifier(value)?;
+        }
+        if let Some(duplicate_of) = &receipt.duplicate_of {
+            check_identifier(duplicate_of)?;
+        }
+    }
+    let mut accessibility_keys = BTreeSet::new();
     for requirement in &profile.accessibility_requirements {
+        let key = (
+            requirement.cohort_id.as_str(),
+            requirement.language_id.as_str(),
+            requirement.format_id.as_str(),
+            requirement.assistive_technology_profile_id.as_str(),
+        );
+        if !accessibility_keys.insert(key) {
+            return Err(CivilEvidenceError::DuplicateAccessibilityKey(format!(
+                "{}:{}:{}:{}",
+                requirement.cohort_id,
+                requirement.language_id,
+                requirement.format_id,
+                requirement.assistive_technology_profile_id
+            )));
+        }
         check_identifier(&requirement.cohort_id)?;
         check_identifier(&requirement.language_id)?;
         check_identifier(&requirement.format_id)?;
         check_identifier(&requirement.assistive_technology_profile_id)?;
     }
+    let mut comprehension_keys = BTreeSet::new();
     for requirement in &profile.comprehension_requirements {
+        let key = (
+            requirement.cohort_id.as_str(),
+            requirement.language_id.as_str(),
+            requirement.test_protocol_id.as_str(),
+        );
+        if !comprehension_keys.insert(key) {
+            return Err(CivilEvidenceError::DuplicateComprehensionKey(format!(
+                "{}:{}:{}",
+                requirement.cohort_id,
+                requirement.language_id,
+                requirement.test_protocol_id
+            )));
+        }
         check_identifier(&requirement.cohort_id)?;
         check_identifier(&requirement.language_id)?;
         check_identifier(&requirement.test_protocol_id)?;
@@ -688,6 +749,26 @@ fn validate_profile_identifiers(profile: &CivilEvidenceProfile) -> Result<(), Ci
             requirement.authority_assertion_id.as_str(),
             requirement.executor_agency_id.as_str(),
             requirement.action_type_id.as_str(),
+        ] {
+            check_identifier(value)?;
+        }
+    }
+    for evidence in &profile.accessibility_evidence {
+        for value in [
+            evidence.cohort_id.as_str(),
+            evidence.language_id.as_str(),
+            evidence.format_id.as_str(),
+            evidence.assistive_technology_profile_id.as_str(),
+            evidence.test_protocol_id.as_str(),
+        ] {
+            check_identifier(value)?;
+        }
+    }
+    for evidence in &profile.comprehension_evidence {
+        for value in [
+            evidence.cohort_id.as_str(),
+            evidence.language_id.as_str(),
+            evidence.test_protocol_id.as_str(),
         ] {
             check_identifier(value)?;
         }
@@ -750,6 +831,9 @@ fn assess_authority(profile: &CivilEvidenceProfile) -> AuthorityAssessment {
 
     if assertion.recorded_at > profile.as_of_cutoff {
         violations.insert(CivilViolation::AuthorityRecordedAfterCutoff);
+    }
+    if assertion.valid_until <= assertion.valid_from {
+        violations.insert(CivilViolation::AuthorityValidityIntervalInvalid);
     }
     if assertion.authority_id != profile.authority_requirement.authority_id
         || assertion.jurisdiction_id != profile.authority_requirement.jurisdiction_id
@@ -843,6 +927,10 @@ fn assess_delivery(
                 source.receipt_id == source_id
                     && source.cohort_id == receipt.cohort_id
                     && source.channel_id == receipt.channel_id
+                    && source.message_id == receipt.message_id
+                    && source.message_version == receipt.message_version
+                    && source.state != DeliveryState::Duplicate
+                    && source.recorded_at <= receipt.recorded_at
             }) {
                 return Err(CivilEvidenceError::InvalidDeliveryCount(receipt.receipt_id.clone()));
             }
@@ -890,6 +978,7 @@ fn assess_delivery(
             || counts.device_delivered > counts.intended_receivers
             || counts.failed > counts.intended_receivers
             || counts.delayed > counts.intended_receivers
+            || counts.unknown > counts.intended_receivers
         {
             violations.insert(CivilViolation::DeliveryCountExceedsTarget);
         }
@@ -1206,7 +1295,9 @@ fn assess_case_frame(profile: &CivilEvidenceProfile) -> Result<CaseFrameAssessme
         violations.insert(CivilViolation::CaseFrameDenominatorMismatch);
     }
 
-    let disposition = if violations.is_empty() && missing == 0 && disputed == 0 {
+    let disposition = if eligible == 0 && violations.is_empty() {
+        ClaimDisposition::Unavailable
+    } else if violations.is_empty() && missing == 0 && disputed == 0 {
         ClaimDisposition::Supports
     } else if violations.contains(&CivilViolation::CaseFrameDenominatorMismatch) {
         ClaimDisposition::Indeterminate
