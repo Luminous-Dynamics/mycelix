@@ -33,6 +33,7 @@ name = "gcpn-e2e-fault-matrix"
 version = "0.1.0"
 dependencies = [
  "gcpn-civil-evidence-adapter",
+ "gcpn-compositional-assurance",
  "gcpn-civil-evidence-contracts",
  "gcpn-compositional-assurance-adapter",
 ]
