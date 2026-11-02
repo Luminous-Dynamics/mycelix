@@ -151,9 +151,6 @@ pub enum FssError {
     DuplicateCaseId,
     InsufficientIndependentEventBlocks,
     NoQualifiedBootstrapReplicates,
-    InvalidEventBlockId,
-    DuplicateCaseId,
-    InsufficientIndependentEventBlocks,
     PairCaseIdMismatch,
     PairSupportMismatch,
 }
@@ -183,9 +180,6 @@ impl FssError {
             Self::DuplicateCaseId => "duplicate_case_id",
             Self::InsufficientIndependentEventBlocks => "insufficient_independent_event_blocks",
             Self::NoQualifiedBootstrapReplicates => "no_qualified_bootstrap_replicates",
-            Self::InvalidEventBlockId => "invalid_event_block_id",
-            Self::DuplicateCaseId => "duplicate_case_id",
-            Self::InsufficientIndependentEventBlocks => "insufficient_independent_event_blocks",
             Self::PairCaseIdMismatch => "pair_case_id_mismatch",
             Self::PairSupportMismatch => "pair_support_mismatch",
         }
