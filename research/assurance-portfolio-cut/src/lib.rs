@@ -328,6 +328,24 @@ pub fn check_profile(profile: &ThreatProfile, now: u64) -> Result<ProfileReport,
             }
         }
     }
+    let declared_shared_keys: BTreeSet<_> = profile
+        .role_domains
+        .values()
+        .flat_map(|domains| domains.iter())
+        .filter_map(|(dimension, disposition)| match disposition {
+            DomainDisposition::SharedAccepted { identity, .. } => {
+                Some((*dimension, *identity))
+            }
+            _ => None,
+        })
+        .collect();
+    if declared_shared_keys.iter().any(|key| {
+        identity_roles
+            .get(key)
+            .is_none_or(|roles| roles.len() < 2)
+    }) {
+        reasons.insert(ProfileReason::SharedIdentityNotObserved);
+    }
     let observed_shared_dependencies = identity_roles
         .into_iter()
         .filter_map(|((dimension, identity), roles)| {
@@ -614,6 +632,16 @@ mod tests {
         }
     }
 
+    fn dependency_manifest(roles: Vec<RoleDependencies>) -> DependencyManifest {
+        DependencyManifest {
+            claim_id: "portfolio-cut-claim".to_owned(),
+            subject_digest: Digest::from_byte(1),
+            manifest_digest: Digest::from_byte(2),
+            attack_model_digest: Digest::from_byte(3),
+            roles,
+        }
+    }
+
     fn domain(dimension: FaultDomainDimension, identity: u8) -> FaultDomainKey {
         FaultDomainKey {
             dimension,
@@ -738,6 +766,41 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn accepted_shared_label_requires_a_common_identity_across_roles() {
+        let mut candidate = profile();
+        candidate
+            .role_domains
+            .get_mut("formal")
+            .expect("role exists")
+            .insert(
+                FaultDomainDimension::ExecutionProvider,
+                DomainDisposition::SharedAccepted {
+                    identity: Digest::from_byte(90),
+                    rationale: "declared common provider".to_owned(),
+                },
+            );
+        candidate
+            .role_domains
+            .get_mut("independent")
+            .expect("role exists")
+            .insert(
+                FaultDomainDimension::ExecutionProvider,
+                DomainDisposition::SharedAccepted {
+                    identity: Digest::from_byte(91),
+                    rationale: "declared common provider".to_owned(),
+                },
+            );
+        let report = check_profile(&candidate, 50).expect("valid shape");
+        assert_eq!(report.disposition, ProfileDisposition::Incomplete);
+        assert!(
+            report
+                .reasons
+                .contains(&ProfileReason::SharedIdentityNotObserved)
+        );
+    }
+
     #[test]
     fn shared_identity_on_a_mandatory_separation_blocks_profile() {
         let mut candidate = profile();
@@ -817,9 +880,13 @@ mod tests {
             role_dependencies("left", [shared_ci, left_impl]),
             role_dependencies("right", [shared_ci, right_impl]),
         ];
-        let report = minimal_cut_sets(&roles, 100).expect("valid graph");
+        let report = minimal_cut_sets(&dependency_manifest(roles.clone()), 100).expect("valid graph");
 
         assert_eq!(report.disposition, CutSetDisposition::Complete);
+        assert_eq!(report.claim_id, "portfolio-cut-claim");
+        assert_eq!(report.subject_digest, Digest::from_byte(1));
+        assert_eq!(report.manifest_digest, Digest::from_byte(2));
+        assert_eq!(report.attack_model_digest, Digest::from_byte(3));
         assert_eq!(report.minimum_cut_cardinality, Some(1));
         assert_eq!(report.minimal_cut_sets.len(), 2);
         assert!(report.minimal_cut_sets.contains(&BTreeSet::from([shared_ci])));
@@ -865,7 +932,7 @@ mod tests {
             "right",
             [domain(FaultDomainDimension::ImplementationLineage, 2)],
         );
-        let report = minimal_cut_sets(&[left, right], 100).expect("valid graph");
+        let report = minimal_cut_sets(&dependency_manifest(vec![left, right]), 100).expect("valid graph");
         assert_eq!(report.disposition, CutSetDisposition::Incomplete);
         assert!(report.minimal_cut_sets.is_empty());
         assert_eq!(report.minimum_cut_cardinality, None);
@@ -873,7 +940,7 @@ mod tests {
 
     #[test]
     fn empty_dependency_manifest_is_incomplete_not_zero_cut() {
-        let report = minimal_cut_sets(&[role_dependencies("empty", [])], 100)
+        let report = minimal_cut_sets(&dependency_manifest(vec![role_dependencies("empty", [])]), 100)
             .expect("well-formed but incomplete");
         assert_eq!(report.disposition, CutSetDisposition::Incomplete);
         assert_eq!(report.minimum_cut_cardinality, None);
@@ -897,7 +964,7 @@ mod tests {
                 ],
             ),
         ];
-        let report = minimal_cut_sets(&roles, 1).expect("valid bounded graph");
+        let report = minimal_cut_sets(&dependency_manifest(roles), 1).expect("valid bounded graph");
         assert_eq!(report.disposition, CutSetDisposition::BudgetExceeded);
         assert!(report.minimal_cut_sets.is_empty());
         assert_eq!(report.minimum_cut_cardinality, None);
@@ -910,7 +977,7 @@ mod tests {
             [domain(FaultDomainDimension::TrustRoot, 1)],
         );
         assert_eq!(
-            minimal_cut_sets(&[duplicate.clone(), duplicate], 100)
+            minimal_cut_sets(&dependency_manifest(vec![duplicate.clone(), duplicate]), 100)
                 .expect_err("duplicate role invalid"),
             CutSetError::DuplicateRoleId
         );
