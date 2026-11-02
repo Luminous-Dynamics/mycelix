@@ -195,13 +195,16 @@ impl ActionState {
         }
     }
 
-    const fn sequence(self) -> u8 {
+    const fn allows_transition_to(self, next: Self) -> bool {
+        if matches!(self, Self::Unknown) || self == next {
+            return true;
+        }
         match self {
-            Self::Approved => 0,
-            Self::Dispatched => 1,
-            Self::Started => 2,
-            Self::Completed | Self::Failed | Self::Cancelled => 3,
-            Self::Unknown => 4,
+            Self::Approved => matches!(next, Self::Dispatched | Self::Failed | Self::Cancelled),
+            Self::Dispatched => matches!(next, Self::Started | Self::Failed | Self::Cancelled),
+            Self::Started => matches!(next, Self::Completed | Self::Failed | Self::Cancelled),
+            Self::Completed | Self::Failed | Self::Cancelled => false,
+            Self::Unknown => true,
         }
     }
 }
@@ -323,6 +326,8 @@ pub enum CivilViolation {
     DuplicateCaseKey,
     CaseFrameAfterCutoff,
     CaseFrameDenominatorMismatch,
+    CaseFrameMissingOutcomes,
+    CaseFrameDisputedOutcomes,
 }
 
 impl CivilViolation {
@@ -366,6 +371,8 @@ impl CivilViolation {
             Self::DuplicateCaseKey => "duplicate_case_key",
             Self::CaseFrameAfterCutoff => "case_frame_after_cutoff",
             Self::CaseFrameDenominatorMismatch => "case_frame_denominator_mismatch",
+            Self::CaseFrameMissingOutcomes => "case_frame_missing_outcomes",
+            Self::CaseFrameDisputedOutcomes => "case_frame_disputed_outcomes",
         }
     }
 }
@@ -510,7 +517,7 @@ impl CivilEvidenceReport {
             "scenario_id,claim_family,claim_key,qualifier,disposition,observed_value,secondary_value,violations\n",
         );
         output.push_str(&format!(
-            "{},base_audit,required_claims,{}, {},{}, {},{}\n",
+            "{},base_audit,required_claims,{}, {},{},{},{}\n",
             self.scenario_id,
             self.base_audit.required_claims,
             label(self.base_audit.disposition),
@@ -684,6 +691,17 @@ fn validate_profile_identifiers(profile: &CivilEvidenceProfile) -> Result<(), Ci
     if profile.required_base_claims.is_empty() {
         return Err(CivilEvidenceError::MissingRequiredClaims);
     }
+    if profile.delivery_targets.is_empty() {
+        return Err(CivilEvidenceError::InvalidDeliveryCount(
+            "at least one intended cohort/channel target is required".into(),
+        ));
+    }
+    let mut base_claim_keys = BTreeSet::new();
+    for claim in &profile.required_base_claims {
+        if !base_claim_keys.insert((claim.stage, claim.claim_id.as_str())) {
+            return Err(CivilEvidenceError::DuplicateRequirement(claim.claim_id.clone()));
+        }
+    }
     for claim in &profile.required_base_claims {
         check_identifier(&claim.claim_id)?;
     }
@@ -764,7 +782,23 @@ fn validate_profile_identifiers(profile: &CivilEvidenceProfile) -> Result<(), Ci
             check_identifier(value)?;
         }
     }
+    let mut accessibility_evidence_keys = BTreeSet::new();
     for evidence in &profile.accessibility_evidence {
+        let key = (
+            evidence.cohort_id.as_str(),
+            evidence.language_id.as_str(),
+            evidence.format_id.as_str(),
+            evidence.assistive_technology_profile_id.as_str(),
+        );
+        if !accessibility_evidence_keys.insert(key) {
+            return Err(CivilEvidenceError::DuplicateAccessibilityKey(format!(
+                "{}:{}:{}:{}",
+                evidence.cohort_id,
+                evidence.language_id,
+                evidence.format_id,
+                evidence.assistive_technology_profile_id
+            )));
+        }
         for value in [
             evidence.cohort_id.as_str(),
             evidence.language_id.as_str(),
@@ -974,6 +1008,10 @@ fn assess_delivery(
             }
             if receipt.recorded_at > profile.as_of_cutoff {
                 violations.insert(CivilViolation::DeliveryReceiptAfterCutoff);
+                continue;
+            }
+            if receipt.count == 0 {
+                return Err(CivilEvidenceError::InvalidDeliveryCount(receipt.receipt_id.clone()));
             }
             match receipt.state {
                 DeliveryState::ProviderAccepted => counts.provider_accepted += receipt.count,
@@ -985,7 +1023,8 @@ fn assess_delivery(
             }
         }
 
-        if counts.provider_accepted > counts.intended_receivers
+        if counts.intended_receivers == 0
+            || counts.provider_accepted > counts.intended_receivers
             || counts.device_delivered > counts.intended_receivers
             || counts.failed > counts.intended_receivers
             || counts.delayed > counts.intended_receivers
@@ -1068,7 +1107,10 @@ fn assess_accessibility(profile: &CivilEvidenceProfile) -> Vec<AccessibilityAsse
             selected
         };
 
-        let disposition = match state {
+        let disposition = if violations.contains(&CivilViolation::AccessibilityEvidenceAfterCutoff) {
+            ClaimDisposition::Indeterminate
+        } else {
+            match state {
             Some(AccessibilityState::Accessible) if violations.is_empty() => {
                 ClaimDisposition::Supports
             }
@@ -1081,6 +1123,7 @@ fn assess_accessibility(profile: &CivilEvidenceProfile) -> Vec<AccessibilityAsse
                 ClaimDisposition::Unavailable
             }
             _ => ClaimDisposition::Indeterminate,
+            }
         };
 
         output.push(AccessibilityAssessment {
@@ -1142,12 +1185,14 @@ fn assess_comprehension(
             continue;
         };
 
-        if evidence.recorded_at > profile.as_of_cutoff || evidence.tested_at > profile.as_of_cutoff {
+        let within_cutoff = evidence.recorded_at <= profile.as_of_cutoff
+            && evidence.tested_at <= profile.as_of_cutoff;
+        if !within_cutoff {
             violations.insert(CivilViolation::ComprehensionEvidenceAfterCutoff);
         }
-        let comprehension_rate = (evidence.tested_count > 0)
+        let comprehension_rate = (within_cutoff && evidence.tested_count > 0)
             .then_some(evidence.understood_count as f64 / evidence.tested_count as f64);
-        let intended_action_rate = (evidence.tested_count > 0)
+        let intended_action_rate = (within_cutoff && evidence.tested_count > 0)
             .then_some(evidence.intended_action_count as f64 / evidence.tested_count as f64);
 
         let disposition = if !violations.is_empty() {
@@ -1216,7 +1261,7 @@ fn assess_actions(
 
         let mut state = None;
         let mut last_time = None;
-        let mut last_sequence = None;
+        let mut as_of_receipt_count = 0usize;
         for receipt in &receipts {
             if receipt.decision_id != requirement.decision_id
                 || receipt.authority_assertion_id != requirement.authority_assertion_id
@@ -1227,15 +1272,18 @@ fn assess_actions(
             }
             if receipt.recorded_at > profile.as_of_cutoff || receipt.event_time > profile.as_of_cutoff {
                 violations.insert(CivilViolation::ActionReceiptAfterCutoff);
+                continue;
             }
-            if let (Some(previous_time), Some(previous_sequence)) = (last_time, last_sequence) {
-                if receipt.event_time < previous_time || receipt.state.sequence() < previous_sequence {
+            if let (Some(previous_time), Some(previous_state)) = (last_time, state) {
+                if receipt.event_time < previous_time
+                    || !previous_state.allows_transition_to(receipt.state)
+                {
                     violations.insert(CivilViolation::ActionTransitionRegression);
                 }
             }
             last_time = Some(receipt.event_time);
-            last_sequence = Some(receipt.state.sequence());
             state = Some(receipt.state);
+            as_of_receipt_count += 1;
         }
 
         let disposition = if receipts.is_empty() {
@@ -1262,7 +1310,7 @@ fn assess_actions(
             action_id: requirement.action_id.clone(),
             disposition,
             latest_state: state,
-            receipt_count: receipts.len(),
+            receipt_count: as_of_receipt_count,
             violations: violations.into_iter().collect(),
         });
     }
@@ -1292,6 +1340,8 @@ fn assess_case_frame(profile: &CivilEvidenceProfile) -> Result<CaseFrameAssessme
         }
         if case.recorded_at > profile.as_of_cutoff {
             violations.insert(CivilViolation::CaseFrameAfterCutoff);
+            disputed += 1;
+            continue;
         }
         match case.disposition {
             CaseDisposition::Observed => observed += 1,
@@ -1304,6 +1354,12 @@ fn assess_case_frame(profile: &CivilEvidenceProfile) -> Result<CaseFrameAssessme
     let eligible = observed + missing + disputed;
     if eligible != profile.case_frame.declared_eligible_cases {
         violations.insert(CivilViolation::CaseFrameDenominatorMismatch);
+    }
+    if missing > 0 {
+        violations.insert(CivilViolation::CaseFrameMissingOutcomes);
+    }
+    if disputed > 0 {
+        violations.insert(CivilViolation::CaseFrameDisputedOutcomes);
     }
 
     let disposition = if eligible == 0 && violations.is_empty() {
