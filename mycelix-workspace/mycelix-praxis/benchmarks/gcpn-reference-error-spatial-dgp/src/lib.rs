@@ -954,6 +954,7 @@ impl SplitMix64 {
 pub struct EnsembleSizeTrial {
     pub ensemble_size: usize,
     pub seed: u64,
+    pub member_seed: u64,
     pub event_block_id: String,
     pub latent_candidate_p_fss: f64,
     pub latent_reference_p_fss: f64,
@@ -1047,6 +1048,7 @@ impl EnsembleSizeStudyReport {
                     scenario.sensitivity_only,
                     trial.ensemble_size,
                     trial.seed,
+                    trial.member_seed,
                     trial.event_block_id,
                     trial.latent_candidate_p_fss,
                     trial.latent_reference_p_fss,
@@ -1126,18 +1128,22 @@ pub fn run_ensemble_size_study(
         let mut rows = Vec::new();
         for ensemble_size in &sizes {
             for (trial, observation) in &observations {
+                // Use common random numbers for each paired candidate/reference
+                // member index to isolate forecast-pattern differences from an
+                // avoidable Monte Carlo perturbation mismatch.
+                let member_seed = trial.seed ^ 0x243f_6a88_85a3_08d3;
                 let candidate_members = generate_members(
                     fixture,
                     &fixture.candidate_forecast,
                     *ensemble_size,
-                    trial.seed ^ 0x243f_6a88_85a3_08d3,
+                    member_seed,
                     ensemble_spread,
                 );
                 let reference_members = generate_members(
                     fixture,
                     &fixture.reference_forecast,
                     *ensemble_size,
-                    trial.seed ^ 0x1319_8a2e_0370_7344,
+                    member_seed,
                     ensemble_spread,
                 );
                 let latent_observation: Vec<Option<f64>> =
@@ -1177,6 +1183,7 @@ pub fn run_ensemble_size_study(
                 rows.push(EnsembleSizeTrial {
                     ensemble_size: *ensemble_size,
                     seed: trial.seed,
+                    member_seed,
                     event_block_id: trial.event_block_id.clone(),
                     latent_candidate_p_fss: latent_candidate,
                     latent_reference_p_fss: latent_reference,
