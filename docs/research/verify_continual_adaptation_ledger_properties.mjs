@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 
 function gitBlobSha(path) {
   const data = fs.readFileSync(path);
-  const header = Buffer.from("blob " + data.length + "\\0", "ascii");
+  const header = Buffer.from("blob " + data.length + "\0", "ascii");
   return crypto.createHash("sha1").update(Buffer.concat([header, data])).digest("hex");
 }
 
