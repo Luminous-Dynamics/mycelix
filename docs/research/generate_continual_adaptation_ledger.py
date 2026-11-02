@@ -27,7 +27,7 @@ def token(state: int, prefix: str) -> tuple[int, str]:
 
 def git_blob_sha(path: Path) -> str:
     data = path.read_bytes()
-    header = f"blob {len(data)}\\0".encode("ascii")
+    header = f"blob {len(data)}\0".encode("ascii")
     return hashlib.sha1(header + data).hexdigest()
 
 
