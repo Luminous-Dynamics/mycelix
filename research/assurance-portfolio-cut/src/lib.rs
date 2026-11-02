@@ -439,6 +439,8 @@ pub struct RoleDependencies {
 pub struct DependencyManifest {
     pub claim_id: String,
     pub subject_digest: Digest,
+    pub profile_digest: Digest,
+    pub policy_digest: Digest,
     pub manifest_digest: Digest,
     pub attack_model_digest: Digest,
     pub roles: Vec<RoleDependencies>,
@@ -465,6 +467,8 @@ pub enum CutSetError {
 pub struct CutSetReport {
     pub claim_id: String,
     pub subject_digest: Digest,
+    pub profile_digest: Digest,
+    pub policy_digest: Digest,
     pub manifest_digest: Digest,
     pub attack_model_digest: Digest,
     pub disposition: CutSetDisposition,
@@ -488,6 +492,8 @@ fn cut_set_report(
     CutSetReport {
         claim_id: manifest.claim_id.clone(),
         subject_digest: manifest.subject_digest,
+        profile_digest: manifest.profile_digest,
+        policy_digest: manifest.policy_digest,
         manifest_digest: manifest.manifest_digest,
         attack_model_digest: manifest.attack_model_digest,
         disposition,
@@ -713,8 +719,10 @@ mod tests {
         DependencyManifest {
             claim_id: "portfolio-cut-claim".to_owned(),
             subject_digest: Digest::from_byte(1),
-            manifest_digest: Digest::from_byte(2),
-            attack_model_digest: Digest::from_byte(3),
+            profile_digest: Digest::from_byte(2),
+            policy_digest: Digest::from_byte(3),
+            manifest_digest: Digest::from_byte(4),
+            attack_model_digest: Digest::from_byte(5),
             roles,
         }
     }
@@ -1004,8 +1012,10 @@ mod tests {
         assert_eq!(report.disposition, CutSetDisposition::Complete);
         assert_eq!(report.claim_id, "portfolio-cut-claim");
         assert_eq!(report.subject_digest, Digest::from_byte(1));
-        assert_eq!(report.manifest_digest, Digest::from_byte(2));
-        assert_eq!(report.attack_model_digest, Digest::from_byte(3));
+        assert_eq!(report.profile_digest, Digest::from_byte(2));
+        assert_eq!(report.policy_digest, Digest::from_byte(3));
+        assert_eq!(report.manifest_digest, Digest::from_byte(4));
+        assert_eq!(report.attack_model_digest, Digest::from_byte(5));
         assert_eq!(report.minimum_cut_cardinality, Some(1));
         assert_eq!(report.minimal_cut_sets.len(), 2);
         assert!(report.minimal_cut_sets.contains(&BTreeSet::from([shared_ci])));
