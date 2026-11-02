@@ -1144,6 +1144,113 @@ mod tests {
         assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
+    #[test]
+    fn test_channel_transition_binds_debit_to_authorized_party() {
+        let original = valid_channel();
+
+        let mut a_to_b = original.clone();
+        a_to_b.balance_a = 400;
+        a_to_b.balance_b = 600;
+        a_to_b.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &a_to_b, "did:mycelix:alice"),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &a_to_b, "did:mycelix:bob"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut b_to_a = original.clone();
+        b_to_a.balance_a = 600;
+        b_to_a.balance_b = 400;
+        b_to_a.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &b_to_a, "did:mycelix:bob"),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &b_to_a, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_channel_transition_rejects_nonparticipant_and_value_creation() {
+        let original = valid_channel();
+
+        let mut transfer = original.clone();
+        transfer.balance_a = 400;
+        transfer.balance_b = 600;
+        transfer.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &transfer, "did:mycelix:mallory"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut value_created = original.clone();
+        value_created.balance_a = 400;
+        value_created.balance_b = 550;
+        value_created.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &value_created, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut no_op = original.clone();
+        no_op.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &no_op, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_channel_transition_rejects_immutable_term_changes() {
+        let original = valid_channel();
+
+        let mut changed = original.clone();
+        changed.party_b = "did:mycelix:mallory".into();
+        changed.balance_a = 400;
+        changed.balance_b = 600;
+        changed.last_updated = ts(2_000_000);
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &changed, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_channel_transition_allows_close_without_balance_change_only() {
+        let original = valid_channel();
+
+        let mut closed = original.clone();
+        closed.last_updated = ts(2_000_000);
+        closed.closed = Some(ts(2_000_000));
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &closed, "did:mycelix:bob"),
+            ValidateCallbackResult::Valid
+        ));
+
+        let mut reopened = closed.clone();
+        reopened.last_updated = ts(3_000_000);
+        reopened.closed = None;
+        assert!(matches!(
+            validate_payment_channel_transition(&closed, &reopened, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut close_and_move = original.clone();
+        close_and_move.balance_a = 400;
+        close_and_move.balance_b = 600;
+        close_and_move.last_updated = ts(2_000_000);
+        close_and_move.closed = Some(ts(2_000_000));
+        assert!(matches!(
+            validate_payment_channel_transition(&original, &close_and_move, "did:mycelix:alice"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
     // ---- 10. PaymentChannel with invalid party DID (must fail) ----
 
     #[test]
