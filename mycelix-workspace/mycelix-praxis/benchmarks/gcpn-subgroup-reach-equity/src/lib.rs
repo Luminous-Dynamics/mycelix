@@ -252,7 +252,7 @@ impl SubgroupEquityReport {
                 )
             };
             output.push_str(&format!(
-                "group,{},{},{},{},{},{},{},{},{},{:.8},{:.8},{}\\n",
+                "group,{},{},{},{},{},{},{},{},{},{:.8},{:.8},{}\n",
                 group_id,
                 cohort_id,
                 dimensions,
