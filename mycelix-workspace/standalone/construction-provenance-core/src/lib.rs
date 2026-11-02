@@ -480,6 +480,38 @@ fn revision_lineage_is_valid(
     }
 }
 
+fn revision_is_descendant_of(
+    trace: &ConstructionProjectTrace,
+    revision_id: &str,
+    ancestor_id: &str,
+) -> bool {
+    let mut visited = BTreeSet::new();
+    let mut current_id = revision_id;
+    loop {
+        if current_id == ancestor_id {
+            return true;
+        }
+        if !visited.insert(current_id.to_owned()) {
+            return false;
+        }
+        let matches = trace
+            .design_revisions
+            .iter()
+            .filter(|revision| revision.revision_id == current_id)
+            .collect::<Vec<_>>();
+        let Some(current) = matches.first() else {
+            return false;
+        };
+        if matches.len() != 1 {
+            return false;
+        }
+        let Some(parent_id) = current.supersedes_revision_id.as_deref() else {
+            return false;
+        };
+        current_id = parent_id;
+    }
+}
+
 fn approval_record_disposition(
     trace: &ConstructionProjectTrace,
     approval: &ApprovalReceipt,
