@@ -328,6 +328,7 @@ pub enum CivilViolation {
     AuthorityNotYetValid,
     AuthorityExpired,
     AuthorityValidityIntervalInvalid,
+    AuthorityEventAfterCutoff,
     AuthorityRecordedAfterCutoff,
     DeliveryTargetMissing,
     DeliveryReceiptIdentityMismatch,
@@ -378,6 +379,7 @@ impl CivilViolation {
             Self::AuthorityNotYetValid => "authority_not_yet_valid",
             Self::AuthorityExpired => "authority_expired",
             Self::AuthorityValidityIntervalInvalid => "authority_validity_interval_invalid",
+            Self::AuthorityEventAfterCutoff => "authority_event_after_cutoff",
             Self::AuthorityRecordedAfterCutoff => "authority_recorded_after_cutoff",
             Self::DeliveryTargetMissing => "delivery_target_missing",
             Self::DeliveryReceiptIdentityMismatch => "delivery_receipt_identity_mismatch",
@@ -554,7 +556,7 @@ impl CivilEvidenceReport {
         );
 
         output.push_str(&format!(
-            "{},base_audit,required_claims,{}, {},{},{},{}\n",
+            "{},base_audit,required_claims,{},{},{},{},{}\n",
             self.scenario_id,
             self.base_audit.required_claims,
             label(self.base_audit.disposition),
@@ -983,6 +985,9 @@ fn assess_authority(profile: &CivilEvidenceProfile) -> AuthorityAssessment {
     if assertion.recorded_at > profile.as_of_cutoff {
         violations.insert(CivilViolation::AuthorityRecordedAfterCutoff);
     }
+    if profile.authority_requirement.event_time > profile.as_of_cutoff {
+        violations.insert(CivilViolation::AuthorityEventAfterCutoff);
+    }
     if assertion.valid_until <= assertion.valid_from {
         violations.insert(CivilViolation::AuthorityValidityIntervalInvalid);
     }
@@ -1111,6 +1116,7 @@ fn assess_delivery(
                 || receipt.message_version != profile.delivery_message_version
             {
                 violations.insert(CivilViolation::DeliveryReceiptIdentityMismatch);
+                continue;
             }
             if receipt.recorded_at > profile.as_of_cutoff {
                 violations.insert(CivilViolation::DeliveryReceiptAfterCutoff);
@@ -1831,6 +1837,24 @@ mod tests {
     }
 
     #[test]
+    fn authority_event_after_cutoff_is_not_qualified_as_of() {
+        let mut data = profile();
+        data.authority_requirement.event_time = 101;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.authority.disposition, ClaimDisposition::Indeterminate);
+        assert!(report.authority.violations.contains(&CivilViolation::AuthorityEventAfterCutoff));
+    }
+
+    #[test]
+    fn invalid_authority_validity_interval_is_rejected() {
+        let mut data = profile();
+        data.authority_assertion.as_mut().unwrap().valid_until = 1;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.authority.disposition, ClaimDisposition::Indeterminate);
+        assert!(report.authority.violations.contains(&CivilViolation::AuthorityValidityIntervalInvalid));
+    }
+
+    #[test]
     fn expired_authority_assertion_cannot_support_authority_claim() {
         let mut data = profile();
         data.authority_assertion.as_mut().unwrap().valid_until = 50;
@@ -1899,6 +1923,16 @@ mod tests {
     }
 
     #[test]
+    fn wrong_message_receipt_cannot_inflate_device_delivery_count() {
+        let mut data = profile();
+        data.delivery_receipts[1].message_id = "different-message".into();
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.delivery[0].counts.device_delivered, 0);
+        assert_eq!(report.delivery[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(report.delivery[0].violations.contains(&CivilViolation::DeliveryReceiptIdentityMismatch));
+    }
+
+    #[test]
     fn unknown_delivery_is_not_reclassified_as_delivered() {
         let mut data = profile();
         data.delivery_receipts.retain(|receipt| receipt.state != DeliveryState::DeviceDelivered);
@@ -1935,6 +1969,15 @@ mod tests {
         let report = audit_civil_evidence(&data).unwrap();
         assert_eq!(report.comprehension[0].disposition, ClaimDisposition::Indeterminate);
         assert!(report.comprehension[0].violations.contains(&CivilViolation::ComprehensionAccessibilityBindingMismatch));
+    }
+
+    #[test]
+    fn accessibility_evidence_after_cutoff_is_not_used() {
+        let mut data = profile();
+        data.accessibility_evidence[0].recorded_at = 101;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.accessibility[0].state, None);
+        assert_eq!(report.accessibility[0].disposition, ClaimDisposition::Indeterminate);
     }
 
     #[test]
@@ -2041,7 +2084,7 @@ mod tests {
         data.case_frame.cases[0].recorded_at = 101;
         let report = audit_civil_evidence(&data).unwrap();
         assert_eq!(report.case_frame.observed_cases, 1);
-        assert_eq!(report.case_frame.disputed_cases, 2);
+        assert_eq!(report.case_frame.disputed_cases, 1);
         assert!(report.case_frame.violations.contains(&CivilViolation::CaseFrameAfterCutoff));
         assert_eq!(report.case_frame.disposition, ClaimDisposition::Indeterminate);
     }
