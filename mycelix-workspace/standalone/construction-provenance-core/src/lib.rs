@@ -64,6 +64,8 @@ pub struct ExternalArtifactRef {
     pub artifact_role: String,
     pub revision_ref: String,
     pub sha256: String,
+    /// Optional exact parent/subject artifact in the source-owned artifact graph.
+    pub subject_ref: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -304,6 +306,29 @@ fn artifact_disposition(
     Disposition::Accepted
 }
 
+fn artifact_subject_disposition(
+    trace: &ConstructionProjectTrace,
+    reference: &str,
+    expected_subject: &str,
+) -> Disposition {
+    let matching = trace
+        .artifact_references
+        .iter()
+        .filter(|artifact| artifact.reference == reference)
+        .collect::<Vec<_>>();
+    let Some(artifact) = matching.first().copied() else {
+        return Disposition::Indeterminate;
+    };
+    if matching.len() != 1 {
+        return Disposition::Rejected;
+    }
+    if artifact.subject_ref.as_deref() == Some(expected_subject) {
+        Disposition::Accepted
+    } else {
+        Disposition::Rejected
+    }
+}
+
 fn evidence_disposition(
     trace: &ConstructionProjectTrace,
     reference: &str,
@@ -541,12 +566,18 @@ fn participant_approval_record_disposition(
             result,
             artifact_disposition(trace, reference, None, None),
         );
+        result = combine(
+            result,
+            artifact_subject_disposition(trace, reference, &approval.subject_artifact_ref),
+        );
         has_engineering_receipt |= trace
             .artifact_references
             .iter()
             .any(|artifact| {
                 artifact.reference == *reference
                     && artifact.artifact_role == "engineering_receipt"
+                    && artifact.subject_ref.as_deref()
+                        == Some(approval.subject_artifact_ref.as_str())
             });
     }
     if !has_engineering_receipt {
@@ -642,11 +673,27 @@ fn manufacturing_disposition(
     );
     result = combine(
         result,
+        artifact_subject_disposition(
+            trace,
+            &manufacturing.manufacturing_artifact_ref,
+            &manufacturing.design_artifact_ref,
+        ),
+    );
+    result = combine(
+        result,
         artifact_disposition(
             trace,
             &manufacturing.component_artifact_ref,
             None,
             Some("fabricated_component"),
+        ),
+    );
+    result = combine(
+        result,
+        artifact_subject_disposition(
+            trace,
+            &manufacturing.component_artifact_ref,
+            &manufacturing.manufacturing_artifact_ref,
         ),
     );
 
@@ -741,6 +788,14 @@ fn inspection_disposition(
     );
     result = combine(
         result,
+        artifact_subject_disposition(
+            trace,
+            &inspection.manufacturing_artifact_ref,
+            &manufacturing.design_artifact_ref,
+        ),
+    );
+    result = combine(
+        result,
         artifact_disposition(
             trace,
             &inspection.component_artifact_ref,
@@ -748,11 +803,27 @@ fn inspection_disposition(
             Some("fabricated_component"),
         ),
     );
+    result = combine(
+        result,
+        artifact_subject_disposition(
+            trace,
+            &inspection.component_artifact_ref,
+            &inspection.manufacturing_artifact_ref,
+        ),
+    );
     result = combine(result, artifact_disposition(
         trace,
         &inspection.inspection_artifact_ref,
         None,
         Some("inspection_record"),
+    );
+    result = combine(
+        result,
+        artifact_subject_disposition(
+            trace,
+            &inspection.inspection_artifact_ref,
+            &inspection.component_artifact_ref,
+        ),
     );
     result = combine(
         result,
@@ -765,11 +836,27 @@ fn inspection_disposition(
     );
     result = combine(
         result,
+        artifact_subject_disposition(
+            trace,
+            &inspection.installation_artifact_ref,
+            &inspection.component_artifact_ref,
+        ),
+    );
+    result = combine(
+        result,
         artifact_disposition(
             trace,
             &inspection.as_built_artifact_ref,
             None,
             Some("as_built_asset"),
+        ),
+    );
+    result = combine(
+        result,
+        artifact_subject_disposition(
+            trace,
+            &inspection.as_built_artifact_ref,
+            &inspection.component_artifact_ref,
         ),
     );
 
@@ -1133,6 +1220,7 @@ mod tests {
         role: &str,
         revision: &str,
         digest: &str,
+        subject_ref: Option<&str>,
     ) -> ExternalArtifactRef {
         ExternalArtifactRef {
             reference: reference.into(),
@@ -1140,6 +1228,7 @@ mod tests {
             artifact_role: role.into(),
             revision_ref: revision.into(),
             sha256: digest.into(),
+            subject_ref: subject_ref.map(str::to_owned),
         }
     }
 
@@ -1177,25 +1266,25 @@ mod tests {
             site_context_artifact_ref: Some("sol-atlas:site:pavilion-01".into()),
             portfolio_alternative_artifact_ref: Some("sol-atlas:foundry:alternative-01".into()),
             artifact_references: vec![
-                artifact("symthaea:design:pavilion-r1", "symthaea", "design_revision", "design-r1", D1),
-                artifact("symthaea:ifc:pavilion-r1", "symthaea", "ifc_model_export", "design-r1", D2),
-                artifact("symthaea:drawings:pavilion-r1", "symthaea", "drawing_package", "design-r1", D3),
-                artifact("sol-atlas:artifact:design-r1", "sol-atlas-leptos", "design_revision", "design-r1", D1),
-                artifact("symthaea:design:pavilion-r2", "symthaea", "design_revision", "design-r2", D2),
-                artifact("symthaea:ifc:pavilion-r2", "symthaea", "ifc_model_export", "design-r2", D3),
-                artifact("symthaea:drawings:pavilion-r2", "symthaea", "drawing_package", "design-r2", D4),
-                artifact("sol-atlas:artifact:design-r2", "sol-atlas-leptos", "design_revision", "design-r2", D2),
-                artifact("symtropy:run:sim-r1", "symtropy", "simulation_run", "sim-r1", D3),
-                artifact("symtropy:run:sim-r2", "symtropy", "simulation_run", "sim-r2", D4),
-                artifact("sol-atlas:engineering:receipt-r1", "sol-atlas-leptos", "engineering_receipt", "receipt-r1", D4),
-                artifact("sol-atlas:engineering:receipt-r2", "sol-atlas-leptos", "engineering_receipt", "receipt-r2", D5),
-                artifact("sol-atlas:site:pavilion-01", "sol-atlas-leptos", "site_context", "site-r1", D1),
-                artifact("sol-atlas:foundry:alternative-01", "sol-atlas-leptos", "portfolio_alternative", "alternative-r1", D3),
-                artifact("fabricator:manufacturing:batch-01", "fabricator-system", "manufacturing_record", "mfg-r1", D4),
-                artifact("fabricator:component:segment-01", "fabricator-system", "fabricated_component", "component-r1", D5),
-                artifact("metrology:inspection:segment-01", "metrology-system", "inspection_record", "inspection-r1", D3),
-                artifact("site:installation:segment-01", "site-work-system", "installation_record", "install-r1", D4),
-                artifact("site:asbuilt:segment-01", "asbuilt-registry", "as_built_asset", "asbuilt-r1", D5),
+                artifact("symthaea:design:pavilion-r1", "symthaea", "design_revision", "design-r1", D1, None),
+                artifact("symthaea:ifc:pavilion-r1", "symthaea", "ifc_model_export", "design-r1", D2, Some("symthaea:design:pavilion-r1")),
+                artifact("symthaea:drawings:pavilion-r1", "symthaea", "drawing_package", "design-r1", D3, Some("symthaea:design:pavilion-r1")),
+                artifact("sol-atlas:artifact:design-r1", "sol-atlas-leptos", "design_revision", "design-r1", D1, None),
+                artifact("symthaea:design:pavilion-r2", "symthaea", "design_revision", "design-r2", D2, None),
+                artifact("symthaea:ifc:pavilion-r2", "symthaea", "ifc_model_export", "design-r2", D3, Some("symthaea:design:pavilion-r2")),
+                artifact("symthaea:drawings:pavilion-r2", "symthaea", "drawing_package", "design-r2", D4, Some("symthaea:design:pavilion-r2")),
+                artifact("sol-atlas:artifact:design-r2", "sol-atlas-leptos", "design_revision", "design-r2", D2, None),
+                artifact("symtropy:run:sim-r1", "symtropy", "simulation_run", "sim-r1", D3, Some("sol-atlas:artifact:design-r1")),
+                artifact("symtropy:run:sim-r2", "symtropy", "simulation_run", "sim-r2", D4, Some("sol-atlas:artifact:design-r2")),
+                artifact("sol-atlas:engineering:receipt-r1", "sol-atlas-leptos", "engineering_receipt", "receipt-r1", D4, Some("sol-atlas:artifact:design-r1")),
+                artifact("sol-atlas:engineering:receipt-r2", "sol-atlas-leptos", "engineering_receipt", "receipt-r2", D5, Some("sol-atlas:artifact:design-r2")),
+                artifact("sol-atlas:site:pavilion-01", "sol-atlas-leptos", "site_context", "site-r1", D1, None),
+                artifact("sol-atlas:foundry:alternative-01", "sol-atlas-leptos", "portfolio_alternative", "alternative-r1", D3, Some("sol-atlas:site:pavilion-01")),
+                artifact("fabricator:manufacturing:batch-01", "fabricator-system", "manufacturing_record", "mfg-r1", D4, Some("sol-atlas:artifact:design-r2")),
+                artifact("fabricator:component:segment-01", "fabricator-system", "fabricated_component", "component-r1", D5, Some("fabricator:manufacturing:batch-01")),
+                artifact("metrology:inspection:segment-01", "metrology-system", "inspection_record", "inspection-r1", D3, Some("fabricator:component:segment-01")),
+                artifact("site:installation:segment-01", "site-work-system", "installation_record", "install-r1", D4, Some("fabricator:component:segment-01")),
+                artifact("site:asbuilt:segment-01", "asbuilt-registry", "as_built_asset", "asbuilt-r1", D5, Some("fabricator:component:segment-01")),
             ],
             authority_assertions: vec![
                 authority("authority:design-r1", "party:engineer-01", "design-representative", "scope:design-r1"),
@@ -1382,6 +1471,36 @@ mod tests {
         trace.artifact_references[0].sha256 = "not-a-digest".into();
         assert_eq!(
             disposition(&trace, "artifact_reference", "symthaea:design:pavilion-r1"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn engineering_receipt_must_bind_to_the_exact_approved_design() {
+        let mut trace = sample_trace();
+        trace
+            .artifact_references
+            .iter_mut()
+            .find(|item| item.reference == "sol-atlas:engineering:receipt-r2")
+            .unwrap()
+            .subject_ref = Some("sol-atlas:artifact:design-r1".into());
+        assert_eq!(
+            disposition(&trace, "participant_approval", "approval-r2"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn simulation_run_must_bind_to_the_same_design_as_its_approval() {
+        let mut trace = sample_trace();
+        trace
+            .artifact_references
+            .iter_mut()
+            .find(|item| item.reference == "symtropy:run:sim-r2")
+            .unwrap()
+            .subject_ref = Some("sol-atlas:artifact:design-r1".into());
+        assert_eq!(
+            disposition(&trace, "participant_approval", "approval-r2"),
             Disposition::Rejected
         );
     }
