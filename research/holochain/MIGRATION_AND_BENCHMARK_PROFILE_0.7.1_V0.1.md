@@ -6,9 +6,7 @@
 
 ## Executive decision
 
-Use **Holochain 0.7.1 as the deployment target for new 0.7 migrations**, subject to a pinned, exact-head qualification. Treat 0.7.0 work already in progress as a migration intermediate/canary, not as an automatically approved deployment baseline. Do not target Holochain 0.8 development builds for production qualification.
-
-This decision is based on the upstream 0.7.1 stable release (14 October 2026) and the currently published 0.6→0.7 upgrade guide, which now specifies the 0.7.1 dependency tuple. The upstream 0.7 compatibility table has also been observed to describe 0.7.0 as recommended; this documentation discrepancy must be recorded and resolved against exact release artifacts rather than silently choosing whichever page is more convenient.
+Treat **Holochain 0.7.1 as the preferred evaluation candidate, not yet the approved deployment baseline**. The stable 0.7.1 release exists, and the current 0.6→0.7 upgrade guide specifies the 0.7.1 dependency tuple; however, the published 0.7 compatibility table still explicitly calls 0.7.0 the recommended version. This is a real upstream documentation/release-policy discrepancy. The project must resolve it against exact release tags/artifacts and, where needed, upstream maintainer clarification before promoting 0.7.1 as the production baseline. Treat current 0.7.0 work as a migration intermediate/canary, not as automatically qualified. Do not target Holochain 0.8 development builds for production qualification.
 
 **Candidate version floor (verify from locked artifacts in every workspace):**
 
@@ -40,6 +38,20 @@ The default branch is not globally on 0.7:
 - Governance 0.7 assembly PR #3627 is draft/unqualified. Pulse migration PR #4891 is also draft/unqualified. Their existence is not evidence that `main` or a deployed conductor is on 0.7.
 
 Consequently, do not describe Mycelix as “migrated to Holochain 0.7” until every active consumer has an explicit qualified-or-isolated disposition and all required runtime gates have evidence.
+
+## Canonical source and exporter boundary
+
+The standalone public repository is not the only source boundary. The private umbrella repository `Luminous-Dynamics/luminous-dynamics` contains the active exporter `mycelix-workspace/scripts/sync-to-standalone.sh`. That script exports committed monorepo HEAD content to `Luminous-Dynamics/mycelix`, maps cluster directories such as Governance into the public tree, rewrites selected path dependencies, and also syncs the workspace subtree.
+
+The canonical monorepo Governance mirror was inspected on 2026-11-02 and still declares the 0.6.1-era tuple (HDK 0.6.1 / HDI 0.7.1 / Holochain types 0.6.1). The monorepo ecosystem Sweettest package still declares `holochain = "0.6"`. This means a standalone-only 0.7 migration can be overwritten by a normal monorepo export. Existing canonical-source work is tracked in `Luminous-Dynamics/luminous-dynamics#3478`.
+
+Every migration tranche must therefore record and verify the three-way relationship:
+
+`canonical monorepo source SHA + path`
+→ `export transform + sync-script SHA`
+→ `standalone path + content digest`.
+
+The migration must update canonical source first (or in the same reviewed change set), then prove the exported tree is equivalent after documented path rewrites. Add a regression guard that fails if a subsequent export downgrades a migrated workspace. Do not run the exporter as a migration tool while its canonical source remains 0.6. Do not qualify a standalone-only branch as reproducible canonical source.
 
 ## Compatibility boundaries that must remain explicit
 
@@ -73,7 +85,7 @@ Therefore a 0.7.0 canary must not be silently promoted to a 0.7.1 deployment. Re
 
 ### Workstream A — closed consumer census
 
-Extend the existing #3617 census into a generated, machine-readable matrix. Discover every Cargo workspace root and every active Holochain-consuming package, including nested and excluded workspaces, isolated hApps, test harnesses, SDKs, Nix flakes, JavaScript packages, build scripts, manifests and CI workflows.
+Extend the existing #3617 census into a generated, machine-readable matrix across both the private canonical monorepo and public standalone export. Discover every Cargo workspace root and every active Holochain-consuming package, including nested and excluded workspaces, isolated hApps, test harnesses, SDKs, Nix flakes, JavaScript packages, build scripts, manifests and CI workflows. Record exporter path mappings and compare the resulting canonical and standalone source digests after explicitly allowed path rewrites.
 
 Each row must include:
 
@@ -93,7 +105,13 @@ Each row must include:
 
 A path under `mycelix-workspace/` is not automatically an active consumer, and a path outside it is not automatically isolated. Resolve the actual workspace and build graph.
 
-### Workstream B — exact substrate closure
+### Workstream B — exact substrate closure and source parity
+
+- Treat canonical monorepo source and standalone export as one source lineage with two independently auditable Git heads.
+- Before changing a standalone migration target, identify whether it is generated from the monorepo and migrate/guard the canonical source as well.
+- Run exporter parity checks that bind monorepo HEAD, sync-script digest, standalone HEAD, path rewrites and output digests.
+
+
 
 - Freeze the candidate 0.7.1 profile in one machine-readable source of truth.
 - Pin Holonix and all Nix inputs by resolved revision and lock hash.
@@ -203,6 +221,9 @@ Use matched hardware and topology, pinned software releases, repeated seeded tri
 ## Exit criteria
 
 Mycelix may claim **Holochain 0.7.1 qualified** only when:
+
+- upstream compatibility guidance and the 0.7.1 release tuple discrepancy is resolved, or the project explicitly records a 0.7.0 hold;
+- canonical monorepo source, exporter transform, and standalone output have exact-head parity for every mirrored consumer;
 
 - all active consumers are classified and every consumer is either 0.7.1-qualified or demonstrably isolated;
 - all 0.6 and 0.7.0 canaries are labelled with their exact status and network boundary;
