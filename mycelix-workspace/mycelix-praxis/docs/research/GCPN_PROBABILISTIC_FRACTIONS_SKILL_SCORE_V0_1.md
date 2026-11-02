@@ -117,3 +117,10 @@ The v0.1 percentile interval resamples independent event-block IDs, retaining al
 ## Non-claims
 
 Synthetic scorer qualification does not establish real forecast skill or warning value. FSS is not a full probabilistic calibration score and does not replace CRPS/Brier/reliability. The random null tests superiority to independent Bernoulli noise, not superiority to climatology, persistence, operational models or a national warning system.
+
+
+## Paired candidate/reference uncertainty
+
+The scorer exposes a paired event-block bootstrap for candidate/reference comparisons. Every case pair must use the same case ID, observed event field, grid dimensions, valid mask and area weights. Duplicate case IDs, support drift and case identity mismatch fail closed.
+
+Within each replicate the same sampled event-block IDs are applied to candidate and reference. The report estimates candidate pFSS, reference pFSS and the candidate-minus-reference difference from the same common resample. Do not subtract two independently bootstrapped marginal intervals. This paired score primitive still requires the common-source manifest adapter to bind case IDs and artifact digests before real comparisons.
