@@ -1,22 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://luminousdynamics.io/schemas/construction-project-trace-v0.1.schema.json",
-  "title": "Construction Project Trace v0.1",
+  "title": "Construction Project Authority and Custody Trace v0.1",
+  "description": "Mycelix participant authority, material custody and manufacturing/inspection attestation trace. Engineering artifact semantics remain with source owners.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "project_id",
-    "current_design_revision_id",
-    "site_context",
-    "external_portfolio_context",
-    "design_revisions",
-    "simulation_runs",
+    "current_design_artifact_ref",
+    "site_context_artifact_ref",
+    "portfolio_alternative_artifact_ref",
+    "artifact_references",
     "authority_assertions",
     "evidence_assertions",
     "approvals",
     "material_batches",
     "custody_receipts",
+    "manufacturing_receipts",
     "inspections"
   ],
   "properties": {
@@ -25,23 +26,21 @@
       "const": 1
     },
     "project_id": {
-      "type": "string",
-      "minLength": 1
+      "$ref": "#/$defs/id"
     },
-    "current_design_revision_id": {
-      "type": "string",
-      "minLength": 1
+    "current_design_artifact_ref": {
+      "$ref": "#/$defs/id"
     },
-    "design_revisions": {
+    "site_context_artifact_ref": {
+      "$ref": "#/$defs/nullable_id"
+    },
+    "portfolio_alternative_artifact_ref": {
+      "$ref": "#/$defs/nullable_id"
+    },
+    "artifact_references": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/design_revision"
-      }
-    },
-    "simulation_runs": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/simulation_run"
+        "$ref": "#/$defs/external_artifact"
       }
     },
     "authority_assertions": {
@@ -59,7 +58,7 @@
     "approvals": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/approval"
+        "$ref": "#/$defs/participant_approval"
       }
     },
     "material_batches": {
@@ -74,72 +73,16 @@
         "$ref": "#/$defs/custody_receipt"
       }
     },
+    "manufacturing_receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/manufacturing_receipt"
+      }
+    },
     "inspections": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/inspection"
-      }
-    },
-    "external_portfolio_context": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "required": [
-        "reference",
-        "owner_system",
-        "artifact_role",
-        "revision_ref",
-        "sha256"
-      ],
-      "properties": {
-        "reference": {
-          "$ref": "#/$defs/id"
-        },
-        "owner_system": {
-          "$ref": "#/$defs/id"
-        },
-        "artifact_role": {
-          "$ref": "#/$defs/id"
-        },
-        "revision_ref": {
-          "$ref": "#/$defs/id"
-        },
-        "sha256": {
-          "$ref": "#/$defs/digest"
-        }
-      }
-    },
-    "site_context": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "required": [
-        "reference",
-        "owner_system",
-        "artifact_role",
-        "revision_ref",
-        "sha256"
-      ],
-      "properties": {
-        "reference": {
-          "$ref": "#/$defs/id"
-        },
-        "owner_system": {
-          "$ref": "#/$defs/id"
-        },
-        "artifact_role": {
-          "$ref": "#/$defs/id"
-        },
-        "revision_ref": {
-          "$ref": "#/$defs/id"
-        },
-        "sha256": {
-          "$ref": "#/$defs/digest"
-        }
+        "$ref": "#/$defs/inspection_receipt"
       }
     }
   },
@@ -163,79 +106,31 @@
       ],
       "minLength": 1
     },
-    "design_revision": {
+    "external_artifact": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "revision_id",
-        "source_artifact",
-        "ifc_model_export",
-        "drawing_package",
-        "sha256",
-        "supersedes_revision_id",
-        "created_at"
+        "reference",
+        "owner_system",
+        "artifact_role",
+        "revision_ref",
+        "sha256"
       ],
       "properties": {
-        "revision_id": {
+        "reference": {
+          "$ref": "#/$defs/id"
+        },
+        "owner_system": {
+          "$ref": "#/$defs/id"
+        },
+        "artifact_role": {
+          "$ref": "#/$defs/id"
+        },
+        "revision_ref": {
           "$ref": "#/$defs/id"
         },
         "sha256": {
           "$ref": "#/$defs/digest"
-        },
-        "supersedes_revision_id": {
-          "$ref": "#/$defs/nullable_id"
-        },
-        "created_at": {
-          "$ref": "#/$defs/time"
-        },
-        "source_artifact": {
-          "$ref": "#/$defs/external_artifact_ref"
-        },
-        "ifc_model_export": {
-          "$ref": "#/$defs/external_artifact_ref"
-        },
-        "drawing_package": {
-          "$ref": "#/$defs/external_artifact_ref"
-        }
-      }
-    },
-    "simulation_run": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "run_id",
-        "execution_artifact",
-        "design_revision_id",
-        "design_sha256",
-        "solver_id",
-        "solver_version",
-        "result_sha256",
-        "completed_at"
-      ],
-      "properties": {
-        "run_id": {
-          "$ref": "#/$defs/id"
-        },
-        "design_revision_id": {
-          "$ref": "#/$defs/id"
-        },
-        "design_sha256": {
-          "$ref": "#/$defs/digest"
-        },
-        "solver_id": {
-          "$ref": "#/$defs/id"
-        },
-        "solver_version": {
-          "$ref": "#/$defs/id"
-        },
-        "result_sha256": {
-          "$ref": "#/$defs/digest"
-        },
-        "completed_at": {
-          "$ref": "#/$defs/time"
-        },
-        "execution_artifact": {
-          "$ref": "#/$defs/external_artifact_ref"
         }
       }
     },
@@ -360,15 +255,13 @@
         }
       }
     },
-    "approval": {
+    "participant_approval": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "approval_id",
-        "design_revision_id",
-        "design_sha256",
-        "simulation_run_id",
-        "simulation_result_sha256",
+        "subject_artifact_ref",
+        "supporting_artifact_refs",
         "authority_ref",
         "signer_id",
         "role",
@@ -384,17 +277,14 @@
         "approval_id": {
           "$ref": "#/$defs/id"
         },
-        "design_revision_id": {
+        "subject_artifact_ref": {
           "$ref": "#/$defs/id"
         },
-        "design_sha256": {
-          "$ref": "#/$defs/digest"
-        },
-        "simulation_run_id": {
-          "$ref": "#/$defs/id"
-        },
-        "simulation_result_sha256": {
-          "$ref": "#/$defs/digest"
+        "supporting_artifact_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
         },
         "authority_ref": {
           "$ref": "#/$defs/id"
@@ -414,8 +304,8 @@
         "decision": {
           "type": "string",
           "enum": [
-            "approved",
-            "rejected",
+            "affirmed",
+            "objected",
             "deferred"
           ]
         },
@@ -478,11 +368,11 @@
         "certification_evidence_ref": {
           "$ref": "#/$defs/nullable_id"
         },
-        "declared_at": {
-          "$ref": "#/$defs/time"
-        },
         "certification_scope_ref": {
           "$ref": "#/$defs/nullable_id"
+        },
+        "declared_at": {
+          "$ref": "#/$defs/time"
         }
       }
     },
@@ -522,37 +412,100 @@
         }
       }
     },
-    "inspection": {
+    "manufacturing_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manufacturing_id",
+        "design_artifact_ref",
+        "material_batch_id",
+        "manufacturing_artifact_ref",
+        "component_artifact_ref",
+        "authority_ref",
+        "manufacturer_id",
+        "role",
+        "scope_ref",
+        "evidence_refs",
+        "manufactured_at"
+      ],
+      "properties": {
+        "manufacturing_id": {
+          "$ref": "#/$defs/id"
+        },
+        "design_artifact_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "material_batch_id": {
+          "$ref": "#/$defs/id"
+        },
+        "manufacturing_artifact_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "component_artifact_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "authority_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "manufacturer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "$ref": "#/$defs/id"
+        },
+        "scope_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "manufactured_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "inspection_receipt": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "inspection_id",
-        "batch_id",
-        "design_revision_id",
-        "design_sha256",
-        "terminal_custody_receipt_id",
+        "manufacturing_id",
+        "manufacturing_artifact_ref",
+        "component_artifact_ref",
+        "inspection_artifact_ref",
+        "installation_artifact_ref",
+        "as_built_artifact_ref",
         "authority_ref",
         "inspector_id",
         "role",
         "scope_ref",
         "evidence_refs",
-        "outcome",
+        "claimed_outcome",
         "inspected_at"
       ],
       "properties": {
         "inspection_id": {
           "$ref": "#/$defs/id"
         },
-        "batch_id": {
+        "manufacturing_id": {
           "$ref": "#/$defs/id"
         },
-        "design_revision_id": {
+        "manufacturing_artifact_ref": {
           "$ref": "#/$defs/id"
         },
-        "design_sha256": {
-          "$ref": "#/$defs/digest"
+        "component_artifact_ref": {
+          "$ref": "#/$defs/id"
         },
-        "terminal_custody_receipt_id": {
+        "inspection_artifact_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "installation_artifact_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "as_built_artifact_ref": {
           "$ref": "#/$defs/id"
         },
         "authority_ref": {
@@ -573,7 +526,7 @@
             "$ref": "#/$defs/id"
           }
         },
-        "outcome": {
+        "claimed_outcome": {
           "type": "string",
           "enum": [
             "conforming",
@@ -583,34 +536,6 @@
         },
         "inspected_at": {
           "$ref": "#/$defs/time"
-        }
-      }
-    },
-    "external_artifact_ref": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "reference",
-        "owner_system",
-        "artifact_role",
-        "revision_ref",
-        "sha256"
-      ],
-      "properties": {
-        "reference": {
-          "$ref": "#/$defs/id"
-        },
-        "owner_system": {
-          "$ref": "#/$defs/id"
-        },
-        "artifact_role": {
-          "$ref": "#/$defs/id"
-        },
-        "revision_ref": {
-          "$ref": "#/$defs/id"
-        },
-        "sha256": {
-          "$ref": "#/$defs/digest"
         }
       }
     }
