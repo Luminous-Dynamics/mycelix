@@ -48,21 +48,6 @@ def node_index(graph: dict) -> dict[str, dict] | None:
     return index
 
 
-def edge_schema_valid(edge: list[object], nodes: dict[str, dict], policy: dict) -> bool:
-    relation = edge[2]
-    source_type = nodes[edge[0]].get("type")
-    target_type = nodes[edge[1]].get("type")
-    constraints = [
-        rule
-        for rule in policy.get("edge_schema_constraints", [])
-        if rule["relation"] == relation
-    ]
-    return any(
-        source_type in rule["source_types"] and target_type in rule["target_types"]
-        for rule in constraints
-    )
-
-
 def contains_non_ascii(value: object) -> bool:
     if isinstance(value, str):
         return any(ord(char) > 0x7F for char in value)
@@ -104,10 +89,6 @@ def semantic_normalize(graph: dict, policy: dict) -> dict | None:
             return None
         if not edge_schema_valid(edge, nodes, policy):
             return None
-        if not edge_schema_valid(edge, nodes, policy):
-            return None
-        if not edge_schema_valid(edge, nodes, policy):
-            return False
         key = tuple(edge)
         if policy["graph_canonicalization"]["reject_duplicate_edges"] and key in seen_edges:
             return None
@@ -290,7 +271,7 @@ def verify(graph: dict, policy: dict) -> str:
 
 def git_blob_sha(path: Path) -> str:
     data = path.read_bytes()
-    header = f"blob {len(data)}\\0".encode("ascii")
+    header = f"blob {len(data)}\0".encode("ascii")
     return hashlib.sha1(header + data).hexdigest()
 
 

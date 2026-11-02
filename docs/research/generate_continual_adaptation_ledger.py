@@ -27,7 +27,7 @@ def token(state: int, prefix: str) -> tuple[int, str]:
 
 def git_blob_sha(path: Path) -> str:
     data = path.read_bytes()
-    header = f"blob {len(data)}\\0".encode("ascii")
+    header = f"blob {len(data)}\0".encode("ascii")
     return hashlib.sha1(header + data).hexdigest()
 
 
@@ -181,12 +181,12 @@ def main() -> int:
             "version": GENERATOR_VERSION,
             "seed": SEED,
             "mutation_count": len(cases),
-            "endpoint_attack_count": 32,
             "base_fixture_schema": fixed.get("schema"),
+            "endpoint_attack_count": 32,
         },
-        "policy_binding": fixed["policy_binding"],
         "base_graph": base,
         "cases": cases,
+        "policy_binding": fixed["policy_binding"],
     }
 
     output_path.write_text(

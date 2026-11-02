@@ -35,6 +35,23 @@ def digest(value: object) -> str:
     return "sha256:" + hashlib.sha256(canonical(value)).hexdigest()
 
 
+def edge_key(edge: list[str] | tuple[str, str, str]) -> tuple[str, str, str]:
+    return (edge[0], edge[1], edge[2])
+
+
+def contains_non_ascii(value: object) -> bool:
+    if isinstance(value, str):
+        return any(ord(char) > 0x7F for char in value)
+    if isinstance(value, list):
+        return any(contains_non_ascii(item) for item in value)
+    if isinstance(value, dict):
+        return any(
+            contains_non_ascii(key) or contains_non_ascii(item)
+            for key, item in value.items()
+        )
+    return False
+
+
 def node_index(graph: dict) -> dict[str, dict] | None:
     out: dict[str, dict] = {}
     for node in graph["nodes"]:
@@ -59,6 +76,11 @@ def edge_schema_valid(edge: list[object], nodes: dict[str, dict], policy: dict) 
 
 
 def normalize(graph: dict, policy: dict) -> dict | None:
+    if (
+        policy["graph_canonicalization"].get("string_policy") == "ASCII-only"
+        and contains_non_ascii(graph)
+    ):
+        return None
     nodes = node_index(graph)
     if nodes is None:
         return None
@@ -68,7 +90,7 @@ def normalize(graph: dict, policy: dict) -> dict | None:
             return None
         if not edge_schema_valid(edge, nodes, policy):
             return None
-        key = tuple(edge)
+        key = edge_key(edge)
         if policy["graph_canonicalization"]["reject_duplicate_edges"] and key in seen:
             return None
         seen.add(key)
@@ -79,6 +101,31 @@ def normalize(graph: dict, policy: dict) -> dict | None:
     if policy["graph_canonicalization"]["edge_collection"] == "unordered-by-tuple":
         out["edges"].sort(key=canonical)
     return out
+
+
+
+def run_canonicalization_controls(base_graph: dict, policy: dict) -> None:
+    non_ascii_value = copy.deepcopy(base_graph)
+    original_id = non_ascii_value["nodes"][0]["id"]
+    replacement_id = "é" + original_id
+    non_ascii_value["nodes"][0]["id"] = replacement_id
+    for edge in non_ascii_value["edges"]:
+        if edge[0] == original_id:
+            edge[0] = replacement_id
+        if edge[1] == original_id:
+            edge[1] = replacement_id
+    if normalize(non_ascii_value, policy) is not None:
+        raise AssertionError("ASCII-only policy accepted a non-ASCII graph value")
+
+    non_ascii_key = copy.deepcopy(base_graph)
+    non_ascii_key["é"] = "rejected-key"
+    if normalize(non_ascii_key, policy) is not None:
+        raise AssertionError("ASCII-only policy accepted a non-ASCII object key")
+
+    left = edge_key(["a|b", "c", "r"])
+    right = edge_key(["a", "b|c", "r"])
+    if left == right:
+        raise AssertionError("edge identity encoding is ambiguous for delimiter-containing IDs")
 
 
 def semantic_digest(graph: dict, policy: dict) -> str:
@@ -102,7 +149,7 @@ def claim_local_digest(graph: dict, policy: dict) -> str:
             if edge[2] not in allowed:
                 continue
             relation_directions = set(directions.get(edge[2], []))
-            left, right = edge
+            left, right = edge[0], edge[1]
             if "outgoing" in relation_directions and left in included and right not in included:
                 included.add(right)
                 changed = True
@@ -127,13 +174,13 @@ def verify(graph: dict, policy: dict) -> str:
     nodes = node_index(graph)
     if nodes is None:
         return "unresolved"
-    edges = {tuple(e) for e in graph["edges"]}
+    edges = {edge_key(e) for e in graph["edges"]}
 
     for spec in policy["required_nodes"]:
         if spec["id"] not in nodes or nodes[spec["id"]].get("type") != spec["type"]:
             return "unresolved"
     for edge in policy["required_edges"]:
-        if tuple(edge) not in edges:
+        if edge_key(edge) not in edges:
             return "unresolved"
     for rule in policy["equality_constraints"]:
         lnode, lfield = rule["left"]
@@ -261,7 +308,7 @@ def check_case(base: dict, policy: dict, case: dict) -> dict:
 
 def git_blob_sha(path: Path) -> str:
     data = path.read_bytes()
-    header = f"blob {len(data)}\\0".encode("ascii")
+    header = f"blob {len(data)}\0".encode("ascii")
     return hashlib.sha1(header + data).hexdigest()
 
 
@@ -277,7 +324,10 @@ def main() -> int:
     expected_policy_blob_sha = sys.argv[1]
     policy_path = Path(sys.argv[2])
     policy = json.loads(policy_path.read_text(encoding="utf-8"))
-    corpus = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+    corpus_path = Path(sys.argv[3])
+    report_path = Path(sys.argv[4])
+    corpus = json.loads(corpus_path.read_text(encoding="utf-8"))
+    run_canonicalization_controls(corpus["base_graph"], policy)
     actual_policy_blob_sha = git_blob_sha(policy_path)
     if (
         actual_policy_blob_sha != expected_policy_blob_sha
@@ -287,7 +337,8 @@ def main() -> int:
         return 1
 
     report = [check_case(corpus["base_graph"], policy, case) for case in corpus["cases"]]
-    Path(sys.argv[3]).write_text(
+    report.sort(key=lambda row: row["case_id"])
+    report_path.write_text(
         json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )

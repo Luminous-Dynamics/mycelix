@@ -92,18 +92,26 @@ jobs:
             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_FIXTURES.json \
             "$tmp"
-          cmp -s "$tmp" docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json
+          if ! cmp -s "$tmp" docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json; then
+            echo "Generated property corpus differs byte-for-byte from the pinned artifact." >&2
+            diff -u docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json "$tmp" || true
+            exit 1
+          fi
 
       - name: Run Python generated property evaluator
         shell: bash
         run: |
           set -euo pipefail
+          CORPUS_PATH="docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json"
+          CORPUS_SHA_BEFORE="$(sha256sum "$CORPUS_PATH" | cut -d ' ' -f1)"
           POLICY_BLOB_SHA="$(git hash-object docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json)"
           python3 docs/research/verify_continual_adaptation_ledger_properties.py \
             "$POLICY_BLOB_SHA" \
             docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_POLICY.json \
-            docs/research/CONTINUAL_ADAPTATION_EVIDENCE_LEDGER_V1_GENERATED_PROPERTIES.json \
+            "$CORPUS_PATH" \
             python-generated-properties.json
+          test "$(sha256sum "$CORPUS_PATH" | cut -d ' ' -f1)" = "$CORPUS_SHA_BEFORE"
+          test -s python-generated-properties.json
 
       - name: Run Node generated property evaluator
         shell: bash
