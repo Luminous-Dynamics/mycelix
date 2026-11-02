@@ -1071,6 +1071,24 @@ mod tests {
     }
 
     #[test]
+    fn spatially_correlated_error_is_trial_specific_within_an_event_block() {
+        let fixture = fixture();
+        let dgp = dgp(ErrorFamily::SpatiallyCorrelated, 0.5);
+        let first = DgpTrial {
+            seed: 1,
+            event_block_id: "same-event".into(),
+        };
+        let second = DgpTrial {
+            seed: 2,
+            event_block_id: "same-event".into(),
+        };
+        let a = apply_observation_error(&fixture, &dgp, &first).unwrap();
+        let b = apply_observation_error(&fixture, &dgp, &second).unwrap();
+        assert_ne!(a.error_lineage_id, b.error_lineage_id);
+        assert_ne!(a.values, b.values);
+    }
+
+    #[test]
     fn temporal_error_lineage_is_shared_within_an_event_block() {
         let fixture = fixture();
         let dgp = dgp(ErrorFamily::TemporalCorrelation, 0.5);
