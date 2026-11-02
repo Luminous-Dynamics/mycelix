@@ -184,9 +184,9 @@ def main() -> int:
             "endpoint_attack_count": 32,
             "base_fixture_schema": fixed.get("schema"),
         },
-        "policy_binding": fixed["policy_binding"],
         "base_graph": base,
         "cases": cases,
+        "policy_binding": fixed["policy_binding"],
     }
 
     output_path.write_text(
