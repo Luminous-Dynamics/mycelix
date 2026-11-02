@@ -223,13 +223,7 @@ pub struct AuditReport {
 }
 
 impl AuditReport {
-    fn push(
-        &mut self,
-        subject_type: &str,
-        subject_id: &str,
-        disposition: Disposition,
-        code: &str,
-    ) {
+    fn push(&mut self, subject_type: &str, subject_id: &str, disposition: Disposition, code: &str) {
         self.findings.push(Finding {
             subject_type: subject_type.to_owned(),
             subject_id: subject_id.to_owned(),
@@ -383,11 +377,7 @@ fn authority_disposition(
     scope_ref: &str,
     event_at: u64,
 ) -> Disposition {
-    if !nonempty(reference)
-        || !nonempty(signer_id)
-        || !nonempty(role)
-        || !nonempty(scope_ref)
-    {
+    if !nonempty(reference) || !nonempty(signer_id) || !nonempty(role) || !nonempty(scope_ref) {
         return Disposition::Indeterminate;
     }
     let matching = trace
@@ -472,10 +462,7 @@ fn material_disposition_at(
     evidence_disposition(trace, reference, scope_ref, event_at)
 }
 
-fn custody_disposition(
-    trace: &ConstructionProjectTrace,
-    batch: &MaterialBatch,
-) -> Disposition {
+fn custody_disposition(trace: &ConstructionProjectTrace, batch: &MaterialBatch) -> Disposition {
     let receipts = trace
         .custody_receipts
         .iter()
@@ -595,23 +582,16 @@ fn participant_approval_record_disposition(
             result = combine(result, Disposition::Rejected);
             continue;
         }
-        result = combine(
-            result,
-            artifact_disposition(trace, reference, None, None),
-        );
+        result = combine(result, artifact_disposition(trace, reference, None, None));
         result = combine(
             result,
             artifact_subject_disposition(trace, reference, &approval.subject_artifact_ref),
         );
-        has_engineering_receipt |= trace
-            .artifact_references
-            .iter()
-            .any(|artifact| {
-                artifact.reference == *reference
-                    && artifact.artifact_role == "engineering_receipt"
-                    && artifact.subject_ref.as_deref()
-                        == Some(approval.subject_artifact_ref.as_str())
-            });
+        has_engineering_receipt |= trace.artifact_references.iter().any(|artifact| {
+            artifact.reference == *reference
+                && artifact.artifact_role == "engineering_receipt"
+                && artifact.subject_ref.as_deref() == Some(approval.subject_artifact_ref.as_str())
+        });
     }
     if !has_engineering_receipt {
         result = combine(result, Disposition::Indeterminate);
@@ -633,15 +613,14 @@ fn participant_approval_record_disposition(
     for reference in &approval.evidence_refs {
         result = combine(
             result,
-            evidence_disposition(
-                trace,
-                reference,
-                &approval.scope_ref,
-                approval.decided_at,
-            ),
+            evidence_disposition(trace, reference, &approval.scope_ref, approval.decided_at),
         );
     }
-    if approval.conditions.iter().any(|condition| !condition.satisfied) {
+    if approval
+        .conditions
+        .iter()
+        .any(|condition| !condition.satisfied)
+    {
         result = combine(result, Disposition::Indeterminate);
     }
     match approval.decision {
@@ -1151,10 +1130,8 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         if predecessors.len() == 1
             && predecessor.subject_artifact_ref == successor.subject_artifact_ref
             && predecessor.decided_at < successor.decided_at
-            && participant_approval_record_disposition(trace, predecessor)
-                == Disposition::Accepted
-            && participant_approval_record_disposition(trace, successor)
-                == Disposition::Accepted
+            && participant_approval_record_disposition(trace, predecessor) == Disposition::Accepted
+            && participant_approval_record_disposition(trace, successor) == Disposition::Accepted
         {
             superseded_approvals.insert(predecessor_id.to_owned());
         }
@@ -1499,7 +1476,11 @@ mod tests {
                 evidence("evidence:batch-cert-01", "claim:batch-01:grade", D3),
                 evidence("evidence:custody-01-a", "custody-01-a", D1),
                 evidence("evidence:custody-01-b", "custody-01-b", D2),
-                evidence("evidence:manufacturing-01", "scope:manufacture:segment-01", D4),
+                evidence(
+                    "evidence:manufacturing-01",
+                    "scope:manufacture:segment-01",
+                    D4,
+                ),
                 evidence("evidence:inspection-01", "scope:inspection:segment-01", D5),
             ],
             approvals: vec![
@@ -1662,7 +1643,9 @@ mod tests {
     #[test]
     fn external_artifact_reference_duplicate_or_digest_mismatch_is_rejected() {
         let mut trace = sample_trace();
-        trace.artifact_references.push(trace.artifact_references[0].clone());
+        trace
+            .artifact_references
+            .push(trace.artifact_references[0].clone());
         assert_eq!(
             disposition(&trace, "artifact_reference", "symthaea:design:pavilion-r1"),
             Disposition::Rejected
@@ -1785,7 +1768,8 @@ mod tests {
     #[test]
     fn revoked_material_certification_is_rejected() {
         let mut trace = sample_trace();
-        trace.evidence_assertions
+        trace
+            .evidence_assertions
             .iter_mut()
             .find(|item| item.reference == "evidence:batch-cert-01")
             .unwrap()
@@ -1810,7 +1794,9 @@ mod tests {
     #[test]
     fn duplicate_batch_identity_is_rejected_for_every_occurrence() {
         let mut trace = sample_trace();
-        trace.material_batches.push(trace.material_batches[0].clone());
+        trace
+            .material_batches
+            .push(trace.material_batches[0].clone());
         assert_eq!(
             disposition(&trace, "material_batch", "batch-01"),
             Disposition::Rejected
@@ -1850,12 +1836,14 @@ mod tests {
         trace.custody_receipts[1].predecessor_receipt_id = Some("custody-z".into());
         trace.custody_receipts[0].occurred_at = 250;
         trace.custody_receipts[1].occurred_at = 250;
-        trace.evidence_assertions
+        trace
+            .evidence_assertions
             .iter_mut()
             .find(|item| item.reference == "evidence:custody-01-a")
             .unwrap()
             .subject_ref = "custody-z".into();
-        trace.evidence_assertions
+        trace
+            .evidence_assertions
             .iter_mut()
             .find(|item| item.reference == "evidence:custody-01-b")
             .unwrap()
@@ -1970,8 +1958,7 @@ mod tests {
     #[test]
     fn manufacturing_requires_a_current_design_and_accepted_participant_commitment() {
         let mut trace = sample_trace();
-        trace.manufacturing_receipts[0].design_artifact_ref =
-            "sol-atlas:artifact:design-r1".into();
+        trace.manufacturing_receipts[0].design_artifact_ref = "sol-atlas:artifact:design-r1".into();
         assert_eq!(
             disposition(&trace, "manufacturing", "manufacture-segment-01"),
             Disposition::Superseded
