@@ -147,6 +147,7 @@ pub enum ProfileError {
     PolicyDigestMismatch,
     UnknownAssuranceTier,
     InvalidPolicyTier,
+    InvalidValidityWindow,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -220,6 +221,12 @@ pub fn check_profile(
     }
     if profile.assurance_tier.trim().is_empty() {
         return Err(ProfileError::UnknownAssuranceTier);
+    }
+    if profile
+        .valid_until
+        .is_some_and(|expiry| expiry <= profile.valid_from)
+    {
+        return Err(ProfileError::InvalidValidityWindow);
     }
     if policy.digest != pinned_policy_digest
         || profile.policy_digest != pinned_policy_digest
@@ -1007,6 +1014,24 @@ mod tests {
         assert_eq!(
             check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 9).expect("valid profile").disposition,
             ProfileDisposition::NotYetEffective
+        );
+    }
+
+    #[test]
+    fn empty_or_reversed_profile_validity_window_is_rejected() {
+        let mut candidate = profile();
+        candidate.valid_until = Some(candidate.valid_from);
+        assert_eq!(
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+                .expect_err("empty validity interval"),
+            ProfileError::InvalidValidityWindow
+        );
+
+        candidate.valid_until = Some(candidate.valid_from - 1);
+        assert_eq!(
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+                .expect_err("reversed validity interval"),
+            ProfileError::InvalidValidityWindow
         );
     }
 
