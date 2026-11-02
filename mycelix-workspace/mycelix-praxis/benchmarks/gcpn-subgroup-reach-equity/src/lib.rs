@@ -420,10 +420,6 @@ fn validate_group_identifiers(groups: &[SubgroupReachEvidence]) -> Result<(), Re
             if !valid_identifier(source_id) || !valid_identifier(source_version) {
                 return Err(ReachError::InvalidIdentifier);
             }
-            if *lower == 0 || *upper < *lower {
-                // Malformed interval is represented in the claim output, not
-                // as a panicking or silently repaired population estimate.
-            }
         }
         if let DenominatorState::Unknown { reason_id } = &group.denominator {
             if !valid_identifier(reason_id) {
@@ -1216,6 +1212,53 @@ mod tests {
         assert_eq!(result.groups[0].disposition, ClaimDisposition::Supports);
         assert_eq!(result.groups[1].disposition, ClaimDisposition::Unavailable);
         assert_eq!(result.equity_disposition, ClaimDisposition::Indeterminate);
+    }
+
+    #[test]
+    fn malformed_denominator_interval_is_indeterminate_not_repaired() {
+        let report = delivery_report(vec![delivery("cohort-a", "sms", 90)]);
+        let group = subgroup("group-a", "cohort-a", &["sms"], 120, 100);
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::DenominatorIntervalInvalid));
+        assert_eq!(result.groups[0].unique_reached, None);
+    }
+
+    #[test]
+    fn channel_count_overflow_is_indeterminate_not_saturated() {
+        let report = delivery_report(vec![
+            delivery("cohort-a", "channel-a", u64::MAX),
+            delivery("cohort-a", "channel-b", 1),
+        ]);
+        let mut group = subgroup(
+            "group-a",
+            "cohort-a",
+            &["channel-a", "channel-b"],
+            1,
+            u64::MAX,
+        );
+        group.deduplication = Some(attestation(&["channel-a", "channel-b"], u64::MAX, 1));
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::ChannelCountOverflow));
+    }
+
+    #[test]
+    fn refuted_channel_delivery_cannot_support_subgroup_reach() {
+        let mut receipt = delivery("cohort-a", "sms", 100);
+        receipt.disposition = ClaimDisposition::Refutes;
+        let report = delivery_report(vec![receipt]);
+        let group = subgroup("group-a", "cohort-a", &["sms"], 100, 100);
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        assert_eq!(result.groups[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(result.groups[0]
+            .violations
+            .contains(&ReachViolation::DeliveryEvidenceNotSupporting));
+        assert_eq!(result.groups[0].unique_reached, None);
     }
 
     #[test]
