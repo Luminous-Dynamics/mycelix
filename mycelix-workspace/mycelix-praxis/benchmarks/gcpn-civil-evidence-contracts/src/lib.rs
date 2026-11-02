@@ -876,6 +876,8 @@ fn validate_profile_identifiers(profile: &CivilEvidenceProfile) -> Result<(), Ci
             )));
         }
         for value in [
+            evidence.evidence_id.as_str(),
+            evidence.delivery_receipt_id.as_str(),
             evidence.cohort_id.as_str(),
             evidence.language_id.as_str(),
             evidence.format_id.as_str(),
@@ -885,8 +887,17 @@ fn validate_profile_identifiers(profile: &CivilEvidenceProfile) -> Result<(), Ci
             check_identifier(value)?;
         }
     }
+    let mut comprehension_evidence_ids = BTreeSet::new();
     for evidence in &profile.comprehension_evidence {
+        if !comprehension_evidence_ids.insert(evidence.evidence_id.as_str()) {
+            return Err(CivilEvidenceError::DuplicateComprehensionKey(
+                evidence.evidence_id.clone(),
+            ));
+        }
         for value in [
+            evidence.evidence_id.as_str(),
+            evidence.delivery_receipt_id.as_str(),
+            evidence.accessibility_evidence_id.as_str(),
             evidence.cohort_id.as_str(),
             evidence.language_id.as_str(),
             evidence.test_protocol_id.as_str(),
@@ -1193,6 +1204,19 @@ fn assess_accessibility(profile: &CivilEvidenceProfile) -> Vec<AccessibilityAsse
                     violations.insert(CivilViolation::AccessibilityEvidenceAfterCutoff);
                     continue;
                 }
+                let delivery_is_bound = profile.delivery_receipts.iter().any(|receipt| {
+                    receipt.receipt_id == record.delivery_receipt_id
+                        && receipt.cohort_id == record.cohort_id
+                        && receipt.message_id == profile.delivery_message_id
+                        && receipt.message_version == profile.delivery_message_version
+                        && receipt.state == DeliveryState::DeviceDelivered
+                        && receipt.count > 0
+                        && receipt.recorded_at <= profile.as_of_cutoff
+                });
+                if !delivery_is_bound {
+                    violations.insert(CivilViolation::AccessibilityDeliveryBindingMismatch);
+                    continue;
+                }
                 if !valid_identifier(&record.test_protocol_id) {
                     violations.insert(CivilViolation::AccessibilityNotSupported);
                     continue;
@@ -1280,14 +1304,36 @@ fn assess_comprehension(
             continue;
         };
 
+        let delivery_is_bound = profile.delivery_receipts.iter().any(|receipt| {
+            receipt.receipt_id == evidence.delivery_receipt_id
+                && receipt.cohort_id == evidence.cohort_id
+                && receipt.message_id == profile.delivery_message_id
+                && receipt.message_version == profile.delivery_message_version
+                && receipt.state == DeliveryState::DeviceDelivered
+                && receipt.count > 0
+                && receipt.recorded_at <= profile.as_of_cutoff
+        });
+        let accessibility_is_bound = profile.accessibility_evidence.iter().any(|record| {
+            record.evidence_id == evidence.accessibility_evidence_id
+                && record.delivery_receipt_id == evidence.delivery_receipt_id
+                && record.cohort_id == evidence.cohort_id
+                && record.language_id == evidence.language_id
+                && record.state == AccessibilityState::Accessible
+                && record.recorded_at <= profile.as_of_cutoff
+                && record.tested_at <= profile.as_of_cutoff
+        });
+        if !delivery_is_bound || !accessibility_is_bound {
+            violations.insert(CivilViolation::ComprehensionAccessibilityBindingMismatch);
+        }
         let within_cutoff = evidence.recorded_at <= profile.as_of_cutoff
             && evidence.tested_at <= profile.as_of_cutoff;
         if !within_cutoff {
             violations.insert(CivilViolation::ComprehensionEvidenceAfterCutoff);
         }
-        let comprehension_rate = (within_cutoff && evidence.tested_count > 0)
+        let usable_evidence = within_cutoff && delivery_is_bound && accessibility_is_bound;
+        let comprehension_rate = (usable_evidence && evidence.tested_count > 0)
             .then_some(evidence.understood_count as f64 / evidence.tested_count as f64);
-        let intended_action_rate = (within_cutoff && evidence.tested_count > 0)
+        let intended_action_rate = (usable_evidence && evidence.tested_count > 0)
             .then_some(evidence.intended_action_count as f64 / evidence.tested_count as f64);
 
         let disposition = if !violations.is_empty() {
@@ -1311,7 +1357,7 @@ fn assess_comprehension(
             cohort_id: requirement.cohort_id.clone(),
             language_id: requirement.language_id.clone(),
             disposition,
-            tested_count: evidence.tested_count,
+            tested_count: if usable_evidence { evidence.tested_count } else { 0 },
             comprehension_rate,
             intended_action_rate,
             violations: violations.into_iter().collect(),
@@ -1358,15 +1404,16 @@ fn assess_actions(
         let mut last_time = None;
         let mut as_of_receipt_count = 0usize;
         for receipt in &receipts {
+            if receipt.recorded_at > profile.as_of_cutoff || receipt.event_time > profile.as_of_cutoff {
+                violations.insert(CivilViolation::ActionReceiptAfterCutoff);
+                continue;
+            }
             if receipt.decision_id != requirement.decision_id
                 || receipt.authority_assertion_id != requirement.authority_assertion_id
                 || receipt.executor_agency_id != requirement.executor_agency_id
                 || receipt.action_type_id != requirement.action_type_id
             {
                 violations.insert(CivilViolation::ActionReceiptBindingMismatch);
-            }
-            if receipt.recorded_at > profile.as_of_cutoff || receipt.event_time > profile.as_of_cutoff {
-                violations.insert(CivilViolation::ActionReceiptAfterCutoff);
                 continue;
             }
             if let (Some(previous_time), Some(previous_state)) = (last_time, state) {
