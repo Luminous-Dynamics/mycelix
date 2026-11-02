@@ -21,11 +21,12 @@ For ensembles, use the Necker et al. (2024) probabilistic FSS (pFSS): form binar
 
 The traditional FSS > 0.5 and FSS > 0.5 + observed base rate / 2 rules are not universal usefulness criteria. Antonio & Aitchison (2025) derive a neighbourhood-dependent reference score for a spatially independent Bernoulli random forecast with event probability equal to the observed base rate. It can materially change the interpretation of skillful scales.
 
-For deterministic FSS, report the analytical random-reference score when its assumptions and required summary statistics are available. For finite ensembles, report a reproducible empirical random-reference distribution matched to:
-- the same event base rate;
-- the same ensemble member count;
-- the same grid, mask, boundary and missingness policy;
-- the same neighbourhood scale and cell weights.
+The v0.1 scorer reports a reproducible empirical random-reference distribution for both one-member and multi-member forecasts. It samples an independent Bernoulli event field with the observed area-weighted base rate and exactly matches:
+- ensemble member count;
+- grid, mask, boundary and missingness policy;
+- neighbourhood scale and cell weights.
+
+The Monte Carlo distribution reports the null mean, 95th percentile and an upper-tail p-value with a +1 finite-sample correction. A later independent implementation should cross-check the deterministic analytical reference derived by Antonio & Aitchison (2025); v0.1 does not claim that analytical formula is implemented.
 
 Where possible also compare to empirical climatology and persistence references. The independent-Bernoulli random null is not a substitute for a spatially correlated climatological forecast.
 
@@ -64,6 +65,10 @@ The v0.1 empirical null samples independent Bernoulli event indicators at each e
 - upper-tail Monte Carlo p-value with +1 correction.
 
 This null represents spatially independent random events, not climatology or persistence. The PRNG is for reproducible simulation only, never for cryptographic use.
+
+## Uncertainty
+
+The v0.1 percentile interval resamples independent event-block IDs, retaining all forecast cases within a selected event block together. It pools FBS and WFBS components before computing the ratio and labels that policy explicitly. Degenerate resamples are counted and reported rather than silently discarded. Grid cells are never treated as IID observations.
 
 ## Required negative controls
 
