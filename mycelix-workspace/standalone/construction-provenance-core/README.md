@@ -47,9 +47,7 @@ them into a project-wide `ready`, `safe`, `compliant` or `approved` boolean.
 
 Mycelix remains the authority for identity, externally authenticated authority
 resolution, evidence/provenance references, participant commitments and
-correction/revocation history. This crate consumes resolved assertions and checks
-their exact bindings. Cross-system artifact pointers bind owner, role, revision and digest but do not authenticate source bytes; it does not verify signatures, decide legal authority,
-adjudicate disputes, or operate a Holochain network.
+correction/revocation history. This crate consumes resolved assertions and checks their exact bindings. Cross-system artifact pointers bind owner, role, revision and digest, but do not fetch or authenticate source bytes. The crate does not verify signatures, decide legal authority, adjudicate disputes, or operate a Holochain network.
 
 Symtropy remains the owner of physical/resource scenario execution and engineering
 checks. Symthaea may propose design and manufacturing hypotheses but does not
