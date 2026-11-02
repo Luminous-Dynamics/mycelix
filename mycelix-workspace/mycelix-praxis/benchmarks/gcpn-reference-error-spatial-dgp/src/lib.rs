@@ -1037,12 +1037,12 @@ impl EnsembleSizeStudyReport {
 
     pub fn to_trial_csv(&self) -> String {
         let mut output = String::from(
-            "family,severity,sensitivity_only,ensemble_size,seed,event_block_id,latent_candidate_p_fss,latent_reference_p_fss,observed_candidate_p_fss,observed_reference_p_fss,latent_delta,observed_delta,rank_reversed,missing_cells,observation_error_rms\\n",
+            "family,severity,sensitivity_only,ensemble_size,seed,member_seed,event_block_id,latent_candidate_p_fss,latent_reference_p_fss,observed_candidate_p_fss,observed_reference_p_fss,latent_delta,observed_delta,rank_reversed,missing_cells,observation_error_rms\\n",
         );
         for scenario in &self.severity_reports {
             for trial in &scenario.trials {
                 output.push_str(&format!(
-                    "{},{},{},{},{},{},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{},{},{:.8}\\n",
+                    "{},{},{},{},{},{},{},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{},{},{:.8}\\n",
                     self.family.label(),
                     scenario.severity,
                     scenario.sensitivity_only,
@@ -1664,6 +1664,22 @@ mod tests {
         .unwrap();
         assert_eq!(report.to_csv(), report.to_csv());
         assert_eq!(report.to_trial_csv(), report.to_trial_csv());
+    }
+
+    #[test]
+    fn ensemble_trial_csv_has_consistent_reproducible_columns() {
+        let report = run_ensemble_size_study(
+            &fixture(),
+            &dgp(ErrorFamily::ZeroError, 0.0),
+            &trials(),
+            &[1, 3],
+            3,
+            0.15,
+        )
+        .unwrap();
+        for line in report.to_trial_csv().lines() {
+            assert_eq!(line.split(',').count(), 16, "{line}");
+        }
     }
 
     #[test]
