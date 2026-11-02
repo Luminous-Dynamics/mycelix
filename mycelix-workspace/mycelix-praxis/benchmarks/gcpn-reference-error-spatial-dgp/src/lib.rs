@@ -193,7 +193,6 @@ pub struct AppliedObservation {
     pub error_lineage_id: String,
     pub mean_error: f64,
     pub error_rms: f64,
-    pub error_lineage_id: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -245,6 +244,9 @@ impl std::error::Error for DgpError {}
 pub struct ScaleTrial {
     pub seed: u64,
     pub event_block_id: String,
+    pub error_lineage_id: String,
+    pub mean_observation_error: f64,
+    pub observation_error_rms: f64,
     pub window_width: usize,
     pub latent_candidate_p_fss: f64,
     pub latent_reference_p_fss: f64,
@@ -308,12 +310,50 @@ impl DgpReport {
         )
     }
 
+    pub fn to_trial_csv(&self) -> String {
+        let mut output = String::from(
+            "family,severity,parameter_knowledge,seed,event_block_id,error_lineage_id,window_width,latent_candidate_p_fss,latent_reference_p_fss,observed_candidate_p_fss,observed_reference_p_fss,latent_random_null_p95,observed_random_null_p95,observed_event_frequency,missing_cells,mean_observation_error,observation_error_rms,rank_reversed,candidate_exceeds_observed_null,reference_exceeds_observed_null\n",
+        );
+        for severity in &self.severity_reports {
+            let knowledge = match &severity.parameter_knowledge {
+                ParameterKnowledge::Known => "known",
+                ParameterKnowledge::UnknownRange { .. } => "unknown_range",
+            };
+            for trial in &severity.trials {
+                output.push_str(&format!(
+                    "{},{},{},{},{},{},{},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{},{:.8},{:.8},{},{},{}\n",
+                    severity.family.label(),
+                    severity.severity,
+                    knowledge,
+                    trial.seed,
+                    trial.event_block_id,
+                    trial.error_lineage_id,
+                    trial.window_width,
+                    trial.latent_candidate_p_fss,
+                    trial.latent_reference_p_fss,
+                    trial.observed_candidate_p_fss,
+                    trial.observed_reference_p_fss,
+                    trial.latent_random_null_p95,
+                    trial.observed_random_null_p95,
+                    trial.observed_event_frequency,
+                    trial.missing_cells,
+                    trial.mean_observation_error,
+                    trial.observation_error_rms,
+                    trial.rank_reversed,
+                    trial.candidate_exceeds_observed_null,
+                    trial.reference_exceeds_observed_null,
+                ));
+            }
+        }
+        output
+    }
+
     pub fn to_csv(&self) -> String {
         let mut output = String::from(
             "family,severity,parameter_knowledge,window_width,trials,event_blocks,rank_reversal_blocks,rank_reversal_probability,rank_reversal_ci_lower,rank_reversal_ci_upper,latent_delta,observed_delta,observed_event_frequency,missing_cells,candidate_observed_null_exceedance_rate,reference_observed_null_exceedance_rate,sensitivity_only\n",
         );
         for severity in &self.severity_reports {
-            let knowledge = match severity.parameter_knowledge {
+            let knowledge = match &severity.parameter_knowledge {
                 ParameterKnowledge::Known => "known",
                 ParameterKnowledge::UnknownRange { .. } => "unknown_range",
             };
@@ -361,7 +401,16 @@ pub fn apply_observation_error(
     let independent = standardized_field(
         (0..cells).map(|_| local_rng.signed()).collect(),
     );
-    let correlated = || {
+    let spatially_correlated = || {
+        correlated_field(
+            fixture.rows,
+            fixture.columns,
+            trial.seed,
+            dgp.correlation_radius.max(1),
+            dgp.correlation_radius.max(1),
+        )
+    };
+    let temporally_correlated = || {
         correlated_field(
             fixture.rows,
             fixture.columns,
@@ -391,7 +440,7 @@ pub fn apply_observation_error(
             }
         }
         ErrorFamily::SpatiallyCorrelated => {
-            let field = correlated();
+            let field = spatially_correlated();
             for index in 0..cells {
                 error[index] = dgp.severity * field[index];
             }
@@ -457,7 +506,7 @@ pub fn apply_observation_error(
             error.fill(dgp.severity);
         }
         ErrorFamily::TemporalCorrelation => {
-            let shared = correlated();
+            let shared = temporally_correlated();
             for index in 0..cells {
                 error[index] = dgp.severity
                     * (0.8 * shared[index] + 0.6 * independent[index]);
@@ -624,6 +673,9 @@ pub fn run_benchmark(
                 all_trials.push(ScaleTrial {
                     seed: trial.seed,
                     event_block_id: trial.event_block_id.clone(),
+                    error_lineage_id: observation.error_lineage_id.clone(),
+                    mean_observation_error: observation.mean_error,
+                    observation_error_rms: observation.error_rms,
                     window_width: *window_width,
                     latent_candidate_p_fss: latent_candidate.p_fss,
                     latent_reference_p_fss: latent_reference.p_fss,
