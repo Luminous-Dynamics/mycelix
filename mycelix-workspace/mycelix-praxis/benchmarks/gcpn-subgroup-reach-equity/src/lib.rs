@@ -90,6 +90,7 @@ pub struct SubgroupReachPolicy {
     pub expected_dedup_source_id: String,
     pub expected_dedup_source_version: String,
     pub expected_dedup_method_id: String,
+    pub expected_dedup_method_version: String,
     /// Policy target, not a universal regulatory standard.
     pub minimum_group_coverage: f64,
     /// Policy limit for the conservative upper bound on the maximum
@@ -100,11 +101,16 @@ pub struct SubgroupReachPolicy {
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ReachViolation {
     InvalidIdentifier,
+    DenominatorUnknown,
+    DenominatorSuppressed,
     DenominatorSourceMismatch,
     DenominatorAfterCutoff,
     DenominatorIntervalInvalid,
     DeliveryAssessmentMissing,
+    DeliveryChannelSetMismatch,
     DeliveryEvidenceUnavailable,
+    DeliveryEvidenceNotSupporting,
+    ChannelCountOverflow,
     DeliveryEvidenceNotAsOf,
     DeliveryEvidenceHasViolations,
     DuplicateChannelId,
@@ -126,11 +132,16 @@ impl ReachViolation {
     pub const fn label(self) -> &'static str {
         match self {
             Self::InvalidIdentifier => "invalid_identifier",
+            Self::DenominatorUnknown => "denominator_unknown",
+            Self::DenominatorSuppressed => "denominator_suppressed",
             Self::DenominatorSourceMismatch => "denominator_source_mismatch",
             Self::DenominatorAfterCutoff => "denominator_after_cutoff",
             Self::DenominatorIntervalInvalid => "denominator_interval_invalid",
             Self::DeliveryAssessmentMissing => "delivery_assessment_missing",
+            Self::DeliveryChannelSetMismatch => "delivery_channel_set_mismatch",
             Self::DeliveryEvidenceUnavailable => "delivery_evidence_unavailable",
+            Self::DeliveryEvidenceNotSupporting => "delivery_evidence_not_supporting",
+            Self::ChannelCountOverflow => "channel_count_overflow",
             Self::DeliveryEvidenceNotAsOf => "delivery_evidence_not_as_of",
             Self::DeliveryEvidenceHasViolations => "delivery_evidence_has_violations",
             Self::DuplicateChannelId => "duplicate_channel_id",
@@ -324,6 +335,7 @@ fn validate_policy(policy: &SubgroupReachPolicy) -> Result<(), ReachError> {
         policy.expected_dedup_source_id.as_str(),
         policy.expected_dedup_source_version.as_str(),
         policy.expected_dedup_method_id.as_str(),
+        policy.expected_dedup_method_version.as_str(),
     ] {
         if !valid_identifier(value) {
             return Err(ReachError::InvalidIdentifier);
@@ -436,8 +448,7 @@ fn assess_group(
 ) -> SubgroupReachAssessment {
     let mut violations = BTreeSet::new();
 
-    let (denominator_lower, denominator_upper, denominator_recorded_at) =
-        match &group.denominator {
+    let (denominator_lower, denominator_upper) = match &group.denominator {
             DenominatorState::KnownInterval {
                 lower,
                 upper,
@@ -456,18 +467,18 @@ fn assess_group(
                 if *lower == 0 || *upper < *lower {
                     violations.insert(ReachViolation::DenominatorIntervalInvalid);
                 }
-                (Some(*lower), Some(*upper), Some(*recorded_at))
+                (Some(*lower), Some(*upper))
             }
             DenominatorState::Unknown { .. } => {
                 return unavailable_assessment(
                     group,
-                    ReachViolation::GroupEvidenceUnavailable,
+                    ReachViolation::DenominatorUnknown,
                 );
             }
             DenominatorState::Suppressed { .. } => {
                 return unavailable_assessment(
                     group,
-                    ReachViolation::GroupEvidenceUnavailable,
+                    ReachViolation::DenominatorSuppressed,
                 );
             }
         };
@@ -479,6 +490,33 @@ fn assess_group(
             denominator_lower,
             denominator_upper,
             violations.into_iter().collect(),
+        );
+    }
+    if delivery_report.as_of_cutoff != policy.as_of_cutoff {
+        return assessment_without_coverage(
+            group,
+            ClaimDisposition::Indeterminate,
+            denominator_lower,
+            denominator_upper,
+            vec![ReachViolation::DeliveryEvidenceNotAsOf],
+        );
+    }
+
+    let reported_channels: BTreeSet<_> = delivery_report
+        .delivery
+        .iter()
+        .filter(|assessment| assessment.cohort_id == group.cohort_id)
+        .map(|assessment| assessment.channel_id.as_str())
+        .collect();
+    let expected_channels: BTreeSet<_> =
+        group.channel_ids.iter().map(String::as_str).collect();
+    if reported_channels != expected_channels {
+        return assessment_without_coverage(
+            group,
+            ClaimDisposition::Indeterminate,
+            denominator_lower,
+            denominator_upper,
+            vec![ReachViolation::DeliveryChannelSetMismatch],
         );
     }
 
@@ -496,10 +534,17 @@ fn assess_group(
         {
             violations.insert(ReachViolation::DeliveryEvidenceUnavailable);
         }
+        if assessment.disposition == ClaimDisposition::Refutes {
+            violations.insert(ReachViolation::DeliveryEvidenceNotSupporting);
+        }
         if !assessment.violations.is_empty() {
             violations.insert(ReachViolation::DeliveryEvidenceHasViolations);
         }
-        channel_count_sum = channel_count_sum.saturating_add(assessment.counts.device_delivered);
+        let Some(next_sum) = channel_count_sum.checked_add(assessment.counts.device_delivered) else {
+            violations.insert(ReachViolation::ChannelCountOverflow);
+            continue;
+        };
+        channel_count_sum = next_sum;
     }
 
     if violations.contains(&ReachViolation::DeliveryAssessmentMissing)
@@ -618,7 +663,9 @@ fn validate_deduplication(
     {
         return Err(ReachViolation::DeduplicationSourceMismatch);
     }
-    if attestation.method_id != policy.expected_dedup_method_id {
+    if attestation.method_id != policy.expected_dedup_method_id
+        || attestation.method_version != policy.expected_dedup_method_version
+    {
         return Err(ReachViolation::DeduplicationMethodMismatch);
     }
     if attestation.verification != DeduplicationVerification::Verified {
@@ -642,6 +689,7 @@ fn validate_deduplication(
             != attestation
                 .channel_count_sum
                 .saturating_sub(attestation.unique_union_count)
+        || (group.channel_ids.len() == 1 && attestation.overlap_removed != 0)
     {
         return Err(ReachViolation::DeduplicationOverlapMismatch);
     }
@@ -834,9 +882,7 @@ fn valid_identifier(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gcpn_civil_evidence_contracts::{
-        DeliveryCounts, DeliveryAssessment, DeliveryState,
-    };
+    use gcpn_civil_evidence_contracts::{DeliveryCounts, DeliveryAssessment};
 
     fn delivery_report(deliveries: Vec<DeliveryAssessment>) -> CivilEvidenceReport {
         CivilEvidenceReport {
@@ -903,6 +949,7 @@ mod tests {
             expected_dedup_source_id: "privacy-dedup".into(),
             expected_dedup_source_version: "v1".into(),
             expected_dedup_method_id: "aggregate-union-v1".into(),
+            expected_dedup_method_version: "1".into(),
             minimum_group_coverage: 0.95,
             maximum_coverage_gap: 0.05,
         }
