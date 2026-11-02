@@ -150,10 +150,7 @@ impl Scenario {
         let valid_id = !id.is_empty()
             && id.len() <= 96
             && id.bytes().all(|byte| {
-                byte.is_ascii_lowercase()
-                    || byte.is_ascii_digit()
-                    || byte == b'-'
-                    || byte == b'_'
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'_'
             });
 
         if !valid_id {
@@ -202,10 +199,7 @@ pub fn evaluate_reference(scenario: &Scenario) -> Assessment {
 
     // The synthetic clean case starts with two independent source families.
     // Reusing a common source lineage collapses corroboration to one family.
-    let independent_source_families = if scenario
-        .faults
-        .contains(&FaultAtom::SharedSourceLineage)
-    {
+    let independent_source_families = if scenario.faults.contains(&FaultAtom::SharedSourceLineage) {
         1
     } else {
         2
@@ -440,9 +434,7 @@ mod tests {
         let scenarios = standard_catalogue().expect("catalogue should be valid");
         let supporting: Vec<_> = scenarios
             .iter()
-            .filter(|scenario| {
-                evaluate_reference(scenario).expected == Disposition::Supports
-            })
+            .filter(|scenario| evaluate_reference(scenario).expected == Disposition::Supports)
             .collect();
 
         assert_eq!(supporting.len(), 1);
@@ -451,21 +443,15 @@ mod tests {
 
     #[test]
     fn valid_contradiction_is_the_only_refutation_control() {
-        let scenario = Scenario::new(
-            "valid-refutation",
-            [FaultAtom::ValidContradictoryEvidence],
-        )
-        .expect("scenario should be valid");
+        let scenario = Scenario::new("valid-refutation", [FaultAtom::ValidContradictoryEvidence])
+            .expect("scenario should be valid");
         assert_eq!(evaluate_reference(&scenario).expected, Disposition::Refutes);
     }
 
     #[test]
     fn missing_outcome_is_indeterminate_not_zero_impact_or_refutation() {
-        let scenario = Scenario::new(
-            "outcome-unascertained",
-            [FaultAtom::OutcomeUnascertained],
-        )
-        .expect("scenario should be valid");
+        let scenario = Scenario::new("outcome-unascertained", [FaultAtom::OutcomeUnascertained])
+            .expect("scenario should be valid");
         assert_eq!(
             evaluate_reference(&scenario).expected,
             Disposition::Indeterminate
@@ -474,12 +460,10 @@ mod tests {
 
     #[test]
     fn unavailable_and_out_of_scope_remain_distinct() {
-        let unavailable =
-            Scenario::new("source-unavailable", [FaultAtom::SourceUnavailable])
-                .expect("scenario should be valid");
-        let out_of_scope =
-            Scenario::new("claim-out-of-scope", [FaultAtom::ClaimOutOfScope])
-                .expect("scenario should be valid");
+        let unavailable = Scenario::new("source-unavailable", [FaultAtom::SourceUnavailable])
+            .expect("scenario should be valid");
+        let out_of_scope = Scenario::new("claim-out-of-scope", [FaultAtom::ClaimOutOfScope])
+            .expect("scenario should be valid");
 
         assert_eq!(
             evaluate_reference(&unavailable).expected,
@@ -495,10 +479,7 @@ mod tests {
     fn control_signals_mixed_with_other_faults_fail_closed() {
         let scenario = Scenario::new(
             "mixed-control-and-missing",
-            [
-                FaultAtom::ClaimOutOfScope,
-                FaultAtom::ObservationMissing,
-            ],
+            [FaultAtom::ClaimOutOfScope, FaultAtom::ObservationMissing],
         )
         .expect("scenario should be valid");
 
@@ -510,11 +491,8 @@ mod tests {
 
     #[test]
     fn common_source_lineage_collapses_independent_corroboration() {
-        let scenario = Scenario::new(
-            "shared-origin",
-            [FaultAtom::SharedSourceLineage],
-        )
-        .expect("scenario should be valid");
+        let scenario = Scenario::new("shared-origin", [FaultAtom::SharedSourceLineage])
+            .expect("scenario should be valid");
 
         let assessment = evaluate_reference(&scenario);
         assert_eq!(assessment.independent_source_families, 1);
@@ -530,9 +508,11 @@ mod tests {
             .collect();
 
         assert_eq!(pairwise.len(), 136);
-        assert!(pairwise.iter().all(|scenario| {
-            evaluate_reference(scenario).expected != Disposition::Supports
-        }));
+        assert!(
+            pairwise
+                .iter()
+                .all(|scenario| { evaluate_reference(scenario).expected != Disposition::Supports })
+        );
     }
 
     #[test]
@@ -588,9 +568,9 @@ mod tests {
         .to_csv();
 
         assert_eq!(first, second);
-        assert!(first.starts_with(
-            "scenario_id,fault_count,fault_stages,faults,expected_disposition,"
-        ));
+        assert!(
+            first.starts_with("scenario_id,fault_count,fault_stages,faults,expected_disposition,")
+        );
     }
 
     #[test]
