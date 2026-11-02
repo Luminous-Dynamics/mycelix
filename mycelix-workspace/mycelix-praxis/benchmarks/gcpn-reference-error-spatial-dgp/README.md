@@ -43,6 +43,14 @@ For each trial and predeclared neighbourhood width, the benchmark records candid
 
 The independent-Bernoulli random reference is a specific null model, not a universal spatial climatology. Observed and latent event frequencies are kept as separate estimands.
 
+## Ensemble-size scaling
+
+The benchmark also evaluates pFSS across ensemble sizes 1, 5, 10, 20, 50, 100, 200 and 500 at a fixed neighbourhood width. Member fields are deterministic, correlated perturbations around fixed candidate/reference centre fields. For a given trial and system, smaller ensembles are prefixes of larger ensembles, so changing member count does not also change the first members.
+
+This is an intentionally stylized ensemble generator, not a calibrated NWP ensemble or a forecast-training method. It provides an executable scaling experiment and checks how a verification-reference error changes candidate/reference pFSS ranking as the number of members grows. The 2024 pFSS literature reports dependence on ensemble size, neighbourhood scale and event frequency; its reported convergence requirements for rare/heavy precipitation exceeded 200 members in that particular dataset and setup. This package does not universalize that threshold.
+
+Proposed research sweep for realistic ensemble systems: 5, 10, 20, 50, 100, 200, 500 and 1,000 members where available, stratified by event frequency and lead time. Compare to empirical ensemble subsamples and score uncertainty at independent event-block level. Do not claim real NWP ensemble convergence from the synthetic member generator.
+
 ## Unknown parameters
 
 An `UnknownRange` configuration runs lower, midpoint and upper severity values and marks every result `sensitivity_only=true`. It does not estimate or apply a correction, claim the parameter is known, or emit a single falsely precise corrected score.
