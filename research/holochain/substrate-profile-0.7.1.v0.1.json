@@ -50,7 +50,10 @@
       "independent_review"
     ],
     "queued_pending_skipped_cancelled_or_superseded_is_pass": false,
-    "allow_claim_without_all_active_consumers_classified": false
+    "allow_claim_without_all_active_consumers_classified": false,
+    "recommended_first_canary": "Pulse",
+    "first_canary_precondition": "Migrate canonical monorepo source and prove exporter parity before using standalone PR #4891 as a canary source.",
+    "next_cluster_after_canary": "Governance, after canonical source parity issue Luminous-Dynamics/luminous-dynamics#3478 and standalone Governance 0.7 integrity/coordinator/runtime gates."
   },
   "benchmark_targets": {
     "active_consumers_classified_percent": 100,
