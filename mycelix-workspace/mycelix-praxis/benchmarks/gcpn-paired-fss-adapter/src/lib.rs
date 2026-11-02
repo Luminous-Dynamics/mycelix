@@ -406,13 +406,13 @@ pub fn score_paired_manifest(
         if artifact.candidate.event_block_id != artifact.reference.event_block_id {
             return Err(AdapterError::EventBlockMismatch);
         }
+        if !expected.contains_key(artifact.case_id.as_str()) {
+            return Err(AdapterError::UnmanifestedGridArtifact);
+        }
         if assignments.get(artifact.case_id.as_str()).copied()
             != Some(artifact.candidate.event_block_id.as_str())
         {
             return Err(AdapterError::EventBlockMappingMismatch);
-        }
-        if !expected.contains_key(artifact.case_id.as_str()) {
-            return Err(AdapterError::UnmanifestedGridArtifact);
         }
         if supplied
             .insert(artifact.case_id.as_str(), artifact)
