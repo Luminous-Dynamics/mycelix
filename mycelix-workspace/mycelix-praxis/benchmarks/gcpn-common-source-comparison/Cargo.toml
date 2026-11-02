@@ -1,0 +1,17 @@
+[package]
+name = "gcpn-common-source-comparison"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Common-source paired forecast-comparison contract and availability accounting"
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-common-source-comparison"
+path = "src/main.rs"
+
+[dependencies]
