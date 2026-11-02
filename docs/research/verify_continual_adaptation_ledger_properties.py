@@ -289,6 +289,7 @@ def main() -> int:
         return 1
 
     report = [check_case(corpus["base_graph"], policy, case) for case in corpus["cases"]]
+    report.sort(key=lambda row: row["case_id"])
     report_path.write_text(
         json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
