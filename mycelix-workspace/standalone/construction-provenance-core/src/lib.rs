@@ -854,11 +854,14 @@ fn inspection_disposition(
             &inspection.manufacturing_artifact_ref,
         ),
     );
-    result = combine(result, artifact_disposition(
-        trace,
-        &inspection.inspection_artifact_ref,
-        None,
-        Some("inspection_record"),
+    result = combine(
+        result,
+        artifact_disposition(
+            trace,
+            &inspection.inspection_artifact_ref,
+            None,
+            Some("inspection_record"),
+        ),
     );
     result = combine(
         result,
