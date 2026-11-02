@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "profile_id": "mycelix-holochain-0.7.1",
+  "status": "proposed-target-not-qualified",
+  "snapshot_date": "2026-11-02",
+  "source_repository": "https://github.com/Luminous-Dynamics/mycelix",
+  "target": {
+    "holochain": "0.7.1",
+    "hdk": "0.7.1",
+    "hdi": "0.8.1",
+    "holochain_serialized_bytes": "0.0.57",
+    "javascript_client": "0.21.1",
+    "lair_keystore": "0.7.1",
+    "kitsune2_bootstrap": "0.5.0",
+    "holonix_ref": "main-0.7",
+    "nodejs": "24",
+    "hc_spin": "0.700.1",
+    "rust_client": "resolve-and-pin-exact-compatible-release"
+  },
+  "migration_boundaries": {
+    "from_holochain_family": "0.6.x",
+    "to_holochain": "0.7.1",
+    "holochain_0_6_to_0_7_in_place_conductor_database_migration": false,
+    "holochain_0_6_to_0_7_dna_hash_stable": false,
+    "holochain_0_7_0_to_0_7_1_capability_grants_read_compatibly": false,
+    "holochain_0_7_0_to_0_7_1_requires_capability_grant_reissue": true,
+    "holochain_0_7_0_to_0_7_1_direct_signal_wire_compatible": false,
+    "holochain_0_7_0_to_0_7_1_direct_signal_requires_explicit_capability": true
+  },
+  "qualification": {
+    "required_gates": [
+      "closed_consumer_census",
+      "exact_dependency_and_toolchain_closure",
+      "source_api_migration",
+      "native_tests_and_clippy",
+      "wasm_build",
+      "dna_and_happ_pack",
+      "manifest_and_zome_topology_check",
+      "fresh_0_7_1_conductor",
+      "multi_agent_sweettest",
+      "independent_rust_and_javascript_client_e2e",
+      "capability_grant_and_direct_signal_tests",
+      "data_export_import_reconciliation_when_applicable",
+      "restart_backup_restore_and_retry_tests",
+      "negative_controls",
+      "exact_head_evidence_receipt",
+      "independent_review"
+    ],
+    "queued_pending_skipped_cancelled_or_superseded_is_pass": false,
+    "allow_claim_without_all_active_consumers_classified": false
+  },
+  "benchmark_targets": {
+    "active_consumers_classified_percent": 100,
+    "unknown_active_consumers": 0,
+    "unexplained_version_mismatches": 0,
+    "in_scope_behavior_parity_percent": 100,
+    "false_accepts_in_defined_negative_control_corpus": 0,
+    "in_scope_export_import_count_and_digest_reconciliation_percent": 100,
+    "target_p95_network_convergence_improvement_percent": 20,
+    "target_resource_dimension_improvement_percent": 20,
+    "performance_improvement_targets_are_achieved_results": false
+  },
+  "upstream_sources": [
+    "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/",
+    "https://github.com/holochain/holochain/releases",
+    "https://developer.holochain.org/resources/compatibility/holochain-0.7/",
+    "https://github.com/holochain/holonix"
+  ],
+  "non_claims": [
+    "repository-wide Holochain 0.7.1 migration is complete",
+    "any current PR or branch is qualified",
+    "in-place 0.6 conductor database migration exists",
+    "Mycelix outperforms industry comparators",
+    "proposed benchmark targets have been achieved"
+  ]
+}
