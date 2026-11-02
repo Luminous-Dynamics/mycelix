@@ -10,133 +10,152 @@
       "owner_system": "symthaea",
       "artifact_role": "design_revision",
       "revision_ref": "design-r1",
-      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subject_ref": null
     },
     {
       "reference": "symthaea:ifc:pavilion-r1",
       "owner_system": "symthaea",
       "artifact_role": "ifc_model_export",
       "revision_ref": "design-r1",
-      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "subject_ref": "symthaea:design:pavilion-r1"
     },
     {
       "reference": "symthaea:drawings:pavilion-r1",
       "owner_system": "symthaea",
       "artifact_role": "drawing_package",
       "revision_ref": "design-r1",
-      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "subject_ref": "symthaea:design:pavilion-r1"
     },
     {
       "reference": "sol-atlas:artifact:design-r1",
       "owner_system": "sol-atlas-leptos",
       "artifact_role": "design_revision",
       "revision_ref": "design-r1",
-      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subject_ref": null
     },
     {
       "reference": "symthaea:design:pavilion-r2",
       "owner_system": "symthaea",
       "artifact_role": "design_revision",
       "revision_ref": "design-r2",
-      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "subject_ref": null
     },
     {
       "reference": "symthaea:ifc:pavilion-r2",
       "owner_system": "symthaea",
       "artifact_role": "ifc_model_export",
       "revision_ref": "design-r2",
-      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "subject_ref": "symthaea:design:pavilion-r2"
     },
     {
       "reference": "symthaea:drawings:pavilion-r2",
       "owner_system": "symthaea",
       "artifact_role": "drawing_package",
       "revision_ref": "design-r2",
-      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "subject_ref": "symthaea:design:pavilion-r2"
     },
     {
       "reference": "sol-atlas:artifact:design-r2",
       "owner_system": "sol-atlas-leptos",
       "artifact_role": "design_revision",
       "revision_ref": "design-r2",
-      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "subject_ref": null
     },
     {
       "reference": "symtropy:run:sim-r1",
       "owner_system": "symtropy",
       "artifact_role": "simulation_run",
       "revision_ref": "sim-r1",
-      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "subject_ref": "sol-atlas:artifact:design-r1"
     },
     {
       "reference": "symtropy:run:sim-r2",
       "owner_system": "symtropy",
       "artifact_role": "simulation_run",
       "revision_ref": "sim-r2",
-      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "subject_ref": "sol-atlas:artifact:design-r2"
     },
     {
       "reference": "sol-atlas:engineering:receipt-r1",
       "owner_system": "sol-atlas-leptos",
       "artifact_role": "engineering_receipt",
       "revision_ref": "receipt-r1",
-      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "subject_ref": "sol-atlas:artifact:design-r1"
     },
     {
       "reference": "sol-atlas:engineering:receipt-r2",
       "owner_system": "sol-atlas-leptos",
       "artifact_role": "engineering_receipt",
       "revision_ref": "receipt-r2",
-      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "subject_ref": "sol-atlas:artifact:design-r2"
     },
     {
       "reference": "sol-atlas:site:pavilion-01",
       "owner_system": "sol-atlas-leptos",
       "artifact_role": "site_context",
       "revision_ref": "site-r1",
-      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "subject_ref": null
     },
     {
       "reference": "sol-atlas:foundry:alternative-01",
       "owner_system": "sol-atlas-leptos",
       "artifact_role": "portfolio_alternative",
       "revision_ref": "alternative-r1",
-      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "subject_ref": "sol-atlas:site:pavilion-01"
     },
     {
       "reference": "fabricator:manufacturing:batch-01",
       "owner_system": "fabricator-system",
       "artifact_role": "manufacturing_record",
       "revision_ref": "mfg-r1",
-      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "subject_ref": "sol-atlas:artifact:design-r2"
     },
     {
       "reference": "fabricator:component:segment-01",
       "owner_system": "fabricator-system",
       "artifact_role": "fabricated_component",
       "revision_ref": "component-r1",
-      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "subject_ref": "fabricator:manufacturing:batch-01"
     },
     {
       "reference": "metrology:inspection:segment-01",
       "owner_system": "metrology-system",
       "artifact_role": "inspection_record",
       "revision_ref": "inspection-r1",
-      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "subject_ref": "fabricator:component:segment-01"
     },
     {
       "reference": "site:installation:segment-01",
       "owner_system": "site-work-system",
       "artifact_role": "installation_record",
       "revision_ref": "install-r1",
-      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "subject_ref": "fabricator:component:segment-01"
     },
     {
       "reference": "site:asbuilt:segment-01",
       "owner_system": "asbuilt-registry",
       "artifact_role": "as_built_asset",
       "revision_ref": "asbuilt-r1",
-      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "subject_ref": "fabricator:component:segment-01"
     }
   ],
   "authority_assertions": [
