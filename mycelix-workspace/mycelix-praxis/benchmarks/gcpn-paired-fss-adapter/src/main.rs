@@ -5,7 +5,9 @@ use gcpn_common_source_comparison::{
     VerificationContract,
 };
 use gcpn_paired_fss_adapter::{
-    ForecastGridArtifact, PairedGridArtifact, VerificationGridArtifact, score_paired_manifest,
+    EventBlockAssignment, EventBlockManifest, ForecastGridArtifact, PairedGridArtifact,
+    VerificationGridArtifact, event_block_manifest_sha256, fss_config_sha256,
+    score_paired_manifest,
 };
 use gcpn_probabilistic_fss::{
     BlockBootstrapConfig, BoundaryPolicy, FssCase, FssConfig, MissingPolicy, ThresholdOperator,
@@ -72,7 +74,7 @@ fn comparison_case(
     }
 }
 
-fn comparison_manifest() -> ComparisonManifest {
+fn comparison_manifest(config: &FssConfig) -> ComparisonManifest {
     ComparisonManifest {
         case_frame_id: "synthetic-frame-v1".into(),
         dataset_release: DatasetReleaseManifest {
@@ -118,10 +120,10 @@ fn comparison_manifest() -> ComparisonManifest {
         reference: model("reference-model", DIGEST_E),
         metric: MetricManifest {
             metric_id: "pfss".into(),
-            definition_version: "v1".into(),
-            scoring_engine: "gcpn-pfss".into(),
-            scoring_engine_version: "v1".into(),
-            configuration_sha256: DIGEST_F.into(),
+            definition_version: "v0.1".into(),
+            scoring_engine: "gcpn-probabilistic-fss".into(),
+            scoring_engine_version: "0.1.0".into(),
+            configuration_sha256: fss_config_sha256(config),
             input_requirement: ForecastInputRequirement::EnsembleOnly,
         },
         cases: vec![
@@ -212,11 +214,6 @@ fn paired_artifact(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let manifest = comparison_manifest();
-    let artifacts = vec![
-        paired_artifact("case-a", "storm-a", DIGEST_D, DIGEST_E, 100, 110),
-        paired_artifact("case-b", "storm-b", DIGEST_F, DIGEST_A, 200, 210),
-    ];
     let config = FssConfig {
         threshold: 0.5,
         threshold_operator: ThresholdOperator::GreaterThanOrEqual,
@@ -225,9 +222,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         boundary_policy: BoundaryPolicy::TruncateAtDomain,
         missing_policy: MissingPolicy::RejectCase,
     };
+    let manifest = comparison_manifest(&config);
+    let artifacts = vec![
+        paired_artifact("case-a", "storm-a", DIGEST_D, DIGEST_E, 100, 110),
+        paired_artifact("case-b", "storm-b", DIGEST_F, DIGEST_A, 200, 210),
+    ];
+    let mut event_blocks = EventBlockManifest {
+        scheme_id: "storm-event-v1".into(),
+        scheme_version: "1".into(),
+        mapping_sha256: String::new(),
+        assignments: vec![
+            EventBlockAssignment {
+                case_id: "case-a".into(),
+                event_block_id: "storm-a".into(),
+            },
+            EventBlockAssignment {
+                case_id: "case-b".into(),
+                event_block_id: "storm-b".into(),
+            },
+        ],
+    };
+    event_blocks.mapping_sha256 = event_block_manifest_sha256(&event_blocks)?;
     let report = score_paired_manifest(
         &manifest,
         &artifacts,
+        &event_blocks,
         &config,
         &BlockBootstrapConfig {
             replicates: 128,
