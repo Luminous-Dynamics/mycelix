@@ -1,0 +1,19 @@
+[package]
+name = "gcpn-action-opportunity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Per-subgroup time capacity and interval net-benefit bounds for protective action opportunity"
+
+[workspace]
+
+[dependencies]
+gcpn-subgroup-reach-equity = { path = "../gcpn-subgroup-reach-equity" }
+gcpn-compositional-assurance = { path = "../gcpn-compositional-assurance" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-action-opportunity"
+path = "src/main.rs"
