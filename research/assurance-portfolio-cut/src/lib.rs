@@ -212,6 +212,7 @@ pub struct ProfileReport {
 pub fn check_profile(
     profile: &ThreatProfile,
     policy: &AssurancePolicy,
+    pinned_policy_digest: Digest,
     now: u64,
 ) -> Result<ProfileReport, ProfileError> {
     if profile.claim_id.trim().is_empty() {
@@ -220,7 +221,9 @@ pub fn check_profile(
     if profile.assurance_tier.trim().is_empty() {
         return Err(ProfileError::UnknownAssuranceTier);
     }
-    if profile.policy_digest != policy.digest {
+    if policy.digest != pinned_policy_digest
+        || profile.policy_digest != pinned_policy_digest
+    {
         return Err(ProfileError::PolicyDigestMismatch);
     }
     let tier = policy
@@ -771,7 +774,7 @@ mod tests {
 
     #[test]
     fn complete_profile_requires_all_15_dimensions_and_distinct_pairs() {
-        let report = check_profile(&profile(), &assurance_policy(), 50).expect("valid profile");
+        let report = check_profile(&profile(), &assurance_policy(), Digest::from_byte(3), 50).expect("valid profile");
         assert_eq!(
             report.disposition,
             ProfileDisposition::CompleteForDeclaredThreatModel
@@ -789,7 +792,7 @@ mod tests {
     fn profile_cannot_weaken_the_pinned_policy_role_set() {
         let mut candidate = profile();
         candidate.required_roles.remove("independent");
-        let report = check_profile(&candidate, &assurance_policy(), 50)
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
             .expect("profile is structurally parseable");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
         assert!(
@@ -805,8 +808,23 @@ mod tests {
         let mut policy = assurance_policy();
         policy.digest = Digest::from_byte(4);
         assert_eq!(
-            check_profile(&candidate, &policy, 50)
+            check_profile(&candidate, &policy, Digest::from_byte(3), 50)
                 .expect_err("policy substitution rejected"),
+            ProfileError::PolicyDigestMismatch
+        );
+    }
+
+    #[test]
+    fn profile_and_policy_cannot_jointly_replace_the_external_pin() {
+        let candidate = ThreatProfile {
+            policy_digest: Digest::from_byte(4),
+            ..profile()
+        };
+        let mut policy = assurance_policy();
+        policy.digest = Digest::from_byte(4);
+        assert_eq!(
+            check_profile(&candidate, &policy, Digest::from_byte(3), 50)
+                .expect_err("external policy pin rejects joint substitution"),
             ProfileError::PolicyDigestMismatch
         );
     }
@@ -819,7 +837,7 @@ mod tests {
             .get_mut("formal")
             .expect("role exists")
             .remove(&FaultDomainDimension::TrustRoot);
-        let report = check_profile(&candidate, &assurance_policy(), 50).expect("well-formed but incomplete");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("well-formed but incomplete");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
         assert!(report.reasons.contains(&ProfileReason::RequiredDimensionMissing));
     }
@@ -835,7 +853,7 @@ mod tests {
                 FaultDomainDimension::ImplementationLineage,
                 DomainDisposition::Unknown,
             );
-        let report = check_profile(&candidate, &assurance_policy(), 50).expect("well-formed but incomplete");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("well-formed but incomplete");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
         assert!(report.reasons.contains(&ProfileReason::UnknownDimension));
         assert!(report.reasons.contains(&ProfileReason::RequiredSeparationUnknown));
@@ -866,7 +884,7 @@ mod tests {
                     rationale: "same declared provider".to_owned(),
                 },
             );
-        let report = check_profile(&candidate, &assurance_policy(), 50).expect("valid rationale");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("valid rationale");
         assert_eq!(report.disposition, ProfileDisposition::CompleteForDeclaredThreatModel);
         assert_eq!(report.accepted_shared_dependencies.len(), 2);
         assert_eq!(report.observed_shared_dependencies.len(), 1);
@@ -892,7 +910,7 @@ mod tests {
                     DomainDisposition::Distinct(shared),
                 );
         }
-        let report = check_profile(&candidate, &assurance_policy(), 50).expect("valid shape");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("valid shape");
         assert_eq!(report.disposition, ProfileDisposition::CompleteForDeclaredThreatModel);
         assert_eq!(report.observed_shared_dependencies.len(), 1);
         assert_eq!(
@@ -927,7 +945,7 @@ mod tests {
                     rationale: "declared common provider".to_owned(),
                 },
             );
-        let report = check_profile(&candidate, &assurance_policy(), 50).expect("valid shape");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("valid shape");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
         assert!(
             report
@@ -950,7 +968,7 @@ mod tests {
                     DomainDisposition::Distinct(same),
                 );
         }
-        let report = check_profile(&candidate, &assurance_policy(), 50).expect("valid shape");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("valid shape");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
         assert!(
             report
@@ -974,7 +992,7 @@ mod tests {
                 },
             );
         assert_eq!(
-            check_profile(&candidate, &assurance_policy(), 50).expect_err("empty rationale rejected"),
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect_err("empty rationale rejected"),
             ProfileError::SharedDimensionRequiresRationale
         );
     }
@@ -983,11 +1001,11 @@ mod tests {
     fn profile_expiration_is_explicit() {
         let candidate = profile();
         assert_eq!(
-            check_profile(&candidate, &assurance_policy(), 101).expect("valid profile").disposition,
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 101).expect("valid profile").disposition,
             ProfileDisposition::Expired
         );
         assert_eq!(
-            check_profile(&candidate, &assurance_policy(), 9).expect("valid profile").disposition,
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 9).expect("valid profile").disposition,
             ProfileDisposition::NotYetEffective
         );
     }
