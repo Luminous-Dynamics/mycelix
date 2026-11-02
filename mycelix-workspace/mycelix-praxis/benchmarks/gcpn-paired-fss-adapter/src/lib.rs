@@ -66,7 +66,7 @@ pub struct EventBlockManifest {
 
 /// Stable length-prefixed canonical metric configuration digest.
 pub fn fss_config_sha256(config: &FssConfig) -> String {
-    let mut canonical = b"GCPN-PFSS-CONFIG-V1\\0".to_vec();
+    let mut canonical = b"GCPN-PFSS-CONFIG-V1\0".to_vec();
     canonical.extend_from_slice(&config.threshold.to_bits().to_be_bytes());
     push_string(&mut canonical, config.threshold_operator.label());
     push_string(&mut canonical, &config.unit);
@@ -84,7 +84,7 @@ pub fn event_block_manifest_sha256(manifest: &EventBlockManifest) -> Result<Stri
     let mut assignments = manifest.assignments.clone();
     assignments.sort_by(|left, right| left.case_id.cmp(&right.case_id));
     let mut seen = BTreeSet::new();
-    let mut canonical = b"GCPN-EVENT-BLOCK-MAP-V1\\0".to_vec();
+    let mut canonical = b"GCPN-EVENT-BLOCK-MAP-V1\0".to_vec();
     push_string(&mut canonical, &manifest.scheme_id);
     push_string(&mut canonical, &manifest.scheme_version);
     for assignment in &assignments {
@@ -232,7 +232,7 @@ impl PairedScoreReport {
         );
         for case_id in &self.scored_case_ids {
             output.push_str(&format!(
-                "{},{},{},{},{},{},{},{},{},{},{:.8},{:.8},{:.8},{:.8},{:.8}\n",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:.8},{:.8},{:.8},{:.8},{:.8}\n",
                 case_id,
                 self.comparison_id,
                 self.case_frame_id,
