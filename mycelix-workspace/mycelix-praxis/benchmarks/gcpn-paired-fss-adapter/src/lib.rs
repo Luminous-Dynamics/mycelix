@@ -14,8 +14,8 @@ use gcpn_common_source_comparison::{
     ContractViolation, ForecastAvailability,
 };
 use gcpn_probabilistic_fss::{
-    BlockBootstrapConfig, FssCase, FssConfig, PairedBlockBootstrapReport, PairedFssBlockCase,
-    FssError, paired_block_bootstrap,
+    BlockBootstrapConfig, FssCase, FssConfig, FssError, PairedBlockBootstrapReport,
+    PairedFssBlockCase, paired_block_bootstrap,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -83,27 +83,23 @@ impl fmt::Display for AdapterError {
             Self::DuplicateGridArtifact => {
                 formatter.write_str("duplicate grid artifact pair for a common-source case")
             }
-            Self::ForecastArtifactMismatch => {
-                formatter.write_str("forecast artifact digest/time does not match common-source record")
-            }
-            Self::VerificationArtifactMismatch => {
-                formatter.write_str("verification artifact digest/time does not match common-source record")
-            }
-            Self::ForecastTimeMismatch => {
-                formatter.write_str("forecast initialization, valid time or lead differs from common-source case")
-            }
-            Self::SpatialSupportMismatch => {
-                formatter.write_str("grid, mask or spatial support differs from common-source contract")
-            }
-            Self::PairSupportMismatch => {
-                formatter.write_str("candidate and reference do not share identical observation/grid/mask/weights")
-            }
+            Self::ForecastArtifactMismatch => formatter
+                .write_str("forecast artifact digest/time does not match common-source record"),
+            Self::VerificationArtifactMismatch => formatter
+                .write_str("verification artifact digest/time does not match common-source record"),
+            Self::ForecastTimeMismatch => formatter.write_str(
+                "forecast initialization, valid time or lead differs from common-source case",
+            ),
+            Self::SpatialSupportMismatch => formatter
+                .write_str("grid, mask or spatial support differs from common-source contract"),
+            Self::PairSupportMismatch => formatter.write_str(
+                "candidate and reference do not share identical observation/grid/mask/weights",
+            ),
             Self::EventBlockMismatch => {
                 formatter.write_str("candidate/reference event-block identity differs")
             }
-            Self::PairedDenominatorMismatch => {
-                formatter.write_str("scored case IDs differ from common-source paired-verifiable case IDs")
-            }
+            Self::PairedDenominatorMismatch => formatter
+                .write_str("scored case IDs differ from common-source paired-verifiable case IDs"),
         }
     }
 }
@@ -299,13 +295,18 @@ pub fn score_paired_manifest(
         if !expected.contains_key(artifact.case_id.as_str()) {
             return Err(AdapterError::UnmanifestedGridArtifact);
         }
-        if supplied.insert(artifact.case_id.as_str(), artifact).is_some() {
+        if supplied
+            .insert(artifact.case_id.as_str(), artifact)
+            .is_some()
+        {
             return Err(AdapterError::DuplicateGridArtifact);
         }
     }
 
     if supplied.len() != expected.len()
-        || expected.keys().any(|case_id| !supplied.contains_key(case_id))
+        || expected
+            .keys()
+            .any(|case_id| !supplied.contains_key(case_id))
     {
         return Err(AdapterError::MissingPairedGridArtifact);
     }
@@ -383,7 +384,9 @@ pub fn score_paired_manifest(
         .map_err(AdapterError::ScoringFailure)?;
 
     if scored_case_ids.len() != comparison_report.counts.paired_verifiable
-        || scored_case_ids.windows(2).any(|window| window[0] >= window[1])
+        || scored_case_ids
+            .windows(2)
+            .any(|window| window[0] >= window[1])
     {
         return Err(AdapterError::PairedDenominatorMismatch);
     }
@@ -406,13 +409,11 @@ mod tests {
     use super::*;
     use gcpn_common_source_comparison::{
         CaseEligibility, ComparisonCase, ComparisonContract, ComparisonManifest,
-        DatasetReleaseManifest, ExclusionReason, ForecastAvailability,
-        ForecastInputRequirement, MetricManifest, MissingReason, ModelOutputManifest,
-        ProductKind, RedistributionPolicy, SpatialSupportContract, VerificationContract,
+        DatasetReleaseManifest, ExclusionReason, ForecastAvailability, ForecastInputRequirement,
+        MetricManifest, MissingReason, ModelOutputManifest, ProductKind, RedistributionPolicy,
+        SpatialSupportContract, VerificationContract,
     };
-    use gcpn_probabilistic_fss::{
-        BoundaryPolicy, FssCase, MissingPolicy, ThresholdOperator,
-    };
+    use gcpn_probabilistic_fss::{BoundaryPolicy, FssCase, MissingPolicy, ThresholdOperator};
 
     const DIGEST_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const DIGEST_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -563,11 +564,7 @@ mod tests {
         }
     }
 
-    fn field(
-        case_id: &str,
-        forecast_events: [bool; 4],
-        observation_events: [bool; 4],
-    ) -> FssCase {
+    fn field(case_id: &str, forecast_events: [bool; 4], observation_events: [bool; 4]) -> FssCase {
         FssCase {
             case_id: case_id.into(),
             rows: 2,
@@ -937,12 +934,10 @@ mod tests {
             replicates: 128,
             seed: 20,
         };
-        let first =
-            score_paired_manifest(&comparison, &artifacts(), &config(), &bootstrap)
-                .expect("first score");
-        let second =
-            score_paired_manifest(&comparison, &artifacts(), &config(), &bootstrap)
-                .expect("second score");
+        let first = score_paired_manifest(&comparison, &artifacts(), &config(), &bootstrap)
+            .expect("first score");
+        let second = score_paired_manifest(&comparison, &artifacts(), &config(), &bootstrap)
+            .expect("second score");
 
         assert_eq!(first, second);
         assert!(first.to_csv().starts_with(
