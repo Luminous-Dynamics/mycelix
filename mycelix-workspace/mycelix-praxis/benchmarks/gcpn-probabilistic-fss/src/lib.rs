@@ -334,9 +334,9 @@ pub fn random_reference(
     for _ in 0..random_config.draws {
         let mut random_members = vec![vec![false; cells]; member_count];
         for member in &mut random_members {
-            for index in 0..cells {
+            for (index, event) in member.iter_mut().enumerate() {
                 if prepared.usable[index] {
-                    member[index] = rng.next_f64() < prepared.observation_event_frequency;
+                    *event = rng.next_f64() < prepared.observation_event_frequency;
                 }
             }
         }
