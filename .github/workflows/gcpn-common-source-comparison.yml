@@ -1,0 +1,40 @@
+name: GCPN common-source comparison
+
+on:
+  pull_request:
+    branches: [research/gcpn-common-source-comparison-v0-1]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-common-source-comparison/**"
+      - ".github/workflows/gcpn-common-source-comparison.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-common-source-comparison
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-common-source-comparison
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-common-source-comparison
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic report output
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-common-source-comparison
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-comparison-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-comparison-b.csv
+          cmp /tmp/gcpn-comparison-a.csv /tmp/gcpn-comparison-b.csv
+          grep -q "paired_verifiable=1" /tmp/gcpn-comparison-a.csv
+          grep -q "score_calculation=not_performed" /tmp/gcpn-comparison-a.csv
