@@ -1164,4 +1164,121 @@ mod tests {
             Err(FssError::InvalidRandomDrawCount)
         );
     }
+
+    fn block_sample(
+        block: &str,
+        case_id: &str,
+        forecast: &[bool],
+        observed: &[bool],
+    ) -> FssBlockCase {
+        FssBlockCase {
+            event_block_id: block.into(),
+            case: case(case_id, 2, 2, vec![values(forecast)], values(observed)),
+        }
+    }
+
+    #[test]
+    fn event_block_bootstrap_is_deterministic_and_reports_its_sampling_unit() {
+        let observed = [true, false, false, true];
+        let samples = vec![
+            block_sample("event-a", "case-a1", &[true, false, false, true], &observed),
+            block_sample("event-a", "case-a2", &[true, false, false, false], &observed),
+            block_sample("event-b", "case-b1", &[false, false, true, true], &observed),
+            block_sample("event-b", "case-b2", &[false, false, false, true], &observed),
+            block_sample("event-c", "case-c1", &[true, false, true, false], &observed),
+            block_sample("event-c", "case-c2", &[false, false, true, false], &observed),
+        ];
+        let bootstrap = BlockBootstrapConfig {
+            replicates: 256,
+            seed: 77,
+        };
+        let first = block_bootstrap(&samples, &config(1), &bootstrap)
+            .expect("event-block bootstrap must qualify");
+        let second = block_bootstrap(&samples, &config(1), &bootstrap)
+            .expect("repeat bootstrap must qualify");
+
+        assert_eq!(first, second);
+        assert_eq!(first.case_count, 6);
+        assert_eq!(first.independent_event_blocks, 3);
+        assert_eq!(first.requested_replicates, 256);
+        assert_eq!(
+            first.qualified_replicates + first.degenerate_replicates,
+            256
+        );
+        assert_eq!(
+            first.pooling_policy,
+            BootstrapPoolingPolicy::AggregateFbsAndWfbsComponents
+        );
+        assert!(first.lower_95_percent <= first.median);
+        assert!(first.median <= first.upper_95_percent);
+    }
+
+    #[test]
+    fn event_block_bootstrap_keeps_degenerate_resamples_visible() {
+        let no_events = [false, false, false, false];
+        let event = [true, false, false, false];
+        let samples = vec![
+            block_sample("quiet-event", "quiet-1", &no_events, &no_events),
+            block_sample("quiet-event", "quiet-2", &no_events, &no_events),
+            block_sample("active-event", "active-1", &event, &event),
+            block_sample("active-event", "active-2", &event, &event),
+        ];
+        let report = block_bootstrap(
+            &samples,
+            &config(1),
+            &BlockBootstrapConfig {
+                replicates: 256,
+                seed: 17,
+            },
+        )
+        .expect("non-degenerate bootstrap draws should remain");
+        assert!(report.degenerate_replicates > 0);
+        assert!(report.qualified_replicates > 0);
+        assert_eq!(
+            report.qualified_replicates + report.degenerate_replicates,
+            256
+        );
+    }
+
+    #[test]
+    fn event_block_bootstrap_rejects_case_level_iid_shortcuts() {
+        let observed = [true, false, false, false];
+        let samples = vec![block_sample(
+            "single-weather-event",
+            "case-one",
+            &observed,
+            &observed,
+        )];
+        assert_eq!(
+            block_bootstrap(
+                &samples,
+                &config(1),
+                &BlockBootstrapConfig {
+                    replicates: 256,
+                    seed: 1
+                }
+            ),
+            Err(FssError::InsufficientIndependentEventBlocks)
+        );
+    }
+
+    #[test]
+    fn event_block_bootstrap_rejects_duplicate_case_keys() {
+        let observed = [true, false, false, false];
+        let samples = vec![
+            block_sample("event-a", "duplicate-case", &observed, &observed),
+            block_sample("event-b", "duplicate-case", &observed, &observed),
+        ];
+        assert_eq!(
+            block_bootstrap(
+                &samples,
+                &config(1),
+                &BlockBootstrapConfig {
+                    replicates: 256,
+                    seed: 1
+                }
+            ),
+            Err(FssError::DuplicateCaseId)
+        );
+    }
 }
