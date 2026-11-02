@@ -114,7 +114,8 @@
         "owner_system",
         "artifact_role",
         "revision_ref",
-        "sha256"
+        "sha256",
+        "subject_ref"
       ],
       "properties": {
         "reference": {
@@ -131,6 +132,13 @@
         },
         "sha256": {
           "$ref": "#/$defs/digest"
+        },
+        "subject_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
       }
     },
