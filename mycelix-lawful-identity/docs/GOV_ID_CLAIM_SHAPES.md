@@ -132,6 +132,12 @@ First 6 digits of `id_number` encode DOB; digits 7-10 encode sex; digit 11 encod
 
 This section lists example claim-key names inspired by PID-style data. The current `eidas-zkp` crate does not implement the EUDI Wallet PID issuance/presentation profile or its conformance requirements.
 
+### Separate implemented proof primitive: jurisdiction containment
+
+The [Winterfell-backed jurisdiction proof module](../../crates/mycelix-zkp-core/src/circuits/jurisdiction_proof.rs) implements a scoped STARK range-proof workflow for showing that a private coordinate is within a selected published bounding box, subject to the proof's public inputs and policy checks. It does **not** prove the location was truthfully measured or attested. The corresponding [location-attestation adapters](../../crates/mycelix-zkp-core/src/location_attestation.rs) are separate: the current T1 adapter does not verify device signatures itself, and T2/T3/T4 adapters return `NotImplemented`. A deployment must verify the attestation source and freshness independently before relying on the jurisdiction statement.
+
+The cross-DID zome in this repository is a nonce/replay coordination service; it stores submitted proof bytes without cryptographically verifying them.
+
 ```json
 {
   "family_name": "Smith",
