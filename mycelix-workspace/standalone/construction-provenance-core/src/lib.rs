@@ -480,14 +480,10 @@ fn revision_lineage_is_valid(
     }
 }
 
-fn approval_disposition(
+fn approval_record_disposition(
     trace: &ConstructionProjectTrace,
     approval: &ApprovalReceipt,
-    superseded: bool,
 ) -> Disposition {
-    if superseded || approval.design_revision_id != trace.current_design_revision_id {
-        return Disposition::Superseded;
-    }
     if !valid_sha256(&approval.design_sha256)
         || !valid_sha256(&approval.simulation_result_sha256)
         || approval.approval_id.trim().is_empty()
@@ -506,7 +502,9 @@ fn approval_disposition(
     let has_child = trace.design_revisions.iter().any(|candidate| {
         candidate.supersedes_revision_id.as_deref() == Some(approval.design_revision_id.as_str())
     });
-    if has_child || !revision_lineage_is_valid(trace, &approval.design_revision_id) {
+    if (approval.design_revision_id == trace.current_design_revision_id && has_child)
+        || !revision_lineage_is_valid(trace, &approval.design_revision_id)
+    {
         return Disposition::Rejected;
     }
     let design_artifacts = design_artifact_disposition(design);
@@ -561,6 +559,22 @@ fn approval_disposition(
         );
     }
     result
+}
+
+fn approval_disposition(
+    trace: &ConstructionProjectTrace,
+    approval: &ApprovalReceipt,
+    superseded: bool,
+) -> Disposition {
+    let historical = approval_record_disposition(trace, approval);
+    if historical != Disposition::Accepted {
+        return historical;
+    }
+    if superseded || approval.design_revision_id != trace.current_design_revision_id {
+        Disposition::Superseded
+    } else {
+        Disposition::Accepted
+    }
 }
 
 fn material_disposition(
@@ -846,10 +860,14 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
             continue;
         };
         if predecessors.len() == 1
-            && predecessor.design_revision_id == successor.design_revision_id
+            && revision_is_descendant_of(
+                trace,
+                &successor.design_revision_id,
+                &predecessor.design_revision_id,
+            )
             && predecessor.decided_at < successor.decided_at
-            && approval_disposition(trace, predecessor, false) == Disposition::Accepted
-            && approval_disposition(trace, successor, false) == Disposition::Accepted
+            && approval_record_disposition(trace, predecessor) == Disposition::Accepted
+            && approval_record_disposition(trace, successor) == Disposition::Accepted
         {
             superseded_approvals.insert(predecessor_id.to_owned());
         }
@@ -1352,6 +1370,30 @@ mod tests {
         trace.design_revisions[0].drawing_package.artifact_role = "ifc_model_export".into();
         assert_eq!(
             disposition(&trace, "design", "design-r2"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn historical_approval_is_verified_before_being_marked_superseded() {
+        let trace = sample_trace();
+        assert_eq!(
+            approval_record_disposition(&trace, &trace.approvals[0]),
+            Disposition::Accepted
+        );
+        assert_eq!(
+            disposition(&trace, "approval", "approval-r1"),
+            Disposition::Superseded
+        );
+    }
+
+    #[test]
+    fn malformed_historical_approval_remains_rejected_not_hidden_as_superseded() {
+        let mut trace = sample_trace();
+        trace.approvals[0].design_sha256 =
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into();
+        assert_eq!(
+            disposition(&trace, "approval", "approval-r1"),
             Disposition::Rejected
         );
     }
