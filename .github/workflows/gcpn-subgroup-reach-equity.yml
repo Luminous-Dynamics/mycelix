@@ -1,0 +1,42 @@
+name: GCPN subgroup reach and equity assurance
+
+on:
+  pull_request:
+    branches: [research/gcpn-civil-evidence-adapter-v0-1]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-subgroup-reach-equity/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-contracts/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance/**"
+      - ".github/workflows/gcpn-subgroup-reach-equity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-subgroup-reach-equity
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-subgroup-reach-equity
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-subgroup-reach-equity
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic subgroup report
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-subgroup-reach-equity
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-subgroup-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-subgroup-b.csv
+          cmp /tmp/gcpn-subgroup-a.csv /tmp/gcpn-subgroup-b.csv
+          grep -q "group,rural,cohort-rural" /tmp/gcpn-subgroup-a.csv
+          grep -q "bounds,equity_gap,conservative" /tmp/gcpn-subgroup-a.csv
