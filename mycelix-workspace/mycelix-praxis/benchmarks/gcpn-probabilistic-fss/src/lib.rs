@@ -1626,8 +1626,7 @@ mod tests {
     #[test]
     fn paired_bootstrap_rejects_single_event_block() {
         let observed = [true, false, false, false];
-        let sample =
-            paired_block_sample("only-block", "case-a", &observed, &observed, &observed);
+        let sample = paired_block_sample("only-block", "case-a", &observed, &observed, &observed);
         assert_eq!(
             paired_block_bootstrap(
                 &[sample],
