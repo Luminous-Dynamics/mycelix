@@ -47,6 +47,20 @@ pub struct PairedGridArtifact {
     pub verification: VerificationGridArtifact,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EventBlockAssignment {
+    pub case_id: String,
+    pub event_block_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EventBlockManifest {
+    pub scheme_id: String,
+    pub scheme_version: String,
+    pub mapping_sha256: String,
+    pub assignments: Vec<EventBlockAssignment>,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AdapterError {
     CommonSourceViolation(ContractViolation),
@@ -61,6 +75,9 @@ pub enum AdapterError {
     SpatialSupportMismatch,
     PairSupportMismatch,
     EventBlockMismatch,
+    EventBlockMappingMismatch,
+    MetricContractMismatch,
+    EnsembleMemberCountMismatch,
     PairedDenominatorMismatch,
 }
 
@@ -98,6 +115,15 @@ impl fmt::Display for AdapterError {
             Self::EventBlockMismatch => {
                 formatter.write_str("candidate/reference event-block identity differs")
             }
+            Self::EventBlockMappingMismatch => {
+                formatter.write_str("event-block mapping is not exactly bound to paired case IDs")
+            }
+            Self::MetricContractMismatch => {
+                formatter.write_str("scoring engine, metric version or FSS config digest differs from manifest")
+            }
+            Self::EnsembleMemberCountMismatch => {
+                formatter.write_str("scored ensemble member count differs from model output manifest")
+            }
             Self::PairedDenominatorMismatch => formatter
                 .write_str("scored case IDs differ from common-source paired-verifiable case IDs"),
         }
@@ -116,13 +142,19 @@ pub struct PairedScoreReport {
     pub availability: ComparisonCounts,
     pub scored_case_ids: Vec<String>,
     pub fss_config: FssConfig,
+    pub metric_configuration_sha256: String,
+    pub candidate_ensemble_members: usize,
+    pub reference_ensemble_members: usize,
+    pub event_block_scheme_id: String,
+    pub event_block_scheme_version: String,
+    pub event_block_mapping_sha256: String,
     pub bootstrap: PairedBlockBootstrapReport,
 }
 
 impl PairedScoreReport {
     pub fn summary_line(&self) -> String {
         format!(
-            "comparison={} frame={} as_of={} eligible={} excluded={} candidate_only={} reference_only={} both_missing={} paired_forecasts={} verification_missing={} pairs_without_verification={} paired_verifiable={} scored={} candidate_pfss={:.8} reference_pfss={:.8} paired_delta={:.8} ci95_lower={:.8} ci95_upper={:.8} bootstrap_blocks={} bootstrap_replicates={} bootstrap_degenerate={}",
+            "comparison={} frame={} as_of={} eligible={} excluded={} candidate_only={} reference_only={} both_missing={} paired_forecasts={} verification_missing={} pairs_without_verification={} paired_verifiable={} scored={} candidate_members={} reference_members={} event_block_scheme={}:{} candidate_pfss={:.8} reference_pfss={:.8} paired_delta={:.8} ci95_lower={:.8} ci95_upper={:.8} bootstrap_blocks={} bootstrap_replicates={} bootstrap_degenerate={}",
             self.comparison_id,
             self.case_frame_id,
             self.as_of_cutoff,
@@ -136,6 +168,10 @@ impl PairedScoreReport {
             self.availability.pairs_without_verification,
             self.availability.paired_verifiable,
             self.scored_case_ids.len(),
+            self.candidate_ensemble_members,
+            self.reference_ensemble_members,
+            self.event_block_scheme_id,
+            self.event_block_scheme_version,
             self.bootstrap.candidate_p_fss,
             self.bootstrap.reference_p_fss,
             self.bootstrap.mean_paired_delta,
@@ -149,7 +185,7 @@ impl PairedScoreReport {
 
     pub fn to_csv(&self) -> String {
         let mut output = String::from(
-            "case_id,comparison_id,case_frame_id,verification_source,verification_version,as_of_cutoff,threshold,threshold_operator,unit,window_width_cells,candidate_pfss,reference_pfss,paired_delta,ci95_lower,ci95_upper\n",
+            "case_id,comparison_id,case_frame_id,verification_source,verification_version,as_of_cutoff,threshold,threshold_operator,unit,window_width_cells,candidate_members,reference_members,event_block_scheme,event_block_version,event_block_mapping_sha256,candidate_pfss,reference_pfss,paired_delta,ci95_lower,ci95_upper\n",
         );
         for case_id in &self.scored_case_ids {
             output.push_str(&format!(
@@ -164,6 +200,11 @@ impl PairedScoreReport {
                 self.fss_config.threshold_operator.label(),
                 self.fss_config.unit,
                 self.fss_config.window_width_cells,
+                self.candidate_ensemble_members,
+                self.reference_ensemble_members,
+                self.event_block_scheme_id,
+                self.event_block_scheme_version,
+                self.event_block_mapping_sha256,
                 self.bootstrap.candidate_p_fss,
                 self.bootstrap.reference_p_fss,
                 self.bootstrap.mean_paired_delta,
