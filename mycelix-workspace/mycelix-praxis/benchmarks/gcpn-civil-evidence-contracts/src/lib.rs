@@ -1111,7 +1111,7 @@ fn assess_delivery(
             })
             .collect();
 
-        for receipt in receipts {
+        for receipt in &receipts {
             if receipt.message_id != profile.delivery_message_id
                 || receipt.message_version != profile.delivery_message_version
             {
