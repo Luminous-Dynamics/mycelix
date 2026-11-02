@@ -277,7 +277,9 @@ def main() -> int:
     expected_policy_blob_sha = sys.argv[1]
     policy_path = Path(sys.argv[2])
     policy = json.loads(policy_path.read_text(encoding="utf-8"))
-    corpus = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+    corpus_path = Path(sys.argv[3])
+    report_path = Path(sys.argv[4])
+    corpus = json.loads(corpus_path.read_text(encoding="utf-8"))
     actual_policy_blob_sha = git_blob_sha(policy_path)
     if (
         actual_policy_blob_sha != expected_policy_blob_sha
@@ -287,7 +289,7 @@ def main() -> int:
         return 1
 
     report = [check_case(corpus["base_graph"], policy, case) for case in corpus["cases"]]
-    Path(sys.argv[3]).write_text(
+    report_path.write_text(
         json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
