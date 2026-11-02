@@ -429,12 +429,31 @@ fn validate_cases(cases: &[ActionOpportunityCase]) -> Result<(), OpportunityErro
         for interval in [
             case.required_resource_count.as_ref(),
             case.available_resource_count.as_ref(),
-        ].into_iter().flatten() {
+        ]
+        .into_iter()
+        .flatten()
+        {
             for value in [
                 interval.resource_id.as_str(),
                 interval.unit_id.as_str(),
                 interval.source_id.as_str(),
                 interval.source_version.as_str(),
+            ] {
+                check_identifier(value)?;
+            }
+        }
+        for metric in [
+            case.loss_without_action.as_ref(),
+            case.loss_with_action.as_ref(),
+            case.action_burden.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            for value in [
+                metric.unit_id.as_str(),
+                metric.source_id.as_str(),
+                metric.source_version.as_str(),
             ] {
                 check_identifier(value)?;
             }
@@ -579,12 +598,17 @@ fn assess_time(
     if duration.lower_seconds == 0 || duration.lower_seconds > duration.upper_seconds {
         violations.insert(OpportunityViolation::InvalidDurationInterval);
     }
-    if warning.recorded_at > policy.as_of_cutoff || hazard.recorded_at > policy.as_of_cutoff
-        || duration.recorded_at > policy.as_of_cutoff
+    if warning.recorded_at > policy.as_of_cutoff
         || warning.earliest_delivery_at > policy.as_of_cutoff
         || warning.latest_delivery_at > policy.as_of_cutoff
     {
         violations.insert(OpportunityViolation::WarningEvidenceAfterCutoff);
+    }
+    if hazard.recorded_at > policy.as_of_cutoff {
+        violations.insert(OpportunityViolation::HazardEvidenceAfterCutoff);
+    }
+    if duration.recorded_at > policy.as_of_cutoff {
+        violations.insert(OpportunityViolation::ActionDurationEvidenceAfterCutoff);
     }
     if warning.source_id != policy.expected_warning_source_id
         || warning.source_version != policy.expected_warning_source_version
@@ -1089,6 +1113,60 @@ mod tests {
         let assessment = evaluate(valid_case());
         assert_eq!(assessment.reach_disposition, ClaimDisposition::Refutes);
         assert_eq!(assessment.disposition, ClaimDisposition::Supports);
+    }
+
+    #[test]
+    fn future_hazard_arrival_is_valid_when_forecast_evidence_is_as_of() {
+        let assessment = evaluate(valid_case());
+        assert_eq!(assessment.time.disposition, ClaimDisposition::Supports);
+        assert!(!assessment.violations.contains(&OpportunityViolation::HazardEvidenceAfterCutoff));
+    }
+
+    #[test]
+    fn hazard_forecast_recorded_after_cutoff_is_indeterminate() {
+        let mut case = valid_case();
+        case.hazard_arrival.as_mut().unwrap().recorded_at = 101;
+        let assessment = evaluate(case);
+        assert_eq!(assessment.time.disposition, ClaimDisposition::Indeterminate);
+        assert!(assessment.violations.contains(&OpportunityViolation::HazardEvidenceAfterCutoff));
+    }
+
+    #[test]
+    fn local_drill_recorded_after_cutoff_is_indeterminate() {
+        let mut case = valid_case();
+        case.action_duration.as_mut().unwrap().recorded_at = 101;
+        let assessment = evaluate(case);
+        assert_eq!(assessment.time.disposition, ClaimDisposition::Indeterminate);
+        assert!(assessment.violations.contains(&OpportunityViolation::ActionDurationEvidenceAfterCutoff));
+    }
+
+    #[test]
+    fn warning_message_identity_and_source_errors_do_not_contaminate_capacity_and_benefit() {
+        let mut case = valid_case();
+        case.warning_delivery.as_mut().unwrap().message_id = "other-message".into();
+        let assessment = evaluate(case);
+        assert_eq!(assessment.time.disposition, ClaimDisposition::Indeterminate);
+        assert_eq!(assessment.resources.disposition, ClaimDisposition::Supports);
+        assert_eq!(assessment.net_benefit.disposition, ClaimDisposition::Supports);
+        assert_eq!(assessment.disposition, ClaimDisposition::Indeterminate);
+    }
+
+    #[test]
+    fn hazard_identity_must_match_declared_action_scenario() {
+        let mut case = valid_case();
+        case.hazard_arrival.as_mut().unwrap().hazard_id = "other-hazard".into();
+        let assessment = evaluate(case);
+        assert_eq!(assessment.time.disposition, ClaimDisposition::Indeterminate);
+        assert!(assessment.violations.contains(&OpportunityViolation::HazardIdentityMismatch));
+    }
+
+    #[test]
+    fn duration_evidence_must_match_exact_action_id() {
+        let mut case = valid_case();
+        case.action_duration.as_mut().unwrap().action_id = "other-action".into();
+        let assessment = evaluate(case);
+        assert_eq!(assessment.time.disposition, ClaimDisposition::Indeterminate);
+        assert!(assessment.violations.contains(&OpportunityViolation::ActionDurationIdentityMismatch));
     }
 
     #[test]
