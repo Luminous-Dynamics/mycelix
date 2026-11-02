@@ -1,8 +1,8 @@
 # Government-ID Claim-Shape Conventions
 
-The existing [`mycelix-identity/crates/eidas-zkp/`](../../mycelix-identity/crates/eidas-zkp/) crate handles the credential envelope (W3C VC 2.0 + DASTARK + Dilithium5 + Merkle selective disclosure) and accepts arbitrary `serde_json::Value` claims. This document defines the **claim-key conventions** for government-ID-backed credentials so different issuers and verifiers agree on shape.
+The [`mycelix-identity/crates/eidas-zkp/`](../../mycelix-identity/crates/eidas-zkp/) crate currently provides experimental VC-shaped data structures and simple JSON claim filtering with caller-supplied proof metadata. It does not implement an interoperable W3C Data Integrity cryptosuite, generate or verify DASTARK/ML-DSA proofs, or establish eIDAS/EUDI Wallet conformance.
 
-No new Rust code is needed for these conventions — they are a shared schema convention, nothing more.
+This document defines **claim-key conventions only**. The conventions can help issuers and verifiers agree on data shape, but they are not a credential schema registration, issuer trust decision, signature check, zero-knowledge proof, or certification. A `ProvenClaim` description is not proof that a predicate holds.
 
 ---
 
@@ -31,7 +31,7 @@ Claim shape:
 }
 ```
 
-**Selective-disclosure recommendation**: almost all fields should be presented via `ProvenClaim` (range / membership / equality) rather than plaintext. Verifier almost never needs the document number; they need "holder is ≥ 18" or "holder's nationality is in set {US, CA, MX}".
+**Future selective-disclosure design note:** a verifier may need a predicate such as "holder is at least 18" rather than the document number. The current `ProvenClaim` helper only stores descriptive metadata and caller-supplied proof bytes; it does not prove the predicate. Do not use it as a security control until a proof system, verifier, and negative test vectors are implemented.
 
 ---
 
@@ -74,7 +74,7 @@ Claim shape (per ISO 18013-5 data elements):
 }
 ```
 
-**Selective-disclosure recommendation**: mDL was designed for selective disclosure. Ship convenience ProvenClaims like `age_over_18`, `age_over_21`, `has_class_C_license` without touching other fields.
+**Future integration note:** mDL supports standardized data elements and selective-disclosure mechanisms in specific wallet protocols. Mycelix's current `ProvenClaim` structure is metadata only. A production integration needs a specified mDL presentation flow, cryptographic verifier, verifier policy, and conformance tests.
 
 ---
 
@@ -130,7 +130,7 @@ First 6 digits of `id_number` encode DOB; digits 7-10 encode sex; digit 11 encod
 
 ## EU eIDAS 2.0 (EUDI Wallet)
 
-The existing `eidas-zkp` crate already handles this format natively. Claim keys follow the Person Identification Data (PID) schema per the EU Architecture Reference Framework:
+This section lists example claim-key names inspired by PID-style data. The current `eidas-zkp` crate does not implement the EUDI Wallet PID issuance/presentation profile or its conformance requirements.
 
 ```json
 {
