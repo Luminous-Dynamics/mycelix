@@ -809,8 +809,7 @@ pub fn paired_block_bootstrap(
         if !case_ids.insert(sample.case_id.as_str()) {
             return Err(FssError::DuplicateCaseId);
         }
-        if sample.candidate.case_id != sample.case_id
-            || sample.reference.case_id != sample.case_id
+        if sample.candidate.case_id != sample.case_id || sample.reference.case_id != sample.case_id
         {
             return Err(FssError::PairCaseIdMismatch);
         }
@@ -827,14 +826,12 @@ pub fn paired_block_bootstrap(
         sample.reference.validate(config)?;
         let candidate_score = evaluate(&sample.candidate, config)?;
         let reference_score = evaluate(&sample.reference, config)?;
-        candidate_fbs += candidate_score.fractions_brier_score
-            * candidate_score.centre_weight_sum;
-        candidate_wfbs += candidate_score.worst_fractions_brier_score
-            * candidate_score.centre_weight_sum;
-        reference_fbs += reference_score.fractions_brier_score
-            * reference_score.centre_weight_sum;
-        reference_wfbs += reference_score.worst_fractions_brier_score
-            * reference_score.centre_weight_sum;
+        candidate_fbs += candidate_score.fractions_brier_score * candidate_score.centre_weight_sum;
+        candidate_wfbs +=
+            candidate_score.worst_fractions_brier_score * candidate_score.centre_weight_sum;
+        reference_fbs += reference_score.fractions_brier_score * reference_score.centre_weight_sum;
+        reference_wfbs +=
+            reference_score.worst_fractions_brier_score * reference_score.centre_weight_sum;
         blocks
             .entry(sample.event_block_id.as_str())
             .or_default()
@@ -867,14 +864,14 @@ pub fn paired_block_bootstrap(
                 let sample = &samples[*sample_index];
                 let candidate_score = evaluate(&sample.candidate, config)?;
                 let reference_score = evaluate(&sample.reference, config)?;
-                replicate_candidate_fbs += candidate_score.fractions_brier_score
-                    * candidate_score.centre_weight_sum;
-                replicate_candidate_wfbs += candidate_score.worst_fractions_brier_score
-                    * candidate_score.centre_weight_sum;
-                replicate_reference_fbs += reference_score.fractions_brier_score
-                    * reference_score.centre_weight_sum;
-                replicate_reference_wfbs += reference_score.worst_fractions_brier_score
-                    * reference_score.centre_weight_sum;
+                replicate_candidate_fbs +=
+                    candidate_score.fractions_brier_score * candidate_score.centre_weight_sum;
+                replicate_candidate_wfbs +=
+                    candidate_score.worst_fractions_brier_score * candidate_score.centre_weight_sum;
+                replicate_reference_fbs +=
+                    reference_score.fractions_brier_score * reference_score.centre_weight_sum;
+                replicate_reference_wfbs +=
+                    reference_score.worst_fractions_brier_score * reference_score.centre_weight_sum;
             }
         }
 
@@ -896,8 +893,7 @@ pub fn paired_block_bootstrap(
         return Err(FssError::NoQualifiedBootstrapReplicates);
     }
     paired_deltas.sort_by(f64::total_cmp);
-    let mean_paired_delta =
-        paired_deltas.iter().sum::<f64>() / paired_deltas.len() as f64;
+    let mean_paired_delta = paired_deltas.iter().sum::<f64>() / paired_deltas.len() as f64;
 
     Ok(PairedBlockBootstrapReport {
         case_count: samples.len(),
@@ -915,7 +911,6 @@ pub fn paired_block_bootstrap(
         upper_95_percent: quantile(&paired_deltas, 0.975),
     })
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1497,20 +1492,8 @@ mod tests {
         PairedFssBlockCase {
             event_block_id: block.into(),
             case_id: case_id.into(),
-            candidate: case(
-                case_id,
-                2,
-                2,
-                vec![values(candidate)],
-                values(observed),
-            ),
-            reference: case(
-                case_id,
-                2,
-                2,
-                vec![values(reference)],
-                values(observed),
-            ),
+            candidate: case(case_id, 2, 2, vec![values(candidate)], values(observed)),
+            reference: case(case_id, 2, 2, vec![values(reference)], values(observed)),
         }
     }
 
@@ -1547,13 +1530,15 @@ mod tests {
     fn paired_bootstrap_rejects_observation_drift() {
         let observed = [true, false, false, false];
         let wrong_observed = [false, true, false, false];
-        let mut sample =
-            paired_block_sample("block-a", "case-a", &observed, &observed, &observed);
+        let mut sample = paired_block_sample("block-a", "case-a", &observed, &observed, &observed);
         sample.reference.observation = values(&wrong_observed);
 
         assert_eq!(
             paired_block_bootstrap(
-                &[sample, paired_block_sample("block-b", "case-b", &observed, &observed, &observed)],
+                &[
+                    sample,
+                    paired_block_sample("block-b", "case-b", &observed, &observed, &observed)
+                ],
                 &config(1),
                 &BlockBootstrapConfig {
                     replicates: 256,
@@ -1567,8 +1552,7 @@ mod tests {
     #[test]
     fn paired_bootstrap_rejects_mask_and_weight_drift() {
         let observed = [true, false, false, false];
-        let mut masked =
-            paired_block_sample("block-a", "case-a", &observed, &observed, &observed);
+        let mut masked = paired_block_sample("block-a", "case-a", &observed, &observed, &observed);
         masked.reference.valid_mask[0] = false;
         let mut weighted =
             paired_block_sample("block-b", "case-b", &observed, &observed, &observed);
@@ -1576,7 +1560,10 @@ mod tests {
 
         assert_eq!(
             paired_block_bootstrap(
-                &[masked, paired_block_sample("block-c", "case-c", &observed, &observed, &observed)],
+                &[
+                    masked,
+                    paired_block_sample("block-c", "case-c", &observed, &observed, &observed)
+                ],
                 &config(1),
                 &BlockBootstrapConfig {
                     replicates: 256,
@@ -1587,7 +1574,10 @@ mod tests {
         );
         assert_eq!(
             paired_block_bootstrap(
-                &[weighted, paired_block_sample("block-d", "case-d", &observed, &observed, &observed)],
+                &[
+                    weighted,
+                    paired_block_sample("block-d", "case-d", &observed, &observed, &observed)
+                ],
                 &config(1),
                 &BlockBootstrapConfig {
                     replicates: 256,
