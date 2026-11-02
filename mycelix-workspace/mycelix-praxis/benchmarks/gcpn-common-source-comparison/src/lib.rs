@@ -736,14 +736,20 @@ impl ComparisonReport {
                 counts.candidate_available += 1;
             } else {
                 if let ForecastAvailability::Missing { reason } = &case.candidate {
-                    *counts.candidate_missing_by_reason.entry(*reason).or_insert(0) += 1;
+                    *counts
+                        .candidate_missing_by_reason
+                        .entry(*reason)
+                        .or_insert(0) += 1;
                 }
             }
             if reference_available {
                 counts.reference_available += 1;
             } else {
                 if let ForecastAvailability::Missing { reason } = &case.reference {
-                    *counts.reference_missing_by_reason.entry(*reason).or_insert(0) += 1;
+                    *counts
+                        .reference_missing_by_reason
+                        .entry(*reason)
+                        .or_insert(0) += 1;
                 }
             }
             if verification_available {
