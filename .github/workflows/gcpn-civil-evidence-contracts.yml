@@ -1,0 +1,44 @@
+name: GCPN civil evidence contracts
+
+on:
+  pull_request:
+    branches: [research/gcpn-compositional-assurance-engine-v0-1]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-contracts/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-compositional-assurance/**"
+      - ".github/workflows/gcpn-civil-evidence-contracts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-contracts
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-contracts
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-contracts
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic report
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-civil-evidence-contracts
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-civil-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-civil-b.csv
+          cmp /tmp/gcpn-civil-a.csv /tmp/gcpn-civil-b.csv
+          grep -q "authority" /tmp/gcpn-civil-a.csv
+          grep -q "delivery" /tmp/gcpn-civil-a.csv
+          grep -q "comprehension" /tmp/gcpn-civil-a.csv
+          grep -q "action" /tmp/gcpn-civil-a.csv
+          grep -q "case_frame" /tmp/gcpn-civil-a.csv
