@@ -1,0 +1,43 @@
+name: GCPN spatial reference-error DGP
+
+on:
+  pull_request:
+    branches: [research/gcpn-probabilistic-fss-engine-v0-1]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-reference-error-spatial-dgp/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-probabilistic-fss/**"
+      - ".github/workflows/gcpn-reference-error-spatial-dgp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-reference-error-spatial-dgp
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-reference-error-spatial-dgp
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-reference-error-spatial-dgp
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic DGP report
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-reference-error-spatial-dgp
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-reference-error-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-reference-error-b.csv
+          cmp /tmp/gcpn-reference-error-a.csv /tmp/gcpn-reference-error-b.csv
+          grep -q "family=spatially_correlated" /tmp/gcpn-reference-error-a.csv
+          grep -q "unknown_error_parameters_are_sensitivity_only=true" /tmp/gcpn-reference-error-a.csv
+          grep -q "ensemble_size,neighbourhood_width" /tmp/gcpn-reference-error-a.csv
+          grep -q "spatially_correlated,0.3,false,200,3" /tmp/gcpn-reference-error-a.csv
