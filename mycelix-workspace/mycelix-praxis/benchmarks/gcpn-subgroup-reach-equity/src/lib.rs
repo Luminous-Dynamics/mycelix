@@ -234,16 +234,27 @@ impl SubgroupEquityReport {
             "record_type,group_id,cohort_id,dimensions,disposition,denominator_lower,denominator_upper,channel_count_sum,unique_reached,overlap_removed,coverage_lower,coverage_upper,violations\n",
         );
         for group in &self.groups {
-            let dimensions = group
-                .dimensions
-                .iter()
-                .map(|item| format!("{}={}", item.dimension_id, item.category_id))
-                .collect::<Vec<_>>()
-                .join("|");
+            let privacy_suppressed = group
+                .violations
+                .contains(&ReachViolation::DenominatorSuppressed);
+            let (group_id, cohort_id, dimensions) = if privacy_suppressed {
+                ("suppressed", "suppressed", String::new())
+            } else {
+                (
+                    group.group_id.as_str(),
+                    group.cohort_id.as_str(),
+                    group
+                        .dimensions
+                        .iter()
+                        .map(|item| format!("{}={}", item.dimension_id, item.category_id))
+                        .collect::<Vec<_>>()
+                        .join("|"),
+                )
+            };
             output.push_str(&format!(
-                "group,{},{},{},{},{},{},{},{},{},{:.8},{:.8},{}\n",
-                group.group_id,
-                group.cohort_id,
+                "group,{},{},{},{},{},{},{},{},{},{:.8},{:.8},{}\\n",
+                group_id,
+                cohort_id,
                 dimensions,
                 disposition_label(group.disposition),
                 optional_u64(group.denominator_lower),
@@ -1061,6 +1072,21 @@ mod tests {
         assert_eq!(assessment.denominator_lower, None);
         assert_eq!(assessment.unique_reached, None);
         assert_eq!(assessment.channel_count_sum, None);
+    }
+
+    #[test]
+    fn suppressed_group_identity_and_dimensions_are_redacted_from_csv() {
+        let report = delivery_report(vec![delivery("sensitive-cohort", "sms", 7)]);
+        let mut group = subgroup("rare-subgroup", "sensitive-cohort", &["sms"], 10, 12);
+        group.denominator = DenominatorState::Suppressed {
+            suppression_policy_id: "small-cell-threshold-10".into(),
+        };
+        let result = audit_subgroup_reach(&report, &[group], &policy()).unwrap();
+        let csv = result.to_csv();
+        assert!(csv.contains("group,suppressed,suppressed,"));
+        assert!(!csv.contains("rare-subgroup"));
+        assert!(!csv.contains("sensitive-cohort"));
+        assert!(!csv.contains("rurality=rare-subgroup"));
     }
 
     #[test]
