@@ -1335,8 +1335,11 @@ mod tests {
             FaultDomainDimension::SpecificationLineage,
             FaultDomainDimension::ExpectedAnswerLineage,
         ];
-        for case in 0..24usize {
-            let role_count = 2 + (case % 2);
+        // Exercise every requested portfolio size, including five-role
+        // overlap patterns. Each tiny panel remains enumerable by the
+        // deliberately independent 2^N reference implementation.
+        for case in 0..96usize {
+            let role_count = 2 + (case % 4);
             let mut roles = Vec::new();
             for role_index in 0..role_count {
                 let mut known = Vec::new();
