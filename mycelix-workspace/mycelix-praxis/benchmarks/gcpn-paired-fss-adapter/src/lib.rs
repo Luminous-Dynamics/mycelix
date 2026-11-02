@@ -383,14 +383,19 @@ pub fn score_paired_manifest(
     let mut assignments = BTreeMap::new();
     for assignment in &event_blocks.assignments {
         if assignments
-            .insert(assignment.case_id.as_str(), assignment.event_block_id.as_str())
+            .insert(
+                assignment.case_id.as_str(),
+                assignment.event_block_id.as_str(),
+            )
             .is_some()
         {
             return Err(AdapterError::EventBlockMappingMismatch);
         }
     }
     if assignments.len() != expected.len()
-        || expected.keys().any(|case_id| !assignments.contains_key(case_id))
+        || expected
+            .keys()
+            .any(|case_id| !assignments.contains_key(case_id))
     {
         return Err(AdapterError::EventBlockMappingMismatch);
     }
@@ -473,7 +478,11 @@ pub fn score_paired_manifest(
             }
             let declared_members = match (model.product_kind, model.ensemble_members) {
                 (gcpn_common_source_comparison::ProductKind::Deterministic, None) => 1,
-                (gcpn_common_source_comparison::ProductKind::Ensemble, Some(count)) if count > 0 => count,
+                (gcpn_common_source_comparison::ProductKind::Ensemble, Some(count))
+                    if count > 0 =>
+                {
+                    count
+                }
                 _ => return Err(AdapterError::EnsembleMemberCountMismatch),
             };
             if forecast.field.forecast_members.len() != declared_members {
@@ -1153,8 +1162,8 @@ mod tests {
 
         let mut blocks = event_blocks();
         blocks.assignments.pop();
-        blocks.mapping_sha256 = event_block_manifest_sha256(&blocks)
-            .expect("modified mapping should still hash");
+        blocks.mapping_sha256 =
+            event_block_manifest_sha256(&blocks).expect("modified mapping should still hash");
         assert_eq!(
             score_paired_manifest(
                 &manifest(),
@@ -1205,10 +1214,22 @@ mod tests {
             replicates: 128,
             seed: 20,
         };
-        let first = score_paired_manifest(&comparison, &artifacts(), &event_blocks(), &config(), &bootstrap)
-            .expect("first score");
-        let second = score_paired_manifest(&comparison, &artifacts(), &event_blocks(), &config(), &bootstrap)
-            .expect("second score");
+        let first = score_paired_manifest(
+            &comparison,
+            &artifacts(),
+            &event_blocks(),
+            &config(),
+            &bootstrap,
+        )
+        .expect("first score");
+        let second = score_paired_manifest(
+            &comparison,
+            &artifacts(),
+            &event_blocks(),
+            &config(),
+            &bootstrap,
+        )
+        .expect("second score");
 
         assert_eq!(first, second);
         assert!(first.to_csv().starts_with(
