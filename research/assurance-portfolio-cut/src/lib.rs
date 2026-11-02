@@ -766,7 +766,7 @@ pub fn analyze_profile_cut_sets(
                 }
             }
         }
-        if **actual != expected {
+        if *actual != &expected {
             return Err(ProfileCutSetError::DependencyDeclarationsMismatch);
         }
     }
@@ -853,6 +853,55 @@ mod tests {
             subject_digest: Digest::from_byte(1),
             profile_digest: Digest::from_byte(2),
             policy_digest: Digest::from_byte(3),
+            manifest_digest: Digest::from_byte(4),
+            attack_model_digest: Digest::from_byte(5),
+            roles,
+        }
+    }
+
+    fn manifest_bound_to_profile(profile: &ProfileReport) -> DependencyManifest {
+        let roles = profile
+            .required_roles
+            .iter()
+            .map(|role| {
+                let mut known_domains = BTreeSet::new();
+                let mut not_applicable_dimensions = BTreeMap::new();
+                let mut unknown_dimensions = BTreeSet::new();
+                for dimension in FaultDomainDimension::ALL {
+                    match profile
+                        .role_domains
+                        .get(role)
+                        .and_then(|domains| domains.get(&dimension))
+                    {
+                        Some(DomainDisposition::Distinct(identity))
+                        | Some(DomainDisposition::SharedAccepted { identity, .. }) => {
+                            known_domains.insert(FaultDomainKey {
+                                dimension,
+                                identity: *identity,
+                            });
+                        }
+                        Some(DomainDisposition::NotApplicable { rationale }) => {
+                            not_applicable_dimensions.insert(dimension, rationale.clone());
+                        }
+                        Some(DomainDisposition::Unknown) | None => {
+                            unknown_dimensions.insert(dimension);
+                        }
+                    }
+                }
+                RoleDependencies {
+                    role: role.clone(),
+                    known_domains,
+                    not_applicable_dimensions,
+                    unknown_dimensions,
+                }
+            })
+            .collect();
+
+        DependencyManifest {
+            claim_id: profile.claim_id.clone(),
+            subject_digest: profile.subject_digest,
+            profile_digest: profile.profile_digest,
+            policy_digest: profile.policy_digest,
             manifest_digest: Digest::from_byte(4),
             attack_model_digest: Digest::from_byte(5),
             roles,
@@ -1326,6 +1375,122 @@ mod tests {
         assert_eq!(
             forward.minimum_cut_cardinality,
             reversed.minimum_cut_cardinality
+        );
+        assert_eq!(
+            forward.candidate_extensions_attempted,
+            reversed.candidate_extensions_attempted
+        );
+    }
+
+    #[test]
+    fn cut_set_budget_use_is_independent_of_role_input_order() {
+        let small = role_dependencies(
+            "small",
+            [domain(FaultDomainDimension::TrustRoot, 1)],
+        );
+        let medium = role_dependencies(
+            "medium",
+            [
+                domain(FaultDomainDimension::ImplementationLineage, 2),
+                domain(FaultDomainDimension::SpecificationLineage, 3),
+            ],
+        );
+        let large = role_dependencies(
+            "large",
+            [
+                domain(FaultDomainDimension::ExpectedAnswerLineage, 4),
+                domain(FaultDomainDimension::TestCorpusLineage, 5),
+                domain(FaultDomainDimension::ExecutionProvider, 6),
+            ],
+        );
+        let first = minimal_cut_sets(
+            &dependency_manifest(vec![large.clone(), small.clone(), medium.clone()]),
+            10_000,
+        )
+        .expect("first role order");
+        let second = minimal_cut_sets(
+            &dependency_manifest(vec![medium, large, small]),
+            10_000,
+        )
+        .expect("second role order");
+        assert_eq!(first.minimal_cut_sets, second.minimal_cut_sets);
+        assert_eq!(
+            first.candidate_extensions_attempted,
+            second.candidate_extensions_attempted
+        );
+    }
+
+    #[test]
+    fn downstream_cut_sets_require_exact_profile_and_domain_manifest_binding() {
+        let checked = check_profile(
+            &profile(),
+            &assurance_policy(),
+            Digest::from_byte(3),
+            50,
+        )
+        .expect("valid profile");
+        let manifest = manifest_bound_to_profile(&checked);
+        let report = analyze_profile_cut_sets(&checked, &manifest, 100_000)
+            .expect("profile-bound cut-set analysis");
+        assert_eq!(report.disposition, CutSetDisposition::Complete);
+        assert_eq!(report.claim_id, checked.claim_id);
+        assert_eq!(report.subject_digest, checked.subject_digest);
+        assert_eq!(report.profile_digest, checked.profile_digest);
+        assert_eq!(report.policy_digest, checked.policy_digest);
+
+        let mut substituted = manifest.clone();
+        substituted.profile_digest = Digest::from_byte(88);
+        assert_eq!(
+            analyze_profile_cut_sets(&checked, &substituted, 100_000)
+                .expect_err("different profile digest rejected"),
+            ProfileCutSetError::ProfileBindingMismatch
+        );
+
+        let mut mismatched_domains = manifest.clone();
+        let formal = mismatched_domains
+            .roles
+            .iter_mut()
+            .find(|role| role.role == "formal")
+            .expect("formal role");
+        formal.known_domains.remove(&domain(
+            FaultDomainDimension::TrustRoot,
+            1,
+        ));
+        formal.known_domains.insert(domain(
+            FaultDomainDimension::TrustRoot,
+            99,
+        ));
+        assert_eq!(
+            analyze_profile_cut_sets(&checked, &mismatched_domains, 100_000)
+                .expect_err("same digest label cannot hide changed dependency"),
+            ProfileCutSetError::DependencyDeclarationsMismatch
+        );
+    }
+
+    #[test]
+    fn incomplete_profile_cannot_be_promoted_into_cut_set_analysis() {
+        let mut candidate = profile();
+        candidate
+            .role_domains
+            .get_mut("formal")
+            .expect("role exists")
+            .insert(
+                FaultDomainDimension::TrustRoot,
+                DomainDisposition::Unknown,
+            );
+        let checked = check_profile(
+            &candidate,
+            &assurance_policy(),
+            Digest::from_byte(3),
+            50,
+        )
+        .expect("well-formed but incomplete");
+        assert_eq!(checked.disposition, ProfileDisposition::Incomplete);
+        let manifest = manifest_bound_to_profile(&checked);
+        assert_eq!(
+            analyze_profile_cut_sets(&checked, &manifest, 100_000)
+                .expect_err("incomplete profile rejected"),
+            ProfileCutSetError::ProfileNotComplete
         );
     }
 
