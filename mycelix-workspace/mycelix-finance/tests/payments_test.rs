@@ -868,6 +868,114 @@ mod double_spend_prevention {
 
         println!("Test 3.4 PASSED: Insufficient balance transfers are rejected");
     }
+
+    /// A participant cannot debit the counterparty's side by flipping from_a.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
+    async fn test_channel_transfer_cannot_debit_counterparty_balance() {
+        println!("Test 3.5: Channel Debit Must Match Authenticated Participant");
+
+        let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
+        let dna = SweetDnaFile::from_bundle(&dna_path)
+            .await
+            .expect("Failed to load DNA");
+        let mut conductor = SweetConductor::from_standard_config().await;
+
+        let agents = SweetAgents::get(conductor.keystore(), 2).await;
+        let apps = conductor
+            .setup_app_for_agents("mycelix-finance", &agents, &[dna])
+            .await
+            .expect("Failed to install app");
+
+        let alice_cell = &apps[0].cells()[0];
+        let bob_cell = &apps[1].cells()[0];
+        let alice_did = format!("did:mycelix:{}", agents[0]);
+        let bob_did = format!("did:mycelix:{}", agents[1]);
+
+        let channel_input = OpenChannelInput {
+            party_a: alice_did,
+            party_b: bob_did,
+            currency: TEST_CURRENCY.to_string(),
+            initial_deposit_a: 100_000_000,
+            initial_deposit_b: 100_000_000,
+        };
+        let channel_record: Record = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "open_payment_channel",
+                channel_input,
+            )
+            .await;
+        let channel: PaymentChannel = channel_record
+            .entry()
+            .to_app_option()
+            .expect("Deserialize failed")
+            .expect("No entry");
+        let channel_id = channel.id.clone();
+
+        let alice_wrong_direction = ChannelTransferInput {
+            channel_id: channel_id.clone(),
+            amount: 10_000_000,
+            from_a: false,
+        };
+        let alice_result: Result<Record, _> = conductor
+            .call_fallible(
+                &alice_cell.zome("payments"),
+                "channel_transfer",
+                alice_wrong_direction,
+            )
+            .await;
+        assert!(
+            alice_result.is_err(),
+            "Party A must not debit Party B's balance"
+        );
+
+        let bob_wrong_direction = ChannelTransferInput {
+            channel_id: channel_id.clone(),
+            amount: 10_000_000,
+            from_a: true,
+        };
+        let bob_result: Result<Record, _> = conductor
+            .call_fallible(
+                &bob_cell.zome("payments"),
+                "channel_transfer",
+                bob_wrong_direction,
+            )
+            .await;
+        assert!(
+            bob_result.is_err(),
+            "Party B must not debit Party A's balance"
+        );
+
+        // Positive controls: each authenticated party can still debit its own side.
+        let a_to_b = ChannelTransferInput {
+            channel_id: channel_id.clone(),
+            amount: 10_000_000,
+            from_a: true,
+        };
+        let _after_a: Record = conductor
+            .call(&alice_cell.zome("payments"), "channel_transfer", a_to_b)
+            .await;
+
+        let b_to_a = ChannelTransferInput {
+            channel_id,
+            amount: 20_000_000,
+            from_a: false,
+        };
+        let after_b: Record = conductor
+            .call(&bob_cell.zome("payments"), "channel_transfer", b_to_a)
+            .await;
+
+        let final_channel: PaymentChannel = after_b
+            .entry()
+            .to_app_option()
+            .expect("Deserialize failed")
+            .expect("No entry");
+        assert_eq!(final_channel.balance_a, 110_000_000);
+        assert_eq!(final_channel.balance_b, 90_000_000);
+
+        println!("Test 3.5 PASSED: debit direction is bound to caller identity");
+    }
 }
 
 // ============================================================================
@@ -1356,6 +1464,7 @@ mod failed_transaction_handling {
             .expect("Failed to install app");
 
         let alice_cell = &apps[0].cells()[0];
+        let bob_cell = &apps[1].cells()[0];
         let alice_did = format!("did:mycelix:{}", agents[0]);
         let bob_did = format!("did:mycelix:{}", agents[1]);
 
@@ -1405,9 +1514,10 @@ mod failed_transaction_handling {
                 from_a,
             };
 
+            let sender_cell = if from_a { alice_cell } else { bob_cell };
             let result: Record = conductor
                 .call(
-                    &alice_cell.zome("payments"),
+                    &sender_cell.zome("payments"),
                     "channel_transfer",
                     transfer_input,
                 )
