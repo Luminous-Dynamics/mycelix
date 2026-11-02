@@ -97,8 +97,8 @@ impl ObservationErrorDgp {
         if self.family == ErrorFamily::EventDependentMissingness && self.severity > 0.95 {
             return Err(DgpError::InvalidMissingProbability);
         }
-        if let ParameterKnowledge::UnknownRange { lower, upper } = self.parameter_knowledge {
-            if !lower.is_finite() || !upper.is_finite() || lower < 0.0 || lower > upper {
+        if let ParameterKnowledge::UnknownRange { lower, upper } = &self.parameter_knowledge {
+            if !lower.is_finite() || !upper.is_finite() || *lower < 0.0 || *lower > *upper {
                 return Err(DgpError::InvalidUnknownRange);
             }
         }
@@ -106,10 +106,10 @@ impl ObservationErrorDgp {
     }
 
     fn severity_values(&self) -> Vec<f64> {
-        match self.parameter_knowledge {
+        match &self.parameter_knowledge {
             ParameterKnowledge::Known => vec![self.severity],
             ParameterKnowledge::UnknownRange { lower, upper } => {
-                let mut values = vec![lower, (lower + upper) / 2.0, upper];
+                let mut values = vec![*lower, (*lower + *upper) / 2.0, *upper];
                 values.sort_by(f64::total_cmp);
                 values.dedup_by(|left, right| left.to_bits() == right.to_bits());
                 values
@@ -190,6 +190,7 @@ pub struct DgpTrial {
 pub struct AppliedObservation {
     pub values: Vec<Option<f64>>,
     pub missing_cells: usize,
+    pub error_lineage_id: String,
     pub mean_error: f64,
     pub error_rms: f64,
     pub error_lineage_id: String,
@@ -298,7 +299,7 @@ impl DgpReport {
         format!(
             "family={} parameter_knowledge={} independent_event_blocks={} severity_scenarios={}",
             self.family.label(),
-            match self.parameter_knowledge {
+            match &self.parameter_knowledge {
                 ParameterKnowledge::Known => "known",
                 ParameterKnowledge::UnknownRange { .. } => "unknown_range",
             },
@@ -380,6 +381,7 @@ pub fn apply_observation_error(
     let mut error = vec![0.0; cells];
     let mut missing = vec![false; cells];
     let mut rng = SplitMix64::new(trial.seed ^ block_seed.rotate_left(17));
+    let mut block_rng = SplitMix64::new(block_seed ^ 0x51ed_270b_d7a3_9c41);
 
     match dgp.family {
         ErrorFamily::ZeroError => {}
@@ -407,7 +409,7 @@ pub fn apply_observation_error(
             }
         }
         ErrorFamily::SharedCommonMode => {
-            let common = dgp.severity * rng.signed();
+            let common = dgp.severity * block_rng.signed();
             for index in 0..cells {
                 error[index] = common + dgp.severity * 0.2 * independent[index];
             }
@@ -438,8 +440,9 @@ pub fn apply_observation_error(
             }
         }
         ErrorFamily::PointToCellRepresentativeness => {
-            let dx = (trial.seed as usize % 3) as isize - 1;
-            let dy = ((trial.seed >> 4) as usize % 3) as isize - 1;
+            let distance = dgp.severity.round() as isize;
+            let dx = if trial.seed.is_multiple_of(2) { distance } else { -distance };
+            let dy = if (trial.seed >> 4).is_multiple_of(2) { distance } else { -distance };
             for row in 0..fixture.rows {
                 for column in 0..fixture.columns {
                     let source_row = wrap_index(row as isize + dy, fixture.rows);
@@ -495,6 +498,7 @@ pub fn apply_observation_error(
     Ok(AppliedObservation {
         values,
         missing_cells,
+        error_lineage_id,
         mean_error,
         error_rms,
         error_lineage_id,
@@ -555,34 +559,34 @@ pub fn run_benchmark(
                     missing_policy: MissingPolicy::PairwiseComplete,
                 };
 
-                let latent_candidate = score_case(
+                let latent_candidate = qualified_p_fss(score_case(
                     fixture,
                     &fixture.candidate_forecast,
                     fixture.latent_truth.iter().copied().map(Some).collect(),
                     *window_width,
                     threshold,
-                )?;
-                let latent_reference = score_case(
+                )?)?;
+                let latent_reference = qualified_p_fss(score_case(
                     fixture,
                     &fixture.reference_forecast,
                     fixture.latent_truth.iter().copied().map(Some).collect(),
                     *window_width,
                     threshold,
-                )?;
-                let observed_candidate = score_case(
+                )?)?;
+                let observed_candidate = qualified_p_fss(score_case(
                     fixture,
                     &fixture.candidate_forecast,
                     observation.values.clone(),
                     *window_width,
                     threshold,
-                )?;
-                let observed_reference = score_case(
+                )?)?;
+                let observed_reference = qualified_p_fss(score_case(
                     fixture,
                     &fixture.reference_forecast,
                     observation.values.clone(),
                     *window_width,
                     threshold,
-                )?;
+                )?)?;
 
                 let random_config = RandomBaselineConfig {
                     draws: random_draws,
@@ -647,7 +651,7 @@ pub fn run_benchmark(
             severity,
             parameter_knowledge: dgp.parameter_knowledge.clone(),
             sensitivity_only: matches!(
-                dgp.parameter_knowledge,
+                &dgp.parameter_knowledge,
                 ParameterKnowledge::UnknownRange { .. }
             ),
             scales,
@@ -663,6 +667,12 @@ pub fn run_benchmark(
     })
 }
 
+fn qualified_p_fss(score: FssScore) -> Result<f64, DgpError> {
+    score
+        .p_fss
+        .ok_or_else(|| DgpError::ScoringFailure("degenerate no-event pFSS case".into()))
+}
+
 fn score_case(
     fixture: &SpatialFixture,
     forecast: &[f64],
@@ -670,7 +680,7 @@ fn score_case(
     window_width: usize,
     threshold: f64,
 ) -> Result<FssScore, DgpError> {
-    let mut config = FssConfig {
+    let config = FssConfig {
         threshold,
         threshold_operator: ThresholdOperator::GreaterThanOrEqual,
         unit: fixture.unit.clone(),
@@ -678,7 +688,6 @@ fn score_case(
         boundary_policy: BoundaryPolicy::TruncateAtDomain,
         missing_policy: MissingPolicy::PairwiseComplete,
     };
-    config.window_width_cells = window_width;
     let case = make_case(fixture, "score-case", forecast, observation);
     evaluate(&case, &config).map_err(|error| DgpError::ScoringFailure(error.to_string()))
 }
@@ -758,10 +767,10 @@ fn aggregate_scale(trials: &[ScaleTrial], window_width: usize) -> Result<ScaleAg
         mean_observation_event_frequency: mean(|trial| trial.observed_event_frequency),
         mean_missing_cells: mean(|trial| trial.missing_cells as f64),
         candidate_observed_null_exceedance_rate: mean(|trial| {
-            f64::from(trial.candidate_exceeds_observed_null)
+            if trial.candidate_exceeds_observed_null { 1.0 } else { 0.0 }
         }),
         reference_observed_null_exceedance_rate: mean(|trial| {
-            f64::from(trial.reference_exceeds_observed_null)
+            if trial.reference_exceeds_observed_null { 1.0 } else { 0.0 }
         }),
     })
 }
