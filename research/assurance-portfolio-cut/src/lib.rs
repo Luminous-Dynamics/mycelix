@@ -1039,6 +1039,86 @@ mod tests {
         );
     }
 
+    fn brute_force_minimal_cut_sets(
+        roles: &[RoleDependencies],
+    ) -> Vec<BTreeSet<FaultDomainKey>> {
+        let universe: Vec<_> = roles
+            .iter()
+            .flat_map(|role| role.known_domains.iter().copied())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        assert!(universe.len() < usize::BITS as usize);
+
+        let mut hitting_sets = Vec::new();
+        for mask in 1usize..(1usize << universe.len()) {
+            let candidate: BTreeSet<_> = universe
+                .iter()
+                .enumerate()
+                .filter_map(|(index, domain)| {
+                    ((mask & (1usize << index)) != 0).then_some(*domain)
+                })
+                .collect();
+            if roles.iter().all(|role| {
+                candidate
+                    .iter()
+                    .any(|domain| role.known_domains.contains(domain))
+            }) {
+                hitting_sets.push(candidate);
+            }
+        }
+        hitting_sets.sort_by(|left, right| {
+            left.len()
+                .cmp(&right.len())
+                .then_with(|| left.cmp(right))
+        });
+        let mut minimal = Vec::new();
+        for candidate in hitting_sets {
+            if !minimal.iter().any(|existing: &BTreeSet<FaultDomainKey>| {
+                existing.is_subset(&candidate)
+            }) {
+                minimal.push(candidate);
+            }
+        }
+        minimal
+    }
+
+    #[test]
+    fn incremental_cut_sets_match_independent_brute_force_reference() {
+        let dimensions = [
+            FaultDomainDimension::ImplementationLineage,
+            FaultDomainDimension::SpecificationLineage,
+            FaultDomainDimension::ExpectedAnswerLineage,
+        ];
+        for case in 0..24usize {
+            let role_count = 2 + (case % 2);
+            let mut roles = Vec::new();
+            for role_index in 0..role_count {
+                let mut known = Vec::new();
+                for (dimension_index, dimension) in dimensions.iter().copied().enumerate() {
+                    if (case + role_index * 2 + dimension_index) % 4 != 0 {
+                        let identity = if (case + role_index + dimension_index) % 2 == 0 {
+                            (case + dimension_index + 1) as u8
+                        } else {
+                            (64 + role_index * 4 + dimension_index) as u8
+                        };
+                        known.push(domain(dimension, identity));
+                    }
+                }
+                if known.is_empty() {
+                    known.push(domain(dimensions[role_index % dimensions.len()], 200));
+                }
+                roles.push(role_dependencies(&format!("role-{role_index}"), known));
+            }
+
+            let expected = brute_force_minimal_cut_sets(&roles);
+            let actual = minimal_cut_sets(&dependency_manifest(roles), 100_000)
+                .expect("bounded finite graph");
+            assert_eq!(actual.disposition, CutSetDisposition::Complete);
+            assert_eq!(actual.minimal_cut_sets, expected, "case {case}");
+        }
+    }
+
     #[test]
     fn unknown_dependency_returns_no_numeric_cut_claim() {
         let mut left = role_dependencies(
