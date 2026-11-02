@@ -174,6 +174,8 @@ pub struct ManufacturingReceipt {
 pub struct InspectionReceipt {
     pub inspection_id: String,
     pub manufacturing_id: String,
+    pub manufacturing_artifact_ref: String,
+    pub component_artifact_ref: String,
     pub inspection_artifact_ref: String,
     pub installation_artifact_ref: String,
     pub as_built_artifact_ref: String,
@@ -612,6 +614,17 @@ fn manufacturing_disposition(
     {
         return Disposition::Rejected;
     }
+    if manufacturing.design_artifact_ref != trace.current_design_artifact_ref {
+        return Disposition::Superseded;
+    }
+    let participant_commitment_exists = trace.approvals.iter().any(|approval| {
+        approval.subject_artifact_ref == manufacturing.design_artifact_ref
+            && report.disposition_for("participant_approval", &approval.approval_id)
+                == Some(Disposition::Accepted)
+    });
+    if !participant_commitment_exists {
+        return Disposition::Indeterminate;
+    }
     let mut result = artifact_disposition(
         trace,
         &manufacturing.design_artifact_ref,
@@ -715,7 +728,27 @@ fn inspection_disposition(
         return Disposition::Indeterminate;
     }
 
+    if inspection.manufacturing_artifact_ref != manufacturing.manufacturing_artifact_ref
+        || inspection.component_artifact_ref != manufacturing.component_artifact_ref
+    {
+        return Disposition::Rejected;
+    }
     let mut result = artifact_disposition(
+        trace,
+        &inspection.manufacturing_artifact_ref,
+        None,
+        Some("manufacturing_record"),
+    );
+    result = combine(
+        result,
+        artifact_disposition(
+            trace,
+            &inspection.component_artifact_ref,
+            None,
+            Some("fabricated_component"),
+        ),
+    );
+    result = combine(result, artifact_disposition(
         trace,
         &inspection.inspection_artifact_ref,
         None,
@@ -1266,6 +1299,8 @@ mod tests {
             inspections: vec![InspectionReceipt {
                 inspection_id: "inspection-segment-01".into(),
                 manufacturing_id: "manufacture-segment-01".into(),
+                manufacturing_artifact_ref: "fabricator:manufacturing:batch-01".into(),
+                component_artifact_ref: "fabricator:component:segment-01".into(),
                 inspection_artifact_ref: "metrology:inspection:segment-01".into(),
                 installation_artifact_ref: "site:installation:segment-01".into(),
                 as_built_artifact_ref: "site:asbuilt:segment-01".into(),
@@ -1529,6 +1564,41 @@ mod tests {
         artifact.artifact_role = "design_revision".into();
         assert_eq!(
             disposition(&trace, "manufacturing", "manufacture-segment-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn manufacturing_requires_a_current_design_and_accepted_participant_commitment() {
+        let mut trace = sample_trace();
+        trace.manufacturing_receipts[0].design_artifact_ref =
+            "sol-atlas:artifact:design-r1".into();
+        assert_eq!(
+            disposition(&trace, "manufacturing", "manufacture-segment-01"),
+            Disposition::Superseded
+        );
+
+        let mut trace = sample_trace();
+        trace.approvals[1].decision = ParticipantDecision::Deferred;
+        assert_eq!(
+            disposition(&trace, "manufacturing", "manufacture-segment-01"),
+            Disposition::Indeterminate
+        );
+    }
+
+    #[test]
+    fn inspection_must_preserve_exact_manufacturing_and_component_identity() {
+        let mut trace = sample_trace();
+        trace.inspections[0].component_artifact_ref = "fabricator:component:other".into();
+        assert_eq!(
+            disposition(&trace, "inspection", "inspection-segment-01"),
+            Disposition::Rejected
+        );
+
+        let mut trace = sample_trace();
+        trace.inspections[0].manufacturing_artifact_ref = "fabricator:manufacturing:other".into();
+        assert_eq!(
+            disposition(&trace, "inspection", "inspection-segment-01"),
             Disposition::Rejected
         );
     }
