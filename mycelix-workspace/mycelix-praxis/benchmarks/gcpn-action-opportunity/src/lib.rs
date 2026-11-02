@@ -120,6 +120,7 @@ pub enum OpportunityViolation {
     ActionDurationMissing,
     ActionDurationEvidenceAfterCutoff,
     ActionDurationSourceMismatch,
+    ActionDurationIdentityMismatch,
     ResourceRequirementMissing,
     ResourceCapacityMissing,
     ResourceEvidenceAfterCutoff,
@@ -157,6 +158,7 @@ impl OpportunityViolation {
             Self::ActionDurationMissing => "action_duration_missing",
             Self::ActionDurationEvidenceAfterCutoff => "action_duration_evidence_after_cutoff",
             Self::ActionDurationSourceMismatch => "action_duration_source_mismatch",
+            Self::ActionDurationIdentityMismatch => "action_duration_identity_mismatch",
             Self::ResourceRequirementMissing => "resource_requirement_missing",
             Self::ResourceCapacityMissing => "resource_capacity_missing",
             Self::ResourceEvidenceAfterCutoff => "resource_evidence_after_cutoff",
@@ -412,6 +414,42 @@ fn validate_cases(cases: &[ActionOpportunityCase]) -> Result<(), OpportunityErro
             check_identifier(&duration.source_id)?;
             check_identifier(&duration.source_version)?;
         }
+        for interval in [
+            case.required_resource_count.as_ref(),
+            case.available_resource_count.as_ref(),
+        ].into_iter().flatten() {
+            for value in [
+                interval.resource_id.as_str(),
+                interval.unit_id.as_str(),
+                interval.source_id.as_str(),
+                interval.source_version.as_str(),
+            ] {
+                check_identifier(value)?;
+            }
+        }
+        for metric in [
+            case.loss_without_action.as_ref(),
+            case.loss_with_action.as_ref(),
+            case.action_burden.as_ref(),
+        ].into_iter().flatten() {
+            for value in [
+                metric.unit_id.as_str(),
+                metric.source_id.as_str(),
+                metric.source_version.as_str(),
+            ] {
+                check_identifier(value)?;
+            }
+        }
+        if let Some(hazard) = &case.hazard_arrival {
+            check_identifier(&hazard.hazard_id)?;
+            check_identifier(&hazard.source_id)?;
+            check_identifier(&hazard.source_version)?;
+        }
+        if let Some(duration) = &case.action_duration {
+            check_identifier(&duration.action_id)?;
+            check_identifier(&duration.source_id)?;
+            check_identifier(&duration.source_version)?;
+        }
     }
     Ok(())
 }
@@ -521,7 +559,7 @@ fn assess_time(
         violations.insert(OpportunityViolation::HazardIdentityMismatch);
     }
     if duration.action_id != case.action_id {
-        violations.insert(OpportunityViolation::ActionDurationSourceMismatch);
+        violations.insert(OpportunityViolation::ActionDurationIdentityMismatch);
     }
     if hazard.earliest > hazard.latest || warning.earliest_delivery_at > warning.latest_delivery_at {
         violations.insert(OpportunityViolation::InvalidTimeInterval);
@@ -689,6 +727,15 @@ fn assess_net_benefit(
 
     let lower = no_action.lower - with_action.upper - burden.upper;
     let upper = no_action.upper - with_action.lower - burden.lower;
+    if !lower.is_finite() || !upper.is_finite() {
+        violations.insert(OpportunityViolation::InvalidMetricInterval);
+        return NetBenefitAssessment {
+            disposition: ClaimDisposition::Indeterminate,
+            unit_id: policy.expected_utility_unit_id.clone(),
+            lower_bound: None,
+            upper_bound: None,
+        };
+    }
     let disposition = if lower > 0.0 {
         ClaimDisposition::Supports
     } else if upper < 0.0 {
@@ -1056,7 +1103,8 @@ mod tests {
         let second = audit_action_opportunity(&reach_report(), &[valid_case()], &policy()).unwrap();
         assert_eq!(first.to_csv(), second.to_csv());
         assert_eq!(first.to_csv().lines().count(), 3);
-        assert!(first.to_csv().lines().all(|line| line.matches(',').count() == 20));
+        assert!(first.to_csv().lines().all(|line| line.matches(',').count() == 21));
+        assert!(first.to_csv().contains("reached_population_only"));
     }
 
     #[test]
