@@ -441,15 +441,19 @@ fn unique_material_batch<'a>(
     }
 }
 
-fn material_disposition(
+fn material_disposition_at(
     trace: &ConstructionProjectTrace,
     batch: &MaterialBatch,
+    event_at: u64,
 ) -> Disposition {
     if !nonempty(&batch.batch_id)
         || !nonempty(&batch.supplier_party_id)
         || !nonempty(&batch.receiving_site_party_id)
         || !nonempty(&batch.material_description)
     {
+        return Disposition::Rejected;
+    }
+    if event_at < batch.declared_at {
         return Disposition::Rejected;
     }
     if batch
@@ -465,7 +469,7 @@ fn material_disposition(
     let Some(scope_ref) = batch.certification_scope_ref.as_deref() else {
         return Disposition::Indeterminate;
     };
-    evidence_disposition(trace, reference, scope_ref, batch.declared_at)
+    evidence_disposition(trace, reference, scope_ref, event_at)
 }
 
 fn custody_disposition(
@@ -650,6 +654,7 @@ fn manufacturing_disposition(
     }
     let participant_commitment_exists = trace.approvals.iter().any(|approval| {
         approval.subject_artifact_ref == manufacturing.design_artifact_ref
+            && approval.decided_at <= manufacturing.manufactured_at
             && report.disposition_for("participant_approval", &approval.approval_id)
                 == Some(Disposition::Accepted)
     });
@@ -705,6 +710,12 @@ fn manufacturing_disposition(
         report
             .disposition_for("material_batch", &batch.batch_id)
             .unwrap_or(Disposition::Indeterminate),
+    );
+    // Re-check certification validity at the manufacturing event itself.
+    // A certificate valid at batch declaration may expire before fabrication.
+    result = combine(
+        result,
+        material_disposition_at(trace, batch, manufacturing.manufactured_at),
     );
     result = combine(
         result,
@@ -1024,7 +1035,7 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
         let disposition = if duplicate_batch_ids.contains(&batch.batch_id) {
             Disposition::Rejected
         } else {
-            material_disposition(trace, batch)
+            material_disposition_at(trace, batch, batch.declared_at)
         };
         report.push(
             "material_batch",
@@ -1805,6 +1816,35 @@ mod tests {
         trace.custody_receipts[1].to_party_id = "site:other".into();
         assert_eq!(
             disposition(&trace, "custody", "batch-01"),
+            Disposition::Indeterminate
+        );
+    }
+
+    #[test]
+    fn manufacturing_requires_participant_commitment_before_manufacture() {
+        let mut trace = sample_trace();
+        trace.approvals[1].decided_at = 350;
+        assert_eq!(
+            disposition(&trace, "manufacturing", "manufacture-segment-01"),
+            Disposition::Indeterminate
+        );
+    }
+
+    #[test]
+    fn material_certification_must_remain_valid_at_manufacturing_time() {
+        let mut trace = sample_trace();
+        let certificate = trace
+            .evidence_assertions
+            .iter_mut()
+            .find(|item| item.reference == "evidence:batch-cert-01")
+            .unwrap();
+        certificate.valid_until = Some(250);
+        assert_eq!(
+            disposition(&trace, "material_batch", "batch-01"),
+            Disposition::Accepted
+        );
+        assert_eq!(
+            disposition(&trace, "manufacturing", "manufacture-segment-01"),
             Disposition::Indeterminate
         );
     }
