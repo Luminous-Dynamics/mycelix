@@ -59,18 +59,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             seed: 20261102,
         },
     )?;
+    let mut block_case_a = case.clone();
+    block_case_a.case_id = "synthetic-event-case-a".into();
+    let mut block_case_b = case.clone();
+    block_case_b.case_id = "synthetic-event-case-b".into();
+    let mut block_case_c = case.clone();
+    block_case_c.case_id = "synthetic-event-case-c".into();
     let block_samples = vec![
         FssBlockCase {
             event_block_id: "event-block-a".into(),
-            case: case.clone(),
+            case: block_case_a,
         },
         FssBlockCase {
             event_block_id: "event-block-b".into(),
-            case: case.clone(),
+            case: block_case_b,
         },
         FssBlockCase {
             event_block_id: "event-block-c".into(),
-            case: case.clone(),
+            case: block_case_c,
         },
     ];
     let bootstrap = block_bootstrap(
