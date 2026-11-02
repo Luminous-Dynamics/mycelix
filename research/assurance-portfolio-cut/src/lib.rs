@@ -105,15 +105,29 @@ impl SeparationRequirement {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TierRequirements {
+    pub required_roles: BTreeSet<String>,
+    pub required_separations: BTreeSet<SeparationRequirement>,
+}
+
+/// Separately pinned policy input. The profile being checked selects a named
+/// tier; it cannot weaken the tier's role or separation requirements.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssurancePolicy {
+    pub digest: Digest,
+    pub tiers: BTreeMap<String, TierRequirements>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ThreatProfile {
     pub claim_id: String,
     pub subject_digest: Digest,
     pub profile_digest: Digest,
     pub policy_digest: Digest,
+    pub assurance_tier: String,
     pub valid_from: u64,
     pub valid_until: Option<u64>,
     pub required_roles: BTreeSet<String>,
-    pub required_separations: BTreeSet<SeparationRequirement>,
     /// One entry for every required role. Each role manifest should account
     /// for all 15 dimensions using an explicit disposition.
     pub role_domains: BTreeMap<String, BTreeMap<FaultDomainDimension, DomainDisposition>>,
@@ -130,6 +144,9 @@ pub enum ProfileError {
     SharedDimensionRequiresRationale,
     NotApplicableRequiresRationale,
     UnexpectedRoleManifest,
+    PolicyDigestMismatch,
+    UnknownAssuranceTier,
+    InvalidPolicyTier,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -150,6 +167,7 @@ pub enum ProfileReason {
     RequiredSeparationNotApplicable,
     RequiredSeparationIdentityEqual,
     SharedIdentityNotObserved,
+    RequiredRolesMismatch,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -179,6 +197,7 @@ pub struct ProfileReport {
     pub subject_digest: Digest,
     pub profile_digest: Digest,
     pub policy_digest: Digest,
+    pub assurance_tier: String,
     pub disposition: ProfileDisposition,
     pub reasons: Vec<ProfileReason>,
     pub separation_findings: Vec<SeparationFinding>,
@@ -190,15 +209,52 @@ pub struct ProfileReport {
     pub not_applicable_dimensions: Vec<(String, FaultDomainDimension, String)>,
 }
 
-pub fn check_profile(profile: &ThreatProfile, now: u64) -> Result<ProfileReport, ProfileError> {
+pub fn check_profile(
+    profile: &ThreatProfile,
+    policy: &AssurancePolicy,
+    now: u64,
+) -> Result<ProfileReport, ProfileError> {
     if profile.claim_id.trim().is_empty() {
         return Err(ProfileError::EmptyClaimId);
+    }
+    if profile.assurance_tier.trim().is_empty() {
+        return Err(ProfileError::UnknownAssuranceTier);
+    }
+    if profile.policy_digest != policy.digest {
+        return Err(ProfileError::PolicyDigestMismatch);
+    }
+    let tier = policy
+        .tiers
+        .get(&profile.assurance_tier)
+        .ok_or(ProfileError::UnknownAssuranceTier)?;
+    if tier.required_roles.is_empty()
+        || tier.required_roles.iter().any(|role| role.trim().is_empty())
+    {
+        return Err(ProfileError::InvalidPolicyTier);
     }
     if profile.required_roles.is_empty() {
         return Err(ProfileError::EmptyRequiredRoles);
     }
     if profile.required_roles.iter().any(|role| role.trim().is_empty()) {
         return Err(ProfileError::EmptyRoleId);
+    }
+    for requirement in &tier.required_separations {
+        if requirement.left_role == requirement.right_role {
+            return Err(ProfileError::SelfSeparation);
+        }
+        if requirement.left_role >= requirement.right_role {
+            return Err(ProfileError::NonCanonicalSeparation);
+        }
+        if !tier.required_roles.contains(&requirement.left_role)
+            || !tier.required_roles.contains(&requirement.right_role)
+        {
+            return Err(ProfileError::SeparationRoleNotRequired);
+        }
+    }
+
+    let mut reasons = BTreeSet::new();
+    if profile.required_roles != tier.required_roles {
+        reasons.insert(ProfileReason::RequiredRolesMismatch);
     }
     if profile
         .role_domains
@@ -207,21 +263,6 @@ pub fn check_profile(profile: &ThreatProfile, now: u64) -> Result<ProfileReport,
     {
         return Err(ProfileError::UnexpectedRoleManifest);
     }
-    for requirement in &profile.required_separations {
-        if requirement.left_role == requirement.right_role {
-            return Err(ProfileError::SelfSeparation);
-        }
-        if requirement.left_role >= requirement.right_role {
-            return Err(ProfileError::NonCanonicalSeparation);
-        }
-        if !profile.required_roles.contains(&requirement.left_role)
-            || !profile.required_roles.contains(&requirement.right_role)
-        {
-            return Err(ProfileError::SeparationRoleNotRequired);
-        }
-    }
-
-    let mut reasons = BTreeSet::new();
     let mut separation_findings = Vec::new();
     let mut accepted_shared_dependencies = Vec::new();
     let mut unknown_dimensions = Vec::new();
@@ -271,7 +312,7 @@ pub fn check_profile(profile: &ThreatProfile, now: u64) -> Result<ProfileReport,
         }
     }
 
-    for requirement in &profile.required_separations {
+    for requirement in &tier.required_separations {
         let left = profile
             .role_domains
             .get(&requirement.left_role)
@@ -372,6 +413,7 @@ pub fn check_profile(profile: &ThreatProfile, now: u64) -> Result<ProfileReport,
         subject_digest: profile.subject_digest,
         profile_digest: profile.profile_digest,
         policy_digest: profile.policy_digest,
+        assurance_tier: profile.assurance_tier.clone(),
         disposition,
         reasons: reasons.into_iter().collect(),
         separation_findings,
