@@ -477,7 +477,10 @@ pub struct CutSetReport {
     /// exceeded results; partial cut sets are never published as complete.
     pub minimal_cut_sets: Vec<BTreeSet<FaultDomainKey>>,
     pub minimum_cut_cardinality: Option<usize>,
-    pub states_examined: usize,
+    /// Number of candidate extensions attempted, including the first denied
+    /// extension when the configured budget is exhausted.
+    pub candidate_extensions_attempted: usize,
+    pub max_candidate_extensions: usize,
     pub unresolved_roles: Vec<(String, Vec<FaultDomainDimension>)>,
 }
 
@@ -486,7 +489,8 @@ fn cut_set_report(
     disposition: CutSetDisposition,
     minimal_cut_sets: Vec<BTreeSet<FaultDomainKey>>,
     minimum_cut_cardinality: Option<usize>,
-    states_examined: usize,
+    candidate_extensions_attempted: usize,
+    max_candidate_extensions: usize,
     unresolved_roles: Vec<(String, Vec<FaultDomainDimension>)>,
 ) -> CutSetReport {
     CutSetReport {
@@ -499,7 +503,8 @@ fn cut_set_report(
         disposition,
         minimal_cut_sets,
         minimum_cut_cardinality,
-        states_examined,
+        candidate_extensions_attempted,
+        max_candidate_extensions,
         unresolved_roles,
     }
 }
@@ -568,6 +573,7 @@ pub fn minimal_cut_sets(
             Vec::new(),
             None,
             0,
+            max_states,
             unresolved_roles,
         ));
     }
@@ -601,6 +607,7 @@ pub fn minimal_cut_sets(
                         Vec::new(),
                         None,
                         states_examined,
+                        max_states,
                         Vec::new(),
                     ));
                 }
@@ -638,6 +645,7 @@ pub fn minimal_cut_sets(
         candidates,
         minimum_cut_cardinality,
         states_examined,
+        max_states,
         Vec::new(),
     ))
 }
@@ -1017,6 +1025,7 @@ mod tests {
         assert_eq!(report.manifest_digest, Digest::from_byte(4));
         assert_eq!(report.attack_model_digest, Digest::from_byte(5));
         assert_eq!(report.minimum_cut_cardinality, Some(1));
+        assert_eq!(report.max_candidate_extensions, 100);
         assert_eq!(report.minimal_cut_sets.len(), 2);
         assert!(report.minimal_cut_sets.contains(&BTreeSet::from([shared_ci])));
         assert!(
@@ -1228,6 +1237,8 @@ mod tests {
         assert_eq!(report.disposition, CutSetDisposition::BudgetExceeded);
         assert!(report.minimal_cut_sets.is_empty());
         assert_eq!(report.minimum_cut_cardinality, None);
+        assert_eq!(report.candidate_extensions_attempted, 2);
+        assert_eq!(report.max_candidate_extensions, 1);
     }
 
     #[test]
