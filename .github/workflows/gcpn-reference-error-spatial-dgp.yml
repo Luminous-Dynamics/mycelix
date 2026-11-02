@@ -39,3 +39,5 @@ jobs:
           cmp /tmp/gcpn-reference-error-a.csv /tmp/gcpn-reference-error-b.csv
           grep -q "family=spatially_correlated" /tmp/gcpn-reference-error-a.csv
           grep -q "unknown_error_parameters_are_sensitivity_only=true" /tmp/gcpn-reference-error-a.csv
+          grep -q "ensemble_size,neighbourhood_width" /tmp/gcpn-reference-error-a.csv
+          grep -q "ensemble_size=200" /tmp/gcpn-reference-error-a.csv
