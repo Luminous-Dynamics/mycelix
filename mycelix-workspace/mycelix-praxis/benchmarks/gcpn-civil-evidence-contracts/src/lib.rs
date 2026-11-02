@@ -160,6 +160,8 @@ pub struct AccessibilityRequirement {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccessibilityEvidence {
+    pub evidence_id: String,
+    pub delivery_receipt_id: String,
     pub cohort_id: String,
     pub language_id: String,
     pub format_id: String,
@@ -181,6 +183,9 @@ pub struct ComprehensionRequirement {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ComprehensionEvidence {
+    pub evidence_id: String,
+    pub delivery_receipt_id: String,
+    pub accessibility_evidence_id: String,
     pub cohort_id: String,
     pub language_id: String,
     pub test_protocol_id: String,
@@ -327,15 +332,20 @@ pub enum CivilViolation {
     DeliveryTargetMissing,
     DeliveryReceiptIdentityMismatch,
     DeliveryReceiptAfterCutoff,
+    DeliveryBaseMessageNotSupporting,
+    ActionAuthorityNotSupporting,
+    ActionDecisionNotSupporting,
     DeliveryCountExceedsTarget,
     DeviceDeliveryExceedsProviderAcceptance,
     DuplicateReceiptWithoutSource,
     DuplicateReceiptSourceMissing,
     AccessibilityEvidenceMissing,
     AccessibilityEvidenceAfterCutoff,
+    AccessibilityDeliveryBindingMismatch,
     AccessibilityNotSupported,
     ComprehensionEvidenceMissing,
     ComprehensionEvidenceAfterCutoff,
+    ComprehensionAccessibilityBindingMismatch,
     InvalidComprehensionCounts,
     ComprehensionBelowThreshold,
     ActionReceiptMissing,
@@ -372,15 +382,20 @@ impl CivilViolation {
             Self::DeliveryTargetMissing => "delivery_target_missing",
             Self::DeliveryReceiptIdentityMismatch => "delivery_receipt_identity_mismatch",
             Self::DeliveryReceiptAfterCutoff => "delivery_receipt_after_cutoff",
+            Self::DeliveryBaseMessageNotSupporting => "delivery_base_message_not_supporting",
+            Self::ActionAuthorityNotSupporting => "action_authority_not_supporting",
+            Self::ActionDecisionNotSupporting => "action_decision_not_supporting",
             Self::DeliveryCountExceedsTarget => "delivery_count_exceeds_target",
             Self::DeviceDeliveryExceedsProviderAcceptance => "device_delivery_exceeds_provider_acceptance",
             Self::DuplicateReceiptWithoutSource => "duplicate_receipt_without_source",
             Self::DuplicateReceiptSourceMissing => "duplicate_receipt_source_missing",
             Self::AccessibilityEvidenceMissing => "accessibility_evidence_missing",
             Self::AccessibilityEvidenceAfterCutoff => "accessibility_evidence_after_cutoff",
+            Self::AccessibilityDeliveryBindingMismatch => "accessibility_delivery_binding_mismatch",
             Self::AccessibilityNotSupported => "accessibility_not_supported",
             Self::ComprehensionEvidenceMissing => "comprehension_evidence_missing",
             Self::ComprehensionEvidenceAfterCutoff => "comprehension_evidence_after_cutoff",
+            Self::ComprehensionAccessibilityBindingMismatch => "comprehension_accessibility_binding_mismatch",
             Self::InvalidComprehensionCounts => "invalid_comprehension_counts",
             Self::ComprehensionBelowThreshold => "comprehension_below_threshold",
             Self::ActionReceiptMissing => "action_receipt_missing",
@@ -671,11 +686,38 @@ pub fn audit_civil_evidence(
     validate_profile_identifiers(profile)?;
     let base_audit = assess_base_audit(profile);
     let authority = assess_authority(profile);
-    let delivery = assess_delivery(profile)?;
+    let mut delivery = assess_delivery(profile)?;
     let accessibility = assess_accessibility(profile);
     let comprehension = assess_comprehension(profile)?;
-    let actions = assess_actions(profile)?;
+    let mut actions = assess_actions(profile)?;
     let case_frame = assess_case_frame(profile)?;
+
+    if !base_stage_supports(profile, Stage::CapLifecycle) {
+        for assessment in &mut delivery {
+            assessment.disposition = ClaimDisposition::Indeterminate;
+            let mut violations: BTreeSet<CivilViolation> =
+                assessment.violations.iter().copied().collect();
+            violations.insert(CivilViolation::DeliveryBaseMessageNotSupporting);
+            assessment.violations = violations.into_iter().collect();
+        }
+    }
+
+    let authority_supports = authority.disposition == ClaimDisposition::Supports;
+    let decision_supports = base_stage_supports(profile, Stage::Decision);
+    if !authority_supports || !decision_supports {
+        for assessment in &mut actions {
+            assessment.disposition = ClaimDisposition::Indeterminate;
+            let mut violations: BTreeSet<CivilViolation> =
+                assessment.violations.iter().copied().collect();
+            if !authority_supports {
+                violations.insert(CivilViolation::ActionAuthorityNotSupporting);
+            }
+            if !decision_supports {
+                violations.insert(CivilViolation::ActionDecisionNotSupporting);
+            }
+            assessment.violations = violations.into_iter().collect();
+        }
+    }
 
     Ok(CivilEvidenceReport {
         scenario_id: profile.scenario_id.clone(),
@@ -853,6 +895,25 @@ fn validate_profile_identifiers(profile: &CivilEvidenceProfile) -> Result<(), Ci
         }
     }
     Ok(())
+}
+
+fn base_stage_supports(profile: &CivilEvidenceProfile, stage: Stage) -> bool {
+    if profile.base_audit.as_of_cutoff != profile.as_of_cutoff {
+        return false;
+    }
+    let bindings: Vec<_> = profile
+        .required_base_claims
+        .iter()
+        .filter(|binding| binding.stage == stage)
+        .collect();
+    !bindings.is_empty()
+        && bindings.iter().all(|binding| {
+            profile.base_audit.claims.iter().any(|claim| {
+                claim.stage == stage
+                    && claim.claim_id == binding.claim_id
+                    && claim.disposition == ClaimDisposition::Supports
+            })
+        })
 }
 
 fn assess_base_audit(profile: &CivilEvidenceProfile) -> BaseAuditAssessment {
