@@ -187,6 +187,31 @@ impl Availability {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ForecastAvailability {
+    Available {
+        artifact_sha256: String,
+        initialized_at: u64,
+        recorded_at: u64,
+    },
+    Missing {
+        reason: MissingReason,
+    },
+}
+
+impl ForecastAvailability {
+    pub const fn is_available(&self) -> bool {
+        matches!(self, Self::Available { .. })
+    }
+
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::Available { .. } => "available",
+            Self::Missing { reason } => reason.label(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ExclusionReason {
     OutsideEvaluationPeriod,
@@ -228,8 +253,8 @@ pub struct ComparisonCase {
     pub valid_time: u64,
     pub lead_seconds: u64,
     pub eligibility: CaseEligibility,
-    pub candidate: Availability,
-    pub reference: Availability,
+    pub candidate: ForecastAvailability,
+    pub reference: ForecastAvailability,
     pub verification: Availability,
 }
 
@@ -272,6 +297,7 @@ pub enum ContractViolation {
     InvalidCaseTime,
     EligibleCaseOutsidePeriod,
     AvailabilityAfterCutoff,
+    ForecastInitializationMismatch,
     InvalidCaseArtifactDigest,
 }
 
@@ -302,6 +328,7 @@ impl ContractViolation {
             Self::InvalidCaseTime => "invalid_case_time",
             Self::EligibleCaseOutsidePeriod => "eligible_case_outside_period",
             Self::AvailabilityAfterCutoff => "availability_after_cutoff",
+            Self::ForecastInitializationMismatch => "forecast_initialization_mismatch",
             Self::InvalidCaseArtifactDigest => "invalid_case_artifact_digest",
         }
     }
@@ -585,18 +612,35 @@ impl ComparisonManifest {
                 return Err(ContractViolation::EligibleCaseOutsidePeriod);
             }
 
-            for availability in [&case.candidate, &case.reference, &case.verification] {
-                if let Availability::Available {
+            for forecast in [&case.candidate, &case.reference] {
+                if let ForecastAvailability::Available {
                     artifact_sha256,
+                    initialized_at,
                     recorded_at,
-                } = availability
+                } = forecast
                 {
                     if !valid_sha256(artifact_sha256) {
                         return Err(ContractViolation::InvalidCaseArtifactDigest);
                     }
+                    if *initialized_at != case.initialization_time {
+                        return Err(ContractViolation::ForecastInitializationMismatch);
+                    }
                     if *recorded_at > self.contract.as_of_cutoff {
                         return Err(ContractViolation::AvailabilityAfterCutoff);
                     }
+                }
+            }
+
+            if let Availability::Available {
+                artifact_sha256,
+                recorded_at,
+            } = &case.verification
+            {
+                if !valid_sha256(artifact_sha256) {
+                    return Err(ContractViolation::InvalidCaseArtifactDigest);
+                }
+                if *recorded_at > self.contract.as_of_cutoff {
+                    return Err(ContractViolation::AvailabilityAfterCutoff);
                 }
             }
         }
@@ -617,8 +661,8 @@ pub struct CaseReport {
     pub valid_time: u64,
     pub lead_seconds: u64,
     pub eligibility: CaseEligibility,
-    pub candidate: Availability,
-    pub reference: Availability,
+    pub candidate: ForecastAvailability,
+    pub reference: ForecastAvailability,
     pub verification: Availability,
 }
 
@@ -691,12 +735,16 @@ impl ComparisonReport {
             if candidate_available {
                 counts.candidate_available += 1;
             } else {
-                add_missing_reason(&mut counts.candidate_missing_by_reason, &case.candidate);
+                if let ForecastAvailability::Missing { reason } = &case.candidate {
+                    *counts.candidate_missing_by_reason.entry(*reason).or_insert(0) += 1;
+                }
             }
             if reference_available {
                 counts.reference_available += 1;
             } else {
-                add_missing_reason(&mut counts.reference_missing_by_reason, &case.reference);
+                if let ForecastAvailability::Missing { reason } = &case.reference {
+                    *counts.reference_missing_by_reason.entry(*reason).or_insert(0) += 1;
+                }
             }
             if verification_available {
                 counts.verification_available += 1;
@@ -812,8 +860,20 @@ mod tests {
         }
     }
 
+    fn forecast_available(digest: &str, initialized_at: u64) -> ForecastAvailability {
+        ForecastAvailability::Available {
+            artifact_sha256: digest.into(),
+            initialized_at,
+            recorded_at: 250,
+        }
+    }
+
     fn missing(reason: MissingReason) -> Availability {
         Availability::Missing { reason }
+    }
+
+    fn forecast_missing(reason: MissingReason) -> ForecastAvailability {
+        ForecastAvailability::Missing { reason }
     }
 
     fn model(
@@ -911,8 +971,8 @@ mod tests {
                     valid_time: 106,
                     lead_seconds: 6,
                     eligibility: CaseEligibility::Eligible,
-                    candidate: available(DIGEST_A),
-                    reference: available(DIGEST_B),
+                    candidate: forecast_available(DIGEST_A, 100),
+                    reference: forecast_available(DIGEST_B, 100),
                     verification: available(DIGEST_C),
                 },
                 ComparisonCase {
@@ -921,8 +981,8 @@ mod tests {
                     valid_time: 116,
                     lead_seconds: 6,
                     eligibility: CaseEligibility::Eligible,
-                    candidate: missing(MissingReason::NotProduced),
-                    reference: available(DIGEST_A),
+                    candidate: forecast_missing(MissingReason::NotProduced),
+                    reference: forecast_available(DIGEST_A, 110),
                     verification: available(DIGEST_B),
                 },
                 ComparisonCase {
@@ -931,8 +991,8 @@ mod tests {
                     valid_time: 126,
                     lead_seconds: 6,
                     eligibility: CaseEligibility::Eligible,
-                    candidate: available(DIGEST_C),
-                    reference: missing(MissingReason::NotArchived),
+                    candidate: forecast_available(DIGEST_C, 120),
+                    reference: forecast_missing(MissingReason::NotArchived),
                     verification: missing(MissingReason::PendingAtCutoff),
                 },
                 ComparisonCase {
@@ -943,8 +1003,8 @@ mod tests {
                     eligibility: CaseEligibility::Excluded(
                         ExclusionReason::ExcludedByFrozenProtocol,
                     ),
-                    candidate: missing(MissingReason::NotProduced),
-                    reference: missing(MissingReason::NotProduced),
+                    candidate: forecast_missing(MissingReason::NotProduced),
+                    reference: forecast_missing(MissingReason::NotProduced),
                     verification: missing(MissingReason::Unknown),
                 },
             ],
@@ -1096,7 +1156,7 @@ mod tests {
     fn duplicate_case_key_is_rejected_even_when_availability_differs() {
         let mut manifest = fixture();
         let mut duplicate = manifest.cases[0].clone();
-        duplicate.candidate = missing(MissingReason::NotProduced);
+        duplicate.candidate = forecast_missing(MissingReason::NotProduced);
         manifest.cases.push(duplicate);
         assert_eq!(
             manifest.validate(),
@@ -1137,6 +1197,20 @@ mod tests {
         assert_eq!(
             report.counts.eligible_cases + report.counts.excluded_cases,
             4
+        );
+    }
+
+    #[test]
+    fn forecast_initialization_must_match_the_case_initialization() {
+        let mut manifest = fixture();
+        manifest.cases[0].candidate = ForecastAvailability::Available {
+            artifact_sha256: DIGEST_A.into(),
+            initialized_at: 99,
+            recorded_at: 250,
+        };
+        assert_eq!(
+            manifest.validate(),
+            Err(ContractViolation::ForecastInitializationMismatch)
         );
     }
 
