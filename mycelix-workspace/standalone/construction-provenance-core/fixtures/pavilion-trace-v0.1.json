@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "project_id": "pavilion-demo-01",
+  "current_design_revision_id": "design-r2",
+  "design_revisions": [
+    {
+      "revision_id": "design-r1",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "supersedes_revision_id": null,
+      "created_at": 100
+    },
+    {
+      "revision_id": "design-r2",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "supersedes_revision_id": "design-r1",
+      "created_at": 180
+    }
+  ],
+  "simulation_runs": [
+    {
+      "run_id": "sim-r1",
+      "design_revision_id": "design-r1",
+      "design_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "solver_id": "symtropy-structural-adapter",
+      "solver_version": "0.1.0",
+      "result_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "completed_at": 130
+    },
+    {
+      "run_id": "sim-r2",
+      "design_revision_id": "design-r2",
+      "design_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "solver_id": "qualified-external-solver-ref",
+      "solver_version": "vendor-build-7",
+      "result_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "completed_at": 220
+    }
+  ],
+  "authority_assertions": [
+    {
+      "reference": "authority:design-r1",
+      "signer_id": "party:engineer-01",
+      "role": "design-approver",
+      "scope_ref": "scope:design-r1",
+      "status": "active",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    },
+    {
+      "reference": "authority:design-r2",
+      "signer_id": "party:engineer-01",
+      "role": "design-approver",
+      "scope_ref": "scope:design-r2",
+      "status": "active",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    },
+    {
+      "reference": "authority:inspection",
+      "signer_id": "party:inspector-01",
+      "role": "independent-inspector",
+      "scope_ref": "scope:inspection:batch-01:r2",
+      "status": "active",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    }
+  ],
+  "evidence_assertions": [
+    {
+      "reference": "evidence:design-review-r1",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "verified",
+      "use_permission": "permitted",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    },
+    {
+      "reference": "evidence:design-review-r2",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "status": "verified",
+      "use_permission": "permitted",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    },
+    {
+      "reference": "evidence:batch-cert-01",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "verified",
+      "use_permission": "permitted",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    },
+    {
+      "reference": "evidence:custody-01-a",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "verified",
+      "use_permission": "permitted",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    },
+    {
+      "reference": "evidence:custody-01-b",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "status": "verified",
+      "use_permission": "permitted",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    },
+    {
+      "reference": "evidence:inspection-01",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "verified",
+      "use_permission": "permitted",
+      "available_at": 90,
+      "valid_from": 90,
+      "valid_until": 500
+    }
+  ],
+  "approvals": [
+    {
+      "approval_id": "approval-r1",
+      "design_revision_id": "design-r1",
+      "design_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "simulation_run_id": "sim-r1",
+      "simulation_result_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "authority_ref": "authority:design-r1",
+      "signer_id": "party:engineer-01",
+      "role": "design-approver",
+      "scope_ref": "scope:design-r1",
+      "supersedes_approval_id": null,
+      "decision": "approved",
+      "conditions": [],
+      "evidence_refs": [
+        "evidence:design-review-r1"
+      ],
+      "dissent_refs": [],
+      "decided_at": 150
+    },
+    {
+      "approval_id": "approval-r2",
+      "design_revision_id": "design-r2",
+      "design_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "simulation_run_id": "sim-r2",
+      "simulation_result_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "authority_ref": "authority:design-r2",
+      "signer_id": "party:engineer-01",
+      "role": "design-approver",
+      "scope_ref": "scope:design-r2",
+      "supersedes_approval_id": "approval-r1",
+      "decision": "approved",
+      "conditions": [
+        {
+          "condition_id": "condition:drawings-final",
+          "satisfied": true
+        }
+      ],
+      "evidence_refs": [
+        "evidence:design-review-r2"
+      ],
+      "dissent_refs": [
+        "dissent:reviewer-02"
+      ],
+      "decided_at": 240
+    }
+  ],
+  "material_batches": [
+    {
+      "batch_id": "batch-01",
+      "supplier_party_id": "party:supplier-01",
+      "receiving_site_party_id": "site:pavilion-01",
+      "material_description": "structural steel members",
+      "supplier_assertion": "Supplier declares recycled content",
+      "certification_evidence_ref": "evidence:batch-cert-01",
+      "declared_at": 230
+    }
+  ],
+  "custody_receipts": [
+    {
+      "receipt_id": "custody-01-a",
+      "batch_id": "batch-01",
+      "from_party_id": "party:supplier-01",
+      "to_party_id": "party:carrier-01",
+      "predecessor_receipt_id": null,
+      "evidence_ref": "evidence:custody-01-a",
+      "occurred_at": 250
+    },
+    {
+      "receipt_id": "custody-01-b",
+      "batch_id": "batch-01",
+      "from_party_id": "party:carrier-01",
+      "to_party_id": "site:pavilion-01",
+      "predecessor_receipt_id": "custody-01-a",
+      "evidence_ref": "evidence:custody-01-b",
+      "occurred_at": 270
+    }
+  ],
+  "inspections": [
+    {
+      "inspection_id": "inspection-01",
+      "batch_id": "batch-01",
+      "design_revision_id": "design-r2",
+      "design_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "terminal_custody_receipt_id": "custody-01-b",
+      "authority_ref": "authority:inspection",
+      "inspector_id": "party:inspector-01",
+      "role": "independent-inspector",
+      "scope_ref": "scope:inspection:batch-01:r2",
+      "evidence_refs": [
+        "evidence:inspection-01"
+      ],
+      "outcome": "conforming",
+      "inspected_at": 300
+    }
+  ]
+}
