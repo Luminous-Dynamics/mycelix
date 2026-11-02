@@ -514,7 +514,8 @@ fn apply_one(scenario: &mut Scenario, fault: Fault) {
             }
         }
         Fault::ValidContradictoryEvidence => {
-            for evidence in find_claim_evidence_mut(scenario, Stage::Observation, "reference-valid") {
+            for evidence in find_claim_evidence_mut(scenario, Stage::Observation, "reference-valid")
+            {
                 evidence.disposition = ClaimDisposition::Refutes;
             }
         }
@@ -526,7 +527,9 @@ fn apply_one(scenario: &mut Scenario, fault: Fault) {
             }
         }
         Fault::SourceUnavailable => {
-            for evidence in find_claim_evidence_mut(scenario, Stage::AfterEventReview, "review-valid") {
+            for evidence in
+                find_claim_evidence_mut(scenario, Stage::AfterEventReview, "review-valid")
+            {
                 evidence.disposition = ClaimDisposition::Unavailable;
             }
         }
