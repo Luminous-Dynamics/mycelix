@@ -232,12 +232,6 @@ function verify(graph, policy) {
 }
 
 const expectedPolicyBlobSha = process.argv[2];
-function gitBlobSha(path) {
-  const data = fs.readFileSync(path);
-  const header = Buffer.from("blob " + data.length + "\0", "ascii");
-  return crypto.createHash("sha1").update(Buffer.concat([header, data])).digest("hex");
-}
-
 const policyPath = process.argv[3];
 const corpusPath = process.argv[4];
 if (!expectedPolicyBlobSha || !policyPath || !corpusPath) {
