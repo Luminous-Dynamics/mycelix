@@ -40,3 +40,6 @@ jobs:
           cmp /tmp/gcpn-pfss-a.csv /tmp/gcpn-pfss-b.csv
           grep -q "skill_reference=empirical_independent_bernoulli_null" /tmp/gcpn-pfss-a.csv
           grep -q "random_null_draws=999" /tmp/gcpn-pfss-a.csv
+          grep -q "block_bootstrap_blocks=3" /tmp/gcpn-pfss-a.csv
+          grep -q "block_bootstrap_replicates=199" /tmp/gcpn-pfss-a.csv
+          grep -q "block_bootstrap_pooling=aggregate_fbs_wfbs_components" /tmp/gcpn-pfss-a.csv
