@@ -1,6 +1,6 @@
 use gcpn_reference_error_spatial_dgp::{
-    run_benchmark, DgpTrial, ErrorFamily, ObservationErrorDgp, ParameterKnowledge,
-    SpatialFixture,
+    run_benchmark, run_ensemble_size_study, DgpTrial, ErrorFamily, ObservationErrorDgp,
+    ParameterKnowledge, SpatialFixture,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -33,6 +33,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     print!("{}", report.to_csv());
     println!("# no_real_forecast_data=true");
     println!("# unknown_error_parameters_are_sensitivity_only=true");
+
+    let ensemble_trials: Vec<_> = trials.iter().take(12).cloned().collect();
+    let ensemble_dgp = ObservationErrorDgp {
+        family: ErrorFamily::SpatiallyCorrelated,
+        severity: 0.3,
+        correlation_radius: 2,
+        parameter_knowledge: ParameterKnowledge::Known,
+    };
+    let ensemble_report = run_ensemble_size_study(
+        &fixture,
+        &ensemble_dgp,
+        &ensemble_trials,
+        &[1, 5, 10, 20, 50, 100, 200, 500],
+        3,
+        0.2,
+    )?;
+    println!("# pFSS ensemble-size scaling, fixed forecasts' mean fields, fixed neighbourhood width=3.");
+    println!("# Synthetic members use deterministic correlated perturbations; not a calibrated NWP ensemble.");
+    print!("{}", ensemble_report.to_csv());
+    println!("# Per-trial ensemble-size records:");
+    print!("{}", ensemble_report.to_trial_csv());
 
     Ok(())
 }
