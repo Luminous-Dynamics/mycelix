@@ -1,0 +1,18 @@
+[package]
+name = "gcpn-reference-error-spatial-dgp"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Spatially correlated observation-error DGP and pFSS rank-robustness benchmark"
+
+[workspace]
+
+[dependencies]
+gcpn-probabilistic-fss = { path = "../gcpn-probabilistic-fss" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-reference-error-spatial-dgp"
+path = "src/main.rs"
