@@ -1,6 +1,6 @@
 use gcpn_probabilistic_fss::{
-    block_bootstrap, evaluate, random_reference, BlockBootstrapConfig, BoundaryPolicy,
-    FssBlockCase, FssCase, FssConfig, MissingPolicy, RandomBaselineConfig, ThresholdOperator,
+    BlockBootstrapConfig, BoundaryPolicy, FssBlockCase, FssCase, FssConfig, MissingPolicy,
+    RandomBaselineConfig, ThresholdOperator, block_bootstrap, evaluate, random_reference,
 };
 
 fn optional_values(events: &[bool]) -> Vec<Option<f64>> {
@@ -12,32 +12,20 @@ fn optional_values(events: &[bool]) -> Vec<Option<f64>> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let observed = [
-        false, false, false, false, false,
-        false, true, true, false, false,
-        false, false, true, false, false,
-        false, false, false, false, false,
-        false, false, false, false, false,
+        false, false, false, false, false, false, true, true, false, false, false, false, true,
+        false, false, false, false, false, false, false, false, false, false, false, false,
     ];
     let member_a = [
-        false, false, false, false, false,
-        false, true, false, false, false,
-        false, false, true, true, false,
-        false, false, false, false, false,
-        false, false, false, false, false,
+        false, false, false, false, false, false, true, false, false, false, false, false, true,
+        true, false, false, false, false, false, false, false, false, false, false, false,
     ];
     let member_b = [
-        false, false, false, false, false,
-        false, true, true, false, false,
-        false, false, false, false, false,
-        false, false, false, false, false,
-        false, false, false, false, false,
+        false, false, false, false, false, false, true, true, false, false, false, false, false,
+        false, false, false, false, false, false, false, false, false, false, false, false,
     ];
     let member_c = [
-        false, false, false, false, false,
-        false, false, true, false, false,
-        false, false, true, false, false,
-        false, false, false, false, false,
-        false, false, false, false, false,
+        false, false, false, false, false, false, false, true, false, false, false, false, true,
+        false, false, false, false, false, false, false, false, false, false, false, false,
     ];
 
     let case = FssCase {
@@ -103,22 +91,49 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("ensemble_members={}", score.ensemble_members);
     println!("usable_grid_cells={}", score.usable_grid_cells);
     println!("centre_count={}", score.centre_count);
-    println!("observation_event_frequency={:.8}", score.observation_event_frequency);
+    println!(
+        "observation_event_frequency={:.8}",
+        score.observation_event_frequency
+    );
     println!("fractions_brier_score={:.8}", score.fractions_brier_score);
-    println!("worst_fractions_brier_score={:.8}", score.worst_fractions_brier_score);
+    println!(
+        "worst_fractions_brier_score={:.8}",
+        score.worst_fractions_brier_score
+    );
     println!("p_fss={:.8}", score.p_fss.unwrap_or(f64::NAN));
     println!("random_null_draws={}", random.draws);
     println!("random_null_seed={}", random.seed);
     println!("random_null_mean={:.8}", random.null_mean);
     println!("random_null_p95={:.8}", random.null_p95);
-    println!("random_null_upper_tail_p_value={:.8}", random.upper_tail_p_value);
+    println!(
+        "random_null_upper_tail_p_value={:.8}",
+        random.upper_tail_p_value
+    );
     println!("skill_reference=empirical_independent_bernoulli_null");
-    println!("block_bootstrap_blocks={}", bootstrap.independent_event_blocks);
-    println!("block_bootstrap_replicates={}", bootstrap.requested_replicates);
-    println!("block_bootstrap_qualified={}", bootstrap.qualified_replicates);
-    println!("block_bootstrap_degenerate={}", bootstrap.degenerate_replicates);
-    println!("block_bootstrap_pooling={}", bootstrap.pooling_policy.label());
-    println!("block_bootstrap_ci95={:.8},{:.8}", bootstrap.lower_95_percent, bootstrap.upper_95_percent);
+    println!(
+        "block_bootstrap_blocks={}",
+        bootstrap.independent_event_blocks
+    );
+    println!(
+        "block_bootstrap_replicates={}",
+        bootstrap.requested_replicates
+    );
+    println!(
+        "block_bootstrap_qualified={}",
+        bootstrap.qualified_replicates
+    );
+    println!(
+        "block_bootstrap_degenerate={}",
+        bootstrap.degenerate_replicates
+    );
+    println!(
+        "block_bootstrap_pooling={}",
+        bootstrap.pooling_policy.label()
+    );
+    println!(
+        "block_bootstrap_ci95={:.8},{:.8}",
+        bootstrap.lower_95_percent, bootstrap.upper_95_percent
+    );
     println!("score_calibration=not_assessed");
     println!("crps_brier_energy_variogram=not_computed");
 
