@@ -768,11 +768,14 @@ fn inspection_disposition(
     if manufacturing_matches.len() != 1 {
         return Disposition::Rejected;
     }
-    if report.disposition_for("manufacturing", &manufacturing.manufacturing_id)
-        != Some(Disposition::Accepted)
-        || inspection.inspected_at < manufacturing.manufactured_at
-    {
-        return Disposition::Indeterminate;
+    let manufacturing_status = report
+        .disposition_for("manufacturing", &manufacturing.manufacturing_id)
+        .unwrap_or(Disposition::Indeterminate);
+    if manufacturing_status != Disposition::Accepted {
+        return manufacturing_status;
+    }
+    if inspection.inspected_at < manufacturing.manufactured_at {
+        return Disposition::Rejected;
     }
 
     if inspection.manufacturing_artifact_ref != manufacturing.manufacturing_artifact_ref
@@ -1733,6 +1736,25 @@ mod tests {
 
         let mut trace = sample_trace();
         trace.inspections[0].claimed_outcome = InspectionClaim::Nonconforming;
+        assert_eq!(
+            disposition(&trace, "inspection", "inspection-segment-01"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn inspection_propagates_rejected_manufacturing_without_downgrading_it() {
+        let mut trace = sample_trace();
+        trace
+            .evidence_assertions
+            .iter_mut()
+            .find(|item| item.reference == "evidence:batch-cert-01")
+            .unwrap()
+            .status = EvidenceStatus::Revoked;
+        assert_eq!(
+            disposition(&trace, "manufacturing", "manufacture-segment-01"),
+            Disposition::Rejected
+        );
         assert_eq!(
             disposition(&trace, "inspection", "inspection-segment-01"),
             Disposition::Rejected
