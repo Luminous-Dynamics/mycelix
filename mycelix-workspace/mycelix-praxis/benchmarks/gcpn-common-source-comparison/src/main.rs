@@ -67,8 +67,14 @@ fn sample_manifest() -> ComparisonManifest {
             as_of_cutoff: 300,
             intrinsic_skill_claim: true,
         },
-        candidate: model("candidate", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"),
-        reference: model("baseline", "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"),
+        candidate: model(
+            "candidate",
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        ),
+        reference: model(
+            "baseline",
+            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        ),
         metric: MetricManifest {
             metric_id: "rmse".into(),
             definition_version: "v1".into(),
