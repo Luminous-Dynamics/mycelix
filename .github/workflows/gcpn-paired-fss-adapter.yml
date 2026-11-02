@@ -1,0 +1,42 @@
+name: GCPN paired common-source pFSS adapter
+
+on:
+  pull_request:
+    branches: [research/gcpn-common-source-comparison-engine-v0-1]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-paired-fss-adapter/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-common-source-comparison/**"
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-probabilistic-fss/**"
+      - ".github/workflows/gcpn-paired-fss-adapter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-paired-fss-adapter
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-paired-fss-adapter
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-paired-fss-adapter
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic paired score output
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-paired-fss-adapter
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-paired-pfss-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-paired-pfss-b.csv
+          cmp /tmp/gcpn-paired-pfss-a.csv /tmp/gcpn-paired-pfss-b.csv
+          grep -q "paired_verifiable=2 scored=2" /tmp/gcpn-paired-pfss-a.csv
+          grep -q "paired_delta=1.00000000" /tmp/gcpn-paired-pfss-a.csv
