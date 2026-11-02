@@ -111,8 +111,6 @@ A path under `mycelix-workspace/` is not automatically an active consumer, and a
 - Before changing a standalone migration target, identify whether it is generated from the monorepo and migrate/guard the canonical source as well.
 - Run exporter parity checks that bind monorepo HEAD, sync-script digest, standalone HEAD, path rewrites and output digests.
 
-
-
 - Freeze the candidate 0.7.1 profile in one machine-readable source of truth.
 - Pin Holonix and all Nix inputs by resolved revision and lock hash.
 - Regenerate Cargo and JS lockfiles with their native tools; never hand-edit generated checksums.
@@ -132,6 +130,8 @@ For every consumer:
 - Preserve the pre-migration accept/reject boundary with differential tests. A migration must not quietly introduce a new authorization, governance, identity, or economic claim.
 
 ### Workstream D — real runtime qualification
+
+**Canary order:** Pulse is the recommended first 0.7.1 canary after its canonical monorepo source has been migrated and source/export parity is enforced. Existing standalone draft #4891 contains substantial 0.7.0 action-model, capability and two-agent Sweettest work, so it provides a meaningful base for exercising the additional 0.7.0→0.7.1 breaking changes. This is a recommendation, not a qualification claim. Preserve the optional `pulse-smtp-gateway` prerelease client as a separately qualified boundary; do not force it onto the zome workspace pin. Governance follows after canonical-source issue `Luminous-Dynamics/luminous-dynamics#3478` and the standalone #3627 integrity/coordinator/runtime chain are complete.
 
 Compilation is only the first rung. Qualify the exact source head through:
 
