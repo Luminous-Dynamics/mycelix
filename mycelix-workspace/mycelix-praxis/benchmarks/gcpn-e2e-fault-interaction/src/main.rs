@@ -1,4 +1,4 @@
-use gcpn_e2e_fault_interaction::{standard_catalogue, BenchmarkReport};
+use gcpn_e2e_fault_interaction::{BenchmarkReport, standard_catalogue};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scenarios = standard_catalogue()?;
