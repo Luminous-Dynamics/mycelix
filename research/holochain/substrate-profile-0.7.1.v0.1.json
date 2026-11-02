@@ -27,7 +27,8 @@
     "holochain_0_7_0_to_0_7_1_capability_grants_read_compatibly": false,
     "holochain_0_7_0_to_0_7_1_requires_capability_grant_reissue": true,
     "holochain_0_7_0_to_0_7_1_direct_signal_wire_compatible": false,
-    "holochain_0_7_0_to_0_7_1_direct_signal_requires_explicit_capability": true
+    "holochain_0_7_0_to_0_7_1_direct_signal_requires_explicit_capability": true,
+    "pulse_smtp_gateway_exception_is_part_of_zome_workspace_pin": false
   },
   "qualification": {
     "required_gates": [
@@ -93,6 +94,17 @@
     "canonical_governance_manifest_hdi": "0.7.1",
     "canonical_ecosystem_sweettest_holochain": "0.6",
     "source_export_parity_required": true,
-    "related_issue": "https://github.com/Luminous-Dynamics/luminous-dynamics/issues/3478"
+    "related_issue": "https://github.com/Luminous-Dynamics/luminous-dynamics/issues/3478",
+    "deliberate_exceptions": [
+      {
+        "path": "mycelix-workspace/mycelix-pulse/crates/pulse-smtp-gateway/Cargo.toml",
+        "role": "standalone SMTP daemon with optional Holochain client bridge",
+        "optional_feature": "holochain-bridge",
+        "holochain_client": "0.9.0-dev.10",
+        "holo_hash": "0.6",
+        "classification": "intentional pre-release federated-gateway client track; isolate and qualify separately",
+        "rule": "do not force this optional client onto the zome workspace tuple without a separate architecture decision"
+      }
+    ]
   }
 }
