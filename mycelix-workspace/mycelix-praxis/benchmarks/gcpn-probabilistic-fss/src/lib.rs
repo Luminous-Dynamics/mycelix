@@ -151,6 +151,11 @@ pub enum FssError {
     DuplicateCaseId,
     InsufficientIndependentEventBlocks,
     NoQualifiedBootstrapReplicates,
+    InvalidEventBlockId,
+    DuplicateCaseId,
+    InsufficientIndependentEventBlocks,
+    PairCaseIdMismatch,
+    PairSupportMismatch,
 }
 
 impl FssError {
@@ -178,6 +183,11 @@ impl FssError {
             Self::DuplicateCaseId => "duplicate_case_id",
             Self::InsufficientIndependentEventBlocks => "insufficient_independent_event_blocks",
             Self::NoQualifiedBootstrapReplicates => "no_qualified_bootstrap_replicates",
+            Self::InvalidEventBlockId => "invalid_event_block_id",
+            Self::DuplicateCaseId => "duplicate_case_id",
+            Self::InsufficientIndependentEventBlocks => "insufficient_independent_event_blocks",
+            Self::PairCaseIdMismatch => "pair_case_id_mismatch",
+            Self::PairSupportMismatch => "pair_support_mismatch",
         }
     }
 }
@@ -645,6 +655,32 @@ pub struct BlockBootstrapReport {
     pub upper_95_percent: f64,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct PairedFssBlockCase {
+    pub event_block_id: String,
+    pub case_id: String,
+    pub candidate: FssCase,
+    pub reference: FssCase,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PairedBlockBootstrapReport {
+    pub case_count: usize,
+    pub independent_event_blocks: usize,
+    pub requested_replicates: usize,
+    pub qualified_replicates: usize,
+    pub degenerate_replicates: usize,
+    pub seed: u64,
+    pub pooling_policy: BootstrapPoolingPolicy,
+    pub candidate_p_fss: f64,
+    pub reference_p_fss: f64,
+    /// Candidate minus reference on the same common cases and bootstrap draws.
+    pub mean_paired_delta: f64,
+    pub lower_95_percent: f64,
+    pub median: f64,
+    pub upper_95_percent: f64,
+}
+
 /// Percentile bootstrap over independent event blocks, never grid cells.
 /// All cases sharing an event_block_id are kept together in each resample.
 /// The score pools FBS and WFBS components before taking their ratio.
@@ -740,6 +776,146 @@ fn quantile(sorted_values: &[f64], probability: f64) -> f64 {
     let fraction = position - lower as f64;
     sorted_values[lower] * (1.0 - fraction) + sorted_values[upper] * fraction
 }
+
+/// Paired percentile bootstrap over event blocks. Candidate and reference use
+/// exactly the same event-block draws in every replicate, and each paired case
+/// must share its observed field, support mask, dimensions and area weights.
+pub fn paired_block_bootstrap(
+    samples: &[PairedFssBlockCase],
+    config: &FssConfig,
+    bootstrap: &BlockBootstrapConfig,
+) -> Result<PairedBlockBootstrapReport, FssError> {
+    if !(MIN_RANDOM_DRAWS..=MAX_RANDOM_DRAWS).contains(&bootstrap.replicates) {
+        return Err(FssError::InvalidRandomDrawCount);
+    }
+    if samples.is_empty() {
+        return Err(FssError::NoUsableCells);
+    }
+
+    let mut blocks: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
+    let mut case_ids = BTreeSet::new();
+    let mut candidate_fbs = 0.0;
+    let mut candidate_wfbs = 0.0;
+    let mut reference_fbs = 0.0;
+    let mut reference_wfbs = 0.0;
+
+    for (index, sample) in samples.iter().enumerate() {
+        if !valid_identifier(&sample.event_block_id) {
+            return Err(FssError::InvalidEventBlockId);
+        }
+        if !valid_identifier(&sample.case_id) {
+            return Err(FssError::InvalidCaseId);
+        }
+        if !case_ids.insert(sample.case_id.as_str()) {
+            return Err(FssError::DuplicateCaseId);
+        }
+        if sample.candidate.case_id != sample.case_id
+            || sample.reference.case_id != sample.case_id
+        {
+            return Err(FssError::PairCaseIdMismatch);
+        }
+        if sample.candidate.rows != sample.reference.rows
+            || sample.candidate.columns != sample.reference.columns
+            || sample.candidate.observation != sample.reference.observation
+            || sample.candidate.cell_weights != sample.reference.cell_weights
+            || sample.candidate.valid_mask != sample.reference.valid_mask
+        {
+            return Err(FssError::PairSupportMismatch);
+        }
+
+        sample.candidate.validate(config)?;
+        sample.reference.validate(config)?;
+        let candidate_score = evaluate(&sample.candidate, config)?;
+        let reference_score = evaluate(&sample.reference, config)?;
+        candidate_fbs += candidate_score.fractions_brier_score
+            * candidate_score.centre_weight_sum;
+        candidate_wfbs += candidate_score.worst_fractions_brier_score
+            * candidate_score.centre_weight_sum;
+        reference_fbs += reference_score.fractions_brier_score
+            * reference_score.centre_weight_sum;
+        reference_wfbs += reference_score.worst_fractions_brier_score
+            * reference_score.centre_weight_sum;
+        blocks
+            .entry(sample.event_block_id.as_str())
+            .or_default()
+            .push(index);
+    }
+
+    if blocks.len() < 2 {
+        return Err(FssError::InsufficientIndependentEventBlocks);
+    }
+    if candidate_wfbs <= 0.0 || reference_wfbs <= 0.0 {
+        return Err(FssError::NoQualifiedBootstrapReplicates);
+    }
+
+    let candidate_p_fss = 1.0 - candidate_fbs / candidate_wfbs;
+    let reference_p_fss = 1.0 - reference_fbs / reference_wfbs;
+    let block_indices: Vec<&Vec<usize>> = blocks.values().collect();
+    let mut rng = SplitMix64::new(bootstrap.seed);
+    let mut paired_deltas = Vec::with_capacity(bootstrap.replicates);
+    let mut degenerate_replicates = 0usize;
+
+    for _ in 0..bootstrap.replicates {
+        let mut replicate_candidate_fbs = 0.0;
+        let mut replicate_candidate_wfbs = 0.0;
+        let mut replicate_reference_fbs = 0.0;
+        let mut replicate_reference_wfbs = 0.0;
+
+        for _ in 0..block_indices.len() {
+            let selected = block_indices[rng.next_index(block_indices.len())];
+            for sample_index in selected {
+                let sample = &samples[*sample_index];
+                let candidate_score = evaluate(&sample.candidate, config)?;
+                let reference_score = evaluate(&sample.reference, config)?;
+                replicate_candidate_fbs += candidate_score.fractions_brier_score
+                    * candidate_score.centre_weight_sum;
+                replicate_candidate_wfbs += candidate_score.worst_fractions_brier_score
+                    * candidate_score.centre_weight_sum;
+                replicate_reference_fbs += reference_score.fractions_brier_score
+                    * reference_score.centre_weight_sum;
+                replicate_reference_wfbs += reference_score.worst_fractions_brier_score
+                    * reference_score.centre_weight_sum;
+            }
+        }
+
+        if replicate_candidate_wfbs <= 0.0 || replicate_reference_wfbs <= 0.0 {
+            degenerate_replicates += 1;
+            continue;
+        }
+
+        let candidate = 1.0 - replicate_candidate_fbs / replicate_candidate_wfbs;
+        let reference = 1.0 - replicate_reference_fbs / replicate_reference_wfbs;
+        let delta = candidate - reference;
+        if !delta.is_finite() || !(-1.0 - 1e-12..=1.0 + 1e-12).contains(&delta) {
+            return Err(FssError::NumericalInvariant);
+        }
+        paired_deltas.push(delta);
+    }
+
+    if paired_deltas.len() < 2 {
+        return Err(FssError::NoQualifiedBootstrapReplicates);
+    }
+    paired_deltas.sort_by(f64::total_cmp);
+    let mean_paired_delta =
+        paired_deltas.iter().sum::<f64>() / paired_deltas.len() as f64;
+
+    Ok(PairedBlockBootstrapReport {
+        case_count: samples.len(),
+        independent_event_blocks: blocks.len(),
+        requested_replicates: bootstrap.replicates,
+        qualified_replicates: paired_deltas.len(),
+        degenerate_replicates,
+        seed: bootstrap.seed,
+        pooling_policy: BootstrapPoolingPolicy::AggregateFbsAndWfbsComponents,
+        candidate_p_fss,
+        reference_p_fss,
+        mean_paired_delta,
+        lower_95_percent: quantile(&paired_deltas, 0.025),
+        median: quantile(&paired_deltas, 0.5),
+        upper_95_percent: quantile(&paired_deltas, 0.975),
+    })
+}
+
 
 #[cfg(test)]
 mod tests {
