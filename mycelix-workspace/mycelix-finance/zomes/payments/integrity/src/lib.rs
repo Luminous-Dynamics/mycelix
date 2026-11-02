@@ -604,6 +604,11 @@ fn validate_create_payment_channel(
             "Parties must be valid DIDs".into(),
         ));
     }
+    if channel.party_a == channel.party_b {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment channel parties must be distinct".into(),
+        ));
+    }
     if channel.currency != "SAP" && channel.currency != "TEND" {
         return Ok(ValidateCallbackResult::Invalid(
             "Currency must be \"SAP\" or \"TEND\"".into(),
@@ -1269,6 +1274,16 @@ mod tests {
     fn test_channel_unsupported_currency() {
         let mut ch = valid_channel();
         ch.currency = "ETH".into();
+        let result =
+            validate_create_payment_channel(EntryCreationAction::Create(make_create()), ch)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_channel_same_party_rejected() {
+        let mut ch = valid_channel();
+        ch.party_b = ch.party_a.clone();
         let result =
             validate_create_payment_channel(EntryCreationAction::Create(make_create()), ch)
                 .unwrap();
