@@ -448,7 +448,10 @@ fn revision_lineage_is_valid(
         let Some(current) = matching.first().copied() else {
             return false;
         };
-        if matching.len() != 1 {
+        if matching.len() != 1
+            || !valid_sha256(&current.sha256)
+            || design_artifact_disposition(current) != Disposition::Accepted
+        {
             return false;
         }
         let Some(parent_id) = current.supersedes_revision_id.as_deref() else {
@@ -1337,6 +1340,16 @@ mod tests {
     fn broken_ancestor_revision_link_invalidates_current_design() {
         let mut trace = sample_trace();
         trace.design_revisions[0].supersedes_revision_id = Some("missing-parent".into());
+        assert_eq!(
+            disposition(&trace, "design", "design-r2"),
+            Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn broken_ancestor_export_binding_invalidates_current_revision() {
+        let mut trace = sample_trace();
+        trace.design_revisions[0].drawing_package.artifact_role = "ifc_model_export".into();
         assert_eq!(
             disposition(&trace, "design", "design-r2"),
             Disposition::Rejected
