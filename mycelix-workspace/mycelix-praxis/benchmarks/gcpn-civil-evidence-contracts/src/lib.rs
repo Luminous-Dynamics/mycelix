@@ -262,7 +262,7 @@ pub struct CaseFrame {
     pub cases: Vec<FrameCase>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CivilEvidenceProfile {
     pub scenario_id: String,
     pub as_of_cutoff: u64,
@@ -489,7 +489,7 @@ pub struct CaseFrameAssessment {
     pub violations: Vec<CivilViolation>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CivilEvidenceReport {
     pub scenario_id: String,
     pub as_of_cutoff: u64,
@@ -506,52 +506,57 @@ impl CivilEvidenceReport {
     /// Stable, non-compensatory, per-claim CSV. There is deliberately no
     /// aggregate civil-protection score.
     pub fn to_csv(&self) -> String {
-        let mut output = String::from("scenario_id,claim_family,claim_key,disposition,observed,missing,violations\n");
+        let mut output = String::from(
+            "scenario_id,claim_family,claim_key,qualifier,disposition,observed_value,secondary_value,violations\n",
+        );
         output.push_str(&format!(
-            "{},base_audit,required_claims,{},{},{},{}\n",
+            "{},base_audit,required_claims,{}, {},{}, {},{}\n",
             self.scenario_id,
+            self.base_audit.required_claims,
             label(self.base_audit.disposition),
             self.base_audit.supporting_claims,
             self.base_audit.required_claims.saturating_sub(self.base_audit.supporting_claims),
             violation_labels(&self.base_audit.violations)
         ));
         output.push_str(&format!(
-            "{},authority,{}, {},{},{},{}\n",
+            "{},authority,{},registry={:?};signature={:?},{},{},{},{}\n",
             self.scenario_id,
             self.authority.assertion_id.as_deref().unwrap_or("missing"),
+            self.authority.registry_status,
             label(self.authority.disposition),
-            usize::from(self.authority.assertion_id.is_some()),
-            usize::from(self.authority.assertion_id.is_none()),
+            self.authority.signature_status.map(|status| format!("{status:?}")).unwrap_or_else(|| "missing".into()),
+            "",
             violation_labels(&self.authority.violations)
         ));
         for delivery in &self.delivery {
             output.push_str(&format!(
-                "{},delivery,{}:{},{},{},{},{}\n",
+                "{},delivery,{},channel={},{},{},accepted={};not_confirmed_delivered={},{}\n",
                 self.scenario_id,
                 delivery.cohort_id,
                 delivery.channel_id,
                 label(delivery.disposition),
                 delivery.counts.device_delivered,
+                delivery.counts.provider_accepted,
                 delivery.counts.not_confirmed_device_delivered,
                 violation_labels(&delivery.violations)
             ));
         }
         for accessibility in &self.accessibility {
             output.push_str(&format!(
-                "{},accessibility,{}:{}:{},{},{},{},{}\n",
+                "{},accessibility,{},{}:{},{},{},{},{}\n",
                 self.scenario_id,
                 accessibility.cohort_id,
                 accessibility.language_id,
                 accessibility.format_id,
                 label(accessibility.disposition),
-                usize::from(accessibility.state == Some(AccessibilityState::Accessible)),
-                usize::from(accessibility.state.is_none()),
+                accessibility.state.map(|state| state.label()).unwrap_or("missing"),
+                "",
                 violation_labels(&accessibility.violations)
             ));
         }
         for comprehension in &self.comprehension {
             output.push_str(&format!(
-                "{},comprehension,{}:{},{},{},{},{}\n",
+                "{},comprehension,{},language={},{},{:.4},{:.4},{}\n",
                 self.scenario_id,
                 comprehension.cohort_id,
                 comprehension.language_id,
@@ -563,22 +568,28 @@ impl CivilEvidenceReport {
         }
         for action in &self.actions {
             output.push_str(&format!(
-                "{},action,{}, {},{},{},{}\n",
+                "{},action,{},latest_state={},{},{},{},{}\n",
                 self.scenario_id,
                 action.action_id,
-                label(action.disposition),
                 action.latest_state.map(ActionState::label).unwrap_or("missing"),
+                label(action.disposition),
                 action.receipt_count,
+                "",
                 violation_labels(&action.violations)
             ));
         }
         output.push_str(&format!(
-            "{},case_frame,{}, {},{},{},{}\n",
+            "{},case_frame,{},eligibility=observed+missing+disputed,{},{},{},{}\n",
             self.scenario_id,
             self.case_frame.frame_id,
             label(self.case_frame.disposition),
             self.case_frame.observed_cases,
-            self.case_frame.missing_cases + self.case_frame.disputed_cases,
+            format!(
+                "missing={};disputed={};excluded={}",
+                self.case_frame.missing_cases,
+                self.case_frame.disputed_cases,
+                self.case_frame.excluded_cases
+            ),
             violation_labels(&self.case_frame.violations)
         ));
         output
