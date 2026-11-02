@@ -612,11 +612,104 @@ fn validate_create_payment_channel(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate one payment-channel state transition from the exact predecessor record.
+///
+/// A Holochain Update is an author-signed action, but the application must still
+/// bind that author to the side whose balance is being debited. The pure helper
+/// below also makes the conservation and immutable-term rules testable without
+/// an HDI runtime.
+fn validate_payment_channel_transition(
+    original: &PaymentChannel,
+    updated: &PaymentChannel,
+    author_did: &str,
+) -> ValidateCallbackResult {
+    if original.party_a == original.party_b {
+        return ValidateCallbackResult::Invalid(
+            "Payment channel parties must be distinct".into(),
+        );
+    }
+
+    if author_did != original.party_a.as_str() && author_did != original.party_b.as_str() {
+        return ValidateCallbackResult::Invalid(
+            "Payment-channel update must be authored by a participant".into(),
+        );
+    }
+
+    if updated.id != original.id
+        || updated.party_a != original.party_a
+        || updated.party_b != original.party_b
+        || updated.currency != original.currency
+        || updated.opened != original.opened
+    {
+        return ValidateCallbackResult::Invalid(
+            "Payment-channel identity and terms are immutable".into(),
+        );
+    }
+
+    // Closed is terminal. A close operation must not move funds, and the
+    // close timestamp must match the operation's recorded update timestamp.
+    if original.closed.is_some() {
+        return ValidateCallbackResult::Invalid(
+            "A closed payment channel cannot be updated or reopened".into(),
+        );
+    }
+
+    if let Some(closed_at) = updated.closed {
+        if updated.balance_a != original.balance_a
+            || updated.balance_b != original.balance_b
+            || closed_at != updated.last_updated
+        {
+            return ValidateCallbackResult::Invalid(
+                "Closing a payment channel cannot change balances".into(),
+            );
+        }
+        return ValidateCallbackResult::Valid;
+    }
+
+    // last_updated is informational, not a global ordering primitive: two
+    // participants may have different wall clocks. State lineage is bound by
+    // the Update's exact original_action_address, not by timestamp sorting.
+    let a_debit = original.balance_a.checked_sub(updated.balance_a);
+    let b_credit = updated.balance_b.checked_sub(original.balance_b);
+    if let (Some(debit), Some(credit)) = (a_debit, b_credit) {
+        if debit > 0 && debit == credit && author_did == original.party_a {
+            return ValidateCallbackResult::Valid;
+        }
+    }
+
+    let b_debit = original.balance_b.checked_sub(updated.balance_b);
+    let a_credit = updated.balance_a.checked_sub(original.balance_a);
+    if let (Some(debit), Some(credit)) = (b_debit, a_credit) {
+        if debit > 0 && debit == credit && author_did == original.party_b {
+            return ValidateCallbackResult::Valid;
+        }
+    }
+
+    ValidateCallbackResult::Invalid(
+        "Payment-channel update must debit only the author's balance and conserve total value"
+            .into(),
+    )
+}
+
 fn validate_update_payment_channel(
-    _action: Update,
-    _channel: PaymentChannel,
+    action: Update,
+    channel: PaymentChannel,
 ) -> ExternResult<ValidateCallbackResult> {
-    Ok(ValidateCallbackResult::Valid)
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original_channel: PaymentChannel = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original payment-channel entry not found".into()
+        )))?;
+
+    let author_did = format!("did:mycelix:{}", action.author);
+    Ok(validate_payment_channel_transition(
+        &original_channel,
+        &channel,
+        &author_did,
+    ))
 }
 
 fn validate_create_receipt(
