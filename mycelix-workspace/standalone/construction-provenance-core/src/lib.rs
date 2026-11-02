@@ -556,6 +556,7 @@ fn approval_record_disposition(
     if simulation.design_revision_id != approval.design_revision_id
         || simulation.design_sha256 != approval.design_sha256
         || simulation.result_sha256 != approval.simulation_result_sha256
+        || simulation.completed_at < design.created_at
         || simulation.completed_at > approval.decided_at
     {
         return Disposition::Rejected;
@@ -1599,6 +1600,16 @@ mod tests {
         let mut trace = sample_trace();
         trace.inspections[0].outcome = InspectionOutcome::Nonconforming;
         assert_eq!(disposition(&trace, "inspection", "inspection-01"), Disposition::Rejected);
+    }
+
+    #[test]
+    fn simulation_cannot_precede_its_exact_design_revision() {
+        let mut trace = sample_trace();
+        trace.simulation_runs[1].completed_at = 170;
+        assert_eq!(
+            disposition(&trace, "approval", "approval-r2"),
+            Disposition::Rejected
+        );
     }
 
     #[test]
