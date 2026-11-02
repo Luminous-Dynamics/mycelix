@@ -8,6 +8,7 @@
     "schema_version",
     "project_id",
     "current_design_revision_id",
+    "external_portfolio_context",
     "design_revisions",
     "simulation_runs",
     "authority_assertions",
@@ -77,6 +78,37 @@
       "items": {
         "$ref": "#/$defs/inspection"
       }
+    },
+    "external_portfolio_context": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "owner_system",
+        "artifact_role",
+        "revision_ref",
+        "sha256"
+      ],
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/id"
+        },
+        "owner_system": {
+          "$ref": "#/$defs/id"
+        },
+        "artifact_role": {
+          "$ref": "#/$defs/id"
+        },
+        "revision_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
     }
   },
   "$defs": {
@@ -104,6 +136,7 @@
       "additionalProperties": false,
       "required": [
         "revision_id",
+        "source_artifact",
         "sha256",
         "supersedes_revision_id",
         "created_at"
@@ -120,6 +153,9 @@
         },
         "created_at": {
           "$ref": "#/$defs/time"
+        },
+        "source_artifact": {
+          "$ref": "#/$defs/external_artifact_ref"
         }
       }
     },
@@ -128,6 +164,7 @@
       "additionalProperties": false,
       "required": [
         "run_id",
+        "execution_artifact",
         "design_revision_id",
         "design_sha256",
         "solver_id",
@@ -156,6 +193,9 @@
         },
         "completed_at": {
           "$ref": "#/$defs/time"
+        },
+        "execution_artifact": {
+          "$ref": "#/$defs/external_artifact_ref"
         }
       }
     },
@@ -503,6 +543,34 @@
         },
         "inspected_at": {
           "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "external_artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "owner_system",
+        "artifact_role",
+        "revision_ref",
+        "sha256"
+      ],
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/id"
+        },
+        "owner_system": {
+          "$ref": "#/$defs/id"
+        },
+        "artifact_role": {
+          "$ref": "#/$defs/id"
+        },
+        "revision_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
         }
       }
     }
