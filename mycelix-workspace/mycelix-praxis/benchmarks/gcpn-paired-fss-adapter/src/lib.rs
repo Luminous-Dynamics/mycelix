@@ -1087,6 +1087,7 @@ mod tests {
             score_paired_manifest(
                 &manifest(),
                 &artifacts(),
+                &event_blocks(),
                 &score_config,
                 &BlockBootstrapConfig {
                     replicates: 128,
@@ -1094,6 +1095,106 @@ mod tests {
                 },
             ),
             Err(AdapterError::ScoreUnitMismatch)
+        );
+    }
+
+    #[test]
+    fn metric_identity_and_configuration_digest_are_enforced() {
+        let mut comparison = manifest();
+        comparison.metric.metric_id = "rmse".into();
+        assert_eq!(
+            score_paired_manifest(
+                &comparison,
+                &artifacts(),
+                &event_blocks(),
+                &config(),
+                &BlockBootstrapConfig {
+                    replicates: 128,
+                    seed: 21,
+                },
+            ),
+            Err(AdapterError::MetricContractMismatch)
+        );
+
+        let mut comparison = manifest();
+        comparison.metric.configuration_sha256 = DIGEST_F.into();
+        assert_eq!(
+            score_paired_manifest(
+                &comparison,
+                &artifacts(),
+                &event_blocks(),
+                &config(),
+                &BlockBootstrapConfig {
+                    replicates: 128,
+                    seed: 22,
+                },
+            ),
+            Err(AdapterError::MetricContractMismatch)
+        );
+    }
+
+    #[test]
+    fn event_block_manifest_digest_and_exact_case_coverage_are_enforced() {
+        let mut blocks = event_blocks();
+        blocks.assignments[0].event_block_id = "different-storm".into();
+        assert_eq!(
+            score_paired_manifest(
+                &manifest(),
+                &artifacts(),
+                &blocks,
+                &config(),
+                &BlockBootstrapConfig {
+                    replicates: 128,
+                    seed: 23,
+                },
+            ),
+            Err(AdapterError::EventBlockMappingMismatch)
+        );
+
+        let mut blocks = event_blocks();
+        blocks.assignments.pop();
+        blocks.mapping_sha256 = event_block_manifest_sha256(&blocks)
+            .expect("modified mapping should still hash");
+        assert_eq!(
+            score_paired_manifest(
+                &manifest(),
+                &artifacts(),
+                &blocks,
+                &config(),
+                &BlockBootstrapConfig {
+                    replicates: 128,
+                    seed: 24,
+                },
+            ),
+            Err(AdapterError::EventBlockMappingMismatch)
+        );
+    }
+
+    #[test]
+    fn runtime_ensemble_member_counts_match_model_output_manifests() {
+        let mut supplied = artifacts();
+        supplied[0].candidate.field.forecast_members.pop();
+        assert_eq!(
+            score_paired_manifest(
+                &manifest(),
+                &supplied,
+                &event_blocks(),
+                &config(),
+                &BlockBootstrapConfig {
+                    replicates: 128,
+                    seed: 25,
+                },
+            ),
+            Err(AdapterError::EnsembleMemberCountMismatch)
+        );
+    }
+
+    #[test]
+    fn config_and_event_block_hashes_are_stable() {
+        assert_eq!(fss_config_sha256(&config()), fss_config_sha256(&config()));
+        assert_eq!(
+            event_block_manifest_sha256(&event_blocks()).expect("map digest"),
+            event_blocks().mapping_sha256
         );
     }
 
