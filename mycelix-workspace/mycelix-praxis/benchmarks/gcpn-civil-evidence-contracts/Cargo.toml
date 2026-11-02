@@ -1,0 +1,18 @@
+[package]
+name = "gcpn-civil-evidence-contracts"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Authority-aware delivery accessibility action and case-frame evidence contracts"
+
+[workspace]
+
+[dependencies]
+gcpn-compositional-assurance = { path = "../gcpn-compositional-assurance" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gcpn-civil-evidence-contracts"
+path = "src/main.rs"
