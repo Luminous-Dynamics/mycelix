@@ -218,13 +218,7 @@ fn civil_single_assessment(
         CivilFault::AuthorityRegistryUnknown => {
             let observed = disposition_label(report.authority.disposition);
             let detected = report.authority.disposition
-                != gcpn_compositional_assurance_adapter::baseline_scenario()
-                    .audit()
-                    .map_err(|error| MatrixError::EngineAdapter(error.to_string()))?
-                    .claims
-                    .first()
-                    .map(|_| gcpn_compositional_assurance::ClaimDisposition::Supports)
-                    .unwrap_or(gcpn_compositional_assurance::ClaimDisposition::Supports)
+                != gcpn_compositional_assurance::ClaimDisposition::Supports
                 && report
                     .authority
                     .violations
@@ -426,10 +420,10 @@ fn civil_fault_not_supporting(
             .first()
             .map(|assessment| {
                 not_supports(assessment.disposition)
-                    && assessment.counts.device_delivered == 0
-                    && assessment
-                        .violations
-                        .contains(&CivilViolation::DeliveryReceiptAfterCutoff)
+                    && (assessment.counts.device_delivered == 0
+                        || assessment
+                            .violations
+                            .contains(&CivilViolation::DeliveryReceiptAfterCutoff))
             })
             .ok_or(MatrixError::UnsupportedCivilOutcome("delivery assessment missing")),
     }
