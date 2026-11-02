@@ -6,6 +6,9 @@
 //! Candidate/reference pairs are scored with shared observations, grid masks,
 //! area weights, lead-time keys and the paired event-block bootstrap.
 
+mod sha256;
+
+use sha256::sha256_hex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
@@ -59,6 +62,47 @@ pub struct EventBlockManifest {
     pub scheme_version: String,
     pub mapping_sha256: String,
     pub assignments: Vec<EventBlockAssignment>,
+}
+
+/// Stable length-prefixed canonical metric configuration digest.
+pub fn fss_config_sha256(config: &FssConfig) -> String {
+    let mut canonical = b"GCPN-PFSS-CONFIG-V1\\0".to_vec();
+    canonical.extend_from_slice(&config.threshold.to_bits().to_be_bytes());
+    push_string(&mut canonical, config.threshold_operator.label());
+    push_string(&mut canonical, &config.unit);
+    canonical.extend_from_slice(&(config.window_width_cells as u64).to_be_bytes());
+    push_string(&mut canonical, config.boundary_policy.label());
+    push_string(&mut canonical, config.missing_policy.label());
+    sha256_hex(&canonical)
+}
+
+/// Stable digest of a sorted event-block map and its named assignment scheme.
+pub fn event_block_manifest_sha256(manifest: &EventBlockManifest) -> Result<String, AdapterError> {
+    if !valid_identifier(&manifest.scheme_id) || !valid_identifier(&manifest.scheme_version) {
+        return Err(AdapterError::EventBlockMappingMismatch);
+    }
+    let mut assignments = manifest.assignments.clone();
+    assignments.sort_by(|left, right| left.case_id.cmp(&right.case_id));
+    let mut seen = BTreeSet::new();
+    let mut canonical = b"GCPN-EVENT-BLOCK-MAP-V1\\0".to_vec();
+    push_string(&mut canonical, &manifest.scheme_id);
+    push_string(&mut canonical, &manifest.scheme_version);
+    for assignment in &assignments {
+        if !valid_identifier(&assignment.case_id)
+            || !valid_identifier(&assignment.event_block_id)
+            || !seen.insert(assignment.case_id.as_str())
+        {
+            return Err(AdapterError::EventBlockMappingMismatch);
+        }
+        push_string(&mut canonical, &assignment.case_id);
+        push_string(&mut canonical, &assignment.event_block_id);
+    }
+    Ok(sha256_hex(&canonical))
+}
+
+fn push_string(output: &mut Vec<u8>, value: &str) {
+    output.extend_from_slice(&(value.len() as u64).to_be_bytes());
+    output.extend_from_slice(value.as_bytes());
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -299,6 +343,7 @@ fn validate_verification_artifact(
 pub fn score_paired_manifest(
     manifest: &ComparisonManifest,
     artifacts: &[PairedGridArtifact],
+    event_blocks: &EventBlockManifest,
     fss_config: &FssConfig,
     bootstrap_config: &BlockBootstrapConfig,
 ) -> Result<PairedScoreReport, AdapterError> {
@@ -308,6 +353,20 @@ pub fn score_paired_manifest(
 
     if fss_config.unit != manifest.contract.unit {
         return Err(AdapterError::ScoreUnitMismatch);
+    }
+    if manifest.metric.metric_id != "pfss"
+        || manifest.metric.definition_version != "v0.1"
+        || manifest.metric.scoring_engine != "gcpn-probabilistic-fss"
+        || manifest.metric.scoring_engine_version != "0.1.0"
+        || manifest.metric.configuration_sha256 != fss_config_sha256(fss_config)
+    {
+        return Err(AdapterError::MetricContractMismatch);
+    }
+    if !valid_sha256(&event_blocks.mapping_sha256)
+        || event_block_manifest_sha256(event_blocks).as_deref()
+            != Ok(event_blocks.mapping_sha256.as_str())
+    {
+        return Err(AdapterError::EventBlockMappingMismatch);
     }
 
     let expected: BTreeMap<&str, &gcpn_common_source_comparison::CaseReport> = comparison_report
@@ -321,6 +380,21 @@ pub fn score_paired_manifest(
         return Err(AdapterError::PairedDenominatorMismatch);
     }
 
+    let mut assignments = BTreeMap::new();
+    for assignment in &event_blocks.assignments {
+        if assignments
+            .insert(assignment.case_id.as_str(), assignment.event_block_id.as_str())
+            .is_some()
+        {
+            return Err(AdapterError::EventBlockMappingMismatch);
+        }
+    }
+    if assignments.len() != expected.len()
+        || expected.keys().any(|case_id| !assignments.contains_key(case_id))
+    {
+        return Err(AdapterError::EventBlockMappingMismatch);
+    }
+
     let mut supplied = BTreeMap::new();
     for artifact in artifacts {
         if !valid_identifier(&artifact.case_id)
@@ -331,6 +405,11 @@ pub fn score_paired_manifest(
         }
         if artifact.candidate.event_block_id != artifact.reference.event_block_id {
             return Err(AdapterError::EventBlockMismatch);
+        }
+        if assignments.get(artifact.case_id.as_str()).copied()
+            != Some(artifact.candidate.event_block_id.as_str())
+        {
+            return Err(AdapterError::EventBlockMappingMismatch);
         }
         if !expected.contains_key(artifact.case_id.as_str()) {
             return Err(AdapterError::UnmanifestedGridArtifact);
@@ -381,13 +460,24 @@ pub fn score_paired_manifest(
             comparison_report.as_of_cutoff,
         )?;
 
-        for forecast in [&artifact.candidate, &artifact.reference] {
+        for (forecast, model) in [
+            (&artifact.candidate, &manifest.candidate),
+            (&artifact.reference, &manifest.reference),
+        ] {
             if !valid_sha256(&forecast.artifact_sha256)
                 || forecast.grid_sha256 != manifest.spatial_support.grid_sha256
                 || forecast.mask_sha256 != manifest.spatial_support.mask_sha256
                 || forecast.spatial_support_id != manifest.spatial_support.support_id
             {
                 return Err(AdapterError::SpatialSupportMismatch);
+            }
+            let declared_members = match (model.product_kind, model.ensemble_members) {
+                (gcpn_common_source_comparison::ProductKind::Deterministic, None) => 1,
+                (gcpn_common_source_comparison::ProductKind::Ensemble, Some(count)) if count > 0 => count,
+                _ => return Err(AdapterError::EnsembleMemberCountMismatch),
+            };
+            if forecast.field.forecast_members.len() != declared_members {
+                return Err(AdapterError::EnsembleMemberCountMismatch);
             }
             forecast
                 .field
@@ -440,6 +530,12 @@ pub fn score_paired_manifest(
         availability: comparison_report.counts,
         scored_case_ids,
         fss_config: fss_config.clone(),
+        metric_configuration_sha256: manifest.metric.configuration_sha256.clone(),
+        candidate_ensemble_members: manifest.candidate.ensemble_members.unwrap_or(1),
+        reference_ensemble_members: manifest.reference.ensemble_members.unwrap_or(1),
+        event_block_scheme_id: event_blocks.scheme_id.clone(),
+        event_block_scheme_version: event_blocks.scheme_version.clone(),
+        event_block_mapping_sha256: event_blocks.mapping_sha256.clone(),
         bootstrap,
     })
 }
