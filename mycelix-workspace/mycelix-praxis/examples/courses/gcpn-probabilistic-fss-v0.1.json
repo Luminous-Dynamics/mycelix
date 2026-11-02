@@ -40,5 +40,29 @@
     "cargo test --locked --offline",
     "cargo clippy --locked --offline --all-targets -- -D warnings",
     "cargo run --locked --offline"
-  ]
+  ],
+  "uncertainty": {
+    "method": "percentile bootstrap over independent event blocks",
+    "resampling_unit": "event_block_id; all cases from a selected block remain together",
+    "pooling_policy": "aggregate_fbs_wfbs_components",
+    "degenerate_resamples": "counted and reported",
+    "forbidden": "individual grid cells as IID bootstrap units"
+  },
+  "random_reference": {
+    "method": "empirical independent Bernoulli null",
+    "event_probability": "observed area-weighted event frequency",
+    "matched_fields": [
+      "ensemble_size",
+      "valid_mask",
+      "missingness_support",
+      "boundary_policy",
+      "window_width",
+      "cell_weights"
+    ],
+    "outputs": [
+      "null_mean",
+      "null_p95",
+      "upper_tail_monte_carlo_p_value"
+    ]
+  }
 }
