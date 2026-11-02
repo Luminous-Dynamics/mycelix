@@ -55,6 +55,8 @@ pub enum Disposition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceAssertion {
     pub reference: String,
+    /// Exact record or claim scope this evidence is permitted to support.
+    pub subject_ref: String,
     pub sha256: String,
     pub status: EvidenceStatus,
     pub use_permission: UsePermission,
@@ -135,6 +137,8 @@ pub struct MaterialBatch {
     pub supplier_assertion: Option<String>,
     /// Must resolve to an externally attested certification/evidence record.
     pub certification_evidence_ref: Option<String>,
+    /// Exact supplier claim scope covered by the certification reference.
+    pub certification_scope_ref: Option<String>,
     pub declared_at: u64,
 }
 
@@ -224,7 +228,7 @@ fn nonempty(value: &str) -> bool {
 }
 
 fn valid_sha256(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn valid_at(from: u64, until: Option<u64>, available_at: u64, event_at: u64) -> bool {
@@ -245,15 +249,16 @@ fn combine(current: Disposition, next: Disposition) -> Disposition {
 fn evidence_disposition(
     trace: &ConstructionProjectTrace,
     reference: &str,
+    subject_ref: &str,
     event_at: u64,
 ) -> Disposition {
-    let Some(evidence) = trace
-        .evidence_assertions
-        .iter()
-        .find(|item| item.reference == reference)
-    else {
+    let matching = trace.evidence_assertions.iter().filter(|item| item.reference == reference).collect::<Vec<_>>();
+    let Some(evidence) = matching.first().copied() else {
         return Disposition::Indeterminate;
     };
+    if matching.len() != 1 || evidence.subject_ref != subject_ref {
+        return Disposition::Rejected;
+    }
     if !valid_sha256(&evidence.sha256) {
         return Disposition::Rejected;
     }
@@ -288,13 +293,13 @@ fn authority_disposition(
     scope_ref: &str,
     event_at: u64,
 ) -> Disposition {
-    let Some(authority) = trace
-        .authority_assertions
-        .iter()
-        .find(|item| item.reference == reference)
-    else {
+    let matching = trace.authority_assertions.iter().filter(|item| item.reference == reference).collect::<Vec<_>>();
+    let Some(authority) = matching.first().copied() else {
         return Disposition::Indeterminate;
     };
+    if matching.len() != 1 {
+        return Disposition::Disputed;
+    }
     if authority.signer_id != signer_id
         || authority.role != role
         || authority.scope_ref != scope_ref
@@ -319,20 +324,20 @@ fn authority_disposition(
     }
 }
 
-fn design_for<'a>(
-    trace: &'a ConstructionProjectTrace,
+fn design_for(
+    trace: &ConstructionProjectTrace,
     revision_id: &str,
-) -> Option<&'a DesignRevision> {
+) -> Option<&DesignRevision> {
     trace
         .design_revisions
         .iter()
         .find(|revision| revision.revision_id == revision_id)
 }
 
-fn simulation_for<'a>(
-    trace: &'a ConstructionProjectTrace,
+fn simulation_for(
+    trace: &ConstructionProjectTrace,
     run_id: &str,
-) -> Option<&'a SimulationRun> {
+) -> Option<&SimulationRun> {
     trace.simulation_runs.iter().find(|run| run.run_id == run_id)
 }
 
@@ -350,10 +355,16 @@ fn approval_disposition(
     {
         return Disposition::Rejected;
     }
+    if trace.design_revisions.iter().filter(|item| item.revision_id == approval.design_revision_id).count() != 1 {
+        return Disposition::Rejected;
+    }
     let Some(design) = design_for(trace, &approval.design_revision_id) else {
         return Disposition::Indeterminate;
     };
     if design.sha256 != approval.design_sha256 || !valid_sha256(&design.sha256) {
+        return Disposition::Rejected;
+    }
+    if trace.simulation_runs.iter().filter(|item| item.run_id == approval.simulation_run_id).count() != 1 {
         return Disposition::Rejected;
     }
     let Some(simulation) = simulation_for(trace, &approval.simulation_run_id) else {
@@ -393,7 +404,7 @@ fn approval_disposition(
     for evidence_ref in &approval.evidence_refs {
         result = combine(
             result,
-            evidence_disposition(trace, evidence_ref, approval.decided_at),
+            evidence_disposition(trace, evidence_ref, &approval.scope_ref, approval.decided_at),
         );
     }
     result
@@ -420,7 +431,10 @@ fn material_disposition(
     let Some(reference) = batch.certification_evidence_ref.as_deref() else {
         return Disposition::Indeterminate;
     };
-    evidence_disposition(trace, reference, batch.declared_at)
+    let Some(scope_ref) = batch.certification_scope_ref.as_deref() else {
+        return Disposition::Indeterminate;
+    };
+    evidence_disposition(trace, reference, scope_ref, batch.declared_at)
 }
 
 fn custody_disposition(
@@ -438,11 +452,15 @@ fn custody_disposition(
     receipts.sort_by_key(|receipt| (receipt.occurred_at, receipt.receipt_id.as_str()));
 
     let mut result = Disposition::Accepted;
+    let mut receipt_ids = BTreeSet::new();
     let mut previous_id: Option<&str> = None;
     let mut previous_to: Option<&str> = None;
     let mut previous_time = 0_u64;
 
     for (index, receipt) in receipts.iter().enumerate() {
+        if !receipt_ids.insert(receipt.receipt_id.as_str()) {
+            return Disposition::Rejected;
+        }
         if !nonempty(&receipt.receipt_id)
             || !nonempty(&receipt.from_party_id)
             || !nonempty(&receipt.to_party_id)
@@ -464,7 +482,7 @@ fn custody_disposition(
         }
         result = combine(
             result,
-            evidence_disposition(trace, &receipt.evidence_ref, receipt.occurred_at),
+            evidence_disposition(trace, &receipt.evidence_ref, &receipt.receipt_id, receipt.occurred_at),
         );
         previous_id = Some(receipt.receipt_id.as_str());
         previous_to = Some(receipt.to_party_id.as_str());
@@ -567,8 +585,14 @@ pub fn verify_trace(trace: &ConstructionProjectTrace) -> AuditReport {
     }
 
     let mut batch_ids = BTreeSet::new();
+    let mut duplicate_batch_ids = BTreeSet::new();
     for batch in &trace.material_batches {
         if !batch_ids.insert(batch.batch_id.clone()) {
+            duplicate_batch_ids.insert(batch.batch_id.clone());
+        }
+    }
+    for batch in &trace.material_batches {
+        if duplicate_batch_ids.contains(&batch.batch_id) {
             report.push("material_batch", &batch.batch_id, Disposition::Rejected, "duplicate_batch_id");
             continue;
         }
@@ -657,7 +681,10 @@ fn inspection_disposition(
     {
         return Disposition::Rejected;
     }
-    if report.disposition_for("custody", &batch.batch_id) != Some(Disposition::Accepted) {
+    if report.disposition_for("custody", &batch.batch_id) != Some(Disposition::Accepted)
+        || report.disposition_for("material_batch", &batch.batch_id) != Some(Disposition::Accepted)
+        || terminal_receipt.occurred_at > inspection.inspected_at
+    {
         return Disposition::Indeterminate;
     }
     let approved = trace.approvals.iter().any(|approval| {
@@ -683,7 +710,7 @@ fn inspection_disposition(
     for evidence_ref in &inspection.evidence_refs {
         result = combine(
             result,
-            evidence_disposition(trace, evidence_ref, inspection.inspected_at),
+            evidence_disposition(trace, evidence_ref, &inspection.inspection_id, inspection.inspected_at),
         );
     }
     match inspection.outcome {
@@ -717,6 +744,15 @@ mod tests {
     fn evidence(reference: &str, digest: &str) -> EvidenceAssertion {
         EvidenceAssertion {
             reference: reference.into(),
+            subject_ref: match reference {
+                "evidence:design-review-r1" => "scope:design-r1",
+                "evidence:design-review-r2" => "scope:design-r2",
+                "evidence:batch-cert-01" => "claim:batch-01:recycled-content",
+                "evidence:custody-01-a" => "custody-01-a",
+                "evidence:custody-01-b" => "custody-01-b",
+                "evidence:inspection-01" => "inspection-01",
+                _ => "unknown",
+            }.into(),
             sha256: digest.into(),
             status: EvidenceStatus::Verified,
             use_permission: UsePermission::Permitted,
@@ -824,6 +860,7 @@ mod tests {
                 material_description: "structural steel members".into(),
                 supplier_assertion: Some("Supplier declares recycled content".into()),
                 certification_evidence_ref: Some("evidence:batch-cert-01".into()),
+                certification_scope_ref: Some("claim:batch-01:recycled-content".into()),
                 declared_at: 230,
             }],
             custody_receipts: vec![
@@ -926,6 +963,14 @@ mod tests {
     fn duplicate_batch_identity_is_rejected() {
         let mut trace = sample_trace();
         trace.material_batches.push(trace.material_batches[0].clone());
+        assert_eq!(disposition(&trace, "material_batch", "batch-01"), Disposition::Rejected);
+    }
+
+    #[test]
+    fn certification_must_be_bound_to_the_exact_supplier_claim_scope() {
+        let mut trace = sample_trace();
+        trace.material_batches[0].certification_scope_ref =
+            Some("claim:another-batch:recycled-content".into());
         assert_eq!(disposition(&trace, "material_batch", "batch-01"), Disposition::Rejected);
     }
 
