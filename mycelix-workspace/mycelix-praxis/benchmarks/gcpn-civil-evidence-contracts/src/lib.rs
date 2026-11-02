@@ -1709,6 +1709,8 @@ mod tests {
                 assistive_technology_profile_id: "screen-reader".into(),
             }],
             accessibility_evidence: vec![AccessibilityEvidence {
+                evidence_id: "accessibility-proof-1".into(),
+                delivery_receipt_id: "receipt-device".into(),
                 cohort_id: "cohort-a".into(),
                 language_id: "en".into(),
                 format_id: "text".into(),
@@ -1726,6 +1728,9 @@ mod tests {
                 minimum_intent_rate: 0.7,
             }],
             comprehension_evidence: vec![ComprehensionEvidence {
+                evidence_id: "comprehension-proof-1".into(),
+                delivery_receipt_id: "receipt-device".into(),
+                accessibility_evidence_id: "accessibility-proof-1".into(),
                 cohort_id: "cohort-a".into(),
                 language_id: "en".into(),
                 test_protocol_id: "human-test-v1".into(),
@@ -1803,7 +1808,7 @@ mod tests {
     }
 
     #[test]
-    fn clean_civil_evidence_chain_supports_each_separate_claim() {
+    fn civil_evidence_claims_remain_separate_and_non_compensatory() {
         let report = audit_civil_evidence(&profile()).unwrap();
         assert_eq!(report.base_audit.disposition, ClaimDisposition::Supports);
         assert_eq!(report.authority.disposition, ClaimDisposition::Supports);
@@ -1846,6 +1851,15 @@ mod tests {
     }
 
     #[test]
+    fn full_device_delivery_supports_declared_channel_cohort() {
+        let mut data = profile();
+        data.delivery_receipts[1].count = 100;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.delivery[0].counts.device_delivered, 100);
+        assert_eq!(report.delivery[0].disposition, ClaimDisposition::Supports);
+    }
+
+    #[test]
     fn provider_acceptance_is_not_device_delivery() {
         let mut data = profile();
         data.delivery_receipts.retain(|receipt| receipt.state != DeliveryState::DeviceDelivered);
@@ -1853,6 +1867,16 @@ mod tests {
         assert_eq!(report.delivery[0].counts.provider_accepted, 100);
         assert_eq!(report.delivery[0].counts.device_delivered, 0);
         assert_eq!(report.delivery[0].disposition, ClaimDisposition::Indeterminate);
+    }
+
+    #[test]
+    fn future_delivery_receipt_is_not_counted_at_the_as_of_cutoff() {
+        let mut data = profile();
+        data.delivery_receipts[1].recorded_at = 101;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.delivery[0].counts.device_delivered, 0);
+        assert_eq!(report.delivery[0].counts.not_confirmed_device_delivered, 100);
+        assert!(report.delivery[0].violations.contains(&CivilViolation::DeliveryReceiptAfterCutoff));
     }
 
     #[test]
@@ -1896,6 +1920,34 @@ mod tests {
     }
 
     #[test]
+    fn accessibility_evidence_must_bind_to_a_device_delivery_receipt() {
+        let mut data = profile();
+        data.accessibility_evidence[0].delivery_receipt_id = "wrong-device-receipt".into();
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.accessibility[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(report.accessibility[0].violations.contains(&CivilViolation::AccessibilityDeliveryBindingMismatch));
+    }
+
+    #[test]
+    fn comprehension_evidence_must_bind_to_accessible_message_presentation() {
+        let mut data = profile();
+        data.comprehension_evidence[0].accessibility_evidence_id = "wrong-accessibility-record".into();
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.comprehension[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(report.comprehension[0].violations.contains(&CivilViolation::ComprehensionAccessibilityBindingMismatch));
+    }
+
+    #[test]
+    fn post_cutoff_comprehension_is_not_reported_as_as_of_knowledge() {
+        let mut data = profile();
+        data.comprehension_evidence[0].recorded_at = 101;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.comprehension[0].tested_count, 0);
+        assert_eq!(report.comprehension[0].comprehension_rate, None);
+        assert_eq!(report.comprehension[0].disposition, ClaimDisposition::Indeterminate);
+    }
+
+    #[test]
     fn accessibility_rendering_does_not_imply_comprehension() {
         let mut data = profile();
         data.comprehension_evidence.clear();
@@ -1924,6 +1976,41 @@ mod tests {
     }
 
     #[test]
+    fn completed_action_is_downgraded_when_authority_registry_does_not_support() {
+        let mut data = profile();
+        data.authority_assertion.as_mut().unwrap().registry_status = RegistryAuthorityStatus::Unknown;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.authority.disposition, ClaimDisposition::Indeterminate);
+        assert_eq!(report.actions[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(report.actions[0].violations.contains(&CivilViolation::ActionAuthorityNotSupporting));
+    }
+
+    #[test]
+    fn completed_action_is_downgraded_when_decision_claim_does_not_support() {
+        let mut data = profile();
+        let claim = data.base_audit.claims.iter_mut()
+            .find(|claim| claim.stage == Stage::Decision && claim.claim_id == "decision-valid")
+            .unwrap();
+        claim.disposition = ClaimDisposition::Indeterminate;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.actions[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(report.actions[0].violations.contains(&CivilViolation::ActionDecisionNotSupporting));
+    }
+
+    #[test]
+    fn delivery_is_downgraded_when_base_cap_lifecycle_claim_does_not_support() {
+        let mut data = profile();
+        data.delivery_receipts[1].count = 100;
+        let claim = data.base_audit.claims.iter_mut()
+            .find(|claim| claim.stage == Stage::CapLifecycle && claim.claim_id == "receipt-valid")
+            .unwrap();
+        claim.disposition = ClaimDisposition::Indeterminate;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.delivery[0].disposition, ClaimDisposition::Indeterminate);
+        assert!(report.delivery[0].violations.contains(&CivilViolation::DeliveryBaseMessageNotSupporting));
+    }
+
+    #[test]
     fn approved_action_is_not_completed_action() {
         let mut data = profile();
         data.action_receipts.retain(|receipt| receipt.state == ActionState::Approved);
@@ -1946,6 +2033,17 @@ mod tests {
         let report = audit_civil_evidence(&profile()).unwrap();
         assert_eq!(report.actions[0].disposition, ClaimDisposition::Supports);
         assert_eq!(report.comprehension[0].intended_action_rate, Some(0.8));
+    }
+
+    #[test]
+    fn post_cutoff_case_record_is_disputed_not_counted_as_observed() {
+        let mut data = profile();
+        data.case_frame.cases[0].recorded_at = 101;
+        let report = audit_civil_evidence(&data).unwrap();
+        assert_eq!(report.case_frame.observed_cases, 1);
+        assert_eq!(report.case_frame.disputed_cases, 2);
+        assert!(report.case_frame.violations.contains(&CivilViolation::CaseFrameAfterCutoff));
+        assert_eq!(report.case_frame.disposition, ClaimDisposition::Indeterminate);
     }
 
     #[test]
@@ -2031,6 +2129,15 @@ mod tests {
         let report = audit_civil_evidence(&data).unwrap();
         assert_eq!(report.base_audit.disposition, ClaimDisposition::Indeterminate);
         assert!(report.base_audit.violations.contains(&CivilViolation::BaseClaimMissing));
+    }
+
+    #[test]
+    fn every_csv_record_has_the_declared_number_of_fields() {
+        let report = audit_civil_evidence(&profile()).unwrap();
+        let csv = report.to_csv();
+        for line in csv.lines() {
+            assert_eq!(line.matches(',').count(), 7, "{line}");
+        }
     }
 
     #[test]
