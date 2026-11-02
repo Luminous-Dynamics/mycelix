@@ -27,6 +27,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("# Synthetic latent-truth oracle and observed-reference robustness only.");
     println!("# Forecast fields are fixed; observation error changes between trials.");
     println!("{}", report.summary_line());
+    println!("# Per-trial detail follows, including exact seed and error lineage.");
+    print!("{}", report.to_trial_csv());
+    println!("# Per-scale aggregate results follow.");
     print!("{}", report.to_csv());
     println!("# no_real_forecast_data=true");
     println!("# unknown_error_parameters_are_sensitivity_only=true");
