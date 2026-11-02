@@ -257,7 +257,7 @@ impl SubgroupEquityReport {
             ));
         }
         output.push_str(&format!(
-            "summary,equity,all_groups,as_of={}, {},{},{},{},{},{:.8},{:.8},{}\n",
+            "summary,equity,all_groups,as_of={},{},{},{},{},{},{},{:.8},{:.8},{}\n",
             self.as_of_cutoff,
             disposition_label(self.equity_disposition),
             self.assessed_group_count,
@@ -266,19 +266,20 @@ impl SubgroupEquityReport {
             self.indeterminate_group_count,
             self.unavailable_group_count,
             self.minimum_group_coverage_lower_bound.unwrap_or(-1.0),
-            self.coverage_gap_upper_bound.unwrap_or(-1.0),
+            self.maximum_group_coverage_upper_bound.unwrap_or(-1.0),
             violation_labels(&self.equity_violations)
         ));
         output.push_str(&format!(
-            "bounds,equity_gap,conservative,{},{},{},{},{},{},{:.8},{:.8},{}\n",
+            "bounds,equity_gap,conservative,as_of={},{},{},{},{:.8},{:.8},{:.8},{:.8},{:.8},{}\n",
             self.as_of_cutoff,
             disposition_label(self.equity_disposition),
             self.assessed_group_count,
-            self.supports_group_count,
-            self.refutes_group_count,
-            self.unavailable_group_count,
+            self.groups.iter().filter(|group| group.coverage_lower_bound.is_some()).count(),
+            self.minimum_group_coverage_lower_bound.unwrap_or(-1.0),
+            self.maximum_group_coverage_upper_bound.unwrap_or(-1.0),
             self.coverage_gap_lower_bound.unwrap_or(-1.0),
             self.coverage_gap_upper_bound.unwrap_or(-1.0),
+            self.maximum_coverage_gap_policy,
             violation_labels(&self.equity_violations)
         ));
         output
@@ -1278,7 +1279,8 @@ mod tests {
         let first = audit_subgroup_reach(&report, &groups, &policy()).unwrap();
         let second = audit_subgroup_reach(&report, &groups, &policy()).unwrap();
         assert_eq!(first.to_csv(), second.to_csv());
-        assert_eq!(first.to_csv().lines().count(), 4);
+        assert_eq!(first.to_csv().lines().count(), 5);
+        assert!(first.to_csv().lines().all(|line| line.matches(',').count() == 12));
         assert!(first.to_csv().starts_with(
             "record_type,group_id,cohort_id,dimensions,disposition,"
         ));
