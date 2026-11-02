@@ -1486,4 +1486,150 @@ mod tests {
             Err(FssError::DuplicateCaseId)
         );
     }
+
+    fn paired_block_sample(
+        block: &str,
+        case_id: &str,
+        candidate: &[bool],
+        reference: &[bool],
+        observed: &[bool],
+    ) -> PairedFssBlockCase {
+        PairedFssBlockCase {
+            event_block_id: block.into(),
+            case_id: case_id.into(),
+            candidate: case(
+                case_id,
+                2,
+                2,
+                vec![values(candidate)],
+                values(observed),
+            ),
+            reference: case(
+                case_id,
+                2,
+                2,
+                vec![values(reference)],
+                values(observed),
+            ),
+        }
+    }
+
+    #[test]
+    fn paired_bootstrap_uses_identical_event_block_draws() {
+        let observed = [true, false, false, false];
+        let reference = [false, false, false, false];
+        let samples = vec![
+            paired_block_sample("block-a", "case-a", &observed, &reference, &observed),
+            paired_block_sample("block-b", "case-b", &observed, &reference, &observed),
+            paired_block_sample("block-c", "case-c", &observed, &reference, &observed),
+        ];
+        let bootstrap = BlockBootstrapConfig {
+            replicates: 256,
+            seed: 808,
+        };
+        let first = paired_block_bootstrap(&samples, &config(1), &bootstrap)
+            .expect("paired bootstrap should qualify");
+        let second = paired_block_bootstrap(&samples, &config(1), &bootstrap)
+            .expect("paired bootstrap repeat should qualify");
+
+        assert_eq!(first, second);
+        assert_eq!(first.case_count, 3);
+        assert_eq!(first.independent_event_blocks, 3);
+        assert_eq!(first.candidate_p_fss, 1.0);
+        assert_eq!(first.reference_p_fss, 0.0);
+        assert_eq!(first.mean_paired_delta, 1.0);
+        assert_eq!(first.lower_95_percent, 1.0);
+        assert_eq!(first.upper_95_percent, 1.0);
+        assert_eq!(first.qualified_replicates, 256);
+    }
+
+    #[test]
+    fn paired_bootstrap_rejects_observation_drift() {
+        let observed = [true, false, false, false];
+        let wrong_observed = [false, true, false, false];
+        let mut sample =
+            paired_block_sample("block-a", "case-a", &observed, &observed, &observed);
+        sample.reference.observation = values(&wrong_observed);
+
+        assert_eq!(
+            paired_block_bootstrap(
+                &[sample, paired_block_sample("block-b", "case-b", &observed, &observed, &observed)],
+                &config(1),
+                &BlockBootstrapConfig {
+                    replicates: 256,
+                    seed: 2
+                }
+            ),
+            Err(FssError::PairSupportMismatch)
+        );
+    }
+
+    #[test]
+    fn paired_bootstrap_rejects_mask_and_weight_drift() {
+        let observed = [true, false, false, false];
+        let mut masked =
+            paired_block_sample("block-a", "case-a", &observed, &observed, &observed);
+        masked.reference.valid_mask[0] = false;
+        let mut weighted =
+            paired_block_sample("block-b", "case-b", &observed, &observed, &observed);
+        weighted.reference.cell_weights[0] = 2.0;
+
+        assert_eq!(
+            paired_block_bootstrap(
+                &[masked, paired_block_sample("block-c", "case-c", &observed, &observed, &observed)],
+                &config(1),
+                &BlockBootstrapConfig {
+                    replicates: 256,
+                    seed: 3
+                }
+            ),
+            Err(FssError::PairSupportMismatch)
+        );
+        assert_eq!(
+            paired_block_bootstrap(
+                &[weighted, paired_block_sample("block-d", "case-d", &observed, &observed, &observed)],
+                &config(1),
+                &BlockBootstrapConfig {
+                    replicates: 256,
+                    seed: 3
+                }
+            ),
+            Err(FssError::PairSupportMismatch)
+        );
+    }
+
+    #[test]
+    fn paired_bootstrap_rejects_different_case_ids_and_duplicate_keys() {
+        let observed = [true, false, false, false];
+        let mut mismatched =
+            paired_block_sample("block-a", "case-a", &observed, &observed, &observed);
+        mismatched.reference.case_id = "different-case".into();
+        assert_eq!(
+            paired_block_bootstrap(
+                &[mismatched],
+                &config(1),
+                &BlockBootstrapConfig {
+                    replicates: 256,
+                    seed: 4
+                }
+            ),
+            Err(FssError::PairCaseIdMismatch)
+        );
+
+        let samples = vec![
+            paired_block_sample("block-a", "duplicate-case", &observed, &observed, &observed),
+            paired_block_sample("block-b", "duplicate-case", &observed, &observed, &observed),
+        ];
+        assert_eq!(
+            paired_block_bootstrap(
+                &samples,
+                &config(1),
+                &BlockBootstrapConfig {
+                    replicates: 256,
+                    seed: 4
+                }
+            ),
+            Err(FssError::DuplicateCaseId)
+        );
+    }
 }
