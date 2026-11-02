@@ -212,6 +212,8 @@ pub enum DgpError {
     InvalidTrialSet,
     InsufficientIndependentEventBlocks,
     InvalidWindowWidth,
+    InvalidEnsembleSizes,
+    InvalidEnsembleSpread,
     ScoringFailure(String),
 }
 
@@ -233,6 +235,8 @@ impl std::fmt::Display for DgpError {
             Self::InvalidTrialSet => write!(formatter, "trial IDs or seeds are invalid or duplicated"),
             Self::InsufficientIndependentEventBlocks => write!(formatter, "at least two independent event blocks are required"),
             Self::InvalidWindowWidth => write!(formatter, "window widths must be positive odd values"),
+            Self::InvalidEnsembleSizes => write!(formatter, "ensemble sizes must be unique positive integers"),
+            Self::InvalidEnsembleSpread => write!(formatter, "ensemble spread must be finite and non-negative"),
             Self::ScoringFailure(message) => write!(formatter, "pFSS scoring failed: {message}"),
         }
     }
@@ -943,6 +947,376 @@ impl SplitMix64 {
     fn signed(&mut self) -> f64 {
         (2.0 * self.next_f64()) - 1.0
     }
+}
+
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EnsembleSizeTrial {
+    pub ensemble_size: usize,
+    pub seed: u64,
+    pub event_block_id: String,
+    pub latent_candidate_p_fss: f64,
+    pub latent_reference_p_fss: f64,
+    pub observed_candidate_p_fss: f64,
+    pub observed_reference_p_fss: f64,
+    pub latent_candidate_minus_reference: f64,
+    pub observed_candidate_minus_reference: f64,
+    pub rank_reversed: bool,
+    pub missing_cells: usize,
+    pub observation_error_rms: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EnsembleSizeAggregate {
+    pub ensemble_size: usize,
+    pub trials: usize,
+    pub independent_event_blocks: usize,
+    pub rank_reversal_blocks: usize,
+    pub rank_reversal_probability: f64,
+    pub rank_reversal_ci_lower: f64,
+    pub rank_reversal_ci_upper: f64,
+    pub mean_latent_candidate_p_fss: f64,
+    pub mean_latent_reference_p_fss: f64,
+    pub mean_observed_candidate_p_fss: f64,
+    pub mean_observed_reference_p_fss: f64,
+    pub mean_latent_delta: f64,
+    pub mean_observed_delta: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EnsembleSizeSeverityReport {
+    pub severity: f64,
+    pub sensitivity_only: bool,
+    pub aggregates: Vec<EnsembleSizeAggregate>,
+    pub trials: Vec<EnsembleSizeTrial>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EnsembleSizeStudyReport {
+    pub family: ErrorFamily,
+    pub parameter_knowledge: ParameterKnowledge,
+    pub neighbourhood_width: usize,
+    pub ensemble_spread: f64,
+    pub independent_event_blocks: usize,
+    pub severity_reports: Vec<EnsembleSizeSeverityReport>,
+}
+
+impl EnsembleSizeStudyReport {
+    pub fn to_csv(&self) -> String {
+        let mut output = String::from(
+            "family,severity,sensitivity_only,ensemble_size,neighbourhood_width,trials,event_blocks,rank_reversal_blocks,rank_reversal_probability,rank_reversal_ci_lower,rank_reversal_ci_upper,latent_candidate_p_fss,latent_reference_p_fss,observed_candidate_p_fss,observed_reference_p_fss,latent_delta,observed_delta,ensemble_spread\\n",
+        );
+        for scenario in &self.severity_reports {
+            for aggregate in &scenario.aggregates {
+                output.push_str(&format!(
+                    "{},{},{},{},{},{},{},{},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8}\\n",
+                    self.family.label(),
+                    scenario.severity,
+                    scenario.sensitivity_only,
+                    aggregate.ensemble_size,
+                    self.neighbourhood_width,
+                    aggregate.trials,
+                    aggregate.independent_event_blocks,
+                    aggregate.rank_reversal_blocks,
+                    aggregate.rank_reversal_probability,
+                    aggregate.rank_reversal_ci_lower,
+                    aggregate.rank_reversal_ci_upper,
+                    aggregate.mean_latent_candidate_p_fss,
+                    aggregate.mean_latent_reference_p_fss,
+                    aggregate.mean_observed_candidate_p_fss,
+                    aggregate.mean_observed_reference_p_fss,
+                    aggregate.mean_latent_delta,
+                    aggregate.mean_observed_delta,
+                    self.ensemble_spread,
+                ));
+            }
+        }
+        output
+    }
+
+    pub fn to_trial_csv(&self) -> String {
+        let mut output = String::from(
+            "family,severity,sensitivity_only,ensemble_size,seed,event_block_id,latent_candidate_p_fss,latent_reference_p_fss,observed_candidate_p_fss,observed_reference_p_fss,latent_delta,observed_delta,rank_reversed,missing_cells,observation_error_rms\\n",
+        );
+        for scenario in &self.severity_reports {
+            for trial in &scenario.trials {
+                output.push_str(&format!(
+                    "{},{},{},{},{},{},{:.8},{:.8},{:.8},{:.8},{:.8},{:.8},{},{},{:.8}\\n",
+                    self.family.label(),
+                    scenario.severity,
+                    scenario.sensitivity_only,
+                    trial.ensemble_size,
+                    trial.seed,
+                    trial.event_block_id,
+                    trial.latent_candidate_p_fss,
+                    trial.latent_reference_p_fss,
+                    trial.observed_candidate_p_fss,
+                    trial.observed_reference_p_fss,
+                    trial.latent_candidate_minus_reference,
+                    trial.observed_candidate_minus_reference,
+                    trial.rank_reversed,
+                    trial.missing_cells,
+                    trial.observation_error_rms,
+                ));
+            }
+        }
+        output
+    }
+}
+
+/// Measure pFSS sensitivity to ensemble size under fixed candidate/reference
+/// mean fields and a fixed observation-error family. Member perturbations are
+/// generated as deterministic, correlated spatial fields; members are nested
+/// by seed so size N is a prefix of size N+1. This is a stylized ensemble
+/// generator, not a calibrated weather model.
+pub fn run_ensemble_size_study(
+    fixture: &SpatialFixture,
+    dgp: &ObservationErrorDgp,
+    trials: &[DgpTrial],
+    ensemble_sizes: &[usize],
+    neighbourhood_width: usize,
+    ensemble_spread: f64,
+) -> Result<EnsembleSizeStudyReport, DgpError> {
+    fixture.validate()?;
+    dgp.validate(fixture.rows, fixture.columns)?;
+    validate_trials(trials)?;
+
+    if ensemble_sizes.is_empty()
+        || ensemble_sizes.iter().any(|size| *size == 0)
+        || ensemble_sizes.iter().copied().collect::<BTreeSet<_>>().len() != ensemble_sizes.len()
+    {
+        return Err(DgpError::InvalidEnsembleSizes);
+    }
+    if !ensemble_spread.is_finite() || ensemble_spread < 0.0 {
+        return Err(DgpError::InvalidEnsembleSpread);
+    }
+    if neighbourhood_width == 0 || neighbourhood_width.is_multiple_of(2) {
+        return Err(DgpError::InvalidWindowWidth);
+    }
+
+    let block_count = trials
+        .iter()
+        .map(|trial| trial.event_block_id.as_str())
+        .collect::<BTreeSet<_>>()
+        .len();
+    if block_count < 2 {
+        return Err(DgpError::InsufficientIndependentEventBlocks);
+    }
+
+    let mut sizes = ensemble_sizes.to_vec();
+    sizes.sort_unstable();
+    let sensitivity_only = matches!(
+        &dgp.parameter_knowledge,
+        ParameterKnowledge::UnknownRange { .. }
+    );
+    let mut severity_reports = Vec::new();
+
+    for severity in dgp.severity_values() {
+        let mut active_dgp = dgp.clone();
+        active_dgp.severity = severity;
+        active_dgp.parameter_knowledge = ParameterKnowledge::Known;
+        let mut observations = Vec::with_capacity(trials.len());
+        for trial in trials {
+            observations.push((
+                trial,
+                apply_observation_error(fixture, &active_dgp, trial)?,
+            ));
+        }
+
+        let mut rows = Vec::new();
+        for ensemble_size in &sizes {
+            for (trial, observation) in &observations {
+                let candidate_members = generate_members(
+                    fixture,
+                    &fixture.candidate_forecast,
+                    *ensemble_size,
+                    trial.seed ^ 0x243f_6a88_85a3_08d3,
+                    ensemble_spread,
+                );
+                let reference_members = generate_members(
+                    fixture,
+                    &fixture.reference_forecast,
+                    *ensemble_size,
+                    trial.seed ^ 0x1319_8a2e_0370_7344,
+                    ensemble_spread,
+                );
+                let latent_observation: Vec<Option<f64>> =
+                    fixture.latent_truth.iter().copied().map(Some).collect();
+
+                let latent_candidate = qualified_p_fss(score_member_ensemble(
+                    fixture,
+                    &candidate_members,
+                    latent_observation.clone(),
+                    neighbourhood_width,
+                )?)?;
+                let latent_reference = qualified_p_fss(score_member_ensemble(
+                    fixture,
+                    &reference_members,
+                    latent_observation,
+                    neighbourhood_width,
+                )?)?;
+                let observed_candidate = qualified_p_fss(score_member_ensemble(
+                    fixture,
+                    &candidate_members,
+                    observation.values.clone(),
+                    neighbourhood_width,
+                )?)?;
+                let observed_reference = qualified_p_fss(score_member_ensemble(
+                    fixture,
+                    &reference_members,
+                    observation.values.clone(),
+                    neighbourhood_width,
+                )?)?;
+
+                let latent_delta = latent_candidate - latent_reference;
+                let observed_delta = observed_candidate - observed_reference;
+                let rank_reversed = latent_delta.signum() != 0.0
+                    && observed_delta.signum() != 0.0
+                    && latent_delta.signum() != observed_delta.signum();
+
+                rows.push(EnsembleSizeTrial {
+                    ensemble_size: *ensemble_size,
+                    seed: trial.seed,
+                    event_block_id: trial.event_block_id.clone(),
+                    latent_candidate_p_fss: latent_candidate,
+                    latent_reference_p_fss: latent_reference,
+                    observed_candidate_p_fss: observed_candidate,
+                    observed_reference_p_fss: observed_reference,
+                    latent_candidate_minus_reference: latent_delta,
+                    observed_candidate_minus_reference: observed_delta,
+                    rank_reversed,
+                    missing_cells: observation.missing_cells,
+                    observation_error_rms: observation.error_rms,
+                });
+            }
+        }
+
+        let aggregates = sizes
+            .iter()
+            .map(|size| aggregate_ensemble_size(&rows, *size))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        severity_reports.push(EnsembleSizeSeverityReport {
+            severity,
+            sensitivity_only,
+            aggregates,
+            trials: rows,
+        });
+    }
+
+    Ok(EnsembleSizeStudyReport {
+        family: dgp.family,
+        parameter_knowledge: dgp.parameter_knowledge.clone(),
+        neighbourhood_width,
+        ensemble_spread,
+        independent_event_blocks: block_count,
+        severity_reports,
+    })
+}
+
+fn generate_members(
+    fixture: &SpatialFixture,
+    centre_field: &[f64],
+    ensemble_size: usize,
+    seed: u64,
+    spread: f64,
+) -> Vec<Vec<Option<f64>>> {
+    (0..ensemble_size)
+        .map(|member_index| {
+            let perturbation = correlated_field(
+                fixture.rows,
+                fixture.columns,
+                seed ^ (member_index as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15),
+                1,
+                1,
+            );
+            centre_field
+                .iter()
+                .zip(perturbation.iter())
+                .map(|(centre, noise)| Some(*centre + spread * noise))
+                .collect()
+        })
+        .collect()
+}
+
+fn score_member_ensemble(
+    fixture: &SpatialFixture,
+    members: &[Vec<Option<f64>>],
+    observation: Vec<Option<f64>>,
+    neighbourhood_width: usize,
+) -> Result<FssScore, DgpError> {
+    let config = FssConfig {
+        threshold: fixture.threshold,
+        threshold_operator: ThresholdOperator::GreaterThanOrEqual,
+        unit: fixture.unit.clone(),
+        window_width_cells: neighbourhood_width,
+        boundary_policy: BoundaryPolicy::TruncateAtDomain,
+        missing_policy: MissingPolicy::PairwiseComplete,
+    };
+    let case = FssCase {
+        case_id: "ensemble-size-study".into(),
+        rows: fixture.rows,
+        columns: fixture.columns,
+        forecast_members: members.to_vec(),
+        observation,
+        cell_weights: fixture.cell_weights.clone(),
+        valid_mask: fixture.valid_mask.clone(),
+    };
+    evaluate(&case, &config).map_err(|error| DgpError::ScoringFailure(error.to_string()))
+}
+
+fn aggregate_ensemble_size(
+    trials: &[EnsembleSizeTrial],
+    ensemble_size: usize,
+) -> Result<EnsembleSizeAggregate, DgpError> {
+    let matching: Vec<_> = trials
+        .iter()
+        .filter(|trial| trial.ensemble_size == ensemble_size)
+        .collect();
+    if matching.is_empty() {
+        return Err(DgpError::InvalidEnsembleSizes);
+    }
+
+    let mut per_block: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    for trial in &matching {
+        let counts = per_block.entry(trial.event_block_id.as_str()).or_insert((0, 0));
+        counts.0 += usize::from(trial.rank_reversed);
+        counts.1 += 1;
+    }
+    if per_block.len() < 2 {
+        return Err(DgpError::InsufficientIndependentEventBlocks);
+    }
+    let block_rates: Vec<f64> = per_block
+        .values()
+        .map(|(reversed, total)| *reversed as f64 / *total as f64)
+        .collect();
+    let rank_reversal_probability =
+        block_rates.iter().sum::<f64>() / block_rates.len() as f64;
+    let variance = block_rates
+        .iter()
+        .map(|rate| (rate - rank_reversal_probability).powi(2))
+        .sum::<f64>()
+        / (block_rates.len() - 1) as f64;
+    let standard_error = (variance / block_rates.len() as f64).sqrt();
+    let mean = |select: fn(&EnsembleSizeTrial) -> f64| {
+        matching.iter().map(|trial| select(trial)).sum::<f64>() / matching.len() as f64
+    };
+
+    Ok(EnsembleSizeAggregate {
+        ensemble_size,
+        trials: matching.len(),
+        independent_event_blocks: block_rates.len(),
+        rank_reversal_blocks: block_rates.iter().filter(|rate| **rate > 0.0).count(),
+        rank_reversal_probability,
+        rank_reversal_ci_lower: (rank_reversal_probability - 1.96 * standard_error).max(0.0),
+        rank_reversal_ci_upper: (rank_reversal_probability + 1.96 * standard_error).min(1.0),
+        mean_latent_candidate_p_fss: mean(|trial| trial.latent_candidate_p_fss),
+        mean_latent_reference_p_fss: mean(|trial| trial.latent_reference_p_fss),
+        mean_observed_candidate_p_fss: mean(|trial| trial.observed_candidate_p_fss),
+        mean_observed_reference_p_fss: mean(|trial| trial.observed_reference_p_fss),
+        mean_latent_delta: mean(|trial| trial.latent_candidate_minus_reference),
+        mean_observed_delta: mean(|trial| trial.observed_candidate_minus_reference),
+    })
 }
 
 #[cfg(test)]
