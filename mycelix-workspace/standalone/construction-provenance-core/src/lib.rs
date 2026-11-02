@@ -476,7 +476,7 @@ fn custody_disposition(
     trace: &ConstructionProjectTrace,
     batch: &MaterialBatch,
 ) -> Disposition {
-    let mut receipts = trace
+    let receipts = trace
         .custody_receipts
         .iter()
         .filter(|receipt| receipt.batch_id == batch.batch_id)
@@ -484,58 +484,87 @@ fn custody_disposition(
     if receipts.is_empty() {
         return Disposition::Indeterminate;
     }
-    receipts.sort_by(|left, right| {
-        (left.occurred_at, left.receipt_id.as_str())
-            .cmp(&(right.occurred_at, right.receipt_id.as_str()))
-    });
+
+    // Follow the explicit predecessor graph instead of sorting timestamps.
+    // Equal event timestamps are not sufficient to infer transfer order.
+    let roots = receipts
+        .iter()
+        .copied()
+        .filter(|receipt| receipt.predecessor_receipt_id.is_none())
+        .collect::<Vec<_>>();
+    let Some(mut current) = roots.first().copied() else {
+        return Disposition::Rejected;
+    };
+    if roots.len() != 1 {
+        return Disposition::Rejected;
+    }
 
     let mut result = Disposition::Accepted;
-    let mut previous_id: Option<&str> = None;
+    let mut visited = BTreeSet::new();
     let mut previous_to: Option<&str> = None;
     let mut previous_time = 0_u64;
 
-    for (index, receipt) in receipts.iter().enumerate() {
-        if !nonempty(&receipt.receipt_id)
-            || !nonempty(&receipt.from_party_id)
-            || !nonempty(&receipt.to_party_id)
-            || !nonempty(&receipt.evidence_ref)
+    loop {
+        if !nonempty(&current.receipt_id)
+            || !nonempty(&current.from_party_id)
+            || !nonempty(&current.to_party_id)
+            || !nonempty(&current.evidence_ref)
         {
             return Disposition::Rejected;
         }
         if trace
             .custody_receipts
             .iter()
-            .filter(|item| item.receipt_id == receipt.receipt_id)
+            .filter(|item| item.receipt_id == current.receipt_id)
             .count()
             != 1
-            || receipt.occurred_at < batch.declared_at
+            || !visited.insert(current.receipt_id.as_str())
+            || current.occurred_at < batch.declared_at
+            || current.occurred_at < previous_time
         {
             return Disposition::Rejected;
         }
-        if index == 0 {
-            if receipt.predecessor_receipt_id.is_some()
-                || receipt.from_party_id != batch.supplier_party_id
-            {
+
+        if previous_to.is_none() {
+            if current.from_party_id != batch.supplier_party_id {
                 return Disposition::Rejected;
             }
-        } else if receipt.predecessor_receipt_id.as_deref() != previous_id
-            || Some(receipt.from_party_id.as_str()) != previous_to
-            || receipt.occurred_at < previous_time
-        {
+        } else if previous_to != Some(current.from_party_id.as_str()) {
             return Disposition::Rejected;
         }
+
         result = combine(
             result,
             evidence_disposition(
                 trace,
-                &receipt.evidence_ref,
-                &receipt.receipt_id,
-                receipt.occurred_at,
+                &current.evidence_ref,
+                &current.receipt_id,
+                current.occurred_at,
             ),
         );
-        previous_id = Some(receipt.receipt_id.as_str());
-        previous_to = Some(receipt.to_party_id.as_str());
-        previous_time = receipt.occurred_at;
+
+        let children = receipts
+            .iter()
+            .copied()
+            .filter(|receipt| {
+                receipt.predecessor_receipt_id.as_deref() == Some(current.receipt_id.as_str())
+            })
+            .collect::<Vec<_>>();
+        if children.len() > 1 {
+            return Disposition::Rejected;
+        }
+
+        previous_to = Some(current.to_party_id.as_str());
+        previous_time = current.occurred_at;
+
+        let Some(next) = children.first().copied() else {
+            break;
+        };
+        current = next;
+    }
+
+    if visited.len() != receipts.len() {
+        return Disposition::Rejected;
     }
     if previous_to != Some(batch.receiving_site_party_id.as_str()) {
         return Disposition::Indeterminate;
@@ -1807,6 +1836,31 @@ mod tests {
         assert_eq!(
             disposition(&trace, "custody", "batch-01"),
             Disposition::Rejected
+        );
+    }
+
+    #[test]
+    fn custody_predecessor_graph_handles_equal_timestamps_without_id_sorting() {
+        let mut trace = sample_trace();
+        trace.custody_receipts[0].receipt_id = "custody-z".into();
+        trace.custody_receipts[1].receipt_id = "custody-a".into();
+        trace.custody_receipts[1].predecessor_receipt_id = Some("custody-z".into());
+        trace.custody_receipts[0].occurred_at = 250;
+        trace.custody_receipts[1].occurred_at = 250;
+        trace.evidence_assertions
+            .iter_mut()
+            .find(|item| item.reference == "evidence:custody-01-a")
+            .unwrap()
+            .subject_ref = "custody-z".into();
+        trace.evidence_assertions
+            .iter_mut()
+            .find(|item| item.reference == "evidence:custody-01-b")
+            .unwrap()
+            .subject_ref = "custody-a".into();
+
+        assert_eq!(
+            disposition(&trace, "custody", "batch-01"),
+            Disposition::Accepted
         );
     }
 
