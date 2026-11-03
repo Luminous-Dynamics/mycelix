@@ -18,8 +18,9 @@ access.
 
 The verifier generates 256 random bits from an OS CSPRNG, constructs the wire
 challenge, computes a domain-separated SHA-256 digest over the exact challenge
-bytes, and persists only the digest. The raw challenge must never be logged or
-written to the database.
+bytes, and persists only the digest. The database enforces a maximum challenge
+lifetime of ten minutes at both registration and row-constraint levels. The raw
+challenge must never be logged or written to the database.
 
 ## Required call sequence
 
@@ -78,12 +79,16 @@ survival and exactly-one-winner behavior across independent processes.
 
 Run the sequential SQL contract test after applying the migration:
 
-    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/consume_once.sql
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+      -f mycelix-identity/challenge-registry/migrations/0001_verifier_challenges.sql
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+      -f mycelix-identity/challenge-registry/tests/consume_once.sql
 
 Run the two-process race test with a disposable test database and the
 migration applied:
 
-    DATABASE_URL="$DATABASE_URL" ./tests/concurrent_consume.sh
+    DATABASE_URL="$DATABASE_URL" \
+      sh mycelix-identity/challenge-registry/tests/concurrent_consume.sh
 
 The race script creates one random challenge digest and starts two separate
 psql processes that contend on the same challenge. It requires exactly one
