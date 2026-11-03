@@ -169,6 +169,21 @@ fn compute_credential_hash_legacy_subset(vc: &VerifiableCredential) -> Vec<u8> {
     holo_hash::blake2b_256(&content).to_vec()
 }
 
+/// Validate the semantic bindings required by the Mycelix V1 proof profile.
+fn v1_proof_header_matches(
+    vc: &VerifiableCredential,
+    signature_algorithm: AlgorithmId,
+) -> bool {
+    let expected_controller_prefix = format!("{}#", vc.issuer.did());
+    let method_matches_issuer = vc.proof.verification_method
+        .strip_prefix(&expected_controller_prefix)
+        .is_some_and(|fragment| !fragment.is_empty());
+    vc.proof.proof_type == "DataIntegrityProof"
+        && vc.proof.proof_purpose == "assertionMethod"
+        && vc.proof.algorithm == Some(signature_algorithm.as_u16())
+        && method_matches_issuer
+}
+
 /// Compute the digest appropriate to the explicitly declared credential
 /// profile. Unknown profiles fail closed rather than guessing a transform.
 fn compute_credential_hash_for_profile(
@@ -2797,6 +2812,60 @@ mod tests {
     }
 
     #[test]
+    fn v1_proof_header_rejects_algorithm_method_and_purpose_mismatch() {
+        let make_vc = || VerifiableCredential {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "header-test".into(),
+            credential_type: vec!["VerifiableCredential".into()],
+            issuer: CredentialIssuer::Did("did:mycelix:issuer1".into()),
+            valid_from: "2026-01-01T00:00:00Z".into(),
+            valid_until: None,
+            credential_subject: CredentialSubject {
+                id: "did:mycelix:holder1".into(),
+                claims: serde_json::json!({}),
+            },
+            credential_schema: None,
+            credential_status: None,
+            proof: CredentialProof {
+                proof_type: "DataIntegrityProof".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:issuer1#keys-1".into(),
+                proof_purpose: "assertionMethod".into(),
+                proof_value: "zSignature".into(),
+                cryptosuite: Some(CREDENTIAL_HASH_PROFILE_V1.into()),
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+                challenge: None,
+                domain: None,
+            },
+            mycelix_schema_id: "mycelix:schema:test:v1".into(),
+            mycelix_created: Timestamp::from_micros(1_000_000),
+        };
+
+        let base = make_vc();
+        assert!(v1_proof_header_matches(&base, AlgorithmId::Ed25519));
+
+        let mut changed = base.clone();
+        changed.proof.algorithm = Some(AlgorithmId::MlDsa65.as_u16());
+        assert!(!v1_proof_header_matches(&changed, AlgorithmId::Ed25519));
+
+        changed = base.clone();
+        changed.proof.verification_method = "did:mycelix:attacker#keys-1".into();
+        assert!(!v1_proof_header_matches(&changed, AlgorithmId::Ed25519));
+
+        changed = base.clone();
+        changed.proof.verification_method = "did:mycelix:issuer1".into();
+        assert!(!v1_proof_header_matches(&changed, AlgorithmId::Ed25519));
+
+        changed = base.clone();
+        changed.proof.proof_purpose = "authentication".into();
+        assert!(!v1_proof_header_matches(&changed, AlgorithmId::Ed25519));
+
+        changed = base;
+        changed.proof.proof_type = "OtherProof".into();
+        assert!(!v1_proof_header_matches(&changed, AlgorithmId::Ed25519));
+    }
+
+    #[test]
     fn credential_hash_profiles_keep_legacy_distinct_and_unknown_fail_closed() {
         let mut vc = VerifiableCredential {
             context: vec![],
@@ -3312,6 +3381,11 @@ fn verify_credential_signature(
             });
         }
     };
+    if profile == CredentialHashProfile::MycelixV1
+        && !v1_proof_header_matches(vc, signature_algorithm)
+    {
+        return Ok(CredentialSignatureOutcome::Invalid);
+    }
     let content_hash = compute_credential_hash_for_profile(vc)?;
 
     // Extract public key from issuer DID.
