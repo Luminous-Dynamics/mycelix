@@ -99,7 +99,7 @@ Recipient deductions must separately report their known fee, tax, other and uncl
 
 `gross recipient-available value = net recipient-available value + recipient deductions`
 
-When any deduction amount is unknown, net recipient-available value must be null and cost attribution is unqualified. A known but unclassified deduction remains visible, is included in the known total, and also makes cost attribution unqualified. Do not turn missing or unclassified deductions into zero.
+When any deduction amount is unknown, net recipient-available value must be null and cost attribution is unqualified. A known but unclassified deduction remains visible, is included in the known total, and also makes cost attribution unqualified. Do not turn missing or unclassified deductions into zero. Gross and net values describe the amount at first recipient availability; later returns and reversals remain linked successor events and do not rewrite the original delivery-value observation.
 
 Report exact cost per recipient-available delivery and cost as basis points of gross recipient-available value. The latter is represented as an exact numerator/denominator with a 10,000 basis-point scale; do not round or use binary floating point for the money calculation. A zero gross-value denominator makes the ratio unavailable, not zero.
 
