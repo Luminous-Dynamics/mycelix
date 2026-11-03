@@ -166,6 +166,46 @@ pub struct VcVerificationResult {
     pub verified_at: Timestamp,
 }
 
+/// Mirror of verifiable_credential coordinator::CredentialSignatureStatus.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum VcSignatureStatus {
+    Verified,
+    Invalid,
+    Partial,
+    Unsupported,
+    Error,
+}
+
+/// Mirror of verifiable_credential coordinator::CredentialInPresentationResult.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct VcPresentationCredentialResult {
+    pub credential_id: String,
+    pub valid: bool,
+    pub proof_signature_status: VcSignatureStatus,
+    pub errors: Vec<String>,
+}
+
+/// Mirror of verifiable_credential coordinator::PresentationVerificationResult.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct VcPresentationVerificationResult {
+    pub presentation_id: String,
+    pub holder: String,
+    pub valid: bool,
+    pub errors: Vec<String>,
+    pub credential_results: Vec<VcPresentationCredentialResult>,
+    pub verified_at: Timestamp,
+}
+
+/// Mirror of verifiable_credential coordinator::DerivedVerificationResult.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct VcDerivedVerificationResult {
+    pub valid: bool,
+    pub errors: Vec<String>,
+    pub original_issuer_verified: bool,
+    pub original_issuer_signature_status: VcSignatureStatus,
+}
+
 /// Mirror of revocation coordinator::RevokeInput
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RevokeInput {
