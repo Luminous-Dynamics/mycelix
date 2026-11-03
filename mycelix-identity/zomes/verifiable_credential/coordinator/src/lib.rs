@@ -407,6 +407,7 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
 
     let now = sys_time()?;
     let mut errors = Vec::new();
+    let mut checks_passed = vec!["format".to_string()];
 
     // Check expiration using ISO 8601 parsing (fail-closed)
     if let Some(valid_until) = &credential.valid_until {
@@ -424,22 +425,29 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
         }
     }
 
-    // Verify ed25519 signature using HDK
-    match verify_credential_signature(&credential) {
-        Ok(true) => {
-            // Signature is valid
-        }
-        Ok(false) => {
-            errors.push("Proof signature verification failed".to_string());
+    // Only a fully verified proof can be used as successful credential evidence.
+    // Partial, unsupported, and erroneous outcomes all fail closed.
+    let proof_signature_status = match verify_credential_signature(&credential) {
+        Ok(outcome) => {
+            let status = outcome.status();
+            if let Some(reason) = outcome.failure_message() {
+                errors.push(reason);
+            } else {
+                checks_passed.push("proof_signature".to_string());
+            }
+            status
         }
         Err(e) => {
             errors.push(format!("Signature verification error: {}", e));
+            CredentialSignatureStatus::Error
         }
-    }
+    };
 
     // Check proof purpose
     if credential.proof.proof_purpose != "assertionMethod" {
         errors.push("Invalid proof purpose".to_string());
+    } else {
+        checks_passed.push("proof_purpose".to_string());
     }
 
     // Check issuer DID format
@@ -467,15 +475,70 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
 
     Ok(VerificationResult {
         credential_id,
-        valid: errors.is_empty(),
-        checks_passed: vec![
-            "format".to_string(),
-            "proof_signature".to_string(),
-            "proof_purpose".to_string(),
-        ],
+        valid: errors.is_empty() && proof_signature_status.is_verified(),
+        checks_passed,
+        proof_signature_status,
         errors,
         verified_at: now,
     })
+}
+
+/// Assurance level of the issuer's credential proof as checked by this verifier.
+///
+/// Only `Verified` means that every cryptographic component required by the
+/// declared signature algorithm was actually verified. In particular,
+/// `Partial` and `Unsupported` are never acceptable authorization outcomes.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CredentialSignatureStatus {
+    Verified,
+    Invalid,
+    Partial,
+    Unsupported,
+    Error,
+}
+
+/// Internal outcome preserves the distinction between a bad signature and a
+/// valid-looking signature that this WASM verifier cannot fully verify.
+#[derive(Debug, Clone, PartialEq)]
+enum CredentialSignatureOutcome {
+    Verified,
+    Invalid,
+    Partial { algorithm: AlgorithmId },
+    Unsupported { algorithm: AlgorithmId },
+}
+
+impl CredentialSignatureOutcome {
+    fn status(&self) -> CredentialSignatureStatus {
+        match self {
+            Self::Verified => CredentialSignatureStatus::Verified,
+            Self::Invalid => CredentialSignatureStatus::Invalid,
+            Self::Partial { .. } => CredentialSignatureStatus::Partial,
+            Self::Unsupported { .. } => CredentialSignatureStatus::Unsupported,
+        }
+    }
+
+    fn failure_message(&self) -> Option<String> {
+        match self {
+            Self::Verified => None,
+            Self::Invalid => Some("Proof signature verification failed".to_string()),
+            Self::Partial { algorithm } => Some(format!(
+                "Proof signature is only partially verified for {:?}; every hybrid component must verify",
+                algorithm
+            )),
+            Self::Unsupported { algorithm } => Some(format!(
+                "Proof signature algorithm {:?} is not cryptographically verified by this WASM verifier",
+                algorithm
+            )),
+        }
+    }
+}
+
+impl CredentialSignatureStatus {
+    /// Return true only when all required proof components were verified.
+    pub fn is_verified(&self) -> bool {
+        matches!(self, Self::Verified)
+    }
 }
 
 /// Result of credential verification
@@ -484,6 +547,7 @@ pub struct VerificationResult {
     pub credential_id: String,
     pub valid: bool,
     pub checks_passed: Vec<String>,
+    pub proof_signature_status: CredentialSignatureStatus,
     pub errors: Vec<String>,
     pub verified_at: Timestamp,
 }
@@ -880,12 +944,20 @@ pub fn verify_presentation(
     for (i, cred) in vp.verifiable_credential.iter().enumerate() {
         let mut cred_errors = Vec::new();
 
-        // Verify credential signature
-        match verify_credential_signature(cred) {
-            Ok(true) => {}
-            Ok(false) => cred_errors.push("Issuer signature invalid".to_string()),
-            Err(e) => cred_errors.push(format!("Signature error: {:?}", e)),
-        }
+        // Only a fully verified signature is valid for an embedded credential.
+        let proof_signature_status = match verify_credential_signature(cred) {
+            Ok(outcome) => {
+                let status = outcome.status();
+                if let Some(reason) = outcome.failure_message() {
+                    cred_errors.push(reason);
+                }
+                status
+            }
+            Err(e) => {
+                cred_errors.push(format!("Signature error: {:?}", e));
+                CredentialSignatureStatus::Error
+            }
+        };
 
         // Check revocation (from batch result)
         let revocation = &revocation_statuses[i];
@@ -918,10 +990,11 @@ pub fn verify_presentation(
             }
         }
 
-        let cred_valid = cred_errors.is_empty();
+        let cred_valid = cred_errors.is_empty() && proof_signature_status.is_verified();
         credential_results.push(CredentialInPresentationResult {
             credential_id: cred.id.clone(),
             valid: cred_valid,
+            proof_signature_status,
             errors: cred_errors,
         });
     }
@@ -968,6 +1041,7 @@ pub struct PresentationVerificationResult {
 pub struct CredentialInPresentationResult {
     pub credential_id: String,
     pub valid: bool,
+    pub proof_signature_status: CredentialSignatureStatus,
     pub errors: Vec<String>,
 }
 
@@ -1242,6 +1316,7 @@ pub struct DerivedVerificationResult {
     pub valid: bool,
     pub errors: Vec<String>,
     pub original_issuer_verified: bool,
+    pub original_issuer_signature_status: CredentialSignatureStatus,
 }
 
 /// Verify a derived credential
@@ -1258,6 +1333,7 @@ pub fn verify_derived_credential(
 ) -> ExternResult<DerivedVerificationResult> {
     let mut errors = Vec::new();
     let mut original_issuer_verified = false;
+    let mut original_issuer_signature_status = CredentialSignatureStatus::Error;
 
     // Fetch derived credential
     let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
@@ -1289,6 +1365,7 @@ pub fn verify_derived_credential(
                 valid: false,
                 errors,
                 original_issuer_verified: false,
+                original_issuer_signature_status: CredentialSignatureStatus::Error,
             });
         }
     };
@@ -1307,15 +1384,19 @@ pub fn verify_derived_credential(
         errors.push("Original credential hash does not match derivation proof".to_string());
     }
 
-    // Verify the original credential's own signature
+    // Original issuer verification is true only when every declared
+    // signature component has been cryptographically verified.
     match verify_credential_signature(&original_vc) {
-        Ok(true) => {
-            original_issuer_verified = true;
-        }
-        Ok(false) => {
-            errors.push("Original credential's issuer signature is invalid".to_string());
+        Ok(outcome) => {
+            original_issuer_signature_status = outcome.status();
+            if original_issuer_signature_status.is_verified() {
+                original_issuer_verified = true;
+            } else if let Some(reason) = outcome.failure_message() {
+                errors.push(format!("Original issuer proof: {}", reason));
+            }
         }
         Err(e) => {
+            original_issuer_signature_status = CredentialSignatureStatus::Error;
             errors.push(format!("Could not verify original credential: {:?}", e));
         }
     }
@@ -1442,9 +1523,10 @@ pub fn verify_derived_credential(
     }
 
     Ok(DerivedVerificationResult {
-        valid: errors.is_empty(),
+        valid: errors.is_empty() && original_issuer_verified,
         errors,
         original_issuer_verified,
+        original_issuer_signature_status,
     })
 }
 
@@ -2889,15 +2971,16 @@ fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
 
 /// Verify a credential signature with algorithm dispatch.
 ///
-/// Parses the proof value as a `TaggedSignature` to detect the algorithm,
-/// then dispatches:
-/// - Ed25519 → HDK verify_signature
-/// - Hybrid → verify the Ed25519 component (PQC verification requires native)
-/// - Pure PQC → structural accept in WASM (real verification off-chain)
+/// Ed25519 is verified in the zome. Hybrid signatures have their Ed25519 half
+/// checked, but remain `Partial` because this WASM zome cannot yet verify the
+/// ML-DSA half. Pure ML-DSA / SLH-DSA signatures remain `Unsupported`: size
+/// checks alone are never cryptographic verification.
 ///
 /// Falls back to legacy 64-byte raw Ed25519 for old credentials.
-fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> {
-    // Extract public key from issuer DID
+fn verify_credential_signature(
+    vc: &VerifiableCredential,
+) -> ExternResult<CredentialSignatureOutcome> {
+    // Extract public key from issuer DID.
     let issuer_did = vc.issuer.did();
     let pubkey_str = issuer_did.strip_prefix("did:mycelix:").ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -2913,75 +2996,116 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
         )))
     })?;
 
-    // Compute expected content hash
     let content_hash = compute_credential_hash(vc);
 
-    // Try to parse as TaggedSignature (algorithm-aware multibase)
     match TaggedSignature::from_multibase(&vc.proof.proof_value) {
-        Ok(tagged_sig) => {
-            match tagged_sig.algorithm {
-                AlgorithmId::Ed25519 => {
-                    // Standard Ed25519 verification via HDK
-                    if tagged_sig.signature_bytes.len() != 64 {
-                        return Ok(false);
-                    }
-                    let sig = Signature::from(
-                        <[u8; 64]>::try_from(tagged_sig.signature_bytes.as_slice()).map_err(
-                            |_| {
-                                wasm_error!(WasmErrorInner::Guest(
-                                    "Invalid signature length".into()
-                                ))
-                            },
-                        )?,
-                    );
-                    verify_signature(pubkey, sig, content_hash)
+        Ok(tagged_sig) => match tagged_sig.algorithm {
+            AlgorithmId::Ed25519 => {
+                if tagged_sig.signature_bytes.len() != AlgorithmId::Ed25519.signature_size() {
+                    return Ok(CredentialSignatureOutcome::Invalid);
                 }
-                AlgorithmId::HybridEd25519MlDsa65 => {
-                    // Verify Ed25519 component; PQC component verified off-chain
-                    let ed_bytes = tagged_sig.ed25519_component().ok_or_else(|| {
-                        wasm_error!(WasmErrorInner::Guest(
-                            "Hybrid signature missing Ed25519 component".into()
-                        ))
-                    })?;
-                    if ed_bytes.len() != 64 {
-                        return Ok(false);
-                    }
-                    let sig = Signature::from(<[u8; 64]>::try_from(ed_bytes).map_err(|_| {
-                        wasm_error!(WasmErrorInner::Guest("Invalid Ed25519 component".into()))
-                    })?);
-                    verify_signature(pubkey, sig, content_hash)
-                }
-                AlgorithmId::MlDsa65
-                | AlgorithmId::MlDsa87
-                | AlgorithmId::SlhDsaSha2_128s
-                | AlgorithmId::SlhDsaShake128s => {
-                    // Pure PQC: WASM cannot verify, accept structurally.
-                    // Real verification happens via CLI/SDK (off-chain).
-                    let expected_size = tagged_sig.algorithm.signature_size();
-                    Ok(tagged_sig.signature_bytes.len() == expected_size)
-                }
-                _ => {
-                    // Non-signature algorithm used as signature → reject
-                    Ok(false)
+                let sig = Signature::from(
+                    <[u8; 64]>::try_from(tagged_sig.signature_bytes.as_slice()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest("Invalid signature length".into()))
+                    })?,
+                );
+                match verify_signature(pubkey, sig, content_hash)? {
+                    true => Ok(CredentialSignatureOutcome::Verified),
+                    false => Ok(CredentialSignatureOutcome::Invalid),
                 }
             }
-        }
+            AlgorithmId::HybridEd25519MlDsa65 => {
+                // A valid Ed25519 half is necessary, not sufficient, for a
+                // hybrid proof. Check structural framing before the classical
+                // half; never turn this partial check into VERIFIED.
+                if tagged_sig.signature_bytes.len()
+                    != AlgorithmId::HybridEd25519MlDsa65.signature_size()
+                {
+                    return Ok(CredentialSignatureOutcome::Invalid);
+                }
+                let ed_bytes = tagged_sig.ed25519_component().ok_or_else(|| {
+                    wasm_error!(WasmErrorInner::Guest(
+                        "Hybrid signature missing Ed25519 component".into()
+                    ))
+                })?;
+                if ed_bytes.len() != AlgorithmId::Ed25519.signature_size() {
+                    return Ok(CredentialSignatureOutcome::Invalid);
+                }
+                let sig = Signature::from(<[u8; 64]>::try_from(ed_bytes).map_err(|_| {
+                    wasm_error!(WasmErrorInner::Guest("Invalid Ed25519 component".into()))
+                })?);
+                match verify_signature(pubkey, sig, content_hash)? {
+                    false => Ok(CredentialSignatureOutcome::Invalid),
+                    true => Ok(CredentialSignatureOutcome::Partial {
+                        algorithm: AlgorithmId::HybridEd25519MlDsa65,
+                    }),
+                }
+            }
+            AlgorithmId::MlDsa65
+            | AlgorithmId::MlDsa87
+            | AlgorithmId::SlhDsaSha2_128s
+            | AlgorithmId::SlhDsaShake128s => {
+                if tagged_sig.signature_bytes.len() != tagged_sig.algorithm.signature_size() {
+                    return Ok(CredentialSignatureOutcome::Invalid);
+                }
+                Ok(CredentialSignatureOutcome::Unsupported {
+                    algorithm: tagged_sig.algorithm,
+                })
+            }
+            _ => Ok(CredentialSignatureOutcome::Invalid),
+        },
         Err(_) => {
-            // Legacy fallback: try to decode as raw multibase (z + base58btc)
+            // Legacy untagged Ed25519 multibase credential.
             let signature_bytes = multibase_decode(&vc.proof.proof_value).ok_or_else(|| {
                 wasm_error!(WasmErrorInner::Guest(
                     "Invalid multibase signature encoding".into()
                 ))
             })?;
-            if signature_bytes.len() != 64 {
-                return Ok(false);
+            if signature_bytes.len() != AlgorithmId::Ed25519.signature_size() {
+                return Ok(CredentialSignatureOutcome::Invalid);
             }
             let signature =
                 Signature::from(<[u8; 64]>::try_from(signature_bytes.as_slice()).map_err(
                     |_| wasm_error!(WasmErrorInner::Guest("Invalid signature length".into())),
                 )?);
-            verify_signature(pubkey, signature, content_hash)
+            match verify_signature(pubkey, signature, content_hash)? {
+                true => Ok(CredentialSignatureOutcome::Verified),
+                false => Ok(CredentialSignatureOutcome::Invalid),
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod credential_signature_outcome_tests {
+    use super::*;
+
+    #[test]
+    fn only_fully_verified_status_is_authorizing() {
+        assert!(CredentialSignatureStatus::Verified.is_verified());
+        for status in [
+            CredentialSignatureStatus::Invalid,
+            CredentialSignatureStatus::Partial,
+            CredentialSignatureStatus::Unsupported,
+            CredentialSignatureStatus::Error,
+        ] {
+            assert!(!status.is_verified(), "{status:?} must not authorize");
+        }
+    }
+
+    #[test]
+    fn hybrid_and_pqc_outcomes_preserve_non_verified_assurance() {
+        let hybrid = CredentialSignatureOutcome::Partial {
+            algorithm: AlgorithmId::HybridEd25519MlDsa65,
+        };
+        let pqc = CredentialSignatureOutcome::Unsupported {
+            algorithm: AlgorithmId::MlDsa65,
+        };
+
+        assert_eq!(hybrid.status(), CredentialSignatureStatus::Partial);
+        assert_eq!(pqc.status(), CredentialSignatureStatus::Unsupported);
+        assert!(!hybrid.status().is_verified());
+        assert!(!pqc.status().is_verified());
     }
 }
 
