@@ -134,5 +134,47 @@
       "expected_error": "UnsupportedProfile"
     }
   ],
-  "exact_json_roundtrip": "{\"instrument_profile_id\":\"mycelix.finance.instrument.sap.micro.v1\",\"minor_units\":\"18446744073709551615\"}"
+  "exact_json_roundtrip": "{\"instrument_profile_id\":\"mycelix.finance.instrument.sap.micro.v1\",\"minor_units\":\"18446744073709551615\"}",
+  "subtraction_vectors": [
+    {
+      "id": "same-profile-subtraction",
+      "left_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "left": "3",
+      "right_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "right": "2",
+      "expected": "1"
+    },
+    {
+      "id": "subtract-to-zero",
+      "left_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "left": "2",
+      "right_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "right": "2",
+      "expected": "0"
+    },
+    {
+      "id": "subtraction-underflow",
+      "left_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "left": "1",
+      "right_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "right": "2",
+      "expected_error": "Underflow"
+    },
+    {
+      "id": "cross-profile-subtraction",
+      "left_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "left": "2",
+      "right_profile": "mycelix.finance.instrument.tend.v1",
+      "right": "1",
+      "expected_error": "ProfileMismatch"
+    },
+    {
+      "id": "unadmitted-tend-subtraction",
+      "left_profile": "mycelix.finance.instrument.tend.v1",
+      "left": "2",
+      "right_profile": "mycelix.finance.instrument.tend.v1",
+      "right": "1",
+      "expected_error": "UnsupportedProfile"
+    }
+  ]
 }
