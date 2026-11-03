@@ -205,6 +205,55 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn mldsa65_encoded_lengths_match_final_fips204_parameters() {
+        const PUBLIC_KEY_BYTES: usize = 1_952;
+        const SIGNATURE_BYTES: usize = 3_309;
+
+        let signer = HybridSigner::generate();
+        let keys = signer.verifying_keys();
+        let signature = signer.sign(b"FIPS 204 encoded-length contract");
+
+        assert_eq!(keys.ml_dsa.len(), PUBLIC_KEY_BYTES);
+        assert_eq!(signature.ml_dsa.len(), SIGNATURE_BYTES);
+        assert_eq!(
+            EncodedVerifyingKey::<MlDsa65>::try_from(keys.ml_dsa.as_slice())
+                .expect("encoded ML-DSA-65 public key")
+                .as_slice()
+                .len(),
+            PUBLIC_KEY_BYTES
+        );
+        assert_eq!(
+            EncodedSignature::<MlDsa65>::try_from(signature.ml_dsa.as_slice())
+                .expect("encoded ML-DSA-65 signature")
+                .as_slice()
+                .len(),
+            SIGNATURE_BYTES
+        );
+    }
+
+    #[test]
+    fn malformed_mldsa65_encoded_lengths_fail_closed() {
+        let signer = HybridSigner::generate();
+        let message = b"reject malformed encoded lengths";
+        let keys = signer.verifying_keys();
+        let mut signature = signer.sign(message);
+        signature.ml_dsa.pop();
+        assert!(
+            verify(&keys, message, &signature).is_err(),
+            "truncated ML-DSA-65 signature must be rejected"
+        );
+
+        let mut malformed_keys = keys.clone();
+        malformed_keys.ml_dsa.pop();
+        let valid_signature = signer.sign(message);
+        assert!(
+            verify(&malformed_keys, message, &valid_signature).is_err(),
+            "truncated ML-DSA-65 public key must be rejected"
+        );
+    }
+
     #[test]
     fn forged_ed25519_half_is_rejected() {
         let signer = HybridSigner::generate();
