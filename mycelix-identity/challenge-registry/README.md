@@ -76,11 +76,25 @@ survival and exactly-one-winner behavior across independent processes.
 
 ## Required tests
 
+Run the sequential SQL contract test after applying the migration:
+
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/consume_once.sql
+
+Run the two-process race test with a disposable test database and the
+migration applied:
+
+    DATABASE_URL="$DATABASE_URL" ./tests/concurrent_consume.sh
+
+The race script creates one random challenge digest and starts two separate
+psql processes that contend on the same challenge. It requires exactly one
+successful consume. It is an integration test of a running PostgreSQL primary,
+not proof of behavior under failover or a split-brain deployment.
+
 1. Valid challenge registers once; duplicate digest registration is rejected.
 2. Correct context consumes once; sequential replay returns false.
 3. Wrong verifier, audience, transaction, request digest or holder-binding
    digest returns false without consuming the row.
-4. Expired and unknown digests return false.
+4. Expired, overlong-lifetime and unknown digests return false.
 5. Two independent verifier processes racing on one digest produce exactly
    one true result.
 6. A lost HTTP/API response after a successful commit does not make retry
