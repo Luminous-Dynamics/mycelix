@@ -459,55 +459,116 @@ fn run_negative_mutations(corpus: &Value, schema: &Value) -> Result<usize, Strin
     }
 
     let mut count = 0usize;
-    mutation_must_fail("missing source record", corpus, schema, |value| {
-        value["cases"][0]["input"]["captured_records"] = json!(1);
-    })?;
+    mutation_must_fail(
+        "missing source record",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][0]["input"]["captured_records"] = json!(1);
+        },
+    )?;
     count += 1;
-    mutation_must_fail("missing pagination page", corpus, schema, |value| {
-        value["cases"][0]["input"]["all_pages_present"] = json!(false);
-    })?;
+    mutation_must_fail(
+        "missing pagination page",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][0]["input"]["all_pages_present"] = json!(false);
+        },
+    )?;
     count += 1;
-    mutation_must_fail("duplicate source record identity", corpus, schema, |value| {
-        let first_source_id = value["cases"][0]["input"]["items"][0]["source_id"].clone();
-        value["cases"][0]["input"]["items"][1]["source_id"] = first_source_id;
-    })?;
+    mutation_must_fail(
+        "duplicate source record identity",
+        corpus,
+        schema,
+        |value| {
+            let first_source_id =
+                value["cases"][0]["input"]["items"][0]["source_id"].clone();
+            value["cases"][0]["input"]["items"][1]["source_id"] = first_source_id;
+        },
+    )?;
     count += 1;
-    mutation_must_fail("exact replay with changed fingerprint", corpus, schema, |value| {
-        value["cases"][1]["input"]["payload_fingerprint_equal"] = json!(false);
-    })?;
+    mutation_must_fail(
+        "exact replay with changed fingerprint",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][1]["input"]["payload_fingerprint_equal"] = json!(false);
+        },
+    )?;
     count += 1;
-    mutation_must_fail("conflicting identity with same digest", corpus, schema, |value| {
-        let first_digest = value["cases"][2]["input"]["first_digest"].clone();
-        value["cases"][2]["input"]["second_digest"] = first_digest;
-    })?;
+    mutation_must_fail(
+        "conflicting identity with same digest",
+        corpus,
+        schema,
+        |value| {
+            let first_digest = value["cases"][2]["input"]["first_digest"].clone();
+            value["cases"][2]["input"]["second_digest"] = first_digest;
+        },
+    )?;
     count += 1;
-    mutation_must_fail("instrument substitution silently accepted", corpus, schema, |value| {
-        value["cases"][5]["expected"] = json!("accept_import_and_reconcile");
-    })?;
+    mutation_must_fail(
+        "instrument substitution silently accepted",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][5]["expected"] = json!("accept_import_and_reconcile");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("unknown lifecycle status mapped as booked", corpus, schema, |value| {
-        value["cases"][6]["input"]["source_status"] = json!("booked");
-    })?;
+    mutation_must_fail(
+        "unknown lifecycle status mapped as booked",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][6]["input"]["source_status"] = json!("booked");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("accepted promoted to final without evidence", corpus, schema, |value| {
-        value["cases"][7]["expected"] = json!("accept_import_and_reconcile");
-    })?;
+    mutation_must_fail(
+        "accepted promoted to final without evidence",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][7]["expected"] = json!("accept_import_and_reconcile");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("legal entity substitution accepted", corpus, schema, |value| {
-        value["cases"][8]["expected"] = json!("accept_import_and_reconcile");
-    })?;
+    mutation_must_fail(
+        "legal entity substitution accepted",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][8]["expected"] = json!("accept_import_and_reconcile");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("rollback despite possible external effect", corpus, schema, |value| {
-        value["cases"][9]["input"]["external_effect_possible"] = json!(true);
-    })?;
+    mutation_must_fail(
+        "rollback despite possible external effect",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][9]["input"]["external_effect_possible"] = json!(true);
+        },
+    )?;
     count += 1;
-    mutation_must_fail("unknown provider effect marked retry-safe", corpus, schema, |value| {
-        value["cases"][10]["expected"] = json!("rollback_permitted");
-    })?;
+    mutation_must_fail(
+        "unknown provider effect marked retry-safe",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][10]["expected"] = json!("rollback_permitted");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("ambiguous local time coerced to resolved", corpus, schema, |value| {
-        value["cases"][11]["expected"] = json!("accept_import_and_reconcile");
-    })?;
+    mutation_must_fail(
+        "ambiguous local time coerced to resolved",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][11]["expected"] = json!("accept_import_and_reconcile");
+        },
+    )?;
     count += 1;
 
     Ok(count)
