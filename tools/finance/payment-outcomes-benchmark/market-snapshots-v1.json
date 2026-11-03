@@ -76,7 +76,7 @@
         "display": "150 million individuals",
         "numeric": "150",
         "unit": "million_individuals",
-        "qualifier": "published_population_context_not_monthly_active_users"
+        "qualifier": "unique_individuals_who_used_pix_during_september_2026"
       },
       "institution_coverage": null,
       "peak_context": {
@@ -86,7 +86,7 @@
         "unit": "million_transactions_daily_peak"
       },
       "limitations": [
-        "Monthly ecosystem snapshot; the active-individual count is not defined here as monthly active users",
+        "The unique-individual count refers to people who used Pix during September 2026; it is not daily active users or registered users",
         "Not a matched cohort with UPI or PayShap",
         "Published transaction population and product scope differ across systems",
         "Not evidence of Mycelix or South African service capability"
