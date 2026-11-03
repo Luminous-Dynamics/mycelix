@@ -193,6 +193,7 @@ pub struct VcPresentationVerificationResult {
     pub holder: String,
     pub valid: bool,
     pub errors: Vec<String>,
+    pub holder_signature_status: VcSignatureStatus,
     pub credential_results: Vec<VcPresentationCredentialResult>,
     pub verified_at: Timestamp,
 }
