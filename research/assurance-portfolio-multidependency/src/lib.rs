@@ -1980,10 +1980,7 @@ mod tests {
                 role(
                     "independent",
                     &["node-19999"],
-                    &[
-                        FaultDomainDimension::ExecutionProvider,
-                        FaultDomainDimension::Runtime,
-                    ],
+                    &[FaultDomainDimension::Runtime],
                 ),
             ],
             nodes,
