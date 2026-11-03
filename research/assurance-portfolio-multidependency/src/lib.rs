@@ -253,7 +253,10 @@ pub struct MultiDependencyAuditReport {
     pub shared_dependencies: Vec<SharedDependency>,
     pub separation_findings: Vec<SeparationFinding>,
     pub incomplete_roles: Vec<String>,
+    pub incomplete_dimensions: Vec<(String, FaultDomainDimension, String)>,
+    pub unknown_evidence_nodes: Vec<(String, String)>,
     pub unsupported_roles: Vec<String>,
+    pub unsupported_dependencies: Vec<(String, String, DependencyEffect)>,
     pub transitive_node_count_by_role: BTreeMap<String, usize>,
     pub cut_sets: MinimalCutSetReport,
 }
@@ -478,7 +481,10 @@ pub fn audit_multi_dependency_graph(
 
     let mut projections = BTreeMap::<String, RoleProjection>::new();
     let mut incomplete_roles = BTreeSet::new();
+    let mut incomplete_dimensions = BTreeSet::new();
+    let mut unknown_evidence_nodes = BTreeSet::new();
     let mut unsupported_roles = BTreeSet::new();
+    let mut unsupported_dependencies = BTreeSet::new();
     let mut all_reachable = BTreeSet::new();
 
     for (role_name, role) in &roles {
@@ -513,12 +519,22 @@ pub fn audit_multi_dependency_graph(
                         return Err(AuditError::EmptyRationale);
                     }
                     incomplete_roles.insert(role_name.clone());
+                    incomplete_dimensions.insert((
+                        role_name.clone(),
+                        dimension,
+                        rationale.clone(),
+                    ));
                 }
                 DimensionCoverage::Unknown { rationale } => {
                     if rationale.trim().is_empty() {
                         return Err(AuditError::EmptyRationale);
                     }
                     incomplete_roles.insert(role_name.clone());
+                    incomplete_dimensions.insert((
+                        role_name.clone(),
+                        dimension,
+                        rationale.clone(),
+                    ));
                 }
                 DimensionCoverage::NotApplicable { rationale } => {
                     if rationale.trim().is_empty() {
@@ -538,7 +554,10 @@ pub fn audit_multi_dependency_graph(
                 EvidenceCurrentness::Current => {}
                 EvidenceCurrentness::Stale => return Err(AuditError::StaleEvidence),
                 EvidenceCurrentness::Revoked => return Err(AuditError::RevokedEvidence),
-                EvidenceCurrentness::Unknown => incomplete_roles.insert(role_name.clone()),
+                EvidenceCurrentness::Unknown => {
+                    incomplete_roles.insert(role_name.clone());
+                    unknown_evidence_nodes.insert((role_name.clone(), node_id.clone()));
+                }
             }
             match node.effect {
                 DependencyEffect::ClaimCritical => {
@@ -549,6 +568,11 @@ pub fn audit_multi_dependency_graph(
                 }
                 DependencyEffect::Optional | DependencyEffect::RedundantOrFallback => {
                     unsupported_roles.insert(role_name.clone());
+                    unsupported_dependencies.insert((
+                        role_name.clone(),
+                        node_id.clone(),
+                        node.effect,
+                    ));
                 }
             }
         }
@@ -680,7 +704,10 @@ pub fn audit_multi_dependency_graph(
         shared_dependencies,
         separation_findings,
         incomplete_roles: incomplete_roles.into_iter().collect(),
+        incomplete_dimensions: incomplete_dimensions.into_iter().collect(),
+        unknown_evidence_nodes: unknown_evidence_nodes.into_iter().collect(),
         unsupported_roles: unsupported_roles.into_iter().collect(),
+        unsupported_dependencies: unsupported_dependencies.into_iter().collect(),
         transitive_node_count_by_role: projections
             .into_iter()
             .map(|(role, projection)| (role, projection.closure.len()))
