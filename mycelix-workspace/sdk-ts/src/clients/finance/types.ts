@@ -361,8 +361,13 @@ export interface Receipt {
   from_did: Did;
   to_did: Did;
   amount: number;
+  /** Fee in the same atomic unit as amount. Optional on legacy receipts. */
+  fee?: number;
   currency: string;
   timestamp: Timestamp;
+  /** Holochain ActionHash of the exact Payment entry. Missing on legacy receipts. */
+  payment_action_hash?: string | null;
+  /** Versioned Ed25519 signature: mycelix-finance-receipt-v1:<lowercase-hex>. */
   signature: string;
 }
 
