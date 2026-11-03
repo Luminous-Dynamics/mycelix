@@ -975,7 +975,72 @@ fn validate_hearth_sap_pool(pool: &HearthSapPool) -> ExternResult<ValidateCallba
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct MockReceiptSignatureHdi {
+        result: bool,
+    }
+
+    impl hdi::hdi::HdiT for MockReceiptSignatureHdi {
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            Ok(self.result)
+        }
+        fn must_get_valid_record(&self, _: MustGetValidRecordInput) -> ExternResult<Record> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn must_get_action(&self, _: MustGetActionInput) -> ExternResult<SignedActionHashed> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn must_get_agent_activity(
+            &self,
+            _: MustGetAgentActivityInput,
+        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn zome_info(&self, _: ()) -> ExternResult<ZomeInfo> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn trace(&self, _: TraceMsg) -> ExternResult<()> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn x_salsa20_poly1305_decrypt(
+            &self,
+            _: XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn x_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: X25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+        fn ed_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: Ed25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<XSalsa20Poly1305Data> {
+            unimplemented!("not exercised by the isolated signature verifier")
+        }
+    }
     use mycelix_finance_types::{SapMintSource, SuccessionPreference};
+
+    #[test]
+    fn test_receipt_v1_signature_verifier_uses_hdi_result() {
+        let author = AgentPubKey::from_raw_36(vec![0; 36]);
+        let receipt = valid_receipt();
+        let payment_hash = valid_payment_action_hash();
+
+        hdi::hdi::set_hdi(MockReceiptSignatureHdi { result: false });
+        assert!(!verify_receipt_signature_v1(&author, &receipt, &payment_hash).unwrap());
+
+        hdi::hdi::set_hdi(MockReceiptSignatureHdi { result: true });
+        assert!(verify_receipt_signature_v1(&author, &receipt, &payment_hash).unwrap());
+    }
 
     fn ts(micros: i64) -> Timestamp {
         Timestamp::from_micros(micros)
