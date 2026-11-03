@@ -1034,6 +1034,12 @@ fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)>
     ))))
 }
 
+/// Return the exact SAP sender debit (principal + fee) without wrapping.
+#[inline]
+fn checked_sap_total_debit(amount: u64, fee: u64) -> Option<u64> {
+    amount.checked_add(fee)
+}
+
 /// Compute the progressive SAP fee for a payment based on sender's MYCEL score.
 ///
 /// Queries the bridge coordinator for the canonical fee tier (single source of truth).
@@ -1218,7 +1224,12 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
 
     // SAP-only endpoint: direct TEND payments use the separate exchange protocol.
     let fee = compute_sap_fee(&input.from_did, input.amount)?;
-    let total_debit = input.amount + fee;
+    // Reject overflow before either sender debit or receiver credit.
+    let total_debit = checked_sap_total_debit(input.amount, fee).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "SAP payment amount plus fee exceeds the u64 micro-SAP range".into()
+        ))
+    })?;
 
     debit_sap(DebitSapInput {
         member_did: input.from_did.clone(),
@@ -2533,5 +2544,30 @@ mod direct_payment_currency_tests {
         assert!(!supports_direct_payment_currency("MYC"));
         assert!(!supports_direct_payment_currency("USD"));
         assert!(!supports_direct_payment_currency(""));
+    }
+}
+
+#[cfg(test)]
+mod checked_sap_payment_arithmetic_tests {
+    use super::checked_sap_total_debit;
+
+    #[test]
+    fn maximum_amount_with_zero_fee_is_representable() {
+        assert_eq!(checked_sap_total_debit(u64::MAX, 0), Some(u64::MAX));
+    }
+
+    #[test]
+    fn maximum_amount_with_positive_fee_is_rejected() {
+        assert_eq!(checked_sap_total_debit(u64::MAX, 1), None);
+        assert_eq!(checked_sap_total_debit(u64::MAX - 7, 8), None);
+    }
+
+    #[test]
+    fn ordinary_principal_and_fee_are_added_exactly() {
+        assert_eq!(
+            checked_sap_total_debit(100_000_000, 100_000),
+            Some(100_100_000)
+        );
+        assert_eq!(checked_sap_total_debit(0, 0), Some(0));
     }
 }
