@@ -90,7 +90,7 @@
       "metrics": {
         "eligible_attempts": 2000,
         "recipient_available": 1960,
-        "terminal_failures": 25,
+        "terminal_failures": 17,
         "unknown_outcomes": 16,
         "returned_or_reversed": 9,
         "duplicate_effects": 0,
