@@ -222,6 +222,7 @@ mod tests {
         positive_vectors: Vec<PositiveVector>,
         negative_vectors: Vec<NegativeVector>,
         arithmetic_vectors: Vec<ArithmeticVector>,
+        subtraction_vectors: Vec<ArithmeticVector>,
         exact_json_roundtrip: String,
     }
 
@@ -299,6 +300,29 @@ mod tests {
             let left = MoneyAmountV1::new(&vector.left_profile, &vector.left).unwrap();
             let right = MoneyAmountV1::new(&vector.right_profile, &vector.right).unwrap();
             match (left.checked_add(&right), vector.expected, vector.expected_error) {
+                (Ok(actual), Some(expected), None) => {
+                    assert_eq!(actual.minor_units, expected, "{}", vector.id);
+                }
+                (Err(error), None, Some(expected_error)) => {
+                    assert_eq!(error.code(), expected_error, "{}", vector.id);
+                }
+                (actual, expected, expected_error) => {
+                    panic!(
+                        "{}: unexpected result {actual:?}, expected {expected:?}/{expected_error:?}",
+                        vector.id
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn every_subtraction_golden_vector_matches_checked_semantics() {
+        let corpus = golden();
+        for vector in corpus.subtraction_vectors {
+            let left = MoneyAmountV1::new(&vector.left_profile, &vector.left).unwrap();
+            let right = MoneyAmountV1::new(&vector.right_profile, &vector.right).unwrap();
+            match (left.checked_sub(&right), vector.expected, vector.expected_error) {
                 (Ok(actual), Some(expected), None) => {
                     assert_eq!(actual.minor_units, expected, "{}", vector.id);
                 }
