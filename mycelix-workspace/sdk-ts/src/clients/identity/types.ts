@@ -169,6 +169,12 @@ export interface CredentialProof {
    * a W3C Data Integrity cryptosuite implementation.
    */
   cryptosuite?: string;
+  /** Algorithm multicodec value, signed as part of the Mycelix V1 proof header. */
+  algorithm?: number;
+  /** Optional replay challenge, included in the signed proof header. */
+  challenge?: string;
+  /** Optional proof domain, included in the signed proof header. */
+  domain?: string;
 }
 
 /**
