@@ -785,6 +785,7 @@ fn run_self_tests(
 
     let baseline = runs["runs"][1].clone();
     let mut fee_shift_candidate = baseline.clone();
+    fee_shift_candidate["run_id"] = json!("FEE-SHIFT-CONTROL-SYNTHETIC");
     fee_shift_candidate["provider_class"] = json!("mycelix_candidate");
     fee_shift_candidate["label"] = json!("synthetic fee-shift negative control");
     fee_shift_candidate["metrics"]["payer_fee_minor_units"] = json!(70_000);
