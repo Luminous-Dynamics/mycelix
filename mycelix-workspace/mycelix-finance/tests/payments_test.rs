@@ -484,7 +484,7 @@ mod payment_validation {
         println!("Test 2.3 PASSED: Self-payments are properly rejected");
     }
 
-    /// Test 2.4: Invalid currency rejected (only SAP and TEND accepted)
+    /// Test 2.4: Invalid currency rejected (only SAP accepted)
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
     async fn test_invalid_currency_rejected() {
@@ -507,7 +507,7 @@ mod payment_validation {
         let bob_did = format!("did:mycelix:{}", agents[1]);
 
         // Test invalid currencies that are no longer accepted
-        let invalid_currencies = vec!["MYC", "USD", "ENERGY", "BTC", "ETH"];
+        let invalid_currencies = vec!["TEND", "MYC", "USD", "ENERGY", "BTC", "ETH"];
 
         for currency in invalid_currencies {
             let input = SendPaymentInput {
@@ -1116,10 +1116,12 @@ mod currency_tests {
         println!("Test 5.1 PASSED: SAP payment works");
     }
 
-    /// Test 5.2: TEND must use the TEND exchange protocol, not SAP direct payment.
+    /// Test 5.2: TEND is rejected by the SAP direct-payment endpoint.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
     async fn test_tend_rejected_by_sap_direct_payment_endpoint() {
+        println!("Test 5.2: TEND Currency Payment");
+
         let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
         let dna = SweetDnaFile::from_bundle(&dna_path)
             .await
@@ -1135,13 +1137,14 @@ mod currency_tests {
         let alice_cell = &apps[0].cells()[0];
         let alice_did = format!("did:mycelix:{}", agents[0]);
         let bob_did = format!("did:mycelix:{}", agents[1]);
+
         let input = SendPaymentInput {
-            from_did: alice_did,
-            to_did: bob_did,
+            from_did: alice_did.clone(),
+            to_did: bob_did.clone(),
             amount: 5_000_000,
             currency: "TEND".to_string(),
             payment_type: PaymentType::Direct,
-            memo: Some("TEND must use the TEND exchange protocol".to_string()),
+            memo: Some("TEND payment".to_string()),
         };
 
         let result: Result<Record, _> = conductor
@@ -1187,7 +1190,7 @@ mod currency_tests {
             .await;
         println!("  - SAP accepted: OK");
 
-        // TEND is a separate mutual-credit exchange instrument, not SAP direct payment.
+        // TEND belongs to the dedicated exchange protocol, not SAP direct payment.
         let tend_input = SendPaymentInput {
             from_did: alice_did.clone(),
             to_did: bob_did.clone(),
@@ -1201,7 +1204,7 @@ mod currency_tests {
             .call_fallible(&alice_cell.zome("payments"), "send_payment", tend_input)
             .await;
         assert!(tend_result.is_err(), "TEND must be rejected by SAP direct payment");
-        println!("  - TEND rejected by direct-payment API: OK");
+        println!("  - TEND rejected by direct-payment endpoint: OK");
 
         // Invalid: MYC (old currency, no longer accepted)
         let myc_input = SendPaymentInput {
