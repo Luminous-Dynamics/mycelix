@@ -596,20 +596,17 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
     let mut errors = Vec::new();
     let mut checks_passed = vec!["format".to_string()];
 
-    // Check expiration using ISO 8601 parsing (fail-closed)
-    if let Some(valid_until) = &credential.valid_until {
-        match parse_iso8601_expired(valid_until, now) {
-            ExpirationStatus::Expired => {
-                errors.push("Credential has expired".to_string());
-            }
-            ExpirationStatus::ParseError => {
-                errors.push(format!(
-                    "Credential expiration date unparseable (fail-closed): '{}'",
-                    valid_until
-                ));
-            }
-            ExpirationStatus::Valid => {}
-        }
+    // Enforce the complete [validFrom, validUntil) interval. Signature
+    // coverage does not replace temporal validity checks.
+    let validity = credential_validity_status(
+        &credential.valid_from,
+        credential.valid_until.as_deref(),
+        now,
+    );
+    if let Some(reason) = validity.error_message() {
+        errors.push(reason.to_string());
+    } else {
+        checks_passed.push("validity_window".to_string());
     }
 
     // Only a fully verified proof can be used as successful credential evidence.
@@ -1174,20 +1171,15 @@ pub fn verify_presentation(
             }
         }
 
-        // Check expiration (fail-closed)
-        if let Some(valid_until) = &cred.valid_until {
-            match parse_iso8601_expired(valid_until, now) {
-                ExpirationStatus::Expired => {
-                    cred_errors.push("Credential expired".to_string());
-                }
-                ExpirationStatus::ParseError => {
-                    cred_errors.push(format!(
-                        "Credential expiration date unparseable (fail-closed): '{}'",
-                        valid_until
-                    ));
-                }
-                ExpirationStatus::Valid => {}
-            }
+        // Use the same half-open validity-window policy as standalone
+        // credential verification.
+        let validity = credential_validity_status(
+            &cred.valid_from,
+            cred.valid_until.as_deref(),
+            now,
+        );
+        if let Some(reason) = validity.error_message() {
+            cred_errors.push(reason.to_string());
         }
 
         let cred_valid = cred_errors.is_empty() && proof_signature_status.is_verified();
@@ -1579,6 +1571,17 @@ pub fn verify_derived_credential(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Invalid original credential".into()
         )))?;
+
+    // The original issuer credential must itself be inside its complete
+    // validity window; validFrom was previously signed but not enforced.
+    let original_validity = credential_validity_status(
+        &original_vc.valid_from,
+        original_vc.valid_until.as_deref(),
+        now,
+    );
+    if let Some(reason) = original_validity.error_message() {
+        errors.push(format!("Original credential validity: {reason}"));
+    }
 
     // Verify the original credential hash matches
     match compute_credential_hash_for_profile(&original_vc) {
@@ -2128,134 +2131,240 @@ fn base58_decode(s: &str) -> Option<Vec<u8>> {
 // ISO 8601 DATE PARSING
 // =============================================================================
 
-/// Parse an ISO 8601 datetime string and check if it's expired
-///
-/// Supports formats:
-/// - `2024-12-31T23:59:59Z` (UTC)
-/// - `2024-12-31T23:59:59+00:00` (with timezone offset)
-/// - `2024-12-31` (date only, assumes end of day UTC)
-///
-/// Returns the expiration status of a datetime string relative to `now`.
-///
-/// Fail-closed: if the datetime string cannot be parsed, returns
-/// `ExpirationStatus::ParseError` so callers can treat it as a verification
-/// failure rather than silently accepting a potentially expired credential.
+/// Parse a date/time and check whether an expiry has been reached.
+/// Expiry is exclusive: `now == validUntil` is already expired.
 fn parse_iso8601_expired(datetime_str: &str, now: Timestamp) -> ExpirationStatus {
-    match parse_iso8601_to_micros(datetime_str) {
-        Some(expiry_micros) => {
-            let now_micros = now.as_micros();
-            if now_micros > expiry_micros {
-                ExpirationStatus::Expired
-            } else {
-                ExpirationStatus::Valid
-            }
-        }
+    match parse_iso8601_to_micros_with_policy(datetime_str, DateOnlyPolicy::EndOfDay) {
+        Some(expiry_micros) if now.as_micros() >= expiry_micros => ExpirationStatus::Expired,
+        Some(_) => ExpirationStatus::Valid,
         None => ExpirationStatus::ParseError,
     }
 }
 
-/// Result of checking a credential's expiration date.
+/// Result of checking an expiration date.
 #[derive(Debug, Clone, PartialEq)]
 enum ExpirationStatus {
-    /// The credential has not yet expired.
     Valid,
-    /// The credential has expired.
     Expired,
-    /// The expiration date could not be parsed (fail-closed: treat as invalid).
     ParseError,
 }
 
-/// Parse ISO 8601 datetime string to microseconds since Unix epoch
-fn parse_iso8601_to_micros(s: &str) -> Option<i64> {
-    // Handle date-only format: "2024-12-31"
-    if s.len() == 10 && s.chars().nth(4) == Some('-') && s.chars().nth(7) == Some('-') {
-        let year: i32 = s[0..4].parse().ok()?;
-        let month: u32 = s[5..7].parse().ok()?;
-        let day: u32 = s[8..10].parse().ok()?;
-
-        // Validate ranges
-        if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-            return None;
-        }
-
-        // Convert to days since epoch and then to microseconds
-        // Simplified: use end of day (23:59:59) for date-only
-        let days = days_since_epoch(year, month, day)?;
-        let secs = days as i64 * 86400 + 86399; // End of day
-        return Some(secs * 1_000_000);
-    }
-
-    // Handle full datetime format: "2024-12-31T23:59:59Z" or "2024-12-31T23:59:59+00:00"
-    if s.len() >= 19 && s.chars().nth(10) == Some('T') {
-        let year: i32 = s[0..4].parse().ok()?;
-        let month: u32 = s[5..7].parse().ok()?;
-        let day: u32 = s[8..10].parse().ok()?;
-        let hour: u32 = s[11..13].parse().ok()?;
-        let minute: u32 = s[14..16].parse().ok()?;
-        let second: u32 = s[17..19].parse().ok()?;
-
-        // Validate ranges
-        if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-            return None;
-        }
-        if hour > 23 || minute > 59 || second > 59 {
-            return None;
-        }
-
-        // Parse timezone offset if present
-        let tz_offset_secs: i64 = if s.len() > 19 {
-            let tz_part = &s[19..];
-            if tz_part == "Z" || tz_part.is_empty() {
-                0
-            } else if tz_part.starts_with('+') || tz_part.starts_with('-') {
-                parse_tz_offset(tz_part)?
-            } else {
-                0
-            }
-        } else {
-            0
-        };
-
-        let days = days_since_epoch(year, month, day)?;
-        let day_secs = hour as i64 * 3600 + minute as i64 * 60 + second as i64;
-        let total_secs = days as i64 * 86400 + day_secs - tz_offset_secs;
-
-        return Some(total_secs * 1_000_000);
-    }
-
-    None
+/// Explicit date-only interpretation for the internal credential profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DateOnlyPolicy {
+    /// A date-only validFrom becomes 00:00:00.000000 UTC.
+    StartOfDay,
+    /// A date-only validUntil becomes 23:59:59.999999 UTC.
+    EndOfDay,
 }
 
-/// Parse timezone offset like "+05:30" or "-08:00" to seconds
-fn parse_tz_offset(s: &str) -> Option<i64> {
-    if s.len() < 3 {
+/// Credential validity is the half-open interval [validFrom, validUntil).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CredentialValidityStatus {
+    Valid,
+    NotYetValid,
+    Expired,
+    InvalidWindow,
+    InvalidValidFrom,
+    InvalidValidUntil,
+}
+
+impl CredentialValidityStatus {
+    fn error_message(self) -> Option<&'static str> {
+        match self {
+            Self::Valid => None,
+            Self::NotYetValid => Some("Credential is not yet valid (validFrom is in the future)"),
+            Self::Expired => Some("Credential has expired (validUntil is at or before now)"),
+            Self::InvalidWindow => Some("Credential validUntil must be later than validFrom"),
+            Self::InvalidValidFrom => Some("Credential validFrom is missing or unparseable"),
+            Self::InvalidValidUntil => Some("Credential validUntil is unparseable"),
+        }
+    }
+}
+
+fn credential_validity_status(
+    valid_from: &str,
+    valid_until: Option<&str>,
+    now: Timestamp,
+) -> CredentialValidityStatus {
+    let Some(valid_from_micros) =
+        parse_iso8601_to_micros_with_policy(valid_from, DateOnlyPolicy::StartOfDay)
+    else {
+        return CredentialValidityStatus::InvalidValidFrom;
+    };
+
+    let valid_until_micros = match valid_until {
+        Some(value) => match parse_iso8601_to_micros_with_policy(value, DateOnlyPolicy::EndOfDay) {
+            Some(parsed) => Some(parsed),
+            None => return CredentialValidityStatus::InvalidValidUntil,
+        },
+        None => None,
+    };
+
+    if valid_until_micros.is_some_and(|expiry| expiry <= valid_from_micros) {
+        return CredentialValidityStatus::InvalidWindow;
+    }
+    if now.as_micros() < valid_from_micros {
+        return CredentialValidityStatus::NotYetValid;
+    }
+    if valid_until_micros.is_some_and(|expiry| now.as_micros() >= expiry) {
+        return CredentialValidityStatus::Expired;
+    }
+    CredentialValidityStatus::Valid
+}
+
+/// Parse ISO 8601 date/time to microseconds since Unix epoch.
+///
+/// Accepted forms:
+/// - `YYYY-MM-DD` (date-only, interpreted by the explicit caller policy);
+/// - `YYYY-MM-DDTHH:MM:SSZ`;
+/// - `YYYY-MM-DDTHH:MM:SS.fractionZ` with 1–6 fractional digits;
+/// - the same timestamp forms with `+HH:MM`, `-HH:MM`, `+HHMM`,
+///   `-HHMM`, `+HH`, or `-HH` offsets.
+///
+/// Full date-times require an explicit timezone. Calendar fields and timezone
+/// fields are validated strictly. Fractional seconds are represented at
+/// microsecond precision; more than six fractional digits are rejected
+/// rather than silently rounded or truncated.
+fn parse_iso8601_to_micros(s: &str) -> Option<i64> {
+    parse_iso8601_to_micros_with_policy(s, DateOnlyPolicy::EndOfDay)
+}
+
+fn parse_iso8601_to_micros_with_policy(s: &str, date_only_policy: DateOnlyPolicy) -> Option<i64> {
+    let bytes = s.as_bytes();
+    if bytes.len() == 10 && bytes.get(4) == Some(&b'-') && bytes.get(7) == Some(&b'-') {
+        let year = parse_ascii_number(&bytes[0..4])? as i32;
+        let month = parse_ascii_number(&bytes[5..7])?;
+        let day = parse_ascii_number(&bytes[8..10])?;
+        validate_calendar_date(year, month, day)?;
+
+        let days = days_since_epoch(year, month, day)?;
+        let seconds_in_day = match date_only_policy {
+            DateOnlyPolicy::StartOfDay => 0,
+            DateOnlyPolicy::EndOfDay => 86_399,
+        };
+        let fractional_micros = match date_only_policy {
+            DateOnlyPolicy::StartOfDay => 0,
+            DateOnlyPolicy::EndOfDay => 999_999,
+        };
+        return days
+            .checked_mul(86_400)?
+            .checked_add(seconds_in_day)?
+            .checked_mul(1_000_000)?
+            .checked_add(fractional_micros);
+    }
+
+    if bytes.len() < 20
+        || bytes.get(4) != Some(&b'-')
+        || bytes.get(7) != Some(&b'-')
+        || bytes.get(10) != Some(&b'T')
+        || bytes.get(13) != Some(&b':')
+        || bytes.get(16) != Some(&b':')
+    {
         return None;
     }
 
-    let sign: i64 = if s.starts_with('+') { 1 } else { -1 };
-    let rest = &s[1..];
-
-    // Handle "+0530" format
-    if rest.len() == 4 && !rest.contains(':') {
-        let hours: i64 = rest[0..2].parse().ok()?;
-        let minutes: i64 = rest[2..4].parse().ok()?;
-        return Some(sign * (hours * 3600 + minutes * 60));
+    let year = parse_ascii_number(&bytes[0..4])? as i32;
+    let month = parse_ascii_number(&bytes[5..7])?;
+    let day = parse_ascii_number(&bytes[8..10])?;
+    let hour = parse_ascii_number(&bytes[11..13])?;
+    let minute = parse_ascii_number(&bytes[14..16])?;
+    let second = parse_ascii_number(&bytes[17..19])?;
+    validate_calendar_date(year, month, day)?;
+    if hour > 23 || minute > 59 || second > 59 {
+        return None;
     }
 
-    // Handle "+05:30" format
-    if rest.len() >= 5 && rest.chars().nth(2) == Some(':') {
-        let hours: i64 = rest[0..2].parse().ok()?;
-        let minutes: i64 = rest[3..5].parse().ok()?;
-        return Some(sign * (hours * 3600 + minutes * 60));
+    let mut suffix_start = 19;
+    let mut fractional_micros = 0_i64;
+    if bytes.get(suffix_start) == Some(&b'.') {
+        let fraction_start = suffix_start + 1;
+        let mut fraction_end = fraction_start;
+        while bytes.get(fraction_end).is_some_and(u8::is_ascii_digit) {
+            fraction_end += 1;
+        }
+        let fraction_len = fraction_end - fraction_start;
+        if !(1..=6).contains(&fraction_len) {
+            return None;
+        }
+        let fraction = parse_ascii_number(&bytes[fraction_start..fraction_end])?;
+        fractional_micros =
+            (fraction as i64).checked_mul(10_i64.pow((6 - fraction_len) as u32))?;
+        suffix_start = fraction_end;
     }
 
-    // Handle "+05" format (hours only)
-    if rest.len() == 2 {
-        let hours: i64 = rest.parse().ok()?;
-        return Some(sign * hours * 3600);
-    }
+    // The timezone suffix is mandatory for full date-times. Unknown trailing
+    // data is rejected rather than silently treated as UTC.
+    let suffix = s.get(suffix_start..)?;
+    let timezone_offset_seconds = if suffix == "Z" {
+        0
+    } else {
+        parse_tz_offset(suffix)?
+    };
 
-    None
+    let days = days_since_epoch(year, month, day)?;
+    let day_seconds = (hour as i64)
+        .checked_mul(3_600)?
+        .checked_add((minute as i64).checked_mul(60)?)?
+        .checked_add(second as i64)?;
+    let utc_seconds = days
+        .checked_mul(86_400)?
+        .checked_add(day_seconds)?
+        .checked_sub(timezone_offset_seconds)?;
+    utc_seconds
+        .checked_mul(1_000_000)?
+        .checked_add(fractional_micros)
+}
+
+fn parse_ascii_number(bytes: &[u8]) -> Option<u32> {
+    if bytes.is_empty() || !bytes.iter().all(u8::is_ascii_digit) {
+        return None;
+    }
+    std::str::from_utf8(bytes).ok()?.parse().ok()
+}
+
+fn validate_calendar_date(year: i32, month: u32, day: u32) -> Option<()> {
+    if !(1..=9999).contains(&year) || !(1..=12).contains(&month) {
+        return None;
+    }
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if is_leap_year(year) => 29,
+        2 => 28,
+        _ => return None,
+    };
+    if day == 0 || day > days_in_month {
+        return None;
+    }
+    Some(())
+}
+
+/// Parse timezone offsets in `±HH:MM`, `±HHMM`, or `±HH` form.
+fn parse_tz_offset(s: &str) -> Option<i64> {
+    let bytes = s.as_bytes();
+    let sign = match bytes.first()? {
+        b'+' => 1_i64,
+        b'-' => -1_i64,
+        _ => return None,
+    };
+    let rest = &bytes[1..];
+    let (hours, minutes) = match rest.len() {
+        2 => (parse_ascii_number(rest)?, 0),
+        4 if rest.get(2) != Some(&b':') => (
+            parse_ascii_number(&rest[0..2])?,
+            parse_ascii_number(&rest[2..4])?,
+        ),
+        5 if rest.get(2) == Some(&b':') => (
+            parse_ascii_number(&rest[0..2])?,
+            parse_ascii_number(&rest[3..5])?,
+        ),
+        _ => return None,
+    };
+    if hours > 23 || minutes > 59 {
+        return None;
+    }
+    Some(sign * ((hours as i64) * 3_600 + (minutes as i64) * 60))
 }
 
 /// Calculate days since Unix epoch (1970-01-01) for a given date
@@ -2792,7 +2901,7 @@ mod tests {
         let micros = parse_iso8601_to_micros("2024-01-01").unwrap();
         // Should be end of day (23:59:59)
         let expected_days = days_since_epoch(2024, 1, 1).unwrap();
-        let expected_micros = (expected_days * 86400 + 86399) * 1_000_000;
+        let expected_micros = (expected_days * 86400 + 86399) * 1_000_000 + 999_999;
         assert_eq!(micros, expected_micros);
     }
 
@@ -2823,6 +2932,117 @@ mod tests {
         assert!(parse_iso8601_to_micros("").is_none());
     }
 
+    #[test]
+    fn iso8601_rejects_invalid_calendar_dates_and_leap_days() {
+        assert!(parse_iso8601_to_micros("2024-02-30").is_none());
+        assert!(parse_iso8601_to_micros("2023-02-29").is_none());
+        assert!(parse_iso8601_to_micros("2024-04-31").is_none());
+        assert!(parse_iso8601_to_micros("2024-02-29").is_some());
+    }
+
+    #[test]
+    fn iso8601_full_timestamp_requires_valid_timezone_and_no_trailing_data() {
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00Zgarbage").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00+24:00").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00+05:60").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T24:00:00Z").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:60:00Z").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:60Z").is_none());
+    }
+
+    #[test]
+    fn iso8601_fractional_seconds_are_microsecond_exact() {
+        let base = parse_iso8601_to_micros("2024-01-01T00:00:00Z").unwrap();
+        assert_eq!(
+            parse_iso8601_to_micros("2024-01-01T00:00:00.123456Z"),
+            Some(base + 123_456)
+        );
+        assert_eq!(
+            parse_iso8601_to_micros("2024-01-01T00:00:00.1Z"),
+            Some(base + 100_000)
+        );
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00.1234567Z").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00.Z").is_none());
+    }
+
+    #[test]
+    fn iso8601_date_only_policy_has_explicit_start_and_end_of_day() {
+        let start = parse_iso8601_to_micros_with_policy(
+            "2024-01-01",
+            DateOnlyPolicy::StartOfDay,
+        ).unwrap();
+        let end = parse_iso8601_to_micros_with_policy(
+            "2024-01-01",
+            DateOnlyPolicy::EndOfDay,
+        ).unwrap();
+        let day_start = days_since_epoch(2024, 1, 1).unwrap() * 86_400 * 1_000_000;
+        assert_eq!(start, day_start);
+        assert_eq!(end, day_start + 86_399_999_999);
+    }
+
+    #[test]
+    fn credential_validity_window_enforces_not_before_and_exclusive_expiry() {
+        let now = Timestamp::from_micros(
+            days_since_epoch(2024, 1, 1).unwrap() * 86_400 * 1_000_000
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2024-01-01T00:00:00Z",
+                Some("2024-01-02T00:00:00Z"),
+                now,
+            ),
+            CredentialValidityStatus::Valid
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2024-01-02T00:00:00Z",
+                None,
+                now,
+            ),
+            CredentialValidityStatus::NotYetValid
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2023-01-01T00:00:00Z",
+                Some("2024-01-01T00:00:00Z"),
+                now,
+            ),
+            CredentialValidityStatus::Expired
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2024-01-02T00:00:00Z",
+                Some("2024-01-01T00:00:00Z"),
+                now,
+            ),
+            CredentialValidityStatus::InvalidWindow
+        );
+        assert_eq!(
+            credential_validity_status("not-a-date", None, now),
+            CredentialValidityStatus::InvalidValidFrom
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2024-01-01T00:00:00Z",
+                Some("not-a-date"),
+                now,
+            ),
+            CredentialValidityStatus::InvalidValidUntil
+        );
+    }
+
+    #[test]
+    fn credential_validity_date_only_means_start_for_from_and_end_for_until() {
+        let now = Timestamp::from_micros(
+            days_since_epoch(2024, 1, 1).unwrap() * 86_400 * 1_000_000
+        );
+        assert_eq!(
+            credential_validity_status("2024-01-01", Some("2024-01-01"), now),
+            CredentialValidityStatus::Valid
+        );
+    }
+
     // --- parse_iso8601_expired ---
 
     #[test]
@@ -2830,6 +3050,16 @@ mod tests {
         let now = Timestamp::from_micros(1_700_000_000_000_000); // ~2023-11-14
         assert_eq!(
             parse_iso8601_expired("2020-01-01T00:00:00Z", now),
+            ExpirationStatus::Expired
+        );
+    }
+
+    #[test]
+    fn expiry_is_exclusive_at_the_exact_boundary() {
+        let expiry = parse_iso8601_to_micros("2024-01-01T00:00:00Z").unwrap();
+        let now = Timestamp::from_micros(expiry);
+        assert_eq!(
+            parse_iso8601_expired("2024-01-01T00:00:00Z", now),
             ExpirationStatus::Expired
         );
     }
