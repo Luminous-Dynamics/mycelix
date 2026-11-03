@@ -65,6 +65,7 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
 /// signs the canonical JSON serialization defined below, not RDF Dataset
 /// Canonicalization / the W3C EdDSA cryptosuite transformation.
 const CREDENTIAL_HASH_PROFILE_V1: &str = "mycelix-credential-hash-v1";
+const PRESENTATION_HASH_PROFILE_V1: &str = "mycelix-presentation-hash-v1";
 const LEGACY_ED25519_CRYPTOSUITE: &str = "eddsa-rdfc-2022";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -185,6 +186,80 @@ fn v1_proof_header_matches(
         && vc.proof.proof_purpose == "assertionMethod"
         && vc.proof.algorithm == Some(signature_algorithm.as_u16())
         && method_matches_issuer
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PresentationHashProfile {
+    MycelixV1,
+    LegacySubsetV0,
+}
+
+fn presentation_hash_profile(vp: &VerifiablePresentation) -> Option<PresentationHashProfile> {
+    match vp.proof.cryptosuite.as_deref() {
+        Some(PRESENTATION_HASH_PROFILE_V1) => Some(PresentationHashProfile::MycelixV1),
+        Some(LEGACY_ED25519_CRYPTOSUITE) | None => {
+            Some(PresentationHashProfile::LegacySubsetV0)
+        }
+        _ => None,
+    }
+}
+
+/// Mycelix V1 signs every serialized presentation field except proofValue.
+/// This includes embedded credentials and the full holder proof header.
+fn compute_presentation_hash_v1(
+    vp: &VerifiablePresentation,
+) -> ExternResult<Vec<u8>> {
+    let mut unsigned = serde_json::to_value(vp).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not serialize presentation for Mycelix V1 signing: {}",
+            error
+        )))
+    })?;
+    let proof = unsigned
+        .get_mut("proof")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Presentation proof is missing from Mycelix V1 signing payload".into()
+        )))?;
+    if proof.remove("proofValue").is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Presentation proofValue is missing from Mycelix V1 signing payload".into()
+        )));
+    }
+    let canonical = canonicalize_json_value(unsigned);
+    let serialized = serde_json::to_vec(&canonical).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not canonicalize Mycelix V1 presentation payload: {}",
+            error
+        )))
+    })?;
+    let mut domain_separated = b"MYCELIX:VERIFIABLE-PRESENTATION:SIGNATURE:V1\0".to_vec();
+    domain_separated.extend(serialized);
+    Ok(holo_hash::blake2b_256(&domain_separated).to_vec())
+}
+
+/// Historical holder-proof subset: presentation ID, holder DID, credential
+/// IDs, challenge, and domain. A valid legacy signature remains PARTIAL.
+fn compute_presentation_hash_legacy_subset(vp: &VerifiablePresentation) -> Vec<u8> {
+    let mut content = vp.id.as_bytes().to_vec();
+    content.extend(vp.holder.as_bytes());
+    for credential in &vp.verifiable_credential {
+        content.extend(credential.id.as_bytes());
+    }
+    if let Some(challenge) = &vp.proof.challenge {
+        content.extend(challenge.as_bytes());
+    }
+    if let Some(domain) = &vp.proof.domain {
+        content.extend(domain.as_bytes());
+    }
+    holo_hash::blake2b_256(&content).to_vec()
+}
+
+fn v1_presentation_proof_header_matches(vp: &VerifiablePresentation) -> bool {
+    vp.proof.proof_type == "MycelixPresentationProof"
+        && vp.proof.proof_purpose == "authentication"
+        && vp.proof.algorithm == Some(AlgorithmId::Ed25519.as_u16())
+        && vp.proof.verification_method == format!("{}#keys-1", vp.holder)
 }
 
 /// Compute the digest appropriate to the explicitly declared credential
