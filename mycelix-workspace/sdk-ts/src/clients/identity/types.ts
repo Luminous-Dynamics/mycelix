@@ -275,12 +275,24 @@ export interface CredentialRequest {
 }
 
 /**
+ * Assurance level actually reached by the credential proof verifier.
+ * Only "verified" means every required cryptographic component passed.
+ */
+export type CredentialSignatureStatus =
+  | 'verified'
+  | 'invalid'
+  | 'partial'
+  | 'unsupported'
+  | 'error';
+
+/**
  * Verification result
  */
 export interface VerificationResult {
   credential_id: string;
   valid: boolean;
   checks_passed: string[];
+  proof_signature_status: CredentialSignatureStatus;
   errors: string[];
   verified_at: Timestamp;
 }
