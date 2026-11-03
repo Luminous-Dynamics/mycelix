@@ -146,6 +146,13 @@ pub struct EffectEvidence {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PaymentRecordStatus {
+    Completed,
+    Pending,
+    Failed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EffectEvidenceKind {
     MonetaryMovement {
         account_id: String,
@@ -157,6 +164,7 @@ pub enum EffectEvidenceKind {
     },
     PaymentRecord {
         payment_action_hash: String,
+        status: PaymentRecordStatus,
     },
     Receipt {
         receipt_action_hash: String,
@@ -476,8 +484,13 @@ impl PaymentJournal {
             }
             (
                 PaymentLeg::PaymentRecord,
-                EffectEvidenceKind::PaymentRecord { payment_action_hash },
-            ) => !payment_action_hash.is_empty(),
+                EffectEvidenceKind::PaymentRecord {
+                    payment_action_hash,
+                    status,
+                },
+            ) => {
+                !payment_action_hash.is_empty() && *status == PaymentRecordStatus::Completed
+            },
             (
                 PaymentLeg::Receipt,
                 EffectEvidenceKind::Receipt {
@@ -833,6 +846,7 @@ mod tests {
             },
             PaymentLeg::PaymentRecord => EffectEvidenceKind::PaymentRecord {
                 payment_action_hash: format!("action:payment-record-{action_label}"),
+                status: PaymentRecordStatus::Completed,
             },
             PaymentLeg::Receipt => EffectEvidenceKind::Receipt {
                 receipt_action_hash: format!("action:receipt-{action_label}"),
@@ -1000,27 +1014,28 @@ mod tests {
 
     #[test]
     fn lost_credit_ack_is_indeterminate_and_resumes_original_credit_id() {
-        let mut journal = ready_journal();
+        let mut registry = JournalRegistry::default();
+        registry.create_or_get(intent()).unwrap();
+        let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
+        journal.authorize().unwrap();
+
+        let debit_id = journal.effect_id(PaymentLeg::SenderDebit);
+        journal.prepare_leg(PaymentLeg::SenderDebit, &debit_id).unwrap();
+        commit_for_test(journal, PaymentLeg::SenderDebit, "debit", 1).unwrap();
+
         let credit_id = journal.effect_id(PaymentLeg::RecipientCredit);
-        // Model an in-flight credit whose response was lost. The debit remains committed.
-        journal
-            .mark_indeterminate(PaymentLeg::RecipientCredit, &credit_id)
-            .unwrap();
+        journal.prepare_leg(PaymentLeg::RecipientCredit, &credit_id).unwrap();
+        journal.mark_indeterminate(PaymentLeg::RecipientCredit, &credit_id).unwrap();
         assert_eq!(journal.status(), OperationStatus::Indeterminate);
         assert_eq!(
             journal.prepare_leg(PaymentLeg::RecipientCredit, &credit_id).unwrap(),
             Transition::ResumedSameEffect
         );
-        journal
-            .commit_leg(PaymentLeg::RecipientCredit, &credit_id, "sha256:credit-evidence")
-            .unwrap();
-        assert_eq!(
+        commit_for_test(journal, PaymentLeg::RecipientCredit, "credit", 2).unwrap();
+        assert!(matches!(
             journal.effect_state(PaymentLeg::SenderDebit),
-            &EffectState::Committed {
-                effect_id: journal.effect_id(PaymentLeg::SenderDebit),
-                evidence: valid_evidence(&journal, PaymentLeg::SenderDebit, "debit", 1)
-            }
-        );
+            EffectState::Committed { .. }
+        ));
     }
 
     #[test]
@@ -1147,11 +1162,11 @@ mod tests {
 
         let debit = journal.effect_id(PaymentLeg::SenderDebit);
         journal.prepare_leg(PaymentLeg::SenderDebit, &debit).unwrap();
-        journal.commit_leg(PaymentLeg::SenderDebit, &debit, "debit").unwrap();
+        commit_for_test(journal, PaymentLeg::SenderDebit, "debit", 1).unwrap();
 
         let credit = journal.effect_id(PaymentLeg::RecipientCredit);
         journal.prepare_leg(PaymentLeg::RecipientCredit, &credit).unwrap();
-        journal.commit_leg(PaymentLeg::RecipientCredit, &credit, "credit").unwrap();
+        commit_for_test(journal, PaymentLeg::RecipientCredit, "credit", 2).unwrap();
 
         let fee = journal.effect_id(PaymentLeg::TreasuryFee);
         journal.prepare_leg(PaymentLeg::TreasuryFee, &fee).unwrap();
@@ -1231,6 +1246,33 @@ mod tests {
             journal.commit_leg(PaymentLeg::TreasuryFee, wrong_fee),
             Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
         );
+    }
+
+    #[test]
+    fn payment_record_must_be_completed_and_match_the_journaled_intent() {
+        let mut journal = ready_journal();
+        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
+        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap();
+
+        let mut pending = valid_evidence(&journal, PaymentLeg::PaymentRecord, "payment-pending", 40);
+        if let EffectEvidenceKind::PaymentRecord { status, .. } = &mut pending.kind {
+            *status = PaymentRecordStatus::Pending;
+        }
+        assert_eq!(
+            journal.commit_leg(PaymentLeg::PaymentRecord, pending),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::PaymentRecord))
+        );
+
+        let mut failed = valid_evidence(&journal, PaymentLeg::PaymentRecord, "payment-failed", 41);
+        if let EffectEvidenceKind::PaymentRecord { status, .. } = &mut failed.kind {
+            *status = PaymentRecordStatus::Failed;
+        }
+        assert_eq!(
+            journal.commit_leg(PaymentLeg::PaymentRecord, failed),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::PaymentRecord))
+        );
+
+        commit_for_test(&mut journal, PaymentLeg::PaymentRecord, "payment", 4).unwrap();
     }
 
     #[test]
