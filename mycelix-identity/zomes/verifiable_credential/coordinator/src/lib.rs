@@ -1389,7 +1389,7 @@ fn compute_derived_credential_hash_v1(
             "Could not canonicalize derived credential V1 payload: {error}"
         )))
     })?;
-    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:SIGNATURE:V1\\0".to_vec();
+    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:SIGNATURE:V1\0".to_vec();
     payload.extend(serialized);
     Ok(holo_hash::blake2b_256(&payload).to_vec())
 }
@@ -1405,7 +1405,7 @@ fn hash_derived_claim_leaf_v1(
         )))
     })?;
     let key_bytes = key.as_bytes();
-    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:MERKLE-LEAF:V1\\0".to_vec();
+    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:MERKLE-LEAF:V1\0".to_vec();
     payload.extend((key_bytes.len() as u64).to_be_bytes());
     payload.extend(key_bytes);
     payload.extend((serialized_value.len() as u64).to_be_bytes());
@@ -1414,7 +1414,7 @@ fn hash_derived_claim_leaf_v1(
 }
 
 fn hash_derived_merkle_node_v1(left: &[u8], right: &[u8]) -> Vec<u8> {
-    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:MERKLE-NODE:V1\\0".to_vec();
+    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:MERKLE-NODE:V1\0".to_vec();
     payload.extend(left);
     payload.extend(right);
     holo_hash::blake2b_256(&payload).to_vec()
