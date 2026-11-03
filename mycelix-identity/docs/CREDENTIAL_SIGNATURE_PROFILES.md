@@ -10,8 +10,9 @@ conflated.
   the old Mycelix subset hash. The old label did not mean that the W3C
   EdDSA/RDFC transformation had been implemented.
 
-The V1 profile is **not** an implementation of W3C Data Integrity
-`eddsa-rdfc-2022`, RFC 8785 JCS, or RDF Dataset Canonicalization. The
+The V1 profile uses the distinct `MycelixCredentialProof` proof type. It is
+**not** an implementation of W3C Data Integrity `eddsa-rdfc-2022`, RFC 8785
+JCS, or RDF Dataset Canonicalization. The
 credential data model uses W3C VC-shaped fields, but this profile alone does
 not establish W3C VC or Data Integrity conformance.
 
