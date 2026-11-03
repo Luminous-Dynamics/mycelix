@@ -26,6 +26,7 @@ pub const SAP_MICRO_MONEY_PROFILE_V1: &str = "mycelix.finance.instrument.sap.mic
 /// Consumers MUST resolve instrument_profile_id through an explicitly
 /// admitted profile registry before interpreting the unit or scale.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MoneyAmountV1 {
     pub instrument_profile_id: String,
     pub minor_units: String,
@@ -312,6 +313,24 @@ mod money_amount_v1_tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn exact_json_roundtrip_matches_golden_wire_string() {
+        let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+        let expected = corpus["exact_json_roundtrip"].as_str().unwrap();
+        let amount = MoneyAmountV1::new(
+            SAP_MICRO_MONEY_PROFILE_V1,
+            u64::MAX.to_string(),
+        )
+        .unwrap();
+        assert_eq!(serde_json::to_string(&amount).unwrap(), expected);
+    }
+
+    #[test]
+    fn unknown_json_fields_are_rejected() {
+        let json = r#"{"instrument_profile_id":"mycelix.finance.instrument.sap.micro.v1","minor_units":"1","amount":1}"#;
+        assert!(serde_json::from_str::<MoneyAmountV1>(json).is_err());
     }
 
     #[test]
