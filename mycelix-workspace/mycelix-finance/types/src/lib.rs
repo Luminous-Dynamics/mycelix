@@ -41,6 +41,19 @@ pub enum MoneyAmountV1Error {
     AdditionOverflow,
 }
 
+impl MoneyAmountV1Error {
+    /// Stable, machine-readable error code shared by Rust and SDK conformance tests.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::InvalidProfileId => "InvalidProfileId",
+            Self::InvalidMinorUnits => "InvalidMinorUnits",
+            Self::MinorUnitsOverflow => "MinorUnitsOverflow",
+            Self::ProfileMismatch => "ProfileMismatch",
+            Self::AdditionOverflow => "AdditionOverflow",
+        }
+    }
+}
+
 impl MoneyAmountV1 {
     /// Construct a MoneyAmountV1 after enforcing canonical wire syntax.
     pub fn new(
@@ -159,6 +172,8 @@ fn parse_canonical_minor_units(value: &str) -> Result<u64, MoneyAmountV1Error> {
 mod money_amount_v1_tests {
     use super::*;
 
+    const GOLDEN: &str = include_str!("../../docs/money-amount-golden-v1.json");
+
     #[test]
     fn canonical_sap_micro_amount_round_trips_as_json_string() {
         let amount = MoneyAmountV1::sap_micro(1_234_567);
@@ -225,6 +240,78 @@ mod money_amount_v1_tests {
         let zero = MoneyAmountV1::sap_micro(0);
         assert!(!zero.is_positive().unwrap());
         assert!(MoneyAmountV1::sap_micro(1).is_positive().unwrap());
+    }
+
+    #[test]
+    fn checked_in_positive_golden_vectors_match_parser() {
+        let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+        for vector in corpus["positive_vectors"].as_array().unwrap() {
+            let profile = vector["profile"].as_str().unwrap();
+            let minor_units = vector["minor_units"].as_str().unwrap();
+            let amount = MoneyAmountV1::new(profile, minor_units).unwrap();
+            assert_eq!(
+                amount.minor_units_u64().unwrap().to_string(),
+                vector["parsed_u64"].as_str().unwrap(),
+                "{}",
+                vector["id"]
+            );
+            assert_eq!(
+                amount.is_positive().unwrap(),
+                vector["positive"].as_bool().unwrap(),
+                "{}",
+                vector["id"]
+            );
+        }
+    }
+
+    #[test]
+    fn checked_in_negative_golden_vectors_match_error_codes() {
+        let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+        for vector in corpus["negative_vectors"].as_array().unwrap() {
+            let result = MoneyAmountV1::new(
+                vector["profile"].as_str().unwrap(),
+                vector["minor_units"].as_str().unwrap(),
+            );
+            assert_eq!(
+                result.unwrap_err().code(),
+                vector["expected"].as_str().unwrap(),
+                "{}",
+                vector["id"]
+            );
+        }
+    }
+
+    #[test]
+    fn checked_in_arithmetic_golden_vectors_match_checked_add() {
+        let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+        for vector in corpus["arithmetic_vectors"].as_array().unwrap() {
+            let left = MoneyAmountV1::new(
+                vector["left_profile"].as_str().unwrap(),
+                vector["left"].as_str().unwrap(),
+            )
+            .unwrap();
+            let right = MoneyAmountV1::new(
+                vector["right_profile"].as_str().unwrap(),
+                vector["right"].as_str().unwrap(),
+            )
+            .unwrap();
+            let result = left.checked_add(&right);
+            if let Some(expected) = vector.get("expected").and_then(serde_json::Value::as_str) {
+                assert_eq!(
+                    result.unwrap().minor_units,
+                    expected,
+                    "{}",
+                    vector["id"]
+                );
+            } else {
+                assert_eq!(
+                    result.unwrap_err().code(),
+                    vector["expected_error"].as_str().unwrap(),
+                    "{}",
+                    vector["id"]
+                );
+            }
+        }
     }
 
     #[test]
