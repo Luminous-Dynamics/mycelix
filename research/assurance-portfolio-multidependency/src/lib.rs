@@ -197,6 +197,7 @@ pub enum AuditError {
     OrphanNode,
     MissingDimensionClassification,
     CompleteDimensionHasNoDependency,
+    PartialCoverageHasNoKnownDependency,
     NotApplicableDimensionHasDependency,
     EmptyRationale,
     EmptyEvidenceReferenceSet,
@@ -517,6 +518,9 @@ pub fn audit_multi_dependency_graph(
                 DimensionCoverage::Partial { rationale } => {
                     if rationale.trim().is_empty() {
                         return Err(AuditError::EmptyRationale);
+                    }
+                    if keys.is_empty() {
+                        return Err(AuditError::PartialCoverageHasNoKnownDependency);
                     }
                     incomplete_roles.insert(role_name.clone());
                     incomplete_dimensions.insert((
