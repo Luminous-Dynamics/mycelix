@@ -39,7 +39,20 @@ jobs:
           cargo --version
 
       - name: Build all Finance zomes
-        run: cargo build --locked --manifest-path mycelix-finance/Cargo.toml --workspace --target wasm32-unknown-unknown --release
+        run: cargo build --manifest-path mycelix-finance/Cargo.toml --workspace --target wasm32-unknown-unknown --release
+
+      - name: Emit resolved Finance lockfile for review
+        if: always()
+        run: |
+          if ! git diff --quiet -- mycelix-finance/Cargo.lock; then
+            echo "FINANCE_CARGO_LOCK_BASE64_BEGIN"
+            base64 -w0 mycelix-finance/Cargo.lock
+            echo
+            echo "FINANCE_CARGO_LOCK_BASE64_END"
+            sha256sum mycelix-finance/Cargo.lock
+          else
+            echo "Finance Cargo.lock unchanged by dependency resolution."
+          fi
 
       - name: Install matching Holochain CLI
         run: |
