@@ -330,7 +330,8 @@ export interface PresentationVerificationResult {
 /** Input accepted by the credential coordinator's verify_presentation zome call. */
 export interface VerifyPresentationInput {
   presentation_hash: ActionHash;
-  expected_challenge?: string | null;
+  /** Fresh verifier-issued challenge bound into the signed presentation. */
+  expected_challenge: string;
   expected_domain?: string | null;
 }
 
@@ -360,7 +361,8 @@ export interface IssueCredentialInput {
  */
 export interface CreatePresentationInput {
   credential_ids: string[];
-  challenge?: string;
+  /** Required fresh verifier challenge (1–512 UTF-8 bytes). */
+  challenge: string;
   domain?: string;
 }
 
