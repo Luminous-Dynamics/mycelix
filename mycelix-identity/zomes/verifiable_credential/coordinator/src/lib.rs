@@ -174,10 +174,13 @@ fn v1_proof_header_matches(
     vc: &VerifiableCredential,
     signature_algorithm: AlgorithmId,
 ) -> bool {
-    let expected_controller_prefix = format!("{}#", vc.issuer.did());
-    let method_matches_issuer = vc.proof.verification_method
-        .strip_prefix(&expected_controller_prefix)
-        .is_some_and(|fragment| !fragment.is_empty());
+    // The current coordinator derives the verification key from issuer DID
+    // directly and does not resolve a DID Document. V1 therefore pins the
+    // only method its issuance path currently creates; key rotation requires a
+    // future resolver-backed profile rather than accepting an arbitrary key id.
+    let expected_verification_method = format!("{}#keys-1", vc.issuer.did());
+    let method_matches_issuer =
+        vc.proof.verification_method == expected_verification_method;
     vc.proof.proof_type == "DataIntegrityProof"
         && vc.proof.proof_purpose == "assertionMethod"
         && vc.proof.algorithm == Some(signature_algorithm.as_u16())
