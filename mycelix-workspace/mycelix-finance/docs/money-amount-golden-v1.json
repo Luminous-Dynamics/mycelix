@@ -1,0 +1,151 @@
+{
+  "schema": "mycelix.money-amount-golden-v1",
+  "semantics": "canonical unsigned integer atomic units; no currency conversion or unit inference",
+  "profile_registry": {
+    "mycelix.finance.instrument.sap.micro.v1": {
+      "instrument": "SAP",
+      "scale": 6,
+      "admission": "current_internal_ledger_profile_only",
+      "nonclaims": [
+        "not fiat ZAR",
+        "not external custody",
+        "not bank settlement",
+        "not legal finality"
+      ]
+    },
+    "mycelix.finance.instrument.tend.v1": {
+      "instrument": "TEND",
+      "scale": null,
+      "admission": "syntactic_fixture_only_not_admitted_for_arithmetic",
+      "nonclaims": [
+        "no scale inference",
+        "not interchangeable with SAP"
+      ]
+    }
+  },
+  "positive_vectors": [
+    {
+      "id": "MNY-001",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "0",
+      "parsed_u64": "0",
+      "positive": false
+    },
+    {
+      "id": "MNY-002",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "1",
+      "parsed_u64": "1",
+      "positive": true
+    },
+    {
+      "id": "MNY-003",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "1234567",
+      "parsed_u64": "1234567",
+      "positive": true
+    },
+    {
+      "id": "MNY-004",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "18446744073709551615",
+      "parsed_u64": "18446744073709551615",
+      "positive": true
+    }
+  ],
+  "negative_vectors": [
+    {
+      "id": "MNY-N-001",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "",
+      "expected": "InvalidMinorUnits"
+    },
+    {
+      "id": "MNY-N-002",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "00",
+      "expected": "InvalidMinorUnits"
+    },
+    {
+      "id": "MNY-N-003",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "01",
+      "expected": "InvalidMinorUnits"
+    },
+    {
+      "id": "MNY-N-004",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "+1",
+      "expected": "InvalidMinorUnits"
+    },
+    {
+      "id": "MNY-N-005",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "-1",
+      "expected": "InvalidMinorUnits"
+    },
+    {
+      "id": "MNY-N-006",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "1.0",
+      "expected": "InvalidMinorUnits"
+    },
+    {
+      "id": "MNY-N-007",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "1e6",
+      "expected": "InvalidMinorUnits"
+    },
+    {
+      "id": "MNY-N-008",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": "18446744073709551616",
+      "expected": "MinorUnitsOverflow"
+    },
+    {
+      "id": "MNY-N-009",
+      "profile": "mycelix.finance.instrument.sap.micro.v1",
+      "minor_units": " 1",
+      "expected": "InvalidMinorUnits"
+    }
+  ],
+  "arithmetic_vectors": [
+    {
+      "id": "MNY-A-001",
+      "operation": "add",
+      "left_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "left": "100",
+      "right_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "right": "25",
+      "expected": "125"
+    },
+    {
+      "id": "MNY-A-002",
+      "operation": "add",
+      "left_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "left": "18446744073709551614",
+      "right_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "right": "1",
+      "expected": "18446744073709551615"
+    },
+    {
+      "id": "MNY-A-003",
+      "operation": "add",
+      "left_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "left": "18446744073709551615",
+      "right_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "right": "1",
+      "expected_error": "AdditionOverflow"
+    },
+    {
+      "id": "MNY-A-004",
+      "operation": "add",
+      "left_profile": "mycelix.finance.instrument.sap.micro.v1",
+      "left": "100",
+      "right_profile": "mycelix.finance.instrument.tend.v1",
+      "right": "100",
+      "expected_error": "ProfileMismatch"
+    }
+  ],
+  "exact_json_roundtrip": "{\"instrument_profile_id\":\"mycelix.finance.instrument.sap.micro.v1\",\"minor_units\":\"18446744073709551615\"}"
+}
