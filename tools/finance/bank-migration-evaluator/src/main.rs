@@ -80,7 +80,7 @@ fn expected_for(category: &str) -> Option<&'static str> {
         "pre_effect_rollback" => Some("rollback_permitted"),
         "possible_effect_unknown" => Some("indeterminate_no_blind_retry"),
         "timestamp_ambiguity" => Some("indeterminate_temporal_scope"),
-        _ => return None,
+        _ => None,
     }
 }
 
@@ -363,12 +363,12 @@ fn evaluate_semantics(corpus: &Value) -> Evaluation {
                 .errors
                 .push(format!("cases[{index}]: missing case ID")),
         }
-        if let Some(category) = str_at(case, "category") {
-            if !categories.insert(category.to_owned()) {
-                evaluation.errors.push(format!(
-                    "cases[{index}]: duplicate case category {category}"
-                ));
-            }
+        if let Some(category) = str_at(case, "category")
+            && !categories.insert(category.to_owned())
+        {
+            evaluation.errors.push(format!(
+                "cases[{index}]: duplicate case category {category}"
+            ));
         }
         check_case(case, index, &mut evaluation.errors);
     }
