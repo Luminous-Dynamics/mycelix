@@ -8,6 +8,10 @@ on:
       - 'mycelix-workspace/mycelix-finance/types/**'
       - 'mycelix-workspace/mycelix-finance/docs/money-amount-*'
       - 'mycelix-workspace/sdk-ts/src/clients/finance/types.ts'
+      - 'mycelix-workspace/sdk-ts/src/clients/finance/money-amount.ts'
+      - 'mycelix-workspace/sdk-ts/src/clients/finance/index.ts'
+      - 'mycelix-workspace/sdk-ts/tests/money-amount.test.ts'
+      - 'mycelix-workspace/sdk-ts/package-lock.json'
       - '.github/workflows/money-amount-v1-qualification.yml'
   push:
     branches: [main]
@@ -52,3 +56,32 @@ jobs:
         run: |
           cargo clippy --locked --manifest-path mycelix-finance/Cargo.toml -p mycelix_finance_types --all-targets -- -D warnings
           cargo clippy --locked --manifest-path mycelix-workspace/mycelix-finance/Cargo.toml -p mycelix_finance_types --all-targets -- -D warnings
+
+
+  sdk-money-wire:
+    name: TypeScript exact money conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mycelix-workspace/sdk-ts/package-lock.json
+
+      - name: Install locked SDK dependencies
+        working-directory: mycelix-workspace/sdk-ts
+        run: npm ci
+
+      - name: Run MoneyAmountV1 TypeScript golden tests
+        working-directory: mycelix-workspace/sdk-ts
+        run: npx vitest run tests/money-amount.test.ts
+
+      - name: Type-check SDK
+        working-directory: mycelix-workspace/sdk-ts
+        run: npm run typecheck
