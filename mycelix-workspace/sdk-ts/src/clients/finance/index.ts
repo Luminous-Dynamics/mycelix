@@ -85,6 +85,7 @@ export {
   isPositiveMoneyAmountV1,
   requireMoneyAmountProfileV1,
   checkedAddMoneyAmountV1,
+  checkedSubMoneyAmountV1,
 } from './money-amount.js';
 export type {
   MoneyAmountV1,
