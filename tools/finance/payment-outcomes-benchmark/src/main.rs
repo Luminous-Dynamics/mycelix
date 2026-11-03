@@ -259,6 +259,12 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         u64_field(baseline_metrics, "unknown_outcomes")?,
         baseline_attempts,
     );
+    let latency_missing_rate = cmp_fraction(
+        u64_field(candidate_metrics, "delivery_latency_missing")?,
+        candidate_success,
+        u64_field(baseline_metrics, "delivery_latency_missing")?,
+        baseline_success,
+    );
     let terminal_failure_rate = cmp_fraction(
         u64_field(candidate_metrics, "terminal_failures")?,
         candidate_attempts,
@@ -284,6 +290,7 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         && usability != Ordering::Less
         && merchant_coverage != Ordering::Less
         && unknown_outcome_rate != Ordering::Greater
+        && latency_missing_rate != Ordering::Greater
         && terminal_failure_rate != Ordering::Greater
         && return_rate != Ordering::Greater;
     let strictly_better = completion == Ordering::Greater
@@ -295,6 +302,7 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         || usability == Ordering::Greater
         || merchant_coverage == Ordering::Greater
         || unknown_outcome_rate == Ordering::Less
+        || latency_missing_rate == Ordering::Less
         || terminal_failure_rate == Ordering::Less
         || return_rate == Ordering::Less;
     Some(not_worse && strictly_better)
@@ -602,6 +610,17 @@ fn run_self_tests(
     }
     count += 1;
 
+    let mut telemetry_bias = runs["runs"][0].clone();
+    telemetry_bias["metrics"]["total_all_in_cost_minor_units"] = json!(192_000);
+    telemetry_bias["metrics"]["delivery_latency_observations"] = json!(1830);
+    telemetry_bias["metrics"]["delivery_latency_missing"] = json!(100);
+    if run_dominates(&telemetry_bias, &runs["runs"][0]) != Some(false) {
+        return Err(
+            "lower cost with worse delivery-latency observation completeness was incorrectly treated as dominance".into(),
+        );
+    }
+    count += 1;
+
     Ok(count)
 }
 
@@ -802,7 +821,7 @@ mod tests {
         let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
         assert_eq!(
             run_self_tests(&market, &runs, MARKET_SCHEMA, RUNS_SCHEMA).expect("self tests"),
-            11
+            15
         );
     }
 }
