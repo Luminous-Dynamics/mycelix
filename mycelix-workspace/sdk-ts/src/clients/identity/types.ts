@@ -297,6 +297,39 @@ export interface VerificationResult {
   verified_at: Timestamp;
 }
 
+/** Verification result for a credential embedded in a presentation. */
+export interface CredentialInPresentationResult {
+  credential_id: string;
+  valid: boolean;
+  proof_signature_status: CredentialSignatureStatus;
+  errors: string[];
+}
+
+/** Verification result for a verifiable presentation. */
+export interface PresentationVerificationResult {
+  presentation_id: string;
+  holder: string;
+  valid: boolean;
+  errors: string[];
+  credential_results: CredentialInPresentationResult[];
+  verified_at: Timestamp;
+}
+
+/** Input accepted by the credential coordinator's verify_presentation zome call. */
+export interface VerifyPresentationInput {
+  presentation_hash: ActionHash;
+  expected_challenge?: string | null;
+  expected_domain?: string | null;
+}
+
+/** Result of verifying a derived credential and its original issuer proof. */
+export interface DerivedVerificationResult {
+  valid: boolean;
+  errors: string[];
+  original_issuer_verified: boolean;
+  original_issuer_signature_status: CredentialSignatureStatus;
+}
+
 /**
  * Input for issuing a credential
  */
