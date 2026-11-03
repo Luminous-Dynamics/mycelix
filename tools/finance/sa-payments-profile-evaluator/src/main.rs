@@ -476,12 +476,12 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
                 "scenarios[{index}]: {category} requires dispatch_decision {expected_dispatch}"
             ));
         }
-        if array_at(scenario, "negative_controls").is_none_or(Vec::is_empty) {
+        if array_at(scenario, "negative_controls").map_or(true, |items| items.is_empty()) {
             result.errors.push(format!(
                 "scenarios[{index}]: negative_controls must be non-empty"
             ));
         }
-        if array_at(scenario, "required_evidence").is_none_or(Vec::is_empty) {
+        if array_at(scenario, "required_evidence").map_or(true, |items| items.is_empty()) {
             result.errors.push(format!(
                 "scenarios[{index}]: required_evidence must be non-empty"
             ));
@@ -695,9 +695,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let (evaluation, corpus, schema) = evaluate(&corpus_text, &schema_text)\n        .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?;
+    let (evaluation, corpus, schema) = evaluate(&corpus_text, &schema_text)
+        .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?;
     let mutation_count = if self_test {
-        run_self_tests(&corpus, &schema)\n            .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?
+        run_self_tests(&corpus, &schema)
+            .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?
     } else {
         0
     };
