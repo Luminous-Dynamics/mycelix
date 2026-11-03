@@ -180,6 +180,19 @@ pub struct DependencyGraph {
     pub nodes: Vec<DependencyNode>,
 }
 
+/// Exact caller-pinned input commitments and resource budget for one audit.
+/// Keeping these bindings together prevents accidental positional swapping of
+/// subject, profile, manifest and attack-model identities.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AuditBindings {
+    pub pinned_policy_digest: Digest,
+    pub expected_subject_digest: Digest,
+    pub expected_profile_digest: Digest,
+    pub expected_manifest_digest: Digest,
+    pub expected_attack_model_digest: Digest,
+    pub max_candidate_extensions: usize,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AuditDisposition {
     Complete,
@@ -347,7 +360,7 @@ fn minimal_hitting_sets(
     role_sets: &[(String, BTreeSet<FaultDomainKey>)],
     max_candidate_extensions: usize,
 ) -> Result<MinimalCutSetReport, AuditError> {
-    if max_candidate_extensions == 0 {
+    if bindings.max_candidate_extensions == 0 {
         return Err(AuditError::ZeroCandidateBudget);
     }
     let mut ordered_roles = role_sets.to_vec();
@@ -417,12 +430,7 @@ fn minimal_hitting_sets(
 pub fn audit_multi_dependency_graph(
     graph: &DependencyGraph,
     policy: &AssurancePolicy,
-    pinned_policy_digest: Digest,
-    expected_subject_digest: Digest,
-    expected_profile_digest: Digest,
-    expected_manifest_digest: Digest,
-    expected_attack_model_digest: Digest,
-    max_candidate_extensions: usize,
+    bindings: &AuditBindings,
 ) -> Result<MultiDependencyAuditReport, AuditError> {
     if graph.claim_id.trim().is_empty() {
         return Err(AuditError::EmptyClaimId);
@@ -436,19 +444,21 @@ pub fn audit_multi_dependency_graph(
     if policy.required_roles.is_empty() {
         return Err(AuditError::EmptyRequiredRoles);
     }
-    if policy.digest != pinned_policy_digest || graph.policy_digest != pinned_policy_digest {
+    if policy.digest != bindings.pinned_policy_digest
+        || graph.policy_digest != bindings.pinned_policy_digest
+    {
         return Err(AuditError::PolicyDigestMismatch);
     }
-    if graph.subject_digest != expected_subject_digest {
+    if graph.subject_digest != bindings.expected_subject_digest {
         return Err(AuditError::SubjectBindingMismatch);
     }
-    if graph.profile_digest != expected_profile_digest {
+    if graph.profile_digest != bindings.expected_profile_digest {
         return Err(AuditError::ProfileBindingMismatch);
     }
-    if graph.manifest_digest != expected_manifest_digest {
+    if graph.manifest_digest != bindings.expected_manifest_digest {
         return Err(AuditError::ManifestBindingMismatch);
     }
-    if graph.attack_model_digest != expected_attack_model_digest {
+    if graph.attack_model_digest != bindings.expected_attack_model_digest {
         return Err(AuditError::AttackModelBindingMismatch);
     }
 
@@ -699,14 +709,14 @@ pub fn audit_multi_dependency_graph(
         minimal_cut_sets: Vec::new(),
         minimum_cut_cardinality: None,
         candidate_extensions_attempted: 0,
-        max_candidate_extensions,
+        max_candidate_extensions: bindings.max_candidate_extensions,
     };
     let cut_sets = if disposition == AuditDisposition::Complete {
         let role_sets: Vec<_> = projections
             .iter()
             .map(|(role, projection)| (role.clone(), projection.critical_keys.clone()))
             .collect();
-        minimal_hitting_sets(&role_sets, max_candidate_extensions)?
+        minimal_hitting_sets(&role_sets, bindings.max_candidate_extensions)?
     } else {
         empty_cut_sets
     };
@@ -809,22 +819,26 @@ mod tests {
         }
     }
 
+    fn expected_bindings() -> AuditBindings {
+        AuditBindings {
+            pinned_policy_digest: Digest::from_byte(3),
+            expected_subject_digest: Digest::from_byte(1),
+            expected_profile_digest: Digest::from_byte(2),
+            expected_manifest_digest: Digest::from_byte(4),
+            expected_attack_model_digest: Digest::from_byte(5),
+            max_candidate_extensions: 100_000,
+        }
+    }
+
     fn audit(
         graph: &DependencyGraph,
         policy: &AssurancePolicy,
         budget: usize,
     ) -> MultiDependencyAuditReport {
-        audit_multi_dependency_graph(
-            graph,
-            policy,
-            Digest::from_byte(3),
-            Digest::from_byte(1),
-            Digest::from_byte(2),
-            Digest::from_byte(4),
-            Digest::from_byte(5),
-            budget,
-        )
-        .expect("valid graph structure")
+        let mut bindings = expected_bindings();
+        bindings.max_candidate_extensions = budget;
+        audit_multi_dependency_graph(graph, policy, &bindings)
+            .expect("valid graph structure")
     }
 
     #[test]
@@ -1333,12 +1347,7 @@ mod tests {
             audit_multi_dependency_graph(
                 &cyclic,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(3),
-                Digest::from_byte(1),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &expected_bindings()
             ),
             Err(AuditError::DependencyCycle)
         );
@@ -1373,12 +1382,7 @@ mod tests {
             audit_multi_dependency_graph(
                 &dangling,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(3),
-                Digest::from_byte(1),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &expected_bindings()
             ),
             Err(AuditError::DanglingDependency)
         );
@@ -1582,12 +1586,7 @@ mod tests {
             audit_multi_dependency_graph(
                 &graph,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(3),
-                Digest::from_byte(1),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &expected_bindings()
             ),
             Err(AuditError::StaleEvidence)
         );
@@ -1621,12 +1620,7 @@ mod tests {
             audit_multi_dependency_graph(
                 &graph,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(3),
-                Digest::from_byte(1),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &expected_bindings()
             ),
             Err(AuditError::DuplicateNodeId)
         );
@@ -1665,12 +1659,10 @@ mod tests {
             audit_multi_dependency_graph(
                 &graph,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(3),
-                Digest::from_byte(8),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &AuditBindings {
+                    expected_subject_digest: Digest::from_byte(8),
+                    ..expected_bindings()
+                }
             ),
             Err(AuditError::SubjectBindingMismatch)
         );
@@ -1678,12 +1670,10 @@ mod tests {
             audit_multi_dependency_graph(
                 &graph,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(4),
-                Digest::from_byte(1),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &AuditBindings {
+                    pinned_policy_digest: Digest::from_byte(4),
+                    ..expected_bindings()
+                }
             ),
             Err(AuditError::PolicyDigestMismatch)
         );
@@ -1764,12 +1754,7 @@ mod tests {
             audit_multi_dependency_graph(
                 &graph,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(3),
-                Digest::from_byte(1),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &expected_bindings()
             ),
             Err(AuditError::MissingDimensionClassification)
         );
@@ -1885,12 +1870,7 @@ mod tests {
             audit_multi_dependency_graph(
                 &graph,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(3),
-                Digest::from_byte(1),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &expected_bindings()
             ),
             Err(AuditError::OrphanNode)
         );
@@ -1930,12 +1910,7 @@ mod tests {
             audit_multi_dependency_graph(
                 &graph,
                 &policy(&["formal", "independent"], vec![]),
-                Digest::from_byte(3),
-                Digest::from_byte(1),
-                Digest::from_byte(2),
-                Digest::from_byte(4),
-                Digest::from_byte(5),
-                1000
+                &expected_bindings()
             ),
             Err(AuditError::RevokedEvidence)
         );
@@ -1947,9 +1922,11 @@ mod tests {
         let mut nodes = Vec::with_capacity(count);
         for index in 0..count {
             let id = format!("node-{index}");
-            let next = (index + 1 < count)
-                .then(|| vec![format!("node-{}", index + 1)])
-                .unwrap_or_default();
+            let next = if index + 1 < count {
+                vec![format!("node-{}", index + 1)]
+            } else {
+                Vec::new()
+            };
             nodes.push(DependencyNode {
                 node_id: id,
                 key: key(
