@@ -2901,7 +2901,7 @@ mod tests {
         let micros = parse_iso8601_to_micros("2024-01-01").unwrap();
         // Should be end of day (23:59:59)
         let expected_days = days_since_epoch(2024, 1, 1).unwrap();
-        let expected_micros = (expected_days * 86400 + 86399) * 1_000_000;
+        let expected_micros = (expected_days * 86400 + 86399) * 1_000_000 + 999_999;
         assert_eq!(micros, expected_micros);
     }
 
