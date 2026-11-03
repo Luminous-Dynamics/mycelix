@@ -16,7 +16,9 @@
     "external_effects_enabled",
     "source_register",
     "systems",
-    "scenarios"
+    "scenarios",
+    "function_allocation",
+    "milestones"
   ],
   "properties": {
     "schema": {
@@ -69,6 +71,20 @@
       "minItems": 20,
       "items": {
         "$ref": "#/$defs/scenario"
+      }
+    },
+    "function_allocation": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/function_allocation"
+      }
+    },
+    "milestones": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "$ref": "#/$defs/milestone"
       }
     }
   },
@@ -245,7 +261,9 @@
             "resolve_existing_operation",
             "indeterminate_no_blind_retry",
             "append_successor_event",
-            "privacy_reject_or_redact"
+            "privacy_reject_or_redact",
+            "require_authority_evidence",
+            "profile_requalification_required"
           ]
         },
         "dispatch_decision": {
@@ -276,6 +294,144 @@
           }
         }
       }
+    },
+    "function_allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "organisation",
+        "effective_on",
+        "functions",
+        "source_refs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "organisation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effective_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "functions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "initiative",
+        "status",
+        "source_refs",
+        "observed_on",
+        "description",
+        "completion_evidence_required"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SA-MILESTONE-[0-9]{3}$"
+        },
+        "initiative": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "completed_at_source",
+            "announced_target"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "completion_evidence_required": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effective_from": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_by": {
+          "type": "string",
+          "format": "date"
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_window": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "target_end": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {
+              "const": "completed_at_source"
+            }
+          },
+          "required": [
+            "effective_from",
+            "effective_by",
+            "outcome"
+          ]
+        },
+        {
+          "properties": {
+            "status": {
+              "const": "announced_target"
+            }
+          },
+          "required": [
+            "target_window",
+            "target_start",
+            "target_end"
+          ]
+        }
+      ]
     }
   }
 }
