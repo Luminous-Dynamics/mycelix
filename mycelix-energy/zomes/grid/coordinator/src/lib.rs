@@ -1459,7 +1459,10 @@ mod tests {
             total_price: 0.1234565,
             ..trade.clone()
         };
-        assert!(!finance_payment_matches_trade(&fractional_micro_trade, &payment));
+        assert!(!finance_payment_matches_trade(
+            &fractional_micro_trade,
+            &payment
+        ));
 
         let non_finite_trade = Trade {
             total_price: f64::NAN,
