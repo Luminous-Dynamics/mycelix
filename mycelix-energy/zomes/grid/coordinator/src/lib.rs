@@ -259,7 +259,7 @@ fn currency_has_real_settlement_rail(currency: &str) -> bool {
     currency == "SAP"
 }
 
-/// Convert a whole-unit SAP/TEND amount (as stored in `Trade::total_price`)
+/// Convert a whole-unit SAP amount (as stored in `Trade::total_price`)
 /// to the micro-unit integer `payments::send_payment` expects. Pure and
 /// unit-testable.
 fn whole_units_to_micro(whole_units: f64) -> u64 {
