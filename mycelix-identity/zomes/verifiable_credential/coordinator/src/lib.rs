@@ -142,7 +142,7 @@ fn compute_credential_hash_v1(
             error
         )))
     })?;
-    let mut domain_separated = b"MYCELIX:VERIFIABLE-CREDENTIAL:SIGNATURE:V1\\0".to_vec();
+    let mut domain_separated = b"MYCELIX:VERIFIABLE-CREDENTIAL:SIGNATURE:V1\0".to_vec();
     domain_separated.extend(serialized);
     Ok(holo_hash::blake2b_256(&domain_separated).to_vec())
 }
@@ -1488,9 +1488,18 @@ pub fn verify_derived_credential(
         )))?;
 
     // Verify the original credential hash matches
-    let recomputed_hash = compute_credential_hash_for_profile(&original_vc)?;
-    if recomputed_hash != derived.derivation_proof.original_credential_hash {
-        errors.push("Original credential hash does not match derivation proof".to_string());
+    match compute_credential_hash_for_profile(&original_vc) {
+        Ok(recomputed_hash) => {
+            if recomputed_hash != derived.derivation_proof.original_credential_hash {
+                errors.push("Original credential hash does not match derivation proof".to_string());
+            }
+        }
+        Err(error) => {
+            errors.push(format!(
+                "Original credential signing profile is unsupported: {:?}",
+                error
+            ));
+        }
     }
 
     // Original issuer verification is true only when every declared
