@@ -1,12 +1,16 @@
 #![forbid(unsafe_code)]
 
-//! Pure reference model for a journaled SAP payment operation.
+//! Effects-disabled reference model for a sender-owned SAP payment.
 //!
-//! This crate is deliberately not wired into the production Finance zome.
-//! It models ordering, stable per-leg effect identities, retry/reconciliation,
-//! and the point at which a local ledger payment may be called Completed.
-//! It does not prove Holochain DHT uniqueness, cross-agent atomicity, account
-//! conservation, provider settlement, or external legal finality.
+//! The local Payment coordinator calls its debit/credit helpers directly during
+//! one zome invocation. Holochain commits that invocation's source-chain write
+//! set atomically. Treasury fee delivery is a separate inter-zome call and is
+//! modeled as a second, stable-ID effect that can be retried after the local
+//! payment transaction has committed.
+//!
+//! This crate does not prove Holochain DHT uniqueness, action authenticity,
+//! predecessor authorization, monetary conservation in production, or legal
+//!/external settlement finality.
 
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
@@ -47,7 +51,6 @@ impl PaymentIntent {
         if self.sender_did.is_empty()
             || self.recipient_did.is_empty()
             || self.client_idempotency_key.is_empty()
-            || self.payload_fingerprint.is_empty()
             || self.currency.is_empty()
         {
             return Err(SagaError::InvalidIntent("required field is empty"));
@@ -68,57 +71,24 @@ impl PaymentIntent {
             .ok_or(SagaError::AmountOverflow)?;
         Ok(())
     }
-
-    pub fn sender_did(&self) -> &str {
-        &self.sender_did
-    }
-
-    pub fn recipient_did(&self) -> &str {
-        &self.recipient_did
-    }
-
-    pub fn amount_minor(&self) -> u64 {
-        self.amount_minor
-    }
-
-    pub fn fee_minor(&self) -> u64 {
-        self.fee_minor
-    }
-
-    pub fn currency(&self) -> &str {
-        &self.currency
-    }
-
-    pub fn fingerprint(&self) -> &str {
-        &self.payload_fingerprint
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PaymentLeg {
-    SenderDebit,
-    RecipientCredit,
+    /// One atomic source-chain write set: debit, credit, Payment, Receipt and
+    /// a durable fee-distribution outbox intent.
+    LocalPaymentTransaction,
+    /// Separate inter-zome Treasury movement, recovered by its stable ID.
     TreasuryFee,
-    PaymentRecord,
-    Receipt,
 }
 
 impl PaymentLeg {
-    const ALL: [Self; 5] = [
-        Self::SenderDebit,
-        Self::RecipientCredit,
-        Self::TreasuryFee,
-        Self::PaymentRecord,
-        Self::Receipt,
-    ];
+    const ALL: [Self; 2] = [Self::LocalPaymentTransaction, Self::TreasuryFee];
 
     fn suffix(self) -> &'static str {
         match self {
-            Self::SenderDebit => "debit",
-            Self::RecipientCredit => "credit",
-            Self::TreasuryFee => "fee",
-            Self::PaymentRecord => "payment-record",
-            Self::Receipt => "receipt",
+            Self::LocalPaymentTransaction => "local-payment-transaction",
+            Self::TreasuryFee => "treasury-fee",
         }
     }
 }
@@ -129,8 +99,18 @@ pub enum MovementDirection {
     Credit,
 }
 
-/// Typed evidence for one effect. The model checks that the evidence describes
-/// the exact operation, leg, parties, unit and amount before recording commit.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PaymentRecordStatus {
+    Completed,
+    Pending,
+    Failed,
+}
+
+/// Typed subject data supplied by a source/effect adapter.
+///
+/// The model checks subject equality and reference syntax. It does not prove
+/// that a referenced source record exists or that its digest/signature is
+/// cryptographically authentic.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EffectEvidence {
     pub operation_id: String,
@@ -146,51 +126,33 @@ pub struct EffectEvidence {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PaymentRecordStatus {
-    Completed,
-    Pending,
-    Failed,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EffectEvidenceKind {
-    MonetaryMovement {
-        account_id: String,
-        counterparty_id: String,
-        direction: MovementDirection,
-        amount_minor: u64,
-        predecessor_action_hash: String,
-        action_hash: String,
-    },
-    PaymentRecord {
+    LocalPaymentTransaction {
+        sender_account_id: String,
+        recipient_account_id: String,
+        sender_debit_minor: u64,
+        recipient_credit_minor: u64,
+        sender_predecessor_action: String,
+        sender_debit_action: String,
+        recipient_predecessor_action: String,
+        recipient_credit_action: String,
         payment_action_hash: String,
-        status: PaymentRecordStatus,
-    },
-    Receipt {
+        payment_status: PaymentRecordStatus,
         receipt_action_hash: String,
-        payment_action_hash: String,
-        signer_did: String,
+        receipt_signer_did: String,
         signing_profile: String,
         signature_digest: String,
+        treasury_fee_outbox_id: Option<String>,
     },
-}
-
-fn is_sha256_digest(value: &str) -> bool {
-    value.strip_prefix("sha256:").is_some_and(|hex| {
-        hex.len() == 64
-            && hex
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    })
-}
-
-fn is_action_reference(value: &str) -> bool {
-    value.strip_prefix("action:").is_some_and(|reference| {
-        !reference.is_empty()
-            && reference.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'
-            })
-    })
+    TreasuryFee {
+        pool_id: String,
+        source_member_did: String,
+        amount_minor: u64,
+        payment_action_hash: String,
+        idempotency_key: String,
+        predecessor_action: String,
+        treasury_action: String,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -209,11 +171,8 @@ pub enum EffectState {
 pub enum OperationStatus {
     Proposed,
     Authorized,
-    DebitPending,
-    CreditPending,
-    FeePending,
-    PaymentEvidencePending,
-    ReceiptEvidencePending,
+    LocalPaymentPending,
+    FeeDistributionPending,
     Indeterminate,
     Rejected,
     Completed,
@@ -227,6 +186,12 @@ pub enum Transition {
     Committed,
     AlreadyCommitted,
     NotRequired,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CreateDisposition {
+    Created,
+    ExistingSameIntent,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -251,10 +216,9 @@ impl fmt::Display for SagaError {
             Self::AmountOverflow => {
                 write!(formatter, "principal plus fee overflows the amount unit")
             }
-            Self::IdempotencyConflict => write!(
-                formatter,
-                "idempotency key reused with a different immutable intent"
-            ),
+            Self::IdempotencyConflict => {
+                write!(formatter, "sender/key reused with a different immutable intent")
+            }
             Self::NotAuthorized => write!(formatter, "payment intent has not been authorized"),
             Self::Rejected => write!(formatter, "payment operation has been rejected"),
             Self::DependencyNotSatisfied(leg) => {
@@ -330,7 +294,6 @@ impl PaymentJournal {
     }
 
     pub fn effect_state(&self, leg: PaymentLeg) -> &EffectState {
-        // Every leg is installed at creation and never removed.
         self.legs.get(&leg).expect("all payment legs are initialized")
     }
 
@@ -367,39 +330,47 @@ impl PaymentJournal {
         })
     }
 
-    fn leg_is_satisfied(&self, leg: PaymentLeg) -> bool {
+    fn local_payment_committed(&self) -> bool {
         matches!(
-            self.effect_state(leg),
-            EffectState::NotRequired | EffectState::Committed { .. }
+            self.effect_state(PaymentLeg::LocalPaymentTransaction),
+            EffectState::Committed { .. }
         )
+    }
+
+    fn committed_payment_action_hash(&self) -> Option<&str> {
+        match self.effect_state(PaymentLeg::LocalPaymentTransaction) {
+            EffectState::Committed { evidence, .. } => {
+                match &evidence.kind {
+                    EffectEvidenceKind::LocalPaymentTransaction {
+                        payment_action_hash,
+                        ..
+                    } => Some(payment_action_hash),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn fee_outbox_id(&self) -> Option<&str> {
+        match self.effect_state(PaymentLeg::LocalPaymentTransaction) {
+            EffectState::Committed { evidence, .. } => {
+                match &evidence.kind {
+                    EffectEvidenceKind::LocalPaymentTransaction {
+                        treasury_fee_outbox_id,
+                        ..
+                    } => treasury_fee_outbox_id.as_deref(),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
 
     fn dependencies_satisfied(&self, leg: PaymentLeg) -> bool {
         match leg {
-            PaymentLeg::SenderDebit => true,
-            PaymentLeg::RecipientCredit => self.leg_is_satisfied(PaymentLeg::SenderDebit),
-            PaymentLeg::TreasuryFee => {
-                self.leg_is_satisfied(PaymentLeg::SenderDebit)
-                    && self.leg_is_satisfied(PaymentLeg::RecipientCredit)
-            }
-            PaymentLeg::PaymentRecord => {
-                self.leg_is_satisfied(PaymentLeg::SenderDebit)
-                    && self.leg_is_satisfied(PaymentLeg::RecipientCredit)
-                    && self.leg_is_satisfied(PaymentLeg::TreasuryFee)
-            }
-            PaymentLeg::Receipt => self.leg_is_satisfied(PaymentLeg::PaymentRecord),
-        }
-    }
-
-    fn committed_payment_action_hash(&self) -> Option<&str> {
-        match self.effect_state(PaymentLeg::PaymentRecord) {
-            EffectState::Committed { evidence, .. } => match &evidence.kind {
-                EffectEvidenceKind::PaymentRecord { payment_action_hash } => {
-                    Some(payment_action_hash)
-                }
-                _ => None,
-            },
-            _ => None,
+            PaymentLeg::LocalPaymentTransaction => true,
+            PaymentLeg::TreasuryFee => self.local_payment_committed(),
         }
     }
 
@@ -429,90 +400,73 @@ impl PaymentJournal {
 
         let valid = match (&leg, &evidence.kind) {
             (
-                PaymentLeg::SenderDebit,
-                EffectEvidenceKind::MonetaryMovement {
-                    account_id,
-                    counterparty_id,
-                    direction,
-                    amount_minor,
-                    predecessor_action_hash,
-                    action_hash,
+                PaymentLeg::LocalPaymentTransaction,
+                EffectEvidenceKind::LocalPaymentTransaction {
+                    sender_account_id,
+                    recipient_account_id,
+                    sender_debit_minor,
+                    recipient_credit_minor,
+                    sender_predecessor_action,
+                    sender_debit_action,
+                    recipient_predecessor_action,
+                    recipient_credit_action,
+                    payment_action_hash,
+                    payment_status,
+                    receipt_action_hash,
+                    receipt_signer_did,
+                    signing_profile,
+                    signature_digest,
+                    treasury_fee_outbox_id,
                 },
             ) => {
-                account_id == &self.intent.sender_did
-                    && counterparty_id == &self.intent.recipient_did
-                    && *direction == MovementDirection::Debit
-                    && *amount_minor == total_debit
-                    && is_action_reference(predecessor_action_hash)
-                    && is_action_reference(action_hash)
-                    && predecessor_action_hash != action_hash
-            }
-            (
-                PaymentLeg::RecipientCredit,
-                EffectEvidenceKind::MonetaryMovement {
-                    account_id,
-                    counterparty_id,
-                    direction,
-                    amount_minor,
-                    predecessor_action_hash,
-                    action_hash,
-                },
-            ) => {
-                account_id == &self.intent.recipient_did
-                    && counterparty_id == &self.intent.sender_did
-                    && *direction == MovementDirection::Credit
-                    && *amount_minor == self.intent.amount_minor
-                    && !predecessor_action_hash.is_empty()
-                    && !action_hash.is_empty()
-                    && predecessor_action_hash != action_hash
+                let fee_outbox_valid = if self.intent.fee_minor == 0 {
+                    treasury_fee_outbox_id.is_none()
+                } else {
+                    treasury_fee_outbox_id.as_deref()
+                        == Some(self.effect_id(PaymentLeg::TreasuryFee).as_str())
+                };
+                sender_account_id == &self.intent.sender_did
+                    && recipient_account_id == &self.intent.recipient_did
+                    && *sender_debit_minor == total_debit
+                    && *recipient_credit_minor == self.intent.amount_minor
+                    && is_action_reference(sender_predecessor_action)
+                    && is_action_reference(sender_debit_action)
+                    && sender_predecessor_action != sender_debit_action
+                    && is_action_reference(recipient_predecessor_action)
+                    && is_action_reference(recipient_credit_action)
+                    && recipient_predecessor_action != recipient_credit_action
+                    && is_action_reference(payment_action_hash)
+                    && *payment_status == PaymentRecordStatus::Completed
+                    && is_action_reference(receipt_action_hash)
+                    && receipt_action_hash != payment_action_hash
+                    && receipt_signer_did == &self.intent.sender_did
+                    && signing_profile == "mycelix.finance.payment-receipt.v1"
+                    && is_sha256_digest(signature_digest)
+                    && fee_outbox_valid
             }
             (
                 PaymentLeg::TreasuryFee,
-                EffectEvidenceKind::MonetaryMovement {
-                    account_id,
-                    counterparty_id,
-                    direction,
+                EffectEvidenceKind::TreasuryFee {
+                    pool_id,
+                    source_member_did,
                     amount_minor,
-                    predecessor_action_hash,
-                    action_hash,
+                    payment_action_hash,
+                    idempotency_key,
+                    predecessor_action,
+                    treasury_action,
                 },
             ) => {
-                account_id == "treasury:global-fee-pool"
-                    && counterparty_id == &self.intent.sender_did
-                    && *direction == MovementDirection::Credit
+                self.intent.fee_minor > 0
+                    && pool_id == "treasury:global-fee-pool"
+                    && source_member_did == &self.intent.sender_did
                     && *amount_minor == self.intent.fee_minor
-                    && self.intent.fee_minor > 0
-                    && !predecessor_action_hash.is_empty()
-                    && !action_hash.is_empty()
-                    && predecessor_action_hash != action_hash
-            }
-            (
-                PaymentLeg::PaymentRecord,
-                EffectEvidenceKind::PaymentRecord {
-                    payment_action_hash,
-                    status,
-                },
-            ) => {
-                is_action_reference(payment_action_hash)
-                    && *status == PaymentRecordStatus::Completed
-            },
-            (
-                PaymentLeg::Receipt,
-                EffectEvidenceKind::Receipt {
-                    receipt_action_hash,
-                    payment_action_hash,
-                    signer_did,
-                    signing_profile,
-                    signature_digest,
-                },
-            ) => {
-                is_action_reference(receipt_action_hash)
+                    && Some(payment_action_hash.as_str())
+                        == self.committed_payment_action_hash()
+                    && Some(idempotency_key.as_str()) == self.fee_outbox_id()
                     && is_action_reference(payment_action_hash)
-                    && receipt_action_hash != payment_action_hash
-                    && self.committed_payment_action_hash() == Some(payment_action_hash.as_str())
-                    && signer_did == &self.intent.sender_did
-                    && signing_profile == "mycelix.finance.payment-receipt.v1"
-                    && is_sha256_digest(signature_digest)
+                    && is_action_reference(predecessor_action)
+                    && is_action_reference(treasury_action)
+                    && predecessor_action != treasury_action
             }
             _ => false,
         };
@@ -523,7 +477,6 @@ impl PaymentJournal {
             Err(SagaError::InvalidEffectEvidence(leg))
         }
     }
-
 
     pub fn prepare_leg(
         &mut self,
@@ -539,11 +492,11 @@ impl PaymentJournal {
         if effect_id != self.effect_id(leg) {
             return Err(SagaError::EffectIdentityMismatch(leg));
         }
-        if leg == PaymentLeg::TreasuryFee && self.intent.fee_minor == 0 {
-            return Ok(Transition::NotRequired);
-        }
         if !self.dependencies_satisfied(leg) {
             return Err(SagaError::DependencyNotSatisfied(leg));
+        }
+        if leg == PaymentLeg::TreasuryFee && self.intent.fee_minor == 0 {
+            return Ok(Transition::NotRequired);
         }
 
         match self.effect_state(leg).clone() {
@@ -607,9 +560,7 @@ impl PaymentJournal {
                 );
                 Ok(())
             }
-            EffectState::Committed { effect_id: current, .. } if current == effect_id => {
-                Ok(())
-            }
+            EffectState::Committed { effect_id: current, .. } if current == effect_id => Ok(()),
             _ => Err(SagaError::InvalidTransition(leg)),
         }
     }
@@ -622,11 +573,11 @@ impl PaymentJournal {
         if self.rejected {
             return Err(SagaError::Rejected);
         }
-        if leg == PaymentLeg::TreasuryFee && self.intent.fee_minor == 0 {
-            return Ok(Transition::NotRequired);
-        }
         if !self.dependencies_satisfied(leg) {
             return Err(SagaError::DependencyNotSatisfied(leg));
+        }
+        if leg == PaymentLeg::TreasuryFee && self.intent.fee_minor == 0 {
+            return Ok(Transition::NotRequired);
         }
         self.validate_effect_evidence(leg, &evidence)?;
         let effect_id = evidence.effect_id.clone();
@@ -662,9 +613,6 @@ impl PaymentJournal {
         if self.rejected {
             return OperationStatus::Rejected;
         }
-        if self.leg_is_satisfied(PaymentLeg::Receipt) {
-            return OperationStatus::Completed;
-        }
         if self
             .legs
             .values()
@@ -672,72 +620,27 @@ impl PaymentJournal {
         {
             return OperationStatus::Indeterminate;
         }
-        if self.leg_is_satisfied(PaymentLeg::PaymentRecord) {
-            return OperationStatus::ReceiptEvidencePending;
-        }
-        if matches!(
-            self.effect_state(PaymentLeg::Receipt),
-            EffectState::Prepared { .. }
-        ) {
-            return OperationStatus::ReceiptEvidencePending;
-        }
-        if matches!(
-            self.effect_state(PaymentLeg::PaymentRecord),
-            EffectState::Prepared { .. }
-        ) {
-            return OperationStatus::PaymentEvidencePending;
-        }
-        if !self.leg_is_satisfied(PaymentLeg::TreasuryFee) {
-            return if self.leg_is_satisfied(PaymentLeg::RecipientCredit) {
-                OperationStatus::FeePending
-            } else if matches!(
-                self.effect_state(PaymentLeg::TreasuryFee),
-                EffectState::Prepared { .. }
-            ) {
-                OperationStatus::FeePending
-            } else if self.leg_is_satisfied(PaymentLeg::SenderDebit) {
-                OperationStatus::CreditPending
-            } else if self.authorized {
-                OperationStatus::DebitPending
-            } else {
-                OperationStatus::Proposed
-            };
-        }
-        if !self.leg_is_satisfied(PaymentLeg::RecipientCredit) {
-            return if self.leg_is_satisfied(PaymentLeg::SenderDebit) {
-                OperationStatus::CreditPending
-            } else if self.authorized {
-                OperationStatus::DebitPending
-            } else {
-                OperationStatus::Proposed
-            };
-        }
-        if !self.leg_is_satisfied(PaymentLeg::SenderDebit) {
+        if !self.local_payment_committed() {
             return if self.authorized {
-                OperationStatus::DebitPending
+                OperationStatus::LocalPaymentPending
             } else {
                 OperationStatus::Proposed
             };
         }
-
-        // All monetary legs are satisfied; Payment record evidence is the next
-        // required step even when its preparation has not yet begun.
-        if self.authorized {
-            OperationStatus::PaymentEvidencePending
-        } else {
-            OperationStatus::Proposed
+        if self.intent.fee_minor == 0
+            || matches!(
+                self.effect_state(PaymentLeg::TreasuryFee),
+                EffectState::Committed { .. } | EffectState::NotRequired
+            )
+        {
+            return OperationStatus::Completed;
         }
+        OperationStatus::FeeDistributionPending
     }
 
     pub fn is_completed(&self) -> bool {
         self.status() == OperationStatus::Completed
     }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CreateDisposition {
-    Created,
-    ExistingSameIntent,
 }
 
 #[derive(Default, Debug)]
@@ -798,6 +701,24 @@ impl JournalRegistry {
     }
 }
 
+fn is_sha256_digest(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|hex| {
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+fn is_action_reference(value: &str) -> bool {
+    value.strip_prefix("action:").is_some_and(|reference| {
+        !reference.is_empty()
+            && reference.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'
+            })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -820,99 +741,118 @@ mod tests {
         format!("sha256:{seed:064x}")
     }
 
-    fn valid_evidence(
+    fn local_payment_evidence(
         journal: &PaymentJournal,
-        leg: PaymentLeg,
-        action_label: &str,
-        digest_seed: u64,
+        label: &str,
+        seed: u64,
     ) -> EffectEvidence {
-        let kind = match leg {
-            PaymentLeg::SenderDebit => EffectEvidenceKind::MonetaryMovement {
-                account_id: journal.intent.sender_did.clone(),
-                counterparty_id: journal.intent.recipient_did.clone(),
-                direction: MovementDirection::Debit,
-                amount_minor: journal.intent.amount_minor + journal.intent.fee_minor,
-                predecessor_action_hash: format!("action:sender-before-{action_label}"),
-                action_hash: format!("action:sender-debit-{action_label}"),
-            },
-            PaymentLeg::RecipientCredit => EffectEvidenceKind::MonetaryMovement {
-                account_id: journal.intent.recipient_did.clone(),
-                counterparty_id: journal.intent.sender_did.clone(),
-                direction: MovementDirection::Credit,
-                amount_minor: journal.intent.amount_minor,
-                predecessor_action_hash: format!("action:recipient-before-{action_label}"),
-                action_hash: format!("action:recipient-credit-{action_label}"),
-            },
-            PaymentLeg::TreasuryFee => EffectEvidenceKind::MonetaryMovement {
-                account_id: "treasury:global-fee-pool".into(),
-                counterparty_id: journal.intent.sender_did.clone(),
-                direction: MovementDirection::Credit,
-                amount_minor: journal.intent.fee_minor,
-                predecessor_action_hash: format!("action:treasury-before-{action_label}"),
-                action_hash: format!("action:treasury-fee-{action_label}"),
-            },
-            PaymentLeg::PaymentRecord => EffectEvidenceKind::PaymentRecord {
-                payment_action_hash: format!("action:payment-record-{action_label}"),
-                status: PaymentRecordStatus::Completed,
-            },
-            PaymentLeg::Receipt => EffectEvidenceKind::Receipt {
-                receipt_action_hash: format!("action:receipt-{action_label}"),
-                payment_action_hash: journal
-                    .committed_payment_action_hash()
-                    .unwrap_or("action:missing-payment-record")
-                    .to_owned(),
-                signer_did: journal.intent.sender_did.clone(),
-                signing_profile: "mycelix.finance.payment-receipt.v1".into(),
-                signature_digest: digest(digest_seed + 10_000),
+        let kind = EffectEvidenceKind::LocalPaymentTransaction {
+            sender_account_id: journal.intent.sender_did.clone(),
+            recipient_account_id: journal.intent.recipient_did.clone(),
+            sender_debit_minor: journal.intent.amount_minor + journal.intent.fee_minor,
+            recipient_credit_minor: journal.intent.amount_minor,
+            sender_predecessor_action: format!("action:sender-before-{label}"),
+            sender_debit_action: format!("action:sender-debit-{label}"),
+            recipient_predecessor_action: format!("action:recipient-before-{label}"),
+            recipient_credit_action: format!("action:recipient-credit-{label}"),
+            payment_action_hash: format!("action:payment-{label}"),
+            payment_status: PaymentRecordStatus::Completed,
+            receipt_action_hash: format!("action:receipt-{label}"),
+            receipt_signer_did: journal.intent.sender_did.clone(),
+            signing_profile: "mycelix.finance.payment-receipt.v1".into(),
+            signature_digest: digest(seed + 10_000),
+            treasury_fee_outbox_id: if journal.intent.fee_minor == 0 {
+                None
+            } else {
+                Some(journal.effect_id(PaymentLeg::TreasuryFee))
             },
         };
         EffectEvidence {
             operation_id: journal.operation_id.clone(),
-            effect_id: journal.effect_id(leg),
-            leg,
+            effect_id: journal.effect_id(PaymentLeg::LocalPaymentTransaction),
+            leg: PaymentLeg::LocalPaymentTransaction,
             sender_did: journal.intent.sender_did.clone(),
             recipient_did: journal.intent.recipient_did.clone(),
             principal_minor: journal.intent.amount_minor,
             fee_minor: journal.intent.fee_minor,
             currency: journal.intent.currency.clone(),
-            evidence_digest: digest(digest_seed),
+            evidence_digest: digest(seed),
             kind,
         }
     }
 
-    fn commit_for_test(
-        journal: &mut PaymentJournal,
-        leg: PaymentLeg,
+    fn treasury_fee_evidence(
+        journal: &PaymentJournal,
         label: &str,
-        digest_seed: u64,
-    ) -> Result<Transition, SagaError> {
-        let evidence = valid_evidence(journal, leg, label, digest_seed);
-        journal.commit_leg(leg, evidence)
+        seed: u64,
+    ) -> EffectEvidence {
+        let payment_action_hash = journal
+            .committed_payment_action_hash()
+            .expect("local Payment transaction must be committed")
+            .to_owned();
+        EffectEvidence {
+            operation_id: journal.operation_id.clone(),
+            effect_id: journal.effect_id(PaymentLeg::TreasuryFee),
+            leg: PaymentLeg::TreasuryFee,
+            sender_did: journal.intent.sender_did.clone(),
+            recipient_did: journal.intent.recipient_did.clone(),
+            principal_minor: journal.intent.amount_minor,
+            fee_minor: journal.intent.fee_minor,
+            currency: journal.intent.currency.clone(),
+            evidence_digest: digest(seed),
+            kind: EffectEvidenceKind::TreasuryFee {
+                pool_id: "treasury:global-fee-pool".into(),
+                source_member_did: journal.intent.sender_did.clone(),
+                amount_minor: journal.intent.fee_minor,
+                payment_action_hash,
+                idempotency_key: journal.effect_id(PaymentLeg::TreasuryFee),
+                predecessor_action: format!("action:treasury-before-{label}"),
+                treasury_action: format!("action:treasury-fee-{label}"),
+            },
+        }
     }
 
-    fn ready_journal() -> PaymentJournal {
+    fn commit_local(
+        journal: &mut PaymentJournal,
+        label: &str,
+        seed: u64,
+    ) -> Result<Transition, SagaError> {
+        journal.commit_leg(
+            PaymentLeg::LocalPaymentTransaction,
+            local_payment_evidence(journal, label, seed),
+        )
+    }
+
+    fn commit_fee(
+        journal: &mut PaymentJournal,
+        label: &str,
+        seed: u64,
+    ) -> Result<Transition, SagaError> {
+        let evidence = treasury_fee_evidence(journal, label, seed);
+        journal.commit_leg(PaymentLeg::TreasuryFee, evidence)
+    }
+
+    fn ready_local_payment() -> PaymentJournal {
         let mut registry = JournalRegistry::default();
         registry.create_or_get(intent()).unwrap();
         let journal = registry
             .get_mut("did:mycelix:alice", "client-op-001")
             .unwrap();
         journal.authorize().unwrap();
-        let debit_id = journal.effect_id(PaymentLeg::SenderDebit);
-        journal
-            .prepare_leg(PaymentLeg::SenderDebit, &debit_id)
-            .unwrap();
-        commit_for_test(journal, PaymentLeg::SenderDebit, "debit", 1).unwrap();
-        let credit_id = journal.effect_id(PaymentLeg::RecipientCredit);
-        journal
-            .prepare_leg(PaymentLeg::RecipientCredit, &credit_id)
-            .unwrap();
-        commit_for_test(journal, PaymentLeg::RecipientCredit, "credit", 2).unwrap();
-        let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
-        journal
-            .prepare_leg(PaymentLeg::TreasuryFee, &fee_id)
-            .unwrap();
-        commit_for_test(journal, PaymentLeg::TreasuryFee, "fee", 3).unwrap();
+        let local_id = journal.effect_id(PaymentLeg::LocalPaymentTransaction);
+        journal.prepare_leg(PaymentLeg::LocalPaymentTransaction, &local_id).unwrap();
+        commit_local(journal, "local", 1).unwrap();
         journal.clone()
+    }
+
+    fn completed_payment() -> PaymentJournal {
+        let mut journal = ready_local_payment();
+        if journal.intent.fee_minor > 0 {
+            let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
+            journal.prepare_leg(PaymentLeg::TreasuryFee, &fee_id).unwrap();
+            commit_fee(&mut journal, "treasury", 2).unwrap();
+        }
+        journal
     }
 
     #[test]
@@ -975,114 +915,230 @@ mod tests {
     }
 
     #[test]
-    fn recipient_credit_cannot_start_before_sender_debit_commit() {
+    fn treasury_fee_cannot_prepare_before_atomic_local_payment_commit() {
         let mut registry = JournalRegistry::default();
         registry.create_or_get(intent()).unwrap();
         let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
         journal.authorize().unwrap();
-        let credit_id = journal.effect_id(PaymentLeg::RecipientCredit);
+        let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
         assert_eq!(
-            journal.prepare_leg(PaymentLeg::RecipientCredit, &credit_id),
-            Err(SagaError::DependencyNotSatisfied(PaymentLeg::RecipientCredit))
+            journal.prepare_leg(PaymentLeg::TreasuryFee, &fee_id),
+            Err(SagaError::DependencyNotSatisfied(PaymentLeg::TreasuryFee))
         );
     }
 
     #[test]
-    fn debit_ack_loss_retries_same_effect_not_a_second_debit() {
-        let mut journal = ready_journal();
-        let debit_id = journal.effect_id(PaymentLeg::SenderDebit);
+    fn local_transaction_is_one_atomic_subject_not_independent_debit_and_credit_legs() {
+        let journal = completed_payment();
+        assert!(journal.local_payment_committed());
+        assert!(matches!(
+            journal.effect_state(PaymentLeg::LocalPaymentTransaction),
+            EffectState::Committed {
+                evidence: EffectEvidence {
+                    kind: EffectEvidenceKind::LocalPaymentTransaction { .. },
+                    ..
+                },
+                ..
+            }
+        ));
         assert_eq!(
-            journal.prepare_leg(PaymentLeg::SenderDebit, &debit_id).unwrap(),
-            Transition::AlreadyCommitted
-        );
-        assert_eq!(
-            commit_for_test(&mut journal, PaymentLeg::SenderDebit, "debit", 1).unwrap(),
-            Transition::AlreadyCommitted
-        );
-        assert_eq!(
-            journal.effect_state(PaymentLeg::SenderDebit),
+            journal.effect_state(PaymentLeg::TreasuryFee),
             &EffectState::Committed {
-                effect_id: debit_id.clone(),
-                evidence: valid_evidence(&journal, PaymentLeg::SenderDebit, "debit", 1)
+                effect_id: journal.effect_id(PaymentLeg::TreasuryFee),
+                evidence: treasury_fee_evidence(&journal, "treasury", 2)
             }
         );
+        assert!(journal.is_completed());
     }
 
     #[test]
-    fn same_leg_cannot_change_effect_identity_or_commit_evidence() {
+    fn local_payment_transaction_enforces_both_balances_and_receipt_subject() {
+        let mut journal = ready_local_payment();
+        // Once committed, duplicate identical evidence is idempotent.
+        assert_eq!(
+            commit_local(&mut journal, "local", 1).unwrap(),
+            Transition::AlreadyCommitted
+        );
+
+        let mut wrong_debit = local_payment_evidence(&journal, "wrong-debit", 3);
+        if let EffectEvidenceKind::LocalPaymentTransaction { sender_debit_minor, .. } =
+            &mut wrong_debit.kind
+        {
+            *sender_debit_minor -= 1;
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(
+                PaymentLeg::LocalPaymentTransaction,
+                &wrong_debit,
+            ),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::LocalPaymentTransaction))
+        );
+
+        let mut wrong_credit = local_payment_evidence(&journal, "wrong-credit", 4);
+        if let EffectEvidenceKind::LocalPaymentTransaction {
+            recipient_credit_minor,
+            ..
+        } = &mut wrong_credit.kind
+        {
+            *recipient_credit_minor += 1;
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(
+                PaymentLeg::LocalPaymentTransaction,
+                &wrong_credit,
+            ),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::LocalPaymentTransaction))
+        );
+
+        let mut wrong_signer = local_payment_evidence(&journal, "wrong-signer", 5);
+        if let EffectEvidenceKind::LocalPaymentTransaction {
+            receipt_signer_did,
+            ..
+        } = &mut wrong_signer.kind
+        {
+            *receipt_signer_did = "did:mycelix:mallory".into();
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(
+                PaymentLeg::LocalPaymentTransaction,
+                &wrong_signer,
+            ),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::LocalPaymentTransaction))
+        );
+    }
+
+    #[test]
+    fn local_transaction_rejects_non_completed_payment_and_missing_outbox_intent() {
+        let mut journal = ready_local_payment();
+
+        let mut pending_payment = local_payment_evidence(&journal, "pending-payment", 6);
+        if let EffectEvidenceKind::LocalPaymentTransaction { payment_status, .. } =
+            &mut pending_payment.kind
+        {
+            *payment_status = PaymentRecordStatus::Pending;
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(
+                PaymentLeg::LocalPaymentTransaction,
+                &pending_payment,
+            ),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::LocalPaymentTransaction))
+        );
+
+        let mut missing_outbox = local_payment_evidence(&journal, "missing-outbox", 7);
+        if let EffectEvidenceKind::LocalPaymentTransaction {
+            treasury_fee_outbox_id,
+            ..
+        } = &mut missing_outbox.kind
+        {
+            *treasury_fee_outbox_id = None;
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(
+                PaymentLeg::LocalPaymentTransaction,
+                &missing_outbox,
+            ),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::LocalPaymentTransaction))
+        );
+    }
+
+    #[test]
+    fn local_transaction_ack_loss_reconciles_same_atomic_effect_identity() {
         let mut registry = JournalRegistry::default();
         registry.create_or_get(intent()).unwrap();
         let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
         journal.authorize().unwrap();
-        let debit_id = journal.effect_id(PaymentLeg::SenderDebit);
-        journal.prepare_leg(PaymentLeg::SenderDebit, &debit_id).unwrap();
-        assert_eq!(
-            journal.prepare_leg(PaymentLeg::SenderDebit, "a-new-effect-id"),
-            Err(SagaError::EffectIdentityMismatch(PaymentLeg::SenderDebit))
-        );
-        commit_for_test(journal, PaymentLeg::SenderDebit, "debit-a", 4).unwrap();
-        assert_eq!(
-            {
-                let evidence =
-                    valid_evidence(journal, PaymentLeg::SenderDebit, "debit-b", 5);
-                journal.commit_leg(PaymentLeg::SenderDebit, evidence)
-            },
-            Err(SagaError::EffectEvidenceConflict(PaymentLeg::SenderDebit))
-        );
-    }
-
-    #[test]
-    fn lost_credit_ack_is_indeterminate_and_resumes_original_credit_id() {
-        let mut registry = JournalRegistry::default();
-        registry.create_or_get(intent()).unwrap();
-        let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
-        journal.authorize().unwrap();
-
-        let debit_id = journal.effect_id(PaymentLeg::SenderDebit);
-        journal.prepare_leg(PaymentLeg::SenderDebit, &debit_id).unwrap();
-        commit_for_test(journal, PaymentLeg::SenderDebit, "debit", 1).unwrap();
-
-        let credit_id = journal.effect_id(PaymentLeg::RecipientCredit);
-        journal.prepare_leg(PaymentLeg::RecipientCredit, &credit_id).unwrap();
-        journal.mark_indeterminate(PaymentLeg::RecipientCredit, &credit_id).unwrap();
+        let local_id = journal.effect_id(PaymentLeg::LocalPaymentTransaction);
+        journal
+            .prepare_leg(PaymentLeg::LocalPaymentTransaction, &local_id)
+            .unwrap();
+        journal
+            .mark_indeterminate(PaymentLeg::LocalPaymentTransaction, &local_id)
+            .unwrap();
         assert_eq!(journal.status(), OperationStatus::Indeterminate);
         assert_eq!(
-            journal.prepare_leg(PaymentLeg::RecipientCredit, &credit_id).unwrap(),
+            journal
+                .prepare_leg(PaymentLeg::LocalPaymentTransaction, &local_id)
+                .unwrap(),
             Transition::ResumedSameEffect
         );
-        commit_for_test(journal, PaymentLeg::RecipientCredit, "credit", 2).unwrap();
-        assert!(matches!(
-            journal.effect_state(PaymentLeg::SenderDebit),
-            EffectState::Committed { .. }
-        ));
-    }
-
-    #[test]
-    fn fee_failure_blocks_payment_record_and_completion() {
-        let mut registry = JournalRegistry::default();
-        registry.create_or_get(intent()).unwrap();
-        let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
-        journal.authorize().unwrap();
-        let debit = journal.effect_id(PaymentLeg::SenderDebit);
-        journal.prepare_leg(PaymentLeg::SenderDebit, &debit).unwrap();
-        commit_for_test(journal, PaymentLeg::SenderDebit, "debit", 1).unwrap();
-        let credit = journal.effect_id(PaymentLeg::RecipientCredit);
-        journal.prepare_leg(PaymentLeg::RecipientCredit, &credit).unwrap();
-        commit_for_test(journal, PaymentLeg::RecipientCredit, "credit", 2).unwrap();
-        let fee = journal.effect_id(PaymentLeg::TreasuryFee);
-        journal.prepare_leg(PaymentLeg::TreasuryFee, &fee).unwrap();
-        journal.mark_indeterminate(PaymentLeg::TreasuryFee, &fee).unwrap();
-        assert_eq!(journal.status(), OperationStatus::Indeterminate);
-        let payment_record = journal.effect_id(PaymentLeg::PaymentRecord);
+        commit_local(journal, "local-transaction", 8).unwrap();
+        assert_eq!(journal.status(), OperationStatus::FeeDistributionPending);
         assert_eq!(
-            journal.prepare_leg(PaymentLeg::PaymentRecord, &payment_record),
-            Err(SagaError::DependencyNotSatisfied(PaymentLeg::PaymentRecord))
+            journal
+                .prepare_leg(
+                    PaymentLeg::LocalPaymentTransaction,
+                    &local_id
+                )
+                .unwrap(),
+            Transition::AlreadyCommitted
         );
-        assert!(!journal.is_completed());
     }
 
     #[test]
-    fn zero_fee_is_explicitly_not_required_but_evidence_still_required() {
+    fn treasury_fee_delivery_is_blocked_until_local_transaction_commits() {
+        let mut journal = ready_local_payment();
+        let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
+        journal.prepare_leg(PaymentLeg::TreasuryFee, &fee_id).unwrap();
+
+        let mut wrong_pool = treasury_fee_evidence(&journal, "wrong-pool", 10);
+        if let EffectEvidenceKind::TreasuryFee { pool_id, .. } = &mut wrong_pool.kind {
+            *pool_id = "treasury:other-pool".into();
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(PaymentLeg::TreasuryFee, &wrong_pool),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
+        );
+
+        let mut wrong_amount = treasury_fee_evidence(&journal, "wrong-amount", 11);
+        if let EffectEvidenceKind::TreasuryFee { amount_minor, .. } = &mut wrong_amount.kind {
+            *amount_minor += 1;
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(PaymentLeg::TreasuryFee, &wrong_amount),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
+        );
+
+        let mut wrong_payment = treasury_fee_evidence(&journal, "wrong-payment", 12);
+        if let EffectEvidenceKind::TreasuryFee {
+            payment_action_hash,
+            ..
+        } = &mut wrong_payment.kind
+        {
+            *payment_action_hash = "action:some-other-payment".into();
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(PaymentLeg::TreasuryFee, &wrong_payment),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
+        );
+
+        let mut wrong_key = treasury_fee_evidence(&journal, "wrong-key", 13);
+        if let EffectEvidenceKind::TreasuryFee { idempotency_key, .. } = &mut wrong_key.kind {
+            *idempotency_key = "another-operation".into();
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(PaymentLeg::TreasuryFee, &wrong_key),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
+        );
+    }
+
+    #[test]
+    fn treasury_fee_timeout_retries_same_outbox_id_and_completes() {
+        let mut journal = ready_local_payment();
+        let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
+        journal.prepare_leg(PaymentLeg::TreasuryFee, &fee_id).unwrap();
+        journal.mark_indeterminate(PaymentLeg::TreasuryFee, &fee_id).unwrap();
+        assert_eq!(journal.status(), OperationStatus::Indeterminate);
+        assert_eq!(
+            journal.prepare_leg(PaymentLeg::TreasuryFee, &fee_id).unwrap(),
+            Transition::ResumedSameEffect
+        );
+        commit_fee(&mut journal, "treasury", 14).unwrap();
+        assert_eq!(journal.status(), OperationStatus::Completed);
+    }
+
+    #[test]
+    fn zero_fee_completes_with_no_treasury_effect() {
         let no_fee = PaymentIntent::new(
             "alice",
             "bob",
@@ -1095,45 +1151,38 @@ mod tests {
         let mut registry = JournalRegistry::default();
         registry.create_or_get(no_fee).unwrap();
         let journal = registry.get_mut("alice", "op-no-fee").unwrap();
+        journal.authorize().unwrap();
+        let local_id = journal.effect_id(PaymentLeg::LocalPaymentTransaction);
+        journal.prepare_leg(PaymentLeg::LocalPaymentTransaction, &local_id).unwrap();
+        commit_local(journal, "no-fee", 15).unwrap();
         assert_eq!(
             journal.effect_state(PaymentLeg::TreasuryFee),
             &EffectState::NotRequired
         );
-    }
-
-    #[test]
-    fn payment_record_and_receipt_are_required_before_completed() {
-        let mut journal = ready_journal();
-        assert_eq!(journal.status(), OperationStatus::PaymentEvidencePending);
-        let payment_id = journal.effect_id(PaymentLeg::PaymentRecord);
-        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment_id).unwrap();
-        assert_eq!(journal.status(), OperationStatus::PaymentEvidencePending);
-        commit_for_test(&mut journal, PaymentLeg::PaymentRecord, "payment", 4).unwrap();
-        assert_eq!(journal.status(), OperationStatus::ReceiptEvidencePending);
-        let receipt_id = journal.effect_id(PaymentLeg::Receipt);
-        journal.prepare_leg(PaymentLeg::Receipt, &receipt_id).unwrap();
-        commit_for_test(&mut journal, PaymentLeg::Receipt, "receipt", 5).unwrap();
         assert_eq!(journal.status(), OperationStatus::Completed);
     }
 
     #[test]
-    fn receipt_cannot_be_created_before_payment_record() {
-        let mut journal = ready_journal();
-        let receipt_id = journal.effect_id(PaymentLeg::Receipt);
+    fn changed_evidence_for_same_treasury_effect_conflicts() {
+        let mut journal = ready_local_payment();
+        let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
+        journal.prepare_leg(PaymentLeg::TreasuryFee, &fee_id).unwrap();
+        commit_fee(&mut journal, "treasury", 16).unwrap();
+        let changed = treasury_fee_evidence(&journal, "treasury", 17);
         assert_eq!(
-            journal.prepare_leg(PaymentLeg::Receipt, &receipt_id),
-            Err(SagaError::DependencyNotSatisfied(PaymentLeg::Receipt))
+            journal.commit_leg(PaymentLeg::TreasuryFee, changed),
+            Err(SagaError::EffectEvidenceConflict(PaymentLeg::TreasuryFee))
         );
     }
 
     #[test]
-    fn cannot_reject_after_an_effect_might_have_occurred() {
+    fn cannot_reject_after_local_transaction_or_treasury_effect_may_have_occurred() {
         let mut registry = JournalRegistry::default();
         registry.create_or_get(intent()).unwrap();
         let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
         journal.authorize().unwrap();
-        let debit = journal.effect_id(PaymentLeg::SenderDebit);
-        journal.prepare_leg(PaymentLeg::SenderDebit, &debit).unwrap();
+        let local_id = journal.effect_id(PaymentLeg::LocalPaymentTransaction);
+        journal.prepare_leg(PaymentLeg::LocalPaymentTransaction, &local_id).unwrap();
         assert_eq!(
             journal.reject_before_effects(),
             Err(SagaError::CannotRejectAfterEffectAttempt)
@@ -1155,9 +1204,14 @@ mod tests {
                 })
             })
             .collect();
-        let outcomes: Vec<_> = workers.into_iter().map(|worker| worker.join().unwrap()).collect();
-        let ids: std::collections::BTreeSet<_> =
-            outcomes.iter().map(|(_, operation_id)| operation_id).collect();
+        let outcomes: Vec<_> = workers
+            .into_iter()
+            .map(|worker| worker.join().unwrap())
+            .collect();
+        let ids: std::collections::BTreeSet<_> = outcomes
+            .iter()
+            .map(|(_, operation_id)| operation_id)
+            .collect();
         assert_eq!(ids.len(), 1);
         assert_eq!(registry.lock().unwrap().len(), 1);
         assert_eq!(
@@ -1197,284 +1251,38 @@ mod tests {
     }
 
     #[test]
-    fn fee_timeout_resumes_same_effect_and_unblocks_payment_evidence() {
-        let mut registry = JournalRegistry::default();
-        registry.create_or_get(intent()).unwrap();
-        let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
-        journal.authorize().unwrap();
-
-        let debit = journal.effect_id(PaymentLeg::SenderDebit);
-        journal.prepare_leg(PaymentLeg::SenderDebit, &debit).unwrap();
-        commit_for_test(journal, PaymentLeg::SenderDebit, "debit", 1).unwrap();
-
-        let credit = journal.effect_id(PaymentLeg::RecipientCredit);
-        journal.prepare_leg(PaymentLeg::RecipientCredit, &credit).unwrap();
-        commit_for_test(journal, PaymentLeg::RecipientCredit, "credit", 2).unwrap();
-
-        let fee = journal.effect_id(PaymentLeg::TreasuryFee);
-        journal.prepare_leg(PaymentLeg::TreasuryFee, &fee).unwrap();
-        journal.mark_indeterminate(PaymentLeg::TreasuryFee, &fee).unwrap();
-        assert_eq!(journal.status(), OperationStatus::Indeterminate);
-        assert_eq!(
-            journal.prepare_leg(PaymentLeg::TreasuryFee, &fee).unwrap(),
-            Transition::ResumedSameEffect
-        );
-        commit_for_test(journal, PaymentLeg::TreasuryFee, "fee", 3).unwrap();
-
-        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
-        assert_eq!(journal.status(), OperationStatus::PaymentEvidencePending);
-        assert_eq!(
-            journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap(),
-            Transition::Prepared
-        );
-    }
-
-    #[test]
-    fn receipt_timeout_resumes_same_evidence_leg_and_then_completes() {
-        let mut journal = ready_journal();
-        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
-        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap();
-        commit_for_test(&mut journal, PaymentLeg::PaymentRecord, "payment", 4).unwrap();
-
-        let receipt = journal.effect_id(PaymentLeg::Receipt);
-        journal.prepare_leg(PaymentLeg::Receipt, &receipt).unwrap();
-        journal.mark_indeterminate(PaymentLeg::Receipt, &receipt).unwrap();
-        assert_eq!(journal.status(), OperationStatus::Indeterminate);
-        assert_eq!(
-            journal.prepare_leg(PaymentLeg::Receipt, &receipt).unwrap(),
-            Transition::ResumedSameEffect
-        );
-        commit_for_test(&mut journal, PaymentLeg::Receipt, "receipt", 5).unwrap();
-        assert_eq!(journal.status(), OperationStatus::Completed);
-    }
-
-    #[test]
-    fn evidence_must_match_exact_debit_credit_and_fee_amounts() {
-        let mut registry = JournalRegistry::default();
-        registry.create_or_get(intent()).unwrap();
-        let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
-        journal.authorize().unwrap();
-
-        let debit = journal.effect_id(PaymentLeg::SenderDebit);
-        journal.prepare_leg(PaymentLeg::SenderDebit, &debit).unwrap();
-        let mut wrong_debit = valid_evidence(journal, PaymentLeg::SenderDebit, "bad-debit", 10);
-        if let EffectEvidenceKind::MonetaryMovement { amount_minor, .. } = &mut wrong_debit.kind {
-            *amount_minor -= 1;
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::SenderDebit, wrong_debit),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::SenderDebit))
-        );
-        commit_for_test(journal, PaymentLeg::SenderDebit, "debit", 1).unwrap();
-
-        let credit = journal.effect_id(PaymentLeg::RecipientCredit);
-        journal.prepare_leg(PaymentLeg::RecipientCredit, &credit).unwrap();
-        let mut wrong_credit =
-            valid_evidence(journal, PaymentLeg::RecipientCredit, "bad-credit", 11);
-        if let EffectEvidenceKind::MonetaryMovement { account_id, .. } = &mut wrong_credit.kind {
-            *account_id = "did:mycelix:mallory".into();
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::RecipientCredit, wrong_credit),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::RecipientCredit))
-        );
-        commit_for_test(journal, PaymentLeg::RecipientCredit, "credit", 2).unwrap();
-
-        let fee = journal.effect_id(PaymentLeg::TreasuryFee);
-        journal.prepare_leg(PaymentLeg::TreasuryFee, &fee).unwrap();
-        let mut wrong_fee = valid_evidence(journal, PaymentLeg::TreasuryFee, "bad-fee", 12);
-        if let EffectEvidenceKind::MonetaryMovement { counterparty_id, .. } = &mut wrong_fee.kind {
-            *counterparty_id = "did:mycelix:mallory".into();
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::TreasuryFee, wrong_fee),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
-        );
-
-        let mut wrong_fee_amount =
-            valid_evidence(journal, PaymentLeg::TreasuryFee, "bad-fee-amount", 13);
-        if let EffectEvidenceKind::MonetaryMovement { amount_minor, .. } =
-            &mut wrong_fee_amount.kind
-        {
-            *amount_minor += 1;
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::TreasuryFee, wrong_fee_amount),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
-        );
-    }
-
-    #[test]
-    fn evidence_must_match_intent_currency_and_stable_operation_identity() {
-        let mut registry = JournalRegistry::default();
-        registry.create_or_get(intent()).unwrap();
-        let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
-        journal.authorize().unwrap();
-        let debit = journal.effect_id(PaymentLeg::SenderDebit);
-        journal.prepare_leg(PaymentLeg::SenderDebit, &debit).unwrap();
-
-        let mut wrong_currency =
-            valid_evidence(journal, PaymentLeg::SenderDebit, "wrong-currency", 50);
-        wrong_currency.currency = "USD".into();
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::SenderDebit, wrong_currency),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::SenderDebit))
-        );
-
-        let mut wrong_operation =
-            valid_evidence(journal, PaymentLeg::SenderDebit, "wrong-operation", 51);
-        wrong_operation.operation_id = "sap-payment:other-operation".into();
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::SenderDebit, wrong_operation),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::SenderDebit))
-        );
-
-        let mut wrong_direction =
-            valid_evidence(journal, PaymentLeg::SenderDebit, "wrong-direction", 52);
-        if let EffectEvidenceKind::MonetaryMovement { direction, .. } =
-            &mut wrong_direction.kind
-        {
-            *direction = MovementDirection::Credit;
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::SenderDebit, wrong_direction),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::SenderDebit))
-        );
-    }
-
-    #[test]
-    fn payment_record_must_be_completed_and_match_the_journaled_intent() {
-        let mut journal = ready_journal();
-        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
-        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap();
-
-        let mut pending =
-            valid_evidence(&journal, PaymentLeg::PaymentRecord, "payment-pending", 40);
-        if let EffectEvidenceKind::PaymentRecord { status, .. } = &mut pending.kind {
-            *status = PaymentRecordStatus::Pending;
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::PaymentRecord, pending),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::PaymentRecord))
-        );
-
-        let mut failed = valid_evidence(&journal, PaymentLeg::PaymentRecord, "payment-failed", 41);
-        if let EffectEvidenceKind::PaymentRecord { status, .. } = &mut failed.kind {
-            *status = PaymentRecordStatus::Failed;
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::PaymentRecord, failed),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::PaymentRecord))
-        );
-
-        commit_for_test(&mut journal, PaymentLeg::PaymentRecord, "payment", 4).unwrap();
-    }
-
-    #[test]
-    fn receipt_evidence_must_bind_exact_committed_payment_action_and_v1_signature() {
-        let mut journal = ready_journal();
-        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
-        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap();
-        commit_for_test(&mut journal, PaymentLeg::PaymentRecord, "payment", 4).unwrap();
-
-        let receipt = journal.effect_id(PaymentLeg::Receipt);
-        journal.prepare_leg(PaymentLeg::Receipt, &receipt).unwrap();
-        let mut bad_receipt = valid_evidence(&journal, PaymentLeg::Receipt, "receipt-bad", 20);
-        if let EffectEvidenceKind::Receipt { payment_action_hash, .. } = &mut bad_receipt.kind {
-            *payment_action_hash = "action:some-other-payment".into();
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::Receipt, bad_receipt),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::Receipt))
-        );
-
-        let mut bad_profile =
-            valid_evidence(&journal, PaymentLeg::Receipt, "receipt-bad-profile", 21);
-        if let EffectEvidenceKind::Receipt { signing_profile, .. } = &mut bad_profile.kind {
-            *signing_profile = "legacy-unversioned".into();
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::Receipt, bad_profile),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::Receipt))
-        );
-        commit_for_test(&mut journal, PaymentLeg::Receipt, "receipt", 5).unwrap();
-        assert!(journal.is_completed());
-    }
-
-    #[test]
-    fn receipt_evidence_rejects_wrong_signer_and_reused_payment_action() {
-        let mut journal = ready_journal();
-        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
-        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap();
-        commit_for_test(&mut journal, PaymentLeg::PaymentRecord, "payment", 4).unwrap();
-
-        let receipt = journal.effect_id(PaymentLeg::Receipt);
-        journal.prepare_leg(PaymentLeg::Receipt, &receipt).unwrap();
-
-        let mut wrong_signer =
-            valid_evidence(&journal, PaymentLeg::Receipt, "wrong-signer", 60);
-        if let EffectEvidenceKind::Receipt { signer_did, .. } = &mut wrong_signer.kind {
-            *signer_did = "did:mycelix:mallory".into();
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::Receipt, wrong_signer),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::Receipt))
-        );
-
-        let mut reused_action =
-            valid_evidence(&journal, PaymentLeg::Receipt, "reused-payment-action", 61);
-        if let EffectEvidenceKind::Receipt {
-            receipt_action_hash,
-            payment_action_hash,
-            ..
-        } = &mut reused_action.kind
-        {
-            *receipt_action_hash = payment_action_hash.clone();
-        }
-        assert_eq!(
-            journal.commit_leg(PaymentLeg::Receipt, reused_action),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::Receipt))
-        );
-
-        commit_for_test(&mut journal, PaymentLeg::Receipt, "receipt", 5).unwrap();
-    }
-
-    #[test]
     fn noncanonical_evidence_digest_is_rejected() {
         let mut registry = JournalRegistry::default();
         registry.create_or_get(intent()).unwrap();
         let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
         journal.authorize().unwrap();
-        let debit = journal.effect_id(PaymentLeg::SenderDebit);
-        journal.prepare_leg(PaymentLeg::SenderDebit, &debit).unwrap();
-        let mut evidence = valid_evidence(journal, PaymentLeg::SenderDebit, "bad-digest", 30);
+        let local_id = journal.effect_id(PaymentLeg::LocalPaymentTransaction);
+        journal.prepare_leg(PaymentLeg::LocalPaymentTransaction, &local_id).unwrap();
+        let mut evidence = local_payment_evidence(journal, "bad-digest", 20);
         evidence.evidence_digest = "not-a-digest".into();
         assert_eq!(
-            journal.commit_leg(PaymentLeg::SenderDebit, evidence),
-            Err(SagaError::InvalidEffectEvidence(PaymentLeg::SenderDebit))
+            journal.commit_leg(PaymentLeg::LocalPaymentTransaction, evidence),
+            Err(SagaError::InvalidEffectEvidence(
+                PaymentLeg::LocalPaymentTransaction
+            ))
         );
     }
+}
 
-    #[test]
-    fn fee_and_balance_legs_are_never_replayed_when_evidence_is_pending() {
-        let mut journal = ready_journal();
-        let payment_id = journal.effect_id(PaymentLeg::PaymentRecord);
-        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment_id).unwrap();
-        journal.mark_indeterminate(PaymentLeg::PaymentRecord, &payment_id).unwrap();
-        assert_eq!(journal.status(), OperationStatus::Indeterminate);
-        assert_eq!(
-            journal.prepare_leg(PaymentLeg::PaymentRecord, &payment_id).unwrap(),
-            Transition::ResumedSameEffect
-        );
-        for leg in [
-            PaymentLeg::SenderDebit,
-            PaymentLeg::RecipientCredit,
-            PaymentLeg::TreasuryFee,
-        ] {
-            assert!(
-                matches!(journal.effect_state(leg), EffectState::Committed { .. }),
-                "previous monetary leg {leg:?} must remain committed"
-            );
-        }
-    }
+fn is_sha256_digest(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|hex| {
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+fn is_action_reference(value: &str) -> bool {
+    value.strip_prefix("action:").is_some_and(|reference| {
+        !reference.is_empty()
+            && reference.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'
+            })
+    })
 }
