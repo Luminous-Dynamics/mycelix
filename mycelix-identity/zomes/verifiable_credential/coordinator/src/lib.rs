@@ -402,7 +402,7 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
             verification_method: format!("{}#keys-1", issuer_did),
             proof_purpose: "assertionMethod".to_string(),
             proof_value: String::new(), // Will be filled
-            cryptosuite: Some(AlgorithmId::Ed25519.cryptosuite().to_string()),
+            cryptosuite: Some(CREDENTIAL_HASH_PROFILE_V1.to_string()),
             algorithm: Some(AlgorithmId::Ed25519.as_u16()),
             challenge: None,
             domain: None,
@@ -598,7 +598,7 @@ pub enum CredentialSignatureStatus {
 enum CredentialSignatureOutcome {
     Verified,
     Invalid,
-    Partial { algorithm: AlgorithmId },
+    Partial { algorithm: AlgorithmId, reason: String },
     Unsupported { algorithm: AlgorithmId },
 }
 
@@ -616,9 +616,9 @@ impl CredentialSignatureOutcome {
         match self {
             Self::Verified => None,
             Self::Invalid => Some("Proof signature verification failed".to_string()),
-            Self::Partial { algorithm } => Some(format!(
-                "Proof signature is only partially verified for {:?}; every hybrid component must verify",
-                algorithm
+            Self::Partial { algorithm, reason } => Some(format!(
+                "Proof signature is only partially verified for {:?}: {}",
+                algorithm, reason
             )),
             Self::Unsupported { algorithm } => Some(format!(
                 "Proof signature algorithm {:?} is not cryptographically verified by this WASM verifier",
@@ -1303,7 +1303,7 @@ pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Reco
     };
 
     // Compute hash of original credential
-    let original_hash = compute_credential_hash(&original_vc);
+    let original_hash = compute_credential_hash_for_profile(&original_vc)?;
 
     // Create derivation proof with real ed25519 signature
     // Build data to sign: original hash + selected claims
@@ -1473,7 +1473,7 @@ pub fn verify_derived_credential(
         )))?;
 
     // Verify the original credential hash matches
-    let recomputed_hash = compute_credential_hash(&original_vc);
+    let recomputed_hash = compute_credential_hash_for_profile(&original_vc)?;
     if recomputed_hash != derived.derivation_proof.original_credential_hash {
         errors.push("Original credential hash does not match derivation proof".to_string());
     }
@@ -3047,7 +3047,7 @@ mod tests {
 /// multicodec prefix so verifiers can detect the algorithm.
 fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
     // Compute canonical hash of credential content
-    let content_hash = compute_credential_hash(vc);
+    let content_hash = compute_credential_hash_v1(vc)?;
 
     // Sign with agent's ed25519 key via HDK
     let signature = sign_raw(agent_info()?.agent_initial_pubkey, content_hash.clone())?;
@@ -3074,6 +3074,21 @@ fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
 fn verify_credential_signature(
     vc: &VerifiableCredential,
 ) -> ExternResult<CredentialSignatureOutcome> {
+    let tagged_signature = TaggedSignature::from_multibase(&vc.proof.proof_value);
+    let signature_algorithm = tagged_signature
+        .as_ref()
+        .map(|signature| signature.algorithm)
+        .unwrap_or(AlgorithmId::Ed25519);
+    let profile = match credential_hash_profile(vc) {
+        Some(profile) => profile,
+        None => {
+            return Ok(CredentialSignatureOutcome::Unsupported {
+                algorithm: signature_algorithm,
+            });
+        }
+    };
+    let content_hash = compute_credential_hash_for_profile(vc)?;
+
     // Extract public key from issuer DID.
     let issuer_did = vc.issuer.did();
     let pubkey_str = issuer_did.strip_prefix("did:mycelix:").ok_or_else(|| {
@@ -3082,7 +3097,6 @@ fn verify_credential_signature(
             issuer_did
         )))
     })?;
-
     let pubkey = AgentPubKey::try_from(pubkey_str.to_string()).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "Invalid public key in DID '{}': {:?}",
@@ -3090,9 +3104,7 @@ fn verify_credential_signature(
         )))
     })?;
 
-    let content_hash = compute_credential_hash(vc);
-
-    match TaggedSignature::from_multibase(&vc.proof.proof_value) {
+    match tagged_signature {
         Ok(tagged_sig) => match tagged_sig.algorithm {
             AlgorithmId::Ed25519 => {
                 if tagged_sig.signature_bytes.len() != AlgorithmId::Ed25519.signature_size() {
@@ -3104,14 +3116,19 @@ fn verify_credential_signature(
                     })?,
                 );
                 match verify_signature(pubkey, sig, content_hash)? {
-                    true => Ok(CredentialSignatureOutcome::Verified),
                     false => Ok(CredentialSignatureOutcome::Invalid),
+                    true if profile == CredentialHashProfile::MycelixV1 => {
+                        Ok(CredentialSignatureOutcome::Verified)
+                    }
+                    true => Ok(CredentialSignatureOutcome::Partial {
+                        algorithm: AlgorithmId::Ed25519,
+                        reason: "historical subset-hash profile does not bind every serialized credential field".into(),
+                    }),
                 }
             }
             AlgorithmId::HybridEd25519MlDsa65 => {
                 // A valid Ed25519 half is necessary, not sufficient, for a
-                // hybrid proof. Check structural framing before the classical
-                // half; never turn this partial check into VERIFIED.
+                // hybrid proof. The ML-DSA component is not verified in WASM.
                 if tagged_sig.signature_bytes.len()
                     != AlgorithmId::HybridEd25519MlDsa65.signature_size()
                 {
@@ -3132,6 +3149,7 @@ fn verify_credential_signature(
                     false => Ok(CredentialSignatureOutcome::Invalid),
                     true => Ok(CredentialSignatureOutcome::Partial {
                         algorithm: AlgorithmId::HybridEd25519MlDsa65,
+                        reason: "ML-DSA component is not cryptographically verified by this WASM zome".into(),
                     }),
                 }
             }
@@ -3148,8 +3166,9 @@ fn verify_credential_signature(
             }
             _ => Ok(CredentialSignatureOutcome::Invalid),
         },
-        Err(_) => {
-            // Legacy untagged Ed25519 multibase credential.
+        Err(_) if profile == CredentialHashProfile::LegacySubsetV0 => {
+            // Historical untagged Ed25519 signatures remain readable but can
+            // never be promoted above PARTIAL assurance.
             let signature_bytes = multibase_decode(&vc.proof.proof_value).ok_or_else(|| {
                 wasm_error!(WasmErrorInner::Guest(
                     "Invalid multibase signature encoding".into()
@@ -3163,10 +3182,14 @@ fn verify_credential_signature(
                     |_| wasm_error!(WasmErrorInner::Guest("Invalid signature length".into())),
                 )?);
             match verify_signature(pubkey, signature, content_hash)? {
-                true => Ok(CredentialSignatureOutcome::Verified),
+                true => Ok(CredentialSignatureOutcome::Partial {
+                    algorithm: AlgorithmId::Ed25519,
+                    reason: "untagged historical signature uses the subset-hash profile".into(),
+                }),
                 false => Ok(CredentialSignatureOutcome::Invalid),
             }
         }
+        Err(_) => Ok(CredentialSignatureOutcome::Invalid),
     }
 }
 
@@ -3191,6 +3214,7 @@ mod credential_signature_outcome_tests {
     fn hybrid_and_pqc_outcomes_preserve_non_verified_assurance() {
         let hybrid = CredentialSignatureOutcome::Partial {
             algorithm: AlgorithmId::HybridEd25519MlDsa65,
+            reason: "ML-DSA component is not verified by this WASM zome".into(),
         };
         let pqc = CredentialSignatureOutcome::Unsupported {
             algorithm: AlgorithmId::MlDsa65,
