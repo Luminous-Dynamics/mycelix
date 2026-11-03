@@ -2549,7 +2549,10 @@ mod checked_sap_payment_arithmetic_tests {
 
     #[test]
     fn ordinary_principal_and_fee_are_added_exactly() {
-        assert_eq!(checked_sap_total_debit(100_000_000, 100_000), Some(100_100_000));
+        assert_eq!(
+            checked_sap_total_debit(100_000_000, 100_000),
+            Some(100_100_000)
+        );
         assert_eq!(checked_sap_total_debit(0, 0), Some(0));
     }
 }
