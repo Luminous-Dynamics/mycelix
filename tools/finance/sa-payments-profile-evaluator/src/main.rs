@@ -233,12 +233,12 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
                 "source_register[{index}].observed_on: missing observation date"
             ));
         }
-        if let Some(published) = string_at(source, "published_on") {
-            if !valid_date(published) || !date_le(published, as_of) {
-                result.errors.push(format!(
-                    "source_register[{index}].published_on: invalid or after corpus as_of"
-                ));
-            }
+        if let Some(published) = string_at(source, "published_on")
+            && (!valid_date(published) || !date_le(published, as_of))
+        {
+            result.errors.push(format!(
+                "source_register[{index}].published_on: invalid or after corpus as_of"
+            ));
         }
     }
 
@@ -265,14 +265,15 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
             "ZA-FUTURE-FPS" | "ZA-FUTURE-RTGS" => Some("planned_or_in_development"),
             "ZA-PEMKEY-PCE" => Some("programme_enabler"),
             "ZA-PAYINC-NPU" => Some("transitioning"),
+            "ZA-QR-PLUS" => Some("published_standard"),
             _ => None,
         };
-        if let Some(required) = required_state {
-            if string_at(system, "lifecycle_state") != Some(required) {
-                result.errors.push(format!(
-                    "systems[{index}]: {system_id} must remain {required} until new reviewed source evidence is admitted"
-                ));
-            }
+        if let Some(required) = required_state
+            && string_at(system, "lifecycle_state") != Some(required)
+        {
+            result.errors.push(format!(
+                "systems[{index}]: {system_id} must remain {required} until new reviewed source evidence is admitted"
+            ));
         }
     }
 
