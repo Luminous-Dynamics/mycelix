@@ -59,8 +59,11 @@ identifiers are UNSUPPORTED. No legacy value is silently relabeled as V1.
 ## Current assurance boundary
 
 - V1 + Ed25519 can reach VERIFIED only after signature verification and
-  consistency checks on the declared algorithm and issuer-bound verification
-  method.
+  consistency checks on the declared algorithm, the `MycelixCredentialProof`
+  type, and the exact `issuer DID#keys-1` method currently created by issuance.
+  The verifier does not yet resolve rotating key references from DID Documents;
+  a future resolver-backed profile is required before key rotation can use
+  different verification-method fragments.
 - Hybrid Ed25519 + ML-DSA remains PARTIAL while the Holochain WASM verifier
   checks only the Ed25519 component.
 - Pure ML-DSA and SLH-DSA remain UNSUPPORTED in this verifier; structural
