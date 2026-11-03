@@ -229,6 +229,26 @@ fn exact_cost_basis_points_of_gross_value(metrics: &Value) -> Value {
     })
 }
 
+fn exact_incidence_per_delivery(metrics: &Value, key: &str) -> Value {
+    if !cost_attribution_qualified(metrics) {
+        return Value::Null;
+    }
+    let Some(amount) = u64_field(metrics, key) else {
+        return Value::Null;
+    };
+    let Some(delivered) = u64_field(metrics, "recipient_available") else {
+        return Value::Null;
+    };
+    if delivered == 0 {
+        return Value::Null;
+    }
+    json!({
+        "numerator_minor_units": amount,
+        "denominator_deliveries": delivered,
+        "currency": metrics["cost_currency"]
+    })
+}
+
 fn recipient_cost_incidence_summary(metrics: &Value) -> Value {
     json!({
         "cost_attribution_qualified": cost_attribution_qualified(metrics),
@@ -237,6 +257,9 @@ fn recipient_cost_incidence_summary(metrics: &Value) -> Value {
         "recipient_deduction_amount_unknown_instructions": metrics["recipient_deduction_amount_unknown_instructions"],
         "recipient_unclassified_deduction_minor_units": metrics["recipient_unclassified_deduction_minor_units"],
         "merchant_fee_minor_units": metrics["merchant_fee_minor_units"],
+        "payer_fee_per_delivery": exact_incidence_per_delivery(metrics, "payer_fee_minor_units"),
+        "recipient_deductions_per_delivery": exact_incidence_per_delivery(metrics, "recipient_total_deductions_minor_units"),
+        "merchant_fee_per_delivery": exact_incidence_per_delivery(metrics, "merchant_fee_minor_units"),
         "gross_recipient_available_value_minor_units": metrics["recipient_gross_available_value_minor_units"],
         "net_recipient_available_value_minor_units": metrics["recipient_net_available_value_minor_units"],
         "all_in_cost_per_delivery": exact_cost_per_delivery(metrics),
@@ -1095,7 +1118,7 @@ mod tests {
         let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
         assert_eq!(
             run_self_tests(&market, &runs, MARKET_SCHEMA, RUNS_SCHEMA).expect("self tests"),
-            15
+            16
         );
     }
 }
