@@ -53,6 +53,10 @@ The test panel includes multiple identities in one dimension; partial overlap wh
 
 It also compares the incremental result against a separately implemented brute-force 2^N minimal-hitting-set oracle on 128 deterministic small graphs. The production and reference algorithms do not call a common minimal-cut-set search helper.
 
+## API binding
+
+The audit takes a typed `AuditBindings` value rather than a long positional argument list. The value groups the separately pinned policy digest, exact expected subject/profile/manifest/attack-model digests, and the candidate-extension budget. This makes accidental argument swaps harder to express and makes the resource limit explicit.
+
 ## Run
 
 ```sh
