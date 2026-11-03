@@ -424,12 +424,11 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
                 u64_field(&run["metrics"], "user_task_successes").unwrap_or(0),
                 u64_field(&run["metrics"], "user_task_attempts").unwrap_or(0)
             ).map(|(lower, upper)| json!({"lower": lower, "upper": upper})),
-            "cost_per_recipient_available_minor_units": cmp_fraction(
+            "cost_per_recipient_available_minor_units": format!(
+                "{}/{}",
                 u64_field(&run["metrics"], "total_all_in_cost_minor_units").unwrap_or(0),
-                u64_field(&run["metrics"], "recipient_available").unwrap_or(0),
-                0,
-                1
-            ) == Ordering::Equal,
+                u64_field(&run["metrics"], "recipient_available").unwrap_or(0)
+            ),
             "metrics": run["metrics"]
         })).collect::<Vec<_>>(),
         "comparisons": comparisons,
