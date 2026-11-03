@@ -287,6 +287,17 @@ fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
     Some(nearest as u64)
 }
 
+fn finance_payment_matches_trade(trade: &Trade, payment: &FinancePaymentSnapshot) -> bool {
+    let Some(expected_amount) = whole_units_to_micro(trade.total_price) else {
+        return false;
+    };
+    payment.from_did == trade.buyer_did
+        && payment.to_did == trade.seller_did
+        && payment.amount == expected_amount
+        && payment.currency == trade.currency
+        && matches!(&payment.status, FinancePaymentStatus::Completed)
+}
+
 /// Submit an internal SAP ledger payment through Finance.
 ///
 /// A matching Completed Payment record proves only that Finance returned an
