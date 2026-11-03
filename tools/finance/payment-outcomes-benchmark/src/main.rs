@@ -349,8 +349,24 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
             .ok_or_else(|| format!("runs[{index}]: eligible_merchants_in_cohort missing"))?;
         let merchant_active = u64_field(metrics, "active_merchants_in_cohort")
             .ok_or_else(|| format!("runs[{index}]: active_merchants_in_cohort missing"))?;
-        if completed > attempts || user_successes > user_attempts || merchant_active > merchant_eligible {
-            return Err(format!("runs[{index}]: a numerator exceeds its denominator"));
+        let terminal_failures = u64_field(metrics, "terminal_failures")
+            .ok_or_else(|| format!("runs[{index}]: terminal_failures missing"))?;
+        let unknown_outcomes = u64_field(metrics, "unknown_outcomes")
+            .ok_or_else(|| format!("runs[{index}]: unknown_outcomes missing"))?;
+        let returned_or_reversed = u64_field(metrics, "returned_or_reversed")
+            .ok_or_else(|| format!("runs[{index}]: returned_or_reversed missing"))?;
+        if completed > attempts
+            || user_successes > user_attempts
+            || merchant_active > merchant_eligible
+            || returned_or_reversed > completed
+            || completed
+                .saturating_add(terminal_failures)
+                .saturating_add(unknown_outcomes)
+                > attempts
+        {
+            return Err(format!(
+                "runs[{index}]: outcome counts exceed the eligible attempt, delivery or return denominators"
+            ));
         }
         if string_field(metrics, "cost_currency") != string_field(cohort, "currency") {
             return Err(format!("runs[{index}]: cost currency differs from cohort currency"));
@@ -496,6 +512,13 @@ fn run_self_tests(market: &Value, runs: &Value, market_schema: &str, runs_schema
     mutated["runs"][2]["metrics"]["essential_service_denials_for_unrelated_consent_refusal"] = json!(1);
     if pareto_result(&mutated["runs"][2], baseline) != ParetoResult::CandidateDisqualified {
         return Err("candidate unrelated-consent denial mutation was not disqualified".into());
+    }
+    count += 1;
+
+    let mut outcome_overflow = runs.clone();
+    outcome_overflow["runs"][2]["metrics"]["unknown_outcomes"] = json!(100);
+    if matched_run_report(&outcome_overflow).is_ok() {
+        return Err("outcomes exceeding eligible attempts were accepted".into());
     }
     count += 1;
 
@@ -679,7 +702,7 @@ mod tests {
         let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
         assert_eq!(
             run_self_tests(&market, &runs, MARKET_SCHEMA, RUNS_SCHEMA).expect("self tests"),
-            10
+            11
         );
     }
 }
