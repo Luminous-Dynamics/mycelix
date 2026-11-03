@@ -619,8 +619,8 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
                 "hard_gate": if gate_status(&candidate["metrics"]) == GateStatus::QualifiedForComparison {"qualified_for_comparison"} else {"disqualified"},
                 "candidate_completion_rate": format!("{}/{}", u64_field(&candidate["metrics"], "recipient_available").unwrap_or(0), u64_field(&candidate["metrics"], "eligible_attempts").unwrap_or(0)),
                 "baseline_completion_rate": format!("{}/{}", u64_field(&baseline["metrics"], "recipient_available").unwrap_or(0), u64_field(&baseline["metrics"], "eligible_attempts").unwrap_or(0)),
-                "candidate_cost_per_delivery_minor": format!("{}/{}", u64_field(&candidate["metrics"], "total_all_in_cost_minor_units").unwrap_or(0), u64_field(&candidate["metrics"], "recipient_available").unwrap_or(0)),
-                "baseline_cost_per_delivery_minor": format!("{}/{}", u64_field(&baseline["metrics"], "total_all_in_cost_minor_units").unwrap_or(0), u64_field(&baseline["metrics"], "recipient_available").unwrap_or(0)),
+                "candidate_cost_per_delivery_minor": exact_cost_per_delivery(&candidate["metrics"]),
+                "baseline_cost_per_delivery_minor": exact_cost_per_delivery(&baseline["metrics"]),
                 "candidate_cost_per_gross_value_bps": exact_cost_basis_points_of_gross_value(&candidate["metrics"]),
                 "baseline_cost_per_gross_value_bps": exact_cost_basis_points_of_gross_value(&baseline["metrics"]),
                 "candidate_fee_incidence": recipient_cost_incidence_summary(&candidate["metrics"]),
@@ -900,7 +900,7 @@ mod tests {
         let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
         assert_eq!(
             fee_component_total(&runs["runs"][0]["metrics"]),
-            Some(193_000)
+            Some(196_000)
         );
         let mut mutated = runs["runs"][0].clone();
         mutated["metrics"]["merchant_fee_minor_units"] = json!(68_001);
@@ -999,6 +999,93 @@ mod tests {
         let mut invalid = runs.clone();
         invalid["runs"][2]["metrics"]["returned_or_reversed"] = json!(2000);
         assert!(matched_run_report(&invalid).is_err());
+    }
+
+    #[test]
+    fn recipient_deductions_reconcile_and_are_included_in_all_in_cost() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        let metrics = &runs["runs"][0]["metrics"];
+        assert_eq!(recipient_deduction_component_total(metrics), Some(3_000));
+        assert_eq!(fee_component_total(metrics), Some(196_000));
+
+        let mut hidden_deduction = runs.clone();
+        hidden_deduction["runs"][0]["metrics"]["recipient_fee_minor_units"] = json!(2_501);
+        assert!(matched_run_report(&hidden_deduction).is_err());
+
+        let mut gross_net_mismatch = runs.clone();
+        gross_net_mismatch["runs"][0]["metrics"]["recipient_net_available_value_minor_units"] =
+            json!(48_247_001);
+        assert!(matched_run_report(&gross_net_mismatch).is_err());
+
+        let mut arithmetic_overflow = runs.clone();
+        arithmetic_overflow["runs"][0]["metrics"]["recipient_fee_minor_units"] =
+            json!(u64::MAX);
+        assert!(matched_run_report(&arithmetic_overflow).is_err());
+    }
+
+    #[test]
+    fn unknown_or_unclassified_recipient_deductions_disable_cost_claims() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        let mut unknown = runs["runs"][2].clone();
+        unknown["metrics"]["recipient_deduction_amount_unknown_instructions"] = json!(1);
+        unknown["metrics"]["recipient_net_available_value_minor_units"] = Value::Null;
+        assert!(matched_run_report(&json!({
+            "cohort": runs["cohort"],
+            "runs": [runs["runs"][0].clone(), unknown.clone()]
+        })).is_ok());
+        assert!(!cost_attribution_qualified(&unknown["metrics"]));
+        assert!(exact_cost_per_delivery(&unknown["metrics"]).is_null());
+        assert!(exact_cost_basis_points_of_gross_value(&unknown["metrics"]).is_null());
+        assert!(cmp_cost_per_delivery(&unknown["metrics"], &runs["runs"][0]["metrics"]).is_none());
+
+        let mut unclassified = runs["runs"][2].clone();
+        unclassified["metrics"]["recipient_unclassified_deduction_minor_units"] = json!(100);
+        unclassified["metrics"]["recipient_total_deductions_minor_units"] = json!(12_100);
+        unclassified["metrics"]["recipient_net_available_value_minor_units"] = json!(48_987_900);
+        unclassified["metrics"]["total_all_in_cost_minor_units"] = json!(172_820);
+        assert!(matched_run_report(&json!({
+            "cohort": runs["cohort"],
+            "runs": [runs["runs"][0].clone(), unclassified.clone()]
+        })).is_ok());
+        assert!(!cost_attribution_qualified(&unclassified["metrics"]));
+        assert!(exact_cost_basis_points_of_gross_value(&unclassified["metrics"]).is_null());
+    }
+
+    #[test]
+    fn cost_value_ratio_is_unavailable_for_zero_value_or_mixed_currency() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        let mut zero_value = runs["runs"][0]["metrics"].clone();
+        zero_value["recipient_fee_minor_units"] = json!(0);
+        zero_value["recipient_tax_minor_units"] = json!(0);
+        zero_value["recipient_other_deduction_minor_units"] = json!(0);
+        zero_value["recipient_unclassified_deduction_minor_units"] = json!(0);
+        zero_value["recipient_total_deductions_minor_units"] = json!(0);
+        zero_value["recipient_gross_available_value_minor_units"] = json!(0);
+        zero_value["recipient_net_available_value_minor_units"] = json!(0);
+        zero_value["total_all_in_cost_minor_units"] = json!(193_000);
+        assert!(exact_cost_basis_points_of_gross_value(&zero_value).is_null());
+        assert!(cmp_cost_per_gross_value(&zero_value, &runs["runs"][1]["metrics"]).is_none());
+
+        let mut other_currency = runs["runs"][1]["metrics"].clone();
+        other_currency["cost_currency"] = json!("USD");
+        assert!(cmp_cost_per_gross_value(&runs["runs"][0]["metrics"], &other_currency).is_none());
+    }
+
+    #[test]
+    fn recipient_fee_shifting_is_a_pareto_tradeoff_not_a_cost_win() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        let baseline = runs["runs"][1].clone();
+        let mut candidate = baseline.clone();
+        candidate["provider_class"] = json!("mycelix_candidate");
+        candidate["metrics"]["payer_fee_minor_units"] = json!(70_000);
+        candidate["metrics"]["recipient_fee_minor_units"] = json!(7_000);
+        candidate["metrics"]["recipient_total_deductions_minor_units"] = json!(7_000);
+        candidate["metrics"]["recipient_net_available_value_minor_units"] = json!(48_743_000);
+        candidate["metrics"]["total_all_in_cost_minor_units"] = json!(177_500);
+        assert_eq!(
+            pareto_result(&candidate, &baseline),
+            ParetoResult::TradeoffOrIncomparable
+        );
     }
 
     #[test]
