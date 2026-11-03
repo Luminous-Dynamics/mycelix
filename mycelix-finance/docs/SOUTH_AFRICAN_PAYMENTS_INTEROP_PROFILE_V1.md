@@ -49,7 +49,20 @@ The Governor's Payments Conference address is dated **20 October 2026** (not 26 
 | Qualifying regional retail payments to TCIB | Late April 2027; speech says both "under R100,000" and "up to R100,000" | Do not turn this wording into a route-selection threshold until the official rulebook clarifies inclusive/exclusive boundary, currencies, corridors and participants |
 | TCIB hub-and-spoke pilot | Eight countries by October 2027 | Do not infer live corridors or participant onboarding before official operational evidence |
 
-All milestones are announced targets until later authoritative evidence is admitted. If a target date passes without a new source, the profile becomes stale and requires review; date passage is not proof of completion. Source: SARB Governor Lesetja Kganyago, [Rewiring Payments: Open. Connected. Inclusive.](https://www.resbank.co.za/en/home/publications/publication-detail-pages/speeches/speeches-by-governors/2026/kganyago-payments-conference), 20 October 2026.
+All milestones in the table are announced targets until later authoritative evidence is admitted. QR+ is the exception at the standard-publication layer only: version 1.2 is already published, while the Q1 2027 pilot remains a future target. If a target date passes without a new source, the profile becomes stale and requires review; date passage is not proof of completion. Source: SARB Governor Lesetja Kganyago, [Rewiring Payments: Open. Connected. Inclusive.](https://www.resbank.co.za/en/home/publications/publication-detail-pages/speeches/speeches-by-governors/2026/kganyago-payments-conference), 20 October 2026.
+
+
+### 2.1.1 QR+ publication versus implementation
+
+SARB published **QR+ Standard 1.2 on 7 July 2026**. It covers payment initiation through QR codes, barcodes and digital links; version 1.2 adds a PayShap payload that carries structured initiation data to the selected underlying rail. SARB explicitly states that QR+ itself is not part of payment execution—the selected rail processes the transaction. This is now a published standard, not merely a planned standard.
+
+The Governor's Q1 2027 QR+ pilot remains a separate, future milestone as of the 3 November 2026 profile snapshot. The following are distinct and must never be collapsed:
+- **standard publication** — QR+ v1.2 is published;
+- **implementation/conformance** — a named PSP or merchant has implemented the exact standard and passed applicable tests;
+- **operational pilot/coverage** — the named providers and merchants participate in a live pilot/use case;
+- **payment execution/settlement** — the selected rail processes the transaction and supplies its own evidence.
+
+A QR+ parser succeeding is only an initiation-data result. It does not prove merchant acceptance, funds movement, settlement or finality. Source: [SARB QR+ Standard 1.2](https://www.resbank.co.za/en/home/publications/publication-detail-pages/other-publications/2026/qr-1-2-overview), published 7 July 2026.
 
 ### 2.2 PayShap adoption and the open-network constraint
 
