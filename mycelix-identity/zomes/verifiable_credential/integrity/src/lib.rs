@@ -12,6 +12,7 @@ use hdi::prelude::*;
 /// Full implementation of VC Data Model 2.0
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct VerifiableCredential {
     /// JSON-LD context (required: `https://www.w3.org/ns/credentials/v2`)
     #[serde(rename = "@context")]
@@ -48,7 +49,7 @@ pub struct VerifiableCredential {
 
 /// Credential issuer - can be DID string or object with id
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum CredentialIssuer {
     /// Simple DID string
     Did(String),
@@ -82,6 +83,7 @@ pub struct CredentialSubject {
 
 /// Reference to credential schema
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CredentialSchemaRef {
     pub id: String,
     #[serde(rename = "type")]
@@ -90,6 +92,7 @@ pub struct CredentialSchemaRef {
 
 /// Credential status for revocation
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CredentialStatus {
     pub id: String,
     #[serde(rename = "type")]
@@ -105,6 +108,7 @@ pub struct CredentialStatus {
 
 /// Cryptographic proof
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CredentialProof {
     /// Proof type (for example W3C DataIntegrityProof or internal MycelixCredentialProof).
     #[serde(rename = "type")]
@@ -141,6 +145,7 @@ pub struct CredentialProof {
 /// Verifiable Presentation - for presenting credentials
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct VerifiablePresentation {
     /// JSON-LD context
     #[serde(rename = "@context")]
@@ -759,6 +764,70 @@ fn validate_create_encrypted_entry(entry: EncryptedEntry) -> ExternResult<Valida
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn credential_deserialization_rejects_unmodeled_envelope_and_proof_fields() {
+        let base = valid_vc();
+
+        let mut top_level = serde_json::to_value(&base).unwrap();
+        top_level["credentialExtension"] = serde_json::json!({"unsigned": true});
+        assert!(
+            serde_json::from_value::<VerifiableCredential>(top_level).is_err(),
+            "unknown top-level credential fields must not be silently discarded"
+        );
+
+        let mut proof_header = serde_json::to_value(&base).unwrap();
+        proof_header["proof"]["unmodeledProofOption"] = serde_json::json!("attacker-value");
+        assert!(
+            serde_json::from_value::<VerifiableCredential>(proof_header).is_err(),
+            "unknown proof-header fields must not be silently discarded"
+        );
+
+        let mut issuer_object = serde_json::to_value(&base).unwrap();
+        issuer_object["issuer"] = serde_json::json!({
+            "id": "did:mycelix:issuer1",
+            "name": "Issuer One",
+            "type": ["Organization"],
+            "unmodeledIssuerProperty": "not covered by the typed profile"
+        });
+        assert!(
+            serde_json::from_value::<VerifiableCredential>(issuer_object).is_err(),
+            "unknown issuer-object fields must not be silently discarded"
+        );
+
+        let mut schema_ref = serde_json::to_value(&base).unwrap();
+        schema_ref["credentialSchema"]["unmodeledSchemaField"] = serde_json::json!("ignored");
+        assert!(
+            serde_json::from_value::<VerifiableCredential>(schema_ref).is_err(),
+            "unknown credential schema fields must be rejected"
+        );
+
+        let mut status = serde_json::to_value(&base).unwrap();
+        status["credentialStatus"] = serde_json::json!({
+            "id": "urn:status:1",
+            "type": "BitstringStatusListEntry",
+            "statusPurpose": "revocation",
+            "statusListIndex": "1",
+            "statusListCredential": "urn:status:list:1",
+            "unmodeledStatusField": "ignored"
+        });
+        assert!(
+            serde_json::from_value::<VerifiableCredential>(status).is_err(),
+            "unknown credential status fields must be rejected"
+        );
+    }
+
+    #[test]
+    fn credential_subject_claims_remain_open_ended_and_signed() {
+        let mut value = serde_json::to_value(valid_vc()).unwrap();
+        value["credentialSubject"]["researchArea"] = serde_json::json!("physics");
+        let decoded: VerifiableCredential = serde_json::from_value(value)
+            .expect("flattened subject claim extensions remain supported");
+        assert_eq!(
+            decoded.credential_subject.claims["researchArea"],
+            "physics"
+        );
+    }
 
     fn ts(micros: i64) -> Timestamp {
         Timestamp::from_micros(micros)
