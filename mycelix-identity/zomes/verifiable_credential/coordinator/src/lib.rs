@@ -2473,13 +2473,10 @@ fn build_selective_disclosure_result(
 /// Verify a ZKP-based selective disclosure claim.
 ///
 /// Checks:
-/// 1. Original credential exists and belongs to the caller
-/// 2. Data commitment matches the credential hash
-/// 3. Proof bytes are non-empty and within size limits
-/// 4. Domain tag is correct (ZTML:Identity:SelectiveDisclosure:v1)
-///
-/// Note: Full STARK proof verification is delegated to mycelix-zkp-core
-/// once AIR circuits are implemented for each predicate type.
+/// 1. Original credential exists and belongs to the caller.
+/// 2. Proof and commitment buffers satisfy only basic structural limits.
+/// 3. Full commitment reconstruction and STARK/AIR verification are not yet
+///    implemented, so the response is UNSUPPORTED and never satisfied.
 #[hdk_extern]
 pub fn verify_selective_disclosure(
     input: ZkSelectiveDisclosureInput,
