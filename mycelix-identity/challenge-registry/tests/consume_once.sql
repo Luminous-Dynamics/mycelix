@@ -51,6 +51,21 @@ BEGIN
         RAISE EXCEPTION 'wrong request digest consumed challenge';
     END IF;
 
+    IF identity_security.consume_verifier_challenge(
+        v_digest, 'test-verifier', 'urn:mycelix:test-audience',
+        'c2a1dfb6-2a15-4ac7-8e6a-6d21f6b8a099'::uuid,
+        v_request_digest, v_holder_digest
+    ) THEN
+        RAISE EXCEPTION 'wrong transaction ID consumed challenge';
+    END IF;
+
+    IF identity_security.consume_verifier_challenge(
+        v_digest, 'test-verifier', 'urn:mycelix:test-audience',
+        v_transaction_id, v_request_digest, decode(repeat('4', 64), 'hex')
+    ) THEN
+        RAISE EXCEPTION 'wrong holder binding consumed challenge';
+    END IF;
+
     IF NOT identity_security.consume_verifier_challenge(
         v_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest
@@ -63,6 +78,14 @@ BEGIN
         v_transaction_id, v_request_digest, v_holder_digest
     ) THEN
         RAISE EXCEPTION 'sequential replay consumed challenge twice';
+    END IF;
+
+    IF identity_security.register_verifier_challenge(
+        v_digest, 'test-verifier', 'urn:mycelix:test-audience',
+        v_transaction_id, v_request_digest, v_holder_digest,
+        clock_timestamp() + INTERVAL '5 minutes'
+    ) THEN
+        RAISE EXCEPTION 'consumed challenge digest was registered again';
     END IF;
 
     IF identity_security.register_verifier_challenge(
