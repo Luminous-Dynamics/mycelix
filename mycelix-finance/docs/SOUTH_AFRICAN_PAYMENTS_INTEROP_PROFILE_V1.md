@@ -24,14 +24,40 @@ The South African Reserve Bank (SARB) Payments Ecosystem Modernisation (PEM) pro
 | SADC-RTGS | Current regional high-value RTGS; modernisation underway | SARB identifies the regional SADC-RTGS system and describes its role in high-value payments | A low-value instant-payment capability, universal currency conversion, or finality semantics for every participant |
 | PayShap | Existing named low-value payment rail in the SARB PEM landscape | SARB names PayShap as part of the low-value digital payments landscape | A universal API, all-bank availability, a specific participant's current service limits, or a Mycelix finality profile |
 | TCIB | Existing named regional low-value/faster-payment service in the SARB PEM landscape | SARB describes TCIB as the SADC equivalent in its low-value payments discussion | An assumption that cross-border amount, FX, participant, liquidity or settlement semantics equal PayShap |
-| PayInc / NPU transition | Transitioning | SARB says PayInc is transitioning toward a national payments utility and describes intended broader, open infrastructure and participant reach | That every non-bank is already eligible, onboarded, directly connected or entitled to settle |
+| PayInc / NPU modernisation | Transitioning programme; specified PSMB handover completed | SARB describes the wider NPU direction. The PSMB handover of functions to PayInc took effect on 2 September 2026; its PCH allocation includes EFT credit/debit, Authenticated Collections, PayShap, Registered Mandate and real-time clearing | Completion of the PSMB handover does not mean all NPU objectives, new participant access or every planned service are complete |
 | Future fast payment system | Planned / in development | SARB describes a future fast payment system and a pre-funded model intended to enable real-time settlement | That the pre-funding model is already a property of PayShap, TCIB, or a Mycelix payment channel |
 | Future RTGS | Planned / in development | SARB says the new RTGS is intended to support multiple currencies, richer payment data and easier connections | That the existing SAMOS or SADC-RTGS interface already exposes those future capabilities |
-| PEMKey / Payment Credential Ecosystem | Programme enabler | SARB describes a reusable, trusted digital-credential ecosystem for payments participation and information sharing | That a credential alone proves current authority, account ownership, funds, transaction consent or settlement |
+| PEMKey / Payment Credential Ecosystem | Programme enabler | SARB describes reusable trusted credentials; the Governor's 20 October 2026 speech describes user-controlled wallets, consent and safeguards | That a credential alone proves current authority, account ownership, funds, transaction consent or settlement |
 
 Primary source: SARB, [Payments Ecosystem Modernisation Programme](https://www.southafricanreservebank.co.za/en/home/what-we-do/payments-and-settlements/pem), accessed 2026-11-03.
 
 **Temporal rule:** every capability assertion in an adapter must bind to a source observation date, a profile version, an effective interval where known, and a named participant/product. A programme announcement is not an executable capability. A later programme milestone does not retroactively upgrade a historic transaction or adapter profile.
+
+
+
+### 2.1 Governance allocation and delivery timeline
+
+The PSMB handover is no longer simply a future transition. SARB states that rule/standard responsibilities and licensing, authorisation and registration of payment institutions moved to SARB effective **11 August 2026**, while functions transitioning to PayInc took effect **2 September 2026**. SARB's published allocation places EFT credit/debit, Authenticated Collections, PayShap, Registered Mandate and real-time clearing with PayInc; card, immediate/cash settlement and named securities/market PCH functions are allocated to SARB. This function allocation is not an adapter API contract and does not grant any institution participant access. [SARB PSMB transition](https://www.resbank.co.za/en/home/what-we-do/payments-and-settlements/psmb).
+
+The Governor's Payments Conference address is dated **20 October 2026** (not 26 October). It set out these intentions:
+
+| Initiative | Target stated in the address | Qualification rule |
+|---|---|---|
+| Exemption Notice / Authorisation Framework | By end November 2026 | Do not assume publication, legal effect or a named institution's authorisation before the actual official instrument is inspected |
+| QR+ | Pilot in Q1 2027 | A QR interoperability standard is not itself a payment rail, an acceptance guarantee or a settlement proof |
+| PayShap adoption work | Begin addressing constraints by end March 2027 | Track parity, pricing, promotion and merchant acceptance separately |
+| Qualifying regional retail payments to TCIB | Late April 2027; speech says both "under R100,000" and "up to R100,000" | Do not turn this wording into a route-selection threshold until the official rulebook clarifies inclusive/exclusive boundary, currencies, corridors and participants |
+| TCIB hub-and-spoke pilot | Eight countries by October 2027 | Do not infer live corridors or participant onboarding before official operational evidence |
+
+All milestones are announced targets until later authoritative evidence is admitted. If a target date passes without a new source, the profile becomes stale and requires review; date passage is not proof of completion. Source: SARB Governor Lesetja Kganyago, [Rewiring Payments: Open. Connected. Inclusive.](https://www.resbank.co.za/en/home/publications/publication-detail-pages/speeches/speeches-by-governors/2026/kganyago-payments-conference), 20 October 2026.
+
+### 2.2 PayShap adoption and the open-network constraint
+
+The Governor stated that PayShap had passed one billion transactions and R1 trillion in cumulative value since its 2023 inception by 20 October 2026. He identified four adoption constraints: unequal functionality/limits/user experience across banks, pricing, low public awareness and a narrow merchant acceptance perimeter. These are national-level observations, not participant-specific service-level guarantees.
+
+The same address warns that scaled, independent closed-loop payment systems can restrict customer choice, entrench acceptance control and fragment liquidity. Mycelix therefore must not treat a closed-loop internal currency or wallet as a long-term substitute for open connectivity. The design objective should be **interoperable participation with explicit jurisdictional safeguards**, not a walled garden. Any expansion in scale and functionality must be assessed against the applicable connection and regulatory obligations.
+
+This suggests additional benchmark dimensions beyond raw payment latency: participant parity, effective all-in cost for low-value payments, merchant acceptance coverage, user comprehension, time-to-onboard, successful dispute/return handling and interoperability across providers. Source: the Governor's address above.
 
 ### Standards and resilience context
 
@@ -117,6 +143,23 @@ A credential can pass the first three checks and still not authorize a payment. 
 
 Compose with receipt-authentication work (#5716), exact authority work, the sender-scoped idempotency work (#4491), and the Finance integrity boundary. Do not invent cryptographic algorithms. Bind algorithm identifiers and key-profile versions; preserve historical verification and key-rotation evidence as post-quantum migration proceeds.
 
+
+
+### 5.1 User-controlled financial data and purpose limitation
+
+The 20 October 2026 Governor's address explicitly links reusable payment credentials and transaction histories to lower onboarding friction and evidence of economic activity, including for informal businesses. It also sets limits: payment history must not automatically become a credit score; data should be accurate, relevant and open to correction; and access to essential payment services must not depend on agreement to unrelated data uses.
+
+Mycelix should implement this as a **data-purpose capability boundary**:
+- user-controlled sharing and revocation references;
+- exact purpose, relying party, recipient and retention scope;
+- field-level minimisation and a data lineage trail;
+- correction as an append-only successor, not destructive rewriting;
+- no automatic conversion of payment records into credit decisions;
+- essential payment access independent of unrelated secondary-use consent; and
+- separate institutional credit authority and adverse-decision process.
+
+Transaction history may be a user-authorised evidence source. It is not itself collateral, repayment capacity, creditworthiness or consent to underwriting.
+
 ## 6. Payment-system capability profile
 
 Use FIN-SYNC-003 / #2443 as the owner of rail capability semantics rather than defining a second copy here. For each named adapter, qualify:
@@ -137,7 +180,7 @@ If a rail only supports independent submit operations, do not describe a multi-r
 
 ## 7. Synthetic benchmark suite
 
-The companion JSON freezes 20 synthetic scenarios. It deliberately includes negative and positive controls, but it does not call real endpoints or allow real external effects.
+The companion JSON freezes 27 synthetic scenarios and six governance/programme milestones. It deliberately includes negative and positive controls, but it does not call real endpoints or allow real external effects.
 
 The suite tests whether the system:
 - keeps current, transitioning and future programme capabilities separate;
@@ -148,6 +191,9 @@ The suite tests whether the system:
 - appends returns and reversals without erasing prior events;
 - rejects wrong-issuer, wrong-audience, wrong-subject, expired and revoked credentials;
 - prevents credential or QR/alias data from substituting for transaction authorization;
+- keeps announced milestones from becoming live capabilities when their target dates pass;
+- separates completed PSMB role allocation from the wider NPU programme; and
+- prevents payment-history reuse from bypassing purpose limitation, consent and correction rights;
 - degrades safely when dependencies are unavailable; and
 - minimises personal and confidential payment data.
 
@@ -187,9 +233,10 @@ Report correctness, resilience, operator effort, performance and cost as separat
 2. **Independent validation:** validate the JSON Schema with a standards-compliant validator; add a Rust reference evaluator that does not reuse production adapter decisions.
 3. **Parser/projection:** implement one exact ISO 20022 message-definition and market-practice subset at a time, with raw-byte commitments and explicit loss reports. Keep XML/parser dependencies outside the smallest authority kernels.
 4. **Effects-disabled simulation:** add synthetic participant/provider adapters, retries, stale callbacks, partial effects, crash injection and dependency outages.
-5. **Read-only shadow:** only with a willing institution and approved data path, compare source and Mycelix observations without creating or changing payments.
-6. **Controlled canary:** only after named-provider qualification, legal/compliance approvals, independent review, operational controls and institution-owned cutover authority.
-7. **Expansion:** add other domestic and regional products only as their exact profiles and test evidence become available.
+5. **Open acceptance and data-use qualification:** test QR+ parsing separately from provider acceptance and measure participant parity, pricing, merchant coverage, purpose-limited transaction-history sharing and correction handling.
+6. **Read-only shadow:** only with a willing institution and approved data path, compare source and Mycelix observations without creating or changing payments.
+7. **Controlled canary:** only after named-provider qualification, legal/compliance approvals, independent review, operational controls and institution-owned cutover authority.
+8. **Expansion:** add other domestic and regional products only as their exact profiles and test evidence become available.
 
 ## 9. Nonclaims and stop conditions
 
