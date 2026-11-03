@@ -2561,6 +2561,20 @@ mod tests {
         assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "embedded credential claims");
 
         changed = base.clone();
+        changed.verifiable_credential[0].issuer =
+            CredentialIssuer::Did("did:mycelix:attacker".into());
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "embedded credential issuer");
+
+        changed = base.clone();
+        changed.verifiable_credential[0].valid_until =
+            Some("2026-06-01T00:00:00Z".into());
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "embedded credential validity");
+
+        changed = base.clone();
+        changed.verifiable_credential[0].proof.proof_value = "zAlteredIssuerProof".into();
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "embedded credential proofValue");
+
+        changed = base.clone();
         changed.proof.proof_type = "OtherPresentationProof".into();
         assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "proof.type");
 
