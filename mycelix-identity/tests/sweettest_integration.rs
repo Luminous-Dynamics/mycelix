@@ -221,7 +221,7 @@ mod credential_signature_status_wire_tests {
             (VcSignatureStatus::Error, "error"),
         ] {
             let encoded = serde_json::to_string(&status).expect("status serialization");
-            assert_eq!(encoded, format!("\\\"{expected}\\\""));
+            assert_eq!(encoded, format!("\"{expected}\""));
             let decoded: VcSignatureStatus =
                 serde_json::from_str(&encoded).expect("status deserialization");
             assert_eq!(decoded, status);
@@ -231,9 +231,9 @@ mod credential_signature_status_wire_tests {
     #[test]
     fn non_verified_statuses_are_not_mapped_to_verified() {
         let partial: VcSignatureStatus =
-            serde_json::from_str("\\\"partial\\\"").expect("partial status");
+            serde_json::from_str("\"partial\"").expect("partial status");
         let unsupported: VcSignatureStatus =
-            serde_json::from_str("\\\"unsupported\\\"").expect("unsupported status");
+            serde_json::from_str("\"unsupported\"").expect("unsupported status");
         assert_ne!(partial, VcSignatureStatus::Verified);
         assert_ne!(unsupported, VcSignatureStatus::Verified);
     }
