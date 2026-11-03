@@ -556,6 +556,18 @@ fn validate_create_verifiable_presentation(
         ));
     }
 
+    // Entry validation is the trust boundary: a modified coordinator may
+    // bypass its own input validation, so every new authentication presentation
+    // must carry a bounded verifier challenge before it can be committed.
+    match vp.proof.challenge.as_deref() {
+        Some(challenge) if !challenge.trim().is_empty() && challenge.len() <= 512 => {}
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New authentication presentations require a non-empty verifier challenge of at most 512 UTF-8 bytes".into(),
+            ));
+        }
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
