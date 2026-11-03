@@ -74,7 +74,10 @@ sh verify-openssl.sh
 ```
 
 This is cross-implementation evidence for the internal Mycelix V1 transform
-and Ed25519 primitive. It is not a W3C Data Integrity conformance vector.
+and Ed25519 primitive. The fixture public key is a standalone deterministic
+test key; the fixture does not claim that the sample DID resolves to that key
+through a DID Document. It does not test Holochain DID-key resolution or key
+rotation. It is not a W3C Data Integrity conformance vector.
 
 ## Mycelix presentation V1
 
