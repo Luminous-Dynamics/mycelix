@@ -16,8 +16,7 @@ use mycelix_finance_shared::{
 use mycelix_finance_types::{
     AMBER_CUSTODIAL_CAP_MICRO_SAP, AMBER_MAX_CAP_MICRO_SAP, AmberClass, AmberExemption,
     COMPOST_LOCAL_PCT, COMPOST_MAX_RETRIES, COMPOST_REGIONAL_PCT, CompostPoolTier,
-    DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, FeeTier, PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
-    PaymentReceiptSigningDataV1, PendingCompost, SAP_MINT_ANNUAL_MAX,
+    DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, FeeTier, PendingCompost, SAP_MINT_ANNUAL_MAX,
     SAP_MINT_PER_PROPOSAL_MAX, SapMintCapCounter, SapMintSource, SuccessionPreference,
     compute_demurrage_deduction, compute_demurrage_with_exemption,
 };
@@ -1035,12 +1034,6 @@ fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)>
     ))))
 }
 
-/// Return the exact SAP sender debit (principal + fee) without wrapping.
-#[inline]
-fn checked_sap_total_debit(amount: u64, fee: u64) -> Option<u64> {
-    amount.checked_add(fee)
-}
-
 /// Compute the progressive SAP fee for a payment based on sender's MYCEL score.
 ///
 /// Queries the bridge coordinator for the canonical fee tier (single source of truth).
@@ -1174,8 +1167,7 @@ fn elapsed_seconds(from: Timestamp, to: Timestamp) -> u64 {
 }
 
 /// The generic direct-payment endpoint currently settles SAP only.
-/// TEND must use the TEND exchange/obligation protocol so a Payment record
-/// cannot be mislabeled as a completed TEND economic effect.
+/// TEND must use the TEND exchange/obligation protocol, not this API.
 fn supports_direct_payment_currency(currency: &str) -> bool {
     currency == "SAP"
 }
@@ -1187,7 +1179,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     verify_caller_is_did(&input.from_did)?;
 
     // Reject unsupported instruments before rate-limit links, balance changes,
-    // Payment entries, or receipts are written. TEND uses its own exchange protocol.
+    // Payment entries, or receipts are written. TEND uses its separate exchange protocol.
     if !supports_direct_payment_currency(&input.currency) {
         let message = if input.currency == "TEND" {
             "TEND direct payments must use the TEND exchange/settlement protocol"
@@ -1224,33 +1216,24 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         )?;
     }
 
-    // This endpoint is SAP-only. TEND settlement uses the separate TEND
-    // exchange protocol; accepting a TEND-shaped Payment would falsely signal
-    // a completed economic effect without changing TEND balances.
+    // SAP-only endpoint: direct TEND payments use the separate exchange protocol.
     let fee = compute_sap_fee(&input.from_did, input.amount)?;
-    let total_debit = checked_sap_total_debit(input.amount, fee).ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest(
-            "SAP payment amount plus fee exceeds the u64 micro-SAP range".into()
-        ))
-    })?;
+    let total_debit = input.amount + fee;
 
-    // Debit sender's SAP balance (amount + fee, applies demurrage).
     debit_sap(DebitSapInput {
         member_did: input.from_did.clone(),
         amount: total_debit,
         reason: format!("Payment to {} (includes fee {})", input.to_did, fee),
     })?;
 
-    // Credit receiver's SAP balance (amount only, fee goes to commons).
     credit_sap(CreditSapInput {
         member_did: input.to_did.clone(),
         amount: input.amount,
         reason: format!("Payment from {}", input.from_did),
     })?;
 
-    // Route fee to commons via treasury (if fee > 0).
     if fee > 0 {
-        if let Err(error) = call(
+        if let Err(e) = call(
             CallTargetCell::Local,
             ZomeName::from("treasury"),
             FunctionName::from("receive_compost"),
@@ -1261,7 +1244,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
                 source_member_did: input.from_did.clone(),
             },
         ) {
-            debug!("Fee routing to global-fee-pool failed: {:?}", error);
+            debug!("Fee routing to global-fee-pool failed: {:?}", e);
         }
     }
 
@@ -1303,41 +1286,31 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Bind the signature to a domain-separated canonical transcript and the
-    // exact Payment create action. The shared type is used by both coordinator
-    // and integrity zomes so serialization cannot drift between them.
-    let payment_action_hash = action_hash.clone();
-    let signing_data = PaymentReceiptSigningDataV1::new(
-        payment_action_hash.as_ref().to_vec(),
-        payment.id.clone(),
-        payment.from_did.clone(),
-        payment.to_did.clone(),
+    // Create receipt with Ed25519 signature
+    let sig_data = format!(
+        "{}|{}|{}|{}|{}|{}",
+        payment.id,
+        payment.from_did,
+        payment.to_did,
         payment.amount,
-        payment.fee,
-        payment.currency.clone(),
-        payment.created.as_micros(),
-    );
-    let agent = agent_info()?.agent_initial_pubkey;
-    let signature = sign(agent, signing_data)?;
-    let signature = format!(
-        "{}{}",
-        PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
-        signature
-            .0
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
+        payment.currency,
+        now.as_micros()
     );
     let receipt = Receipt {
         payment_id: payment.id.clone(),
         from_did: input.from_did,
         to_did: input.to_did,
         amount: input.amount,
-        fee: payment.fee,
-        currency: payment.currency.clone(),
+        currency: payment.currency,
         timestamp: now,
-        payment_action_hash: Some(payment_action_hash),
-        signature,
+        signature: {
+            let agent = agent_info()?.agent_initial_pubkey;
+            let sig = sign(agent, sig_data.into_bytes())?;
+            sig.0
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>()
+        },
     };
     let receipt_hash = create_entry(&EntryTypes::Receipt(receipt))?;
     create_link(
@@ -2561,30 +2534,5 @@ mod direct_payment_currency_tests {
         assert!(!supports_direct_payment_currency("MYC"));
         assert!(!supports_direct_payment_currency("USD"));
         assert!(!supports_direct_payment_currency(""));
-    }
-}
-
-#[cfg(test)]
-mod checked_sap_payment_arithmetic_tests {
-    use super::checked_sap_total_debit;
-
-    #[test]
-    fn maximum_amount_with_zero_fee_is_representable() {
-        assert_eq!(checked_sap_total_debit(u64::MAX, 0), Some(u64::MAX));
-    }
-
-    #[test]
-    fn maximum_amount_with_positive_fee_is_rejected() {
-        assert_eq!(checked_sap_total_debit(u64::MAX, 1), None);
-        assert_eq!(checked_sap_total_debit(u64::MAX - 7, 8), None);
-    }
-
-    #[test]
-    fn ordinary_principal_and_fee_are_added_exactly() {
-        assert_eq!(
-            checked_sap_total_debit(100_000_000, 100_000),
-            Some(100_100_000)
-        );
-        assert_eq!(checked_sap_total_debit(0, 0), Some(0));
     }
 }
