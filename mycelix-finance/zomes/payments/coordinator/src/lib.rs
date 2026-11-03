@@ -1221,14 +1221,11 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     // exchange protocol; accepting a TEND-shaped Payment would falsely signal
     // a completed economic effect without changing TEND balances.
     let fee = compute_sap_fee(&input.from_did, input.amount)?;
-    let total_debit = input
-        .amount
-        .checked_add(fee)
-        .ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "SAP payment amount plus fee exceeds the u64 micro-SAP range".into()
-            ))
-        })?;
+    let total_debit = input.amount.checked_add(fee).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "SAP payment amount plus fee exceeds the u64 micro-SAP range".into()
+        ))
+    })?;
 
     // Debit sender's SAP balance (amount + fee, applies demurrage).
     debit_sap(DebitSapInput {
@@ -2534,7 +2531,6 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         domain_tag: domain_tag.as_str().to_string(),
     })
 }
-
 
 #[cfg(test)]
 mod direct_payment_currency_tests {
