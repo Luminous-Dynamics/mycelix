@@ -299,7 +299,7 @@ pub fn build_credential(
 
     // Build proof
     let proof = AcademicProof {
-        proof_type: "DataIntegrityProof".to_string(),
+        proof_type: "MycelixAcademicSubsetProof".to_string(),
         created: now_iso.clone(),
         verification_method: format!("{}#keys-1", config.institution_did),
         proof_purpose: "assertionMethod".to_string(),
@@ -496,12 +496,15 @@ pub async fn verify_credential_cli(
     println!();
     println!("{}", style("[3/5] Proof Validation").bold());
 
-    if credential.proof.proof_type == "DataIntegrityProof" {
-        println!("  {} Proof type: DataIntegrityProof", style("✓").green());
-        checks_passed += 1;
+    if credential.proof.proof_type == "MycelixAcademicSubsetProof" {
+        println!(
+            "  {} Internal Mycelix subset proof type (not W3C Data Integrity)",
+            style("⚠").yellow()
+        );
+        warnings += 1;
     } else {
         println!(
-            "  {} Unknown proof type: {}",
+            "  {} Unsupported academic proof type: {}",
             style("⚠").yellow(),
             credential.proof.proof_type
         );
