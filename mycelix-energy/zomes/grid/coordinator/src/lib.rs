@@ -1480,17 +1480,18 @@ mod tests {
         );
     }
 
+    #[test]
     fn test_only_sap_has_finance_direct_payment_rail() {
         assert!(currency_uses_finance_sap_direct_payment("SAP"));
         assert!(!currency_uses_finance_sap_direct_payment("TEND"));
     }
 
     #[test]
-    fn test_fiat_like_currencies_have_no_real_settlement_rail() {
-        for currency in ["USD", "EUR", "GBP", "SOLAR", ""] {
+    fn test_non_sap_currencies_are_not_supported_by_finance_sap_direct_payment() {
+        for currency in ["TEND", "USD", "EUR", "GBP", "SOLAR", ""] {
             assert!(
                 !currency_uses_finance_sap_direct_payment(currency),
-                "{currency} should not have a real settlement rail"
+                "{currency} should not be accepted by Finance's SAP direct-payment endpoint"
             );
         }
     }
