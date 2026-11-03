@@ -458,8 +458,9 @@ fn run_negative_mutations(corpus: &Value, schema: &Value) -> Result<usize, Strin
     })?;
     count += 1;
     mutation_must_fail("duplicate source record identity", corpus, schema, |value| {
-        value["cases"][0]["input"]["items"][1]["source_id"] =
+        let first_source_id =
             value["cases"][0]["input"]["items"][0]["source_id"].clone();
+        value["cases"][0]["input"]["items"][1]["source_id"] = first_source_id;
     })?;
     count += 1;
     mutation_must_fail("exact replay with changed fingerprint", corpus, schema, |value| {
@@ -467,8 +468,8 @@ fn run_negative_mutations(corpus: &Value, schema: &Value) -> Result<usize, Strin
     })?;
     count += 1;
     mutation_must_fail("conflicting identity with same digest", corpus, schema, |value| {
-        value["cases"][2]["input"]["second_digest"] =
-            value["cases"][2]["input"]["first_digest"].clone();
+        let first_digest = value["cases"][2]["input"]["first_digest"].clone();
+        value["cases"][2]["input"]["second_digest"] = first_digest;
     })?;
     count += 1;
     mutation_must_fail("instrument substitution silently accepted", corpus, schema, |value| {
