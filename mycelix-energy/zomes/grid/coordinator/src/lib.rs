@@ -277,14 +277,14 @@ fn whole_units_to_micro(whole_units: f64) -> Option<u64> {
         return None;
     }
 
-    let nearest = scaled.round();
-    // Permit only sub-nanounit floating representation noise around an exact
-    // micro-unit integer. A true fractional micro-SAP amount is rejected.
-    if (scaled - nearest).abs() > 0.000_000_001 || nearest <= 0.0 {
+    // No rounding: the scaled value itself must be an exact integer.
+    // Values above 2^53 - 1 were rejected above because f64 cannot resolve
+    // every adjacent micro-unit integer there.
+    if scaled.fract() != 0.0 {
         return None;
     }
 
-    Some(nearest as u64)
+    Some(scaled as u64)
 }
 
 fn finance_payment_matches_trade(trade: &Trade, payment: &FinancePaymentSnapshot) -> bool {
@@ -1454,6 +1454,18 @@ mod tests {
         wrong_amount.amount = payment.amount;
         wrong_amount.to_did = "did:mycelix:mallory".into();
         assert!(!finance_payment_matches_trade(&trade, &wrong_amount));
+
+        let fractional_micro_trade = Trade {
+            total_price: 0.1234565,
+            ..trade.clone()
+        };
+        assert!(!finance_payment_matches_trade(&fractional_micro_trade, &payment));
+
+        let non_finite_trade = Trade {
+            total_price: f64::NAN,
+            ..trade
+        };
+        assert!(!finance_payment_matches_trade(&non_finite_trade, &payment));
     }
 
     #[test]
