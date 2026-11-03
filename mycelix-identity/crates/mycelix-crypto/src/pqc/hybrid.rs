@@ -8,8 +8,6 @@
 //! length than final ML-DSA-65. The final-profile `TaggedSignature::new` guard
 //! must reject incompatible output; do not weaken it or publish legacy bytes
 //! under the final ML-DSA-65 identifier.
-//! - Classical security via Ed25519 (verifiable on-chain by Holochain HDK)
-//! - Post-quantum security via ML-DSA-65 (verifiable off-chain)
 
 use crate::algorithm::AlgorithmId;
 use crate::envelope::{TaggedPublicKey, TaggedSignature};
@@ -18,7 +16,7 @@ use crate::pqc::dilithium::{MlDsa65Signer, MlDsa65Verifier};
 use crate::pqc::ed25519_native::{Ed25519Signer, Ed25519Verifier};
 use crate::traits::{Signer, Verifier};
 use pqcrypto_dilithium::dilithium3;
-use pqcrypto_traits::sign::DetachedSignature;
+use pqcrypto_traits::sign::{DetachedSignature, SecretKey};
 use zeroize::Zeroizing;
 
 /// Hybrid signer that produces dual Ed25519 + ML-DSA-65 signatures.
@@ -167,12 +165,18 @@ impl Verifier for HybridVerifier {
 mod tests {
     use super::*;
 
+    fn legacy_mldsa65_raw_signature_len(signer: &HybridSigner, message: &[u8]) -> usize {
+        let secret_bytes = signer.mldsa65.secret_key_bytes();
+        let secret_key = dilithium3::SecretKey::from_bytes(secret_bytes.as_slice())
+            .expect("native ML-DSA-65 signer exposes its own serialized secret key");
+        dilithium3::detached_sign(message, &secret_key).as_bytes().len()
+    }
+
     #[test]
     fn hybrid_signing_fails_closed_unless_legacy_pqc_bytes_match_final_profile() {
         let signer = HybridSigner::generate();
         let msg = b"hybrid quantum-resistant message";
-        let raw = dilithium3::detached_sign(msg, &signer.mldsa65.secret_key);
-        let raw_len = raw.as_bytes().len();
+        let raw_len = legacy_mldsa65_raw_signature_len(&signer, msg);
         let expected = AlgorithmId::MlDsa65.signature_size();
 
         match signer.sign(msg) {
@@ -197,8 +201,7 @@ mod tests {
     #[test]
     fn hybrid_wrong_message_fails_or_legacy_profile_is_rejected() {
         let signer = HybridSigner::generate();
-        let raw = dilithium3::detached_sign(b"correct", &signer.mldsa65.secret_key);
-        let raw_len = raw.as_bytes().len();
+        let raw_len = legacy_mldsa65_raw_signature_len(&signer, b"correct");
         let expected = AlgorithmId::MlDsa65.signature_size();
 
         match signer.sign(b"correct") {
