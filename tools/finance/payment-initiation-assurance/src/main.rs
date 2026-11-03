@@ -200,29 +200,63 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
     errors
 }
 
+type Mutation = (&'static str, fn(&mut Value));
+
 fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
     if !validate_semantics(corpus).is_empty() {
         return Err("baseline corpus must pass before mutation campaign".into());
     }
-    let mutations: Vec<(&str, Box<dyn Fn(&mut Value)>)> = vec![
-        ("payee substitution marked parsed-only", Box::new(|v| v["cases"][2]["expected"] = json!("parsed_unverified"))),
-        ("amount mutation allowed", Box::new(|v| v["cases"][3]["expected"] = json!("awaiting_payer_authorisation"))),
-        ("static QR invents amount", Box::new(|v| v["cases"][4]["input"]["amount_present"] = json!(true))),
-        ("currency scale mismatch accepted", Box::new(|v| v["cases"][5]["expected"] = json!("awaiting_payer_authorisation"))),
-        ("expired QR accepted", Box::new(|v| v["cases"][6]["expected"] = json!("parsed_unverified"))),
-        ("exact replay duplicates effect", Box::new(|v| v["cases"][7]["input"]["second_effect_count"] = json!(1))),
-        ("changed fingerprint remains idempotent", Box::new(|v| v["cases"][8]["input"]["same_fingerprint"] = json!(true))),
-        ("QR display name treated as authority", Box::new(|v| v["cases"][9]["expected"] = json!("payee_verified"))),
-        ("stale directory treated as verified", Box::new(|v| v["cases"][10]["expected"] = json!("awaiting_payer_authorisation"))),
-        ("invalid provider signature accepted", Box::new(|v| v["cases"][11]["input"]["provider_signature_valid"] = json!(true))),
-        ("wrong audience accepted", Box::new(|v| v["cases"][12]["input"]["provider_audience_valid"] = json!(true))),
-        ("enumeration over limit disclosed", Box::new(|v| v["cases"][13]["input"]["disclosure_over_limit"] = json!(true))),
-        ("timeout retried with new identity", Box::new(|v| v["cases"][15]["input"]["original_operation_id_retained"] = json!(false))),
-        ("accepted promoted to settled", Box::new(|v| v["cases"][16]["input"]["settlement_evidence_present"] = json!(true))),
-        ("published standard proves pilot", Box::new(|v| v["cases"][17]["input"]["pilot_commenced"] = json!(true))),
-        ("recipient changed with old consent", Box::new(|v| v["cases"][18]["input"]["new_consent_obtained"] = json!(true))),
+    let mutations: [Mutation; 16] = [
+        ("payee substitution marked parsed-only", |value| {
+            value["cases"][2]["expected"] = json!("parsed_unverified");
+        }),
+        ("amount mutation allowed", |value| {
+            value["cases"][3]["expected"] = json!("awaiting_payer_authorisation");
+        }),
+        ("static QR invents amount", |value| {
+            value["cases"][4]["input"]["amount_present"] = json!(true);
+        }),
+        ("currency scale mismatch accepted", |value| {
+            value["cases"][5]["expected"] = json!("awaiting_payer_authorisation");
+        }),
+        ("expired QR accepted", |value| {
+            value["cases"][6]["expected"] = json!("parsed_unverified");
+        }),
+        ("exact replay duplicates effect", |value| {
+            value["cases"][7]["input"]["second_effect_count"] = json!(1);
+        }),
+        ("changed fingerprint remains idempotent", |value| {
+            value["cases"][8]["input"]["same_fingerprint"] = json!(true);
+        }),
+        ("QR display name treated as authority", |value| {
+            value["cases"][9]["expected"] = json!("payee_verified");
+        }),
+        ("stale directory treated as verified", |value| {
+            value["cases"][10]["expected"] = json!("awaiting_payer_authorisation");
+        }),
+        ("invalid provider signature accepted", |value| {
+            value["cases"][11]["input"]["provider_signature_valid"] = json!(true);
+        }),
+        ("wrong audience accepted", |value| {
+            value["cases"][12]["input"]["provider_audience_valid"] = json!(true);
+        }),
+        ("enumeration over limit disclosed", |value| {
+            value["cases"][13]["input"]["disclosure_over_limit"] = json!(true);
+        }),
+        ("timeout retried with new identity", |value| {
+            value["cases"][15]["input"]["original_operation_id_retained"] = json!(false);
+        }),
+        ("accepted promoted to settled", |value| {
+            value["cases"][16]["input"]["settlement_evidence_present"] = json!(true);
+        }),
+        ("published standard proves pilot", |value| {
+            value["cases"][17]["input"]["pilot_commenced"] = json!(true);
+        }),
+        ("recipient changed with old consent", |value| {
+            value["cases"][18]["input"]["new_consent_obtained"] = json!(true);
+        }),
     ];
-    for (name, mutate) in &mutations {
+    for (name, mutate) in mutations {
         let mut changed = corpus.clone();
         mutate(&mut changed);
         if validate_semantics(&changed).is_empty() {
@@ -268,7 +302,7 @@ mod tests {
         let corpus: Value = serde_json::from_str(CORPUS).expect("corpus JSON");
         let parsed_only = &corpus["cases"][0];
         assert_eq!(parsed_only["expected"], "parsed_unverified");
-        assert_eq!(parsed_only["dispatch_allowed"], false);
+        assert!(!parsed_only["dispatch_allowed"].as_bool().unwrap_or(true));
     }
 
     #[test]
