@@ -37,6 +37,7 @@ A matched candidate is evaluated on:
 - exact all-in cost reconciliation across payer fees, merchant fees, FX spread, cash-out, returns/disputes and provider/network costs;
 - terminal failure, unknown-outcome and return/reversal rates;
 - matched task/user and eligible-merchant denominators (all providers must use exactly the same cohort);
+- mutually bounded outcome counts (`delivered + terminal failures + unknown <= eligible attempts`; returns/reversals cannot exceed delivered payments);
 - operator minutes per 1,000 attempts;
 - user task success; and
 - active merchant coverage in the eligible study cohort.
