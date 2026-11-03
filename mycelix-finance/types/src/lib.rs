@@ -15,7 +15,6 @@
 
 use serde::{Deserialize, Serialize};
 
-
 /// Domain separator for the versioned Finance payment-receipt signature transcript.
 pub const PAYMENT_RECEIPT_V1_DOMAIN: &str = "mycelix.finance.payment-receipt";
 /// Exact string prefix identifying the one supported v1 receipt signature profile.
