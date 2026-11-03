@@ -100,13 +100,26 @@ A holder V1 proof must use `MycelixPresentationProof`, purpose
 WASM verifier derives its key directly from the DID and does not yet resolve
 DID Documents or rotating key references.
 
+Every new Mycelix V1 authentication presentation requires a non-empty
+verifier challenge (1–512 UTF-8 bytes), and verification requires the exact
+expected challenge. The integrity zome enforces the stored challenge so a
+modified coordinator cannot commit a challenge-less new presentation.
+
+This check establishes **challenge binding**, not freshness or single-use.
+The verifier must generate an unpredictable challenge for the current
+transaction/session, bind it to the intended verifier and request, and consume
+it once. Without an authoritative concurrency-safe challenge registry, local
+equality alone is not a global replay-prevention guarantee.
+
 Historical presentations using the old concatenated subset
 (presentation ID, holder DID, credential IDs, challenge, and domain) remain
-readable, but a successful check is **PARTIAL**. Unknown presentation profiles
-are **UNSUPPORTED**. The result API exposes `holder_signature_status`
-separately from each embedded issuer's `proof_signature_status`; overall
-presentation validity requires the holder proof and all embedded credentials
-to be VERIFIED, plus the non-signature checks to pass.
+readable, but a successful check is **PARTIAL**. Historical challenge-less
+presentations fail the high-assurance authentication challenge check. Unknown
+presentation profiles are **UNSUPPORTED**. The result API exposes
+`holder_signature_status` separately from each embedded issuer's
+`proof_signature_status`; overall presentation validity requires the holder
+proof and all embedded credentials to be VERIFIED, a matching verifier
+challenge, and the non-signature checks to pass.
 
 ## Historical subset-hash V0
 
