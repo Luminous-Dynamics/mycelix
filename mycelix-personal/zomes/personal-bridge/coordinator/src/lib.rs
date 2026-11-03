@@ -813,10 +813,15 @@ pub fn get_my_credentials_from_identity(_: ()) -> ExternResult<DispatchResult> {
     bridge::dispatch_call_cross_cluster(&dispatch, ALLOWED_IDENTITY_ZOMES)
 }
 
+/// Return true for a non-empty presentation challenge within the identity-zome limit.
+fn is_valid_presentation_challenge(challenge: &str) -> bool {
+    !challenge.trim().is_empty() && challenge.len() <= 512
+}
+
 /// Create a verifiable presentation from credentials held in the identity cluster.
 #[hdk_extern]
 pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<DispatchResult> {
-    if input.challenge.trim().is_empty() || input.challenge.len() > 512 {
+    if !is_valid_presentation_challenge(&input.challenge) {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Presentation challenge must be non-empty and at most 512 UTF-8 bytes".into()
         )));
@@ -1187,6 +1192,15 @@ mod tests {
         let back: CreatePresentationInput = serde_json::from_str(&json).unwrap();
         assert_eq!(back.challenge, "nonce-123");
         assert_eq!(back.credential_hashes.len(), 1);
+    }
+
+    #[test]
+    fn presentation_challenge_validation_rejects_missing_quality_values() {
+        assert!(is_valid_presentation_challenge("nonce-123"));
+        assert!(!is_valid_presentation_challenge(""));
+        assert!(!is_valid_presentation_challenge("   "));
+        assert!(!is_valid_presentation_challenge(&"x".repeat(513)));
+        assert!(is_valid_presentation_challenge(&"x".repeat(512)));
     }
 
     #[test]
