@@ -15,8 +15,3 @@ hdi = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 mycelix_finance_types = { path = "../../../types" }
-
-[dev-dependencies]
-# Native-only HDI host mock used to prove both success and rejection paths
-# of the receipt signature verifier without a conductor.
-hdi = { workspace = true, features = ["test_utils"] }
