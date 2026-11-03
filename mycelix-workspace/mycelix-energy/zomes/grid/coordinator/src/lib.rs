@@ -286,6 +286,39 @@ fn whole_units_to_micro(whole_units: f64) -> u64 {
 /// Returns `Some(payment_reference)` on a successful real payment, `None`
 /// if the currency isn't SAP or the Finance cluster call fails --
 /// the caller falls back to the manual reference in either case.
+#[derive(Deserialize)]
+enum FinancePaymentStatus {
+    Pending,
+    Processing,
+    Completed,
+    Failed(String),
+    Cancelled,
+    Refunded,
+}
+
+#[derive(Deserialize)]
+struct FinancePaymentSnapshot {
+    from_did: String,
+    to_did: String,
+    amount: u64,
+    currency: String,
+    status: FinancePaymentStatus,
+}
+
+/// A successful Finance call is not enough: verify that the returned Payment
+/// entry describes the exact trade principal, payer, payee, unit and completed
+/// status before its ActionHash can be used as settlement evidence.
+fn finance_payment_matches_trade(trade: &Trade, payment: &FinancePaymentSnapshot) -> bool {
+    payment.from_did == trade.buyer_did
+        && payment.to_did == trade.seller_did
+        && payment.amount == whole_units_to_micro(trade.total_price)
+        && payment.currency == trade.currency
+        && matches!(payment.status, FinancePaymentStatus::Completed)
+}
+
+/// The Energy hApp only accepts a returned, field-matched Finance Payment
+/// reference for the SAP route. The Finance endpoint itself is SAP-only; TEND
+/// has a separate exchange protocol and no route is inferred here.
 fn settle_via_finance(trade: &Trade) -> Option<String> {
     if !currency_has_real_settlement_rail(&trade.currency) {
         return None;
@@ -316,11 +349,41 @@ fn settle_via_finance(trade: &Trade) -> Option<String> {
             memo: Some(format!("grid trade settlement: {}", trade.id)),
         },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => result
-            .decode::<Record>()
-            .ok()
-            .map(|record| format!("payments:{}", record.action_address())),
+        Ok(ZomeCallResponse::Ok(result)) => {
+            let record = result.decode::<Record>().ok()?;
+            let payment = record
+                .entry()
+                .to_app_option::<FinancePaymentSnapshot>()
+                .ok()
+                .flatten()?;
+            if !finance_payment_matches_trade(trade, &payment) {
+                return None;
+            }
+            Some(format!("payments:{}", record.action_address()))
+        }
         _ => None,
+    }
+}
+
+/// Caller-supplied/manual references are not settlement authority. They may be
+/// retained for a separate evidence-submission workflow, but cannot mark a
+/// trade settled through this entry point.
+fn require_qualified_settlement_reference(
+    currency: &str,
+    finance_reference: Option<String>,
+) -> ExternResult<String> {
+    if !currency_has_real_settlement_rail(currency) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "No qualified Finance settlement adapter for currency {currency}"
+        ))));
+    }
+
+    match finance_reference.filter(|reference| !reference.trim().is_empty()) {
+        Some(reference) => Ok(reference),
+        None => Err(wasm_error!(WasmErrorInner::Guest(
+            "Finance did not return a field-matched payment record; trade remains unsettled"
+                .into()
+        ))),
     }
 }
 
@@ -334,8 +397,10 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
             if trade.id == input.trade_id {
-                let payment_reference =
-                    settle_via_finance(&trade).unwrap_or(input.payment_reference);
+                let payment_reference = require_qualified_settlement_reference(
+                    &trade.currency,
+                    settle_via_finance(&trade),
+                )?;
                 let settled_trade = Trade {
                     settled: true,
                     payment_reference: Some(payment_reference),
@@ -356,6 +421,8 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SettleTradeInput {
     pub trade_id: String,
+    /// Legacy manual reference field. This value is not accepted as settlement
+    /// authority; only a field-matched Finance Payment response can settle SAP.
     pub payment_reference: String,
 }
 
@@ -1362,6 +1429,55 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[test]
+    fn test_finance_payment_snapshot_must_match_exact_trade_subject() {
+        let trade = Trade {
+            id: "trade:1".into(),
+            offer_id: "offer:1".into(),
+            seller_did: "did:mycelix:seller".into(),
+            buyer_did: "did:mycelix:buyer".into(),
+            amount_kwh: 10.0,
+            price_per_kwh: 1.0,
+            total_price: 10.0,
+            currency: "SAP".into(),
+            executed: create_test_timestamp(),
+            settled: false,
+            payment_reference: None,
+        };
+        let payment = FinancePaymentSnapshot {
+            from_did: "did:mycelix:buyer".into(),
+            to_did: "did:mycelix:seller".into(),
+            amount: 10_000_000,
+            currency: "SAP".into(),
+            status: FinancePaymentStatus::Completed,
+        };
+        assert!(finance_payment_matches_trade(&trade, &payment));
+
+        let mut wrong_amount = FinancePaymentSnapshot {
+            from_did: payment.from_did.clone(),
+            to_did: payment.to_did.clone(),
+            amount: payment.amount + 1,
+            currency: payment.currency.clone(),
+            status: FinancePaymentStatus::Completed,
+        };
+        assert!(!finance_payment_matches_trade(&trade, &wrong_amount));
+        wrong_amount.amount = payment.amount;
+        wrong_amount.to_did = "did:mycelix:mallory".into();
+        assert!(!finance_payment_matches_trade(&trade, &wrong_amount));
+    }
+
+    #[test]
+    fn test_manual_reference_never_qualifies_trade_settlement() {
+        assert!(require_qualified_settlement_reference("TEND", Some("manual:T-1".into())).is_err());
+        assert!(require_qualified_settlement_reference("USD", Some("manual:WIRE-1".into())).is_err());
+        assert!(require_qualified_settlement_reference("SAP", None).is_err());
+        assert_eq!(
+            require_qualified_settlement_reference("SAP", Some("payments:action-hash".into()))
+                .unwrap(),
+            "payments:action-hash"
+        );
+    }
+
     fn test_only_sap_has_finance_direct_payment_rail() {
         assert!(currency_has_real_settlement_rail("SAP"));
         assert!(!currency_has_real_settlement_rail("TEND"));
