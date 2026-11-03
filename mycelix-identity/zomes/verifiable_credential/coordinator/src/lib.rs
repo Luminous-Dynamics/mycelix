@@ -850,11 +850,18 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
     let now = sys_time()?;
     let now_iso = format_timestamp_iso8601(now);
 
-    // Validate challenge/domain inputs
-    if let Some(ref challenge) = input.challenge {
-        if challenge.is_empty() || challenge.len() > 512 {
+    // V1 authentication presentations must be bound to a verifier-issued nonce.
+    // The verifier remains responsible for unpredictability and one-time use.
+    if input.challenge.trim().is_empty() || input.challenge.len() > 512 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Challenge must be non-empty and at most 512 UTF-8 bytes".into()
+        )));
+    }
+    // Validate optional domain input.
+    if let Some(ref domain) = input.domain {
+        if domain.is_empty() || domain.len() > 256 {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "Challenge must be 1-512 characters".into()
+                "Domain must be 1-256 characters".into()
             )));
         }
     }
@@ -862,14 +869,6 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         if domain.is_empty() || domain.len() > 256 {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Domain must be 1-256 characters".into()
-            )));
-        }
-        // Domain requires a challenge (W3C Data Integrity spec: domain without
-        // challenge is meaningless since there's nothing binding the domain to
-        // a specific verification session)
-        if input.challenge.is_none() {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Domain requires a challenge to be set (replay protection)".into()
             )));
         }
     }
@@ -907,7 +906,7 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         proof_value: String::new(),
         cryptosuite: Some(PRESENTATION_HASH_PROFILE_V1.to_string()),
         algorithm: Some(AlgorithmId::Ed25519.as_u16()),
-        challenge: input.challenge.clone(),
+        challenge: Some(input.challenge.clone()),
         domain: input.domain.clone(),
     };
 
@@ -956,10 +955,34 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
 pub struct CreatePresentationInput {
     /// Credential IDs to include
     pub credential_ids: Vec<String>,
-    /// Optional challenge for proof
-    pub challenge: Option<String>,
+    /// Required fresh verifier challenge (1-512 UTF-8 bytes)
+    pub challenge: String,
     /// Optional domain restriction
     pub domain: Option<String>,
+}
+
+/// Require a non-empty, bounded expected challenge and an exact match
+/// with the challenge covered by the signed Mycelix V1 presentation payload.
+/// This checks binding only; freshness and one-time consumption are verifier duties.
+fn validate_presentation_challenge(
+    presentation: &VerifiablePresentation,
+    expected_challenge: &str,
+) -> Result<(), &'static str> {
+    if expected_challenge.trim().is_empty() || expected_challenge.len() > 512 {
+        return Err("Expected challenge must be non-empty and at most 512 UTF-8 bytes");
+    }
+    let stored = presentation
+        .proof
+        .challenge
+        .as_deref()
+        .ok_or("Presentation has no verifier challenge")?;
+    if stored.trim().is_empty() || stored.len() > 512 {
+        return Err("Stored presentation challenge is empty or exceeds 512 UTF-8 bytes");
+    }
+    if stored != expected_challenge {
+        return Err("Presentation challenge does not match the verifier challenge");
+    }
+    Ok(())
 }
 
 /// Verify a verifiable presentation
@@ -994,25 +1017,11 @@ pub fn verify_presentation(
         errors.push("Presentation proof purpose must be 'authentication'".to_string());
     }
 
-    // 2. Validate challenge/domain binding (replay protection)
-    // If the proof was created with a challenge, the verifier MUST supply the same one.
-    // If the verifier expects a challenge but the proof has none, that's also a failure.
-    if let Some(expected) = &input.expected_challenge {
-        match &vp.proof.challenge {
-            Some(stored) if stored == expected => {} // match
-            Some(stored) => errors.push(format!(
-                "Presentation challenge mismatch: expected '{}', proof has '{}'",
-                expected, stored
-            )),
-            None => errors.push(format!(
-                "Presentation has no challenge but verifier expected '{}'",
-                expected
-            )),
-        }
-    } else if vp.proof.challenge.is_some() {
-        errors.push(
-            "Presentation has challenge but verifier did not supply expected_challenge".to_string(),
-        );
+    // 2. A signed V1 challenge is mandatory and must match the verifier's
+    // transaction challenge. A match alone does not prove nonce freshness or
+    // single-use; the verifier must issue and consume challenges accordingly.
+    if let Err(reason) = validate_presentation_challenge(&vp, &input.expected_challenge) {
+        errors.push(reason.to_string());
     }
 
     if let Some(expected) = &input.expected_domain {
@@ -1219,8 +1228,8 @@ pub fn verify_presentation(
 pub struct VerifyPresentationInput {
     /// Action hash of the presentation to verify
     pub presentation_hash: ActionHash,
-    /// Expected challenge (must match what was used during creation)
-    pub expected_challenge: Option<String>,
+    /// Required verifier challenge for this verification transaction.
+    pub expected_challenge: String,
     /// Expected domain (must match what was used during creation)
     pub expected_domain: Option<String>,
 }
@@ -2548,6 +2557,28 @@ mod tests {
             },
             mycelix_created: Timestamp::from_micros(2_000_000),
         }
+    }
+
+    #[test]
+    fn v1_presentation_requires_a_valid_exact_verifier_challenge() {
+        let mut presentation = sample_v1_presentation();
+        assert!(validate_presentation_challenge(&presentation, "challenge-1").is_ok());
+
+        assert!(validate_presentation_challenge(&presentation, "").is_err());
+        assert!(validate_presentation_challenge(&presentation, &"x".repeat(513)).is_err());
+        assert!(validate_presentation_challenge(&presentation, "challenge-2").is_err());
+
+        presentation.proof.challenge = None;
+        assert!(validate_presentation_challenge(&presentation, "challenge-1").is_err());
+
+        presentation.proof.challenge = Some(String::new());
+        assert!(validate_presentation_challenge(&presentation, "challenge-1").is_err());
+
+        presentation.proof.challenge = Some("   ".into());
+        assert!(validate_presentation_challenge(&presentation, "   ").is_err());
+
+        presentation.proof.challenge = Some("x".repeat(513));
+        assert!(validate_presentation_challenge(&presentation, &"x".repeat(513)).is_err());
     }
 
     #[test]
