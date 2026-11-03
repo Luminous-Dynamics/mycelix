@@ -84,6 +84,53 @@
         "A claim that existing Mycelix signatures are post-quantum secure",
         "Permission to invent or deploy a proprietary cryptographic algorithm"
       ]
+    },
+    {
+      "id": "SARB_PSMB_TRANSITION_2026",
+      "authority": "South African Reserve Bank",
+      "title": "PSMB Transition - functions, responsibility and PCH allocation",
+      "url": "https://www.resbank.co.za/en/home/what-we-do/payments-and-settlements/psmb",
+      "observed_on": "2026-11-03",
+      "evidence_class": "official_completed_governance_and_function_transfer",
+      "supports": [
+        "PASA recognition as PSMB was withdrawn",
+        "SARB responsibilities for rules, standards, licensing, authorisation and registration transferred effective 2026-08-11",
+        "Functions transitioning to PayInc took effect 2026-09-02",
+        "PayInc PCH allocation includes EFT credit/debit, Authenticated Collections, PayShap, Registered Mandate and real-time clearing",
+        "SARB PCH allocation includes card, immediate and cash settlement, equities, bonds, derivatives and money market"
+      ],
+      "does_not_support": [
+        "Any unnamed payment institution has direct access or participant eligibility",
+        "The institutional function transfer is equivalent to completing every NPU programme objective",
+        "A PCH allocation alone specifies a provider API, idempotency guarantee or settlement-finality profile",
+        "Mycelix access, endorsement or integration"
+      ]
+    },
+    {
+      "id": "SARB_PAYMENTS_CONFERENCE_2026",
+      "authority": "South African Reserve Bank",
+      "title": "Rewiring Payments: Open. Connected. Inclusive. - Governor's address at Payments Conference",
+      "url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/speeches/speeches-by-governors/2026/kganyago-payments-conference",
+      "published_on": "2026-10-20",
+      "observed_on": "2026-11-03",
+      "evidence_class": "official_governor_speech_and_announced_targets",
+      "supports": [
+        "PayShap passed one billion transactions and R1 trillion in cumulative value since its 2023 inception by the speech date",
+        "SARB identified PayShap parity, pricing, promotion and merchant acceptance as adoption constraints",
+        "SARB described QR+ as an intended interoperable QR acceptance approach",
+        "SARB described a proposed activity-based path for appropriately regulated non-bank payment institutions with governance, safeguarding, resilience and reporting obligations",
+        "SARB stated that payment credentials should be reusable with consent and safeguards and that transaction histories may evidence economic activity",
+        "SARB stated payment histories should not automatically become credit scores, should be accurate and correctable, and essential payment access should not depend on unrelated data-use consent",
+        "SARB announced targets for an Authorisation Framework, QR+ pilot, PayShap adoption work and TCIB regional migration"
+      ],
+      "does_not_support": [
+        "The speech's stated target dates are proof that the target milestones were later completed",
+        "Every non-bank already has direct access or is exempt from applicable authorisation",
+        "QR+ is itself a settlement rail or guarantees merchant acceptance by every provider",
+        "PayShap metrics prove uniform functionality, price, availability or acceptance across participants",
+        "Automatic credit scoring or unrestricted reuse of personal transaction histories",
+        "Mycelix access, endorsement or integration"
+      ]
     }
   ],
   "systems": [
@@ -139,20 +186,27 @@
       "lifecycle_state": "current",
       "scope": "Named low-value digital payment rail in the SARB PEM landscape",
       "evidence_refs": [
-        "SARB_PEM_2026"
+        "SARB_PEM_2026",
+        "SARB_PSMB_TRANSITION_2026",
+        "SARB_PAYMENTS_CONFERENCE_2026"
       ],
       "confirmed_claims": [
-        "SARB names PayShap in its low-value digital payments discussion"
+        "SARB names PayShap in its low-value digital payments landscape",
+        "PayShap is included in the PayInc PCH allocation effective 2026-09-02",
+        "As of the Governor's 2026-10-20 speech, PayShap had passed one billion transactions and R1 trillion cumulative value since inception in 2023",
+        "SARB identified parity, pricing, promotion and merchant acceptance as adoption constraints"
       ],
       "unknowns": [
-        "Named provider/participant API, product and version",
-        "Participant-specific service limits, eligibility and availability",
+        "Named participant/provider API, product and version",
+        "Participant-specific service limits, eligibility, price, feature parity and availability",
+        "Merchant acceptance footprint for a specific merchant category or participant",
         "Exact evidence and legal-finality requirements for a selected product"
       ],
       "adapter_admission_requirements": [
         "Named participant/provider and specific PayShap product/service",
         "Exact interface and operational profile",
-        "Provider-specific idempotency, query, return and settlement evidence rules"
+        "Provider-specific idempotency, query, return and settlement evidence rules",
+        "Measure participant parity, pricing and acceptance separately; do not infer them from rail-level availability"
       ]
     },
     {
@@ -183,21 +237,25 @@
       "lifecycle_state": "transitioning",
       "scope": "Transition of national payments infrastructure and operating functions",
       "evidence_refs": [
-        "SARB_PEM_2026"
+        "SARB_PEM_2026",
+        "SARB_PSMB_TRANSITION_2026"
       ],
       "confirmed_claims": [
-        "SARB says PayInc is transitioning toward an NPU",
-        "SARB describes intended broader participation and open digital infrastructure"
+        "SARB describes a wider PayInc/NPU modernisation direction with intended broader participation",
+        "The PSMB functions moving to PayInc took effect on 2026-09-02",
+        "PayInc PCH allocation includes EFT credit and debit, Authenticated Collections, PayShap, Registered Mandate and real-time clearing (RTC)"
       ],
       "unknowns": [
-        "Final participant eligibility and onboarding requirements for a named service",
-        "Exact API, operating model, service levels and production cutover dates",
-        "Which functions are available to which participant classes at a given date"
+        "Final NPU service architecture, participant eligibility and onboarding requirements for each named service",
+        "Exact provider/product API, operating model, service levels and technical profile",
+        "Which functions and participant classes are available at a given effective date",
+        "Provider-specific idempotency, query, return, settlement and finality evidence"
       ],
       "adapter_admission_requirements": [
         "Current dated official participant and product eligibility evidence",
-        "Named service, contract, API/message profile and operational owner",
-        "Current access credentials and explicit service-specific capability profile"
+        "Named service, participant agreement, API/message profile and operational owner",
+        "Current access credentials and explicit service-specific capability profile",
+        "Separate SARB authorisation/registration evidence where required"
       ]
     },
     {
@@ -699,6 +757,301 @@
         "raw_account_number_must_not_enter_public_receipt",
         "credential_secret_must_not_be_serialized"
       ]
+    },
+    {
+      "id": "SA-PAY-021",
+      "category": "governance_transition_scope",
+      "condition": "A historical payment is evaluated using the post-2026-09-02 PSMB function allocation, or the completed PASA-to-SARB/PayInc transfer is incorrectly presented as completion of every NPU objective.",
+      "event_sequence": [
+        "payment event date and governing institutional profile are identified",
+        "PSMB transition source effective dates are resolved",
+        "historical and current function allocations are compared"
+      ],
+      "expected_disposition": "profile_requalification_required",
+      "dispatch_decision": "deny",
+      "expected_financial_effect": "no_authority_or_finality_created",
+      "required_evidence": [
+        "institutional role allocation effective on the event date",
+        "current dated rule/authorisation source",
+        "named PCH and participant scope"
+      ],
+      "negative_controls": [
+        "current_function_allocation_must_not_rewrite_historical_governance",
+        "completed_psmb_transfer_must_not_imply_complete_npu_programme"
+      ]
+    },
+    {
+      "id": "SA-PAY-022",
+      "category": "announced_target_not_completion",
+      "condition": "The current date is on or after an announced milestone target, but no later official completion evidence has been admitted.",
+      "event_sequence": [
+        "announced target and original source are loaded",
+        "target window end is reached",
+        "no completion evidence is present",
+        "evaluator determines profile freshness"
+      ],
+      "expected_disposition": "profile_requalification_required",
+      "dispatch_decision": "deny",
+      "expected_financial_effect": "no_capability_upgrade",
+      "required_evidence": [
+        "later official publication or operating notice",
+        "exact version and effective date",
+        "participant/product/corridor scope"
+      ],
+      "negative_controls": [
+        "target_date_must_not_auto_mark_milestone_complete",
+        "absence_of_news_must_not_be_interpreted_as_success"
+      ]
+    },
+    {
+      "id": "SA-PAY-023",
+      "category": "qr_interoperability_not_rail",
+      "condition": "A QR+ compatible merchant code is parsed and resolved, but an adapter treats QR interoperability as proof of payment-rail availability, merchant acceptance by every provider, or settlement finality.",
+      "event_sequence": [
+        "QR payload is parsed under exact versioned profile",
+        "merchant/payee and amount binding are verified",
+        "selected payer service and merchant acceptance are independently checked",
+        "settlement path and finality profile are evaluated"
+      ],
+      "expected_disposition": "reject_before_dispatch",
+      "dispatch_decision": "deny",
+      "expected_financial_effect": "none_without_exact_service_and_authority",
+      "required_evidence": [
+        "QR+ technical specification and version",
+        "authenticated merchant/payee resolution",
+        "selected payer provider and acceptance evidence",
+        "exact rail/finality profile"
+      ],
+      "negative_controls": [
+        "qr_standard_must_not_become_payment_rail",
+        "common_code_must_not_imply_every_provider_accepts",
+        "qr_parse_success_must_not_imply_merchant_credit"
+      ]
+    },
+    {
+      "id": "SA-PAY-024",
+      "category": "payment_data_purpose_limitation",
+      "condition": "Transaction history is reused to produce an automatic credit score or unrelated profile without purpose-specific, informed user consent, correction rights and a separate lawful decision process.",
+      "event_sequence": [
+        "payment history is captured under a payment purpose",
+        "secondary economic-activity use is requested",
+        "purpose/consent and data-quality policy are evaluated",
+        "credit-score promotion is attempted"
+      ],
+      "expected_disposition": "privacy_reject_or_redact",
+      "dispatch_decision": "deny",
+      "expected_financial_effect": "no_secondary_data_use_or_score",
+      "required_evidence": [
+        "specific consent and purpose scope",
+        "user-controlled credential/data-sharing context",
+        "accuracy and correction process",
+        "separate credit decision authority and disclosure"
+      ],
+      "negative_controls": [
+        "payment_history_must_not_auto_create_credit_score",
+        "essential_payment_access_must_not_depend_on_unrelated_data_consent",
+        "user_correction_must_preserve_history_and_append_correction"
+      ]
+    },
+    {
+      "id": "SA-PAY-025",
+      "category": "regional_milestone_not_routing_rule",
+      "condition": "A regional payment amount is below the speech's announced R100,000 threshold and software routes it to TCIB before official eligibility, corridor, participant, currency and effective-date rules are available.",
+      "event_sequence": [
+        "payment amount and currency are read",
+        "announced TCIB milestone is consulted",
+        "official operational eligibility profile is absent",
+        "routing planner evaluates candidate path"
+      ],
+      "expected_disposition": "profile_requalification_required",
+      "dispatch_decision": "deny",
+      "expected_financial_effect": "no_route_selected_or_dispatch",
+      "required_evidence": [
+        "published final threshold wording and currency semantics",
+        "eligible corridor and participant list",
+        "current TCIB operating profile",
+        "settlement and FX evidence"
+      ],
+      "negative_controls": [
+        "announced_amount_threshold_must_not_enable_routing",
+        "speech_target_must_not_replace_operating_rulebook",
+        "regional_currency_and_fx_must_remain_explicit"
+      ]
+    },
+    {
+      "id": "SA-PAY-026",
+      "category": "activity_authorisation_not_banking_licence",
+      "condition": "A payment institution assumes that the announced activity-based authorisation path means it can operate without applicable SARB registration, safeguarding or resilience requirements.",
+      "event_sequence": [
+        "institution class and proposed activity are identified",
+        "current statutory and authorisation profile is resolved",
+        "safeguarding, governance, resilience and reporting controls are checked"
+      ],
+      "expected_disposition": "require_authority_evidence",
+      "dispatch_decision": "deny",
+      "expected_financial_effect": "no_unqualified_activity_enabled",
+      "required_evidence": [
+        "published effective Exemption Notice/Authorisation Framework",
+        "institution-specific authorisation or exemption evidence",
+        "applicable safeguarding and operational-resilience controls"
+      ],
+      "negative_controls": [
+        "non_bank_status_must_not_create_automatic_access",
+        "activity_based_framework_must_not_be_read_as_no_regulation",
+        "announced_framework_must_not_be_treated_as_effective"
+      ]
+    },
+    {
+      "id": "SA-PAY-027",
+      "category": "rail_adoption_metrics_not_service_guarantee",
+      "condition": "An adapter uses national PayShap transaction totals or cumulative value as evidence that a specific participant supports the same limits, pricing, functionality, availability or merchant acceptance.",
+      "event_sequence": [
+        "national aggregate adoption statistic is observed",
+        "participant/service selection is made",
+        "participant-specific operational and commercial profiles are absent"
+      ],
+      "expected_disposition": "profile_requalification_required",
+      "dispatch_decision": "deny",
+      "expected_financial_effect": "no_participant_capability_inferred",
+      "required_evidence": [
+        "named participant service specification",
+        "current limits/fees/availability/acceptance evidence",
+        "versioned operational and settlement profile"
+      ],
+      "negative_controls": [
+        "aggregate_rail_volume_must_not_prove_participant_capability",
+        "national_adoption_must_not_imply_uniform_pricing_or_acceptance"
+      ]
+    }
+  ],
+  "function_allocation": [
+    {
+      "id": "ZA-PSMB-SARB-REGULATORY-FUNCTIONS",
+      "organisation": "South African Reserve Bank (SARB)",
+      "effective_on": "2026-08-11",
+      "functions": [
+        "Rules and standards for the national payment system",
+        "Licensing, authorising and registering NPS payment institutions"
+      ],
+      "source_refs": [
+        "SARB_PSMB_TRANSITION_2026"
+      ]
+    },
+    {
+      "id": "ZA-PSMB-SARB-PCH-ALLOCATION",
+      "organisation": "South African Reserve Bank (SARB)",
+      "effective_on": "2026-08-11",
+      "functions": [
+        "Card payment clearing-house allocation",
+        "Immediate settlement",
+        "Cash settlement",
+        "Equities, bonds, derivatives and money-market PCH allocation"
+      ],
+      "source_refs": [
+        "SARB_PSMB_TRANSITION_2026"
+      ]
+    },
+    {
+      "id": "ZA-PSMB-PAYINC-PCH-ALLOCATION",
+      "organisation": "PayInc",
+      "effective_on": "2026-09-02",
+      "functions": [
+        "EFT credit",
+        "EFT debit",
+        "Authenticated Collections",
+        "PayShap (Rapid Payments)",
+        "Registered Mandate",
+        "Real-time clearing (RTC)"
+      ],
+      "source_refs": [
+        "SARB_PSMB_TRANSITION_2026"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "SA-MILESTONE-001",
+      "initiative": "PSMB function and personnel transfer",
+      "status": "completed_at_source",
+      "source_refs": [
+        "SARB_PSMB_TRANSITION_2026"
+      ],
+      "observed_on": "2026-11-03",
+      "description": "SARB states regulatory and specified PCH responsibilities took effect on 2026-08-11; functions transitioning to PayInc took effect on 2026-09-02.",
+      "completion_evidence_required": "The cited SARB transition notice is the source evidence for this governance/function transfer. It is not evidence of every NPU programme objective being complete.",
+      "effective_from": "2026-08-11",
+      "effective_by": "2026-09-02",
+      "outcome": "completed_as_described_by_SARB"
+    },
+    {
+      "id": "SA-MILESTONE-002",
+      "initiative": "Publication of the Exemption Notice and Authorisation Framework",
+      "status": "announced_target",
+      "source_refs": [
+        "SARB_PAYMENTS_CONFERENCE_2026"
+      ],
+      "observed_on": "2026-11-03",
+      "description": "Governor stated an intention to publish the framework by the end of November 2026.",
+      "completion_evidence_required": "A subsequent official publication, exact text/version, effective date and applicable institution/activity scope.",
+      "target_window": "by_end_of_november_2026",
+      "target_start": "2026-11-04",
+      "target_end": "2026-11-30"
+    },
+    {
+      "id": "SA-MILESTONE-003",
+      "initiative": "QR+ pilot",
+      "status": "announced_target",
+      "source_refs": [
+        "SARB_PAYMENTS_CONFERENCE_2026"
+      ],
+      "observed_on": "2026-11-03",
+      "description": "Governor stated the intention to pilot QR+ in the first quarter of 2027.",
+      "completion_evidence_required": "Official pilot commencement evidence, exact QR+ technical profile, participant scope and interoperability test results.",
+      "target_window": "Q1_2027",
+      "target_start": "2027-01-01",
+      "target_end": "2027-03-31"
+    },
+    {
+      "id": "SA-MILESTONE-004",
+      "initiative": "PayShap adoption constraints",
+      "status": "announced_target",
+      "source_refs": [
+        "SARB_PAYMENTS_CONFERENCE_2026"
+      ],
+      "observed_on": "2026-11-03",
+      "description": "Governor stated work should begin by the end of March 2027 to address constraints limiting PayShap adoption.",
+      "completion_evidence_required": "Published implementation actions and measurable participant parity, pricing, awareness and acceptance evidence.",
+      "target_window": "by_end_of_march_2027",
+      "target_start": "2026-11-04",
+      "target_end": "2027-03-31"
+    },
+    {
+      "id": "SA-MILESTONE-005",
+      "initiative": "Qualifying regional retail payment migration from SADC-RTGS to TCIB",
+      "status": "announced_target",
+      "source_refs": [
+        "SARB_PAYMENTS_CONFERENCE_2026"
+      ],
+      "observed_on": "2026-11-03",
+      "description": "Governor described a plan for qualifying lower-value regional payments around the R100,000 threshold to move to TCIB by late April 2027. The speech uses both 'under R100,000' and 'up to R100,000'; executable eligibility must be taken from later official operating rules, not normalised from this wording.",
+      "completion_evidence_required": "Published rulebook, precise inclusive/exclusive amount threshold, corridor/currency scope, eligible participants, effective date and live pilot/operational notice.",
+      "target_window": "late_april_2027",
+      "target_start": "2027-04-01",
+      "target_end": "2027-04-30"
+    },
+    {
+      "id": "SA-MILESTONE-006",
+      "initiative": "TCIB hub-and-spoke pilot across eight countries",
+      "status": "announced_target",
+      "source_refs": [
+        "SARB_PAYMENTS_CONFERENCE_2026"
+      ],
+      "observed_on": "2026-11-03",
+      "description": "Governor stated the aim for TCIB to operate as an eight-country pilot hub-and-spoke model by October 2027.",
+      "completion_evidence_required": "Official participant-country list, hub operating rules, participant onboarding evidence, corridor tests and settlement/finality profiles.",
+      "target_window": "october_2027",
+      "target_start": "2027-10-01",
+      "target_end": "2027-10-31"
     }
   ]
 }
