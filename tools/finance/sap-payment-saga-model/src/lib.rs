@@ -111,6 +111,13 @@ pub enum PaymentRecordStatus {
 /// The model checks subject equality and reference syntax. It does not prove
 /// that a referenced source record exists or that its digest/signature is
 /// cryptographically authentic.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PaymentRecordStatus {
+    Completed,
+    Pending,
+    Failed,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EffectEvidence {
     pub operation_id: String,
@@ -1025,6 +1032,22 @@ mod tests {
             Err(SagaError::InvalidEffectEvidence(PaymentLeg::LocalPaymentTransaction))
         );
 
+        let mut failed_payment = local_payment_evidence(&journal, "failed-payment", 8);
+        if let EffectEvidenceKind::LocalPaymentTransaction { payment_status, .. } =
+            &mut failed_payment.kind
+        {
+            *payment_status = PaymentRecordStatus::Failed;
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(
+                PaymentLeg::LocalPaymentTransaction,
+                &failed_payment,
+            ),
+            Err(SagaError::InvalidEffectEvidence(
+                PaymentLeg::LocalPaymentTransaction
+            ))
+        );
+
         let mut missing_outbox = local_payment_evidence(&journal, "missing-outbox", 7);
         if let EffectEvidenceKind::LocalPaymentTransaction {
             treasury_fee_outbox_id,
@@ -1039,6 +1062,42 @@ mod tests {
                 &missing_outbox,
             ),
             Err(SagaError::InvalidEffectEvidence(PaymentLeg::LocalPaymentTransaction))
+        );
+    }
+
+    #[test]
+    fn local_transaction_requires_v1_receipt_signing_profile_and_digest() {
+        let journal = ready_local_payment();
+        let mut wrong_profile = local_payment_evidence(&journal, "wrong-profile", 9);
+        if let EffectEvidenceKind::LocalPaymentTransaction { signing_profile, .. } =
+            &mut wrong_profile.kind
+        {
+            *signing_profile = "legacy-unversioned".into();
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(
+                PaymentLeg::LocalPaymentTransaction,
+                &wrong_profile,
+            ),
+            Err(SagaError::InvalidEffectEvidence(
+                PaymentLeg::LocalPaymentTransaction
+            ))
+        );
+
+        let mut bad_signature_digest = local_payment_evidence(&journal, "bad-signature-digest", 10);
+        if let EffectEvidenceKind::LocalPaymentTransaction { signature_digest, .. } =
+            &mut bad_signature_digest.kind
+        {
+            *signature_digest = "not-a-digest".into();
+        }
+        assert_eq!(
+            journal.validate_effect_evidence(
+                PaymentLeg::LocalPaymentTransaction,
+                &bad_signature_digest,
+            ),
+            Err(SagaError::InvalidEffectEvidence(
+                PaymentLeg::LocalPaymentTransaction
+            ))
         );
     }
 
