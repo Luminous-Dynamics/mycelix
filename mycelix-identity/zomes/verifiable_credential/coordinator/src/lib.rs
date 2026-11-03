@@ -59,37 +59,131 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
     )
 }
 
-/// Compute cryptographic hash of credential content for signing
+/// Versioned Mycelix-internal credential signing profile.
 ///
-/// Uses BLAKE2b-256 (via holo_hash) for a secure 32-byte hash.
-/// The hash covers the essential credential fields in a deterministic order
-/// to ensure consistent verification across signing and verification.
-fn compute_credential_hash(vc: &VerifiableCredential) -> Vec<u8> {
-    // Build deterministic content to hash:
-    // - Credential ID
-    // - Issuer DID
-    // - Subject DID
-    // - Valid from timestamp
-    // - Claims (JSON serialized)
-    // - Schema ID (if present)
+/// This is deliberately NOT named as a W3C Data Integrity cryptosuite: it
+/// signs the canonical JSON serialization defined below, not RDF Dataset
+/// Canonicalization / the W3C EdDSA cryptosuite transformation.
+const CREDENTIAL_HASH_PROFILE_V1: &str = "mycelix-credential-hash-v1";
+const LEGACY_ED25519_CRYPTOSUITE: &str = "eddsa-rdfc-2022";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CredentialHashProfile {
+    MycelixV1,
+    LegacySubsetV0,
+}
+
+fn credential_hash_profile(vc: &VerifiableCredential) -> Option<CredentialHashProfile> {
+    match vc.proof.cryptosuite.as_deref() {
+        Some(CREDENTIAL_HASH_PROFILE_V1) => Some(CredentialHashProfile::MycelixV1),
+        // Existing issuances used this W3C suite label for a non-W3C subset
+        // hash, or had no suite at all. Preserve decoding but never promote
+        // these credentials to full-field VERIFIED assurance.
+        Some(LEGACY_ED25519_CRYPTOSUITE) | None => {
+            Some(CredentialHashProfile::LegacySubsetV0)
+        }
+        Some("hybrid-eddsa-mldsa65-rdfc-2024") => {
+            Some(CredentialHashProfile::LegacySubsetV0)
+        }
+        _ => None,
+    }
+}
+
+/// Recursively sort every JSON object key before serialization. This keeps the
+/// internal V1 byte representation deterministic even if serde_json is built
+/// with a different map implementation or insertion-order feature.
+fn canonicalize_json_value(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(object) => {
+            let mut entries: Vec<_> = object.into_iter().collect();
+            entries.sort_by(|left, right| left.0.cmp(&right.0));
+            let mut canonical = serde_json::Map::new();
+            for (key, value) in entries {
+                canonical.insert(key, canonicalize_json_value(value));
+            }
+            serde_json::Value::Object(canonical)
+        }
+        serde_json::Value::Array(values) => serde_json::Value::Array(
+            values.into_iter().map(canonicalize_json_value).collect()
+        ),
+        value => value,
+    }
+}
+
+/// Mycelix V1 signs every serialized credential field except proofValue itself.
+/// The domain separator prevents the resulting digest being reused as a hash
+/// for another object type or profile. proof type/created/method/purpose,
+/// cryptosuite, algorithm, challenge, and domain are all covered.
+fn compute_credential_hash_v1(
+    vc: &VerifiableCredential,
+) -> ExternResult<Vec<u8>> {
+    let mut unsigned = serde_json::to_value(vc).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not serialize credential for Mycelix V1 signing: {}",
+            error
+        )))
+    })?;
+    let proof = unsigned
+        .get_mut("proof")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Credential proof is missing from Mycelix V1 signing payload".into()
+        )))?;
+    if proof.remove("proofValue").is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Credential proofValue is missing from Mycelix V1 signing payload".into()
+        )));
+    }
+
+    let canonical = canonicalize_json_value(unsigned);
+    let serialized = serde_json::to_vec(&canonical).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not canonicalize Mycelix V1 credential payload: {}",
+            error
+        )))
+    })?;
+    let mut domain_separated = b"MYCELIX:VERIFIABLE-CREDENTIAL:SIGNATURE:V1\\0".to_vec();
+    domain_separated.extend(serialized);
+    Ok(holo_hash::blake2b_256(&domain_separated).to_vec())
+}
+
+/// Historical Mycelix subset hash. Kept only to identify and report older
+/// records; its output is NEVER sufficient for a VERIFIED credential result.
+fn compute_credential_hash_legacy_subset(vc: &VerifiableCredential) -> Vec<u8> {
     let mut content = Vec::new();
     content.extend(vc.id.as_bytes());
-    content.push(0); // null separator
+    content.push(0);
     content.extend(vc.issuer.did().as_bytes());
     content.push(0);
     content.extend(vc.credential_subject.id.as_bytes());
     content.push(0);
     content.extend(vc.valid_from.as_bytes());
     content.push(0);
-    // Serialize claims deterministically (serde_json sorts keys by default for objects)
-    if let Ok(claims_json) = serde_json::to_string(&vc.credential_subject.claims) {
+    if let Ok(claims_json) = serde_json::to_string(&canonicalize_json_value(
+        vc.credential_subject.claims.clone()
+    )) {
         content.extend(claims_json.as_bytes());
     }
     content.push(0);
     content.extend(vc.mycelix_schema_id.as_bytes());
-
-    // Use BLAKE2b-256 for cryptographic hashing
     holo_hash::blake2b_256(&content).to_vec()
+}
+
+/// Compute the digest appropriate to the explicitly declared credential
+/// profile. Unknown profiles fail closed rather than guessing a transform.
+fn compute_credential_hash_for_profile(
+    vc: &VerifiableCredential,
+) -> ExternResult<Vec<u8>> {
+    match credential_hash_profile(vc) {
+        Some(CredentialHashProfile::MycelixV1) => compute_credential_hash_v1(vc),
+        Some(CredentialHashProfile::LegacySubsetV0) => {
+            Ok(compute_credential_hash_legacy_subset(vc))
+        }
+        None => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Unsupported credential signing profile: {:?}",
+            vc.proof.cryptosuite
+        )))),
+    }
 }
 
 /// Schema validation outcome — tells the caller what actually happened.
