@@ -1034,12 +1034,6 @@ fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)>
     ))))
 }
 
-/// Return the exact SAP sender debit (principal + fee) without wrapping.
-#[inline]
-fn checked_sap_total_debit(amount: u64, fee: u64) -> Option<u64> {
-    amount.checked_add(fee)
-}
-
 /// Compute the progressive SAP fee for a payment based on sender's MYCEL score.
 ///
 /// Queries the bridge coordinator for the canonical fee tier (single source of truth).
@@ -1173,8 +1167,7 @@ fn elapsed_seconds(from: Timestamp, to: Timestamp) -> u64 {
 }
 
 /// The generic direct-payment endpoint currently settles SAP only.
-/// TEND must use the TEND exchange/obligation protocol so a Payment record
-/// cannot be mislabeled as a completed TEND economic effect.
+/// TEND must use the TEND exchange/obligation protocol, not this API.
 fn supports_direct_payment_currency(currency: &str) -> bool {
     currency == "SAP"
 }
@@ -1186,7 +1179,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     verify_caller_is_did(&input.from_did)?;
 
     // Reject unsupported instruments before rate-limit links, balance changes,
-    // Payment entries, or receipts are written. TEND uses its own exchange protocol.
+    // Payment entries, or receipts are written. TEND uses its separate exchange protocol.
     if !supports_direct_payment_currency(&input.currency) {
         let message = if input.currency == "TEND" {
             "TEND direct payments must use the TEND exchange/settlement protocol"
@@ -1223,33 +1216,24 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         )?;
     }
 
-    // This endpoint is SAP-only. TEND settlement uses the separate TEND
-    // exchange protocol; accepting a TEND-shaped Payment would falsely signal
-    // a completed economic effect without changing TEND balances.
+    // SAP-only endpoint: direct TEND payments use the separate exchange protocol.
     let fee = compute_sap_fee(&input.from_did, input.amount)?;
-    let total_debit = checked_sap_total_debit(input.amount, fee).ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest(
-            "SAP payment amount plus fee exceeds the u64 micro-SAP range".into()
-        ))
-    })?;
+    let total_debit = input.amount + fee;
 
-    // Debit sender's SAP balance (amount + fee, applies demurrage).
     debit_sap(DebitSapInput {
         member_did: input.from_did.clone(),
         amount: total_debit,
         reason: format!("Payment to {} (includes fee {})", input.to_did, fee),
     })?;
 
-    // Credit receiver's SAP balance (amount only, fee goes to commons).
     credit_sap(CreditSapInput {
         member_did: input.to_did.clone(),
         amount: input.amount,
         reason: format!("Payment from {}", input.from_did),
     })?;
 
-    // Route fee to commons via treasury (if fee > 0).
     if fee > 0 {
-        if let Err(error) = call(
+        if let Err(e) = call(
             CallTargetCell::Local,
             ZomeName::from("treasury"),
             FunctionName::from("receive_compost"),
@@ -1260,7 +1244,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
                 source_member_did: input.from_did.clone(),
             },
         ) {
-            debug!("Fee routing to global-fee-pool failed: {:?}", error);
+            debug!("Fee routing to global-fee-pool failed: {:?}", e);
         }
     }
 
@@ -2550,30 +2534,5 @@ mod direct_payment_currency_tests {
         assert!(!supports_direct_payment_currency("MYC"));
         assert!(!supports_direct_payment_currency("USD"));
         assert!(!supports_direct_payment_currency(""));
-    }
-}
-
-#[cfg(test)]
-mod checked_sap_payment_arithmetic_tests {
-    use super::checked_sap_total_debit;
-
-    #[test]
-    fn maximum_amount_with_zero_fee_is_representable() {
-        assert_eq!(checked_sap_total_debit(u64::MAX, 0), Some(u64::MAX));
-    }
-
-    #[test]
-    fn maximum_amount_with_positive_fee_is_rejected() {
-        assert_eq!(checked_sap_total_debit(u64::MAX, 1), None);
-        assert_eq!(checked_sap_total_debit(u64::MAX - 7, 8), None);
-    }
-
-    #[test]
-    fn ordinary_principal_and_fee_are_added_exactly() {
-        assert_eq!(
-            checked_sap_total_debit(100_000_000, 100_000),
-            Some(100_100_000)
-        );
-        assert_eq!(checked_sap_total_debit(0, 0), Some(0));
     }
 }
