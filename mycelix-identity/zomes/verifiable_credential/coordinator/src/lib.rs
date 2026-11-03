@@ -181,7 +181,7 @@ fn v1_proof_header_matches(
     let expected_verification_method = format!("{}#keys-1", vc.issuer.did());
     let method_matches_issuer =
         vc.proof.verification_method == expected_verification_method;
-    vc.proof.proof_type == "DataIntegrityProof"
+    vc.proof.proof_type == "MycelixCredentialProof"
         && vc.proof.proof_purpose == "assertionMethod"
         && vc.proof.algorithm == Some(signature_algorithm.as_u16())
         && method_matches_issuer
@@ -415,7 +415,7 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
             status_list_credential: None,
         }),
         proof: CredentialProof {
-            proof_type: "DataIntegrityProof".to_string(),
+            proof_type: "MycelixCredentialProof".to_string(),
             created: now_iso.clone(),
             verification_method: format!("{}#keys-1", issuer_did),
             proof_purpose: "assertionMethod".to_string(),
@@ -846,7 +846,7 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         })?;
 
     let proof = CredentialProof {
-        proof_type: "DataIntegrityProof".to_string(),
+        proof_type: "MycelixCredentialProof".to_string(),
         created: now_iso.clone(),
         verification_method: format!("{}#keys-1", holder_did),
         proof_purpose: "authentication".to_string(),
