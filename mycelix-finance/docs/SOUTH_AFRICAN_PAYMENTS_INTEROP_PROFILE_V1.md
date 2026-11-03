@@ -53,7 +53,7 @@ All milestones are announced targets until later authoritative evidence is admit
 
 ### 2.2 PayShap adoption and the open-network constraint
 
-The Governor stated that PayShap had passed one billion transactions and R1 trillion in cumulative value since its 2023 inception by 20 October 2026. He identified four adoption constraints: unequal functionality/limits/user experience across banks, pricing, low public awareness and a narrow merchant acceptance perimeter. These are national-level observations, not participant-specific service-level guarantees.
+The Governor stated that PayShap had passed one billion transactions and R1 trillion in cumulative value since its 2023 inception by 20 October 2026. He also compared the prior year's PayShap transaction count with roughly 6% of card transaction count and less than 40% of EFT credit volumes. Those are dated system-level comparisons, not current forecasts or participant-level service guarantees. He identified four adoption constraints: unequal functionality/limits/user experience across banks, pricing, low public awareness and a narrow merchant acceptance perimeter. These are national-level observations, not participant-specific service-level guarantees.
 
 The same address warns that scaled, independent closed-loop payment systems can restrict customer choice, entrench acceptance control and fragment liquidity. Mycelix therefore must not treat a closed-loop internal currency or wallet as a long-term substitute for open connectivity. The design objective should be **interoperable participation with explicit jurisdictional safeguards**, not a walled garden. Any expansion in scale and functionality must be assessed against the applicable connection and regulatory obligations.
 
