@@ -35,7 +35,7 @@ Consequently the signed payload covers:
 - `mycelix_schema_id` and `mycelix_created`.
 
 The signature value itself is excluded because it is the output being produced.
-V1 verification additionally requires a `DataIntegrityProof` assertion proof,
+V1 verification additionally requires a `MycelixCredentialProof` assertion proof,
 a declared algorithm matching the tagged signature algorithm, and a
 verification-method controller matching the issuer DID.
 
@@ -43,6 +43,33 @@ The sorted-key serialization and field contract are versioned by the profile
 identifier. Changing the serialized fields, JSON representation, domain
 separator, hash function, or algorithm binding requires a new profile version,
 not a silent V1 reinterpretation.
+
+## Mycelix presentation V1
+
+Presentations have a separate internal profile, `mycelix-presentation-hash-v1`,
+and proof type `MycelixPresentationProof`. This is also not a W3C Data
+Integrity cryptosuite.
+
+The V1 presentation hash is BLAKE2b-256 over the domain separator
+`MYCELIX:VERIFIABLE-PRESENTATION:SIGNATURE:V1\\0` followed by the recursively
+key-sorted JSON serialization of the complete `VerifiablePresentation`,
+excluding only the holder's outer `proof.proofValue`. It therefore binds the
+holder, presentation ID/type/context, every embedded credential including its
+issuer proofValue and status/schema fields, and every holder proof header field.
+
+A holder V1 proof must use `MycelixPresentationProof`, purpose
+`authentication`, the Ed25519 algorithm identifier, and the current
+`holder DID#keys-1` verification method. As with credential V1, the current
+WASM verifier derives its key directly from the DID and does not yet resolve
+DID Documents or rotating key references.
+
+Historical presentations using the old concatenated subset
+(presentation ID, holder DID, credential IDs, challenge, and domain) remain
+readable, but a successful check is **PARTIAL**. Unknown presentation profiles
+are **UNSUPPORTED**. The result API exposes `holder_signature_status`
+separately from each embedded issuer's `proof_signature_status`; overall
+presentation validity requires the holder proof and all embedded credentials
+to be VERIFIED, plus the non-signature checks to pass.
 
 ## Historical subset-hash V0
 
