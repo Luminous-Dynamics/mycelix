@@ -120,7 +120,10 @@ pub struct CredentialProof {
     /// The actual signature/proof value (multibase encoded)
     #[serde(rename = "proofValue")]
     pub proof_value: String,
-    /// For DataIntegrityProof: cryptosuite used
+    /// Declared proof profile. This may be a W3C Data Integrity cryptosuite
+    /// only when its exact standardized transformation is implemented; the
+    /// coordinator also uses the distinct internal `mycelix-credential-hash-v1`
+    /// profile, which must not be represented as W3C suite conformance.
     pub cryptosuite: Option<String>,
     /// Algorithm identifier (multicodec u16). None defaults to Ed25519 (0xed01).
     #[serde(default, skip_serializing_if = "Option::is_none")]
