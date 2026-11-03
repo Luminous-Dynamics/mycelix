@@ -31,6 +31,8 @@ jobs:
     name: Receipt v1 exact-head verification
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS: '--cfg getrandom_backend="custom" -C link-args=--import-undefined'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
