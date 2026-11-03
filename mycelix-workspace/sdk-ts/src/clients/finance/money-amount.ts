@@ -23,6 +23,10 @@ export type MoneyAmountV1Result =
   | { ok: true; value: MoneyAmountV1 }
   | { ok: false; error: MoneyAmountV1ErrorCode };
 
+export type MoneyAmountV1BooleanResult =
+  | { ok: true; value: boolean }
+  | { ok: false; error: MoneyAmountV1ErrorCode };
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -144,17 +148,11 @@ export function checkedAddMoneyAmountV1(
 }
 
 /** Return whether a valid amount is greater than zero. */
-export function isPositiveMoneyAmountV1(input: unknown): MoneyAmountV1Result {
+export function isPositiveMoneyAmountV1(input: unknown): MoneyAmountV1BooleanResult {
   const result = validateMoneyAmountV1(input);
   if (!result.ok) return result;
   // Canonical unsigned integers are positive iff they are not the single digit "0".
-  return {
-    ok: true,
-    value: {
-      instrument_profile_id: result.value.instrument_profile_id,
-      minor_units: result.value.minor_units === '0' ? '0' : result.value.minor_units,
-    },
-  };
+  return { ok: true, value: result.value.minor_units !== '0' };
 }
 
 /** Construct an SAP micro-unit envelope; this does not imply external settlement. */
