@@ -44,6 +44,38 @@ identifier. Changing the serialized fields, JSON representation, domain
 separator, hash function, or algorithm binding requires a new profile version,
 not a silent V1 reinterpretation.
 
+This describes the **typed Mycelix credential model**, not arbitrary JSON-LD
+documents. The current issuance path constructs the credential from typed
+fields; arbitrary top-level extension members are not carried by that type and
+must not be assumed to be covered. The subject's flattened claims are retained
+as JSON values and are included recursively. Do not accept an externally
+extended JSON-LD document as V1 unless every extension is mapped into a typed
+field/subject claim or a future profile explicitly defines its preservation.
+
+
+## Independent V1 test vector
+
+A fixed test vector lives at
+[`tests/fixtures/credential-profile-v1/`](../tests/fixtures/credential-profile-v1/).
+It contains the exact canonical payload, BLAKE2b-256 digest, Ed25519 public key,
+and a signature generated independently with OpenSSL-compatible Ed25519. Its
+private seed is not published.
+
+The coordinator's Rust test reconstructs the typed sample credential and
+requires byte-for-byte equality with the fixture payload, equality with the
+fixed digest, and successful verification of the independent signature using
+RustCrypto `ed25519-dalek`. It then mutates each of 20 covered fields, one at
+a time, and requires the independent signature verification to fail. The
+fixture also has an OpenSSL CLI verifier:
+
+```sh
+cd mycelix-identity/tests/fixtures/credential-profile-v1
+sh verify-openssl.sh
+```
+
+This is cross-implementation evidence for the internal Mycelix V1 transform
+and Ed25519 primitive. It is not a W3C Data Integrity conformance vector.
+
 ## Mycelix presentation V1
 
 Presentations have a separate internal profile, `mycelix-presentation-hash-v1`,
