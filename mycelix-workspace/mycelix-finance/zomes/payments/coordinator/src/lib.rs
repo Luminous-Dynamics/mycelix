@@ -2522,7 +2522,6 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
     })
 }
 
-
 #[cfg(test)]
 mod direct_payment_currency_tests {
     use super::supports_direct_payment_currency;
