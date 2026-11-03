@@ -58,6 +58,12 @@ The evaluator must reject inconsistent task/user/eligible-merchant denominators,
 - false finality promotions: an earlier lifecycle event presented as settlement/finality without the required source evidence.
 - unexplained reconciliation deltas: per-account/per-instrument balances or event totals that do not reconcile to authoritative source records.
 
+At the declared study cutoff, every eligible instruction must occupy exactly one primary disposition:
+
+`eligible = recipient_available + terminal_failure + unresolved_or_pending + not_dispatched_or_cancelled`
+
+The four counts must reconcile exactly with checked integer arithmetic. Strict under-counts, over-counts and arithmetic overflow invalidate the run. A pre-dispatch cancellation or an eligible instruction that was never dispatched remains visible in `not_dispatched_or_cancelled`; it cannot disappear from the denominator. Returns and reversals are append-only successor events linked to an original delivered instruction, not a fifth primary disposition and not a deletion of the original delivery.
+
 The synthetic conformance corpus uses zero-tolerance mutation controls for duplicate effects, false finality, unexplained deltas and authority/privacy violations. In live service operations, report incident counts/rates, confidence intervals, severity and remediation; do not imply that an observed zero proves future risk is zero.
 
 ### Latency
@@ -69,7 +75,13 @@ Record separate event timestamps for:
 - recipient funds availability;
 - reconciliation closure.
 
-Report p50, p95 and p99 for each lifecycle interval. Use monotonic clock measurements within each instrumented component and retain clock synchronisation/error bounds when correlating systems. A provider response time is not end-to-end recipient availability. Do not infer settlement from a low latency percentile.
+For recipient-availability latency, declare the sample population explicitly. In v1, p50/p95/p99 are **conditional on instructions that reached recipient-available status**. Require:
+
+`latency_observations + latency_missing = recipient_available`
+
+Publish both counts beside the quantiles. Missing timestamps among delivered instructions must not silently disappear, and the conditional quantiles must never be labelled population-wide time-to-availability. The delivery-time sample size is the count of observed recipient-available instructions, not the eligible-attempt denominator.
+
+A population-wide time-to-availability analysis is a separate estimator and must define the study horizon, event-time origin, right-censoring rules for unresolved/pending instructions, and terminal failure as a competing event. Aalen–Johansen cumulative incidence is a candidate estimator for the probability of recipient availability by time in the presence of competing terminal outcomes; pre-register estimator, variance/interval method, missingness treatment and sensitivity analyses before a live study. Do not use a naïve Kaplan–Meier estimate that treats terminal failures as ordinary non-informative censoring. Use monotonic clock measurements within each instrumented component and retain clock synchronisation/error bounds when correlating systems. A provider response time is not end-to-end recipient availability. Do not infer settlement from a low latency percentile.
 
 ### All-in cost
 
@@ -103,6 +115,7 @@ Disaggregate by relevant participant, merchant type, amount, geography, device/c
 - Derive required sample sizes from baseline rates and a stated effect size; do not choose an arbitrary fixed count.
 - Report numerators, denominators, missingness and 95% confidence intervals. The reference evaluator uses Wilson intervals for binomial completion/task-success proportions.
 - For p50/p95/p99 and cost distributions, a live evaluator should add bootstrap confidence intervals using resampling clustered by merchant/time block; do not treat transactions from one merchant or outage window as independent samples.
+- Keep conditional recipient-available latency quantiles separate from population-wide cumulative-incidence estimates. For the latter, use a pre-registered competing-risk estimator with terminal failure as a competing event and unresolved outcomes right-censored at the declared horizon.
 - Prefer paired or blocked comparisons on the same tasks. Report effect sizes and uncertainty, not p-values alone.
 - Correct for multiple primary comparisons or pre-register one primary endpoint.
 - Preserve all excluded records with machine-readable reason codes. No post-hoc dropping of timeouts, reversals, fraud cases, low-value payments or poorly performing participants.
