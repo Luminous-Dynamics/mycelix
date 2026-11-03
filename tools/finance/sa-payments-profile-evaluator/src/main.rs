@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Independent, effects-disabled evaluator for the South African payments profile.
 //!
 //! This tool validates the JSON Schema, validates the corpus against Draft 2020-12,
@@ -476,12 +478,12 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
                 "scenarios[{index}]: {category} requires dispatch_decision {expected_dispatch}"
             ));
         }
-        if array_at(scenario, "negative_controls").map_or(true, |items| items.is_empty()) {
+        if array_at(scenario, "negative_controls").is_none_or(|items| items.is_empty()) {
             result.errors.push(format!(
                 "scenarios[{index}]: negative_controls must be non-empty"
             ));
         }
-        if array_at(scenario, "required_evidence").map_or(true, |items| items.is_empty()) {
+        if array_at(scenario, "required_evidence").is_none_or(|items| items.is_empty()) {
             result.errors.push(format!(
                 "scenarios[{index}]: required_evidence must be non-empty"
             ));
