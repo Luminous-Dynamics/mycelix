@@ -138,6 +138,37 @@ fn gate_status(metrics: &Value) -> GateStatus {
     }
 }
 
+/// Wilson score interval for a binomial proportion (95% confidence).
+/// Floating point is used only for statistical reporting; money remains integer.
+fn wilson_interval(successes: u64, trials: u64) -> Option<(f64, f64)> {
+    if trials == 0 || successes > trials {
+        return None;
+    }
+    let n = trials as f64;
+    let p = successes as f64 / n;
+    let z = 1.959_963_984_540_054_f64;
+    let z2 = z * z;
+    let denominator = 1.0 + z2 / n;
+    let centre = (p + z2 / (2.0 * n)) / denominator;
+    let margin = z
+        * ((p * (1.0 - p) / n + z2 / (4.0 * n * n)).sqrt())
+        / denominator;
+    Some(((centre - margin).max(0.0), (centre + margin).min(1.0)))
+}
+
+fn fee_component_total(metrics: &Value) -> Option<u64> {
+    [
+        "payer_fee_minor_units",
+        "merchant_fee_minor_units",
+        "fx_cost_minor_units",
+        "cashout_fee_minor_units",
+        "returns_disputes_cost_minor_units",
+        "provider_network_cost_minor_units",
+    ]
+    .into_iter()
+    .try_fold(0_u64, |total, key| total.checked_add(u64_field(metrics, key)?))
+}
+
 fn cmp_fraction(left_num: u64, left_den: u64, right_num: u64, right_den: u64) -> Ordering {
     (left_num as u128 * right_den as u128).cmp(&(right_num as u128 * left_den as u128))
 }
@@ -187,8 +218,12 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         baseline_attempts,
     );
     let cost = cmp_cost_per_delivery(candidate_metrics, baseline_metrics)?;
-    let latency = u64_field(candidate_metrics, "p95_initiation_to_available_ms")?
+    let latency_p50 = u64_field(candidate_metrics, "p50_initiation_to_available_ms")?
+        .cmp(&u64_field(baseline_metrics, "p50_initiation_to_available_ms")?);
+    let latency_p95 = u64_field(candidate_metrics, "p95_initiation_to_available_ms")?
         .cmp(&u64_field(baseline_metrics, "p95_initiation_to_available_ms")?);
+    let latency_p99 = u64_field(candidate_metrics, "p99_initiation_to_available_ms")?
+        .cmp(&u64_field(baseline_metrics, "p99_initiation_to_available_ms")?);
     let operator = u64_field(candidate_metrics, "operator_minutes_per_1000_attempts")?
         .cmp(&u64_field(baseline_metrics, "operator_minutes_per_1000_attempts")?);
     let usability = cmp_fraction(
@@ -227,7 +262,9 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
     // and reachable merchants. A trade-off is not represented as a win.
     let not_worse = completion != Ordering::Less
         && cost != Ordering::Greater
-        && latency != Ordering::Greater
+        && latency_p50 != Ordering::Greater
+        && latency_p95 != Ordering::Greater
+        && latency_p99 != Ordering::Greater
         && operator != Ordering::Greater
         && usability != Ordering::Less
         && merchant_coverage != Ordering::Less
@@ -236,7 +273,9 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         && return_rate != Ordering::Greater;
     let strictly_better = completion == Ordering::Greater
         || cost == Ordering::Less
-        || latency == Ordering::Less
+        || latency_p50 == Ordering::Less
+        || latency_p95 == Ordering::Less
+        || latency_p99 == Ordering::Less
         || operator == Ordering::Less
         || usability == Ordering::Greater
         || merchant_coverage == Ordering::Greater
@@ -316,6 +355,22 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
         if string_field(metrics, "cost_currency") != string_field(cohort, "currency") {
             return Err(format!("runs[{index}]: cost currency differs from cohort currency"));
         }
+        let fee_components = fee_component_total(metrics)
+            .ok_or_else(|| format!("runs[{index}]: missing fee component or integer overflow"))?;
+        if fee_components != u64_field(metrics, "total_all_in_cost_minor_units").unwrap_or(u64::MAX) {
+            return Err(format!(
+                "runs[{index}]: all-in cost must equal the sum of payer, merchant, FX, cash-out, returns/disputes and provider-network cost components"
+            ));
+        }
+        let p50 = u64_field(metrics, "p50_initiation_to_available_ms")
+            .ok_or_else(|| format!("runs[{index}]: p50 latency missing"))?;
+        let p95 = u64_field(metrics, "p95_initiation_to_available_ms")
+            .ok_or_else(|| format!("runs[{index}]: p95 latency missing"))?;
+        let p99 = u64_field(metrics, "p99_initiation_to_available_ms")
+            .ok_or_else(|| format!("runs[{index}]: p99 latency missing"))?;
+        if !(p50 <= p95 && p95 <= p99) {
+            return Err(format!("runs[{index}]: latency quantiles must satisfy p50 <= p95 <= p99"));
+        }
         let denominators = (
             attempts,
             user_attempts,
@@ -361,9 +416,26 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
             "run_id": run["run_id"],
             "provider_class": run["provider_class"],
             "hard_gate": if gate_status(&run["metrics"]) == GateStatus::QualifiedForComparison {"qualified_for_comparison"} else {"disqualified"},
+            "completion_rate_95_wilson_ci": wilson_interval(
+                u64_field(&run["metrics"], "recipient_available").unwrap_or(0),
+                u64_field(&run["metrics"], "eligible_attempts").unwrap_or(0)
+            ).map(|(lower, upper)| json!({"lower": lower, "upper": upper})),
+            "user_task_success_rate_95_wilson_ci": wilson_interval(
+                u64_field(&run["metrics"], "user_task_successes").unwrap_or(0),
+                u64_field(&run["metrics"], "user_task_attempts").unwrap_or(0)
+            ).map(|(lower, upper)| json!({"lower": lower, "upper": upper})),
+            "cost_per_recipient_available_minor_units": cmp_fraction(
+                u64_field(&run["metrics"], "total_all_in_cost_minor_units").unwrap_or(0),
+                u64_field(&run["metrics"], "recipient_available").unwrap_or(0),
+                0,
+                1
+            ) == Ordering::Equal,
             "metrics": run["metrics"]
         })).collect::<Vec<_>>(),
         "comparisons": comparisons,
+        "latency_quantiles": ["p50", "p95", "p99"],
+        "cost_reconciliation": "all-in cost equals exact integer sum of fee/cost components",
+        "confidence_intervals": "Wilson 95% intervals for completion and user task success",
         "claim_ceiling": "synthetic matched-run illustration only; no real provider or Mycelix performance claim"
     }))
 }
@@ -388,8 +460,8 @@ fn run_self_tests(market: &Value, runs: &Value, market_schema: &str, runs_schema
 
     let baseline = &runs["runs"][0];
     let candidate = &runs["runs"][2];
-    if pareto_result(candidate, baseline) != ParetoResult::CandidateDominates {
-        return Err("illustrative matched fixture should demonstrate candidate Pareto dominance".into());
+    if pareto_result(candidate, baseline) != ParetoResult::TradeoffOrIncomparable {
+        return Err("mixed illustrative fixture must report a trade-off, not a manufactured candidate win".into());
     }
     count += 1;
 
@@ -510,6 +582,31 @@ mod tests {
     }
 
     #[test]
+    fn wilson_interval_is_bounded_and_well_defined() {
+        let (lower, upper) = wilson_interval(95, 100).expect("valid interval");
+        assert!(lower > 0.0);
+        assert!(upper < 1.0);
+        assert!(lower < 0.95 && upper > 0.95);
+        assert!(wilson_interval(101, 100).is_none());
+    }
+
+    #[test]
+    fn all_in_cost_must_reconcile_to_exact_fee_components() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        assert_eq!(
+            fee_component_total(&runs["runs"][0]["metrics"]),
+            Some(193_000)
+        );
+        let mut mutated = runs["runs"][0].clone();
+        mutated["metrics"]["merchant_fee_minor_units"] = json!(68_001);
+        let result = matched_run_report(&json!({
+            "cohort": runs["cohort"],
+            "runs": [mutated, runs["runs"][2].clone()]
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn national_aggregate_context_is_not_ranked() {
         let market: Value = serde_json::from_str(MARKET_DEFAULT).expect("market JSON");
         let report = snapshot_report(&market);
@@ -522,7 +619,7 @@ mod tests {
         let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
         assert_eq!(
             pareto_result(&runs["runs"][2], &runs["runs"][0]),
-            ParetoResult::CandidateDominates
+            ParetoResult::TradeoffOrIncomparable
         );
     }
 
@@ -562,7 +659,7 @@ mod tests {
     fn worse_unknown_outcome_rate_prevents_candidate_dominance() {
         let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
         let mut candidate = runs["runs"][2].clone();
-        candidate["metrics"]["unknown_outcomes"] = json!(16);
+        candidate["metrics"]["unknown_outcomes"] = json!(40);
         assert_eq!(
             pareto_result(&candidate, &runs["runs"][0]),
             ParetoResult::TradeoffOrIncomparable
