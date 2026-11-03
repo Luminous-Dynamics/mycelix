@@ -576,43 +576,84 @@ fn validate_create_derived_credential(
     action: EntryCreationAction,
     dc: DerivedCredential,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Author-binding: the coordinator's create_derived_credential already
-    // derives `holder_did` from agent_info() and checks the caller is the
-    // original credential's subject before proceeding, but that's
-    // bypassable by a modified coordinator -- the integrity validator is
-    // the real security boundary. Without this, any agent could commit a
-    // DerivedCredential claiming to be derived by an arbitrary holder DID.
     let expected_holder_did = format!("did:mycelix:{}", action.author());
-    if dc.holder != expected_holder_did {
+    if dc.holder != expected_holder_did || !dc.holder.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Derived credential holder DID must correspond to the committing agent".into(),
         ));
     }
-
-    // Validate holder is a DID
-    if !dc.holder.starts_with("did:") {
+    if dc.derived_content.id != dc.holder {
         return Ok(ValidateCallbackResult::Invalid(
-            "Holder must be a valid DID".into(),
+            "Derived content subject must equal the bound holder DID".into(),
+        ));
+    }
+    if !dc.original_issuer.starts_with("did:")
+        || dc.original_credential_id.is_empty()
+        || dc.original_credential_id.len() > 512
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential source ID or original issuer is invalid".into(),
+        ));
+    }
+    if dc.derivation_proof.proof_type != "MycelixDerivedCredentialProofV1" {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New derived credentials must use MycelixDerivedCredentialProofV1".into(),
+        ));
+    }
+    if dc.derivation_proof.original_credential_hash.len() != 32
+        || dc.derivation_proof.holder_signature.len() != 64
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "V1 derivation requires a 32-byte source digest and 64-byte Ed25519 signature".into(),
+        ));
+    }
+    if dc.selected_claims.is_empty()
+        || dc.selected_claims.len() > 128
+        || dc.selected_claims.iter().any(|key| key.is_empty() || key.len() > 256)
+        || dc.selected_claims.windows(2).any(|pair| pair[0] >= pair[1])
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "V1 selected claims must be sorted, unique, non-empty, and bounded".into(),
         ));
     }
 
-    // Validate selected claims not empty
-    if dc.selected_claims.is_empty() {
+    let Some(disclosed) = dc.derived_content.claims.as_object() else {
         return Ok(ValidateCallbackResult::Invalid(
-            "Must select at least one claim".into(),
+            "V1 derived content claims must be an object".into(),
+        ));
+    };
+    let mut disclosed_keys: Vec<&String> = disclosed.keys().collect();
+    disclosed_keys.sort();
+    if disclosed_keys.iter().map(|key| key.as_str()).ne(dc.selected_claims.iter().map(String::as_str)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived content keys must exactly match the selected claim list".into(),
         ));
     }
 
-    // Validate derivation proof exists
-    if dc.derivation_proof.holder_signature.is_empty() {
+    if dc.derivation_proof.claim_proofs.len() != dc.selected_claims.len() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Derivation must have holder signature".into(),
+            "V1 requires exactly one Merkle proof per selected claim".into(),
+        ));
+    }
+    for (selected, proof) in dc.selected_claims.iter().zip(&dc.derivation_proof.claim_proofs) {
+        if proof.claim_key != *selected
+            || proof.commitment.as_ref().is_none_or(|value| value.len() != 32)
+            || proof.merkle_path.as_ref().is_none_or(|path| path.iter().any(|node| node.len() != 32))
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "V1 claim proof must match selected claim and contain a 32-byte commitment/path nodes".into(),
+            ));
+        }
+    }
+
+    if dc.expires.is_some_and(|expiry| expiry <= dc.created) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential expiry must be later than its creation time".into(),
         ));
     }
 
     Ok(ValidateCallbackResult::Valid)
 }
-
 /// Validate credential request creation
 fn validate_create_credential_request(
     action: EntryCreationAction,
