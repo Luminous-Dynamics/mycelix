@@ -1707,16 +1707,15 @@ pub struct DerivedVerificationResult {
     pub errors: Vec<String>,
     pub original_issuer_verified: bool,
     pub original_issuer_signature_status: CredentialSignatureStatus,
+    /// Assurance of the holder's signature over the complete derived record.
+    pub derivation_signature_status: CredentialSignatureStatus,
 }
 
-/// Verify a derived credential
+/// Verify a derived credential under an explicit, versioned proof profile.
 ///
-/// Checks:
-/// 1. Original credential exists and matches the recorded hash
-/// 2. Holder's Ed25519 signature over (original_hash + selected_claims)
-/// 3. Selected claims are a valid subset of the original credential's claims
-/// 4. Derived credential is not expired
-/// 5. Original credential is not revoked
+/// V1 verifies the complete canonical derived record, exact source-value
+/// disclosure, all per-claim Merkle paths, original issuer proof, validity,
+/// and revocation. Historical concatenated-preimage records remain PARTIAL.
 #[hdk_extern]
 pub fn verify_derived_credential(
     action_hash: ActionHash,
@@ -1724,21 +1723,19 @@ pub fn verify_derived_credential(
     let mut errors = Vec::new();
     let mut original_issuer_verified = false;
     let mut original_issuer_signature_status = CredentialSignatureStatus::Error;
+    let mut derivation_signature_status = CredentialSignatureStatus::Error;
 
-    // Fetch derived credential
     let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Derived credential not found".into())
     ))?;
-
     let derived: DerivedCredential = record
         .entry()
         .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Invalid derived credential entry".into()
         )))?;
 
-    // Check expiration
     let now = sys_time()?;
     if let Some(expires) = derived.expires {
         if now >= expires {
@@ -1746,9 +1743,8 @@ pub fn verify_derived_credential(
         }
     }
 
-    // Fetch original credential
     let original_record = match get_credential(derived.original_credential_id.clone())? {
-        Some(rec) => rec,
+        Some(value) => value,
         None => {
             errors.push("Original credential not found".to_string());
             return Ok(DerivedVerificationResult {
@@ -1756,20 +1752,28 @@ pub fn verify_derived_credential(
                 errors,
                 original_issuer_verified: false,
                 original_issuer_signature_status: CredentialSignatureStatus::Error,
+                derivation_signature_status: CredentialSignatureStatus::Error,
             });
         }
     };
-
     let original_vc: VerifiableCredential = original_record
         .entry()
         .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid original credential".into()
+            "Invalid original credential entry".into()
         )))?;
 
-    // The original issuer credential must itself be inside its complete
-    // validity window; validFrom was previously signed but not enforced.
+    if original_vc.id != derived.original_credential_id {
+        errors.push("Original credential ID does not match the resolved source record".into());
+    }
+    if original_vc.issuer.did() != derived.original_issuer {
+        errors.push("Derived credential original_issuer does not match the source credential issuer".into());
+    }
+    if derived.derived_content.id != derived.holder {
+        errors.push("Derived content subject does not match the holder DID".into());
+    }
+
     let original_validity = credential_validity_status(
         &original_vc.valid_from,
         original_vc.valid_until.as_deref(),
@@ -1779,164 +1783,220 @@ pub fn verify_derived_credential(
         errors.push(format!("Original credential validity: {reason}"));
     }
 
-    // Verify the original credential hash matches
-    match compute_credential_hash_for_profile(&original_vc) {
+    let original_hash_matches = match compute_credential_hash_for_profile(&original_vc) {
         Ok(recomputed_hash) => {
-            if recomputed_hash != derived.derivation_proof.original_credential_hash {
-                errors.push("Original credential hash does not match derivation proof".to_string());
+            let matches = recomputed_hash == derived.derivation_proof.original_credential_hash;
+            if !matches {
+                errors.push("Original credential hash does not match the derivation proof".into());
             }
+            matches
         }
         Err(error) => {
-            errors.push(format!(
-                "Original credential signing profile is unsupported: {:?}",
-                error
-            ));
+            errors.push(format!("Original credential signing profile is unsupported: {error:?}"));
+            false
         }
-    }
+    };
 
-    // Original issuer verification is true only when every declared
-    // signature component has been cryptographically verified.
     match verify_credential_signature(&original_vc) {
         Ok(outcome) => {
             original_issuer_signature_status = outcome.status();
             if original_issuer_signature_status.is_verified() {
                 original_issuer_verified = true;
             } else if let Some(reason) = outcome.failure_message() {
-                errors.push(format!("Original issuer proof: {}", reason));
+                errors.push(format!("Original issuer proof: {reason}"));
             }
         }
-        Err(e) => {
+        Err(error) => {
             original_issuer_signature_status = CredentialSignatureStatus::Error;
-            errors.push(format!("Could not verify original credential: {:?}", e));
+            errors.push(format!("Could not verify original credential: {error:?}"));
         }
     }
 
-    // Verify selected claims are a subset of the original
-    let original_claims = &original_vc.credential_subject.claims;
-    for claim_key in &derived.selected_claims {
-        if original_claims.get(claim_key).is_none() {
+    let original_claims = original_vc.credential_subject.claims.as_object();
+    let mut source_claims_are_exact = false;
+    if let Some(original_obj) = original_claims {
+        let selected = &derived.selected_claims;
+        if selected.is_empty() {
+            errors.push("Derived credential has no selected claims".into());
+        }
+        if selected.windows(2).any(|pair| pair[0] >= pair[1]) {
+            errors.push("V1 selected claim keys must be sorted and duplicate-free".into());
+        }
+
+        let mut expected_claims = serde_json::Map::new();
+        let mut all_selected_keys_exist = true;
+        for key in selected {
+            match original_obj.get(key) {
+                Some(value) => {
+                    expected_claims.insert(key.clone(), value.clone());
+                }
+                None => {
+                    all_selected_keys_exist = false;
+                    errors.push(format!("Selected claim '{key}' is absent from the original credential"));
+                }
+            }
+        }
+        let expected_content = serde_json::Value::Object(expected_claims);
+        if derived.derived_content.claims != expected_content {
+            errors.push(
+                "Derived content claims do not exactly equal the selected values in the original credential".into()
+            );
+        } else if all_selected_keys_exist {
+            source_claims_are_exact = true;
+        }
+
+        if derived.derivation_proof.proof_type == DERIVED_CREDENTIAL_PROOF_V1 {
+            match build_derived_claim_merkle_tree_v1(original_obj) {
+                Ok((root, leaves)) => {
+                    if derived.derivation_proof.claim_proofs.len() != selected.len() {
+                        errors.push(
+                            "V1 must contain exactly one Merkle proof for each selected claim".into()
+                        );
+                    } else {
+                        let mut proofs_valid = true;
+                        for (key, proof) in selected.iter().zip(&derived.derivation_proof.claim_proofs) {
+                            if proof.claim_key != *key {
+                                proofs_valid = false;
+                                errors.push("V1 Merkle proof order/claim key does not match selected claims".into());
+                                continue;
+                            }
+                            let Some(value) = original_obj.get(key) else {
+                                proofs_valid = false;
+                                continue;
+                            };
+                            let expected_leaf = hash_derived_claim_leaf_v1(key, value)?;
+                            if proof.commitment.as_deref() != Some(expected_leaf.as_slice()) {
+                                proofs_valid = false;
+                                errors.push(format!("V1 Merkle commitment mismatch for claim '{key}'"));
+                                continue;
+                            }
+                            let Some(path) = proof.merkle_path.as_ref() else {
+                                proofs_valid = false;
+                                errors.push(format!("V1 Merkle path missing for claim '{key}'"));
+                                continue;
+                            };
+                            let Some(leaf_index) = leaves.iter().position(|(leaf_key, _)| leaf_key == key) else {
+                                proofs_valid = false;
+                                errors.push(format!("V1 Merkle leaf missing for claim '{key}'"));
+                                continue;
+                            };
+                            if !verify_derived_claim_merkle_proof_v1(
+                                &expected_leaf,
+                                leaf_index,
+                                leaves.len(),
+                                path,
+                                &root,
+                            ) {
+                                proofs_valid = false;
+                                errors.push(format!("V1 Merkle path invalid for claim '{key}'"));
+                            }
+                        }
+                        if !proofs_valid {
+                            errors.push("One or more V1 claim proofs failed verification".into());
+                        }
+                    }
+                }
+                Err(error) => {
+                    errors.push(format!("Could not build V1 source claim Merkle tree: {error:?}"));
+                }
+            }
+        }
+    } else {
+        errors.push("Original credential claims are not an object; derived V1 claims cannot be verified".into());
+    }
+
+    if let (Some(derived_expiry), Some(original_until)) =
+        (derived.expires, original_vc.valid_until.as_deref())
+    {
+        match parse_iso8601_to_micros_with_policy(original_until, DateOnlyPolicy::EndOfDay) {
+            Some(original_expiry) if derived_expiry.as_micros() <= original_expiry => {}
+            Some(_) => errors.push("Derived credential expiry exceeds the original credential expiry".into()),
+            None => errors.push("Original credential validUntil cannot be parsed for expiry inheritance".into()),
+        }
+    }
+
+    match derived.derivation_proof.proof_type.as_str() {
+        DERIVED_CREDENTIAL_PROOF_V1 => {
+            if let Some(holder_key_text) = derived.holder.strip_prefix("did:mycelix:") {
+                match AgentPubKey::try_from(holder_key_text.to_string()) {
+                    Ok(holder_key) => {
+                        if derived.derivation_proof.holder_signature.len() != 64 {
+                            derivation_signature_status = CredentialSignatureStatus::Invalid;
+                            errors.push(format!(
+                                "Invalid V1 holder signature length: expected 64, got {}",
+                                derived.derivation_proof.holder_signature.len()
+                            ));
+                        } else {
+                            let signature = Signature::from(
+                                <[u8; 64]>::try_from(
+                                    derived.derivation_proof.holder_signature.as_slice()
+                                ).map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                                    "Invalid V1 derived-credential signature length".into()
+                                )))?,
+                            );
+                            let signed_payload = compute_derived_credential_hash_v1(&derived)?;
+                            match verify_signature(holder_key, signature, signed_payload)? {
+                                true => derivation_signature_status = CredentialSignatureStatus::Verified,
+                                false => {
+                                    derivation_signature_status = CredentialSignatureStatus::Invalid;
+                                    errors.push("V1 derived-credential holder signature verification failed".into());
+                                }
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        derivation_signature_status = CredentialSignatureStatus::Invalid;
+                        errors.push("Could not parse V1 derived-credential holder DID".into());
+                    }
+                }
+            } else {
+                derivation_signature_status = CredentialSignatureStatus::Invalid;
+                errors.push("V1 derived-credential holder DID is invalid".into());
+            }
+        }
+        "SelectiveDisclosureProof" => {
+            derivation_signature_status = CredentialSignatureStatus::Partial;
+            errors.push(
+                "Legacy derived-credential signature covers only an ambiguous concatenation of source hash and claim names; assurance is PARTIAL".into()
+            );
+        }
+        _ => {
+            derivation_signature_status = CredentialSignatureStatus::Unsupported;
             errors.push(format!(
-                "Claim '{}' not present in original credential",
-                claim_key
+                "Unsupported derived-credential proof profile '{}'",
+                derived.derivation_proof.proof_type
             ));
         }
     }
 
-    // Verify Merkle proofs if present
-    if let Some(original_obj) = original_claims.as_object() {
-        let (merkle_root, _) = build_claim_merkle_tree(original_obj);
-
-        for claim_proof in &derived.derivation_proof.claim_proofs {
-            // Verify commitment matches the actual claim value
-            if let (Some(commitment), Some(value)) = (
-                &claim_proof.commitment,
-                original_claims.get(&claim_proof.claim_key),
-            ) {
-                let expected_leaf = hash_claim_leaf(&claim_proof.claim_key, value);
-                if *commitment != expected_leaf {
-                    errors.push(format!(
-                        "Merkle commitment mismatch for claim '{}'",
-                        claim_proof.claim_key
-                    ));
-                    continue;
-                }
-
-                // Verify the Merkle path from leaf to root
-                if let Some(path) = &claim_proof.merkle_path {
-                    let mut sorted_keys: Vec<&String> = original_obj.keys().collect();
-                    sorted_keys.sort();
-                    if let Some(leaf_idx) = sorted_keys
-                        .iter()
-                        .position(|k| *k == &claim_proof.claim_key)
-                    {
-                        let mut current_hash = expected_leaf;
-                        let mut idx = leaf_idx;
-
-                        for sibling in path {
-                            let combined = if idx.is_multiple_of(2) {
-                                let mut c = current_hash.clone();
-                                c.extend(sibling);
-                                c
-                            } else {
-                                let mut c = sibling.clone();
-                                c.extend(&current_hash);
-                                c
-                            };
-                            current_hash = holo_hash::blake2b_256(&combined).to_vec();
-                            idx /= 2;
-                        }
-
-                        if current_hash != merkle_root {
-                            errors.push(format!(
-                                "Merkle path verification failed for claim '{}'",
-                                claim_proof.claim_key
-                            ));
-                        }
-                    }
-                }
-            }
-        }
+    if derived.derivation_proof.proof_type == DERIVED_CREDENTIAL_PROOF_V1
+        && !source_claims_are_exact
+    {
+        errors.push("Derived credential content is not a verified subset of the original".into());
     }
 
-    // Verify holder's Ed25519 signature over (original_hash + selected_claims)
-    let holder_did = &derived.holder;
-    let holder_pubkey_str = holder_did.strip_prefix("did:mycelix:");
-    if let Some(pubkey_str) = holder_pubkey_str {
-        if let Ok(holder_pubkey) = AgentPubKey::try_from(pubkey_str.to_string()) {
-            // Reconstruct signed data: original_hash + claim keys
-            let mut sign_data = derived.derivation_proof.original_credential_hash.clone();
-            for claim_key in &derived.selected_claims {
-                sign_data.extend(claim_key.as_bytes());
-            }
-
-            if derived.derivation_proof.holder_signature.len() == 64 {
-                let sig = Signature::from(
-                    <[u8; 64]>::try_from(derived.derivation_proof.holder_signature.as_slice())
-                        .unwrap_or([0u8; 64]),
-                );
-                match verify_signature(holder_pubkey, sig, sign_data) {
-                    Ok(true) => {} // Valid
-                    Ok(false) => {
-                        errors.push("Holder signature verification failed".to_string());
-                    }
-                    Err(e) => {
-                        errors.push(format!("Holder signature verification error: {:?}", e));
-                    }
-                }
-            } else {
-                errors.push(format!(
-                    "Invalid holder signature length: expected 64, got {}",
-                    derived.derivation_proof.holder_signature.len()
-                ));
-            }
-        } else {
-            errors.push("Could not parse holder's agent pub key".to_string());
-        }
-    } else {
-        errors.push("Invalid holder DID format".to_string());
-    }
-
-    // Check original credential revocation status
-    let revocation_status = check_credential_revocation_status(&derived.original_credential_id)?;
-    match revocation_status {
+    match check_credential_revocation_status(&derived.original_credential_id)? {
         CredentialRevocationStatus::Revoked(reason) => {
-            errors.push(format!("Original credential revoked: {}", reason));
+            errors.push(format!("Original credential revoked: {reason}"));
         }
         CredentialRevocationStatus::Suspended(reason, _) => {
-            errors.push(format!("Original credential suspended: {}", reason));
+            errors.push(format!("Original credential suspended: {reason}"));
         }
         CredentialRevocationStatus::Active => {}
         CredentialRevocationStatus::Unknown => {
-            errors
-                .push("Original credential revocation status could not be determined".to_string());
+            errors.push("Original credential revocation status could not be determined".into());
         }
     }
 
     Ok(DerivedVerificationResult {
-        valid: errors.is_empty() && original_issuer_verified,
+        valid: errors.is_empty()
+            && original_issuer_verified
+            && derivation_signature_status.is_verified()
+            && original_hash_matches,
         errors,
         original_issuer_verified,
         original_issuer_signature_status,
+        derivation_signature_status,
     })
 }
 
