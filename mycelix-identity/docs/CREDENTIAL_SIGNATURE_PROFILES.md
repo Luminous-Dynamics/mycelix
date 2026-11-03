@@ -121,6 +121,21 @@ presentation profiles are **UNSUPPORTED**. The result API exposes
 proof and all embedded credentials to be VERIFIED, a matching verifier
 challenge, and the non-signature checks to pass.
 
+## Selective-disclosure proof status
+
+The current `verify_selective_disclosure` endpoint does not implement
+STARK/AIR proof verification or reconstruct the credential commitment. It
+therefore returns `proof_status=unsupported` and
+`commitment_status=unsupported` for structurally well-formed buffers.
+Structural byte-length checks are diagnostics only. The compatibility booleans
+`proof_valid` and `satisfied` remain false unless both assurance statuses
+are explicitly `verified`.
+
+An empty/oversized proof buffer or malformed commitment length is
+`invalid`, not `verified`. No predicate—including `NotExpired`—can currently
+be treated as satisfied based on this endpoint. The domain tag is an
+identifier, not a proof.
+
 ## Historical subset-hash V0
 
 The historical implementation hashed only credential ID, issuer DID, subject
