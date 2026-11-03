@@ -857,14 +857,6 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
             "Challenge must be non-empty and at most 512 UTF-8 bytes".into()
         )));
     }
-    // Validate optional domain input.
-    if let Some(ref domain) = input.domain {
-        if domain.is_empty() || domain.len() > 256 {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Domain must be 1-256 characters".into()
-            )));
-        }
-    }
     if let Some(ref domain) = input.domain {
         if domain.is_empty() || domain.len() > 256 {
             return Err(wasm_error!(WasmErrorInner::Guest(
