@@ -8,7 +8,8 @@
     "positive_vectors",
     "negative_vectors",
     "arithmetic_vectors",
-    "exact_json_roundtrip"
+    "exact_json_roundtrip",
+    "subtraction_vectors"
   ],
   "properties": {
     "positive_vectors": {
@@ -35,6 +36,13 @@
     "exact_json_roundtrip": {
       "type": "string",
       "minLength": 1
+    },
+    "subtraction_vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/arithmetic"
+      }
     }
   },
   "$defs": {
