@@ -12,6 +12,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Upper bound on declared dependency nodes accepted by the reference model.
+/// This prevents attacker-controlled graph size from exhausting memory or
+/// relying on recursive call-stack depth.
+pub const MAX_DEPENDENCY_NODES: usize = 100_000;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Digest(pub [u8; 32]);
 
@@ -194,6 +199,7 @@ pub enum AuditError {
     DanglingRoot,
     DanglingDependency,
     DependencyCycle,
+    DependencyGraphTooLarge,
     OrphanNode,
     MissingDimensionClassification,
     CompleteDimensionHasNoDependency,
@@ -291,32 +297,48 @@ fn dependency_closure(
     Ok(visited)
 }
 
+/// Iterative three-colour DFS. The explicit stack avoids making graph depth
+/// an implicit process-stack limit for untrusted dependency manifests.
 fn detect_cycles(nodes: &BTreeMap<String, &DependencyNode>) -> Result<(), AuditError> {
-    fn visit(
-        id: &str,
-        nodes: &BTreeMap<String, &DependencyNode>,
-        state: &mut BTreeMap<String, u8>,
-    ) -> Result<(), AuditError> {
-        match state.get(id).copied().unwrap_or(0) {
-            2 => return Ok(()),
-            1 => return Err(AuditError::DependencyCycle),
-            _ => {}
+    let mut state = BTreeMap::<String, u8>::new();
+    for start in nodes.keys() {
+        if state.get(start).copied() == Some(2) {
+            continue;
         }
-        state.insert(id.to_string(), 1);
-        let node = nodes.get(id).ok_or(AuditError::DanglingDependency)?;
-        for child in &node.depends_on {
-            if !nodes.contains_key(child) {
+
+        state.insert(start.clone(), 1);
+        let mut stack = vec![(start.clone(), 0usize)];
+        while !stack.is_empty() {
+            let next_child = {
+                let (node_id, next_index) = stack.last_mut().expect("non-empty DFS stack");
+                let node = nodes.get(node_id).ok_or(AuditError::DanglingDependency)?;
+                if *next_index < node.depends_on.len() {
+                    let child = node.depends_on[*next_index].clone();
+                    *next_index += 1;
+                    Some(child)
+                } else {
+                    None
+                }
+            };
+
+            let Some(child) = next_child else {
+                let (finished, _) = stack.pop().expect("non-empty DFS stack");
+                state.insert(finished, 2);
+                continue;
+            };
+
+            if !nodes.contains_key(&child) {
                 return Err(AuditError::DanglingDependency);
             }
-            visit(child, nodes, state)?;
+            match state.get(&child).copied().unwrap_or(0) {
+                1 => return Err(AuditError::DependencyCycle),
+                2 => {}
+                _ => {
+                    state.insert(child.clone(), 1);
+                    stack.push((child, 0));
+                }
+            }
         }
-        state.insert(id.to_string(), 2);
-        Ok(())
-    }
-
-    let mut state = BTreeMap::new();
-    for id in nodes.keys() {
-        visit(id, nodes, &mut state)?;
     }
     Ok(())
 }
@@ -407,6 +429,9 @@ pub fn audit_multi_dependency_graph(
     }
     if max_candidate_extensions == 0 {
         return Err(AuditError::ZeroCandidateBudget);
+    }
+    if graph.nodes.len() > MAX_DEPENDENCY_NODES {
+        return Err(AuditError::DependencyGraphTooLarge);
     }
     if policy.required_roles.is_empty() {
         return Err(AuditError::EmptyRequiredRoles);
@@ -1914,5 +1939,57 @@ mod tests {
             ),
             Err(AuditError::RevokedEvidence)
         );
+    }
+
+
+    #[test]
+    fn long_dependency_chain_uses_iterative_cycle_detection() {
+        let count = 20_000usize;
+        let mut nodes = Vec::with_capacity(count);
+        for index in 0..count {
+            let id = format!("node-{index}");
+            let next = (index + 1 < count)
+                .then(|| vec![format!("node-{}", index + 1)])
+                .unwrap_or_default();
+            nodes.push(DependencyNode {
+                node_id: id,
+                key: key(
+                    if index % 2 == 0 {
+                        FaultDomainDimension::ExecutionProvider
+                    } else {
+                        FaultDomainDimension::Runtime
+                    },
+                    (index % 251) as u8,
+                ),
+                effect: DependencyEffect::ClaimCritical,
+                currentness: EvidenceCurrentness::Current,
+                evidence_refs: BTreeSet::from([Digest::from_byte((index % 251) as u8)]),
+                depends_on: next,
+            });
+        }
+        let graph = graph(
+            vec![
+                role(
+                    "formal",
+                    &["node-0"],
+                    &[
+                        FaultDomainDimension::ExecutionProvider,
+                        FaultDomainDimension::Runtime,
+                    ],
+                ),
+                role(
+                    "independent",
+                    &["node-19999"],
+                    &[
+                        FaultDomainDimension::ExecutionProvider,
+                        FaultDomainDimension::Runtime,
+                    ],
+                ),
+            ],
+            nodes,
+        );
+        let report = audit(&graph, &policy(&["formal", "independent"], vec![]), 10_000);
+        assert_eq!(report.transitive_node_count_by_role["formal"], count);
+        assert_eq!(report.disposition, AuditDisposition::Complete);
     }
 }
