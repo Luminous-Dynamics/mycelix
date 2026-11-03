@@ -2660,7 +2660,7 @@ mod tests {
                 status_list_credential: Some("urn:status:list:1".into()),
             }),
             proof: CredentialProof {
-                proof_type: "DataIntegrityProof".into(),
+                proof_type: "MycelixCredentialProof".into(),
                 created: "2026-01-01T00:00:00Z".into(),
                 verification_method: "did:mycelix:issuer1#keys-1".into(),
                 proof_purpose: "assertionMethod".into(),
@@ -2700,7 +2700,7 @@ mod tests {
             credential_schema: None,
             credential_status: None,
             proof: CredentialProof {
-                proof_type: "DataIntegrityProof".into(),
+                proof_type: "MycelixCredentialProof".into(),
                 created: "2026-01-01T00:00:00Z".into(),
                 verification_method: "did:mycelix:issuer1#keys-1".into(),
                 proof_purpose: "assertionMethod".into(),
@@ -2802,7 +2802,7 @@ mod tests {
             credential_schema: None,
             credential_status: None,
             proof: CredentialProof {
-                proof_type: "DataIntegrityProof".into(),
+                proof_type: "MycelixCredentialProof".into(),
                 created: "2026-01-01T00:00:00Z".into(),
                 verification_method: "did:mycelix:issuer1#keys-1".into(),
                 proof_purpose: "assertionMethod".into(),
@@ -2839,7 +2839,7 @@ mod tests {
             credential_schema: None,
             credential_status: None,
             proof: CredentialProof {
-                proof_type: "DataIntegrityProof".into(),
+                proof_type: "MycelixCredentialProof".into(),
                 created: "2026-01-01T00:00:00Z".into(),
                 verification_method: "did:mycelix:issuer1#keys-1".into(),
                 proof_purpose: "assertionMethod".into(),
@@ -2872,6 +2872,10 @@ mod tests {
         changed.proof.proof_purpose = "authentication".into();
         assert!(!v1_proof_header_matches(&changed, AlgorithmId::Ed25519));
 
+        changed = base.clone();
+        changed.proof.verification_method = "did:mycelix:issuer1#keys-2".into();
+        assert!(!v1_proof_header_matches(&changed, AlgorithmId::Ed25519));
+
         changed = base;
         changed.proof.proof_type = "OtherProof".into();
         assert!(!v1_proof_header_matches(&changed, AlgorithmId::Ed25519));
@@ -2890,7 +2894,7 @@ mod tests {
             credential_schema: None,
             credential_status: None,
             proof: CredentialProof {
-                proof_type: "DataIntegrityProof".into(),
+                proof_type: "MycelixCredentialProof".into(),
                 created: "2026-01-01T00:00:00Z".into(),
                 verification_method: "did:mycelix:issuer1#keys-1".into(),
                 proof_purpose: "assertionMethod".into(),
