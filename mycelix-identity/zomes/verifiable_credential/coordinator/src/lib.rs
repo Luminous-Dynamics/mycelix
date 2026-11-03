@@ -1033,79 +1033,101 @@ pub fn verify_presentation(
         );
     }
 
-    // 3. Verify holder's proof signature
-    let holder_pubkey_str = vp.holder.strip_prefix("did:mycelix:");
-    if let Some(pubkey_str) = holder_pubkey_str {
-        if let Ok(holder_pubkey) = AgentPubKey::try_from(pubkey_str.to_string()) {
-            // Reconstruct the signed data (mirrors create_presentation).
-            // Use the values stored IN the proof, not from the verifier's input,
-            // since these are what was actually signed.
-            let mut presentation_data = vp.id.as_bytes().to_vec();
-            presentation_data.extend(vp.holder.as_bytes());
-            for cred in &vp.verifiable_credential {
-                presentation_data.extend(cred.id.as_bytes());
-            }
-            if let Some(challenge) = &vp.proof.challenge {
-                presentation_data.extend(challenge.as_bytes());
-            }
-            if let Some(domain) = &vp.proof.domain {
-                presentation_data.extend(domain.as_bytes());
-            }
+    // 3. Verify the holder's proof under its declared versioned profile.
+    let holder_signature_status = match vp.holder.strip_prefix("did:mycelix:") {
+        Some(pubkey_str) => match AgentPubKey::try_from(pubkey_str.to_string()) {
+            Ok(holder_pubkey) => match presentation_hash_profile(&vp) {
+                Some(PresentationHashProfile::MycelixV1) => {
+                    if !v1_presentation_proof_header_matches(&vp) {
+                        CredentialSignatureStatus::Invalid
+                    } else {
+                        match TaggedSignature::from_multibase(&vp.proof.proof_value) {
+                            Ok(tagged_signature)
+                                if tagged_signature.algorithm == AlgorithmId::Ed25519
+                                    && tagged_signature.signature_bytes.len()
+                                        == AlgorithmId::Ed25519.signature_size() =>
+                            {
+                                let signature =
+                                    Signature::from(<[u8; 64]>::try_from(
+                                        tagged_signature.signature_bytes.as_slice()
+                                    ).map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                                        "Invalid V1 presentation signature length".into()
+                                    )))?);
+                                let presentation_hash = compute_presentation_hash_v1(&vp)?;
+                                match verify_signature(holder_pubkey, signature, presentation_hash)? {
+                                    true => CredentialSignatureStatus::Verified,
+                                    false => CredentialSignatureStatus::Invalid,
+                                }
+                            }
+                            Ok(_) => CredentialSignatureStatus::Unsupported,
+                            Err(_) => CredentialSignatureStatus::Invalid,
+                        }
+                    }
+                }
+                Some(PresentationHashProfile::LegacySubsetV0) => {
+                    let legacy_hash = compute_presentation_hash_legacy_subset(&vp);
+                    match TaggedSignature::from_multibase(&vp.proof.proof_value) {
+                        Ok(tagged_signature)
+                            if tagged_signature.algorithm == AlgorithmId::Ed25519
+                                && tagged_signature.signature_bytes.len()
+                                    == AlgorithmId::Ed25519.signature_size() =>
+                        {
+                            let signature =
+                                Signature::from(<[u8; 64]>::try_from(
+                                    tagged_signature.signature_bytes.as_slice()
+                                ).map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                                    "Invalid legacy presentation signature length".into()
+                                )))?);
+                            match verify_signature(holder_pubkey, signature, legacy_hash)? {
+                                true => CredentialSignatureStatus::Partial,
+                                false => CredentialSignatureStatus::Invalid,
+                            }
+                        }
+                        Ok(_) => CredentialSignatureStatus::Unsupported,
+                        Err(_) => {
+                            // Historical raw Ed25519 multibase remains readable,
+                            // but successful subset verification is PARTIAL only.
+                            match multibase_decode(&vp.proof.proof_value) {
+                                Some(signature_bytes)
+                                    if signature_bytes.len() == AlgorithmId::Ed25519.signature_size() =>
+                                {
+                                    let signature =
+                                        Signature::from(<[u8; 64]>::try_from(
+                                            signature_bytes.as_slice()
+                                        ).map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                                            "Invalid legacy presentation signature length".into()
+                                        )))?);
+                                    match verify_signature(holder_pubkey, signature, legacy_hash)? {
+                                        true => CredentialSignatureStatus::Partial,
+                                        false => CredentialSignatureStatus::Invalid,
+                                    }
+                                }
+                                _ => CredentialSignatureStatus::Invalid,
+                            }
+                        }
+                    }
+                }
+                None => CredentialSignatureStatus::Unsupported,
+            },
+            Err(_) => CredentialSignatureStatus::Error,
+        },
+        None => CredentialSignatureStatus::Error,
+    };
 
-            // Try TaggedSignature first, then legacy
-            match TaggedSignature::from_multibase(&vp.proof.proof_value) {
-                Ok(tagged_sig) => {
-                    if tagged_sig.algorithm == AlgorithmId::Ed25519
-                        && tagged_sig.signature_bytes.len() == 64
-                    {
-                        let sig = Signature::from(
-                            <[u8; 64]>::try_from(tagged_sig.signature_bytes.as_slice())
-                                .unwrap_or([0u8; 64]),
-                        );
-                        match verify_signature(holder_pubkey, sig, presentation_data) {
-                            Ok(true) => {}
-                            Ok(false) => errors
-                                .push("Holder proof signature verification failed".to_string()),
-                            Err(e) => {
-                                errors.push(format!("Holder signature verification error: {:?}", e))
-                            }
-                        }
-                    } else {
-                        errors.push(format!(
-                            "Unsupported presentation proof algorithm: {:?}",
-                            tagged_sig.algorithm
-                        ));
-                    }
-                }
-                Err(_) => {
-                    // Legacy multibase fallback
-                    if let Some(sig_bytes) = multibase_decode(&vp.proof.proof_value) {
-                        if sig_bytes.len() == 64 {
-                            let sig = Signature::from(
-                                <[u8; 64]>::try_from(sig_bytes.as_slice()).unwrap_or([0u8; 64]),
-                            );
-                            match verify_signature(holder_pubkey, sig, presentation_data) {
-                                Ok(true) => {}
-                                Ok(false) => errors.push(
-                                    "Holder proof signature verification failed (legacy)"
-                                        .to_string(),
-                                ),
-                                Err(e) => errors
-                                    .push(format!("Holder signature verification error: {:?}", e)),
-                            }
-                        } else {
-                            errors.push("Invalid holder signature length".to_string());
-                        }
-                    } else {
-                        errors.push("Could not decode holder proof signature".to_string());
-                    }
-                }
-            }
-        } else {
-            errors.push("Could not parse holder's agent pub key".to_string());
+    match holder_signature_status {
+        CredentialSignatureStatus::Verified => {}
+        CredentialSignatureStatus::Invalid => {
+            errors.push("Holder presentation proof is invalid or has inconsistent V1 header bindings".into());
         }
-    } else {
-        errors.push("Invalid holder DID format".to_string());
+        CredentialSignatureStatus::Partial => {
+            errors.push("Historical holder presentation proof verifies only under the subset-hash profile; assurance is PARTIAL".into());
+        }
+        CredentialSignatureStatus::Unsupported => {
+            errors.push("Holder presentation proof profile or algorithm is unsupported".into());
+        }
+        CredentialSignatureStatus::Error => {
+            errors.push("Holder presentation proof could not be decoded or its key could not be resolved".into());
+        }
     }
 
     // 3. Batch-check revocation for all credentials in one cross-zome call
