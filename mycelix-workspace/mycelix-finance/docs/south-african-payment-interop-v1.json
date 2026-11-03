@@ -97,13 +97,15 @@
         "SARB responsibilities for rules, standards, licensing, authorisation and registration transferred effective 2026-08-11",
         "Functions transitioning to PayInc took effect 2026-09-02",
         "PayInc PCH allocation includes EFT credit/debit, Authenticated Collections, PayShap, Registered Mandate and real-time clearing",
-        "SARB PCH allocation includes card, immediate and cash settlement, equities, bonds, derivatives and money market"
+        "SARB PCH allocation includes card, immediate and cash settlement, equities, bonds, derivatives and money market",
+        "Until the new Authorisation Framework is published, new TPPP registrations submitted from 2026-08-11 continue to use the applicable PASA TPPP registration requirements"
       ],
       "does_not_support": [
         "Any unnamed payment institution has direct access or participant eligibility",
         "The institutional function transfer is equivalent to completing every NPU programme objective",
         "A PCH allocation alone specifies a provider API, idempotency guarantee or settlement-finality profile",
-        "Mycelix access, endorsement or integration"
+        "Mycelix access, endorsement or integration",
+        "The announced Authorisation Framework publication target itself changes current registration requirements before the actual instrument is published"
       ]
     },
     {
@@ -132,6 +134,28 @@
         "PayShap metrics prove uniform functionality, price, availability or acceptance across participants",
         "Automatic credit scoring or unrestricted reuse of personal transaction histories",
         "Mycelix access, endorsement or integration"
+      ]
+    },
+    {
+      "id": "SARB_QR_PLUS_1_2_2026",
+      "authority": "South African Reserve Bank",
+      "title": "QR+ Standard 1.2",
+      "url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/other-publications/2026/qr-1-2-overview",
+      "published_on": "2026-07-07",
+      "observed_on": "2026-11-03",
+      "evidence_class": "official_published_payment_initiation_standard",
+      "supports": [
+        "SARB published QR+ Standard version 1.2 on 2026-07-07",
+        "QR+ supports interoperable digital payment initiation through QR codes, barcodes and digital links",
+        "Version 1.2 introduces a PayShap payload to support structured data exchange between the QR+ API and underlying PayShap rail",
+        "The selected payment rail, not QR+ itself, processes and executes the payment"
+      ],
+      "does_not_support": [
+        "QR+ itself is a payment rail, settlement system, funds custodian or finality authority",
+        "Publication of the standard proves the Q1 2027 pilot has commenced",
+        "Every PSP, merchant, bank or PayShap participant has implemented or accepts QR+",
+        "A successfully parsed QR+ payload proves payee authority, transaction consent, provider acceptance, settlement or merchant credit",
+        "Mycelix conformance, integration, participant eligibility or SARB endorsement"
       ]
     }
   ],
@@ -326,6 +350,34 @@
         "Exact issuer, schema, audience and relying-party trust profile",
         "Credential status, expiry, revocation and subject-binding validation",
         "Separate transaction-specific institutional authorization"
+      ]
+    },
+    {
+      "system_id": "ZA-QR-PLUS",
+      "name": "QR+ Standard 1.2",
+      "lifecycle_state": "published_standard",
+      "scope": "South African interoperable digital payment-initiation presentation and payload standard across QR codes, barcodes and digital links; v1.2 adds a PayShap payload. It is an initiation/data-exchange standard, not an execution or settlement rail.",
+      "evidence_refs": [
+        "SARB_QR_PLUS_1_2_2026"
+      ],
+      "confirmed_claims": [
+        "SARB published QR+ Standard version 1.2 on 2026-07-07",
+        "QR+ 1.2 supports QR, barcode and digital-link payment initiation formats",
+        "QR+ 1.2 introduces a PayShap payload for structured data exchange to the selected underlying rail",
+        "QR+ does not itself execute or settle the underlying payment"
+      ],
+      "unknowns": [
+        "Implementation status by each named PSP, bank, merchant acquirer and merchant",
+        "Exact service-specific API, registry, participant profiles and conformance results",
+        "Merchant acceptance coverage and live pilot commencement evidence",
+        "Provider-specific authorization, execution, return and settlement/finality behavior"
+      ],
+      "adapter_admission_requirements": [
+        "Exact published QR+ standard version and official technical specification digest",
+        "Parser conformance for the exact QR+, barcode or digital-link form factor",
+        "Authenticated payee resolution and immutable display-to-authorization binding",
+        "Named payer provider, selected payment rail and evidence that the merchant accepts that service",
+        "Separate provider execution, transaction result and settlement/finality evidence"
       ]
     }
   ],
@@ -808,7 +860,7 @@
     {
       "id": "SA-PAY-023",
       "category": "qr_interoperability_not_rail",
-      "condition": "A QR+ compatible merchant code is parsed and resolved, but an adapter treats QR interoperability as proof of payment-rail availability, merchant acceptance by every provider, or settlement finality.",
+      "condition": "A QR+ 1.2-compatible merchant code is parsed successfully under the published standard, but an adapter treats publication or parsing as proof that the operational pilot is live, the selected provider/merchant accepts the service, or the payment has settled.",
       "event_sequence": [
         "QR payload is parsed under exact versioned profile",
         "merchant/payee and amount binding are verified",
@@ -819,15 +871,17 @@
       "dispatch_decision": "deny",
       "expected_financial_effect": "none_without_exact_service_and_authority",
       "required_evidence": [
-        "QR+ technical specification and version",
-        "authenticated merchant/payee resolution",
-        "selected payer provider and acceptance evidence",
-        "exact rail/finality profile"
+        "Published QR+ 1.2 specification and exact version/digest",
+        "Authenticated merchant/payee resolution",
+        "Evidence of the named PSP's actual implementation and merchant acceptance",
+        "Selected payer provider, underlying rail and exact finality profile"
       ],
       "negative_controls": [
         "qr_standard_must_not_become_payment_rail",
         "common_code_must_not_imply_every_provider_accepts",
-        "qr_parse_success_must_not_imply_merchant_credit"
+        "qr_parse_success_must_not_imply_merchant_credit",
+        "published_qr_plus_standard_must_not_imply_operational_pilot",
+        "published_qr_plus_standard_must_not_imply_participant_or_merchant_implementation"
       ]
     },
     {
@@ -1007,8 +1061,8 @@
         "SARB_PAYMENTS_CONFERENCE_2026"
       ],
       "observed_on": "2026-11-03",
-      "description": "Governor stated the intention to pilot QR+ in the first quarter of 2027.",
-      "completion_evidence_required": "Official pilot commencement evidence, exact QR+ technical profile, participant scope and interoperability test results.",
+      "description": "The QR+ Standard 1.2 is already published (2026-07-07). Separately, the Governor stated the intention to pilot QR+ in Q1 2027. The pilot is not represented as complete or operational merely because the standard is published.",
+      "completion_evidence_required": "Official pilot commencement evidence, implementation scope, participant and merchant list, exact QR+ technical profile in use, simulator/conformance evidence and live interoperability results.",
       "target_window": "Q1_2027",
       "target_start": "2027-01-01",
       "target_end": "2027-03-31"
