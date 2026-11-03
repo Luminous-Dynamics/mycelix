@@ -1315,7 +1315,7 @@ mod author_binding_tests {
                 proof_value: "zSig".into(),
                 cryptosuite: None,
                 algorithm: None,
-                challenge: None,
+                challenge: Some("challenge-1".into()),
                 domain: None,
             },
             mycelix_created: Timestamp::from_micros(0),
@@ -1331,6 +1331,38 @@ mod author_binding_tests {
         )
         .unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_presentation_rejects_missing_empty_whitespace_and_oversized_challenge() {
+        let mut vp = valid_presentation(format!("did:mycelix:{}", me()));
+        vp.proof.challenge = None;
+        let missing = validate_create_verifiable_presentation(
+            EntryCreationAction::Create(test_action(me())),
+            vp.clone(),
+        ).unwrap();
+        assert!(matches!(missing, ValidateCallbackResult::Invalid(_)));
+
+        vp.proof.challenge = Some(String::new());
+        let empty = validate_create_verifiable_presentation(
+            EntryCreationAction::Create(test_action(me())),
+            vp.clone(),
+        ).unwrap();
+        assert!(matches!(empty, ValidateCallbackResult::Invalid(_)));
+
+        vp.proof.challenge = Some("   ".into());
+        let whitespace = validate_create_verifiable_presentation(
+            EntryCreationAction::Create(test_action(me())),
+            vp.clone(),
+        ).unwrap();
+        assert!(matches!(whitespace, ValidateCallbackResult::Invalid(_)));
+
+        vp.proof.challenge = Some("x".repeat(513));
+        let oversized = validate_create_verifiable_presentation(
+            EntryCreationAction::Create(test_action(me())),
+            vp,
+        ).unwrap();
+        assert!(matches!(oversized, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
