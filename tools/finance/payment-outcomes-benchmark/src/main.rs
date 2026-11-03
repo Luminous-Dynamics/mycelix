@@ -697,6 +697,22 @@ mod tests {
     }
 
     #[test]
+    fn outcome_counts_cannot_exceed_eligible_attempts() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        let mut invalid = runs.clone();
+        invalid["runs"][2]["metrics"]["unknown_outcomes"] = json!(100);
+        assert!(matched_run_report(&invalid).is_err());
+    }
+
+    #[test]
+    fn returned_or_reversed_cannot_exceed_delivered_count() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        let mut invalid = runs.clone();
+        invalid["runs"][2]["metrics"]["returned_or_reversed"] = json!(2000);
+        assert!(matched_run_report(&invalid).is_err());
+    }
+
+    #[test]
     fn run_self_test_campaign_passes() {
         let market: Value = serde_json::from_str(MARKET_DEFAULT).expect("market JSON");
         let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
