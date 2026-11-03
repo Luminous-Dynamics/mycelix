@@ -31,10 +31,15 @@ written to the database.
    issue the failed value.
 4. Return the raw challenge to the holder in the signed presentation request.
 5. Verify the holder signature and exact challenge/request/context equality.
-6. Call consume_verifier_challenge on the authoritative primary.
-7. Accept authentication only if the function returns true. False, timeout,
-   SQL error, failover uncertainty or database outage is authentication
-   failure/unknown; there is no equality-only fallback.
+6. Call consume_verifier_challenge on the authoritative primary inside a
+   database transaction.
+7. Commit that transaction successfully before returning authentication
+   acceptance to the caller. A TRUE function result inside an uncommitted
+   transaction is not yet a durable consume event.
+8. Accept authentication only if the transaction commit is confirmed. False,
+   timeout, SQL error, serialization failure, ambiguous commit result, failover
+   uncertainty or database outage is authentication failure/unknown; there is
+   no equality-only fallback.
 
 The UPDATE itself is the atomic consume-once decision. Do not implement this as
 a SELECT followed by an UPDATE. A retry after a lost verifier response must
@@ -57,10 +62,17 @@ not re-accept the consumed challenge; the verifier issues a fresh challenge.
 - Audit only opaque challenge references and result reason codes, never raw
   challenges or presentation bearer material.
 
-PostgreSQL atomicity is not a deployment proof. The actual service must test
-its primary/failover configuration, transaction isolation, permissions,
-backup/restore behavior and exactly-one-winner behavior across independent
-processes.
+PostgreSQL atomicity is not a deployment proof. Use one writable primary and
+consume at the primary only. At READ COMMITTED, the conditional UPDATE is the
+serialization point for concurrent consumers of the same row; at stronger
+isolation levels, serialization failures must fail closed. The service must
+not return success until the transaction commit is acknowledged. If the
+commit call times out, the caller must treat the result as unknown and require
+a fresh challenge; it must not retry the old challenge expecting acceptance.
+
+The actual service must test its primary/failover configuration, transaction
+isolation, role permissions, backup/restore behavior, acknowledged-commit
+survival and exactly-one-winner behavior across independent processes.
 
 ## Required tests
 
