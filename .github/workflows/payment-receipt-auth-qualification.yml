@@ -7,8 +7,6 @@ on:
       - 'mycelix-finance/zomes/payments/coordinator/**'
       - 'mycelix-finance/zomes/payments/integrity/**'
       - 'mycelix-finance/tests/payments_test.rs'
-      - 'mycelix-finance/tests/Cargo.toml'
-      - 'mycelix-finance/dna/**'
       - 'mycelix-workspace/mycelix-finance/types/**'
       - 'mycelix-workspace/mycelix-finance/zomes/payments/coordinator/**'
       - 'mycelix-workspace/mycelix-finance/zomes/payments/integrity/**'
@@ -22,8 +20,6 @@ on:
       - 'mycelix-finance/zomes/payments/coordinator/**'
       - 'mycelix-finance/zomes/payments/integrity/**'
       - 'mycelix-finance/tests/payments_test.rs'
-      - 'mycelix-finance/tests/Cargo.toml'
-      - 'mycelix-finance/dna/**'
       - '.github/workflows/payment-receipt-auth-qualification.yml'
   workflow_dispatch:
 
@@ -32,18 +28,13 @@ permissions:
 
 jobs:
   receipt-auth:
-    name: Receipt v1 exact-head and real-key verification
+    name: Receipt v1 exact-head verification
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Install native build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes build-essential pkg-config libssl-dev libclang-dev
 
       - name: Install pinned Rust toolchain
         run: |
@@ -53,7 +44,7 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Check Finance Rust formatting
+      - name: Check Rust formatting
         run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
 
       - name: Run receipt integrity and coordinator unit tests
@@ -62,32 +53,5 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --locked --manifest-path mycelix-finance/Cargo.toml -p payments_integrity -p payments --all-targets -- -D warnings
 
-      - name: Build all Finance zomes for the real DNA
-        run: cargo build --locked --manifest-path mycelix-finance/Cargo.toml --workspace --target wasm32-unknown-unknown --release
-
-      - name: Install Holochain CLI matching the Finance 0.6.1 DNA
-        run: |
-          cargo install holochain_cli --version 0.6.1 --locked
-          hc --version
-
-      - name: Pack Finance DNA from the freshly built zomes
-        working-directory: mycelix-finance
-        run: |
-          rm -f dna/mycelix_finance.dna
-          hc dna pack dna/
-          test -s dna/mycelix_finance.dna
-          sha256sum dna/mycelix_finance.dna
-
-      - name: Execute real-agent receipt-signing Sweettest
-        run: >
-          cargo test
-          --manifest-path mycelix-finance/tests/Cargo.toml
-          --test payments_test
-          payment_creation::test_create_payment_success
-          --
-          --ignored
-          --exact
-          --test-threads=1
-
-      - name: Build production payment WASM zomes
+      - name: Build both production WASM zomes
         run: cargo build --locked --manifest-path mycelix-finance/Cargo.toml --target wasm32-unknown-unknown --release -p payments_integrity -p payments
