@@ -7,9 +7,9 @@
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 pub use mycelix_finance_types::{
-    AMBER_MAX_CAP_MICRO_SAP, AmberExemption, PaymentReceiptSigningDataV1, SapMintCapCounter,
-    SapMintSource, SuccessionPreference, PAYMENT_RECEIPT_V1_DOMAIN,
-    PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+    AMBER_MAX_CAP_MICRO_SAP, AmberExemption, PAYMENT_RECEIPT_V1_DOMAIN,
+    PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX, PaymentReceiptSigningDataV1, SapMintCapCounter,
+    SapMintSource, SuccessionPreference,
 };
 
 // =============================================================================
@@ -1060,8 +1060,7 @@ mod tests {
 
     #[test]
     fn test_receipt_create_accepts_exact_payment_and_hdi_verified_signature() {
-        let (receipt, payment_record, payment_action_hash) =
-            mock_receipt_and_payment_record();
+        let (receipt, payment_record, payment_action_hash) = mock_receipt_and_payment_record();
         hdi::hdi::set_hdi(MockReceiptHdi {
             signature_valid: true,
             payment_record: Some(payment_record),
@@ -1088,8 +1087,7 @@ mod tests {
 
     #[test]
     fn test_receipt_create_rejects_payment_subject_mutation() {
-        let (mut receipt, payment_record, payment_action_hash) =
-            mock_receipt_and_payment_record();
+        let (mut receipt, payment_record, payment_action_hash) = mock_receipt_and_payment_record();
         receipt.amount += 1;
         hdi::hdi::set_hdi(MockReceiptHdi {
             signature_valid: true,
@@ -1112,8 +1110,7 @@ mod tests {
         });
         let mut action = make_create();
         action.author = AgentPubKey::from_raw_36(vec![9; 36]);
-        let result =
-            validate_create_receipt(EntryCreationAction::Create(action), receipt).unwrap();
+        let result = validate_create_receipt(EntryCreationAction::Create(action), receipt).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -1192,8 +1189,7 @@ mod tests {
             weight: Default::default(),
         });
         let hashed = HoloHashed::from_content_sync(action);
-        let signed_action =
-            SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
+        let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
         Record::new(signed_action, Some(entry))
     }
 
@@ -1212,11 +1208,7 @@ mod tests {
             currency: "SAP".into(),
             timestamp: ts(1_000_000),
             payment_action_hash: Some(valid_payment_action_hash()),
-            signature: format!(
-                "{}{}",
-                PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
-                "a".repeat(128)
-            ),
+            signature: format!("{}{}", PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX, "a".repeat(128)),
         }
     }
 
@@ -1404,18 +1396,10 @@ mod tests {
             ValidateCallbackResult::Invalid(_)
         ));
 
-        receipt.signature = format!(
-            "{}{}",
-            PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
-            "A".repeat(128)
-        );
+        receipt.signature = format!("{}{}", PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX, "A".repeat(128));
         assert!(decode_receipt_signature_v1(&receipt.signature).is_none());
 
-        receipt.signature = format!(
-            "{}{}",
-            PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
-            "a".repeat(126)
-        );
+        receipt.signature = format!("{}{}", PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX, "a".repeat(126));
         assert!(decode_receipt_signature_v1(&receipt.signature).is_none());
     }
 
@@ -1440,8 +1424,8 @@ mod tests {
             "timestamp": ts(1_000_000),
             "signature": "a".repeat(128)
         });
-        let receipt: Receipt = serde_json::from_value(legacy)
-            .expect("legacy receipt must remain decodable");
+        let receipt: Receipt =
+            serde_json::from_value(legacy).expect("legacy receipt must remain decodable");
         assert_eq!(receipt.fee, 0);
         assert!(receipt.payment_action_hash.is_none());
         assert!(matches!(
