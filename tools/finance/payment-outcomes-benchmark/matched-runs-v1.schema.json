@@ -118,12 +118,20 @@
         "essential_service_denials_for_unrelated_consent_refusal",
         "total_all_in_cost_minor_units",
         "cost_currency",
-        "p95_initiation_to_available_ms",
         "operator_minutes_per_1000_attempts",
         "user_task_attempts",
         "user_task_successes",
         "active_merchants_in_cohort",
-        "eligible_merchants_in_cohort"
+        "eligible_merchants_in_cohort",
+        "payer_fee_minor_units",
+        "merchant_fee_minor_units",
+        "fx_cost_minor_units",
+        "cashout_fee_minor_units",
+        "returns_disputes_cost_minor_units",
+        "provider_network_cost_minor_units",
+        "p50_initiation_to_available_ms",
+        "p95_initiation_to_available_ms",
+        "p99_initiation_to_available_ms"
       ],
       "properties": {
         "eligible_attempts": {
@@ -197,6 +205,38 @@
         "eligible_merchants_in_cohort": {
           "type": "integer",
           "minimum": 1
+        },
+        "payer_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "merchant_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fx_cost_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cashout_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "returns_disputes_cost_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "provider_network_cost_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p50_initiation_to_available_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p99_initiation_to_available_ms": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
