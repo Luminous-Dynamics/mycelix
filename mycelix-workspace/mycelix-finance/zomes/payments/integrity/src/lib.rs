@@ -785,8 +785,16 @@ fn validate_create_receipt(
         return Ok(ValidateCallbackResult::Invalid(message));
     }
 
-    // Receipts are sender-authored attestations. A receiver or unrelated peer
-    // cannot create a receipt that claims to be from the sender.
+    // Bind the claimed sender to the committing action before fetching any
+    // referenced DHT record. This rejects unrelated authors without allowing a
+    // forged receipt to trigger arbitrary dependency lookups.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(message) =
+        require_did_is_author("Receipt", "from_did", &receipt.from_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+
     let payment_action_hash = receipt
         .payment_action_hash
         .as_ref()
@@ -1415,6 +1423,27 @@ mod tests {
     fn test_receipt_requires_exact_payment_action_reference() {
         let mut receipt = valid_receipt();
         receipt.payment_action_hash = None;
+        assert!(matches!(
+            validate_receipt_structure(&receipt),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_legacy_receipt_decodes_but_remains_unqualified() {
+        let legacy = serde_json::json!({
+            "payment_id": "pay:legacy:001",
+            "from_did": test_author_did(),
+            "to_did": "did:mycelix:bob",
+            "amount": 1000,
+            "currency": "SAP",
+            "timestamp": ts(1_000_000),
+            "signature": "a".repeat(128)
+        });
+        let receipt: Receipt = serde_json::from_value(legacy)
+            .expect("legacy receipt must remain decodable");
+        assert_eq!(receipt.fee, 0);
+        assert!(receipt.payment_action_hash.is_none());
         assert!(matches!(
             validate_receipt_structure(&receipt),
             ValidateCallbackResult::Invalid(_)
