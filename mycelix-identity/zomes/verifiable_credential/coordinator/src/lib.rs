@@ -1355,6 +1355,176 @@ fn generate_merkle_proof(
     proof
 }
 
+const DERIVED_CREDENTIAL_PROOF_V1: &str = "MycelixDerivedCredentialProofV1";
+
+/// Canonical, domain-separated digest of the complete derived credential,
+/// excluding only the signature bytes being generated/verified.
+fn compute_derived_credential_hash_v1(
+    derived: &DerivedCredential,
+) -> ExternResult<Vec<u8>> {
+    if derived.derivation_proof.proof_type != DERIVED_CREDENTIAL_PROOF_V1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Unsupported derived credential proof profile".into()
+        )));
+    }
+    let mut value = serde_json::to_value(derived).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not serialize derived credential V1 payload: {error}"
+        )))
+    })?;
+    let proof = value
+        .get_mut("derivation_proof")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Derived credential proof object missing from V1 payload".into()
+        )))?;
+    if proof.remove("holder_signature").is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Derived credential holder signature field missing from V1 payload".into()
+        )));
+    }
+    let canonical = canonicalize_json_value(value);
+    let serialized = serde_json::to_vec(&canonical).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not canonicalize derived credential V1 payload: {error}"
+        )))
+    })?;
+    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:SIGNATURE:V1\\0".to_vec();
+    payload.extend(serialized);
+    Ok(holo_hash::blake2b_256(&payload).to_vec())
+}
+
+fn hash_derived_claim_leaf_v1(
+    key: &str,
+    value: &serde_json::Value,
+) -> ExternResult<Vec<u8>> {
+    let canonical_value = canonicalize_json_value(value.clone());
+    let serialized_value = serde_json::to_vec(&canonical_value).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Could not canonicalize derived claim value: {error}"
+        )))
+    })?;
+    let key_bytes = key.as_bytes();
+    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:MERKLE-LEAF:V1\\0".to_vec();
+    payload.extend((key_bytes.len() as u64).to_be_bytes());
+    payload.extend(key_bytes);
+    payload.extend((serialized_value.len() as u64).to_be_bytes());
+    payload.extend(serialized_value);
+    Ok(holo_hash::blake2b_256(&payload).to_vec())
+}
+
+fn hash_derived_merkle_node_v1(left: &[u8], right: &[u8]) -> Vec<u8> {
+    let mut payload = b"MYCELIX:DERIVED-CREDENTIAL:MERKLE-NODE:V1\\0".to_vec();
+    payload.extend(left);
+    payload.extend(right);
+    holo_hash::blake2b_256(&payload).to_vec()
+}
+
+fn build_derived_claim_merkle_tree_v1(
+    claims: &serde_json::Map<String, serde_json::Value>,
+) -> ExternResult<(Vec<u8>, Vec<(String, Vec<u8>)>)> {
+    let mut keys: Vec<&String> = claims.keys().collect();
+    keys.sort();
+    let mut leaves = Vec::with_capacity(keys.len());
+    for key in keys {
+        leaves.push((
+            key.clone(),
+            hash_derived_claim_leaf_v1(key, &claims[key])?,
+        ));
+    }
+    if leaves.is_empty() {
+        return Ok((vec![0_u8; 32], leaves));
+    }
+    let mut level: Vec<Vec<u8>> = leaves.iter().map(|(_, hash)| hash.clone()).collect();
+    while level.len() > 1 {
+        let mut next = Vec::with_capacity((level.len() + 1) / 2);
+        let mut index = 0;
+        while index < level.len() {
+            if index + 1 < level.len() {
+                next.push(hash_derived_merkle_node_v1(&level[index], &level[index + 1]));
+                index += 2;
+            } else {
+                next.push(level[index].clone());
+                index += 1;
+            }
+        }
+        level = next;
+    }
+    Ok((level[0].clone(), leaves))
+}
+
+fn generate_derived_claim_merkle_proof_v1(
+    claims: &serde_json::Map<String, serde_json::Value>,
+    leaf_index: usize,
+) -> ExternResult<Vec<Vec<u8>>> {
+    let mut keys: Vec<&String> = claims.keys().collect();
+    keys.sort();
+    if leaf_index >= keys.len() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Derived claim Merkle leaf index out of range".into()
+        )));
+    }
+    let mut level = Vec::with_capacity(keys.len());
+    for key in keys {
+        level.push(hash_derived_claim_leaf_v1(key, &claims[key])?);
+    }
+    let mut index = leaf_index;
+    let mut proof = Vec::new();
+    while level.len() > 1 {
+        let sibling = if index.is_multiple_of(2) { index + 1 } else { index - 1 };
+        if sibling < level.len() {
+            proof.push(level[sibling].clone());
+        }
+        let mut next = Vec::with_capacity((level.len() + 1) / 2);
+        let mut offset = 0;
+        while offset < level.len() {
+            if offset + 1 < level.len() {
+                next.push(hash_derived_merkle_node_v1(&level[offset], &level[offset + 1]));
+                offset += 2;
+            } else {
+                next.push(level[offset].clone());
+                offset += 1;
+            }
+        }
+        level = next;
+        index /= 2;
+    }
+    Ok(proof)
+}
+
+fn verify_derived_claim_merkle_proof_v1(
+    leaf_hash: &[u8],
+    leaf_index: usize,
+    leaf_count: usize,
+    proof: &[Vec<u8>],
+    expected_root: &[u8],
+) -> bool {
+    if leaf_count == 0 || leaf_index >= leaf_count {
+        return false;
+    }
+    let mut current = leaf_hash.to_vec();
+    let mut index = leaf_index;
+    let mut width = leaf_count;
+    let mut proof_index = 0;
+    while width > 1 {
+        let sibling_index = if index.is_multiple_of(2) { index + 1 } else { index - 1 };
+        if sibling_index < width {
+            let Some(sibling) = proof.get(proof_index) else {
+                return false;
+            };
+            current = if index.is_multiple_of(2) {
+                hash_derived_merkle_node_v1(&current, sibling)
+            } else {
+                hash_derived_merkle_node_v1(sibling, &current)
+            };
+            proof_index += 1;
+        }
+        width = (width + 1) / 2;
+        index /= 2;
+    }
+    proof_index == proof.len() && current == expected_root
+}
+
 /// Create a derived credential with selective disclosure
 #[hdk_extern]
 pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Record> {
