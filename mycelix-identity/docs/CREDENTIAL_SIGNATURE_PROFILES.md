@@ -46,11 +46,13 @@ not a silent V1 reinterpretation.
 
 This describes the **typed Mycelix credential model**, not arbitrary JSON-LD
 documents. The current issuance path constructs the credential from typed
-fields; arbitrary top-level extension members are not carried by that type and
-must not be assumed to be covered. The subject's flattened claims are retained
-as JSON values and are included recursively. Do not accept an externally
-extended JSON-LD document as V1 unless every extension is mapped into a typed
-field/subject claim or a future profile explicitly defines its preservation.
+fields. The integrity zome now rejects unknown top-level credential members
+and unknown nested issuer, schema, status, proof-header and presentation
+members rather than silently discarding them during deserialization. The
+subject's flattened claims remain intentionally open-ended JSON values and
+are included recursively. An external JSON-LD extension can enter this
+profile only as a subject claim or after a future typed schema/profile update;
+it cannot be silently accepted as an unsigned top-level extension.
 
 
 ## Independent V1 test vector
