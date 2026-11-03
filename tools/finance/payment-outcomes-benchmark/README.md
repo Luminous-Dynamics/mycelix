@@ -32,6 +32,8 @@ A matched candidate is evaluated on:
 - recipient-available completion rate;
 - all-in cost per completed delivery (exact integer numerator/denominator);
 - p95 initiation-to-recipient-available time;
+- terminal failure, unknown-outcome and return/reversal rates;
+- matched task/user and eligible-merchant denominators (all providers must use exactly the same cohort);
 - operator minutes per 1,000 attempts;
 - user task success; and
 - active merchant coverage in the eligible study cohort.
