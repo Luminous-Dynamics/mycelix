@@ -365,25 +365,20 @@ fn minimal_hitting_sets(
             }
         }
         let mut ordered: Vec<_> = expanded.into_iter().collect();
-        ordered.sort_by(|left, right| {
-            left.len()
-                .cmp(&right.len())
-                .then_with(|| left.cmp(right))
-        });
+        ordered.sort_by(|left, right| left.len().cmp(&right.len()).then_with(|| left.cmp(right)));
         let mut minimal: Vec<BTreeSet<FaultDomainKey>> = Vec::new();
         for candidate in ordered {
-            if !minimal.iter().any(|existing| existing.is_subset(&candidate)) {
+            if !minimal
+                .iter()
+                .any(|existing| existing.is_subset(&candidate))
+            {
                 minimal.push(candidate);
             }
         }
         candidates = minimal;
     }
 
-    candidates.sort_by(|left, right| {
-        left.len()
-            .cmp(&right.len())
-            .then_with(|| left.cmp(right))
-    });
+    candidates.sort_by(|left, right| left.len().cmp(&right.len()).then_with(|| left.cmp(right)));
     Ok(MinimalCutSetReport {
         disposition: AuditDisposition::Complete,
         minimum_cut_cardinality: candidates.first().map(BTreeSet::len),
@@ -523,22 +518,14 @@ pub fn audit_multi_dependency_graph(
                         return Err(AuditError::PartialCoverageHasNoKnownDependency);
                     }
                     incomplete_roles.insert(role_name.clone());
-                    incomplete_dimensions.insert((
-                        role_name.clone(),
-                        dimension,
-                        rationale.clone(),
-                    ));
+                    incomplete_dimensions.insert((role_name.clone(), dimension, rationale.clone()));
                 }
                 DimensionCoverage::Unknown { rationale } => {
                     if rationale.trim().is_empty() {
                         return Err(AuditError::EmptyRationale);
                     }
                     incomplete_roles.insert(role_name.clone());
-                    incomplete_dimensions.insert((
-                        role_name.clone(),
-                        dimension,
-                        rationale.clone(),
-                    ));
+                    incomplete_dimensions.insert((role_name.clone(), dimension, rationale.clone()));
                 }
                 DimensionCoverage::NotApplicable { rationale } => {
                     if rationale.trim().is_empty() {
@@ -606,7 +593,10 @@ pub fn audit_multi_dependency_graph(
             critical_roles.entry(*key).or_default().insert(role.clone());
         }
         for key in &projection.evidentiary_keys {
-            evidentiary_roles.entry(*key).or_default().insert(role.clone());
+            evidentiary_roles
+                .entry(*key)
+                .or_default()
+                .insert(role.clone());
         }
     }
 
@@ -657,9 +647,8 @@ pub fn audit_multi_dependency_graph(
             .copied()
             .collect();
         let shared: Vec<_> = left.intersection(&right).copied().collect();
-        let inventories_complete =
-            matches!(left_coverage, DimensionCoverage::Complete)
-                && matches!(right_coverage, DimensionCoverage::Complete);
+        let inventories_complete = matches!(left_coverage, DimensionCoverage::Complete)
+            && matches!(right_coverage, DimensionCoverage::Complete);
         let disjoint_complete_inventories = inventories_complete && shared.is_empty();
         if !disjoint_complete_inventories {
             incomplete_roles.insert(requirement.left_role.clone());
@@ -748,7 +737,9 @@ mod tests {
         }
     }
 
-    fn coverage_for(dimensions: &[FaultDomainDimension]) -> BTreeMap<FaultDomainDimension, DimensionCoverage> {
+    fn coverage_for(
+        dimensions: &[FaultDomainDimension],
+    ) -> BTreeMap<FaultDomainDimension, DimensionCoverage> {
         FaultDomainDimension::ALL
             .into_iter()
             .map(|dimension| {
@@ -793,7 +784,11 @@ mod tests {
         }
     }
 
-    fn audit(graph: &DependencyGraph, policy: &AssurancePolicy, budget: usize) -> MultiDependencyAuditReport {
+    fn audit(
+        graph: &DependencyGraph,
+        policy: &AssurancePolicy,
+        budget: usize,
+    ) -> MultiDependencyAuditReport {
         audit_multi_dependency_graph(
             graph,
             policy,
@@ -810,15 +805,47 @@ mod tests {
     #[test]
     fn multiple_identities_in_one_dimension_are_preserved() {
         let nodes = vec![
-            node("a-host", FaultDomainDimension::ExecutionProvider, 10, DependencyEffect::ClaimCritical, &[]),
-            node("a-runner", FaultDomainDimension::ExecutionProvider, 11, DependencyEffect::ClaimCritical, &[]),
-            node("b-host", FaultDomainDimension::ExecutionProvider, 20, DependencyEffect::ClaimCritical, &[]),
-            node("b-runner", FaultDomainDimension::ExecutionProvider, 21, DependencyEffect::ClaimCritical, &[]),
+            node(
+                "a-host",
+                FaultDomainDimension::ExecutionProvider,
+                10,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "a-runner",
+                FaultDomainDimension::ExecutionProvider,
+                11,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b-host",
+                FaultDomainDimension::ExecutionProvider,
+                20,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b-runner",
+                FaultDomainDimension::ExecutionProvider,
+                21,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
         ];
         let graph = graph(
             vec![
-                role("formal", &["a-host", "a-runner"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b-host", "b-runner"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "formal",
+                    &["a-host", "a-runner"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
+                role(
+                    "independent",
+                    &["b-host", "b-runner"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             nodes,
         );
@@ -833,42 +860,121 @@ mod tests {
     fn partial_overlap_in_multi_value_dimension_is_not_hidden() {
         let shared = key(FaultDomainDimension::ExecutionProvider, 99);
         let nodes = vec![
-            node("a-private", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
-            node("a-shared", FaultDomainDimension::ExecutionProvider, 99, DependencyEffect::ClaimCritical, &[]),
-            node("b-private", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
-            node("b-shared-alias", FaultDomainDimension::ExecutionProvider, 99, DependencyEffect::ClaimCritical, &[]),
+            node(
+                "a-private",
+                FaultDomainDimension::ExecutionProvider,
+                1,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "a-shared",
+                FaultDomainDimension::ExecutionProvider,
+                99,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b-private",
+                FaultDomainDimension::ExecutionProvider,
+                2,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b-shared-alias",
+                FaultDomainDimension::ExecutionProvider,
+                99,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
         ];
         let graph = graph(
             vec![
-                role("formal", &["a-private", "a-shared"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b-private", "b-shared-alias"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "formal",
+                    &["a-private", "a-shared"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
+                role(
+                    "independent",
+                    &["b-private", "b-shared-alias"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             nodes,
         );
         let report = audit(&graph, &policy(&["formal", "independent"], vec![]), 1000);
-        assert!(report.shared_dependencies.iter().any(|dependency| dependency.key == shared));
+        assert!(
+            report
+                .shared_dependencies
+                .iter()
+                .any(|dependency| dependency.key == shared)
+        );
         assert_eq!(report.cut_sets.minimum_cut_cardinality, Some(1));
-        assert!(report.cut_sets.minimal_cut_sets.contains(&BTreeSet::from([shared])));
+        assert!(
+            report
+                .cut_sets
+                .minimal_cut_sets
+                .contains(&BTreeSet::from([shared]))
+        );
     }
 
     #[test]
     fn transitive_shared_root_is_detected_through_dag_closure() {
         let nodes = vec![
-            node("formal-service", FaultDomainDimension::Runtime, 1, DependencyEffect::ClaimCritical, &["shared-host"]),
-            node("independent-service", FaultDomainDimension::Runtime, 2, DependencyEffect::ClaimCritical, &["shared-host"]),
-            node("shared-host", FaultDomainDimension::ExecutionProvider, 99, DependencyEffect::ClaimCritical, &[]),
+            node(
+                "formal-service",
+                FaultDomainDimension::Runtime,
+                1,
+                DependencyEffect::ClaimCritical,
+                &["shared-host"],
+            ),
+            node(
+                "independent-service",
+                FaultDomainDimension::Runtime,
+                2,
+                DependencyEffect::ClaimCritical,
+                &["shared-host"],
+            ),
+            node(
+                "shared-host",
+                FaultDomainDimension::ExecutionProvider,
+                99,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
         ];
         let graph = graph(
             vec![
-                role("formal", &["formal-service"], &[FaultDomainDimension::Runtime, FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["independent-service"], &[FaultDomainDimension::Runtime, FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "formal",
+                    &["formal-service"],
+                    &[
+                        FaultDomainDimension::Runtime,
+                        FaultDomainDimension::ExecutionProvider,
+                    ],
+                ),
+                role(
+                    "independent",
+                    &["independent-service"],
+                    &[
+                        FaultDomainDimension::Runtime,
+                        FaultDomainDimension::ExecutionProvider,
+                    ],
+                ),
             ],
             nodes,
         );
         let report = audit(&graph, &policy(&["formal", "independent"], vec![]), 1000);
         assert_eq!(report.transitive_node_count_by_role["formal"], 2);
         assert_eq!(report.transitive_node_count_by_role["independent"], 2);
-        assert!(report.shared_dependencies.iter().any(|item| item.key == key(FaultDomainDimension::ExecutionProvider, 99)));
+        assert!(
+            report
+                .shared_dependencies
+                .iter()
+                .any(|item| item.key == key(FaultDomainDimension::ExecutionProvider, 99))
+        );
     }
 
     #[test]
@@ -876,22 +982,45 @@ mod tests {
         let mut graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
-                node("a", FaultDomainDimension::ExecutionProvider, 99, DependencyEffect::ClaimCritical, &[]),
-                node("b", FaultDomainDimension::ExecutionProvider, 99, DependencyEffect::ClaimCritical, &[]),
+                node(
+                    "a",
+                    FaultDomainDimension::ExecutionProvider,
+                    99,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    99,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
             ],
         );
         graph.roles[0].coverage.insert(
             FaultDomainDimension::ExecutionProvider,
-            DimensionCoverage::Partial { rationale: "unresolved host-side dependencies".to_owned() },
+            DimensionCoverage::Partial {
+                rationale: "unresolved host-side dependencies".to_owned(),
+            },
         );
         let report = audit(&graph, &policy(&["formal", "independent"], vec![]), 1000);
         assert_eq!(report.disposition, AuditDisposition::Incomplete);
         assert!(report.cut_sets.minimal_cut_sets.is_empty());
         assert_eq!(report.cut_sets.minimum_cut_cardinality, None);
-        assert!(report.shared_dependencies.iter().any(|item| item.key == key(FaultDomainDimension::ExecutionProvider, 99)));
+        assert!(
+            report
+                .shared_dependencies
+                .iter()
+                .any(|item| item.key == key(FaultDomainDimension::ExecutionProvider, 99))
+        );
     }
 
     #[test]
@@ -899,11 +1028,27 @@ mod tests {
         let mut graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
-                node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
-                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
+                node(
+                    "a",
+                    FaultDomainDimension::ExecutionProvider,
+                    1,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
             ],
         );
         let mut unknown = graph.nodes[0].clone();
@@ -921,14 +1066,40 @@ mod tests {
     #[test]
     fn optional_or_fallback_paths_are_unsupported_under_any_one_compromise_model() {
         let nodes = vec![
-            node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
-            node("a-fallback", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::RedundantOrFallback, &[]),
-            node("b", FaultDomainDimension::ExecutionProvider, 3, DependencyEffect::ClaimCritical, &[]),
+            node(
+                "a",
+                FaultDomainDimension::ExecutionProvider,
+                1,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "a-fallback",
+                FaultDomainDimension::ExecutionProvider,
+                2,
+                DependencyEffect::RedundantOrFallback,
+                &[],
+            ),
+            node(
+                "b",
+                FaultDomainDimension::ExecutionProvider,
+                3,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
         ];
         let graph = graph(
             vec![
-                role("formal", &["a", "a-fallback"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "formal",
+                    &["a", "a-fallback"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             nodes,
         );
@@ -942,20 +1113,59 @@ mod tests {
     fn evidentiary_lineage_is_visible_but_not_misclassified_as_claim_critical() {
         let shared_evidence = key(FaultDomainDimension::ExpectedAnswerLineage, 90);
         let nodes = vec![
-            node("a-critical", FaultDomainDimension::ImplementationLineage, 1, DependencyEffect::ClaimCritical, &["shared-evidence"]),
-            node("b-critical", FaultDomainDimension::ImplementationLineage, 2, DependencyEffect::ClaimCritical, &["shared-evidence"]),
-            node("shared-evidence", FaultDomainDimension::ExpectedAnswerLineage, 90, DependencyEffect::EvidentiaryLineage, &[]),
+            node(
+                "a-critical",
+                FaultDomainDimension::ImplementationLineage,
+                1,
+                DependencyEffect::ClaimCritical,
+                &["shared-evidence"],
+            ),
+            node(
+                "b-critical",
+                FaultDomainDimension::ImplementationLineage,
+                2,
+                DependencyEffect::ClaimCritical,
+                &["shared-evidence"],
+            ),
+            node(
+                "shared-evidence",
+                FaultDomainDimension::ExpectedAnswerLineage,
+                90,
+                DependencyEffect::EvidentiaryLineage,
+                &[],
+            ),
         ];
         let graph = graph(
             vec![
-                role("formal", &["a-critical"], &[FaultDomainDimension::ImplementationLineage, FaultDomainDimension::ExpectedAnswerLineage]),
-                role("independent", &["b-critical"], &[FaultDomainDimension::ImplementationLineage, FaultDomainDimension::ExpectedAnswerLineage]),
+                role(
+                    "formal",
+                    &["a-critical"],
+                    &[
+                        FaultDomainDimension::ImplementationLineage,
+                        FaultDomainDimension::ExpectedAnswerLineage,
+                    ],
+                ),
+                role(
+                    "independent",
+                    &["b-critical"],
+                    &[
+                        FaultDomainDimension::ImplementationLineage,
+                        FaultDomainDimension::ExpectedAnswerLineage,
+                    ],
+                ),
             ],
             nodes,
         );
         let report = audit(&graph, &policy(&["formal", "independent"], vec![]), 1000);
-        let shared = report.shared_dependencies.iter().find(|item| item.key == shared_evidence).expect("shared evidence");
-        assert_eq!(shared.evidentiary_roles, vec!["formal".to_owned(), "independent".to_owned()]);
+        let shared = report
+            .shared_dependencies
+            .iter()
+            .find(|item| item.key == shared_evidence)
+            .expect("shared evidence");
+        assert_eq!(
+            shared.evidentiary_roles,
+            vec!["formal".to_owned(), "independent".to_owned()]
+        );
         assert!(shared.claim_critical_roles.is_empty());
         assert_eq!(report.cut_sets.minimum_cut_cardinality, Some(2));
     }
@@ -966,7 +1176,10 @@ mod tests {
         let nodes = vec![
             DependencyNode {
                 node_id: "a".into(),
-                key: FaultDomainKey { dimension: FaultDomainDimension::Runtime, identity: same },
+                key: FaultDomainKey {
+                    dimension: FaultDomainDimension::Runtime,
+                    identity: same,
+                },
                 effect: DependencyEffect::ClaimCritical,
                 currentness: EvidenceCurrentness::Current,
                 evidence_refs: BTreeSet::from([Digest::from_byte(1)]),
@@ -974,7 +1187,10 @@ mod tests {
             },
             DependencyNode {
                 node_id: "b".into(),
-                key: FaultDomainKey { dimension: FaultDomainDimension::ExecutionProvider, identity: same },
+                key: FaultDomainKey {
+                    dimension: FaultDomainDimension::ExecutionProvider,
+                    identity: same,
+                },
                 effect: DependencyEffect::ClaimCritical,
                 currentness: EvidenceCurrentness::Current,
                 evidence_refs: BTreeSet::from([Digest::from_byte(2)]),
@@ -984,7 +1200,11 @@ mod tests {
         let graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::Runtime]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             nodes,
         );
@@ -995,24 +1215,64 @@ mod tests {
     #[test]
     fn required_pairwise_separation_uses_full_sets_not_one_digest() {
         let nodes = vec![
-            node("a1", FaultDomainDimension::ImplementationLineage, 1, DependencyEffect::ClaimCritical, &[]),
-            node("a2", FaultDomainDimension::ImplementationLineage, 9, DependencyEffect::ClaimCritical, &[]),
-            node("b1", FaultDomainDimension::ImplementationLineage, 2, DependencyEffect::ClaimCritical, &[]),
-            node("b2", FaultDomainDimension::ImplementationLineage, 9, DependencyEffect::ClaimCritical, &[]),
+            node(
+                "a1",
+                FaultDomainDimension::ImplementationLineage,
+                1,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "a2",
+                FaultDomainDimension::ImplementationLineage,
+                9,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b1",
+                FaultDomainDimension::ImplementationLineage,
+                2,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b2",
+                FaultDomainDimension::ImplementationLineage,
+                9,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
         ];
         let graph = graph(
             vec![
-                role("formal", &["a1", "a2"], &[FaultDomainDimension::ImplementationLineage]),
-                role("independent", &["b1", "b2"], &[FaultDomainDimension::ImplementationLineage]),
+                role(
+                    "formal",
+                    &["a1", "a2"],
+                    &[FaultDomainDimension::ImplementationLineage],
+                ),
+                role(
+                    "independent",
+                    &["b1", "b2"],
+                    &[FaultDomainDimension::ImplementationLineage],
+                ),
             ],
             nodes,
         );
-        let separation = SeparationRequirement::new("formal", "independent", FaultDomainDimension::ImplementationLineage).expect("valid");
+        let separation = SeparationRequirement::new(
+            "formal",
+            "independent",
+            FaultDomainDimension::ImplementationLineage,
+        )
+        .expect("valid");
         let policy = policy(&["formal", "independent"], vec![separation]);
         let report = audit(&graph, &policy, 1000);
         assert_eq!(report.disposition, AuditDisposition::Incomplete);
         assert_eq!(report.separation_findings.len(), 1);
-        assert_eq!(report.separation_findings[0].shared_keys, vec![key(FaultDomainDimension::ImplementationLineage, 9)]);
+        assert_eq!(
+            report.separation_findings[0].shared_keys,
+            vec![key(FaultDomainDimension::ImplementationLineage, 9)]
+        );
         assert!(report.cut_sets.minimal_cut_sets.is_empty());
     }
 
@@ -1021,35 +1281,87 @@ mod tests {
         let cyclic = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
-                node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &["b"]),
-                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &["a"]),
+                node(
+                    "a",
+                    FaultDomainDimension::ExecutionProvider,
+                    1,
+                    DependencyEffect::ClaimCritical,
+                    &["b"],
+                ),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &["a"],
+                ),
             ],
         );
         assert_eq!(
-            audit_multi_dependency_graph(&cyclic, &policy(&["formal", "independent"], vec![]), Digest::from_byte(3), Digest::from_byte(1), Digest::from_byte(2), Digest::from_byte(4), Digest::from_byte(5), 1000),
+            audit_multi_dependency_graph(
+                &cyclic,
+                &policy(&["formal", "independent"], vec![]),
+                Digest::from_byte(3),
+                Digest::from_byte(1),
+                Digest::from_byte(2),
+                Digest::from_byte(4),
+                Digest::from_byte(5),
+                1000
+            ),
             Err(AuditError::DependencyCycle)
         );
 
         let dangling = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
-                node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &["missing"]),
-                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
+                node(
+                    "a",
+                    FaultDomainDimension::ExecutionProvider,
+                    1,
+                    DependencyEffect::ClaimCritical,
+                    &["missing"],
+                ),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
             ],
         );
         assert_eq!(
-            audit_multi_dependency_graph(&dangling, &policy(&["formal", "independent"], vec![]), Digest::from_byte(3), Digest::from_byte(1), Digest::from_byte(2), Digest::from_byte(4), Digest::from_byte(5), 1000),
+            audit_multi_dependency_graph(
+                &dangling,
+                &policy(&["formal", "independent"], vec![]),
+                Digest::from_byte(3),
+                Digest::from_byte(1),
+                Digest::from_byte(2),
+                Digest::from_byte(4),
+                Digest::from_byte(5),
+                1000
+            ),
             Err(AuditError::DanglingDependency)
         );
     }
 
-    fn brute_force_reference(role_sets: &[(String, BTreeSet<FaultDomainKey>)]) -> Vec<BTreeSet<FaultDomainKey>> {
+    fn brute_force_reference(
+        role_sets: &[(String, BTreeSet<FaultDomainKey>)],
+    ) -> Vec<BTreeSet<FaultDomainKey>> {
         let universe: Vec<_> = role_sets
             .iter()
             .flat_map(|(_, keys)| keys.iter().copied())
@@ -1059,17 +1371,25 @@ mod tests {
         assert!(universe.len() < usize::BITS as usize);
         let mut hitting = Vec::new();
         for mask in 1usize..(1usize << universe.len()) {
-            let candidate: BTreeSet<_> = universe.iter().enumerate()
+            let candidate: BTreeSet<_> = universe
+                .iter()
+                .enumerate()
                 .filter_map(|(index, key)| ((mask & (1usize << index)) != 0).then_some(*key))
                 .collect();
-            if role_sets.iter().all(|(_, keys)| candidate.iter().any(|key| keys.contains(key))) {
+            if role_sets
+                .iter()
+                .all(|(_, keys)| candidate.iter().any(|key| keys.contains(key)))
+            {
                 hitting.push(candidate);
             }
         }
-        hitting.sort_by(|a,b| a.len().cmp(&b.len()).then_with(|| a.cmp(b)));
+        hitting.sort_by(|a, b| a.len().cmp(&b.len()).then_with(|| a.cmp(b)));
         let mut minimal = Vec::new();
         for candidate in hitting {
-            if !minimal.iter().any(|existing: &BTreeSet<FaultDomainKey>| existing.is_subset(&candidate)) {
+            if !minimal
+                .iter()
+                .any(|existing: &BTreeSet<FaultDomainKey>| existing.is_subset(&candidate))
+            {
                 minimal.push(candidate);
             }
         }
@@ -1101,7 +1421,13 @@ mod tests {
                         };
                         let id = format!("n-{role_index}-{dim_index}");
                         roots.push(id.clone());
-                        nodes.push(node(&id, dimension, identity, DependencyEffect::ClaimCritical, &[]));
+                        nodes.push(node(
+                            &id,
+                            dimension,
+                            identity,
+                            DependencyEffect::ClaimCritical,
+                            &[],
+                        ));
                         keys.insert(key(dimension, identity));
                     }
                 }
@@ -1109,21 +1435,37 @@ mod tests {
                     let dimension = dims[role_index % dims.len()];
                     let id = format!("n-{role_index}-fallback");
                     roots.push(id.clone());
-                    nodes.push(node(&id, dimension, 200 + role_index as u8, DependencyEffect::ClaimCritical, &[]));
+                    nodes.push(node(
+                        &id,
+                        dimension,
+                        200 + role_index as u8,
+                        DependencyEffect::ClaimCritical,
+                        &[],
+                    ));
                     keys.insert(key(dimension, 200 + role_index as u8));
                 }
-                let dimensions: Vec<_> = dims.iter().copied().filter(|d| keys.iter().any(|k| k.dimension == *d)).collect();
+                let dimensions: Vec<_> = dims
+                    .iter()
+                    .copied()
+                    .filter(|d| keys.iter().any(|k| k.dimension == *d))
+                    .collect();
                 let root_refs: Vec<_> = roots.iter().map(String::as_str).collect();
                 roles.push(role(&role_name, &root_refs, &dimensions));
                 role_sets.push((role_name, keys));
             }
-            let role_names: Vec<String> = (0..role_count).map(|index| format!("role-{index}")).collect();
+            let role_names: Vec<String> = (0..role_count)
+                .map(|index| format!("role-{index}"))
+                .collect();
             let role_refs: Vec<_> = role_names.iter().map(String::as_str).collect();
             let graph = graph(roles, nodes);
             let policy = policy(&role_refs, vec![]);
             let expected = brute_force_reference(&role_sets);
             let actual = audit(&graph, &policy, 100_000);
-            assert_eq!(actual.disposition, AuditDisposition::Complete, "case {case}");
+            assert_eq!(
+                actual.disposition,
+                AuditDisposition::Complete,
+                "case {case}"
+            );
             assert_eq!(actual.cut_sets.minimal_cut_sets, expected, "case {case}");
         }
     }
@@ -1131,15 +1473,47 @@ mod tests {
     #[test]
     fn budget_exhaustion_never_returns_partial_cut_sets() {
         let nodes = vec![
-            node("a1", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
-            node("a2", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
-            node("b1", FaultDomainDimension::ExecutionProvider, 3, DependencyEffect::ClaimCritical, &[]),
-            node("b2", FaultDomainDimension::ExecutionProvider, 4, DependencyEffect::ClaimCritical, &[]),
+            node(
+                "a1",
+                FaultDomainDimension::ExecutionProvider,
+                1,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "a2",
+                FaultDomainDimension::ExecutionProvider,
+                2,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b1",
+                FaultDomainDimension::ExecutionProvider,
+                3,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b2",
+                FaultDomainDimension::ExecutionProvider,
+                4,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
         ];
         let graph = graph(
             vec![
-                role("formal", &["a1", "a2"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b1", "b2"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "formal",
+                    &["a1", "a2"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
+                role(
+                    "independent",
+                    &["b1", "b2"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             nodes,
         );
@@ -1151,36 +1525,84 @@ mod tests {
 
     #[test]
     fn stale_and_revoked_source_evidence_are_rejected() {
-        let mut stale = node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]);
+        let mut stale = node(
+            "a",
+            FaultDomainDimension::ExecutionProvider,
+            1,
+            DependencyEffect::ClaimCritical,
+            &[],
+        );
         stale.currentness = EvidenceCurrentness::Stale;
         let graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
                 stale,
-                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
             ],
         );
         assert_eq!(
-            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), Digest::from_byte(3), Digest::from_byte(1), Digest::from_byte(2), Digest::from_byte(4), Digest::from_byte(5), 1000),
+            audit_multi_dependency_graph(
+                &graph,
+                &policy(&["formal", "independent"], vec![]),
+                Digest::from_byte(3),
+                Digest::from_byte(1),
+                Digest::from_byte(2),
+                Digest::from_byte(4),
+                Digest::from_byte(5),
+                1000
+            ),
             Err(AuditError::StaleEvidence)
         );
     }
 
     #[test]
     fn duplicate_node_ids_and_orphan_nodes_are_rejected() {
-        let duplicate = node("same", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]);
+        let duplicate = node(
+            "same",
+            FaultDomainDimension::ExecutionProvider,
+            1,
+            DependencyEffect::ClaimCritical,
+            &[],
+        );
         let graph = graph(
             vec![
-                role("formal", &["same"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["same"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "formal",
+                    &["same"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
+                role(
+                    "independent",
+                    &["same"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![duplicate.clone(), duplicate],
         );
         assert_eq!(
-            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), Digest::from_byte(3), Digest::from_byte(1), Digest::from_byte(2), Digest::from_byte(4), Digest::from_byte(5), 1000),
+            audit_multi_dependency_graph(
+                &graph,
+                &policy(&["formal", "independent"], vec![]),
+                Digest::from_byte(3),
+                Digest::from_byte(1),
+                Digest::from_byte(2),
+                Digest::from_byte(4),
+                Digest::from_byte(5),
+                1000
+            ),
             Err(AuditError::DuplicateNodeId)
         );
     }
@@ -1188,42 +1610,93 @@ mod tests {
     #[test]
     fn wrong_subject_or_policy_binding_is_rejected() {
         let nodes = vec![
-            node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
-            node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
+            node(
+                "a",
+                FaultDomainDimension::ExecutionProvider,
+                1,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
+            node(
+                "b",
+                FaultDomainDimension::ExecutionProvider,
+                2,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
         ];
         let graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             nodes,
         );
         assert_eq!(
-            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), Digest::from_byte(3), Digest::from_byte(8), Digest::from_byte(2), Digest::from_byte(4), Digest::from_byte(5), 1000),
+            audit_multi_dependency_graph(
+                &graph,
+                &policy(&["formal", "independent"], vec![]),
+                Digest::from_byte(3),
+                Digest::from_byte(8),
+                Digest::from_byte(2),
+                Digest::from_byte(4),
+                Digest::from_byte(5),
+                1000
+            ),
             Err(AuditError::SubjectBindingMismatch)
         );
         assert_eq!(
-            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), Digest::from_byte(4), Digest::from_byte(1), Digest::from_byte(2), Digest::from_byte(4), Digest::from_byte(5), 1000),
+            audit_multi_dependency_graph(
+                &graph,
+                &policy(&["formal", "independent"], vec![]),
+                Digest::from_byte(4),
+                Digest::from_byte(1),
+                Digest::from_byte(2),
+                Digest::from_byte(4),
+                Digest::from_byte(5),
+                1000
+            ),
             Err(AuditError::PolicyDigestMismatch)
         );
     }
-
 
     #[test]
     fn unknown_dimension_coverage_keeps_known_nodes_but_blocks_cut_sets() {
         let mut graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
-                node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
-                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
+                node(
+                    "a",
+                    FaultDomainDimension::ExecutionProvider,
+                    1,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
             ],
         );
         graph.roles[0].coverage.insert(
             FaultDomainDimension::ExecutionProvider,
-            DimensionCoverage::Unknown { rationale: "host inventory not acquired".to_owned() },
+            DimensionCoverage::Unknown {
+                rationale: "host inventory not acquired".to_owned(),
+            },
         );
         let report = audit(&graph, &policy(&["formal", "independent"], vec![]), 1000);
         assert_eq!(report.disposition, AuditDisposition::Incomplete);
@@ -1236,14 +1709,32 @@ mod tests {
         let mut graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
-                node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
-                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
+                node(
+                    "a",
+                    FaultDomainDimension::ExecutionProvider,
+                    1,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
             ],
         );
-        graph.roles[0].coverage.remove(&FaultDomainDimension::TrustRoot);
+        graph.roles[0]
+            .coverage
+            .remove(&FaultDomainDimension::TrustRoot);
         assert_eq!(
             audit_multi_dependency_graph(
                 &graph,
@@ -1262,14 +1753,46 @@ mod tests {
     #[test]
     fn duplicate_and_reordered_dependency_edges_do_not_change_closure_or_cut_sets() {
         let base_nodes = vec![
-            node("a-private", FaultDomainDimension::ImplementationLineage, 1, DependencyEffect::ClaimCritical, &["shared"]),
-            node("b-private", FaultDomainDimension::ImplementationLineage, 2, DependencyEffect::ClaimCritical, &["shared"]),
-            node("shared", FaultDomainDimension::ExecutionProvider, 99, DependencyEffect::ClaimCritical, &[]),
+            node(
+                "a-private",
+                FaultDomainDimension::ImplementationLineage,
+                1,
+                DependencyEffect::ClaimCritical,
+                &["shared"],
+            ),
+            node(
+                "b-private",
+                FaultDomainDimension::ImplementationLineage,
+                2,
+                DependencyEffect::ClaimCritical,
+                &["shared"],
+            ),
+            node(
+                "shared",
+                FaultDomainDimension::ExecutionProvider,
+                99,
+                DependencyEffect::ClaimCritical,
+                &[],
+            ),
         ];
         let base = graph(
             vec![
-                role("formal", &["a-private"], &[FaultDomainDimension::ImplementationLineage, FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b-private"], &[FaultDomainDimension::ImplementationLineage, FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "formal",
+                    &["a-private"],
+                    &[
+                        FaultDomainDimension::ImplementationLineage,
+                        FaultDomainDimension::ExecutionProvider,
+                    ],
+                ),
+                role(
+                    "independent",
+                    &["b-private"],
+                    &[
+                        FaultDomainDimension::ImplementationLineage,
+                        FaultDomainDimension::ExecutionProvider,
+                    ],
+                ),
             ],
             base_nodes.clone(),
         );
@@ -1279,10 +1802,23 @@ mod tests {
         duplicated.nodes[1].depends_on.reverse();
 
         let clean_report = audit(&base, &policy(&["formal", "independent"], vec![]), 1000);
-        let mutated_report = audit(&duplicated, &policy(&["formal", "independent"], vec![]), 1000);
-        assert_eq!(clean_report.shared_dependencies, mutated_report.shared_dependencies);
-        assert_eq!(clean_report.cut_sets.minimal_cut_sets, mutated_report.cut_sets.minimal_cut_sets);
-        assert_eq!(clean_report.transitive_node_count_by_role, mutated_report.transitive_node_count_by_role);
+        let mutated_report = audit(
+            &duplicated,
+            &policy(&["formal", "independent"], vec![]),
+            1000,
+        );
+        assert_eq!(
+            clean_report.shared_dependencies,
+            mutated_report.shared_dependencies
+        );
+        assert_eq!(
+            clean_report.cut_sets.minimal_cut_sets,
+            mutated_report.cut_sets.minimal_cut_sets
+        );
+        assert_eq!(
+            clean_report.transitive_node_count_by_role,
+            mutated_report.transitive_node_count_by_role
+        );
     }
 
     #[test]
@@ -1290,12 +1826,34 @@ mod tests {
         let graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
-                node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
-                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
-                node("orphan", FaultDomainDimension::TrustRoot, 3, DependencyEffect::ClaimCritical, &[]),
+                node(
+                    "a",
+                    FaultDomainDimension::ExecutionProvider,
+                    1,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+                node(
+                    "orphan",
+                    FaultDomainDimension::TrustRoot,
+                    3,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
             ],
         );
         assert_eq!(
@@ -1315,16 +1873,32 @@ mod tests {
 
     #[test]
     fn revoked_evidence_is_rejected() {
-        let mut revoked = node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]);
+        let mut revoked = node(
+            "a",
+            FaultDomainDimension::ExecutionProvider,
+            1,
+            DependencyEffect::ClaimCritical,
+            &[],
+        );
         revoked.currentness = EvidenceCurrentness::Revoked;
         let graph = graph(
             vec![
                 role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
-                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+                role(
+                    "independent",
+                    &["b"],
+                    &[FaultDomainDimension::ExecutionProvider],
+                ),
             ],
             vec![
                 revoked,
-                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
+                node(
+                    "b",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
             ],
         );
         assert_eq!(
