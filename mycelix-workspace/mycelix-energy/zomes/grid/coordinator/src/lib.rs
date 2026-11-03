@@ -252,11 +252,11 @@ pub fn get_active_offers(_: ()) -> ExternResult<Vec<Record>> {
 /// -- see e.g. `mycelix-finance/apps/leptos/src/pages/profile.rs`).
 const SAP_MICRO_UNITS_PER_UNIT: f64 = 1_000_000.0;
 
-/// Whether `currency` has a real settlement rail in this system --
-/// `payments::send_payment` only accepts "SAP" or "TEND". Pure and
-/// unit-testable (no HDK host calls), unlike `settle_via_finance` itself.
+/// Whether `currency` is supported by the Finance SAP direct-payment API.
+/// TEND uses its separate exchange protocol and is not a real rail through
+/// `payments::send_payment`. Pure and unit-testable.
 fn currency_has_real_settlement_rail(currency: &str) -> bool {
-    currency == "SAP" || currency == "TEND"
+    currency == "SAP"
 }
 
 /// Convert a whole-unit SAP/TEND amount (as stored in `Trade::total_price`)
@@ -284,7 +284,7 @@ fn whole_units_to_micro(whole_units: f64) -> u64 {
 /// payment), not a bug to route around.
 ///
 /// Returns `Some(payment_reference)` on a successful real payment, `None`
-/// if the currency isn't SAP/TEND or the finance cluster call fails --
+/// if the currency isn't SAP or the Finance cluster call fails --
 /// the caller falls back to the manual reference in either case.
 fn settle_via_finance(trade: &Trade) -> Option<String> {
     if !currency_has_real_settlement_rail(&trade.currency) {
@@ -1357,14 +1357,14 @@ mod tests {
     }
 
     // =========================================================================
-    // Real-settlement gating tests (currency_has_real_settlement_rail,
+    // SAP direct-payment rail gating tests (currency_has_real_settlement_rail,
     // whole_units_to_micro) -- pure helpers, no HDK host calls needed.
     // =========================================================================
 
     #[test]
-    fn test_sap_and_tend_have_real_settlement_rail() {
+    fn test_only_sap_has_finance_direct_payment_rail() {
         assert!(currency_has_real_settlement_rail("SAP"));
-        assert!(currency_has_real_settlement_rail("TEND"));
+        assert!(!currency_has_real_settlement_rail("TEND"));
     }
 
     #[test]
