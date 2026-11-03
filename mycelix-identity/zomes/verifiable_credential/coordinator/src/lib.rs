@@ -596,20 +596,17 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
     let mut errors = Vec::new();
     let mut checks_passed = vec!["format".to_string()];
 
-    // Check expiration using ISO 8601 parsing (fail-closed)
-    if let Some(valid_until) = &credential.valid_until {
-        match parse_iso8601_expired(valid_until, now) {
-            ExpirationStatus::Expired => {
-                errors.push("Credential has expired".to_string());
-            }
-            ExpirationStatus::ParseError => {
-                errors.push(format!(
-                    "Credential expiration date unparseable (fail-closed): '{}'",
-                    valid_until
-                ));
-            }
-            ExpirationStatus::Valid => {}
-        }
+    // Enforce the complete [validFrom, validUntil) interval. Signature
+    // coverage does not replace temporal validity checks.
+    let validity = credential_validity_status(
+        &credential.valid_from,
+        credential.valid_until.as_deref(),
+        now,
+    );
+    if let Some(reason) = validity.error_message() {
+        errors.push(reason.to_string());
+    } else {
+        checks_passed.push("validity_window".to_string());
     }
 
     // Only a fully verified proof can be used as successful credential evidence.
@@ -1174,20 +1171,15 @@ pub fn verify_presentation(
             }
         }
 
-        // Check expiration (fail-closed)
-        if let Some(valid_until) = &cred.valid_until {
-            match parse_iso8601_expired(valid_until, now) {
-                ExpirationStatus::Expired => {
-                    cred_errors.push("Credential expired".to_string());
-                }
-                ExpirationStatus::ParseError => {
-                    cred_errors.push(format!(
-                        "Credential expiration date unparseable (fail-closed): '{}'",
-                        valid_until
-                    ));
-                }
-                ExpirationStatus::Valid => {}
-            }
+        // Use the same half-open validity-window policy as standalone
+        // credential verification.
+        let validity = credential_validity_status(
+            &cred.valid_from,
+            cred.valid_until.as_deref(),
+            now,
+        );
+        if let Some(reason) = validity.error_message() {
+            cred_errors.push(reason.to_string());
         }
 
         let cred_valid = cred_errors.is_empty() && proof_signature_status.is_verified();
@@ -1579,6 +1571,17 @@ pub fn verify_derived_credential(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Invalid original credential".into()
         )))?;
+
+    // The original issuer credential must itself be inside its complete
+    // validity window; validFrom was previously signed but not enforced.
+    let original_validity = credential_validity_status(
+        &original_vc.valid_from,
+        original_vc.valid_until.as_deref(),
+        now,
+    );
+    if let Some(reason) = original_validity.error_message() {
+        errors.push(format!("Original credential validity: {reason}"));
+    }
 
     // Verify the original credential hash matches
     match compute_credential_hash_for_profile(&original_vc) {
