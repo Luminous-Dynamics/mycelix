@@ -15,6 +15,341 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Wire-format profile for the existing SAP ledger's micro-unit convention.
+/// This identifier defines representation only; it does not establish backing,
+/// custody, external settlement or legal currency status.
+pub const SAP_MICRO_MONEY_PROFILE_V1: &str = "mycelix.finance.instrument.sap.micro.v1";
+
+/// Exact, JSON-safe money amount envelope.
+///
+/// minor_units is a canonical unsigned decimal string, not a JSON number.
+/// Consumers MUST resolve instrument_profile_id through an explicitly
+/// admitted profile registry before interpreting the unit or scale.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MoneyAmountV1 {
+    pub instrument_profile_id: String,
+    pub minor_units: String,
+}
+
+/// Fail-closed validation errors for the MoneyAmountV1 wire envelope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MoneyAmountV1Error {
+    InvalidProfileId,
+    InvalidMinorUnits,
+    MinorUnitsOverflow,
+    ProfileMismatch,
+    AdditionOverflow,
+}
+
+impl MoneyAmountV1Error {
+    /// Stable, machine-readable error code shared by Rust and SDK conformance tests.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::InvalidProfileId => "InvalidProfileId",
+            Self::InvalidMinorUnits => "InvalidMinorUnits",
+            Self::MinorUnitsOverflow => "MinorUnitsOverflow",
+            Self::ProfileMismatch => "ProfileMismatch",
+            Self::AdditionOverflow => "AdditionOverflow",
+        }
+    }
+}
+
+impl MoneyAmountV1 {
+    /// Construct a MoneyAmountV1 after enforcing canonical wire syntax.
+    pub fn new(
+        instrument_profile_id: impl Into<String>,
+        minor_units: impl Into<String>,
+    ) -> Result<Self, MoneyAmountV1Error> {
+        let value = Self {
+            instrument_profile_id: instrument_profile_id.into(),
+            minor_units: minor_units.into(),
+        };
+        value.validate_syntax()?;
+        Ok(value)
+    }
+
+    /// Construct an SAP micro-unit amount under the v1 SAP profile.
+    pub fn sap_micro(minor_units: u64) -> Self {
+        Self {
+            instrument_profile_id: SAP_MICRO_MONEY_PROFILE_V1.to_string(),
+            minor_units: minor_units.to_string(),
+        }
+    }
+
+    /// Validate canonical syntax and u64 representability.
+    ///
+    /// This does not prove that the named profile is admitted by a caller.
+    /// Use require_profile at the instrument-specific authorization boundary.
+    pub fn validate_syntax(&self) -> Result<(), MoneyAmountV1Error> {
+        if !is_canonical_money_profile_id(&self.instrument_profile_id) {
+            return Err(MoneyAmountV1Error::InvalidProfileId);
+        }
+        parse_canonical_minor_units(&self.minor_units).map(|_| ())
+    }
+
+    /// Require the exact previously admitted instrument profile identifier.
+    pub fn require_profile(&self, expected: &str) -> Result<(), MoneyAmountV1Error> {
+        self.validate_syntax()?;
+        if self.instrument_profile_id != expected {
+            return Err(MoneyAmountV1Error::ProfileMismatch);
+        }
+        Ok(())
+    }
+
+    /// Parse the exact atomic-unit count. No float conversion or rounding occurs.
+    pub fn minor_units_u64(&self) -> Result<u64, MoneyAmountV1Error> {
+        self.validate_syntax()?;
+        parse_canonical_minor_units(&self.minor_units)
+    }
+
+    /// Add two amounts only when they use the same instrument profile.
+    pub fn checked_add(&self, other: &Self) -> Result<Self, MoneyAmountV1Error> {
+        self.validate_syntax()?;
+        other.validate_syntax()?;
+        if self.instrument_profile_id != other.instrument_profile_id {
+            return Err(MoneyAmountV1Error::ProfileMismatch);
+        }
+        let total = self
+            .minor_units_u64()?
+            .checked_add(other.minor_units_u64()?)
+            .ok_or(MoneyAmountV1Error::AdditionOverflow)?;
+        Ok(Self {
+            instrument_profile_id: self.instrument_profile_id.clone(),
+            minor_units: total.to_string(),
+        })
+    }
+
+    /// Zero is representable as a balance but must be rejected by positive
+    /// payment constructors.
+    pub fn is_positive(&self) -> Result<bool, MoneyAmountV1Error> {
+        Ok(self.minor_units_u64()? > 0)
+    }
+}
+
+fn is_canonical_money_profile_id(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let mut previous_separator = false;
+    for byte in value.bytes() {
+        let separator = matches!(byte, b'.' | b'-' | b'_');
+        if !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || separator) {
+            return false;
+        }
+        if separator && previous_separator {
+            return false;
+        }
+        previous_separator = separator;
+    }
+    value
+        .bytes()
+        .next()
+        .is_some_and(|first| first.is_ascii_lowercase() || first.is_ascii_digit())
+        && value
+            .bytes()
+            .last()
+            .is_some_and(|last| last.is_ascii_lowercase() || last.is_ascii_digit())
+}
+
+/// Parse only canonical non-negative base-10 integer strings.
+///
+/// Rejected forms include empty text, signs, whitespace, decimal points,
+/// exponents and leading zeros. The value must fit the current u64 Finance
+/// atomic-unit range. Wider ranges require an explicit new protocol version.
+fn parse_canonical_minor_units(value: &str) -> Result<u64, MoneyAmountV1Error> {
+    if value.is_empty()
+        || !value.bytes().all(|byte| byte.is_ascii_digit())
+        || (value.len() > 1 && value.starts_with('0'))
+    {
+        return Err(MoneyAmountV1Error::InvalidMinorUnits);
+    }
+    value
+        .parse::<u64>()
+        .map_err(|_| MoneyAmountV1Error::MinorUnitsOverflow)
+}
+
+#[cfg(test)]
+mod money_amount_v1_tests {
+    use super::*;
+
+    const GOLDEN: &str = include_str!("../../docs/money-amount-golden-v1.json");
+
+    #[test]
+    fn canonical_sap_micro_amount_round_trips_as_json_string() {
+        let amount = MoneyAmountV1::sap_micro(1_234_567);
+        assert_eq!(amount.minor_units, "1234567");
+        amount.require_profile(SAP_MICRO_MONEY_PROFILE_V1).unwrap();
+        assert_eq!(amount.minor_units_u64().unwrap(), 1_234_567);
+
+        let json = serde_json::to_string(&amount).unwrap();
+        assert!(json.contains(r#""minor_units":"1234567""#));
+        let parsed: MoneyAmountV1 = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, amount);
+    }
+
+    #[test]
+    fn maximum_u64_is_exact_and_overflow_is_rejected() {
+        let maximum =
+            MoneyAmountV1::new(SAP_MICRO_MONEY_PROFILE_V1, u64::MAX.to_string()).unwrap();
+        assert_eq!(maximum.minor_units_u64().unwrap(), u64::MAX);
+        assert_eq!(
+            MoneyAmountV1::new(SAP_MICRO_MONEY_PROFILE_V1, "18446744073709551616"),
+            Err(MoneyAmountV1Error::MinorUnitsOverflow)
+        );
+    }
+
+    #[test]
+    fn noncanonical_numeric_spellings_are_rejected() {
+        for invalid in ["", "00", "01", "+1", "-1", " 1", "1 ", "1.0", "1e6"] {
+            assert_eq!(
+                MoneyAmountV1::new(SAP_MICRO_MONEY_PROFILE_V1, invalid),
+                Err(MoneyAmountV1Error::InvalidMinorUnits),
+                "{invalid:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn instrument_profiles_cannot_be_added_or_silently_substituted() {
+        let sap = MoneyAmountV1::sap_micro(100);
+        let tend = MoneyAmountV1::new("mycelix.finance.instrument.tend.v1", "100").unwrap();
+        assert_eq!(
+            sap.checked_add(&tend),
+            Err(MoneyAmountV1Error::ProfileMismatch)
+        );
+        assert_eq!(
+            tend.require_profile(SAP_MICRO_MONEY_PROFILE_V1),
+            Err(MoneyAmountV1Error::ProfileMismatch)
+        );
+    }
+
+    #[test]
+    fn checked_add_is_exact_and_rejects_overflow() {
+        let a = MoneyAmountV1::sap_micro(u64::MAX - 1);
+        let b = MoneyAmountV1::sap_micro(1);
+        assert_eq!(a.checked_add(&b).unwrap().minor_units, u64::MAX.to_string());
+        let overflow = MoneyAmountV1::sap_micro(2);
+        assert_eq!(
+            a.checked_add(&overflow),
+            Err(MoneyAmountV1Error::AdditionOverflow)
+        );
+    }
+
+    #[test]
+    fn zero_is_representable_but_not_a_positive_payment() {
+        let zero = MoneyAmountV1::sap_micro(0);
+        assert!(!zero.is_positive().unwrap());
+        assert!(MoneyAmountV1::sap_micro(1).is_positive().unwrap());
+    }
+
+    #[test]
+    fn checked_in_positive_golden_vectors_match_parser() {
+        let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+        for vector in corpus["positive_vectors"].as_array().unwrap() {
+            let profile = vector["profile"].as_str().unwrap();
+            let minor_units = vector["minor_units"].as_str().unwrap();
+            let amount = MoneyAmountV1::new(profile, minor_units).unwrap();
+            assert_eq!(
+                amount.minor_units_u64().unwrap().to_string(),
+                vector["parsed_u64"].as_str().unwrap(),
+                "{}",
+                vector["id"]
+            );
+            assert_eq!(
+                amount.is_positive().unwrap(),
+                vector["positive"].as_bool().unwrap(),
+                "{}",
+                vector["id"]
+            );
+        }
+    }
+
+    #[test]
+    fn checked_in_negative_golden_vectors_match_error_codes() {
+        let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+        for vector in corpus["negative_vectors"].as_array().unwrap() {
+            let result = MoneyAmountV1::new(
+                vector["profile"].as_str().unwrap(),
+                vector["minor_units"].as_str().unwrap(),
+            );
+            assert_eq!(
+                result.unwrap_err().code(),
+                vector["expected"].as_str().unwrap(),
+                "{}",
+                vector["id"]
+            );
+        }
+    }
+
+    #[test]
+    fn checked_in_arithmetic_golden_vectors_match_checked_add() {
+        let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+        for vector in corpus["arithmetic_vectors"].as_array().unwrap() {
+            let left = MoneyAmountV1::new(
+                vector["left_profile"].as_str().unwrap(),
+                vector["left"].as_str().unwrap(),
+            )
+            .unwrap();
+            let right = MoneyAmountV1::new(
+                vector["right_profile"].as_str().unwrap(),
+                vector["right"].as_str().unwrap(),
+            )
+            .unwrap();
+            let result = left.checked_add(&right);
+            if let Some(expected) = vector.get("expected").and_then(serde_json::Value::as_str) {
+                assert_eq!(
+                    result.unwrap().minor_units,
+                    expected,
+                    "{}",
+                    vector["id"]
+                );
+            } else {
+                assert_eq!(
+                    result.unwrap_err().code(),
+                    vector["expected_error"].as_str().unwrap(),
+                    "{}",
+                    vector["id"]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn exact_json_roundtrip_matches_golden_wire_string() {
+        let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
+        let expected = corpus["exact_json_roundtrip"].as_str().unwrap();
+        let amount = MoneyAmountV1::new(
+            SAP_MICRO_MONEY_PROFILE_V1,
+            u64::MAX.to_string(),
+        )
+        .unwrap();
+        assert_eq!(serde_json::to_string(&amount).unwrap(), expected);
+    }
+
+    #[test]
+    fn unknown_json_fields_are_rejected() {
+        let json = r#"{"instrument_profile_id":"mycelix.finance.instrument.sap.micro.v1","minor_units":"1","amount":1}"#;
+        assert!(serde_json::from_str::<MoneyAmountV1>(json).is_err());
+    }
+
+    #[test]
+    fn profile_identifier_has_a_closed_canonical_alphabet() {
+        for invalid in ["SAP", " profile", "profile ", "profile/1", "a..b", "a__b"] {
+            assert_eq!(
+                MoneyAmountV1::new(invalid, "1"),
+                Err(MoneyAmountV1Error::InvalidProfileId)
+            );
+        }
+        let too_long = "x".repeat(129);
+        assert_eq!(
+            MoneyAmountV1::new(too_long, "1"),
+            Err(MoneyAmountV1Error::InvalidProfileId)
+        );
+    }
+}
+
+
 // =============================================================================
 // CURRENCIES
 // =============================================================================

@@ -74,6 +74,19 @@ export { TendClient } from './tend.js';
 export { HearthClient } from './hearth.js';
 export { StakingClient } from './staking.js';
 export { BridgeClient } from './bridge.js';
+export { SAP_MICRO_MONEY_PROFILE_V1 } from './types.js';
+export {
+  checkedAddMoneyAmountV1,
+  isPositiveMoneyAmountV1,
+  requireMoneyAmountProfileV1,
+  sapMicroMoneyAmountV1,
+  validateMoneyAmountV1,
+} from './money-amount.js';
+export type {
+  MoneyAmountV1BooleanResult,
+  MoneyAmountV1ErrorCode,
+  MoneyAmountV1Result,
+} from './money-amount.js';
 
 // =============================================================================
 // Barrel Exports - Types
@@ -84,6 +97,7 @@ export type {
   Timestamp,
   Did,
   Currency,
+  MoneyAmountV1,
 
   // Lending (deprecated)
   Loan,

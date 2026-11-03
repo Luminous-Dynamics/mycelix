@@ -11,6 +11,22 @@
 
 // ActionHash import removed (unused)
 
+/**
+ * Exact, JSON-safe money amount envelope.
+ *
+ * minor_units is a canonical unsigned decimal string, never a JavaScript
+ * number. Resolve instrument_profile_id through an admitted versioned
+ * instrument registry before interpreting its unit or scale.
+ */
+export interface MoneyAmountV1 {
+  instrument_profile_id: string;
+  minor_units: string;
+}
+
+/** Current internal SAP ledger representation profile (micro-SAP, 6 places). */
+export const SAP_MICRO_MONEY_PROFILE_V1 =
+  'mycelix.finance.instrument.sap.micro.v1' as const;
+
 // =============================================================================
 // Common Types
 // =============================================================================
