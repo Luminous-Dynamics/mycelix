@@ -414,8 +414,23 @@ fn run_self_tests(market: &Value, runs: &Value, market_schema: &str, runs_schema
     }
     count += 1;
 
+    let mut mutated = runs.clone();
+    mutated["runs"][2]["metrics"]["unexplained_reconciliation_deltas"] = json!(1);
+    if pareto_result(&mutated["runs"][2], baseline) != ParetoResult::CandidateDisqualified {
+        return Err("candidate reconciliation mutation was not disqualified".into());
+    }
+    count += 1;
+
+    let mut mutated = runs.clone();
+    mutated["runs"][2]["metrics"]["essential_service_denials_for_unrelated_consent_refusal"] = json!(1);
+    if pareto_result(&mutated["runs"][2], baseline) != ParetoResult::CandidateDisqualified {
+        return Err("candidate unrelated-consent denial mutation was not disqualified".into());
+    }
+    count += 1;
+
     let mut changed_cohort = runs.clone();
-    changed_cohort["cohort"]["task_corpus_digest"] = json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    changed_cohort["cohort"]["task_corpus_digest"] =
+        json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     if changed_cohort["cohort"] == runs["cohort"] {
         return Err("cohort digest mutation did not change cohort identity".into());
     }
