@@ -26,19 +26,22 @@ A run is disqualified from performance comparison if any of these are non-zero:
 
 Hard gates are never averaged against latency, price or task completion.
 
+See STUDY_PROTOCOL_V1.md for the study estimand, frozen-cohort contract, fee accounting, event definitions, inclusion measures, statistical analysis, and claim ceiling.
+
 ## Multi-dimensional comparison
 
 A matched candidate is evaluated on:
 - recipient-available completion rate;
 - all-in cost per completed delivery (exact integer numerator/denominator);
-- p95 initiation-to-recipient-available time;
+- p50/p95/p99 initiation-to-recipient-available time, with Wilson 95% intervals for binomial completion/task-success rates;
+- exact all-in cost reconciliation across payer fees, merchant fees, FX spread, cash-out, returns/disputes and provider/network costs;
 - terminal failure, unknown-outcome and return/reversal rates;
 - matched task/user and eligible-merchant denominators (all providers must use exactly the same cohort);
 - operator minutes per 1,000 attempts;
 - user task success; and
 - active merchant coverage in the eligible study cohort.
 
-The evaluator uses Pareto dominance rather than a weighted scalar score. If a candidate is cheaper but materially worse on task completion, latency, usability or operator effort, the result is trade-off/incomparable rather than a claimed win.
+The evaluator validates monotonic latency quantiles and exact fee-component sums, then uses Pareto dominance rather than a weighted scalar score. The synthetic fixture intentionally demonstrates a trade-off rather than assuming the candidate wins. If a candidate is cheaper but materially worse on task completion, latency, usability or operator effort, the result is trade-off/incomparable rather than a claimed win.
 
 ## Market context
 
