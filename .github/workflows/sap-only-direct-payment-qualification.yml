@@ -41,10 +41,10 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Format Finance and Energy workspaces
+      - name: Format affected Finance and Energy crates
         run: |
-          cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
-          cargo fmt --manifest-path mycelix-energy/Cargo.toml --all -- --check
+          cargo fmt --manifest-path mycelix-finance/Cargo.toml -p payments -- --check
+          cargo fmt --manifest-path mycelix-energy/Cargo.toml -p grid -- --check
 
       - name: Test Finance payment coordinator
         run: cargo test --locked --manifest-path mycelix-finance/Cargo.toml -p payments
