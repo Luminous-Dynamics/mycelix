@@ -896,47 +896,23 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         now.as_micros()
     );
 
-    // Create presentation proof with real ed25519 signature
-    // Hash the presentation content for signing
-    let mut presentation_data = presentation_id.as_bytes().to_vec();
-    presentation_data.extend(holder_did.as_bytes());
-    for cred in &credentials {
-        presentation_data.extend(cred.id.as_bytes());
-    }
-    if let Some(challenge) = &input.challenge {
-        presentation_data.extend(challenge.as_bytes());
-    }
-    if let Some(domain) = &input.domain {
-        presentation_data.extend(domain.as_bytes());
-    }
-
-    // Sign with agent's ed25519 key
-    let signature = sign_raw(agent_info.agent_initial_pubkey.clone(), presentation_data)?;
-    let tagged_sig = TaggedSignature::new(AlgorithmId::Ed25519, signature.as_ref().to_vec())
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Signature tagging error: {}",
-                e
-            )))
-        })?;
-
+    // Build the presentation first with an empty proofValue. Mycelix V1
+    // signs the canonicalized complete presentation (including embedded
+    // credentials and all holder proof metadata), excluding only proofValue.
     let proof = CredentialProof {
-        proof_type: "MycelixCredentialProof".to_string(),
-        created: now_iso.clone(),
+        proof_type: "MycelixPresentationProof".to_string(),
+        created: now_iso,
         verification_method: format!("{}#keys-1", holder_did),
         proof_purpose: "authentication".to_string(),
-        proof_value: tagged_sig.to_multibase(),
-        cryptosuite: Some(AlgorithmId::Ed25519.cryptosuite().to_string()),
+        proof_value: String::new(),
+        cryptosuite: Some(PRESENTATION_HASH_PROFILE_V1.to_string()),
         algorithm: Some(AlgorithmId::Ed25519.as_u16()),
         challenge: input.challenge.clone(),
         domain: input.domain.clone(),
     };
 
-    let vp = VerifiablePresentation {
-        context: vec![
-            W3C_CREDENTIALS_V2.to_string(),
-            W3C_DATA_INTEGRITY.to_string(),
-        ],
+    let mut vp = VerifiablePresentation {
+        context: vec![W3C_CREDENTIALS_V2.to_string()],
         id: presentation_id,
         presentation_type: vec!["VerifiablePresentation".to_string()],
         holder: holder_did.clone(),
@@ -944,6 +920,20 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         proof,
         mycelix_created: now,
     };
+
+    let presentation_hash = compute_presentation_hash_v1(&vp)?;
+    let signature = sign_raw(agent_info.agent_initial_pubkey.clone(), presentation_hash)?;
+    let tagged_signature = TaggedSignature::new(
+        AlgorithmId::Ed25519,
+        signature.as_ref().to_vec(),
+    )
+    .map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation signature tagging error: {}",
+            error
+        )))
+    })?;
+    vp.proof.proof_value = tagged_signature.to_multibase();
 
     let action_hash = create_entry(&EntryTypes::VerifiablePresentation(vp))?;
 
