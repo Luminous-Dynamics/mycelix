@@ -110,6 +110,7 @@
         "recipient_available",
         "terminal_failures",
         "unknown_outcomes",
+        "not_dispatched_or_cancelled",
         "returned_or_reversed",
         "duplicate_effects",
         "false_finality_promotions",
@@ -131,7 +132,10 @@
         "provider_network_cost_minor_units",
         "p50_initiation_to_available_ms",
         "p95_initiation_to_available_ms",
-        "p99_initiation_to_available_ms"
+        "p99_initiation_to_available_ms",
+        "delivery_latency_population",
+        "delivery_latency_observations",
+        "delivery_latency_missing"
       ],
       "properties": {
         "eligible_attempts": {
@@ -147,6 +151,10 @@
           "minimum": 0
         },
         "unknown_outcomes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_dispatched_or_cancelled": {
           "type": "integer",
           "minimum": 0
         },
@@ -235,6 +243,17 @@
           "minimum": 0
         },
         "p99_initiation_to_available_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delivery_latency_population": {
+          "const": "recipient_available_only"
+        },
+        "delivery_latency_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delivery_latency_missing": {
           "type": "integer",
           "minimum": 0
         }
