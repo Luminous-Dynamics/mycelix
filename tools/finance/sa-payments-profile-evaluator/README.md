@@ -7,6 +7,7 @@ A standalone Rust reference evaluator for the Mycelix South African payments int
 From the repository root:
 
 ```sh
+cargo clippy --manifest-path tools/finance/sa-payments-profile-evaluator/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path tools/finance/sa-payments-profile-evaluator/Cargo.toml
 cargo run --manifest-path tools/finance/sa-payments-profile-evaluator/Cargo.toml -- --self-test
 ```
