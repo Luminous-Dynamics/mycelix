@@ -106,7 +106,7 @@ pub struct CredentialStatus {
 /// Cryptographic proof
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct CredentialProof {
-    /// Proof type (Ed25519Signature2020, DataIntegrityProof, etc.)
+    /// Proof type (for example W3C DataIntegrityProof or internal MycelixCredentialProof).
     #[serde(rename = "type")]
     pub proof_type: String,
     /// When the proof was created (ISO 8601)
