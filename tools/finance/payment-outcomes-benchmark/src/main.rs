@@ -203,21 +203,46 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         baseline_merchants,
         baseline_merchant_denominator,
     );
+    let unknown_outcome_rate = cmp_fraction(
+        u64_field(candidate_metrics, "unknown_outcomes")?,
+        candidate_attempts,
+        u64_field(baseline_metrics, "unknown_outcomes")?,
+        baseline_attempts,
+    );
+    let terminal_failure_rate = cmp_fraction(
+        u64_field(candidate_metrics, "terminal_failures")?,
+        candidate_attempts,
+        u64_field(baseline_metrics, "terminal_failures")?,
+        baseline_attempts,
+    );
+    let return_rate = cmp_fraction(
+        u64_field(candidate_metrics, "returned_or_reversed")?,
+        candidate_success,
+        u64_field(baseline_metrics, "returned_or_reversed")?,
+        baseline_success,
+    );
 
-    // Ordering: Less means a desirable improvement for cost/latency/operations,
-    // Greater means desirable improvement for completion/usability/merchant reach.
+    // Lower is better for cost, latency, operator burden, unknowns, failures
+    // and returns; higher is better for successful delivery, user task success
+    // and reachable merchants. A trade-off is not represented as a win.
     let not_worse = completion != Ordering::Less
         && cost != Ordering::Greater
         && latency != Ordering::Greater
         && operator != Ordering::Greater
         && usability != Ordering::Less
-        && merchant_coverage != Ordering::Less;
+        && merchant_coverage != Ordering::Less
+        && unknown_outcome_rate != Ordering::Greater
+        && terminal_failure_rate != Ordering::Greater
+        && return_rate != Ordering::Greater;
     let strictly_better = completion == Ordering::Greater
         || cost == Ordering::Less
         || latency == Ordering::Less
         || operator == Ordering::Less
         || usability == Ordering::Greater
-        || merchant_coverage == Ordering::Greater;
+        || merchant_coverage == Ordering::Greater
+        || unknown_outcome_rate == Ordering::Less
+        || terminal_failure_rate == Ordering::Less
+        || return_rate == Ordering::Less;
     Some(not_worse && strictly_better)
 }
 
@@ -252,7 +277,17 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
     let run_list = runs["runs"]
         .as_array()
         .ok_or_else(|| "runs: missing array".to_string())?;
+    let candidate_count = run_list
+        .iter()
+        .filter(|run| string_field(run, "provider_class") == Some("mycelix_candidate"))
+        .count();
+    let baseline_count = run_list.len().saturating_sub(candidate_count);
+    if candidate_count != 1 || baseline_count == 0 {
+        return Err("matched runs require exactly one candidate and at least one baseline".into());
+    }
+
     let mut ids = std::collections::BTreeSet::new();
+    let mut common_denominators: Option<(u64, u64, u64)> = None;
     for (index, run) in run_list.iter().enumerate() {
         let id = string_field(run, "run_id")
             .ok_or_else(|| format!("runs[{index}]: missing run_id"))?;
@@ -281,6 +316,17 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
         if string_field(metrics, "cost_currency") != string_field(cohort, "currency") {
             return Err(format!("runs[{index}]: cost currency differs from cohort currency"));
         }
+        let denominators = (
+            attempts,
+            user_attempts,
+            merchant_eligible,
+        );
+        if common_denominators.is_some_and(|expected| expected != denominators) {
+            return Err(format!(
+                "runs[{index}]: task-attempt and eligible-merchant denominators differ from the matched cohort"
+            ));
+        }
+        common_denominators = Some(denominators);
     }
 
     let baselines: Vec<&Value> = run_list
@@ -498,12 +544,31 @@ mod tests {
     }
 
     #[test]
+    fn worse_unknown_outcome_rate_prevents_candidate_dominance() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        let mut candidate = runs["runs"][2].clone();
+        candidate["metrics"]["unknown_outcomes"] = json!(16);
+        assert_eq!(
+            pareto_result(&candidate, &runs["runs"][0]),
+            ParetoResult::TradeoffOrIncomparable
+        );
+    }
+
+    #[test]
+    fn changed_task_denominator_rejects_matched_run_set() {
+        let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
+        let mut changed = runs.clone();
+        changed["runs"][2]["metrics"]["eligible_attempts"] = json!(1999);
+        assert!(matched_run_report(&changed).is_err());
+    }
+
+    #[test]
     fn run_self_test_campaign_passes() {
         let market: Value = serde_json::from_str(MARKET_DEFAULT).expect("market JSON");
         let runs: Value = serde_json::from_str(RUNS_DEFAULT).expect("run JSON");
         assert_eq!(
             run_self_tests(&market, &runs, MARKET_SCHEMA, RUNS_SCHEMA).expect("self tests"),
-            8
+            10
         );
     }
 }
