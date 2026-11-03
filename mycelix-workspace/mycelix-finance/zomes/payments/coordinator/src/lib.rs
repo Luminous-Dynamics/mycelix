@@ -16,10 +16,10 @@ use mycelix_finance_shared::{
 use mycelix_finance_types::{
     AMBER_CUSTODIAL_CAP_MICRO_SAP, AMBER_MAX_CAP_MICRO_SAP, AmberClass, AmberExemption,
     COMPOST_LOCAL_PCT, COMPOST_MAX_RETRIES, COMPOST_REGIONAL_PCT, CompostPoolTier,
-    DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, FeeTier, PaymentReceiptSigningDataV1, PendingCompost,
-    PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX, SAP_MINT_ANNUAL_MAX,
-    SAP_MINT_PER_PROPOSAL_MAX, SapMintCapCounter, SapMintSource, SuccessionPreference,
-    compute_demurrage_deduction, compute_demurrage_with_exemption,
+    DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, FeeTier, PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+    PaymentReceiptSigningDataV1, PendingCompost, SAP_MINT_ANNUAL_MAX, SAP_MINT_PER_PROPOSAL_MAX,
+    SapMintCapCounter, SapMintSource, SuccessionPreference, compute_demurrage_deduction,
+    compute_demurrage_with_exemption,
 };
 use payments_integrity::*;
 
