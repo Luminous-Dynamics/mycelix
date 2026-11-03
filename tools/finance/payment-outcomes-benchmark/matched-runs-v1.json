@@ -39,7 +39,15 @@
         "user_task_attempts": 2000,
         "user_task_successes": 1870,
         "active_merchants_in_cohort": 400,
-        "eligible_merchants_in_cohort": 500
+        "eligible_merchants_in_cohort": 500,
+        "payer_fee_minor_units": 85000,
+        "merchant_fee_minor_units": 68000,
+        "fx_cost_minor_units": 0,
+        "cashout_fee_minor_units": 24000,
+        "returns_disputes_cost_minor_units": 6000,
+        "provider_network_cost_minor_units": 10000,
+        "p50_initiation_to_available_ms": 2800,
+        "p99_initiation_to_available_ms": 18000
       }
     },
     {
@@ -64,18 +72,26 @@
         "user_task_attempts": 2000,
         "user_task_successes": 1900,
         "active_merchants_in_cohort": 420,
-        "eligible_merchants_in_cohort": 500
+        "eligible_merchants_in_cohort": 500,
+        "payer_fee_minor_units": 75000,
+        "merchant_fee_minor_units": 64000,
+        "fx_cost_minor_units": 0,
+        "cashout_fee_minor_units": 21000,
+        "returns_disputes_cost_minor_units": 5500,
+        "provider_network_cost_minor_units": 10000,
+        "p50_initiation_to_available_ms": 2100,
+        "p99_initiation_to_available_ms": 14200
       }
     },
     {
       "run_id": "MYCELIX-REFERENCE-SYNTHETIC",
       "provider_class": "mycelix_candidate",
-      "label": "Mycelix evidence-qualified candidate (synthetic illustration; not a measurement)",
+      "label": "Experimental candidate design (synthetic illustration; not a measurement)",
       "metrics": {
         "eligible_attempts": 2000,
         "recipient_available": 1960,
         "terminal_failures": 25,
-        "unknown_outcomes": 8,
+        "unknown_outcomes": 16,
         "returned_or_reversed": 9,
         "duplicate_effects": 0,
         "false_finality_promotions": 0,
@@ -89,7 +105,15 @@
         "user_task_attempts": 2000,
         "user_task_successes": 1930,
         "active_merchants_in_cohort": 430,
-        "eligible_merchants_in_cohort": 500
+        "eligible_merchants_in_cohort": 500,
+        "payer_fee_minor_units": 70000,
+        "merchant_fee_minor_units": 60000,
+        "fx_cost_minor_units": 0,
+        "cashout_fee_minor_units": 19000,
+        "returns_disputes_cost_minor_units": 5720,
+        "provider_network_cost_minor_units": 6000,
+        "p50_initiation_to_available_ms": 1900,
+        "p99_initiation_to_available_ms": 16500
       }
     }
   ]
