@@ -32,7 +32,7 @@
         "unexplained_reconciliation_deltas": 0,
         "unauthorised_secondary_data_uses": 0,
         "essential_service_denials_for_unrelated_consent_refusal": 0,
-        "total_all_in_cost_minor_units": 193000,
+        "total_all_in_cost_minor_units": 196000,
         "cost_currency": "ZAR",
         "p95_initiation_to_available_ms": 8200,
         "operator_minutes_per_1000_attempts": 145,
@@ -51,7 +51,15 @@
         "not_dispatched_or_cancelled": 20,
         "delivery_latency_population": "recipient_available_only",
         "delivery_latency_observations": 1930,
-        "delivery_latency_missing": 0
+        "delivery_latency_missing": 0,
+        "recipient_fee_minor_units": 2500,
+        "recipient_tax_minor_units": 0,
+        "recipient_other_deduction_minor_units": 500,
+        "recipient_unclassified_deduction_minor_units": 0,
+        "recipient_total_deductions_minor_units": 3000,
+        "recipient_deduction_amount_unknown_instructions": 0,
+        "recipient_gross_available_value_minor_units": 48250000,
+        "recipient_net_available_value_minor_units": 48247000
       }
     },
     {
@@ -69,7 +77,7 @@
         "unexplained_reconciliation_deltas": 0,
         "unauthorised_secondary_data_uses": 0,
         "essential_service_denials_for_unrelated_consent_refusal": 0,
-        "total_all_in_cost_minor_units": 175500,
+        "total_all_in_cost_minor_units": 176500,
         "cost_currency": "ZAR",
         "p95_initiation_to_available_ms": 6100,
         "operator_minutes_per_1000_attempts": 110,
@@ -88,7 +96,15 @@
         "not_dispatched_or_cancelled": 10,
         "delivery_latency_population": "recipient_available_only",
         "delivery_latency_observations": 1950,
-        "delivery_latency_missing": 0
+        "delivery_latency_missing": 0,
+        "recipient_fee_minor_units": 1000,
+        "recipient_tax_minor_units": 0,
+        "recipient_other_deduction_minor_units": 0,
+        "recipient_unclassified_deduction_minor_units": 0,
+        "recipient_total_deductions_minor_units": 1000,
+        "recipient_deduction_amount_unknown_instructions": 0,
+        "recipient_gross_available_value_minor_units": 48750000,
+        "recipient_net_available_value_minor_units": 48749000
       }
     },
     {
@@ -106,7 +122,7 @@
         "unexplained_reconciliation_deltas": 0,
         "unauthorised_secondary_data_uses": 0,
         "essential_service_denials_for_unrelated_consent_refusal": 0,
-        "total_all_in_cost_minor_units": 160720,
+        "total_all_in_cost_minor_units": 172720,
         "cost_currency": "ZAR",
         "p95_initiation_to_available_ms": 5900,
         "operator_minutes_per_1000_attempts": 90,
@@ -125,7 +141,15 @@
         "not_dispatched_or_cancelled": 7,
         "delivery_latency_population": "recipient_available_only",
         "delivery_latency_observations": 1960,
-        "delivery_latency_missing": 0
+        "delivery_latency_missing": 0,
+        "recipient_fee_minor_units": 9000,
+        "recipient_tax_minor_units": 500,
+        "recipient_other_deduction_minor_units": 2500,
+        "recipient_unclassified_deduction_minor_units": 0,
+        "recipient_total_deductions_minor_units": 12000,
+        "recipient_deduction_amount_unknown_instructions": 0,
+        "recipient_gross_available_value_minor_units": 49000000,
+        "recipient_net_available_value_minor_units": 48988000
       }
     }
   ]

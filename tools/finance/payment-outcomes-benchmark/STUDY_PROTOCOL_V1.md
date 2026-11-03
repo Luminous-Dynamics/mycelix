@@ -83,18 +83,27 @@ Publish both counts beside the quantiles. Missing timestamps among delivered ins
 
 A population-wide time-to-availability analysis is a separate estimator and must define the study horizon, event-time origin, right-censoring rules for unresolved/pending instructions, and terminal failure as a competing event. Aalen–Johansen cumulative incidence is a candidate estimator for the probability of recipient availability by time in the presence of competing terminal outcomes; pre-register estimator, variance/interval method, missingness treatment and sensitivity analyses before a live study. Do not use a naïve Kaplan–Meier estimate that treats terminal failures as ordinary non-informative censoring. Use monotonic clock measurements within each instrumented component and retain clock synchronisation/error bounds when correlating systems. A provider response time is not end-to-end recipient availability. Do not infer settlement from a low latency percentile.
 
-### All-in cost
+### All-in cost and incidence
 
-For each eligible instruction, preserve integer minor units and the currency. All-in cost must reconcile exactly to the sum of:
+For each matched run, preserve integer minor units and currency. All-in cost must reconcile exactly to the sum of:
 
 - payer fees;
+- recipient-side fees, taxes, other deductions and any known-but-unclassified recipient deductions;
 - merchant/acquirer fees;
 - FX spread/conversion cost using a declared reference rate and observation time;
 - cash-out/withdrawal cost;
 - return, reversal and dispute costs; and
 - provider/network cost allocated under a pre-registered accounting rule.
 
-Report both total cost and cost per recipient-available delivery. Do not report zero-cost to a payer while shifting the expense to merchants, agents, subsidies or public infrastructure. Keep operator minutes per 1,000 instructions separately; where labour cost is monetised, state the wage/overhead allocation and prevent double counting with provider/network costs.
+Recipient deductions must separately report their known fee, tax, other and unclassified components, the known total, and the number of delivered instructions whose recipient deduction amount is unknown. Require exact component reconciliation. Where every amount is known, require:
+
+`gross recipient-available value = net recipient-available value + recipient deductions`
+
+When any deduction amount is unknown, net recipient-available value must be null and cost attribution is unqualified. A known but unclassified deduction remains visible, is included in the known total, and also makes cost attribution unqualified. Do not turn missing or unclassified deductions into zero. Gross and net values describe the amount at first recipient availability; later returns and reversals remain linked successor events and do not rewrite the original delivery-value observation.
+
+Report exact cost per recipient-available delivery and cost as basis points of gross recipient-available value. The latter is represented as an exact numerator/denominator with a 10,000 basis-point scale; do not round or use binary floating point for the money calculation. A zero gross-value denominator makes the ratio unavailable, not zero.
+
+Keep payer, recipient and merchant burdens as separate Pareto dimensions. A lower payer fee is not a cost win if it is achieved by shifting burden to recipients or merchants. Report fee schedules separately from transaction-level charged amounts and from total system resource cost. Do not report zero-cost to a payer while shifting expense to merchants, agents, subsidies or public infrastructure. Keep operator minutes per 1,000 instructions separately; where labour cost is monetised, state the wage/overhead allocation and prevent double counting with provider/network costs.
 
 ### Inclusion and user outcomes
 
@@ -133,7 +142,7 @@ A candidate is disqualified from a conformance comparison if any seeded control 
 
 Do not combine these safety invariants into a score. A lower latency or lower fee cannot compensate for an unsafe effect or privacy violation.
 
-After gate qualification, compare cost per delivered payment, completion, unknown/failure/return rates, p50/p95/p99, operator effort, user task success and merchant coverage using Pareto dominance. Report a trade-off where one metric improves while another worsens. A weighted composite may be provided only as a secondary sensitivity view with disclosed weights; it never overrides a failed hard gate.
+After gate qualification, compare all-in cost per delivered payment, cost basis points of gross delivered value, payer/recipient/merchant burden incidence, completion, unknown/failure/return rates, p50/p95/p99, operator effort, user task success and merchant coverage using Pareto dominance. Cost comparisons are unavailable whenever recipient deduction attribution is incomplete or unclassified. Report a trade-off where one metric improves while another worsens. A weighted composite may be provided only as a secondary sensitivity view with disclosed weights; it never overrides a failed hard gate.
 
 ## 6. Industry context versus matched comparison
 

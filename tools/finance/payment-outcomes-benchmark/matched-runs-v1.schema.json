@@ -125,6 +125,14 @@
         "active_merchants_in_cohort",
         "eligible_merchants_in_cohort",
         "payer_fee_minor_units",
+        "recipient_net_available_value_minor_units",
+        "recipient_gross_available_value_minor_units",
+        "recipient_deduction_amount_unknown_instructions",
+        "recipient_total_deductions_minor_units",
+        "recipient_unclassified_deduction_minor_units",
+        "recipient_other_deduction_minor_units",
+        "recipient_tax_minor_units",
+        "recipient_fee_minor_units",
         "merchant_fee_minor_units",
         "fx_cost_minor_units",
         "cashout_fee_minor_units",
@@ -216,6 +224,41 @@
         },
         "payer_fee_minor_units": {
           "type": "integer",
+          "minimum": 0
+        },
+        "recipient_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recipient_tax_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recipient_other_deduction_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recipient_unclassified_deduction_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recipient_total_deductions_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recipient_deduction_amount_unknown_instructions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recipient_gross_available_value_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recipient_net_available_value_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "merchant_fee_minor_units": {
