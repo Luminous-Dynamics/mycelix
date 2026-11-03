@@ -180,6 +180,13 @@ fn validate_consent(consent: &ConsentGrant) -> ExternResult<ValidateCallbackResu
             "ConsentGrant must have <= 20 record_types".into(),
         ));
     }
+    if let Some(expires_at) = &consent.expires_at {
+        if expires_at.as_micros() <= consent.created_at.as_micros() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "ConsentGrant expires_at must be later than created_at".into(),
+            ));
+        }
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -348,6 +355,24 @@ mod tests {
             ValidateCallbackResult::Invalid(msg) => assert!(msg.contains("20")),
             other => panic!("expected Invalid, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn consent_expiry_must_follow_creation() {
+        let mut consent = make_consent();
+        consent.expires_at = Some(Timestamp::from_micros(0));
+        match validate_consent(&consent).unwrap() {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("later than created_at"));
+            }
+            other => panic!("expected Invalid, got {:?}", other),
+        }
+
+        consent.expires_at = Some(Timestamp::from_micros(1));
+        assert!(matches!(
+            validate_consent(&consent).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
     }
 
     // ── Serde roundtrips ────────────────────────────────────────────
