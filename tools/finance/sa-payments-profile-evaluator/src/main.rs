@@ -274,6 +274,13 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
         }
     }
 
+    if allocations.len() != 3 {
+        result.errors.push(format!(
+            "function_allocation: expected exactly 3 source-backed PSMB allocation records, found {}",
+            allocations.len()
+        ));
+    }
+
     for (index, allocation) in allocations.iter().enumerate() {
         let Some(effective_on) = string_at(allocation, "effective_on") else {
             result.errors.push(format!("function_allocation[{index}]: missing effective_on"));
@@ -295,6 +302,90 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
                 ));
             }
         }
+
+        let expected = match string_at(allocation, "id") {
+            Some("ZA-PSMB-SARB-REGULATORY-FUNCTIONS") => Some((
+                "South African Reserve Bank (SARB)",
+                "2026-08-11",
+                &["Rules and standards for the national payment system",
+                  "Licensing, authorising and registering NPS payment institutions"][..],
+            )),
+            Some("ZA-PSMB-SARB-PCH-ALLOCATION") => Some((
+                "South African Reserve Bank (SARB)",
+                "2026-08-11",
+                &["Card payment clearing-house allocation",
+                  "Immediate settlement",
+                  "Cash settlement",
+                  "Equities, bonds, derivatives and money-market PCH allocation"][..],
+            )),
+            Some("ZA-PSMB-PAYINC-PCH-ALLOCATION") => Some((
+                "PayInc",
+                "2026-09-02",
+                &["EFT credit",
+                  "EFT debit",
+                  "Authenticated Collections",
+                  "PayShap (Rapid Payments)",
+                  "Registered Mandate",
+                  "Real-time clearing (RTC)"][..],
+            )),
+            _ => None,
+        };
+
+        match expected {
+            Some((organisation, expected_date, functions)) => {
+                if string_at(allocation, "organisation") != Some(organisation)
+                    || effective_on != expected_date
+                {
+                    result.errors.push(format!(
+                        "function_allocation[{index}]: organisation/effective date contradicts the reviewed PSMB transfer profile"
+                    ));
+                }
+                let actual: BTreeSet<&str> = array_at(allocation, "functions")
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .collect();
+                for function in functions {
+                    if !actual.contains(function) {
+                        result.errors.push(format!(
+                            "function_allocation[{index}]: missing required function allocation {function}"
+                        ));
+                    }
+                }
+            }
+            None => result.errors.push(format!(
+                "function_allocation[{index}]: unknown allocation id; evaluator policy update required"
+            )),
+        }
+    }
+
+    // Freeze target windows as source observations, not as live operational rules.
+    let milestone_expectations = [
+        ("SA-MILESTONE-002", "announced_target", "2026-11-30", "by_end_of_november_2026"),
+        ("SA-MILESTONE-003", "announced_target", "2027-03-31", "Q1_2027"),
+        ("SA-MILESTONE-004", "announced_target", "2027-03-31", "by_end_of_march_2027"),
+        ("SA-MILESTONE-005", "announced_target", "2027-04-30", "late_april_2027"),
+        ("SA-MILESTONE-006", "announced_target", "2027-10-31", "october_2027"),
+    ];
+    for (id, status, target_end, target_window) in milestone_expectations {
+        match milestones.iter().find(|milestone| string_at(milestone, "id") == Some(id)) {
+            Some(milestone)
+                if string_at(milestone, "status") == Some(status)
+                    && string_at(milestone, "target_end") == Some(target_end)
+                    && string_at(milestone, "target_window") == Some(target_window) => {}
+            _ => result.errors.push(format!(
+                "milestones: {id} no longer matches the source-dated announced target; reviewed profile update required"
+            )),
+        }
+    }
+    match milestones.iter().find(|milestone| string_at(milestone, "id") == Some("SA-MILESTONE-001")) {
+        Some(milestone)
+            if string_at(milestone, "status") == Some("completed_at_source")
+                && string_at(milestone, "effective_from") == Some("2026-08-11")
+                && string_at(milestone, "effective_by") == Some("2026-09-02") => {}
+        _ => result.errors.push(
+            "milestones: completed PSMB handover dates must remain source-bound".into()
+        ),
     }
 
     for (index, milestone) in milestones.iter().enumerate() {
@@ -554,6 +645,28 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_expect_failure("PSMB function misallocated to the wrong institution", corpus, schema, |value| {
+        let allocation = value["function_allocation"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|allocation| string_at(allocation, "id") == Some("ZA-PSMB-PAYINC-PCH-ALLOCATION"))
+            .unwrap();
+        allocation["organisation"] = json!("South African Reserve Bank (SARB)");
+    })?;
+    count += 1;
+
+    mutate_and_expect_failure("announced QR+ target date silently moved", corpus, schema, |value| {
+        let milestone = value["milestones"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|milestone| string_at(milestone, "id") == Some("SA-MILESTONE-003"))
+            .unwrap();
+        milestone["target_end"] = json!("2026-11-30");
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -627,7 +740,7 @@ mod tests {
     fn adversarial_mutations_are_rejected() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("parse corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("parse schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 10);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 12);
     }
 
     #[test]
