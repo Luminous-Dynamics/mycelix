@@ -837,8 +837,7 @@ mod tests {
     ) -> MultiDependencyAuditReport {
         let mut bindings = expected_bindings();
         bindings.max_candidate_extensions = budget;
-        audit_multi_dependency_graph(graph, policy, &bindings)
-            .expect("valid graph structure")
+        audit_multi_dependency_graph(graph, policy, &bindings).expect("valid graph structure")
     }
 
     #[test]
