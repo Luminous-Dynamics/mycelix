@@ -7,7 +7,9 @@
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 pub use mycelix_finance_types::{
-    AMBER_MAX_CAP_MICRO_SAP, AmberExemption, SapMintCapCounter, SapMintSource, SuccessionPreference,
+    AMBER_MAX_CAP_MICRO_SAP, AmberExemption, PaymentReceiptSigningDataV1, SapMintCapCounter,
+    SapMintSource, SuccessionPreference, PAYMENT_RECEIPT_V1_DOMAIN,
+    PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
 };
 
 // =============================================================================
@@ -22,8 +24,8 @@ pub const SAP_STEWARD_MIN_FEE_DIVISOR: u64 = 10_000;
 const MAX_DID_LEN: usize = 256;
 const MAX_MEMO_LEN: usize = 1024;
 const MAX_ID_LEN: usize = 256;
-/// Maximum length for receipt signatures (hex-encoded Ed25519 = 128 chars, with margin)
-const MAX_SIGNATURE_LEN: usize = 256;
+/// Exact v1 receipt signature length: profile prefix plus lowercase 128-char hex Ed25519.
+const MAX_SIGNATURE_LEN: usize = 160;
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -104,8 +106,19 @@ pub struct Receipt {
     pub from_did: String,
     pub to_did: String,
     pub amount: u64,
+    /// Fee charged by the exact Payment entry, in the same atomic unit.
+    #[serde(default)]
+    pub fee: u64,
     pub currency: String,
     pub timestamp: Timestamp,
+    /// Exact Payment create action authenticated by this receipt.
+    ///
+    /// Optional only so older serialized receipts remain decodable. A receipt
+    /// without this reference is legacy/unqualified and cannot validate as v1.
+    #[serde(default)]
+    pub payment_action_hash: Option<ActionHash>,
+    /// Versioned profile prefix followed by exactly 64 Ed25519 signature bytes
+    /// encoded as 128 lowercase hexadecimal characters.
     pub signature: String,
 }
 
@@ -619,84 +632,165 @@ fn validate_update_payment_channel(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_receipt(
-    _action: EntryCreationAction,
-    receipt: Receipt,
-) -> ExternResult<ValidateCallbackResult> {
-    // String length checks — prevent DHT bloat
+/// Decode the one admitted v1 signature representation. Alternate encodings,
+/// uppercase hex, legacy untagged strings and wrong-length data are rejected.
+fn decode_receipt_signature_v1(encoded: &str) -> Option<Signature> {
+    let hex = encoded.strip_prefix(PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX)?;
+    if hex.len() != 128
+        || !hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return None;
+    }
+
+    let mut signature = [0u8; 64];
+    for (index, pair) in hex.as_bytes().chunks_exact(2).enumerate() {
+        let high = match pair[0] {
+            b'0'..=b'9' => pair[0] - b'0',
+            b'a'..=b'f' => pair[0] - b'a' + 10,
+            _ => return None,
+        };
+        let low = match pair[1] {
+            b'0'..=b'9' => pair[1] - b'0',
+            b'a'..=b'f' => pair[1] - b'a' + 10,
+            _ => return None,
+        };
+        signature[index] = (high << 4) | low;
+    }
+    Some(Signature(signature))
+}
+
+/// Pure receipt-shape gate, deliberately separate from host-backed cryptographic
+/// verification so unit tests cannot accidentally treat formatted bytes as proof.
+fn validate_receipt_structure(receipt: &Receipt) -> ValidateCallbackResult {
     if receipt.from_did.len() > MAX_DID_LEN || receipt.to_did.len() > MAX_DID_LEN {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID exceeds maximum length".into(),
-        ));
+        return ValidateCallbackResult::Invalid("DID exceeds maximum length".into());
     }
     if receipt.payment_id.len() > MAX_ID_LEN {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Payment ID exceeds maximum length".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Payment ID exceeds maximum length".into());
     }
     if receipt.signature.len() > MAX_SIGNATURE_LEN {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Signature exceeds maximum length".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Signature exceeds maximum length".into());
     }
-
-    // Validate DIDs
     if !receipt.from_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Sender must be a valid DID".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Sender must be a valid DID".into());
     }
     if !receipt.to_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Receiver must be a valid DID".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Receiver must be a valid DID".into());
     }
-
-    // Validate amount
     if receipt.amount == 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Amount must be positive".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Amount must be positive".into());
     }
-
-    // Validate currency
     if receipt.currency != "SAP" && receipt.currency != "TEND" {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Currency must be \"SAP\" or \"TEND\"".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Currency must be \"SAP\" or \"TEND\"".into());
     }
-
-    // Validate signature is present and properly formatted
-    // Signature format: base64-encoded Ed25519 signature (88 chars) or hex (128 chars)
+    if receipt.payment_action_hash.is_none() {
+        return ValidateCallbackResult::Invalid(
+            "Receipt is legacy/unqualified: exact Payment action hash is missing".into(),
+        );
+    }
     if receipt.signature.is_empty() {
+        return ValidateCallbackResult::Invalid("Receipt must have a signature".into());
+    }
+    if decode_receipt_signature_v1(&receipt.signature).is_none() {
+        return ValidateCallbackResult::Invalid(
+            "Receipt signature must use the exact v1 prefix and 128 lowercase hex characters"
+                .into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// The immutable economic subject of a v1 receipt must exactly match the
+/// referenced, already-valid Payment entry. Payment status changes are separate
+/// events and are intentionally not signed into this immutable subject.
+fn receipt_matches_payment(
+    receipt: &Receipt,
+    payment: &Payment,
+    payment_action_hash: &ActionHash,
+) -> bool {
+    receipt.payment_action_hash.as_ref() == Some(payment_action_hash)
+        && receipt.payment_id == payment.id
+        && receipt.from_did == payment.from_did
+        && receipt.to_did == payment.to_did
+        && receipt.amount == payment.amount
+        && receipt.fee == payment.fee
+        && receipt.currency == payment.currency
+        && receipt.timestamp.as_micros() == payment.created.as_micros()
+}
+
+fn validate_create_receipt(
+    action: EntryCreationAction,
+    receipt: Receipt,
+) -> ExternResult<ValidateCallbackResult> {
+    if let ValidateCallbackResult::Invalid(message) = validate_receipt_structure(&receipt) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+
+    // Receipts are sender-authored attestations. A receiver or unrelated peer
+    // cannot create a receipt that claims to be from the sender.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(message) =
+        require_did_is_author("Receipt", "from_did", &receipt.from_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+
+    let payment_action_hash = receipt
+        .payment_action_hash
+        .as_ref()
+        .expect("receipt structure requires a Payment action hash");
+
+    // Require the exact Payment action as a valid DHT dependency. A payment ID
+    // string or a detached sender signature is not sufficient to attest that a
+    // corresponding Payment entry exists.
+    let payment_record = must_get_valid_record(payment_action_hash.clone())?;
+    let payment = match payment_record.entry().to_app_option::<Payment>() {
+        Ok(Some(payment)) => payment,
+        Ok(None) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Receipt must reference a Payment entry".into(),
+            ));
+        }
+        Err(error) => {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Referenced Payment entry could not be decoded: {error}"
+            )));
+        }
+    };
+
+    if !receipt_matches_payment(&receipt, &payment, payment_action_hash) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Receipt must have a signature".into(),
+            "Receipt subject does not match its exact Payment action".into(),
         ));
     }
 
-    // Basic signature format validation
-    // Ed25519 signatures are 64 bytes = 88 chars base64 or 128 chars hex
-    let sig_len = receipt.signature.len();
-    if sig_len < 64 {
+    let Some(signature) = decode_receipt_signature_v1(&receipt.signature) else {
         return Ok(ValidateCallbackResult::Invalid(
-            "Signature too short - must be valid Ed25519 signature".into(),
+            "Receipt signature is not a canonical v1 Ed25519 encoding".into(),
+        ));
+    };
+    let signing_data = PaymentReceiptSigningDataV1::new(
+        payment_action_hash.as_ref().to_vec(),
+        receipt.payment_id.clone(),
+        receipt.from_did.clone(),
+        receipt.to_did.clone(),
+        receipt.amount,
+        receipt.fee,
+        receipt.currency.clone(),
+        receipt.timestamp.as_micros(),
+    );
+
+    // Verify against the DHT action author's key. Never use a public key
+    // supplied by the receipt, coordinator input or an identity-zome lookup.
+    let signature_valid =
+        hdi::ed25519::verify_signature(action.author().clone(), signature, signing_data)?;
+    if !signature_valid {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Receipt Ed25519 signature does not verify against the action author".into(),
         ));
     }
-
-    // Verify signature is valid base64 or hex
-    let is_valid_format = receipt
-        .signature
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=');
-    if !is_valid_format {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Signature must be valid base64 or hex encoding".into(),
-        ));
-    }
-
-    // Note: Full cryptographic verification requires the sender's public key
-    // which would be fetched from the identity zome in production.
-    // The signature should cover: payment_id | from_did | to_did | amount | currency | timestamp
 
     Ok(ValidateCallbackResult::Valid)
 }
@@ -903,17 +997,26 @@ mod tests {
         }
     }
 
+    fn valid_payment_action_hash() -> ActionHash {
+        ActionHash::from_raw_36(vec![1; 36])
+    }
+
     fn valid_receipt() -> Receipt {
-        // 128-char hex string (valid Ed25519 hex encoding)
-        let sig = "a".repeat(128);
+        // Syntactically valid only; cryptographic verification is a host operation.
         Receipt {
             payment_id: "pay:test:001".into(),
-            from_did: "did:mycelix:alice".into(),
+            from_did: test_author_did(),
             to_did: "did:mycelix:bob".into(),
-            amount: 1000,
+            amount: 1_000_000,
+            fee: 100,
             currency: "SAP".into(),
             timestamp: ts(1_000_000),
-            signature: sig,
+            payment_action_hash: Some(valid_payment_action_hash()),
+            signature: format!(
+                "{}{}",
+                PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+                "a".repeat(128)
+            ),
         }
     }
 
@@ -1075,59 +1178,131 @@ mod tests {
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
-    // ---- 12. Valid Receipt ----
+    // ---- 12. Canonical receipt v1 shape ----
 
     #[test]
-    fn test_valid_receipt() {
-        let result =
-            validate_create_receipt(EntryCreationAction::Create(make_create()), valid_receipt())
-                .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Valid));
+    fn test_valid_receipt_v1_shape() {
+        assert!(matches!(
+            validate_receipt_structure(&valid_receipt()),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn test_receipt_v1_signature_decodes_exactly_64_bytes() {
+        let receipt = valid_receipt();
+        let signature = decode_receipt_signature_v1(&receipt.signature).unwrap();
+        assert_eq!(signature.0, [0xaa; 64]);
+    }
+
+    #[test]
+    fn test_receipt_v1_rejects_legacy_and_noncanonical_encodings() {
+        let mut receipt = valid_receipt();
+        receipt.signature = "a".repeat(128);
+        assert!(matches!(
+            validate_receipt_structure(&receipt),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        receipt.signature = format!(
+            "{}{}",
+            PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+            "A".repeat(128)
+        );
+        assert!(decode_receipt_signature_v1(&receipt.signature).is_none());
+
+        receipt.signature = format!(
+            "{}{}",
+            PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+            "a".repeat(126)
+        );
+        assert!(decode_receipt_signature_v1(&receipt.signature).is_none());
+    }
+
+    #[test]
+    fn test_receipt_requires_exact_payment_action_reference() {
+        let mut receipt = valid_receipt();
+        receipt.payment_action_hash = None;
+        assert!(matches!(
+            validate_receipt_structure(&receipt),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_receipt_subject_matches_exact_payment_action() {
+        let payment = valid_payment();
+        let action_hash = valid_payment_action_hash();
+        let receipt = valid_receipt();
+        assert!(receipt_matches_payment(&receipt, &payment, &action_hash));
+
+        let mut changed = receipt.clone();
+        changed.amount += 1;
+        assert!(!receipt_matches_payment(&changed, &payment, &action_hash));
+
+        let mut changed = receipt.clone();
+        changed.fee += 1;
+        assert!(!receipt_matches_payment(&changed, &payment, &action_hash));
+
+        let mut changed = receipt.clone();
+        changed.to_did = "did:mycelix:mallory".into();
+        assert!(!receipt_matches_payment(&changed, &payment, &action_hash));
+
+        let mut changed = receipt;
+        changed.payment_action_hash = Some(ActionHash::from_raw_36(vec![2; 36]));
+        assert!(!receipt_matches_payment(&changed, &payment, &action_hash));
     }
 
     // ---- 13. Receipt with zero amount (must fail) ----
 
     #[test]
     fn test_receipt_zero_amount() {
-        let mut r = valid_receipt();
-        r.amount = 0;
-        let result =
-            validate_create_receipt(EntryCreationAction::Create(make_create()), r).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        let mut receipt = valid_receipt();
+        receipt.amount = 0;
+        assert!(matches!(
+            validate_receipt_structure(&receipt),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- 14. Receipt with empty signature (must fail) ----
 
     #[test]
     fn test_receipt_empty_signature() {
-        let mut r = valid_receipt();
-        r.signature = String::new();
-        let result =
-            validate_create_receipt(EntryCreationAction::Create(make_create()), r).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        let mut receipt = valid_receipt();
+        receipt.signature = String::new();
+        assert!(matches!(
+            validate_receipt_structure(&receipt),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- 15. Receipt with signature too short (must fail) ----
 
     #[test]
     fn test_receipt_signature_too_short() {
-        let mut r = valid_receipt();
-        r.signature = "abcd1234".into(); // 8 chars, well below 64
-        let result =
-            validate_create_receipt(EntryCreationAction::Create(make_create()), r).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        let mut receipt = valid_receipt();
+        receipt.signature = format!("{}abcd1234", PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX);
+        assert!(matches!(
+            validate_receipt_structure(&receipt),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- 16. Receipt with invalid signature encoding (must fail) ----
 
     #[test]
     fn test_receipt_invalid_signature_encoding() {
-        let mut r = valid_receipt();
-        // 128 chars but contains invalid characters (spaces, symbols)
-        r.signature = "!@#$".repeat(32);
-        let result =
-            validate_create_receipt(EntryCreationAction::Create(make_create()), r).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        let mut receipt = valid_receipt();
+        receipt.signature = format!(
+            "{}{}",
+            PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX,
+            "!@#$".repeat(32)
+        );
+        assert!(matches!(
+            validate_receipt_structure(&receipt),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- 17. Receipts cannot be updated (must fail) ----
