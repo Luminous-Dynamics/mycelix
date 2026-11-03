@@ -1528,136 +1528,162 @@ fn verify_derived_claim_merkle_proof_v1(
 /// Create a derived credential with selective disclosure
 #[hdk_extern]
 pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Record> {
-    let agent_info = agent_info()?;
-    let holder_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    let agent = agent_info()?;
+    let holder_did = format!("did:mycelix:{}", agent.agent_initial_pubkey);
     let now = sys_time()?;
 
-    // Get original credential
+    let mut selected_claims = input.selected_claims;
+    selected_claims.sort();
+    if selected_claims.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "At least one derived claim must be selected".into()
+        )));
+    }
+    if selected_claims.iter().any(|key| key.is_empty() || key.len() > 256)
+        || selected_claims.windows(2).any(|pair| pair[0] == pair[1])
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Derived claim keys must be non-empty, bounded, and duplicate-free".into()
+        )));
+    }
+
     let original_record = get_credential(input.credential_id.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Original credential not found".into())
     ))?;
-
     let original_vc: VerifiableCredential = original_record
         .entry()
         .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid original credential".into()
+            "Invalid original credential entry".into()
         )))?;
 
-    // Verify holder is the subject
+    if original_vc.id != input.credential_id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Resolved original credential ID does not match requested ID".into()
+        )));
+    }
     if original_vc.credential_subject.id != holder_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the credential subject can create derived credentials".into()
         )));
     }
-
-    // Extract selected claims
-    let original_claims = &original_vc.credential_subject.claims;
-    let mut derived_claims = serde_json::Map::new();
-
-    for claim_key in &input.selected_claims {
-        if let Some(value) = original_claims.get(claim_key) {
-            derived_claims.insert(claim_key.clone(), value.clone());
-        } else {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Claim '{}' not found in original credential",
-                claim_key
-            ))));
-        }
+    let original_validity = credential_validity_status(
+        &original_vc.valid_from,
+        original_vc.valid_until.as_deref(),
+        now,
+    );
+    if let Some(reason) = original_validity.error_message() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Original credential is not currently valid: {reason}"
+        ))));
     }
 
+    let original_claims = original_vc.credential_subject.claims.as_object().ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Derived credentials require an object-valued credentialSubject claims map".into()
+        )),
+    )?;
+    let mut derived_claims = serde_json::Map::new();
+    for claim_key in &selected_claims {
+        let value = original_claims.get(claim_key).ok_or(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "Claim '{}' not found in original credential",
+                claim_key
+            ))
+        ))?;
+        derived_claims.insert(claim_key.clone(), value.clone());
+    }
     let derived_content = CredentialSubject {
         id: holder_did.clone(),
         claims: serde_json::Value::Object(derived_claims),
     };
 
-    // Compute hash of original credential
     let original_hash = compute_credential_hash_for_profile(&original_vc)?;
+    let (merkle_root, _) = build_derived_claim_merkle_tree_v1(original_claims)?;
+    let mut sorted_original_keys: Vec<&String> = original_claims.keys().collect();
+    sorted_original_keys.sort();
 
-    // Create derivation proof with real ed25519 signature
-    // Build data to sign: original hash + selected claims
-    let mut sign_data = original_hash.clone();
-    for claim_key in &input.selected_claims {
-        sign_data.extend(claim_key.as_bytes());
+    let claim_proofs = selected_claims
+        .iter()
+        .map(|claim_key| {
+            let leaf_index = sorted_original_keys
+                .iter()
+                .position(|key| *key == claim_key)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Selected claim disappeared during Merkle proof construction".into()
+                )))?;
+            Ok(ClaimProof {
+                claim_key: claim_key.clone(),
+                merkle_path: Some(generate_derived_claim_merkle_proof_v1(
+                    original_claims,
+                    leaf_index,
+                )?),
+                commitment: Some(hash_derived_claim_leaf_v1(
+                    claim_key,
+                    &original_claims[claim_key],
+                )?),
+            })
+        })
+        .collect::<ExternResult<Vec<_>>>()?;
+
+    let expires = match input.expires_hours {
+        Some(0) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Derived credential expiry must be in the future".into()
+            )));
+        }
+        Some(hours) => Some(Timestamp::from_micros(
+            now.as_micros() + (hours as i64) * 3_600 * 1_000_000
+        )),
+        None => None,
+    };
+    if let (Some(derived_expiry), Some(original_until)) =
+        (expires, original_vc.valid_until.as_deref())
+    {
+        let original_expiry = parse_iso8601_to_micros_with_policy(
+            original_until,
+            DateOnlyPolicy::EndOfDay,
+        ).ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original credential validUntil is unparseable".into()
+        )))?;
+        if derived_expiry.as_micros() > original_expiry {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Derived credential cannot outlive the original credential".into()
+            )));
+        }
     }
 
-    // Sign with holder's ed25519 key
-    let holder_signature = sign_raw(agent_info.agent_initial_pubkey.clone(), sign_data)?;
-
-    // Build Merkle tree over all original claims for selective disclosure proofs
-    let original_claims_obj = original_claims.as_object();
-    let (_merkle_root, _leaves) = if let Some(obj) = original_claims_obj {
-        build_claim_merkle_tree(obj)
-    } else {
-        (vec![0u8; 32], Vec::new())
-    };
-
-    // Generate per-claim Merkle proofs for each selected claim
-    let claim_proofs: Vec<ClaimProof> = if let Some(obj) = original_claims_obj {
-        let mut sorted_keys: Vec<&String> = obj.keys().collect();
-        sorted_keys.sort();
-
-        input
-            .selected_claims
-            .iter()
-            .map(|key| {
-                let leaf_index = sorted_keys.iter().position(|k| *k == key);
-                let merkle_path = leaf_index.map(|idx| generate_merkle_proof(obj, idx));
-                let commitment = leaf_index.map(|_| hash_claim_leaf(key, &obj[key]));
-
-                ClaimProof {
-                    claim_key: key.clone(),
-                    merkle_path,
-                    commitment,
-                }
-            })
-            .collect()
-    } else {
-        input
-            .selected_claims
-            .iter()
-            .map(|key| ClaimProof {
-                claim_key: key.clone(),
-                merkle_path: None,
-                commitment: None,
-            })
-            .collect()
-    };
-
-    let derivation_proof = DerivationProof {
-        proof_type: "SelectiveDisclosureProof".to_string(),
-        original_credential_hash: original_hash,
-        claim_proofs,
-        holder_signature: holder_signature.as_ref().to_vec(),
-    };
-
-    // Calculate expiration
-    let expires = input.expires_hours.map(|hours| {
-        Timestamp::from_micros(now.as_micros() as i64 + (hours as i64 * 3600 * 1_000_000))
-    });
-
-    let derived = DerivedCredential {
-        original_credential_id: input.credential_id.clone(),
+    let mut derived = DerivedCredential {
+        original_credential_id: input.credential_id,
         original_issuer: original_vc.issuer.did().to_string(),
         holder: holder_did,
-        selected_claims: input.selected_claims,
+        selected_claims,
         derived_content,
-        derivation_proof,
+        derivation_proof: DerivationProof {
+            proof_type: DERIVED_CREDENTIAL_PROOF_V1.to_string(),
+            original_credential_hash: original_hash,
+            claim_proofs,
+            holder_signature: Vec::new(),
+        },
         created: now,
         expires,
     };
 
-    let action_hash = create_entry(&EntryTypes::DerivedCredential(derived))?;
+    // Sign the complete canonical derived record. The only excluded field is
+    // the signature value itself; all claim values, metadata and Merkle paths
+    // are covered by the same shared function used during verification.
+    let signed_payload = compute_derived_credential_hash_v1(&derived)?;
+    let signature = sign_raw(agent.agent_initial_pubkey.clone(), signed_payload)?;
+    derived.derivation_proof.holder_signature = signature.as_ref().to_vec();
 
-    // Link original to derived
+    let action_hash = create_entry(&EntryTypes::DerivedCredential(derived))?;
     create_link(
         original_record.action_address().clone(),
         action_hash.clone(),
         LinkTypes::CredentialToDerived,
         (),
     )?;
-
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created derived credential".into()
     )))
