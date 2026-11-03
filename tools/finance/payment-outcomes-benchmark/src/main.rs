@@ -229,14 +229,18 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         baseline_attempts,
     );
     let cost = cmp_cost_per_delivery(candidate_metrics, baseline_metrics)?;
-    let latency_p50 = u64_field(candidate_metrics, "p50_initiation_to_available_ms")?
-        .cmp(&u64_field(baseline_metrics, "p50_initiation_to_available_ms")?);
-    let latency_p95 = u64_field(candidate_metrics, "p95_initiation_to_available_ms")?
-        .cmp(&u64_field(baseline_metrics, "p95_initiation_to_available_ms")?);
-    let latency_p99 = u64_field(candidate_metrics, "p99_initiation_to_available_ms")?
-        .cmp(&u64_field(baseline_metrics, "p99_initiation_to_available_ms")?);
-    let operator = u64_field(candidate_metrics, "operator_minutes_per_1000_attempts")?
-        .cmp(&u64_field(baseline_metrics, "operator_minutes_per_1000_attempts")?);
+    let latency_p50 = u64_field(candidate_metrics, "p50_initiation_to_available_ms")?.cmp(
+        &u64_field(baseline_metrics, "p50_initiation_to_available_ms")?,
+    );
+    let latency_p95 = u64_field(candidate_metrics, "p95_initiation_to_available_ms")?.cmp(
+        &u64_field(baseline_metrics, "p95_initiation_to_available_ms")?,
+    );
+    let latency_p99 = u64_field(candidate_metrics, "p99_initiation_to_available_ms")?.cmp(
+        &u64_field(baseline_metrics, "p99_initiation_to_available_ms")?,
+    );
+    let operator = u64_field(candidate_metrics, "operator_minutes_per_1000_attempts")?.cmp(
+        &u64_field(baseline_metrics, "operator_minutes_per_1000_attempts")?,
+    );
     let usability = cmp_fraction(
         candidate_user_success,
         candidate_user_attempts,
@@ -585,7 +589,9 @@ fn run_self_tests(
     let mut missing_latency = runs.clone();
     missing_latency["runs"][2]["metrics"]["delivery_latency_observations"] = json!(1959);
     if matched_run_report(&missing_latency).is_ok() {
-        return Err("delivery-latency observations that omit an available delivery were accepted".into());
+        return Err(
+            "delivery-latency observations that omit an available delivery were accepted".into(),
+        );
     }
     count += 1;
 
