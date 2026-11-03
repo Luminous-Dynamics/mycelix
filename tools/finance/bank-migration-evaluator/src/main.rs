@@ -459,31 +459,20 @@ fn run_negative_mutations(corpus: &Value, schema: &Value) -> Result<usize, Strin
     }
 
     let mut count = 0usize;
-    mutation_must_fail(
-        "missing source record",
-        corpus,
-        schema,
-        |value| {
-            value["cases"][0]["input"]["captured_records"] = json!(1);
-        },
-    )?;
+    mutation_must_fail("missing source record", corpus, schema, |value| {
+        value["cases"][0]["input"]["captured_records"] = json!(1);
+    })?;
     count += 1;
-    mutation_must_fail(
-        "missing pagination page",
-        corpus,
-        schema,
-        |value| {
-            value["cases"][0]["input"]["all_pages_present"] = json!(false);
-        },
-    )?;
+    mutation_must_fail("missing pagination page", corpus, schema, |value| {
+        value["cases"][0]["input"]["all_pages_present"] = json!(false);
+    })?;
     count += 1;
     mutation_must_fail(
         "duplicate source record identity",
         corpus,
         schema,
         |value| {
-            let first_source_id =
-                value["cases"][0]["input"]["items"][0]["source_id"].clone();
+            let first_source_id = value["cases"][0]["input"]["items"][0]["source_id"].clone();
             value["cases"][0]["input"]["items"][1]["source_id"] = first_source_id;
         },
     )?;
