@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS identity_security.verifier_challenges (
         CHECK (octet_length(challenge_digest) = 32),
     CONSTRAINT verifier_challenge_expiry_after_issue
         CHECK (expires_at > issued_at),
+    CONSTRAINT verifier_challenge_max_lifetime
+        CHECK (expires_at <= issued_at + INTERVAL '10 minutes'),
     CONSTRAINT verifier_challenge_consumed_after_issue
         CHECK (consumed_at IS NULL OR consumed_at >= issued_at)
 );
@@ -53,7 +55,9 @@ BEGIN
        OR p_verifier_id IS NULL OR length(p_verifier_id) NOT BETWEEN 1 AND 512
        OR p_audience IS NULL OR length(p_audience) NOT BETWEEN 1 AND 2048
        OR p_transaction_id IS NULL
-       OR p_expires_at IS NULL OR p_expires_at <= db_now THEN
+       OR p_expires_at IS NULL
+       OR p_expires_at <= db_now
+       OR p_expires_at > db_now + INTERVAL '10 minutes' THEN
         RETURN FALSE;
     END IF;
 
