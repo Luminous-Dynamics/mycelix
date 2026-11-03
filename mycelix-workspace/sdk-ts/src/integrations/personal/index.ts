@@ -151,7 +151,8 @@ export interface QueryIdentityInput {
 /** Input for creating a verifiable presentation */
 export interface CreatePresentationInput {
   credential_hashes: Uint8Array[];
-  challenge?: string;
+  /** Required fresh verifier challenge (1–512 UTF-8 bytes). */
+  challenge: string;
   domain?: string;
   verifier_did?: string;
 }
@@ -477,7 +478,7 @@ export class PersonalBridgeClient {
       fn_name: 'create_presentation',
       payload: {
         credential_hashes: input.credential_hashes,
-        challenge: input.challenge ?? null,
+        challenge: input.challenge,
         domain: input.domain ?? null,
         verifier_did: input.verifier_did ?? null,
       },
