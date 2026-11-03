@@ -9,6 +9,7 @@ DECLARE
     v_digest BYTEA := decode(repeat('a', 64), 'hex');
     v_expired_digest BYTEA := decode(repeat('b', 64), 'hex');
     v_long_ttl_digest BYTEA := decode(repeat('c', 64), 'hex');
+    v_consume_expiry_digest BYTEA := decode(repeat('d', 64), 'hex');
     v_short_digest BYTEA := decode('aa', 'hex');
     v_request_digest BYTEA := decode(repeat('1', 64), 'hex');
     v_holder_digest BYTEA := decode(repeat('2', 64), 'hex');
@@ -66,6 +67,13 @@ BEGIN
         RAISE EXCEPTION 'wrong holder binding consumed challenge';
     END IF;
 
+    IF identity_security.consume_verifier_challenge(
+        v_expired_digest, 'test-verifier', 'urn:mycelix:test-audience',
+        v_transaction_id, v_request_digest, v_holder_digest
+    ) THEN
+        RAISE EXCEPTION 'unknown challenge digest was consumed';
+    END IF;
+
     IF NOT identity_security.consume_verifier_challenge(
         v_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest
@@ -86,6 +94,23 @@ BEGIN
         clock_timestamp() + INTERVAL '5 minutes'
     ) THEN
         RAISE EXCEPTION 'consumed challenge digest was registered again';
+    END IF;
+
+    IF NOT identity_security.register_verifier_challenge(
+        v_consume_expiry_digest, 'test-verifier', 'urn:mycelix:test-audience',
+        v_transaction_id, v_request_digest, v_holder_digest,
+        clock_timestamp() + INTERVAL '2 seconds'
+    ) THEN
+        RAISE EXCEPTION 'short-lived consume-expiry challenge registration failed';
+    END IF;
+
+    PERFORM pg_sleep(2.1);
+
+    IF identity_security.consume_verifier_challenge(
+        v_consume_expiry_digest, 'test-verifier', 'urn:mycelix:test-audience',
+        v_transaction_id, v_request_digest, v_holder_digest
+    ) THEN
+        RAISE EXCEPTION 'challenge expired after registration was consumed';
     END IF;
 
     IF identity_security.register_verifier_challenge(
