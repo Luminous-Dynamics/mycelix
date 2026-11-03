@@ -122,7 +122,7 @@ pub struct RoleInventory {
     pub coverage: BTreeMap<FaultDomainDimension, DimensionCoverage>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SeparationRequirement {
     pub left_role: String,
     pub right_role: String,
