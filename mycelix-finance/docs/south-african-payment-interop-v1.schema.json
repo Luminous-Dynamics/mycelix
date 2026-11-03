@@ -176,7 +176,8 @@
             "current",
             "transitioning",
             "planned_or_in_development",
-            "programme_enabler"
+            "programme_enabler",
+            "published_standard"
           ]
         },
         "scope": {
