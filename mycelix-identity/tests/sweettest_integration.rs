@@ -161,6 +161,7 @@ pub struct VcVerificationResult {
     pub credential_id: String,
     pub valid: bool,
     pub checks_passed: Vec<String>,
+    pub proof_signature_status: String,
     pub errors: Vec<String>,
     pub verified_at: Timestamp,
 }
