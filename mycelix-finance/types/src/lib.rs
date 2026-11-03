@@ -15,58 +15,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Domain separator for the versioned Finance payment-receipt signature transcript.
-pub const PAYMENT_RECEIPT_V1_DOMAIN: &str = "mycelix.finance.payment-receipt";
-/// Exact string prefix identifying the one supported v1 receipt signature profile.
-pub const PAYMENT_RECEIPT_V1_SIGNATURE_PREFIX: &str = "mycelix-finance-receipt-v1:";
-
-/// Exact, versioned subject authenticated by a Finance payment receipt.
-///
-/// This type intentionally has no HDK/HDI dependency so both the coordinator and
-/// integrity zome sign/verify the same canonical serialized structure. The payment
-/// action hash is included as raw bytes, binding the receipt to one exact DHT action.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PaymentReceiptSigningDataV1 {
-    pub domain: String,
-    pub version: u16,
-    pub payment_action_hash: Vec<u8>,
-    pub payment_id: String,
-    pub from_did: String,
-    pub to_did: String,
-    pub amount: u64,
-    pub fee: u64,
-    pub currency: String,
-    pub timestamp_micros: i64,
-}
-
-impl PaymentReceiptSigningDataV1 {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        payment_action_hash: Vec<u8>,
-        payment_id: impl Into<String>,
-        from_did: impl Into<String>,
-        to_did: impl Into<String>,
-        amount: u64,
-        fee: u64,
-        currency: impl Into<String>,
-        timestamp_micros: i64,
-    ) -> Self {
-        Self {
-            domain: PAYMENT_RECEIPT_V1_DOMAIN.to_string(),
-            version: 1,
-            payment_action_hash,
-            payment_id: payment_id.into(),
-            from_did: from_did.into(),
-            to_did: to_did.into(),
-            amount,
-            fee,
-            currency: currency.into(),
-            timestamp_micros,
-        }
-    }
-}
-
-
 // =============================================================================
 // CURRENCIES
 // =============================================================================
