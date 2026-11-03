@@ -1,0 +1,47 @@
+name: Multi-valued Assurance Dependency Reference Model
+
+on:
+  pull_request:
+    paths:
+      - "research/assurance-portfolio-multidependency/**"
+      - ".github/workflows/assurance-portfolio-multidependency.yml"
+  push:
+    branches:
+      - "assurance/multi-valued-cutset-reference-2026-11-03"
+    paths:
+      - "research/assurance-portfolio-multidependency/**"
+      - ".github/workflows/assurance-portfolio-multidependency.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  reference-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CARGO_NET_OFFLINE: "true"
+      CARGO_TERM_COLOR: always
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact subject before execution
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/assurance-portfolio-multidependency/Cargo.toml --check
+      - name: Check locked all targets
+        run: cargo check --locked --all-targets --manifest-path research/assurance-portfolio-multidependency/Cargo.toml
+      - name: Run reference and differential tests
+        run: cargo test --locked --all-targets --manifest-path research/assurance-portfolio-multidependency/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --locked --all-targets --manifest-path research/assurance-portfolio-multidependency/Cargo.toml -- -D warnings
+      - name: Assert exact subject and clean source
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
