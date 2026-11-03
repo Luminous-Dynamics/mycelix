@@ -1941,7 +1941,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn long_dependency_chain_uses_iterative_cycle_detection() {
         let count = 20_000usize;
