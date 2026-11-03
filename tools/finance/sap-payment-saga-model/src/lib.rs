@@ -200,9 +200,14 @@ pub struct PaymentJournal {
 
 impl PaymentJournal {
     fn new(intent: PaymentIntent) -> Self {
+        // Length-prefix both identity components so separators inside a DID or
+        // client key cannot create ambiguous operation IDs.
         let operation_id = format!(
-            "sap-payment:{}:{}",
-            intent.sender_did, intent.client_idempotency_key
+            "sap-payment:{}:{}:{}:{}",
+            intent.sender_did.len(),
+            intent.sender_did,
+            intent.client_idempotency_key.len(),
+            intent.client_idempotency_key
         );
         let mut legs = BTreeMap::new();
         for leg in PaymentLeg::ALL {
@@ -443,11 +448,13 @@ impl PaymentJournal {
         {
             return OperationStatus::Indeterminate;
         }
+        if self.leg_is_satisfied(PaymentLeg::PaymentRecord) {
+            return OperationStatus::ReceiptEvidencePending;
+        }
         if matches!(
             self.effect_state(PaymentLeg::Receipt),
             EffectState::Prepared { .. }
-        ) || self.leg_is_satisfied(PaymentLeg::PaymentRecord)
-        {
+        ) {
             return OperationStatus::ReceiptEvidencePending;
         }
         if matches!(
@@ -457,12 +464,12 @@ impl PaymentJournal {
             return OperationStatus::PaymentEvidencePending;
         }
         if !self.leg_is_satisfied(PaymentLeg::TreasuryFee) {
-            return if matches!(
+            return if self.leg_is_satisfied(PaymentLeg::RecipientCredit) {
+                OperationStatus::FeePending
+            } else if matches!(
                 self.effect_state(PaymentLeg::TreasuryFee),
                 EffectState::Prepared { .. }
             ) {
-                OperationStatus::FeePending
-            } else if self.leg_is_satisfied(PaymentLeg::RecipientCredit) {
                 OperationStatus::FeePending
             } else if self.leg_is_satisfied(PaymentLeg::SenderDebit) {
                 OperationStatus::CreditPending
@@ -488,8 +495,11 @@ impl PaymentJournal {
                 OperationStatus::Proposed
             };
         }
+
+        // All monetary legs are satisfied; Payment record evidence is the next
+        // required step even when its preparation has not yet begun.
         if self.authorized {
-            OperationStatus::ReceiptEvidencePending
+            OperationStatus::PaymentEvidencePending
         } else {
             OperationStatus::Proposed
         }
@@ -584,38 +594,26 @@ mod tests {
             .get_mut("did:mycelix:alice", "client-op-001")
             .unwrap();
         journal.authorize().unwrap();
+        let debit_id = journal.effect_id(PaymentLeg::SenderDebit);
         journal
-            .prepare_leg(PaymentLeg::SenderDebit, &journal.effect_id(PaymentLeg::SenderDebit))
+            .prepare_leg(PaymentLeg::SenderDebit, &debit_id)
             .unwrap();
         journal
-            .commit_leg(
-                PaymentLeg::SenderDebit,
-                &journal.effect_id(PaymentLeg::SenderDebit),
-                "sha256:debit-evidence",
-            )
+            .commit_leg(PaymentLeg::SenderDebit, &debit_id, "sha256:debit-evidence")
+            .unwrap();
+        let credit_id = journal.effect_id(PaymentLeg::RecipientCredit);
+        journal
+            .prepare_leg(PaymentLeg::RecipientCredit, &credit_id)
             .unwrap();
         journal
-            .prepare_leg(
-                PaymentLeg::RecipientCredit,
-                &journal.effect_id(PaymentLeg::RecipientCredit),
-            )
+            .commit_leg(PaymentLeg::RecipientCredit, &credit_id, "sha256:credit-evidence")
+            .unwrap();
+        let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
+        journal
+            .prepare_leg(PaymentLeg::TreasuryFee, &fee_id)
             .unwrap();
         journal
-            .commit_leg(
-                PaymentLeg::RecipientCredit,
-                &journal.effect_id(PaymentLeg::RecipientCredit),
-                "sha256:credit-evidence",
-            )
-            .unwrap();
-        journal
-            .prepare_leg(PaymentLeg::TreasuryFee, &journal.effect_id(PaymentLeg::TreasuryFee))
-            .unwrap();
-        journal
-            .commit_leg(
-                PaymentLeg::TreasuryFee,
-                &journal.effect_id(PaymentLeg::TreasuryFee),
-                "sha256:fee-evidence",
-            )
+            .commit_leg(PaymentLeg::TreasuryFee, &fee_id, "sha256:fee-evidence")
             .unwrap();
         journal.clone()
     }
@@ -790,7 +788,7 @@ mod tests {
     #[test]
     fn payment_record_and_receipt_are_required_before_completed() {
         let mut journal = ready_journal();
-        assert_eq!(journal.status(), OperationStatus::DebitPending);
+        assert_eq!(journal.status(), OperationStatus::PaymentEvidencePending);
         let payment_id = journal.effect_id(PaymentLeg::PaymentRecord);
         journal.prepare_leg(PaymentLeg::PaymentRecord, &payment_id).unwrap();
         assert_eq!(journal.status(), OperationStatus::PaymentEvidencePending);
