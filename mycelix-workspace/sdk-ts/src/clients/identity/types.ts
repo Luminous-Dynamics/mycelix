@@ -322,6 +322,7 @@ export interface PresentationVerificationResult {
   holder: string;
   valid: boolean;
   errors: string[];
+  holder_signature_status: CredentialSignatureStatus;
   credential_results: CredentialInPresentationResult[];
   verified_at: Timestamp;
 }
