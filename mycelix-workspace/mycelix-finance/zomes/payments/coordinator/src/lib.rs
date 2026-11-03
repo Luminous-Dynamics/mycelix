@@ -2531,7 +2531,6 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
     })
 }
 
-
 #[cfg(test)]
 mod checked_sap_payment_arithmetic_tests {
     use super::checked_sap_total_debit;
