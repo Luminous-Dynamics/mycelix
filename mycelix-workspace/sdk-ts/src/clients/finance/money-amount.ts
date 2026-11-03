@@ -7,7 +7,7 @@
  *
  * All atomic/minor-unit values stay canonical decimal strings. These helpers
  * intentionally avoid Number() and BigInt so the SDK behaves consistently in
- * browser runtimes and never loses precision above Number.MAX_SAFE_INTEGER.
+ * browser runtimes and never loses precision above the JavaScript safe-integer range.
  */
 
 export const SAP_MICRO_V1_PROFILE_ID = 'mycelix.finance.instrument.sap.micro.v1';
@@ -158,6 +158,33 @@ export function requireMoneyAmountProfileV1(
   return amount;
 }
 
+function subtractDecimalStrings(left: string, right: string): string {
+  let leftIndex = left.length - 1;
+  let rightIndex = right.length - 1;
+  let borrow = 0;
+  let output = '';
+
+  while (leftIndex >= 0) {
+    const leftDigit = left.charCodeAt(leftIndex) - 48 - borrow;
+    const rightDigit = rightIndex >= 0 ? right.charCodeAt(rightIndex) - 48 : 0;
+    const difference = leftDigit - rightDigit;
+    if (difference < 0) {
+      output = String.fromCharCode(48 + difference + 10) + output;
+      borrow = 1;
+    } else {
+      output = String.fromCharCode(48 + difference) + output;
+      borrow = 0;
+    }
+    leftIndex -= 1;
+    rightIndex -= 1;
+  }
+
+  while (output.length > 1 && output.startsWith('0')) {
+    output = output.slice(1);
+  }
+  return output;
+}
+
 export function checkedAddMoneyAmountV1(
   leftInput: unknown,
   rightInput: unknown,
@@ -181,6 +208,31 @@ export function checkedAddMoneyAmountV1(
     value: {
       instrument_profile_id: left.value.instrument_profile_id,
       minor_units: sum,
+    },
+  };
+}
+
+export function checkedSubMoneyAmountV1(
+  leftInput: unknown,
+  rightInput: unknown,
+): MoneyAmountV1Result<MoneyAmountV1> {
+  const left = validateMoneyAmountV1(leftInput);
+  if (!left.ok) return left;
+  const right = validateMoneyAmountV1(rightInput);
+  if (!right.ok) return right;
+  if (left.value.instrument_profile_id !== right.value.instrument_profile_id) {
+    return { ok: false, error: 'ProfileMismatch' };
+  }
+  const profile = resolveMoneyAmountProfileV1(left.value.instrument_profile_id);
+  if (!profile.ok) return profile;
+  if (compareDecimalStrings(left.value.minor_units, right.value.minor_units) < 0) {
+    return { ok: false, error: 'Underflow' };
+  }
+  return {
+    ok: true,
+    value: {
+      instrument_profile_id: left.value.instrument_profile_id,
+      minor_units: subtractDecimalStrings(left.value.minor_units, right.value.minor_units),
     },
   };
 }
