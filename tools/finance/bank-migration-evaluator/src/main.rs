@@ -5,7 +5,7 @@
 //! a provider, authorizes a cutover, or creates an external financial effect.
 
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fs;
@@ -241,9 +241,7 @@ fn check_case(case: &Value, index: usize, errors: &mut Vec<String>) {
             let unknown = str_at(input, "source_status");
             let known = array_at(input, "known_statuses");
             if unknown.is_none()
-                || known.is_none_or(|values| {
-                    values.iter().any(|value| value.as_str() == unknown)
-                })
+                || known.is_none_or(|values| values.iter().any(|value| value.as_str() == unknown))
             {
                 errors.push(format!(
                     "cases[{index}]: source lifecycle state must be unknown to the pinned map"
@@ -310,27 +308,39 @@ fn check_case(case: &Value, index: usize, errors: &mut Vec<String>) {
     }
 
     if array_at(case, "controls").is_none_or(|controls| controls.is_empty()) {
-        errors.push(format!("cases[{index}]: controls must be a non-empty array"));
+        errors.push(format!(
+            "cases[{index}]: controls must be a non-empty array"
+        ));
     }
 }
 
 fn evaluate_semantics(corpus: &Value) -> Evaluation {
     let mut evaluation = Evaluation::new();
     if str_at(corpus, "schema_version") != Some(EXPECTED_SCHEMA) {
-        evaluation.errors.push("schema_version: unsupported corpus version".into());
+        evaluation
+            .errors
+            .push("schema_version: unsupported corpus version".into());
     }
     if str_at(corpus, "corpus_id") != Some(EXPECTED_CORPUS_ID) {
-        evaluation.errors.push("corpus_id: unexpected corpus identity".into());
+        evaluation
+            .errors
+            .push("corpus_id: unexpected corpus identity".into());
     }
     if str_at(corpus, "status") != Some("synthetic_reference_only") {
-        evaluation.errors.push("status: corpus must remain synthetic_reference_only".into());
+        evaluation
+            .errors
+            .push("status: corpus must remain synthetic_reference_only".into());
     }
     if str_at(corpus, "currency_representation") != Some("integer_minor_units") {
-        evaluation.errors.push("currency_representation: expected integer_minor_units".into());
+        evaluation
+            .errors
+            .push("currency_representation: expected integer_minor_units".into());
     }
 
     let Some(cases) = array_at(corpus, "cases") else {
-        evaluation.errors.push("cases: missing scenario array".into());
+        evaluation
+            .errors
+            .push("cases: missing scenario array".into());
         return evaluation;
     };
     evaluation.case_count = cases.len();
@@ -346,12 +356,12 @@ fn evaluate_semantics(corpus: &Value) -> Evaluation {
     for (index, case) in cases.iter().enumerate() {
         match str_at(case, "id") {
             Some(id) if ids.insert(id.to_owned()) => {}
-            Some(id) => evaluation.errors.push(format!(
-                "cases[{index}]: duplicate case ID {id}"
-            )),
-            None => evaluation.errors.push(format!(
-                "cases[{index}]: missing case ID"
-            )),
+            Some(id) => evaluation
+                .errors
+                .push(format!("cases[{index}]: duplicate case ID {id}")),
+            None => evaluation
+                .errors
+                .push(format!("cases[{index}]: missing case ID")),
         }
         if let Some(category) = str_at(case, "category") {
             if !categories.insert(category.to_owned()) {
@@ -449,56 +459,116 @@ fn run_negative_mutations(corpus: &Value, schema: &Value) -> Result<usize, Strin
     }
 
     let mut count = 0usize;
-    mutation_must_fail("missing source record", corpus, schema, |value| {
-        value["cases"][0]["input"]["captured_records"] = json!(1);
-    })?;
+    mutation_must_fail(
+        "missing source record",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][0]["input"]["captured_records"] = json!(1);
+        },
+    )?;
     count += 1;
-    mutation_must_fail("missing pagination page", corpus, schema, |value| {
-        value["cases"][0]["input"]["all_pages_present"] = json!(false);
-    })?;
+    mutation_must_fail(
+        "missing pagination page",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][0]["input"]["all_pages_present"] = json!(false);
+        },
+    )?;
     count += 1;
-    mutation_must_fail("duplicate source record identity", corpus, schema, |value| {
-        let first_source_id =
-            value["cases"][0]["input"]["items"][0]["source_id"].clone();
-        value["cases"][0]["input"]["items"][1]["source_id"] = first_source_id;
-    })?;
+    mutation_must_fail(
+        "duplicate source record identity",
+        corpus,
+        schema,
+        |value| {
+            let first_source_id =
+                value["cases"][0]["input"]["items"][0]["source_id"].clone();
+            value["cases"][0]["input"]["items"][1]["source_id"] = first_source_id;
+        },
+    )?;
     count += 1;
-    mutation_must_fail("exact replay with changed fingerprint", corpus, schema, |value| {
-        value["cases"][1]["input"]["payload_fingerprint_equal"] = json!(false);
-    })?;
+    mutation_must_fail(
+        "exact replay with changed fingerprint",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][1]["input"]["payload_fingerprint_equal"] = json!(false);
+        },
+    )?;
     count += 1;
-    mutation_must_fail("conflicting identity with same digest", corpus, schema, |value| {
-        let first_digest = value["cases"][2]["input"]["first_digest"].clone();
-        value["cases"][2]["input"]["second_digest"] = first_digest;
-    })?;
+    mutation_must_fail(
+        "conflicting identity with same digest",
+        corpus,
+        schema,
+        |value| {
+            let first_digest = value["cases"][2]["input"]["first_digest"].clone();
+            value["cases"][2]["input"]["second_digest"] = first_digest;
+        },
+    )?;
     count += 1;
-    mutation_must_fail("instrument substitution silently accepted", corpus, schema, |value| {
-        value["cases"][5]["expected"] = json!("accept_import_and_reconcile");
-    })?;
+    mutation_must_fail(
+        "instrument substitution silently accepted",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][5]["expected"] = json!("accept_import_and_reconcile");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("unknown lifecycle status mapped as booked", corpus, schema, |value| {
-        value["cases"][6]["input"]["source_status"] = json!("booked");
-    })?;
+    mutation_must_fail(
+        "unknown lifecycle status mapped as booked",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][6]["input"]["source_status"] = json!("booked");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("accepted promoted to final without evidence", corpus, schema, |value| {
-        value["cases"][7]["expected"] = json!("accept_import_and_reconcile");
-    })?;
+    mutation_must_fail(
+        "accepted promoted to final without evidence",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][7]["expected"] = json!("accept_import_and_reconcile");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("legal entity substitution accepted", corpus, schema, |value| {
-        value["cases"][8]["expected"] = json!("accept_import_and_reconcile");
-    })?;
+    mutation_must_fail(
+        "legal entity substitution accepted",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][8]["expected"] = json!("accept_import_and_reconcile");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("rollback despite possible external effect", corpus, schema, |value| {
-        value["cases"][9]["input"]["external_effect_possible"] = json!(true);
-    })?;
+    mutation_must_fail(
+        "rollback despite possible external effect",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][9]["input"]["external_effect_possible"] = json!(true);
+        },
+    )?;
     count += 1;
-    mutation_must_fail("unknown provider effect marked retry-safe", corpus, schema, |value| {
-        value["cases"][10]["expected"] = json!("rollback_permitted");
-    })?;
+    mutation_must_fail(
+        "unknown provider effect marked retry-safe",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][10]["expected"] = json!("rollback_permitted");
+        },
+    )?;
     count += 1;
-    mutation_must_fail("ambiguous local time coerced to resolved", corpus, schema, |value| {
-        value["cases"][11]["expected"] = json!("accept_import_and_reconcile");
-    })?;
+    mutation_must_fail(
+        "ambiguous local time coerced to resolved",
+        corpus,
+        schema,
+        |value| {
+            value["cases"][11]["expected"] = json!("accept_import_and_reconcile");
+        },
+    )?;
     count += 1;
 
     Ok(count)
@@ -582,7 +652,10 @@ mod tests {
     fn all_negative_mutations_are_rejected() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("parse corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("parse schema");
-        assert_eq!(run_negative_mutations(&corpus, &schema).expect("mutations"), 12);
+        assert_eq!(
+            run_negative_mutations(&corpus, &schema).expect("mutations"),
+            12
+        );
     }
 
     #[test]
