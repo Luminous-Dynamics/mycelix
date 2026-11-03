@@ -313,7 +313,7 @@ fn finance_payment_matches_trade(trade: &Trade, payment: &FinancePaymentSnapshot
         && payment.to_did == trade.seller_did
         && payment.amount == whole_units_to_micro(trade.total_price)
         && payment.currency == trade.currency
-        && matches!(payment.status, FinancePaymentStatus::Completed)
+        && matches!(&payment.status, FinancePaymentStatus::Completed)
 }
 
 /// The Energy hApp only accepts a returned, field-matched Finance Payment
