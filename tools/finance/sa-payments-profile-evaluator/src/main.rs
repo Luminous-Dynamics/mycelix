@@ -566,11 +566,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--corpus" => {
-                let path = PathBuf::from(args.next().ok_or("--corpus requires a path")?);
+                let path = PathBuf::from(args.next().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "--corpus requires a path"))?);
                 corpus_text = fs::read_to_string(path)?;
             }
             "--schema" => {
-                let path = PathBuf::from(args.next().ok_or("--schema requires a path")?);
+                let path = PathBuf::from(args.next().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "--schema requires a path"))?);
                 schema_text = fs::read_to_string(path)?;
             }
             "--self-test" => self_test = true,
@@ -578,13 +578,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 println!("sa-payments-profile-evaluator [--corpus PATH] [--schema PATH] [--self-test]");
                 return Ok(());
             }
-            other => return Err(format!("unknown argument: {other}").into()),
+            other => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("unknown argument: {other}")).into()),
         }
     }
 
-    let (evaluation, corpus, schema) = evaluate(&corpus_text, &schema_text)?;
+    let (evaluation, corpus, schema) = evaluate(&corpus_text, &schema_text)\n        .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?;
     let mutation_count = if self_test {
-        run_self_tests(&corpus, &schema)?
+        run_self_tests(&corpus, &schema)\n            .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?
     } else {
         0
     };
