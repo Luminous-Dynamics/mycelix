@@ -213,8 +213,7 @@ fn exact_cost_basis_points_of_gross_value(metrics: &Value) -> Value {
     if !cost_attribution_qualified(metrics) {
         return Value::Null;
     }
-    let Some(gross_value) =
-        u64_field(metrics, "recipient_gross_available_value_minor_units")
+    let Some(gross_value) = u64_field(metrics, "recipient_gross_available_value_minor_units")
     else {
         return Value::Null;
     };
@@ -345,8 +344,7 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         baseline_attempts,
     );
     let cost = cmp_cost_per_delivery(candidate_metrics, baseline_metrics)?;
-    let cost_per_gross_value =
-        cmp_cost_per_gross_value(candidate_metrics, baseline_metrics)?;
+    let cost_per_gross_value = cmp_cost_per_gross_value(candidate_metrics, baseline_metrics)?;
     let payer_burden = cmp_fraction(
         u64_field(candidate_metrics, "payer_fee_minor_units")?,
         candidate_success,
@@ -568,27 +566,35 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
                 "runs[{index}]: all-in cost must equal the sum of payer, merchant, FX, cash-out, returns/disputes and provider-network cost components"
             ));
         }
-        let recipient_deductions = recipient_deduction_component_total(metrics)
-            .ok_or_else(|| format!("runs[{index}]: recipient deduction component missing or overflow"))?;
+        let recipient_deductions =
+            recipient_deduction_component_total(metrics).ok_or_else(|| {
+                format!("runs[{index}]: recipient deduction component missing or overflow")
+            })?;
         let reported_recipient_deductions =
-            u64_field(metrics, "recipient_total_deductions_minor_units")
-                .ok_or_else(|| format!("runs[{index}]: recipient_total_deductions_minor_units missing"))?;
+            u64_field(metrics, "recipient_total_deductions_minor_units").ok_or_else(|| {
+                format!("runs[{index}]: recipient_total_deductions_minor_units missing")
+            })?;
         if recipient_deductions != reported_recipient_deductions {
             return Err(format!(
                 "runs[{index}]: recipient deduction total must equal fee, tax, other and unclassified components"
             ));
         }
-        let unknown_deduction_instructions =
-            u64_field(metrics, "recipient_deduction_amount_unknown_instructions")
-                .ok_or_else(|| format!("runs[{index}]: recipient_deduction_amount_unknown_instructions missing"))?;
+        let unknown_deduction_instructions = u64_field(
+            metrics,
+            "recipient_deduction_amount_unknown_instructions",
+        )
+        .ok_or_else(|| {
+            format!("runs[{index}]: recipient_deduction_amount_unknown_instructions missing")
+        })?;
         if unknown_deduction_instructions > completed {
             return Err(format!(
                 "runs[{index}]: instructions with unknown recipient deductions exceed recipient-available deliveries"
             ));
         }
         let gross_recipient_value =
-            u64_field(metrics, "recipient_gross_available_value_minor_units")
-                .ok_or_else(|| format!("runs[{index}]: recipient_gross_available_value_minor_units missing"))?;
+            u64_field(metrics, "recipient_gross_available_value_minor_units").ok_or_else(|| {
+                format!("runs[{index}]: recipient_gross_available_value_minor_units missing")
+            })?;
         if unknown_deduction_instructions == 0 {
             let net_recipient_value =
                 u64_field(metrics, "recipient_net_available_value_minor_units")
@@ -814,16 +820,14 @@ fn run_self_tests(
     fee_shift_candidate["metrics"]["payer_fee_minor_units"] = json!(70_000);
     fee_shift_candidate["metrics"]["recipient_fee_minor_units"] = json!(7_000);
     fee_shift_candidate["metrics"]["recipient_total_deductions_minor_units"] = json!(7_000);
-    fee_shift_candidate["metrics"]["recipient_net_available_value_minor_units"] =
-        json!(48_743_000);
+    fee_shift_candidate["metrics"]["recipient_net_available_value_minor_units"] = json!(48_743_000);
     fee_shift_candidate["metrics"]["total_all_in_cost_minor_units"] = json!(177_500);
     let fee_shift_result = matched_run_report(&json!({
         "cohort": runs["cohort"],
         "runs": [baseline.clone(), fee_shift_candidate.clone()]
     }));
     if fee_shift_result.is_err()
-        || pareto_result(&fee_shift_candidate, &baseline)
-            != ParetoResult::TradeoffOrIncomparable
+        || pareto_result(&fee_shift_candidate, &baseline) != ParetoResult::TradeoffOrIncomparable
     {
         return Err(
             "lower payer fees with higher recipient deductions must remain a Pareto trade-off, not a cost win".into(),
@@ -1042,8 +1046,7 @@ mod tests {
         assert!(matched_run_report(&gross_net_mismatch).is_err());
 
         let mut arithmetic_overflow = runs.clone();
-        arithmetic_overflow["runs"][0]["metrics"]["recipient_fee_minor_units"] =
-            json!(u64::MAX);
+        arithmetic_overflow["runs"][0]["metrics"]["recipient_fee_minor_units"] = json!(u64::MAX);
         assert!(matched_run_report(&arithmetic_overflow).is_err());
     }
 
@@ -1053,10 +1056,13 @@ mod tests {
         let mut unknown = runs["runs"][2].clone();
         unknown["metrics"]["recipient_deduction_amount_unknown_instructions"] = json!(1);
         unknown["metrics"]["recipient_net_available_value_minor_units"] = Value::Null;
-        assert!(matched_run_report(&json!({
-            "cohort": runs["cohort"],
-            "runs": [runs["runs"][0].clone(), unknown.clone()]
-        })).is_ok());
+        assert!(
+            matched_run_report(&json!({
+                "cohort": runs["cohort"],
+                "runs": [runs["runs"][0].clone(), unknown.clone()]
+            }))
+            .is_ok()
+        );
         assert!(!cost_attribution_qualified(&unknown["metrics"]));
         assert!(exact_cost_per_delivery(&unknown["metrics"]).is_null());
         assert!(exact_cost_basis_points_of_gross_value(&unknown["metrics"]).is_null());
@@ -1067,10 +1073,13 @@ mod tests {
         unclassified["metrics"]["recipient_total_deductions_minor_units"] = json!(12_100);
         unclassified["metrics"]["recipient_net_available_value_minor_units"] = json!(48_987_900);
         unclassified["metrics"]["total_all_in_cost_minor_units"] = json!(172_820);
-        assert!(matched_run_report(&json!({
-            "cohort": runs["cohort"],
-            "runs": [runs["runs"][0].clone(), unclassified.clone()]
-        })).is_ok());
+        assert!(
+            matched_run_report(&json!({
+                "cohort": runs["cohort"],
+                "runs": [runs["runs"][0].clone(), unclassified.clone()]
+            }))
+            .is_ok()
+        );
         assert!(!cost_attribution_qualified(&unclassified["metrics"]));
         assert!(exact_cost_basis_points_of_gross_value(&unclassified["metrics"]).is_null());
     }
