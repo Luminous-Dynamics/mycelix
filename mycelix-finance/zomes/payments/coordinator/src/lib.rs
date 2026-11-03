@@ -503,7 +503,13 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
             bal.balance
         };
 
-        let expected_balance = post_demurrage + input.amount;
+        // Reject receiver overflow before writing a new balance revision.
+        let expected_balance = checked_sap_balance_credit(post_demurrage, input.amount)
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "SAP receiver balance credit exceeds the u64 micro-SAP range".into()
+                ))
+            })?;
         let updated = SapBalance {
             balance: expected_balance,
             last_demurrage_at: now,
@@ -1038,6 +1044,12 @@ fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)>
 #[inline]
 fn checked_sap_total_debit(amount: u64, fee: u64) -> Option<u64> {
     amount.checked_add(fee)
+}
+
+/// Return the exact receiver SAP balance after a credit without wrapping.
+#[inline]
+fn checked_sap_balance_credit(balance: u64, amount: u64) -> Option<u64> {
+    balance.checked_add(amount)
 }
 
 /// Compute the progressive SAP fee for a payment based on sender's MYCEL score.
@@ -2569,5 +2581,26 @@ mod checked_sap_payment_arithmetic_tests {
             Some(100_100_000)
         );
         assert_eq!(checked_sap_total_debit(0, 0), Some(0));
+    }
+}
+
+#[cfg(test)]
+mod checked_sap_receiver_credit_tests {
+    use super::checked_sap_balance_credit;
+
+    #[test]
+    fn maximum_balance_with_zero_credit_is_representable() {
+        assert_eq!(checked_sap_balance_credit(u64::MAX, 0), Some(u64::MAX));
+    }
+
+    #[test]
+    fn receiver_credit_overflow_is_rejected() {
+        assert_eq!(checked_sap_balance_credit(u64::MAX, 1), None);
+        assert_eq!(checked_sap_balance_credit(u64::MAX - 7, 8), None);
+    }
+
+    #[test]
+    fn ordinary_receiver_credit_is_exact() {
+        assert_eq!(checked_sap_balance_credit(900_000, 100_000), Some(1_000_000));
     }
 }
