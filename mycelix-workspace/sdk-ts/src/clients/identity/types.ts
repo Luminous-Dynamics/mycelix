@@ -163,6 +163,11 @@ export interface CredentialProof {
   proofPurpose: string;
   /** W3C: "proofValue" (multibase encoded) */
   proofValue: string;
+  /**
+   * Declared proof profile. May be a standard W3C cryptosuite or the distinct
+   * internal `mycelix-credential-hash-v1` profile; the internal profile is not
+   * a W3C Data Integrity cryptosuite implementation.
+   */
   cryptosuite?: string;
 }
 
