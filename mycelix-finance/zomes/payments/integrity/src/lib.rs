@@ -1018,6 +1018,10 @@ mod tests {
         format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
     }
 
+    fn valid_payment_action_hash() -> ActionHash {
+        ActionHash::from_raw_36(vec![7; 36])
+    }
+
     fn valid_payment() -> Payment {
         Payment {
             id: "pay:test:001".into(),
