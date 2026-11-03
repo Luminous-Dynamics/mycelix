@@ -341,6 +341,8 @@ export interface DerivedVerificationResult {
   errors: string[];
   original_issuer_verified: boolean;
   original_issuer_signature_status: CredentialSignatureStatus;
+  /** Holder's signature over the complete canonical derived-credential record. */
+  derivation_signature_status: CredentialSignatureStatus;
 }
 
 /**
