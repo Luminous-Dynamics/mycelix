@@ -2474,6 +2474,167 @@ pub fn verify_selective_disclosure(
 mod tests {
     use super::*;
 
+    fn sample_v1_presentation() -> VerifiablePresentation {
+        let credential = VerifiableCredential {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "urn:credential:sample-1".into(),
+            credential_type: vec!["VerifiableCredential".into(), "DegreeCredential".into()],
+            issuer: CredentialIssuer::Did("did:mycelix:issuer1".into()),
+            valid_from: "2026-01-01T00:00:00Z".into(),
+            valid_until: None,
+            credential_subject: CredentialSubject {
+                id: "did:mycelix:holder1".into(),
+                claims: serde_json::json!({"degree": "BSc", "level": 7}),
+            },
+            credential_schema: None,
+            credential_status: None,
+            proof: CredentialProof {
+                proof_type: "MycelixCredentialProof".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:issuer1#keys-1".into(),
+                proof_purpose: "assertionMethod".into(),
+                proof_value: "zIssuerSignature".into(),
+                cryptosuite: Some(CREDENTIAL_HASH_PROFILE_V1.into()),
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+                challenge: None,
+                domain: None,
+            },
+            mycelix_schema_id: "mycelix:schema:degree:v1".into(),
+            mycelix_created: Timestamp::from_micros(1_000_000),
+        };
+        VerifiablePresentation {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "urn:presentation:sample-1".into(),
+            presentation_type: vec!["VerifiablePresentation".into()],
+            holder: "did:mycelix:holder1".into(),
+            verifiable_credential: vec![credential],
+            proof: CredentialProof {
+                proof_type: "MycelixPresentationProof".into(),
+                created: "2026-01-01T00:00:01Z".into(),
+                verification_method: "did:mycelix:holder1#keys-1".into(),
+                proof_purpose: "authentication".into(),
+                proof_value: "zHolderSignature".into(),
+                cryptosuite: Some(PRESENTATION_HASH_PROFILE_V1.into()),
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+                challenge: Some("challenge-1".into()),
+                domain: Some("verifier.example.test".into()),
+            },
+            mycelix_created: Timestamp::from_micros(2_000_000),
+        }
+    }
+
+    #[test]
+    fn presentation_hash_v1_is_deterministic_and_excludes_only_holder_proof_value() {
+        let mut presentation = sample_v1_presentation();
+        let first = compute_presentation_hash_v1(&presentation).unwrap();
+        assert_eq!(first, compute_presentation_hash_v1(&presentation).unwrap());
+        assert_eq!(first.len(), 32);
+
+        presentation.proof.proof_value = "zDifferentHolderProof".into();
+        assert_eq!(first, compute_presentation_hash_v1(&presentation).unwrap());
+    }
+
+    #[test]
+    fn presentation_hash_v1_binds_every_outer_and_embedded_field() {
+        let base = sample_v1_presentation();
+        let expected = compute_presentation_hash_v1(&base).unwrap();
+
+        let mut changed = base.clone();
+        changed.context.push("https://example.test/extra-context".into());
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "@context");
+
+        changed = base.clone();
+        changed.id.push_str("-altered");
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "id");
+
+        changed = base.clone();
+        changed.presentation_type.push("AdminPresentation".into());
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "type");
+
+        changed = base.clone();
+        changed.holder = "did:mycelix:attacker".into();
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "holder");
+
+        changed = base.clone();
+        changed.verifiable_credential[0].credential_subject.claims["degree"] =
+            serde_json::json!("PhD");
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "embedded credential claims");
+
+        changed = base.clone();
+        changed.proof.proof_type = "OtherPresentationProof".into();
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "proof.type");
+
+        changed = base.clone();
+        changed.proof.created.push_str(".001Z");
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "proof.created");
+
+        changed = base.clone();
+        changed.proof.verification_method.push_str("-other");
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "verificationMethod");
+
+        changed = base.clone();
+        changed.proof.proof_purpose = "assertionMethod".into();
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "proofPurpose");
+
+        changed = base.clone();
+        changed.proof.cryptosuite = Some("eddsa-rdfc-2022".into());
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "cryptosuite");
+
+        changed = base.clone();
+        changed.proof.algorithm = Some(AlgorithmId::MlDsa65.as_u16());
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "algorithm");
+
+        changed = base.clone();
+        changed.proof.challenge = Some("challenge-2".into());
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "challenge");
+
+        changed = base.clone();
+        changed.proof.domain = Some("other.example.test".into());
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "domain");
+
+        changed = base.clone();
+        changed.mycelix_created = Timestamp::from_micros(3_000_000);
+        assert_ne!(expected, compute_presentation_hash_v1(&changed).unwrap(), "mycelix_created");
+    }
+
+    #[test]
+    fn presentation_v1_header_pins_holder_method_type_algorithm_and_purpose() {
+        let base = sample_v1_presentation();
+        assert!(v1_presentation_proof_header_matches(&base));
+
+        let mut changed = base.clone();
+        changed.proof.verification_method = "did:mycelix:holder1#keys-2".into();
+        assert!(!v1_presentation_proof_header_matches(&changed));
+
+        changed = base.clone();
+        changed.proof.proof_type = "DataIntegrityProof".into();
+        assert!(!v1_presentation_proof_header_matches(&changed));
+
+        changed = base.clone();
+        changed.proof.proof_purpose = "assertionMethod".into();
+        assert!(!v1_presentation_proof_header_matches(&changed));
+
+        changed = base;
+        changed.proof.algorithm = Some(AlgorithmId::MlDsa65.as_u16());
+        assert!(!v1_presentation_proof_header_matches(&changed));
+    }
+
+    #[test]
+    fn presentation_hash_profiles_keep_legacy_partial_and_unknown_unsupported() {
+        let mut presentation = sample_v1_presentation();
+        assert_eq!(
+            presentation_hash_profile(&presentation),
+            Some(PresentationHashProfile::MycelixV1)
+        );
+        presentation.proof.cryptosuite = Some(LEGACY_ED25519_CRYPTOSUITE.into());
+        assert_eq!(
+            presentation_hash_profile(&presentation),
+            Some(PresentationHashProfile::LegacySubsetV0)
+        );
+        presentation.proof.cryptosuite = Some("unknown-presentation-profile".into());
+        assert_eq!(presentation_hash_profile(&presentation), None);
+    }
+
     // --- is_leap_year ---
 
     #[test]
