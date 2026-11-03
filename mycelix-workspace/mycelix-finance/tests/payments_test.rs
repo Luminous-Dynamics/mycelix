@@ -35,7 +35,7 @@ use holochain::sweettest::*;
 use holochain_types::prelude::*;
 use std::time::Duration;
 
-use finance_wire_types::SapBalanceResponse;
+use finance_wire_types::{GetPaymentHistoryInput, SapBalanceResponse};
 // Import zome types
 use mycelix_finance_types::compute_demurrage_deduction;
 use payments::*;
@@ -1151,6 +1151,22 @@ mod currency_tests {
             .call_fallible(&alice_cell.zome("payments"), "send_payment", input)
             .await;
         assert!(result.is_err(), "TEND must not create a Completed SAP Payment");
+
+        // The rejection happens before Payment/Receipt creation or sender index writes.
+        let history: Vec<Record> = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "get_payment_history",
+                GetPaymentHistoryInput {
+                    did: alice_did,
+                    limit: Some(10),
+                },
+            )
+            .await;
+        assert!(
+            history.is_empty(),
+            "Rejected TEND request must not leave a Payment entry or sender history link"
+        );
     }
 
     /// Test 5.3: Only SAP is supported by the direct-payment endpoint
