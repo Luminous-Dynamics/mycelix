@@ -2379,19 +2379,95 @@ pub enum ZkPredicate {
     CredentialTypeIs { expected_type: String },
 }
 
-/// Result of ZKP-verified selective disclosure.
+/// Cryptographic assurance reached by the selective-disclosure verifier.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, SerializedBytes)]
+#[serde(rename_all = "snake_case")]
+pub enum ZkAssuranceStatus {
+    Verified,
+    Invalid,
+    Unsupported,
+    Error,
+}
+
+/// Result of ZK selective disclosure. Structural validation is kept separate
+/// from proof and commitment assurance. Only two VERIFIED statuses may
+/// produce `proof_valid=true` and `satisfied=true`.
 #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
 pub struct ZkDisclosureResult {
-    /// Whether the predicate is satisfied (per the ZK proof).
+    /// True only when proof and commitment are both cryptographically VERIFIED.
     pub satisfied: bool,
-    /// Proof verification status.
+    /// Compatibility bool; true only for a fully verified proof and commitment.
     pub proof_valid: bool,
-    /// Domain tag used for verification.
+    /// Cryptographic proof assurance. Current placeholder verifier returns Unsupported.
+    pub proof_status: ZkAssuranceStatus,
+    /// Credential-commitment assurance. Current path does not recompute this commitment.
+    pub commitment_status: ZkAssuranceStatus,
+    /// Whether basic byte-presence and size checks passed; not cryptographic evidence.
+    pub structural_checks_passed: bool,
+    /// Machine-readable and human-readable failure/limitation descriptions.
+    pub errors: Vec<String>,
+    /// Domain tag identifier; this label alone does not verify a proof.
     pub domain_tag: String,
     /// Credential ID (public).
     pub credential_id: String,
-    /// Predicate that was verified (public).
+    /// Predicate description (public).
     pub predicate_description: String,
+}
+
+fn build_selective_disclosure_result(
+    domain_tag: String,
+    credential_id: String,
+    predicate_description: String,
+    proof_bytes: &[u8],
+    data_commitment: &[u8],
+) -> ZkDisclosureResult {
+    let proof_structure_valid = !proof_bytes.is_empty() && proof_bytes.len() <= 500_000;
+    let commitment_structure_valid = data_commitment.len() == 32;
+    let structural_checks_passed = proof_structure_valid && commitment_structure_valid;
+
+    let proof_status = if proof_structure_valid {
+        ZkAssuranceStatus::Unsupported
+    } else {
+        ZkAssuranceStatus::Invalid
+    };
+    // A 32-byte length check is not commitment verification. The current
+    // endpoint has no canonical credential commitment reconstruction.
+    let commitment_status = if commitment_structure_valid {
+        ZkAssuranceStatus::Unsupported
+    } else {
+        ZkAssuranceStatus::Invalid
+    };
+
+    let mut errors = Vec::new();
+    if proof_bytes.is_empty() {
+        errors.push("Selective-disclosure proof bytes are empty".to_string());
+    } else if proof_bytes.len() > 500_000 {
+        errors.push("Selective-disclosure proof exceeds the 500KB structural limit".to_string());
+    }
+    if !commitment_structure_valid {
+        errors.push("Credential data commitment must be exactly 32 bytes".to_string());
+    }
+    if proof_status == ZkAssuranceStatus::Unsupported {
+        errors.push("STARK/AIR proof verification is not implemented; proof status is UNSUPPORTED".to_string());
+    }
+    if commitment_status == ZkAssuranceStatus::Unsupported {
+        errors.push("Credential commitment is not recomputed by this endpoint; commitment status is UNSUPPORTED".to_string());
+    }
+
+    let fully_verified = proof_status == ZkAssuranceStatus::Verified
+        && commitment_status == ZkAssuranceStatus::Verified;
+
+    ZkDisclosureResult {
+        satisfied: fully_verified,
+        proof_valid: fully_verified,
+        proof_status,
+        commitment_status,
+        structural_checks_passed,
+        errors,
+        domain_tag,
+        credential_id,
+        predicate_description,
+    }
 }
 
 /// Verify a ZKP-based selective disclosure claim.
@@ -2410,7 +2486,7 @@ pub fn verify_selective_disclosure(
 ) -> ExternResult<ZkDisclosureResult> {
     let domain_tag = mycelix_zkp_core::domain::tag_identity_disclosure();
 
-    // 1. Verify original credential exists
+    // 1. Verify original credential exists.
     let credential_record = get_credential(input.credential_id.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Original credential not found".into())
     ))?;
@@ -2423,7 +2499,7 @@ pub fn verify_selective_disclosure(
             "Invalid credential entry".into()
         )))?;
 
-    // 2. Verify caller is the credential subject
+    // 2. Verify caller is the credential subject.
     let agent_info = agent_info()?;
     let caller_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
     if vc.credential_subject.id != caller_did {
@@ -2432,43 +2508,16 @@ pub fn verify_selective_disclosure(
         )));
     }
 
-    // 3. Verify proof bytes structure
-    if input.proof_bytes.is_empty() {
-        return Ok(ZkDisclosureResult {
-            satisfied: false,
-            proof_valid: false,
-            domain_tag: domain_tag.as_str().to_string(),
-            credential_id: input.credential_id,
-            predicate_description: format!("{:?}", input.predicate),
-        });
-    }
-
-    if input.proof_bytes.len() > 500_000 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Proof exceeds 500KB size limit".into()
-        )));
-    }
-
-    // 4. Verify data commitment is 32 bytes (Blake3)
-    if input.data_commitment.len() != 32 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Data commitment must be exactly 32 bytes".into()
-        )));
-    }
-
-    // 5. Domain-tagged proof verification
-    // The proof was generated with ZTML:Identity:SelectiveDisclosure:v1
-    // Full STARK verification will be wired once AIR circuits are ready.
-    // For now, structural validation + domain tag binding.
-    let proof_valid = !input.proof_bytes.is_empty() && input.data_commitment.len() == 32;
-
-    Ok(ZkDisclosureResult {
-        satisfied: proof_valid,
-        proof_valid,
-        domain_tag: domain_tag.as_str().to_string(),
-        credential_id: input.credential_id,
-        predicate_description: format!("{:?}", input.predicate),
-    })
+    // 3. Structural checks are not proof verification. No AIR/STARK verifier
+    // is currently implemented, and the commitment is not recomputed. The
+    // result therefore remains UNSUPPORTED even for well-formed buffers.
+    Ok(build_selective_disclosure_result(
+        domain_tag.as_str().to_string(),
+        input.credential_id,
+        format!("{:?}", input.predicate),
+        &input.proof_bytes,
+        &input.data_commitment,
+    ))
 }
 
 #[cfg(test)]
@@ -2549,6 +2598,48 @@ mod tests {
             },
             mycelix_created: Timestamp::from_micros(2_000_000),
         }
+    }
+
+    #[test]
+    fn selective_disclosure_structural_bytes_never_become_verified() {
+        let result = build_selective_disclosure_result(
+            "ZTML:Identity:SelectiveDisclosure:v1".into(),
+            "urn:credential:test".into(),
+            "NotExpired".into(),
+            b"arbitrary non-empty bytes",
+            &[7_u8; 32],
+        );
+        assert!(result.structural_checks_passed);
+        assert_eq!(result.proof_status, ZkAssuranceStatus::Unsupported);
+        assert_eq!(result.commitment_status, ZkAssuranceStatus::Unsupported);
+        assert!(!result.proof_valid);
+        assert!(!result.satisfied);
+    }
+
+    #[test]
+    fn selective_disclosure_empty_or_oversized_proofs_are_invalid() {
+        let empty = build_selective_disclosure_result(
+            "domain".into(), "credential".into(), "predicate".into(), &[], &[1_u8; 32]
+        );
+        assert_eq!(empty.proof_status, ZkAssuranceStatus::Invalid);
+        assert!(!empty.proof_valid && !empty.satisfied);
+
+        let oversized = vec![0_u8; 500_001];
+        let large = build_selective_disclosure_result(
+            "domain".into(), "credential".into(), "predicate".into(), &oversized, &[1_u8; 32]
+        );
+        assert_eq!(large.proof_status, ZkAssuranceStatus::Invalid);
+        assert!(!large.proof_valid && !large.satisfied);
+    }
+
+    #[test]
+    fn selective_disclosure_malformed_commitment_is_invalid_and_never_satisfied() {
+        let result = build_selective_disclosure_result(
+            "domain".into(), "credential".into(), "predicate".into(), b"proof", &[1_u8; 31]
+        );
+        assert_eq!(result.proof_status, ZkAssuranceStatus::Unsupported);
+        assert_eq!(result.commitment_status, ZkAssuranceStatus::Invalid);
+        assert!(!result.proof_valid && !result.satisfied);
     }
 
     #[test]
