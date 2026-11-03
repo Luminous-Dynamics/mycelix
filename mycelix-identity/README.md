@@ -7,7 +7,7 @@
 Mycelix Identity provides decentralized identity management for the entire Mycelix ecosystem. It enables:
 
 - **DID:mycelix** - Decentralized identifiers for all agents
-- **Verifiable Credentials** - W3C-compliant credentials with Mycelix extensions
+- **Verifiable Credentials** - a VC Data Model 2.0-shaped data model with a versioned Mycelix-internal signature profile; external W3C Data Integrity conformance is not claimed
 - **Social Recovery** - No seed phrase loss via trusted contacts
 - **Privacy** - Selective disclosure and zero-knowledge proofs
 
@@ -80,6 +80,10 @@ did:mycelix:<agent_pub_key>
 Example:
 did:mycelix:uhCAkX1234567890abcdef...
 ```
+
+## Credential signature profiles
+
+See [Credential Signature Profiles](docs/CREDENTIAL_SIGNATURE_PROFILES.md) for the exact V1 signed-field contract, the historical subset-hash compatibility boundary, and current verification assurance limits. The Mycelix V1 profile is internal; it is not the W3C `eddsa-rdfc-2022` transformation.
 
 ## Integration
 
