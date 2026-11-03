@@ -2474,6 +2474,33 @@ pub fn verify_selective_disclosure(
 mod tests {
     use super::*;
 
+    fn v1_fixture_path() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../tests/fixtures/credential-profile-v1/fixture.json")
+    }
+
+    fn v1_ed25519_fixture() -> (ed25519_dalek::VerifyingKey, ed25519_dalek::Signature) {
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(v1_fixture_path()).expect("V1 independent fixture must exist")
+        ).expect("V1 fixture JSON must parse");
+        let public_key_bytes = hex::decode(
+            fixture["verification_public_key_hex"].as_str().expect("public key hex")
+        ).expect("public key hex must decode");
+        let public_key_array: [u8; 32] = public_key_bytes
+            .try_into()
+            .expect("Ed25519 public key must be exactly 32 bytes");
+        let signature_bytes = hex::decode(
+            fixture["signature_hex"].as_str().expect("signature hex")
+        ).expect("signature hex must decode");
+        let signature = ed25519_dalek::Signature::from_slice(&signature_bytes)
+            .expect("Ed25519 signature must be exactly 64 bytes");
+        (
+            ed25519_dalek::VerifyingKey::from_bytes(&public_key_array)
+                .expect("independent fixture public key must be valid"),
+            signature,
+        )
+    }
+
     fn sample_v1_presentation() -> VerifiablePresentation {
         let credential = VerifiableCredential {
             context: vec!["https://www.w3.org/ns/credentials/v2".into()],
@@ -3048,6 +3075,121 @@ mod tests {
         changed = base.clone();
         changed.mycelix_created = Timestamp::from_micros(2_000_000);
         assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "mycelix_created");
+    }
+
+    #[test]
+    fn credential_hash_v1_matches_independently_signed_openssl_fixture() {
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(v1_fixture_path()).expect("V1 independent fixture must exist")
+        ).expect("V1 fixture JSON must parse");
+        let mut credential = sample_v1_presentation()
+            .verifiable_credential
+            .into_iter()
+            .next()
+            .expect("sample presentation has one embedded credential");
+
+        let mut unsigned = serde_json::to_value(&credential)
+            .expect("credential serializes for V1 signing");
+        let proof = unsigned
+            .get_mut("proof")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("credential has a proof object");
+        proof.remove("proofValue").expect("proofValue is excluded from preimage");
+        let canonical = serde_json::to_vec(&canonicalize_json_value(unsigned))
+            .expect("canonical V1 payload serializes");
+        let fixture_payload = fixture["canonical_payload_utf8"]
+            .as_str()
+            .expect("fixture has exact canonical payload");
+        assert_eq!(
+            canonical,
+            fixture_payload.as_bytes(),
+            "coordinator serializer must match the externally generated fixture byte-for-byte"
+        );
+
+        let mut domain_separated = hex::decode(
+            fixture["domain_separator_hex"].as_str().expect("domain separator hex")
+        ).expect("domain separator hex must decode");
+        domain_separated.extend_from_slice(&canonical);
+        let independently_expected_digest = holo_hash::blake2b_256(&domain_separated);
+        let fixture_digest = hex::decode(
+            fixture["digest_hex"].as_str().expect("fixture digest hex")
+        ).expect("fixture digest hex must decode");
+        assert_eq!(independently_expected_digest.as_slice(), fixture_digest);
+
+        let coordinator_digest = compute_credential_hash_v1(&credential)
+            .expect("coordinator V1 digest must be produced");
+        assert_eq!(coordinator_digest, fixture_digest);
+
+        let (public_key, signature) = v1_ed25519_fixture();
+        public_key.verify_strict(&coordinator_digest, &signature)
+            .expect("OpenSSL-generated Ed25519 fixture must verify with RustCrypto");
+
+        // proofValue is intentionally the only omitted proof member: changing
+        // it leaves the signed preimage unchanged, but the replacement bytes
+        // must independently fail signature verification when used as a proof.
+        credential.proof.proof_value = "zTamperedSignatureValue".into();
+        assert_eq!(
+            compute_credential_hash_v1(&credential).unwrap(),
+            coordinator_digest
+        );
+    }
+
+    #[test]
+    fn credential_hash_v1_fixture_signature_rejects_every_bound_field_mutation() {
+        let credential = sample_v1_presentation()
+            .verifiable_credential
+            .into_iter()
+            .next()
+            .expect("sample presentation has one embedded credential");
+        let digest = compute_credential_hash_v1(&credential).unwrap();
+        let (public_key, signature) = v1_ed25519_fixture();
+        public_key.verify_strict(&digest, &signature)
+            .expect("unmodified credential fixture must verify");
+
+        let mutations: Vec<(&str, Box<dyn Fn(&mut VerifiableCredential)>)> = vec![
+            ("@context", Box::new(|vc| vc.context.push("https://example.test/context/v1".into()))),
+            ("id", Box::new(|vc| vc.id.push_str("-mutated"))),
+            ("type", Box::new(|vc| vc.credential_type.push("AdminCredential".into()))),
+            ("issuer", Box::new(|vc| vc.issuer = CredentialIssuer::Did("did:mycelix:attacker".into()))),
+            ("validFrom", Box::new(|vc| vc.valid_from.push_str(".001Z"))),
+            ("validUntil", Box::new(|vc| vc.valid_until = Some("2027-01-01T00:00:00Z".into()))),
+            ("credentialSubject.id", Box::new(|vc| vc.credential_subject.id = "did:mycelix:other".into())),
+            ("credentialSubject.claims", Box::new(|vc| vc.credential_subject.claims["degree"] = serde_json::json!("PhD"))),
+            ("credentialSchema", Box::new(|vc| vc.credential_schema = Some(CredentialSchemaRef {
+                id: "https://example.test/schema/changed".into(),
+                schema_type: "JsonSchema".into(),
+            }))),
+            ("credentialStatus", Box::new(|vc| vc.credential_status = Some(CredentialStatus {
+                id: "urn:status:entry:9".into(),
+                status_type: "BitstringStatusListEntry".into(),
+                status_purpose: Some("revocation".into()),
+                status_list_index: Some("9".into()),
+                status_list_credential: Some("urn:status:list:1".into()),
+            }))),
+            ("proof.type", Box::new(|vc| vc.proof.proof_type = "OtherProof".into())),
+            ("proof.created", Box::new(|vc| vc.proof.created.push_str(".001Z"))),
+            ("proof.verificationMethod", Box::new(|vc| vc.proof.verification_method.push_str("-mutated"))),
+            ("proof.proofPurpose", Box::new(|vc| vc.proof.proof_purpose = "authentication".into())),
+            ("proof.cryptosuite", Box::new(|vc| vc.proof.cryptosuite = Some("eddsa-rdfc-2022".into()))),
+            ("proof.algorithm", Box::new(|vc| vc.proof.algorithm = Some(AlgorithmId::MlDsa65.as_u16()))),
+            ("proof.challenge", Box::new(|vc| vc.proof.challenge = Some("challenge-mutated".into()))),
+            ("proof.domain", Box::new(|vc| vc.proof.domain = Some("other.example.test".into()))),
+            ("mycelix_schema_id", Box::new(|vc| vc.mycelix_schema_id.push_str(":mutated"))),
+            ("mycelix_created", Box::new(|vc| vc.mycelix_created = Timestamp::from_micros(2_000_000))),
+        ];
+
+        assert_eq!(mutations.len(), 20);
+        for (field, mutate) in mutations {
+            let mut changed = credential.clone();
+            mutate(&mut changed);
+            let changed_digest = compute_credential_hash_v1(&changed)
+                .unwrap_or_else(|error| panic!("{field}: V1 digest failed: {error:?}"));
+            assert_ne!(digest, changed_digest, "{field} must change the signed digest");
+            assert!(
+                public_key.verify_strict(&changed_digest, &signature).is_err(),
+                "{field} mutation must invalidate the independent Ed25519 signature"
+            );
+        }
     }
 
     #[test]
