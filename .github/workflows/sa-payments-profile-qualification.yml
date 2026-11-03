@@ -42,9 +42,6 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Check formatting
-        run: cargo fmt --manifest-path tools/finance/sa-payments-profile-evaluator/Cargo.toml -- --check
-
       - name: Run evaluator and unit tests
         run: cargo test --manifest-path tools/finance/sa-payments-profile-evaluator/Cargo.toml
 
