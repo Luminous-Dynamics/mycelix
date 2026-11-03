@@ -1081,8 +1081,7 @@ mod tests {
 
     #[test]
     fn test_receipt_create_rejects_hdi_signature_failure() {
-        let (receipt, payment_record, payment_action_hash) =
-            mock_receipt_and_payment_record();
+        let (receipt, payment_record, payment_action_hash) = mock_receipt_and_payment_record();
         hdi::hdi::set_hdi(MockReceiptHdi {
             signature_valid: false,
             payment_record: Some(payment_record),
