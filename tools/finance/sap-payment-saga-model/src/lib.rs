@@ -8,7 +8,7 @@
 //! It does not prove Holochain DHT uniqueness, cross-agent atomicity, account
 //! conservation, provider settlement, or external legal finality.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -173,16 +173,33 @@ impl fmt::Display for SagaError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidIntent(reason) => write!(formatter, "invalid payment intent: {reason}"),
-            Self::AmountOverflow => write!(formatter, "principal plus fee overflows the amount unit"),
-            Self::IdempotencyConflict => write!(formatter, "idempotency key reused with a different immutable intent"),
+            Self::AmountOverflow => {
+                write!(formatter, "principal plus fee overflows the amount unit")
+            }
+            Self::IdempotencyConflict => write!(
+                formatter,
+                "idempotency key reused with a different immutable intent"
+            ),
             Self::NotAuthorized => write!(formatter, "payment intent has not been authorized"),
             Self::Rejected => write!(formatter, "payment operation has been rejected"),
-            Self::DependencyNotSatisfied(leg) => write!(formatter, "payment leg {leg:?} has unsatisfied dependencies"),
-            Self::EffectIdentityMismatch(leg) => write!(formatter, "payment leg {leg:?} changed its stable effect identity"),
-            Self::EffectEvidenceConflict(leg) => write!(formatter, "payment leg {leg:?} has conflicting commit evidence"),
-            Self::InvalidTransition(leg) => write!(formatter, "invalid transition for payment leg {leg:?}"),
-            Self::CannotRejectAfterEffectAttempt => write!(formatter, "cannot reject after an economic effect may have occurred"),
-            Self::EmptyEvidenceDigest => write!(formatter, "effect evidence digest must be non-empty"),
+            Self::DependencyNotSatisfied(leg) => {
+                write!(formatter, "payment leg {leg:?} has unsatisfied dependencies")
+            }
+            Self::EffectIdentityMismatch(leg) => {
+                write!(formatter, "payment leg {leg:?} changed its stable effect identity")
+            }
+            Self::EffectEvidenceConflict(leg) => {
+                write!(formatter, "payment leg {leg:?} has conflicting commit evidence")
+            }
+            Self::InvalidTransition(leg) => {
+                write!(formatter, "invalid transition for payment leg {leg:?}")
+            }
+            Self::CannotRejectAfterEffectAttempt => {
+                write!(formatter, "cannot reject after an economic effect may have occurred")
+            }
+            Self::EmptyEvidenceDigest => {
+                write!(formatter, "effect evidence digest must be non-empty")
+            }
         }
     }
 }
@@ -531,19 +548,24 @@ impl JournalRegistry {
             intent.sender_did.clone(),
             intent.client_idempotency_key.clone(),
         );
-        if let Some(existing) = self.operations.get(&key) {
-            if existing.intent != intent {
-                return Err(SagaError::IdempotencyConflict);
+        match self.operations.entry(key) {
+            Entry::Occupied(existing_entry) => {
+                let existing = existing_entry.get();
+                if existing.intent != intent {
+                    return Err(SagaError::IdempotencyConflict);
+                }
+                Ok((
+                    CreateDisposition::ExistingSameIntent,
+                    existing.operation_id.clone(),
+                ))
             }
-            return Ok((
-                CreateDisposition::ExistingSameIntent,
-                existing.operation_id.clone(),
-            ));
+            Entry::Vacant(vacant_entry) => {
+                let journal = PaymentJournal::new(intent);
+                let operation_id = journal.operation_id.clone();
+                vacant_entry.insert(journal);
+                Ok((CreateDisposition::Created, operation_id))
+            }
         }
-        let journal = PaymentJournal::new(intent);
-        let operation_id = journal.operation_id.clone();
-        self.operations.insert(key, journal);
-        Ok((CreateDisposition::Created, operation_id))
     }
 
     pub fn get(&self, sender_did: &str, idempotency_key: &str) -> Option<&PaymentJournal> {
@@ -845,7 +867,10 @@ mod tests {
         assert_eq!(ids.len(), 1);
         assert_eq!(registry.lock().unwrap().len(), 1);
         assert_eq!(
-            outcomes.iter().filter(|(disposition, _)| *disposition == CreateDisposition::Created).count(),
+            outcomes
+                .iter()
+                .filter(|(disposition, _)| *disposition == CreateDisposition::Created)
+                .count(),
             1
         );
     }
