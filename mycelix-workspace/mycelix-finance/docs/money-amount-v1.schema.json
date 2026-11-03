@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.luminousdynamics.io/schemas/money-amount-v1.schema.json",
+  "title": "MoneyAmountV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "instrument_profile_id",
+    "minor_units"
+  ],
+  "properties": {
+    "instrument_profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$"
+    },
+    "minor_units": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "maxLength": 20
+    }
+  }
+}
