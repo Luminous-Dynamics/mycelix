@@ -1,0 +1,43 @@
+name: Payment Adapter Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'docs/finance/PAYMENT_ADAPTER_QUALIFICATION_MATRIX_V1.md'
+      - 'docs/finance/payment-adapter-qualification-v1.json'
+      - 'tools/finance/payment_adapter_lifecycle_smoke.py'
+      - 'tools/finance/verify_payment_adapter_corpus.py'
+      - '.github/workflows/payment-adapter-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/finance/PAYMENT_ADAPTER_QUALIFICATION_MATRIX_V1.md'
+      - 'docs/finance/payment-adapter-qualification-v1.json'
+      - 'tools/finance/payment_adapter_lifecycle_smoke.py'
+      - 'tools/finance/verify_payment_adapter_corpus.py'
+      - '.github/workflows/payment-adapter-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference-qualification:
+    name: Effects-disabled payment qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Immutable release pin: actions/checkout v7.0.1.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Immutable release pin: actions/setup-python v7.0.0.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Check Python syntax
+        run: python -m py_compile tools/finance/verify_payment_adapter_corpus.py tools/finance/payment_adapter_lifecycle_smoke.py
+      - name: Verify qualification corpus and reject unsafe mutations
+        run: python tools/finance/verify_payment_adapter_corpus.py --self-test
+      - name: Run effects-disabled lifecycle and concurrency scenarios
+        run: python tools/finance/payment_adapter_lifecycle_smoke.py
