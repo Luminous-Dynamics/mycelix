@@ -33,16 +33,16 @@ See STUDY_PROTOCOL_V1.md for the study estimand, frozen-cohort contract, fee acc
 A matched candidate is evaluated on:
 - recipient-available completion rate;
 - all-in cost per completed delivery (exact integer numerator/denominator);
-- p50/p95/p99 initiation-to-recipient-available time, with Wilson 95% intervals for binomial completion/task-success rates;
+- p50/p95/p99 initiation-to-recipient-available time **conditional on recipient-available instructions**, with explicit observed/missing timestamp counts and Wilson 95% intervals for binomial completion/task-success rates;
 - exact all-in cost reconciliation across payer fees, merchant fees, FX spread, cash-out, returns/disputes and provider/network costs;
 - terminal failure, unknown-outcome and return/reversal rates;
 - matched task/user and eligible-merchant denominators (all providers must use exactly the same cohort);
-- mutually bounded outcome counts (`delivered + terminal failures + unknown <= eligible attempts`; returns/reversals cannot exceed delivered payments);
+- exactly reconciled primary outcome dispositions (`delivered + terminal failures + unknown/pending + not dispatched/cancelled == eligible attempts`; arithmetic is checked; returns/reversals remain linked successor events);
 - operator minutes per 1,000 attempts;
 - user task success; and
 - active merchant coverage in the eligible study cohort.
 
-The evaluator validates monotonic latency quantiles and exact fee-component sums, then uses Pareto dominance rather than a weighted scalar score. The synthetic fixture intentionally demonstrates a trade-off rather than assuming the candidate wins. If a candidate is cheaper but materially worse on task completion, latency, usability or operator effort, the result is trade-off/incomparable rather than a claimed win.
+The evaluator validates exact outcome-denominator partitions, latency observation reconciliation, monotonic delivery-latency quantiles and exact fee-component sums, then uses Pareto dominance rather than a weighted scalar score. The delivery latency percentiles are conditional on successful recipient availability; a population-wide time-to-availability analysis requires a separately qualified competing-risk method and is not implied by these percentiles. The synthetic fixture intentionally demonstrates a trade-off rather than assuming the candidate wins. If a candidate is cheaper but materially worse on task completion, latency, usability or operator effort, the result is trade-off/incomparable rather than a claimed win.
 
 ## Market context
 
