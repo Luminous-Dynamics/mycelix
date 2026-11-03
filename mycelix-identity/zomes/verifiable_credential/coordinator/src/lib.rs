@@ -2598,10 +2598,235 @@ mod tests {
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
         };
-        let hash1 = compute_credential_hash(&vc);
-        let hash2 = compute_credential_hash(&vc);
+        let hash1 = compute_credential_hash_legacy_subset(&vc);
+        let hash2 = compute_credential_hash_legacy_subset(&vc);
         assert_eq!(hash1, hash2, "Hash must be deterministic");
         assert_eq!(hash1.len(), 32, "BLAKE2b-256 produces 32 bytes");
+    }
+
+    #[test]
+    fn credential_hash_v1_is_deterministic_and_excludes_only_proof_value() {
+        let mut vc = VerifiableCredential {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "test-cred-v1".into(),
+            credential_type: vec!["VerifiableCredential".into(), "EmploymentCredential".into()],
+            issuer: CredentialIssuer::Object {
+                id: "did:mycelix:issuer1".into(),
+                name: Some("Issuer One".into()),
+                issuer_type: Some(vec!["Organization".into()]),
+            },
+            valid_from: "2026-01-01T00:00:00Z".into(),
+            valid_until: Some("2027-01-01T00:00:00Z".into()),
+            credential_subject: CredentialSubject {
+                id: "did:mycelix:holder1".into(),
+                claims: serde_json::json!({"degree": "BSc", "level": 7}),
+            },
+            credential_schema: Some(CredentialSchemaRef {
+                id: "https://example.test/schema/degree-v1".into(),
+                schema_type: "JsonSchema".into(),
+            }),
+            credential_status: Some(CredentialStatus {
+                id: "urn:status:entry:1".into(),
+                status_type: "BitstringStatusListEntry".into(),
+                status_purpose: Some("revocation".into()),
+                status_list_index: Some("1".into()),
+                status_list_credential: Some("urn:status:list:1".into()),
+            }),
+            proof: CredentialProof {
+                proof_type: "DataIntegrityProof".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:issuer1#keys-1".into(),
+                proof_purpose: "assertionMethod".into(),
+                proof_value: "zSignatureA".into(),
+                cryptosuite: Some(CREDENTIAL_HASH_PROFILE_V1.into()),
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+                challenge: Some("challenge-1".into()),
+                domain: Some("issuer.example.test".into()),
+            },
+            mycelix_schema_id: "mycelix:schema:degree:v1".into(),
+            mycelix_created: Timestamp::from_micros(1_000_000),
+        };
+
+        let first = compute_credential_hash_v1(&vc).unwrap();
+        let second = compute_credential_hash_v1(&vc).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(first.len(), 32);
+
+        // The signature bytes are not part of their own signing preimage.
+        vc.proof.proof_value = "zDifferentSignatureBytes".into();
+        assert_eq!(first, compute_credential_hash_v1(&vc).unwrap());
+    }
+
+    #[test]
+    fn credential_hash_v1_binds_every_serialized_security_relevant_field() {
+        let base = VerifiableCredential {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "test-cred-v1".into(),
+            credential_type: vec!["VerifiableCredential".into()],
+            issuer: CredentialIssuer::Did("did:mycelix:issuer1".into()),
+            valid_from: "2026-01-01T00:00:00Z".into(),
+            valid_until: None,
+            credential_subject: CredentialSubject {
+                id: "did:mycelix:holder1".into(),
+                claims: serde_json::json!({"degree": "BSc"}),
+            },
+            credential_schema: None,
+            credential_status: None,
+            proof: CredentialProof {
+                proof_type: "DataIntegrityProof".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:issuer1#keys-1".into(),
+                proof_purpose: "assertionMethod".into(),
+                proof_value: "zSignature".into(),
+                cryptosuite: Some(CREDENTIAL_HASH_PROFILE_V1.into()),
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+                challenge: None,
+                domain: None,
+            },
+            mycelix_schema_id: "mycelix:schema:test:v1".into(),
+            mycelix_created: Timestamp::from_micros(1_000_000),
+        };
+        let expected = compute_credential_hash_v1(&base).unwrap();
+
+        let mut changed = base.clone();
+        changed.context.push("https://example.test/context/v1".into());
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "@context");
+        changed = base.clone();
+        changed.id.push_str("-altered");
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "id");
+        changed = base.clone();
+        changed.credential_type.push("AdminCredential".into());
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "type");
+        changed = base.clone();
+        changed.issuer = CredentialIssuer::Did("did:mycelix:attacker".into());
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "issuer");
+        changed = base.clone();
+        changed.valid_from.push_str(".001Z");
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "validFrom");
+        changed = base.clone();
+        changed.valid_until = Some("2026-06-01T00:00:00Z".into());
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "validUntil");
+        changed = base.clone();
+        changed.credential_subject.id = "did:mycelix:other-holder".into();
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "credentialSubject.id");
+        changed = base.clone();
+        changed.credential_subject.claims["degree"] = serde_json::json!("PhD");
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "credentialSubject claims");
+        changed = base.clone();
+        changed.credential_schema = Some(CredentialSchemaRef {
+            id: "https://example.test/schema/attacker".into(),
+            schema_type: "JsonSchema".into(),
+        });
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "credentialSchema");
+        changed = base.clone();
+        changed.credential_status = Some(CredentialStatus {
+            id: "urn:status:entry:9".into(),
+            status_type: "BitstringStatusListEntry".into(),
+            status_purpose: Some("revocation".into()),
+            status_list_index: Some("9".into()),
+            status_list_credential: Some("urn:status:list:1".into()),
+        });
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "credentialStatus");
+        changed = base.clone();
+        changed.proof.proof_type = "OtherProof".into();
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "proof.type");
+        changed = base.clone();
+        changed.proof.created.push_str(".001Z");
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "proof.created");
+        changed = base.clone();
+        changed.proof.verification_method.push_str("-attacker");
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "verificationMethod");
+        changed = base.clone();
+        changed.proof.proof_purpose = "authentication".into();
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "proofPurpose");
+        changed = base.clone();
+        changed.proof.cryptosuite = Some("eddsa-rdfc-2022".into());
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "cryptosuite");
+        changed = base.clone();
+        changed.proof.algorithm = Some(AlgorithmId::MlDsa65.as_u16());
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "algorithm");
+        changed = base.clone();
+        changed.proof.challenge = Some("challenge-2".into());
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "challenge");
+        changed = base.clone();
+        changed.proof.domain = Some("other.example.test".into());
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "domain");
+        changed = base.clone();
+        changed.mycelix_schema_id.push_str(":altered");
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "mycelix_schema_id");
+        changed = base.clone();
+        changed.mycelix_created = Timestamp::from_micros(2_000_000);
+        assert_ne!(expected, compute_credential_hash_v1(&changed).unwrap(), "mycelix_created");
+    }
+
+    #[test]
+    fn credential_hash_v1_canonicalizes_nested_json_object_key_order() {
+        let make_vc = |claims| VerifiableCredential {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "test-cred-canonical".into(),
+            credential_type: vec!["VerifiableCredential".into()],
+            issuer: CredentialIssuer::Did("did:mycelix:issuer1".into()),
+            valid_from: "2026-01-01T00:00:00Z".into(),
+            valid_until: None,
+            credential_subject: CredentialSubject {
+                id: "did:mycelix:holder1".into(),
+                claims,
+            },
+            credential_schema: None,
+            credential_status: None,
+            proof: CredentialProof {
+                proof_type: "DataIntegrityProof".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:issuer1#keys-1".into(),
+                proof_purpose: "assertionMethod".into(),
+                proof_value: "zSignature".into(),
+                cryptosuite: Some(CREDENTIAL_HASH_PROFILE_V1.into()),
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+                challenge: None,
+                domain: None,
+            },
+            mycelix_schema_id: "mycelix:schema:test:v1".into(),
+            mycelix_created: Timestamp::from_micros(1_000_000),
+        };
+        let a = make_vc(serde_json::json!({"a": 1, "nested": {"x": 2, "y": 3}}));
+        let b = make_vc(serde_json::json!({"nested": {"y": 3, "x": 2}, "a": 1}));
+        assert_eq!(
+            compute_credential_hash_v1(&a).unwrap(),
+            compute_credential_hash_v1(&b).unwrap()
+        );
+    }
+
+    #[test]
+    fn credential_hash_profiles_keep_legacy_distinct_and_unknown_fail_closed() {
+        let mut vc = VerifiableCredential {
+            context: vec![],
+            id: "test".into(),
+            credential_type: vec!["VerifiableCredential".into()],
+            issuer: CredentialIssuer::Did("did:mycelix:issuer1".into()),
+            valid_from: "2026-01-01T00:00:00Z".into(),
+            valid_until: None,
+            credential_subject: CredentialSubject { id: "did:mycelix:holder1".into(), claims: serde_json::json!({}) },
+            credential_schema: None,
+            credential_status: None,
+            proof: CredentialProof {
+                proof_type: "DataIntegrityProof".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:issuer1#keys-1".into(),
+                proof_purpose: "assertionMethod".into(),
+                proof_value: "zSignature".into(),
+                cryptosuite: Some(CREDENTIAL_HASH_PROFILE_V1.into()),
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+                challenge: None,
+                domain: None,
+            },
+            mycelix_schema_id: "mycelix:schema:test:v1".into(),
+            mycelix_created: Timestamp::from_micros(1_000_000),
+        };
+        assert_eq!(credential_hash_profile(&vc), Some(CredentialHashProfile::MycelixV1));
+        vc.proof.cryptosuite = Some(LEGACY_ED25519_CRYPTOSUITE.into());
+        assert_eq!(credential_hash_profile(&vc), Some(CredentialHashProfile::LegacySubsetV0));
+        vc.proof.cryptosuite = Some("unknown-profile".into());
+        assert_eq!(credential_hash_profile(&vc), None);
     }
 
     #[test]
@@ -2633,8 +2858,8 @@ mod tests {
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
         };
-        let hash_a = compute_credential_hash(&make_vc("cred-A"));
-        let hash_b = compute_credential_hash(&make_vc("cred-B"));
+        let hash_a = compute_credential_hash_legacy_subset(&make_vc("cred-A"));
+        let hash_b = compute_credential_hash_legacy_subset(&make_vc("cred-B"));
         assert_ne!(hash_a, hash_b);
     }
 
