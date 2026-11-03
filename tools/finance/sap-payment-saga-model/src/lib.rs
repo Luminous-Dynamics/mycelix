@@ -184,6 +184,15 @@ fn is_sha256_digest(value: &str) -> bool {
     })
 }
 
+fn is_action_reference(value: &str) -> bool {
+    value.strip_prefix("action:").is_some_and(|reference| {
+        !reference.is_empty()
+            && reference.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'
+            })
+    })
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EffectState {
     NotStarted,
@@ -434,8 +443,8 @@ impl PaymentJournal {
                     && counterparty_id == &self.intent.recipient_did
                     && *direction == MovementDirection::Debit
                     && *amount_minor == total_debit
-                    && !predecessor_action_hash.is_empty()
-                    && !action_hash.is_empty()
+                    && is_action_reference(predecessor_action_hash)
+                    && is_action_reference(action_hash)
                     && predecessor_action_hash != action_hash
             }
             (
@@ -484,7 +493,8 @@ impl PaymentJournal {
                     status,
                 },
             ) => {
-                !payment_action_hash.is_empty() && *status == PaymentRecordStatus::Completed
+                is_action_reference(payment_action_hash)
+                    && *status == PaymentRecordStatus::Completed
             },
             (
                 PaymentLeg::Receipt,
@@ -496,7 +506,9 @@ impl PaymentJournal {
                     signature_digest,
                 },
             ) => {
-                !receipt_action_hash.is_empty()
+                is_action_reference(receipt_action_hash)
+                    && is_action_reference(payment_action_hash)
+                    && receipt_action_hash != payment_action_hash
                     && self.committed_payment_action_hash() == Some(payment_action_hash.as_str())
                     && signer_did == &self.intent.sender_did
                     && signing_profile == "mycelix.finance.payment-receipt.v1"
@@ -1387,6 +1399,44 @@ mod tests {
         );
         commit_for_test(&mut journal, PaymentLeg::Receipt, "receipt", 5).unwrap();
         assert!(journal.is_completed());
+    }
+
+    #[test]
+    fn receipt_evidence_rejects_wrong_signer_and_reused_payment_action() {
+        let mut journal = ready_journal();
+        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
+        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap();
+        commit_for_test(&mut journal, PaymentLeg::PaymentRecord, "payment", 4).unwrap();
+
+        let receipt = journal.effect_id(PaymentLeg::Receipt);
+        journal.prepare_leg(PaymentLeg::Receipt, &receipt).unwrap();
+
+        let mut wrong_signer =
+            valid_evidence(&journal, PaymentLeg::Receipt, "wrong-signer", 60);
+        if let EffectEvidenceKind::Receipt { signer_did, .. } = &mut wrong_signer.kind {
+            *signer_did = "did:mycelix:mallory".into();
+        }
+        assert_eq!(
+            journal.commit_leg(PaymentLeg::Receipt, wrong_signer),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::Receipt))
+        );
+
+        let mut reused_action =
+            valid_evidence(&journal, PaymentLeg::Receipt, "reused-payment-action", 61);
+        if let EffectEvidenceKind::Receipt {
+            receipt_action_hash,
+            payment_action_hash,
+            ..
+        } = &mut reused_action.kind
+        {
+            *receipt_action_hash = payment_action_hash.clone();
+        }
+        assert_eq!(
+            journal.commit_leg(PaymentLeg::Receipt, reused_action),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::Receipt))
+        );
+
+        commit_for_test(&mut journal, PaymentLeg::Receipt, "receipt", 5).unwrap();
     }
 
     #[test]
