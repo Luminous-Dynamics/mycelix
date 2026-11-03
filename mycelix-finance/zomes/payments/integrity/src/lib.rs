@@ -720,6 +720,63 @@ fn receipt_matches_payment(
         && receipt.timestamp.as_micros() == payment.created.as_micros()
 }
 
+fn receipt_signing_data_v1(
+    receipt: &Receipt,
+    payment_action_hash: &ActionHash,
+) -> PaymentReceiptSigningDataV1 {
+    PaymentReceiptSigningDataV1::new(
+        payment_action_hash.as_ref().to_vec(),
+        receipt.payment_id.clone(),
+        receipt.from_did.clone(),
+        receipt.to_did.clone(),
+        receipt.amount,
+        receipt.fee,
+        receipt.currency.clone(),
+        receipt.timestamp.as_micros(),
+    )
+}
+
+fn verify_receipt_signature_v1(
+    author: &AgentPubKey,
+    receipt: &Receipt,
+    payment_action_hash: &ActionHash,
+) -> ExternResult<bool> {
+    let Some(signature) = decode_receipt_signature_v1(&receipt.signature) else {
+        return Ok(false);
+    };
+    hdi::ed25519::verify_signature(
+        author.clone(),
+        signature,
+        receipt_signing_data_v1(receipt, payment_action_hash),
+    )
+}
+
+fn validate_receipt_attestation(
+    author: &AgentPubKey,
+    receipt: &Receipt,
+    payment: &Payment,
+    payment_action_hash: &ActionHash,
+    signature_valid: bool,
+) -> ValidateCallbackResult {
+    let author_did = did_for_author(author);
+    if let ValidateCallbackResult::Invalid(message) =
+        require_did_is_author("Receipt", "from_did", &receipt.from_did, &author_did)
+    {
+        return ValidateCallbackResult::Invalid(message);
+    }
+    if !receipt_matches_payment(receipt, payment, payment_action_hash) {
+        return ValidateCallbackResult::Invalid(
+            "Receipt subject does not match its exact Payment action".into(),
+        );
+    }
+    if !signature_valid {
+        return ValidateCallbackResult::Invalid(
+            "Receipt Ed25519 signature does not verify against the action author".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_create_receipt(
     action: EntryCreationAction,
     receipt: Receipt,
@@ -730,13 +787,6 @@ fn validate_create_receipt(
 
     // Receipts are sender-authored attestations. A receiver or unrelated peer
     // cannot create a receipt that claims to be from the sender.
-    let author_did = did_for_author(action.author());
-    if let ValidateCallbackResult::Invalid(message) =
-        require_did_is_author("Receipt", "from_did", &receipt.from_did, &author_did)
-    {
-        return Ok(ValidateCallbackResult::Invalid(message));
-    }
-
     let payment_action_hash = receipt
         .payment_action_hash
         .as_ref()
@@ -766,33 +816,17 @@ fn validate_create_receipt(
         ));
     }
 
-    let Some(signature) = decode_receipt_signature_v1(&receipt.signature) else {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Receipt signature is not a canonical v1 Ed25519 encoding".into(),
-        ));
-    };
-    let signing_data = PaymentReceiptSigningDataV1::new(
-        payment_action_hash.as_ref().to_vec(),
-        receipt.payment_id.clone(),
-        receipt.from_did.clone(),
-        receipt.to_did.clone(),
-        receipt.amount,
-        receipt.fee,
-        receipt.currency.clone(),
-        receipt.timestamp.as_micros(),
-    );
-
     // Verify against the DHT action author's key. Never use a public key
     // supplied by the receipt, coordinator input or an identity-zome lookup.
     let signature_valid =
-        hdi::ed25519::verify_signature(action.author().clone(), signature, signing_data)?;
-    if !signature_valid {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Receipt Ed25519 signature does not verify against the action author".into(),
-        ));
-    }
-
-    Ok(ValidateCallbackResult::Valid)
+        verify_receipt_signature_v1(action.author(), &receipt, payment_action_hash)?;
+    Ok(validate_receipt_attestation(
+        action.author(),
+        &receipt,
+        &payment,
+        payment_action_hash,
+        signature_valid,
+    ))
 }
 
 fn validate_sap_balance(bal: &SapBalance) -> ExternResult<ValidateCallbackResult> {
@@ -1225,6 +1259,47 @@ mod tests {
         receipt.payment_action_hash = None;
         assert!(matches!(
             validate_receipt_structure(&receipt),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_receipt_v1_signing_transcript_binds_domain_version_and_payment_hash() {
+        let receipt = valid_receipt();
+        let payment_hash = valid_payment_action_hash();
+        let transcript = receipt_signing_data_v1(&receipt, &payment_hash);
+        assert_eq!(transcript.domain, PAYMENT_RECEIPT_V1_DOMAIN);
+        assert_eq!(transcript.version, 1);
+        assert_eq!(transcript.payment_action_hash, payment_hash.as_ref());
+        assert_eq!(transcript.fee, 100);
+
+        let mut changed = receipt.clone();
+        changed.amount += 1;
+        assert_ne!(
+            receipt_signing_data_v1(&receipt, &payment_hash),
+            receipt_signing_data_v1(&changed, &payment_hash)
+        );
+    }
+
+    #[test]
+    fn test_receipt_attestation_requires_sender_subject_and_signature() {
+        let author = AgentPubKey::from_raw_36(vec![0; 36]);
+        let payment = valid_payment();
+        let payment_hash = valid_payment_action_hash();
+        let receipt = valid_receipt();
+
+        assert!(matches!(
+            validate_receipt_attestation(&author, &receipt, &payment, &payment_hash, true),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_receipt_attestation(&author, &receipt, &payment, &payment_hash, false),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let wrong_author = AgentPubKey::from_raw_36(vec![9; 36]);
+        assert!(matches!(
+            validate_receipt_attestation(&wrong_author, &receipt, &payment, &payment_hash, true),
             ValidateCallbackResult::Invalid(_)
         ));
     }
