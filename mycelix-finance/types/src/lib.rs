@@ -190,8 +190,7 @@ mod money_amount_v1_tests {
 
     #[test]
     fn maximum_u64_is_exact_and_overflow_is_rejected() {
-        let maximum =
-            MoneyAmountV1::new(SAP_MICRO_MONEY_PROFILE_V1, u64::MAX.to_string()).unwrap();
+        let maximum = MoneyAmountV1::new(SAP_MICRO_MONEY_PROFILE_V1, u64::MAX.to_string()).unwrap();
         assert_eq!(maximum.minor_units_u64().unwrap(), u64::MAX);
         assert_eq!(
             MoneyAmountV1::new(SAP_MICRO_MONEY_PROFILE_V1, "18446744073709551616"),
@@ -298,12 +297,7 @@ mod money_amount_v1_tests {
             .unwrap();
             let result = left.checked_add(&right);
             if let Some(expected) = vector.get("expected").and_then(serde_json::Value::as_str) {
-                assert_eq!(
-                    result.unwrap().minor_units,
-                    expected,
-                    "{}",
-                    vector["id"]
-                );
+                assert_eq!(result.unwrap().minor_units, expected, "{}", vector["id"]);
             } else {
                 assert_eq!(
                     result.unwrap_err().code(),
@@ -319,11 +313,7 @@ mod money_amount_v1_tests {
     fn exact_json_roundtrip_matches_golden_wire_string() {
         let corpus: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
         let expected = corpus["exact_json_roundtrip"].as_str().unwrap();
-        let amount = MoneyAmountV1::new(
-            SAP_MICRO_MONEY_PROFILE_V1,
-            u64::MAX.to_string(),
-        )
-        .unwrap();
+        let amount = MoneyAmountV1::new(SAP_MICRO_MONEY_PROFILE_V1, u64::MAX.to_string()).unwrap();
         assert_eq!(serde_json::to_string(&amount).unwrap(), expected);
     }
 
