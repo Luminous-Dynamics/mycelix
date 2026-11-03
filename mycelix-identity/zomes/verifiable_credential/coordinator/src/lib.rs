@@ -1206,8 +1206,9 @@ pub fn verify_presentation(
     Ok(PresentationVerificationResult {
         presentation_id: vp.id,
         holder: vp.holder,
-        valid: errors.is_empty(),
+        valid: errors.is_empty() && holder_signature_status.is_verified(),
         errors,
+        holder_signature_status,
         credential_results,
         verified_at: now,
     })
@@ -1231,6 +1232,7 @@ pub struct PresentationVerificationResult {
     pub holder: String,
     pub valid: bool,
     pub errors: Vec<String>,
+    pub holder_signature_status: CredentialSignatureStatus,
     pub credential_results: Vec<CredentialInPresentationResult>,
     pub verified_at: Timestamp,
 }
