@@ -114,6 +114,14 @@ BEGIN
     END IF;
 
     IF identity_security.register_verifier_challenge(
+        v_consume_expiry_digest, 'test-verifier', 'urn:mycelix:test-audience',
+        v_transaction_id, v_request_digest, v_holder_digest,
+        clock_timestamp() + INTERVAL '5 minutes'
+    ) THEN
+        RAISE EXCEPTION 'expired challenge digest was re-registered instead of retained as a tombstone';
+    END IF;
+
+    IF identity_security.register_verifier_challenge(
         v_expired_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
         clock_timestamp() - INTERVAL '1 second'
