@@ -851,6 +851,69 @@ mod tests {
     }
 
     #[test]
+    fn length_prefixed_operation_ids_do_not_alias_separator_collisions() {
+        let first = PaymentIntent::new("sender:one", "bob", "key", "fp-a", 1, 0, "SAP");
+        let second = PaymentIntent::new("sender", "bob", "one:key", "fp-b", 1, 0, "SAP");
+        let mut registry = JournalRegistry::default();
+        let (_, first_id) = registry.create_or_get(first).unwrap();
+        let (_, second_id) = registry.create_or_get(second).unwrap();
+        assert_ne!(first_id, second_id);
+        assert_eq!(registry.len(), 2);
+    }
+
+    #[test]
+    fn fee_timeout_resumes_same_effect_and_unblocks_payment_evidence() {
+        let mut registry = JournalRegistry::default();
+        registry.create_or_get(intent()).unwrap();
+        let journal = registry.get_mut("did:mycelix:alice", "client-op-001").unwrap();
+        journal.authorize().unwrap();
+
+        let debit = journal.effect_id(PaymentLeg::SenderDebit);
+        journal.prepare_leg(PaymentLeg::SenderDebit, &debit).unwrap();
+        journal.commit_leg(PaymentLeg::SenderDebit, &debit, "debit").unwrap();
+
+        let credit = journal.effect_id(PaymentLeg::RecipientCredit);
+        journal.prepare_leg(PaymentLeg::RecipientCredit, &credit).unwrap();
+        journal.commit_leg(PaymentLeg::RecipientCredit, &credit, "credit").unwrap();
+
+        let fee = journal.effect_id(PaymentLeg::TreasuryFee);
+        journal.prepare_leg(PaymentLeg::TreasuryFee, &fee).unwrap();
+        journal.mark_indeterminate(PaymentLeg::TreasuryFee, &fee).unwrap();
+        assert_eq!(journal.status(), OperationStatus::Indeterminate);
+        assert_eq!(
+            journal.prepare_leg(PaymentLeg::TreasuryFee, &fee).unwrap(),
+            Transition::ResumedSameEffect
+        );
+        journal.commit_leg(PaymentLeg::TreasuryFee, &fee, "fee").unwrap();
+
+        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
+        assert_eq!(journal.status(), OperationStatus::PaymentEvidencePending);
+        assert_eq!(
+            journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap(),
+            Transition::Prepared
+        );
+    }
+
+    #[test]
+    fn receipt_timeout_resumes_same_evidence_leg_and_then_completes() {
+        let mut journal = ready_journal();
+        let payment = journal.effect_id(PaymentLeg::PaymentRecord);
+        journal.prepare_leg(PaymentLeg::PaymentRecord, &payment).unwrap();
+        journal.commit_leg(PaymentLeg::PaymentRecord, &payment, "payment").unwrap();
+
+        let receipt = journal.effect_id(PaymentLeg::Receipt);
+        journal.prepare_leg(PaymentLeg::Receipt, &receipt).unwrap();
+        journal.mark_indeterminate(PaymentLeg::Receipt, &receipt).unwrap();
+        assert_eq!(journal.status(), OperationStatus::Indeterminate);
+        assert_eq!(
+            journal.prepare_leg(PaymentLeg::Receipt, &receipt).unwrap(),
+            Transition::ResumedSameEffect
+        );
+        journal.commit_leg(PaymentLeg::Receipt, &receipt, "receipt").unwrap();
+        assert_eq!(journal.status(), OperationStatus::Completed);
+    }
+
+    #[test]
     fn fee_and_balance_legs_are_never_replayed_when_evidence_is_pending() {
         let mut journal = ready_journal();
         let payment_id = journal.effect_id(PaymentLeg::PaymentRecord);
@@ -861,12 +924,15 @@ mod tests {
             journal.prepare_leg(PaymentLeg::PaymentRecord, &payment_id).unwrap(),
             Transition::ResumedSameEffect
         );
-        assert_eq!(
-            journal.effect_state(PaymentLeg::SenderDebit),
-            &EffectState::Committed {
-                effect_id: journal.effect_id(PaymentLeg::SenderDebit),
-                evidence_digest: "sha256:debit-evidence".into()
-            }
-        );
+        for leg in [
+            PaymentLeg::SenderDebit,
+            PaymentLeg::RecipientCredit,
+            PaymentLeg::TreasuryFee,
+        ] {
+            assert!(
+                matches!(journal.effect_state(leg), EffectState::Committed { .. }),
+                "previous monetary leg {leg:?} must remain committed"
+            );
+        }
     }
 }
