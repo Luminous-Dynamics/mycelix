@@ -804,6 +804,14 @@ fn validate_create_receipt(
     // string or a detached sender signature is not sufficient to attest that a
     // corresponding Payment entry exists.
     let payment_record = must_get_valid_record(payment_action_hash.clone())?;
+    // The referenced Payment and its receipt must have the same authenticated
+    // sender action author. Matching DIDs/economic fields alone must not allow
+    // one agent to attest to another agent's Payment action.
+    if payment_record.action().author() != action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Receipt and referenced Payment must share the same sender action author".into(),
+        ));
+    }
     let payment = match payment_record.entry().to_app_option::<Payment>() {
         Ok(Some(payment)) => payment,
         Ok(None) => {
@@ -1093,6 +1101,24 @@ mod tests {
             signature_valid: true,
             payment_record: Some(payment_record),
             expected_payment_action_hash: Some(payment_action_hash),
+        });
+        let result =
+            validate_create_receipt(EntryCreationAction::Create(make_create()), receipt).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_receipt_create_rejects_payment_authored_by_another_agent() {
+        let (mut receipt, _, _) = mock_receipt_and_payment_record();
+        let foreign_author = AgentPubKey::from_raw_36(vec![7; 36]);
+        let foreign_payment_record = wrap_entry_record(foreign_author, valid_payment());
+        let foreign_payment_action_hash = foreign_payment_record.action_address().clone();
+        receipt.payment_action_hash = Some(foreign_payment_action_hash.clone());
+
+        hdi::hdi::set_hdi(MockReceiptHdi {
+            signature_valid: true,
+            payment_record: Some(foreign_payment_record),
+            expected_payment_action_hash: Some(foreign_payment_action_hash),
         });
         let result =
             validate_create_receipt(EntryCreationAction::Create(make_create()), receipt).unwrap();
