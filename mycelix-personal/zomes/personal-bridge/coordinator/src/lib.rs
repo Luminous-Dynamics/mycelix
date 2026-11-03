@@ -816,6 +816,11 @@ pub fn get_my_credentials_from_identity(_: ()) -> ExternResult<DispatchResult> {
 /// Create a verifiable presentation from credentials held in the identity cluster.
 #[hdk_extern]
 pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<DispatchResult> {
+    if input.challenge.trim().is_empty() || input.challenge.len() > 512 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Presentation challenge must be non-empty and at most 512 UTF-8 bytes".into()
+        )));
+    }
     enforce_rate_limit("identity:verifiable_credential")?;
     let payload = ExternIO::encode(&input)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
@@ -833,7 +838,7 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Dispa
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreatePresentationInput {
     pub credential_hashes: Vec<ActionHash>,
-    pub challenge: Option<String>,
+    pub challenge: String,
     pub domain: Option<String>,
     pub verifier_did: Option<String>,
 }
@@ -1174,27 +1179,38 @@ mod tests {
     fn create_presentation_input_serde_roundtrip() {
         let input = CreatePresentationInput {
             credential_hashes: vec![ActionHash::from_raw_36(vec![0u8; 36])],
-            challenge: Some("nonce-123".into()),
+            challenge: "nonce-123".into(),
             domain: Some("voting.mycelix.net".into()),
             verifier_did: Some("did:mycelix:verifier".into()),
         };
         let json = serde_json::to_string(&input).unwrap();
         let back: CreatePresentationInput = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.challenge, Some("nonce-123".into()));
+        assert_eq!(back.challenge, "nonce-123");
         assert_eq!(back.credential_hashes.len(), 1);
     }
 
     #[test]
-    fn create_presentation_input_minimal() {
-        let input = CreatePresentationInput {
+    fn create_presentation_input_requires_challenge() {
+        let json = r#"{"credential_hashes":[],"domain":null,"verifier_did":null}"#;
+        assert!(serde_json::from_str::<CreatePresentationInput>(json).is_err());
+    }
+
+    #[test]
+    fn create_presentation_input_rejects_empty_or_oversized_challenge() {
+        let empty = CreatePresentationInput {
             credential_hashes: vec![],
-            challenge: None,
+            challenge: " ".into(),
             domain: None,
             verifier_did: None,
         };
-        let json = serde_json::to_string(&input).unwrap();
-        let back: CreatePresentationInput = serde_json::from_str(&json).unwrap();
-        assert!(back.credential_hashes.is_empty());
-        assert!(back.challenge.is_none());
+        assert!(empty.challenge.trim().is_empty());
+
+        let oversized = CreatePresentationInput {
+            credential_hashes: vec![],
+            challenge: "x".repeat(513),
+            domain: None,
+            verifier_did: None,
+        };
+        assert!(oversized.challenge.len() > 512);
     }
 }
