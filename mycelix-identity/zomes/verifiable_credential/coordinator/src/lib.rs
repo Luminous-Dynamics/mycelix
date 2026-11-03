@@ -2932,6 +2932,117 @@ mod tests {
         assert!(parse_iso8601_to_micros("").is_none());
     }
 
+    #[test]
+    fn iso8601_rejects_invalid_calendar_dates_and_leap_days() {
+        assert!(parse_iso8601_to_micros("2024-02-30").is_none());
+        assert!(parse_iso8601_to_micros("2023-02-29").is_none());
+        assert!(parse_iso8601_to_micros("2024-04-31").is_none());
+        assert!(parse_iso8601_to_micros("2024-02-29").is_some());
+    }
+
+    #[test]
+    fn iso8601_full_timestamp_requires_valid_timezone_and_no_trailing_data() {
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00Zgarbage").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00+24:00").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00+05:60").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T24:00:00Z").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:60:00Z").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:60Z").is_none());
+    }
+
+    #[test]
+    fn iso8601_fractional_seconds_are_microsecond_exact() {
+        let base = parse_iso8601_to_micros("2024-01-01T00:00:00Z").unwrap();
+        assert_eq!(
+            parse_iso8601_to_micros("2024-01-01T00:00:00.123456Z"),
+            Some(base + 123_456)
+        );
+        assert_eq!(
+            parse_iso8601_to_micros("2024-01-01T00:00:00.1Z"),
+            Some(base + 100_000)
+        );
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00.1234567Z").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00.Z").is_none());
+    }
+
+    #[test]
+    fn iso8601_date_only_policy_has_explicit_start_and_end_of_day() {
+        let start = parse_iso8601_to_micros_with_policy(
+            "2024-01-01",
+            DateOnlyPolicy::StartOfDay,
+        ).unwrap();
+        let end = parse_iso8601_to_micros_with_policy(
+            "2024-01-01",
+            DateOnlyPolicy::EndOfDay,
+        ).unwrap();
+        let day_start = days_since_epoch(2024, 1, 1).unwrap() * 86_400 * 1_000_000;
+        assert_eq!(start, day_start);
+        assert_eq!(end, day_start + 86_399_999_999);
+    }
+
+    #[test]
+    fn credential_validity_window_enforces_not_before_and_exclusive_expiry() {
+        let now = Timestamp::from_micros(
+            days_since_epoch(2024, 1, 1).unwrap() * 86_400 * 1_000_000
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2024-01-01T00:00:00Z",
+                Some("2024-01-02T00:00:00Z"),
+                now,
+            ),
+            CredentialValidityStatus::Valid
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2024-01-02T00:00:00Z",
+                None,
+                now,
+            ),
+            CredentialValidityStatus::NotYetValid
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2023-01-01T00:00:00Z",
+                Some("2024-01-01T00:00:00Z"),
+                now,
+            ),
+            CredentialValidityStatus::Expired
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2024-01-02T00:00:00Z",
+                Some("2024-01-01T00:00:00Z"),
+                now,
+            ),
+            CredentialValidityStatus::InvalidWindow
+        );
+        assert_eq!(
+            credential_validity_status("not-a-date", None, now),
+            CredentialValidityStatus::InvalidValidFrom
+        );
+        assert_eq!(
+            credential_validity_status(
+                "2024-01-01T00:00:00Z",
+                Some("not-a-date"),
+                now,
+            ),
+            CredentialValidityStatus::InvalidValidUntil
+        );
+    }
+
+    #[test]
+    fn credential_validity_date_only_means_start_for_from_and_end_for_until() {
+        let now = Timestamp::from_micros(
+            days_since_epoch(2024, 1, 1).unwrap() * 86_400 * 1_000_000
+        );
+        assert_eq!(
+            credential_validity_status("2024-01-01", Some("2024-01-01"), now),
+            CredentialValidityStatus::Valid
+        );
+    }
+
     // --- parse_iso8601_expired ---
 
     #[test]
@@ -2939,6 +3050,16 @@ mod tests {
         let now = Timestamp::from_micros(1_700_000_000_000_000); // ~2023-11-14
         assert_eq!(
             parse_iso8601_expired("2020-01-01T00:00:00Z", now),
+            ExpirationStatus::Expired
+        );
+    }
+
+    #[test]
+    fn expiry_is_exclusive_at_the_exact_boundary() {
+        let expiry = parse_iso8601_to_micros("2024-01-01T00:00:00Z").unwrap();
+        let now = Timestamp::from_micros(expiry);
+        assert_eq!(
+            parse_iso8601_expired("2024-01-01T00:00:00Z", now),
             ExpirationStatus::Expired
         );
     }
