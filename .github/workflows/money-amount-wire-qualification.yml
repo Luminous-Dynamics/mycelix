@@ -15,7 +15,7 @@ on:
     branches: [main]
     paths:
       - 'mycelix-finance/crates/finance-wire-types/**'
-      - 'mycelix-finance/docs/money-amount-golden-v1.md'
+      - 'mycelix-finance/docs/MONEY_AMOUNT_WIRE_V1.md'
       - 'mycelix-finance/docs/money-amount-golden-v1.json'
       - 'mycelix-finance/docs/money-amount-golden-v1.schema.json'
       - 'mycelix-workspace/sdk-ts/src/clients/finance/money-amount.ts'
