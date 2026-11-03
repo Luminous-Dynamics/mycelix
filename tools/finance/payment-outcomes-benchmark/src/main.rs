@@ -5,7 +5,7 @@
 //! rankings unless their measurement windows and definitions exactly match.
 
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::cmp::Ordering;
 use std::error::Error;
 use std::fs;
@@ -49,7 +49,9 @@ fn validate_schema(schema_text: &str, instance_text: &str) -> Result<Value, Vec<
     let instance: Value = serde_json::from_str(instance_text)
         .map_err(|error| vec![format!("instance parse failed: {error}")])?;
     if !jsonschema::meta::is_valid(&schema) {
-        return Err(vec!["schema is invalid against its Draft 2020-12 meta-schema".into()]);
+        return Err(vec![
+            "schema is invalid against its Draft 2020-12 meta-schema".into(),
+        ]);
     }
     let validator = draft202012::options()
         .should_validate_formats(true)
@@ -70,8 +72,7 @@ fn public_snapshot_comparability(left: &Value, right: &Value) -> bool {
     let left_period = object_field(left, "period");
     let right_period = object_field(right, "period");
     left_period == right_period
-        && string_field(left, "metric_definition_id")
-            == string_field(right, "metric_definition_id")
+        && string_field(left, "metric_definition_id") == string_field(right, "metric_definition_id")
         && string_field(left, "population_scope") == string_field(right, "population_scope")
         && object_field(left, "transaction_count").and_then(|v| string_field(v, "unit"))
             == object_field(right, "transaction_count").and_then(|v| string_field(v, "unit"))
@@ -131,7 +132,10 @@ fn gate_status(metrics: &Value) -> GateStatus {
         "unauthorised_secondary_data_uses",
         "essential_service_denials_for_unrelated_consent_refusal",
     ];
-    if hard_gates.iter().any(|key| u64_field(metrics, key) != Some(0)) {
+    if hard_gates
+        .iter()
+        .any(|key| u64_field(metrics, key) != Some(0))
+    {
         GateStatus::Disqualified
     } else {
         GateStatus::QualifiedForComparison
@@ -150,9 +154,7 @@ fn wilson_interval(successes: u64, trials: u64) -> Option<(f64, f64)> {
     let z2 = z * z;
     let denominator = 1.0 + z2 / n;
     let centre = (p + z2 / (2.0 * n)) / denominator;
-    let margin = z
-        * ((p * (1.0 - p) / n + z2 / (4.0 * n * n)).sqrt())
-        / denominator;
+    let margin = z * ((p * (1.0 - p) / n + z2 / (4.0 * n * n)).sqrt()) / denominator;
     Some(((centre - margin).max(0.0), (centre + margin).min(1.0)))
 }
 
@@ -166,7 +168,9 @@ fn fee_component_total(metrics: &Value) -> Option<u64> {
         "provider_network_cost_minor_units",
     ]
     .into_iter()
-    .try_fold(0_u64, |total, key| total.checked_add(u64_field(metrics, key)?))
+    .try_fold(0_u64, |total, key| {
+        total.checked_add(u64_field(metrics, key)?)
+    })
 }
 
 fn cmp_fraction(left_num: u64, left_den: u64, right_num: u64, right_den: u64) -> Ordering {
@@ -186,7 +190,12 @@ fn cmp_cost_per_delivery(left: &Value, right: &Value) -> Option<Ordering> {
     if left_delivered == 0 || right_delivered == 0 {
         return None;
     }
-    Some(cmp_fraction(left_cost, left_delivered, right_cost, right_delivered))
+    Some(cmp_fraction(
+        left_cost,
+        left_delivered,
+        right_cost,
+        right_delivered,
+    ))
 }
 
 fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
@@ -208,8 +217,10 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
     let baseline_user_success = u64_field(baseline_metrics, "user_task_successes")?;
     let candidate_merchants = u64_field(candidate_metrics, "active_merchants_in_cohort")?;
     let baseline_merchants = u64_field(baseline_metrics, "active_merchants_in_cohort")?;
-    let candidate_merchant_denominator = u64_field(candidate_metrics, "eligible_merchants_in_cohort")?;
-    let baseline_merchant_denominator = u64_field(baseline_metrics, "eligible_merchants_in_cohort")?;
+    let candidate_merchant_denominator =
+        u64_field(candidate_metrics, "eligible_merchants_in_cohort")?;
+    let baseline_merchant_denominator =
+        u64_field(baseline_metrics, "eligible_merchants_in_cohort")?;
 
     let completion = cmp_fraction(
         candidate_success,
@@ -294,7 +305,10 @@ fn pareto_result(candidate: &Value, baseline: &Value) -> ParetoResult {
     if baseline_gate == GateStatus::Disqualified {
         return ParetoResult::BaselineDisqualified;
     }
-    match (run_dominates(candidate, baseline), run_dominates(baseline, candidate)) {
+    match (
+        run_dominates(candidate, baseline),
+        run_dominates(baseline, candidate),
+    ) {
         (Some(true), Some(false)) => ParetoResult::CandidateDominates,
         (Some(false), Some(true)) => ParetoResult::BaselineDominates,
         _ => ParetoResult::TradeoffOrIncomparable,
@@ -328,13 +342,15 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
     let mut ids = std::collections::BTreeSet::new();
     let mut common_denominators: Option<(u64, u64, u64)> = None;
     for (index, run) in run_list.iter().enumerate() {
-        let id = string_field(run, "run_id")
-            .ok_or_else(|| format!("runs[{index}]: missing run_id"))?;
+        let id =
+            string_field(run, "run_id").ok_or_else(|| format!("runs[{index}]: missing run_id"))?;
         if !ids.insert(id.to_owned()) {
             return Err(format!("runs[{index}]: duplicate run_id {id}"));
         }
         if object_field(run, "cohort").is_some_and(|run_cohort| run_cohort != cohort) {
-            return Err(format!("runs[{index}]: run cohort differs from the frozen matched cohort"));
+            return Err(format!(
+                "runs[{index}]: run cohort differs from the frozen matched cohort"
+            ));
         }
         let metrics = &run["metrics"];
         let attempts = u64_field(metrics, "eligible_attempts")
@@ -353,27 +369,44 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
             .ok_or_else(|| format!("runs[{index}]: terminal_failures missing"))?;
         let unknown_outcomes = u64_field(metrics, "unknown_outcomes")
             .ok_or_else(|| format!("runs[{index}]: unknown_outcomes missing"))?;
+        let not_dispatched = u64_field(metrics, "not_dispatched_or_cancelled")
+            .ok_or_else(|| format!("runs[{index}]: not_dispatched_or_cancelled missing"))?;
         let returned_or_reversed = u64_field(metrics, "returned_or_reversed")
             .ok_or_else(|| format!("runs[{index}]: returned_or_reversed missing"))?;
-        if completed > attempts
+        let latency_population = string_field(metrics, "delivery_latency_population")
+            .ok_or_else(|| format!("runs[{index}]: delivery_latency_population missing"))?;
+        let latency_observations = u64_field(metrics, "delivery_latency_observations")
+            .ok_or_else(|| format!("runs[{index}]: delivery_latency_observations missing"))?;
+        let latency_missing = u64_field(metrics, "delivery_latency_missing")
+            .ok_or_else(|| format!("runs[{index}]: delivery_latency_missing missing"))?;
+        let outcome_total = completed
+            .checked_add(terminal_failures)
+            .and_then(|total| total.checked_add(unknown_outcomes))
+            .and_then(|total| total.checked_add(not_dispatched))
+            .ok_or_else(|| format!("runs[{index}]: outcome disposition count overflow"))?;
+        let latency_total = latency_observations
+            .checked_add(latency_missing)
+            .ok_or_else(|| format!("runs[{index}]: delivery-latency observation count overflow"))?;
+        if outcome_total != attempts
             || user_successes > user_attempts
             || merchant_active > merchant_eligible
             || returned_or_reversed > completed
-            || completed
-                .saturating_add(terminal_failures)
-                .saturating_add(unknown_outcomes)
-                > attempts
+            || latency_population != "recipient_available_only"
+            || latency_total != completed
         {
             return Err(format!(
-                "runs[{index}]: outcome counts exceed the eligible attempt, delivery or return denominators"
+                "runs[{index}]: primary outcomes must exactly partition eligible attempts; latency observations must exactly partition recipient-available deliveries"
             ));
         }
         if string_field(metrics, "cost_currency") != string_field(cohort, "currency") {
-            return Err(format!("runs[{index}]: cost currency differs from cohort currency"));
+            return Err(format!(
+                "runs[{index}]: cost currency differs from cohort currency"
+            ));
         }
         let fee_components = fee_component_total(metrics)
             .ok_or_else(|| format!("runs[{index}]: missing fee component or integer overflow"))?;
-        if fee_components != u64_field(metrics, "total_all_in_cost_minor_units").unwrap_or(u64::MAX) {
+        if fee_components != u64_field(metrics, "total_all_in_cost_minor_units").unwrap_or(u64::MAX)
+        {
             return Err(format!(
                 "runs[{index}]: all-in cost must equal the sum of payer, merchant, FX, cash-out, returns/disputes and provider-network cost components"
             ));
@@ -385,13 +418,11 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
         let p99 = u64_field(metrics, "p99_initiation_to_available_ms")
             .ok_or_else(|| format!("runs[{index}]: p99 latency missing"))?;
         if !(p50 <= p95 && p95 <= p99) {
-            return Err(format!("runs[{index}]: latency quantiles must satisfy p50 <= p95 <= p99"));
+            return Err(format!(
+                "runs[{index}]: latency quantiles must satisfy p50 <= p95 <= p99"
+            ));
         }
-        let denominators = (
-            attempts,
-            user_attempts,
-            merchant_eligible,
-        );
+        let denominators = (attempts, user_attempts, merchant_eligible);
         if common_denominators.is_some_and(|expected| expected != denominators) {
             return Err(format!(
                 "runs[{index}]: task-attempt and eligible-merchant denominators differ from the matched cohort"
@@ -445,17 +476,25 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
                 u64_field(&run["metrics"], "total_all_in_cost_minor_units").unwrap_or(0),
                 u64_field(&run["metrics"], "recipient_available").unwrap_or(0)
             ),
+            "delivery_latency_population": run["metrics"]["delivery_latency_population"],
+            "delivery_latency_observations": run["metrics"]["delivery_latency_observations"],
+            "delivery_latency_missing": run["metrics"]["delivery_latency_missing"],
             "metrics": run["metrics"]
         })).collect::<Vec<_>>(),
         "comparisons": comparisons,
-        "latency_quantiles": ["p50", "p95", "p99"],
+        "latency_quantiles": "p50/p95/p99 are conditional on recipient-available instructions; they are not population-wide time-to-availability estimates",
         "cost_reconciliation": "all-in cost equals exact integer sum of fee/cost components",
         "confidence_intervals": "Wilson 95% intervals for completion and user task success",
         "claim_ceiling": "synthetic matched-run illustration only; no real provider or Mycelix performance claim"
     }))
 }
 
-fn run_self_tests(market: &Value, runs: &Value, market_schema: &str, runs_schema: &str) -> Result<usize, String> {
+fn run_self_tests(
+    market: &Value,
+    runs: &Value,
+    market_schema: &str,
+    runs_schema: &str,
+) -> Result<usize, String> {
     if validate_schema(market_schema, &market.to_string()).is_err()
         || validate_schema(runs_schema, &runs.to_string()).is_err()
     {
@@ -467,7 +506,10 @@ fn run_self_tests(market: &Value, runs: &Value, market_schema: &str, runs_schema
     for i in 0..snapshots.len() {
         for j in (i + 1)..snapshots.len() {
             if public_snapshot_comparability(&snapshots[i], &snapshots[j]) {
-                return Err("public national snapshots were incorrectly treated as directly comparable".into());
+                return Err(
+                    "public national snapshots were incorrectly treated as directly comparable"
+                        .into(),
+                );
             }
             count += 1;
         }
@@ -476,7 +518,10 @@ fn run_self_tests(market: &Value, runs: &Value, market_schema: &str, runs_schema
     let baseline = &runs["runs"][0];
     let candidate = &runs["runs"][2];
     if pareto_result(candidate, baseline) != ParetoResult::TradeoffOrIncomparable {
-        return Err("mixed illustrative fixture must report a trade-off, not a manufactured candidate win".into());
+        return Err(
+            "mixed illustrative fixture must report a trade-off, not a manufactured candidate win"
+                .into(),
+        );
     }
     count += 1;
 
@@ -509,24 +554,45 @@ fn run_self_tests(market: &Value, runs: &Value, market_schema: &str, runs_schema
     count += 1;
 
     let mut mutated = runs.clone();
-    mutated["runs"][2]["metrics"]["essential_service_denials_for_unrelated_consent_refusal"] = json!(1);
+    mutated["runs"][2]["metrics"]["essential_service_denials_for_unrelated_consent_refusal"] =
+        json!(1);
     if pareto_result(&mutated["runs"][2], baseline) != ParetoResult::CandidateDisqualified {
         return Err("candidate unrelated-consent denial mutation was not disqualified".into());
     }
     count += 1;
 
     let mut outcome_overflow = runs.clone();
-    outcome_overflow["runs"][2]["metrics"]["unknown_outcomes"] = json!(100);
+    outcome_overflow["runs"][2]["metrics"]["terminal_failures"] = json!(100);
     if matched_run_report(&outcome_overflow).is_ok() {
         return Err("outcomes exceeding eligible attempts were accepted".into());
     }
     count += 1;
 
-    let mut changed_cohort = runs.clone();
-    changed_cohort["cohort"]["task_corpus_digest"] =
-        json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    if changed_cohort["cohort"] == runs["cohort"] {
-        return Err("cohort digest mutation did not change cohort identity".into());
+    let mut outcome_undercount = runs.clone();
+    outcome_undercount["runs"][2]["metrics"]["not_dispatched_or_cancelled"] = json!(0);
+    if matched_run_report(&outcome_undercount).is_ok() {
+        return Err("unaccounted eligible instructions were silently accepted".into());
+    }
+    count += 1;
+
+    let mut arithmetic_overflow = runs.clone();
+    arithmetic_overflow["runs"][2]["metrics"]["terminal_failures"] = json!(u64::MAX);
+    if matched_run_report(&arithmetic_overflow).is_ok() {
+        return Err("outcome disposition arithmetic overflow was accepted".into());
+    }
+    count += 1;
+
+    let mut missing_latency = runs.clone();
+    missing_latency["runs"][2]["metrics"]["delivery_latency_observations"] = json!(1959);
+    if matched_run_report(&missing_latency).is_ok() {
+        return Err("delivery-latency observations that omit an available delivery were accepted".into());
+    }
+    count += 1;
+
+    let mut excessive_returns = runs.clone();
+    excessive_returns["runs"][2]["metrics"]["returned_or_reversed"] = json!(1961);
+    if matched_run_report(&excessive_returns).is_ok() {
+        return Err("returns exceeding original deliveries were accepted".into());
     }
     count += 1;
 
@@ -543,7 +609,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         match arg.as_str() {
             "--market" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--market requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--market requires a path",
+                    )
                 })?);
                 market_text = fs::read_to_string(path)?;
             }
@@ -562,15 +631,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     format!("unknown argument: {other}"),
-                ).into());
+                )
+                .into());
             }
         }
     }
 
-    let market = validate_schema(MARKET_SCHEMA, &market_text)
-        .map_err(|errors| std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; ")))?;
-    let runs = validate_schema(RUNS_SCHEMA, &runs_text)
-        .map_err(|errors| std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; ")))?;
+    let market = validate_schema(MARKET_SCHEMA, &market_text).map_err(|errors| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; "))
+    })?;
+    let runs = validate_schema(RUNS_SCHEMA, &runs_text).map_err(|errors| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; "))
+    })?;
     let run_report = matched_run_report(&runs)
         .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
     let mutation_count = if self_test {
@@ -633,7 +705,13 @@ mod tests {
         let market: Value = serde_json::from_str(MARKET_DEFAULT).expect("market JSON");
         let report = snapshot_report(&market);
         assert!(report["raw_volume_leaderboard"].is_null());
-        assert!(report["pairwise"].as_array().unwrap().iter().all(|pair| pair["rankable"] == false));
+        assert!(
+            report["pairwise"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|pair| pair["rankable"] == false)
+        );
     }
 
     #[test]
