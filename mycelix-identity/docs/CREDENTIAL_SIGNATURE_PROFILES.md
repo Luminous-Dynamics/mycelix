@@ -121,6 +121,35 @@ presentation profiles are **UNSUPPORTED**. The result API exposes
 proof and all embedded credentials to be VERIFIED, a matching verifier
 challenge, and the non-signature checks to pass.
 
+## Credential validity-window semantics
+
+The verifier now enforces the half-open interval:
+
+`validFrom <= verification_time < validUntil`
+
+`validFrom` is inclusive; `validUntil` is exclusive. A credential is
+not-yet-valid before its start time and expired at the exact end instant.
+When both are present, `validUntil` must be later than `validFrom`.
+
+The internal parser accepts:
+- date-only values, with date-only `validFrom` interpreted as the start of
+  that UTC day and date-only `validUntil` interpreted as the final
+  microsecond of that UTC day;
+- full timestamps with an explicit `Z` or numeric UTC offset;
+- fractional seconds of one through six decimal digits, matching Holochain
+  timestamp precision.
+
+It rejects invalid Gregorian dates, impossible day/month combinations,
+invalid time or offset fields, missing timezone suffixes on full timestamps,
+more than six fractional digits, and arbitrary trailing characters. Fractional
+seconds are represented exactly at microsecond precision; higher precision is
+rejected rather than silently rounded.
+
+The same validity-window function is used for standalone credential
+verification, credentials embedded in presentations, and original credentials
+referenced by derived credentials. This is an internal verifier policy
+description, not a claim of W3C Data Integrity conformance.
+
 ## Historical subset-hash V0
 
 The historical implementation hashed only credential ID, issuer DID, subject
