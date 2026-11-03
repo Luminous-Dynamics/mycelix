@@ -161,6 +161,7 @@ fn wilson_interval(successes: u64, trials: u64) -> Option<(f64, f64)> {
 fn fee_component_total(metrics: &Value) -> Option<u64> {
     [
         "payer_fee_minor_units",
+        "recipient_total_deductions_minor_units",
         "merchant_fee_minor_units",
         "fx_cost_minor_units",
         "cashout_fee_minor_units",
@@ -173,11 +174,84 @@ fn fee_component_total(metrics: &Value) -> Option<u64> {
     })
 }
 
+fn recipient_deduction_component_total(metrics: &Value) -> Option<u64> {
+    [
+        "recipient_fee_minor_units",
+        "recipient_tax_minor_units",
+        "recipient_other_deduction_minor_units",
+        "recipient_unclassified_deduction_minor_units",
+    ]
+    .into_iter()
+    .try_fold(0_u64, |total, key| {
+        total.checked_add(u64_field(metrics, key)?)
+    })
+}
+
+fn cost_attribution_qualified(metrics: &Value) -> bool {
+    u64_field(metrics, "recipient_deduction_amount_unknown_instructions") == Some(0)
+        && u64_field(metrics, "recipient_unclassified_deduction_minor_units") == Some(0)
+}
+
+fn exact_cost_per_delivery(metrics: &Value) -> Value {
+    if !cost_attribution_qualified(metrics) {
+        return Value::Null;
+    }
+    let Some(delivered) = u64_field(metrics, "recipient_available") else {
+        return Value::Null;
+    };
+    if delivered == 0 {
+        return Value::Null;
+    }
+    json!({
+        "numerator_minor_units": metrics["total_all_in_cost_minor_units"],
+        "denominator_deliveries": delivered,
+        "currency": metrics["cost_currency"]
+    })
+}
+
+fn exact_cost_basis_points_of_gross_value(metrics: &Value) -> Value {
+    if !cost_attribution_qualified(metrics) {
+        return Value::Null;
+    }
+    let Some(gross_value) =
+        u64_field(metrics, "recipient_gross_available_value_minor_units")
+    else {
+        return Value::Null;
+    };
+    if gross_value == 0 {
+        return Value::Null;
+    }
+    json!({
+        "numerator_minor_units": metrics["total_all_in_cost_minor_units"],
+        "denominator_minor_units": gross_value,
+        "basis_point_scale": 10_000,
+        "currency": metrics["cost_currency"]
+    })
+}
+
+fn recipient_cost_incidence_summary(metrics: &Value) -> Value {
+    json!({
+        "cost_attribution_qualified": cost_attribution_qualified(metrics),
+        "payer_fee_minor_units": metrics["payer_fee_minor_units"],
+        "recipient_deductions_minor_units": metrics["recipient_total_deductions_minor_units"],
+        "recipient_deduction_amount_unknown_instructions": metrics["recipient_deduction_amount_unknown_instructions"],
+        "recipient_unclassified_deduction_minor_units": metrics["recipient_unclassified_deduction_minor_units"],
+        "merchant_fee_minor_units": metrics["merchant_fee_minor_units"],
+        "gross_recipient_available_value_minor_units": metrics["recipient_gross_available_value_minor_units"],
+        "net_recipient_available_value_minor_units": metrics["recipient_net_available_value_minor_units"],
+        "all_in_cost_per_delivery": exact_cost_per_delivery(metrics),
+        "all_in_cost_basis_points_of_gross_value": exact_cost_basis_points_of_gross_value(metrics)
+    })
+}
+
 fn cmp_fraction(left_num: u64, left_den: u64, right_num: u64, right_den: u64) -> Ordering {
     (left_num as u128 * right_den as u128).cmp(&(right_num as u128 * left_den as u128))
 }
 
 fn cmp_cost_per_delivery(left: &Value, right: &Value) -> Option<Ordering> {
+    if !cost_attribution_qualified(left) || !cost_attribution_qualified(right) {
+        return None;
+    }
     let left_currency = string_field(left, "cost_currency")?;
     let right_currency = string_field(right, "cost_currency")?;
     if left_currency != right_currency {
@@ -196,6 +270,25 @@ fn cmp_cost_per_delivery(left: &Value, right: &Value) -> Option<Ordering> {
         right_cost,
         right_delivered,
     ))
+}
+
+fn cmp_cost_per_gross_value(left: &Value, right: &Value) -> Option<Ordering> {
+    if !cost_attribution_qualified(left) || !cost_attribution_qualified(right) {
+        return None;
+    }
+    let left_currency = string_field(left, "cost_currency")?;
+    let right_currency = string_field(right, "cost_currency")?;
+    if left_currency != right_currency {
+        return None;
+    }
+    let left_cost = u64_field(left, "total_all_in_cost_minor_units")?;
+    let right_cost = u64_field(right, "total_all_in_cost_minor_units")?;
+    let left_gross = u64_field(left, "recipient_gross_available_value_minor_units")?;
+    let right_gross = u64_field(right, "recipient_gross_available_value_minor_units")?;
+    if left_gross == 0 || right_gross == 0 {
+        return None;
+    }
+    Some(cmp_fraction(left_cost, left_gross, right_cost, right_gross))
 }
 
 fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
@@ -229,6 +322,26 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         baseline_attempts,
     );
     let cost = cmp_cost_per_delivery(candidate_metrics, baseline_metrics)?;
+    let cost_per_gross_value =
+        cmp_cost_per_gross_value(candidate_metrics, baseline_metrics)?;
+    let payer_burden = cmp_fraction(
+        u64_field(candidate_metrics, "payer_fee_minor_units")?,
+        candidate_success,
+        u64_field(baseline_metrics, "payer_fee_minor_units")?,
+        baseline_success,
+    );
+    let recipient_burden = cmp_fraction(
+        u64_field(candidate_metrics, "recipient_total_deductions_minor_units")?,
+        candidate_success,
+        u64_field(baseline_metrics, "recipient_total_deductions_minor_units")?,
+        baseline_success,
+    );
+    let merchant_burden = cmp_fraction(
+        u64_field(candidate_metrics, "merchant_fee_minor_units")?,
+        candidate_success,
+        u64_field(baseline_metrics, "merchant_fee_minor_units")?,
+        baseline_success,
+    );
     let latency_p50 = u64_field(candidate_metrics, "p50_initiation_to_available_ms")?.cmp(
         &u64_field(baseline_metrics, "p50_initiation_to_available_ms")?,
     );
@@ -278,11 +391,16 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         baseline_success,
     );
 
-    // Lower is better for cost, latency, operator burden, unknowns, failures
-    // and returns; higher is better for successful delivery, user task success
-    // and reachable merchants. A trade-off is not represented as a win.
+    // Lower is better for total cost, cost/value, payer, recipient and merchant
+    // burdens, latency, operator effort, unknowns, failures and returns.
+    // Higher is better for successful delivery, task success and merchant reach.
+    // Fee shifting therefore remains a visible Pareto trade-off, not a cost win.
     let not_worse = completion != Ordering::Less
         && cost != Ordering::Greater
+        && cost_per_gross_value != Ordering::Greater
+        && payer_burden != Ordering::Greater
+        && recipient_burden != Ordering::Greater
+        && merchant_burden != Ordering::Greater
         && latency_p50 != Ordering::Greater
         && latency_p95 != Ordering::Greater
         && latency_p99 != Ordering::Greater
@@ -295,6 +413,10 @@ fn run_dominates(candidate: &Value, baseline: &Value) -> Option<bool> {
         && return_rate != Ordering::Greater;
     let strictly_better = completion == Ordering::Greater
         || cost == Ordering::Less
+        || cost_per_gross_value == Ordering::Less
+        || payer_burden == Ordering::Less
+        || recipient_burden == Ordering::Less
+        || merchant_burden == Ordering::Less
         || latency_p50 == Ordering::Less
         || latency_p95 == Ordering::Less
         || latency_p99 == Ordering::Less
@@ -423,6 +545,43 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
                 "runs[{index}]: all-in cost must equal the sum of payer, merchant, FX, cash-out, returns/disputes and provider-network cost components"
             ));
         }
+        let recipient_deductions = recipient_deduction_component_total(metrics)
+            .ok_or_else(|| format!("runs[{index}]: recipient deduction component missing or overflow"))?;
+        let reported_recipient_deductions =
+            u64_field(metrics, "recipient_total_deductions_minor_units")
+                .ok_or_else(|| format!("runs[{index}]: recipient_total_deductions_minor_units missing"))?;
+        if recipient_deductions != reported_recipient_deductions {
+            return Err(format!(
+                "runs[{index}]: recipient deduction total must equal fee, tax, other and unclassified components"
+            ));
+        }
+        let unknown_deduction_instructions =
+            u64_field(metrics, "recipient_deduction_amount_unknown_instructions")
+                .ok_or_else(|| format!("runs[{index}]: recipient_deduction_amount_unknown_instructions missing"))?;
+        if unknown_deduction_instructions > completed {
+            return Err(format!(
+                "runs[{index}]: instructions with unknown recipient deductions exceed recipient-available deliveries"
+            ));
+        }
+        let gross_recipient_value =
+            u64_field(metrics, "recipient_gross_available_value_minor_units")
+                .ok_or_else(|| format!("runs[{index}]: recipient_gross_available_value_minor_units missing"))?;
+        if unknown_deduction_instructions == 0 {
+            let net_recipient_value =
+                u64_field(metrics, "recipient_net_available_value_minor_units")
+                    .ok_or_else(|| format!("runs[{index}]: recipient_net_available_value_minor_units missing when deductions are complete"))?;
+            if net_recipient_value.checked_add(reported_recipient_deductions)
+                != Some(gross_recipient_value)
+            {
+                return Err(format!(
+                    "runs[{index}]: gross recipient-available value must equal net available value plus recipient deductions"
+                ));
+            }
+        } else if !metrics["recipient_net_available_value_minor_units"].is_null() {
+            return Err(format!(
+                "runs[{index}]: net recipient-available value must be null when deduction amounts are unknown"
+            ));
+        }
         let p50 = u64_field(metrics, "p50_initiation_to_available_ms")
             .ok_or_else(|| format!("runs[{index}]: p50 latency missing"))?;
         let p95 = u64_field(metrics, "p95_initiation_to_available_ms")
@@ -461,7 +620,11 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
                 "candidate_completion_rate": format!("{}/{}", u64_field(&candidate["metrics"], "recipient_available").unwrap_or(0), u64_field(&candidate["metrics"], "eligible_attempts").unwrap_or(0)),
                 "baseline_completion_rate": format!("{}/{}", u64_field(&baseline["metrics"], "recipient_available").unwrap_or(0), u64_field(&baseline["metrics"], "eligible_attempts").unwrap_or(0)),
                 "candidate_cost_per_delivery_minor": format!("{}/{}", u64_field(&candidate["metrics"], "total_all_in_cost_minor_units").unwrap_or(0), u64_field(&candidate["metrics"], "recipient_available").unwrap_or(0)),
-                "baseline_cost_per_delivery_minor": format!("{}/{}", u64_field(&baseline["metrics"], "total_all_in_cost_minor_units").unwrap_or(0), u64_field(&baseline["metrics"], "recipient_available").unwrap_or(0))
+                "baseline_cost_per_delivery_minor": format!("{}/{}", u64_field(&baseline["metrics"], "total_all_in_cost_minor_units").unwrap_or(0), u64_field(&baseline["metrics"], "recipient_available").unwrap_or(0)),
+                "candidate_cost_per_gross_value_bps": exact_cost_basis_points_of_gross_value(&candidate["metrics"]),
+                "baseline_cost_per_gross_value_bps": exact_cost_basis_points_of_gross_value(&baseline["metrics"]),
+                "candidate_fee_incidence": recipient_cost_incidence_summary(&candidate["metrics"]),
+                "baseline_fee_incidence": recipient_cost_incidence_summary(&baseline["metrics"])
             })
         }).collect::<Vec<_>>()
     } else {
@@ -483,11 +646,8 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
                 u64_field(&run["metrics"], "user_task_successes").unwrap_or(0),
                 u64_field(&run["metrics"], "user_task_attempts").unwrap_or(0)
             ).map(|(lower, upper)| json!({"lower": lower, "upper": upper})),
-            "cost_per_recipient_available_minor_units": format!(
-                "{}/{}",
-                u64_field(&run["metrics"], "total_all_in_cost_minor_units").unwrap_or(0),
-                u64_field(&run["metrics"], "recipient_available").unwrap_or(0)
-            ),
+            "cost_per_recipient_available_minor_units": exact_cost_per_delivery(&run["metrics"]),
+            "cost_attribution": recipient_cost_incidence_summary(&run["metrics"]),
             "delivery_latency_population": run["metrics"]["delivery_latency_population"],
             "delivery_latency_observations": run["metrics"]["delivery_latency_observations"],
             "delivery_latency_missing": run["metrics"]["delivery_latency_missing"],
@@ -495,7 +655,9 @@ fn matched_run_report(runs: &Value) -> Result<Value, String> {
         })).collect::<Vec<_>>(),
         "comparisons": comparisons,
         "latency_quantiles": "p50/p95/p99 are conditional on recipient-available instructions; they are not population-wide time-to-availability estimates",
-        "cost_reconciliation": "all-in cost equals exact integer sum of fee/cost components",
+        "cost_reconciliation": "all-in cost equals exact integer sum of payer, recipient, merchant, FX, cash-out, returns/disputes and provider/network components; unknown or unclassified recipient deductions disable cost claims",
+        "cost_basis_points": "all-in cost divided by gross recipient-available value, represented as exact numerator/denominator multiplied by 10,000; zero denominators are unavailable",
+        "fee_incidence": "payer, recipient and merchant charges are reported and compared separately; shifting charges between participants cannot create a Pareto cost win",
         "confidence_intervals": "Wilson 95% intervals for completion and user task success",
         "claim_ceiling": "synthetic matched-run illustration only; no real provider or Mycelix performance claim"
     }))
@@ -617,6 +779,30 @@ fn run_self_tests(
     if run_dominates(&telemetry_bias, &runs["runs"][0]) != Some(false) {
         return Err(
             "lower cost with worse delivery-latency observation completeness was incorrectly treated as dominance".into(),
+        );
+    }
+    count += 1;
+
+    let baseline = runs["runs"][1].clone();
+    let mut fee_shift_candidate = baseline.clone();
+    fee_shift_candidate["provider_class"] = json!("mycelix_candidate");
+    fee_shift_candidate["label"] = json!("synthetic fee-shift negative control");
+    fee_shift_candidate["metrics"]["payer_fee_minor_units"] = json!(70_000);
+    fee_shift_candidate["metrics"]["recipient_fee_minor_units"] = json!(7_000);
+    fee_shift_candidate["metrics"]["recipient_total_deductions_minor_units"] = json!(7_000);
+    fee_shift_candidate["metrics"]["recipient_net_available_value_minor_units"] =
+        json!(48_743_000);
+    fee_shift_candidate["metrics"]["total_all_in_cost_minor_units"] = json!(177_500);
+    let fee_shift_result = matched_run_report(&json!({
+        "cohort": runs["cohort"],
+        "runs": [baseline.clone(), fee_shift_candidate.clone()]
+    }));
+    if fee_shift_result.is_err()
+        || pareto_result(&fee_shift_candidate, &baseline)
+            != ParetoResult::TradeoffOrIncomparable
+    {
+        return Err(
+            "lower payer fees with higher recipient deductions must remain a Pareto trade-off, not a cost win".into(),
         );
     }
     count += 1;
