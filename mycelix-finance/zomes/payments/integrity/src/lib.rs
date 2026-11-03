@@ -976,16 +976,27 @@ fn validate_hearth_sap_pool(pool: &HearthSapPool) -> ExternResult<ValidateCallba
 mod tests {
     use super::*;
 
-    struct MockReceiptSignatureHdi {
-        result: bool,
+    struct MockReceiptHdi {
+        signature_valid: bool,
+        payment_record: Option<Record>,
+        expected_payment_action_hash: Option<ActionHash>,
     }
 
-    impl hdi::hdi::HdiT for MockReceiptSignatureHdi {
+    impl hdi::hdi::HdiT for MockReceiptHdi {
         fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
-            Ok(self.result)
+            Ok(self.signature_valid)
         }
-        fn must_get_valid_record(&self, _: MustGetValidRecordInput) -> ExternResult<Record> {
-            unimplemented!("not exercised by the isolated signature verifier")
+        fn must_get_valid_record(&self, input: MustGetValidRecordInput) -> ExternResult<Record> {
+            if self.expected_payment_action_hash.as_ref() != Some(&input.0) {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "unexpected Payment action hash in receipt test".into()
+                )));
+            }
+            self.payment_record.clone().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "missing Payment record in receipt test".into()
+                ))
+            })
         }
         fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
             unimplemented!("not exercised by the isolated signature verifier")
@@ -1029,17 +1040,73 @@ mod tests {
     }
     use mycelix_finance_types::{SapMintSource, SuccessionPreference};
 
-    #[test]
-    fn test_receipt_v1_signature_verifier_uses_hdi_result() {
+    fn mock_receipt_and_payment_record() -> (Receipt, Record, ActionHash) {
         let author = AgentPubKey::from_raw_36(vec![0; 36]);
-        let receipt = valid_receipt();
-        let payment_hash = valid_payment_action_hash();
+        let payment = valid_payment();
+        let record = wrap_entry_record(author, payment);
+        let payment_action_hash = record.action_address().clone();
+        let mut receipt = valid_receipt();
+        receipt.payment_action_hash = Some(payment_action_hash.clone());
+        (receipt, record, payment_action_hash)
+    }
 
-        hdi::hdi::set_hdi(MockReceiptSignatureHdi { result: false });
-        assert!(!verify_receipt_signature_v1(&author, &receipt, &payment_hash).unwrap());
+    #[test]
+    fn test_receipt_create_accepts_exact_payment_and_hdi_verified_signature() {
+        let (receipt, payment_record, payment_action_hash) =
+            mock_receipt_and_payment_record();
+        hdi::hdi::set_hdi(MockReceiptHdi {
+            signature_valid: true,
+            payment_record: Some(payment_record),
+            expected_payment_action_hash: Some(payment_action_hash),
+        });
+        let result =
+            validate_create_receipt(EntryCreationAction::Create(make_create()), receipt).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
 
-        hdi::hdi::set_hdi(MockReceiptSignatureHdi { result: true });
-        assert!(verify_receipt_signature_v1(&author, &receipt, &payment_hash).unwrap());
+    #[test]
+    fn test_receipt_create_rejects_hdi_signature_failure() {
+        let (receipt, payment_record, payment_action_hash) =
+            mock_receipt_and_payment_record();
+        hdi::hdi::set_hdi(MockReceiptHdi {
+            signature_valid: false,
+            payment_record: Some(payment_record),
+            expected_payment_action_hash: Some(payment_action_hash),
+        });
+        let result =
+            validate_create_receipt(EntryCreationAction::Create(make_create()), receipt).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_receipt_create_rejects_payment_subject_mutation() {
+        let (mut receipt, payment_record, payment_action_hash) =
+            mock_receipt_and_payment_record();
+        receipt.amount += 1;
+        hdi::hdi::set_hdi(MockReceiptHdi {
+            signature_valid: true,
+            payment_record: Some(payment_record),
+            expected_payment_action_hash: Some(payment_action_hash),
+        });
+        let result =
+            validate_create_receipt(EntryCreationAction::Create(make_create()), receipt).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_receipt_create_rejects_wrong_action_author() {
+        let (receipt, payment_record, payment_action_hash) =
+            mock_receipt_and_payment_record();
+        hdi::hdi::set_hdi(MockReceiptHdi {
+            signature_valid: true,
+            payment_record: Some(payment_record),
+            expected_payment_action_hash: Some(payment_action_hash),
+        });
+        let mut action = make_create();
+        action.author = AgentPubKey::from_raw_36(vec![9; 36]);
+        let result =
+            validate_create_receipt(EntryCreationAction::Create(action), receipt).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     fn ts(micros: i64) -> Timestamp {
@@ -1094,6 +1161,32 @@ mod tests {
             last_updated: ts(1_000_000),
             closed: None,
         }
+    }
+
+    fn wrap_entry_record<T>(author: AgentPubKey, value: T) -> Record
+    where
+        T: TryInto<holochain_serialized_bytes::SerializedBytes>,
+        <T as TryInto<holochain_serialized_bytes::SerializedBytes>>::Error: std::fmt::Debug,
+    {
+        let serialized = value.try_into().unwrap();
+        let entry = Entry::App(AppEntryBytes::try_from(serialized).unwrap());
+        let action = Action::Create(Create {
+            author,
+            timestamp: ts(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        });
+        let hashed = HoloHashed::from_content_sync(action);
+        let signed_action =
+            SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
     }
 
     fn valid_payment_action_hash() -> ActionHash {
