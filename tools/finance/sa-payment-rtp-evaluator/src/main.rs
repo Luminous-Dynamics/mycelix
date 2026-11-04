@@ -4,7 +4,8 @@
 //! A request message is not a payment. Acceptance authorises at most one instruction.
 
 use jsonschema::draft202012;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fs;
@@ -67,6 +68,38 @@ fn valid_timestamp(value: &str) -> bool {
 
 fn event_type(event: &Value) -> &str {
     str_at(event, "event_type").unwrap_or("")
+}
+
+fn canonical_json(value: &Value) -> Value {
+    match value {
+        Value::Object(object) => {
+            let mut keys: Vec<&String> = object.keys().collect();
+            keys.sort();
+            let mut sorted = Map::new();
+            for key in keys {
+                sorted.insert(key.clone(), canonical_json(&object[key]));
+            }
+            Value::Object(sorted)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonical_json).collect()),
+        other => other.clone(),
+    }
+}
+
+fn compute_request_digest(request: &Value) -> Result<String, String> {
+    let mut payload = request.clone();
+    let object = payload
+        .as_object_mut()
+        .ok_or_else(|| "request payload must be a JSON object".to_string())?;
+    if object.remove("request_digest").is_none() {
+        return Err("request_digest field is required before hashing".into());
+    }
+    let bytes = serde_json::to_vec(&canonical_json(&payload))
+        .map_err(|error| format!("canonical request serialization failed: {error}"))?;
+    let mut hasher = Sha256::new();
+    hasher.update(b"MYCELIX-SA-PAYMENT-RTP-REQUEST-V1\\0");
+    hasher.update(bytes);
+    Ok(format!("sha256:{:x}", hasher.finalize()))
 }
 
 fn schema_errors(schema: &Value, corpus: &Value) -> Vec<String> {
