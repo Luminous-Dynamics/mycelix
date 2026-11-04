@@ -295,6 +295,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let events = array_at(scenario, "events").cloned().unwrap_or_default();
         let mut event_ids = BTreeSet::new();
         let mut prior_sequence = 0_u64;
+        let mut previous_event_version = 0_u64;
+        let mut previous_event_digest: Option<String> = None;
+        let mut last_event_version = 0_u64;
+        let mut last_event_digest: Option<String> = None;
         let mut last_state: Option<String> = None;
         let mut seen_confirmation = false;
         let mut seen_correction = false;
@@ -312,6 +316,36 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!("{path}: event sequence must be strictly increasing"));
             }
             prior_sequence = sequence;
+            let event_version = event.get("signal_version").and_then(Value::as_u64).unwrap_or(0);
+            let event_digest = str_at(event, "signal_digest").unwrap_or("");
+            let signal_version = signal.get("signal_version").and_then(Value::as_u64).unwrap_or(0);
+            if event_version == 0 || event_version < previous_event_version || event_version > signal_version {
+                errors.push(format!("{path}: event signal version is missing, decreases or exceeds the current signal"));
+            }
+            if previous_event_version > 0 && event_version > previous_event_version + 1 {
+                errors.push(format!("{path}: signal version skips a revision"));
+            }
+            if event_version == previous_event_version && previous_event_digest.as_deref().is_some_and(|digest| digest != event_digest) {
+                errors.push(format!("{path}: content digest changed without advancing the signal version"));
+            }
+            if event_version > previous_event_version
+                && previous_event_version > 0
+                && !matches!(
+                    str_at(event, "event_type"),
+                    Some("signal_corrected" | "signal_withdrawn" | "appeal_resolved_correction" | "source_correction_recorded" | "source_finding_overturned")
+                )
+            {
+                errors.push(format!("{path}: signal version advanced without a correction/withdrawal event"));
+            }
+            previous_event_version = event_version;
+            previous_event_digest = Some(event_digest.to_owned());
+            last_event_version = event_version;
+            last_event_digest = Some(event_digest.to_owned());
+            if event_version == signal_version
+                && event_digest != str_at(signal, "evidence_digest").unwrap_or("")
+            {
+                errors.push(format!("{path}: event digest does not bind the current signal version"));
+            }
             if str_at(event, "authority_state") == Some("revoked")
                 && str_at(event, "event_type") != Some("signal_withdrawn")
             {
@@ -358,6 +392,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
         if last_state.as_deref() != Some(status) {
             errors.push(format!("{case_id}: final signal status does not match append-only event history"));
+        }
+        let current_signal_version = signal.get("signal_version").and_then(Value::as_u64).unwrap_or(0);
+        if last_event_version != current_signal_version
+            || last_event_digest.as_deref() != str_at(signal, "evidence_digest")
+        {
+            errors.push(format!("{case_id}: final history event does not bind the current version and digest"));
         }
         if status == "confirmed_by_source" && !seen_confirmation {
             errors.push(format!("{case_id}: source-confirmed status lacks a recorded confirmation transition"));
@@ -514,6 +554,18 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         v["scenarios"][0]["disclosures"][0]["audience"] = json!("credit_bureau");
     })?;
     count += 1;
+    mutate_and_reject("signal content changes under the same version", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["evidence_digest"] = json!("sha256:2222222222222222222222222222222222222222222222222222222222222222");
+    })?;
+    count += 1;
+    mutate_and_reject("signal TTL exceeds participant profile", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["expires_at"] = json!("2026-11-12T09:00:00Z");
+    })?;
+    count += 1;
+    mutate_and_reject("history version skips a revision", corpus, schema, |v| {
+        v["scenarios"][11]["events"][1]["signal_version"] = json!(3);
+    })?;
+    count += 1;
     Ok(count)
 }
 
@@ -588,6 +640,6 @@ mod tests {
     fn negative_mutation_campaign_rejects_privacy_and_status_laundering() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self-tests"), 12);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self-tests"), 15);
     }
 }
