@@ -1,0 +1,66 @@
+name: Pulse Signal Contract Audit
+
+on:
+  push:
+    branches:
+      - "research/pulse-authority-lifecycle-v1-20261104"
+    paths:
+      - ".github/workflows/pulse-signal-contract-audit.yml"
+      - "tools/pulse-signal-contract-audit/**"
+      - "mycelix-workspace/mycelix-pulse/holochain/client/src/signals/SignalHub.ts"
+      - "mycelix-workspace/mycelix-pulse/holochain/client/src/types/index.ts"
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/trust/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/sync/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/federation/coordinator/src/lib.rs"
+  pull_request:
+    paths:
+      - ".github/workflows/pulse-signal-contract-audit.yml"
+      - "tools/pulse-signal-contract-audit/**"
+      - "mycelix-workspace/mycelix-pulse/holochain/client/src/signals/SignalHub.ts"
+      - "mycelix-workspace/mycelix-pulse/holochain/client/src/types/index.ts"
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/trust/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/sync/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-pulse/holochain/zomes/federation/coordinator/src/lib.rs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-signal-contract-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    name: Parse Rust, TypeScript and SignalHub contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+
+      - name: Test auditor parser and mutation fixtures
+        run: cargo test --manifest-path tools/pulse-signal-contract-audit/Cargo.toml --locked
+
+      - name: Generate current signal contract drift report
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path tools/pulse-signal-contract-audit/Cargo.toml --locked -- \
+            --root mycelix-workspace/mycelix-pulse \
+            --output "${RUNNER_TEMP}/pulse-signal-contract-report.json" \
+            --report-only
+          jq -r '"status: " + .status, "findings: " + (.findings | length | tostring)' \
+            "${RUNNER_TEMP}/pulse-signal-contract-report.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload source-derived contract report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-signal-contract-${{ github.sha }}
+          path: ${{ runner.temp }}/pulse-signal-contract-report.json
+          if-no-files-found: error
+          retention-days: 30
