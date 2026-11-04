@@ -199,6 +199,34 @@ Start with:
 
 Run at least 30 independent process-level repetitions per configuration. Publish raw per-run observations and at least 100 observations before reporting within-run percentiles. Separate warm/cold cache, local and remote call paths, and healthy versus faulted topology.
 
+### Statistical and reproducibility rules
+
+A finite test count must never be translated into a universal zero-failure claim.
+
+- For a **zero-accept** result over (n) independent Bernoulli trials, report the one-sided 95% upper confidence bound (1-0.05^{1/n}) (approximately (3/n) for large (n)). At 10,000 independent trials this is about 0.03%, not zero.
+- Distributed schedules are often correlated. Do not count 10,000 retries from one process as 10,000 independent samples. Report unique scenario seeds, independent process restarts, schedule classes, fault strata and repeat counts separately.
+- Keep the primary safety result deterministic: every explicitly enumerated negative control and mutation must be rejected. Statistical sampling supplements this; it does not replace adversarial coverage.
+- Report latency percentiles with sample counts and uncertainty. Bootstrap over independent process-level runs (not individual requests alone) so one unusually healthy process does not dominate the interval.
+- Preserve raw per-run traces, environment manifests, source/WASM/DNA hashes, workload seed, fault schedule and verifier build. Publish failed runs and censored observations; do not discard timeouts as outliers.
+
+### Freshness-carrying authorization context
+
+A useful next paradigm shift is to make *causal freshness* explicit without making a DHT token or application record authoritative.
+
+SpiceDB provides a useful design reference: a write returns an opaque ZedToken, and a subsequent read can require `at_least_as_fresh` while still using caches. A fully-consistent query bypasses those caches and has a latency/resource cost. OpenFGA likewise exposes per-request higher-consistency versus minimize-latency modes. These systems demonstrate that freshness is an explicit API contract, not a property that can be inferred from a recent timestamp. Pulse should borrow the *causal watermark idea*, not copy their server-side authorization model.
+
+For Pulse, prototype a redacted **AuthorityCheckpoint** containing:
+- exact DNA/cell identity and protocol generation;
+- exact host CapGrant ActionHash (or an explicit no-grant/revoked disposition);
+- relevant source-chain transition ActionHash and action sequence;
+- logical operation ID and separate attempt ID;
+- a causal watermark / parent checkpoint reference;
+- projection observer and verifier identity, plus VERIFIED / STALE / CONFLICTING / UNKNOWN disposition.
+
+The checkpoint is evidence about a particular observed state, not a bearer token and not a grant. A protected call remains authorized by the conductor's current CapGrant and the function's domain-resource checks. A checkpoint can let a caller request a read at least as fresh as a known transition; if the peer cannot establish that freshness, it returns UNKNOWN rather than silently using an older active membership projection.
+
+**Research experiment:** after revoke / membership removal / policy downgrade, record the mutation checkpoint; issue reads through stale, lagging and converged observers; compare (a) unconstrained projection reads, (b) checkpoint-constrained reads and (c) direct conductor probes. Measure false-fresh responses, unknown rate, added network/CPU cost and convergence. A good design drives false-fresh responses to zero while preserving the option of fast explicitly-stale UI reads.
+
 ### Metrics
 
 | Metric | Definition |
@@ -229,13 +257,14 @@ Freeze targets after the first exact matched baseline. If the host's documented 
 
 ## Industry and research comparison
 
-| Comparator | What it demonstrates | Pulse's fair comparison |
+| Comparator | Published/observable behavior | Pulse's fair comparison |
 |---|---|---|
-| Google Zanzibar | Large-scale relationship authorization, external consistency and production latency/availability claims | Do not compete on raw central-service QPS. Compare freshness semantics, offline operation, local sovereignty, exact revocation and topology |
-| SpiceDB / OpenFGA | Explicit request consistency modes and cache/freshness trade-offs | Measure the cost of strong freshness vs latency; preserve explicit unknown rather than silently serving stale authority |
-| UCAN | Portable cryptographic delegation and attenuation | Compare delegation depth, proof size, offline verification, revocation freshness and key rotation |
-| Biscuit | Attenuated bearer authorization with verifier-side revocation identifiers/lists | Compare revocation distribution latency, list cost, offline behaviour and stale-token handling |
-| Holochain native capability grants | Conductor-enforced incoming zome-call authorization with grant identity/scope | Prove exact 0.7.1 grant/revoke, assigned caller binding, direct-signal grants and multi-conductor effects |
+| Google Zanzibar | 2019 paper reports trillions of ACLs, millions of authorization requests/sec, p95 below 10 ms and >99.999% availability over three years | Do not claim raw scale superiority. Compare semantic freshness, local execution, offline/partition behavior, privacy and independent evidence |
+| SpiceDB | Per-request `minimize_latency`, `at_least_as_fresh` via ZedTokens, `at_exact_snapshot`, and `fully_consistent`; freshness has explicit cache/latency cost | Prototype causal AuthorityCheckpoint reads while retaining conductor grants as enforcement. Compare freshness guarantees, cache hit ratio, p95/p99 and datastore/network cost |
+| OpenFGA | Per-request `MINIMIZE_LATENCY` versus `HIGHER_CONSISTENCY`; higher consistency can bypass cache | Compare request-scoped freshness modes and truthful UNKNOWN states, not just average latency |
+| UCAN | Portable, cryptographically verifiable attenuated delegation with hierarchical authority and an invocation/policy model | Compare delegation depth, proof bytes, verification cost, key rotation, offline verification and revocation behavior |
+| Biscuit | Attenuated bearer tokens with revocation identifiers and verifier-side revocation lists; derived-token revocation can follow parent identifiers | Compare exact per-grant revocation, list distribution delay, offline behavior and cost of revocation freshness |
+| Holochain native capability grants | Conductor-enforced incoming zome-call authorization with exact caller/secret/function scope; 0.7.0→0.7.1 has a grant-format break | Qualify exact tuple, real assigned grant/claim/revoke and DirectSignal grants on fresh conductors; do not infer grant compatibility across releases |
 
 No cross-system latency claim is valid without matching semantics, hardware, topology, dataset cardinality, cache state, consistency mode, fault assumptions and measurement boundaries.
 
@@ -266,6 +295,19 @@ No cross-system latency claim is valid without matching semantics, hardware, top
 - Pulse bounded delivery model-checking work: https://github.com/Luminous-Dynamics/mycelix/issues/5091
 
 ### External references for the comparison matrix
+
+- Holochain capability model and host enforcement: https://developer.holochain.org/build/capabilities/ and https://developer.holochain.org/concepts/8_calls_capabilities/
+- Holochain 0.7.0 → 0.7.1 breaking changes, including grant shape, re-issuance and DirectSignal grants: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
+- Holochain 0.7 compatibility table: https://developer.holochain.org/resources/compatibility/holochain-0.7/
+- Holochain roadmap snapshot (3 November 2026): https://www.holochain.org/roadmap/
+- Zanzibar paper (USENIX ATC 2019): https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/
+- SpiceDB consistency modes and read-after-write ZedTokens: https://authzed.com/docs/spicedb/concepts/consistency and https://authzed.com/docs/spicedb/concepts/read-after-write
+- OpenFGA per-request consistency modes: https://openfga.dev/blog/query-consistency-options-announcement
+- UCAN v1.0.0 and delegation: https://github.com/ucan-wg/spec and https://github.com/ucan-wg/delegation
+- Biscuit revocation identifiers and verifier-side revocation lists: https://www.biscuitsec.org/docs/guides/revocation/
+- Jepsen fault injection and concurrent-history checking: https://github.com/jepsen-io/jepsen and https://jepsen.io/analyses
+- Porcupine linearizability checker: https://github.com/anishathalye/porcupine
+
 
 - Holochain capability model and host enforcement: https://developer.holochain.org/build/capabilities/ and https://developer.holochain.org/concepts/8_calls_capabilities/
 - Holochain 0.7.0 → 0.7.1 breaking changes, including grant shape, re-issuance and DirectSignal grants: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
