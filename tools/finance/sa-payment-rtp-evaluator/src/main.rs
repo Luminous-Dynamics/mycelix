@@ -1034,23 +1034,38 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
-    mutate_and_reject("authenticated sender promoted to debt legitimacy", corpus, schema, |v| {
-        v["scenarios"][46]["abuse_assessment"]["expected_abuse_disposition"] =
-            json!("source_artifact_not_legal_decision");
-    })?;
+    mutate_and_reject(
+        "authenticated sender promoted to debt legitimacy",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][46]["abuse_assessment"]["expected_abuse_disposition"] =
+                json!("source_artifact_not_legal_decision");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("confusable identity allowed to instruct payment", corpus, schema, |v| {
-        v["scenarios"][61]["abuse_assessment"]["requester_identity_resolution"] =
-            json!("confusable");
-    })?;
+    mutate_and_reject(
+        "confusable identity allowed to instruct payment",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][61]["abuse_assessment"]["requester_identity_resolution"] =
+                json!("confusable");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("incomplete material presentation accepted", corpus, schema, |v| {
-        v["scenarios"][61]["abuse_assessment"]["material_presentation_state"] =
-            json!("incomplete");
-        v["scenarios"][61]["abuse_assessment"]["presented_material_digest"] = Value::Null;
-    })?;
+    mutate_and_reject(
+        "incomplete material presentation accepted",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][61]["abuse_assessment"]["material_presentation_state"] =
+                json!("incomplete");
+            v["scenarios"][61]["abuse_assessment"]["presented_material_digest"] = Value::Null;
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("decline promoted to instruction", corpus, schema, |v| {
@@ -1065,25 +1080,47 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         instruction["sequence"] = json!(7);
         instruction["request_digest"] = digest.clone();
         instruction["accepted_request_digest"] = digest;
-        v["scenarios"][49]["events"].as_array_mut().unwrap().push(accepted);
-        v["scenarios"][49]["events"].as_array_mut().unwrap().push(instruction);
+        v["scenarios"][49]["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(accepted);
+        v["scenarios"][49]["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(instruction);
     })?;
     count += 1;
 
-    mutate_and_reject("unrelated secondary data use admitted", corpus, schema, |v| {
-        v["scenarios"][57]["events"][1]["event_type"] = json!("secondary_data_use_attempted");
-    })?;
+    mutate_and_reject(
+        "unrelated secondary data use admitted",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][57]["events"][1]["event_type"] =
+                json!("secondary_data_use_attempted");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("repeat contact hidden from abuse disposition", corpus, schema, |v| {
-        v["scenarios"][49]["abuse_assessment"]["expected_abuse_disposition"] =
-            json!("preserve_user_decline_or_report");
-    })?;
+    mutate_and_reject(
+        "repeat contact hidden from abuse disposition",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][49]["abuse_assessment"]["expected_abuse_disposition"] =
+                json!("preserve_user_decline_or_report");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("appeal accepted without appeal receipt", corpus, schema, |v| {
-        v["scenarios"][59]["events"][2]["event_type"] = json!("appeal_not_submitted");
-    })?;
+    mutate_and_reject(
+        "appeal accepted without appeal receipt",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][59]["events"][2]["event_type"] = json!("appeal_not_submitted");
+        },
+    )?;
     count += 1;
 
     Ok(count)
