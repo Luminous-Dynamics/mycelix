@@ -143,7 +143,8 @@
         "allowed_purposes",
         "max_signal_ttl_seconds",
         "source_refs",
-        "notes"
+        "notes",
+        "notification_rule_profile"
       ],
       "properties": {
         "profile_id": {
@@ -201,6 +202,13 @@
         "notes": {
           "type": "string",
           "minLength": 1
+        },
+        "notification_rule_profile": {
+          "enum": [
+            "ZA_POPIA_S24_DECISION_IMPACT_REASONABLY_PRACTICABLE",
+            "EU_GDPR_ARTICLE_19_COMPARATOR",
+            "UNQUALIFIED_MULTI_JURISDICTION"
+          ]
         }
       }
     },
@@ -362,7 +370,9 @@
         "observed_at",
         "disclosed_fields",
         "existence_oracle",
-        "raw_subject_included"
+        "raw_subject_included",
+        "signal_version",
+        "signal_digest"
       ],
       "properties": {
         "disclosure_id": {
@@ -402,6 +412,14 @@
         },
         "raw_subject_included": {
           "type": "boolean"
+        },
+        "signal_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "signal_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
         }
       }
     },
@@ -588,7 +606,9 @@
         "disclosures",
         "receiver_decision",
         "expected_disposition",
-        "negative_controls"
+        "negative_controls",
+        "historical_disclosures",
+        "correction_propagations"
       ],
       "properties": {
         "scenario_id": {
@@ -650,7 +670,13 @@
             "quarantine_missing_provenance",
             "reject_derived_corroboration",
             "record_fairness_review",
-            "propagate_appeal_correction"
+            "propagate_appeal_correction",
+            "propagation_complete",
+            "propagation_pending_quarantine",
+            "propagation_not_required_reasoned",
+            "propagation_exception_recorded",
+            "propagation_acknowledged_not_invalidated",
+            "quarantine_cross_jurisdiction_propagation"
           ]
         },
         "negative_controls": {
@@ -660,6 +686,141 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "historical_disclosures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/disclosure"
+          }
+        },
+        "correction_propagations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/correction_propagation"
+          }
+        }
+      }
+    },
+    "correction_propagation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "obligation_id",
+        "recipient_participant",
+        "recipient_audience",
+        "prior_signal_version",
+        "prior_signal_digest",
+        "new_signal_version",
+        "new_signal_digest",
+        "decision_impact",
+        "practicability",
+        "status",
+        "notification_sent_at",
+        "acknowledged_at",
+        "cache_invalidated_at",
+        "notification_receipt_id",
+        "invalidation_receipt_id",
+        "reason",
+        "evidence_reference"
+      ],
+      "properties": {
+        "obligation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_audience": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prior_signal_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "prior_signal_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "new_signal_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "new_signal_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "decision_impact": {
+          "enum": [
+            "yes",
+            "no",
+            "unknown"
+          ]
+        },
+        "practicability": {
+          "enum": [
+            "reasonably_practicable",
+            "not_practicable",
+            "unknown"
+          ]
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "delivered",
+            "acknowledged",
+            "invalidated",
+            "failed",
+            "exception_recorded",
+            "not_required_with_basis"
+          ]
+        },
+        "notification_sent_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "acknowledged_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "cache_invalidated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "notification_receipt_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "invalidation_receipt_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_reference": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }
