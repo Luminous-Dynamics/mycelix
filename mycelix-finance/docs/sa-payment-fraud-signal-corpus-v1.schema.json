@@ -397,23 +397,36 @@
           "minLength": 1
         },
         "calibration_id": {
-          "type": "string",
-          "minLength": 1
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "cohort_id": {
-          "type": "string",
-          "minLength": 1
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "evaluation_window_start": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "evaluation_window_end": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "uncertainty": {
-          "type": "number",
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0,
           "maximum": 1
         },
@@ -470,7 +483,9 @@
         "independent_evidence_count",
         "evidence_contributions",
         "correction_propagation_state",
-        "correction_recipients"
+        "correction_recipients",
+        "privacy_findings",
+        "channel_coverage_state"
       ],
       "properties": {
         "signal_id": {
@@ -541,7 +556,7 @@
         },
         "subject_reference": {
           "type": "string",
-          "pattern": "^pairwise:[a-z0-9_-]+$"
+          "pattern": "^(pairwise:[a-z0-9_-]+|sha256:[a-f0-9]{64})$"
         },
         "transaction_commitment": {
           "type": "string",
@@ -659,7 +674,8 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/event"
-          }
+          },
+          "minItems": 0
         },
         "local_decision": {
           "enum": [
@@ -701,6 +717,24 @@
           "items": {
             "$ref": "#/$defs/correction_recipient"
           }
+        },
+        "privacy_findings": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "raw_pii_detected_at_ingest_redacted_before_share",
+              "raw_pii_present_in_share_attempt",
+              "public_stable_identifier_detected",
+              "none"
+            ]
+          }
+        },
+        "channel_coverage_state": {
+          "enum": [
+            "qualified_synthetic",
+            "unknown",
+            "out_of_scope"
+          ]
         }
       }
     },
