@@ -78,8 +78,7 @@ fn same_link(event: &Value, request: &Value, instruction_id: Option<&str>) -> bo
         && str_at(event, "request_digest") == str_at(request, "request_digest")
         && (event_end_to_end_id.is_none()
             || event_end_to_end_id == str_at(request, "end_to_end_id"))
-        && (instruction_id.is_none()
-            || str_at(event, "payment_instruction_id") == instruction_id)
+        && (instruction_id.is_none() || str_at(event, "payment_instruction_id") == instruction_id)
 }
 
 fn semantic_errors(corpus: &Value) -> Vec<String> {
@@ -164,9 +163,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             ));
         }
 
-        let events = array_at(case, "events")
-            .cloned()
-            .unwrap_or_default();
+        let events = array_at(case, "events").cloned().unwrap_or_default();
         let mut event_ids = BTreeSet::new();
         let mut previous_sequence = 0_u64;
         let mut request_created = false;
