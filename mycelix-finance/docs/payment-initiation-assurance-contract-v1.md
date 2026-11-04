@@ -95,3 +95,16 @@ Sources: [EPC publication](https://www.europeanpaymentscouncil.eu/news-insights/
 
 
 The complete synthetic corpus now contains 33 unique QR+/payee verification cases. The focused negative-mutation campaign targets 28 independent semantic failure modes.
+
+
+## Scheme-profile result admissibility
+
+The evaluator now binds result labels to the declared scheme profile:
+- EU IPR VoP: `match`, `close_match`, `no_match`, `other`;
+- UK FPS CoP: `match`, `close_match`, `no_match`, `unavailable`;
+- South African NPU proposal-only: no operational result; an `unavailable`/no-provider-response state only;
+- unknown provider profile: indeterminate result classes only.
+
+The source reference must match the selected profile (ECB, Pay.UK or SARB respectively). Account-type comparison is qualified separately: UK CoP fixtures exercise personal/business type; EU VoP fixtures keep account type `not_specified/unknown` rather than inheriting the UK contract; the South African proposal-only fixture makes no account-type claim.
+
+The source-profile/result compatibility extension is covered by 33 deterministic synthetic mutations.
