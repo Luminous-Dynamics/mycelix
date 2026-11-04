@@ -3920,7 +3920,7 @@
         {
           "event_id": "EV-5",
           "sequence": 5,
-          "event_type": "payer_accepted",
+          "event_type": "payer_acceptance_rejected",
           "actor_role": "payer",
           "authority_state": "valid",
           "request_digest": "sha256:3a13a7bc71721b244780ca090b5d9b9044668125d486e3ad998e50f762c24b79",
@@ -3990,7 +3990,7 @@
         {
           "event_id": "EV-3",
           "sequence": 3,
-          "event_type": "payer_accepted",
+          "event_type": "payer_acceptance_rejected",
           "actor_role": "payer",
           "authority_state": "valid",
           "request_digest": "sha256:79a40a28316f3e29c6eacdce5822f9bee75fa2807d9dd32efac29085e5a4a901",
