@@ -360,7 +360,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || !has_evidence(event, "beneficiary_account_credit_receipt")
                     || !has_evidence(event, "creditor_agent_confirmation")
                 {
-                    errors.push(format!("{path}: recipient credit lacks transfer-bound creditor-agent evidence"));
+                    errors.push(format!(
+                        "{path}: recipient credit lacks transfer-bound creditor-agent evidence"
+                    ));
                     quarantined = true;
                 } else {
                     recipient_credit = true;
@@ -384,7 +386,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || !has_evidence(event, "settlement_finality_receipt")
                     || !has_evidence(event, "settlement_operator_confirmation")
                 {
-                    errors.push(format!("{path}: settlement finality lacks transfer and recipient-credit evidence"));
+                    errors.push(format!(
+                        "{path}: settlement finality lacks transfer and recipient-credit evidence"
+                    ));
                     quarantined = true;
                 } else {
                     settlement_finality = true;
@@ -440,7 +444,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
 
         if case_id.is_empty() {
-            errors.push(format!("scenarios[{case_index}]: missing scenario identity"));
+            errors.push(format!(
+                "scenarios[{case_index}]: missing scenario identity"
+            ));
         }
     }
 
@@ -477,7 +483,9 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     let mut errors = semantic_errors(corpus);
     errors.extend(schema_errors(schema, corpus));
     if !errors.is_empty() {
-        return Err(format!("baseline corpus must pass before mutations: {errors:?}"));
+        return Err(format!(
+            "baseline corpus must pass before mutations: {errors:?}"
+        ));
     }
     let mut count = 0;
 
@@ -486,48 +494,92 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("transfer without payer instruction", corpus, schema, |value| {
-        value["scenarios"][12]["events"][3]["stage"] = json!("request_viewed");
-    })?;
+    mutate_and_reject(
+        "transfer without payer instruction",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][12]["events"][3]["stage"] = json!("request_viewed");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("pacs002 accepted status promoted to settlement", corpus, schema, |value| {
-        value["scenarios"][4]["expected_state"] = json!("settled_final");
-    })?;
+    mutate_and_reject(
+        "pacs002 accepted status promoted to settlement",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][4]["expected_state"] = json!("settled_final");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("pacs008 amount mismatch accepted", corpus, schema, |value| {
-        value["scenarios"][12]["events"][4]["amount_minor_units"] = json!(1);
-    })?;
+    mutate_and_reject(
+        "pacs008 amount mismatch accepted",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][12]["events"][4]["amount_minor_units"] = json!(1);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("wrong participant role for pacs008", corpus, schema, |value| {
-        value["scenarios"][12]["events"][4]["actor_role"] = json!("payee_rtp_service_provider");
-    })?;
+    mutate_and_reject(
+        "wrong participant role for pacs008",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][12]["events"][4]["actor_role"] =
+                json!("payee_rtp_service_provider");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("revoked key accepted for pacs008", corpus, schema, |value| {
-        value["scenarios"][12]["events"][4]["authentication_state"] = json!("revoked");
-    })?;
+    mutate_and_reject(
+        "revoked key accepted for pacs008",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][12]["events"][4]["authentication_state"] = json!("revoked");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("pacs002 with no matching pacs008 accepted", corpus, schema, |value| {
-        value["scenarios"][24]["expected_state"] = json!("transfer_status_only");
-    })?;
+    mutate_and_reject(
+        "pacs002 with no matching pacs008 accepted",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][24]["expected_state"] = json!("transfer_status_only");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("request response replay creates a second instruction", corpus, schema, |value| {
-        let mut instruction = value["scenarios"][12]["events"][3].clone();
-        instruction["event_id"] = json!("EV-9");
-        instruction["sequence"] = json!(9);
-        instruction["payment_instruction_id"] = json!("INS-SECOND");
-        value["scenarios"][12]["events"].as_array_mut().unwrap().push(instruction);
-    })?;
+    mutate_and_reject(
+        "request response replay creates a second instruction",
+        corpus,
+        schema,
+        |value| {
+            let mut instruction = value["scenarios"][12]["events"][3].clone();
+            instruction["event_id"] = json!("EV-9");
+            instruction["sequence"] = json!(9);
+            instruction["payment_instruction_id"] = json!("INS-SECOND");
+            value["scenarios"][12]["events"]
+                .as_array_mut()
+                .unwrap()
+                .push(instruction);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("recipient credit inferred from pacs002 alone", corpus, schema, |value| {
-        value["scenarios"][4]["expected_state"] = json!("recipient_available");
-    })?;
+    mutate_and_reject(
+        "recipient credit inferred from pacs002 alone",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][4]["expected_state"] = json!("recipient_available");
+        },
+    )?;
     count += 1;
 
     Ok(count)
@@ -561,7 +613,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             "--self-test" => self_test = true,
             "--help" | "-h" => {
-                println!("sa-payment-rtp-link-evaluator [--corpus PATH] [--schema PATH] [--self-test]");
+                println!(
+                    "sa-payment-rtp-link-evaluator [--corpus PATH] [--schema PATH] [--self-test]"
+                );
                 return Ok(());
             }
             other => {
