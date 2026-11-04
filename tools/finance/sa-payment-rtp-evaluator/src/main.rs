@@ -948,6 +948,9 @@ mod tests {
             ("requester_identity", json!("requester:second-merchant")),
             ("channel", json!("alternate-channel")),
             ("request_version", json!(2)),
+            ("limit_route_scope", json!("off_us")),
+            ("amount_modification_indicator", json!(false)),
+            ("expiry_selection", json!("custom")),
         ] {
             let mut changed = corpus.clone();
             changed["scenarios"][5]["request"][field] = replacement;
