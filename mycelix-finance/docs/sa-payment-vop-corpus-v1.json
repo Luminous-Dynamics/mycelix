@@ -1,0 +1,3255 @@
+{
+  "schema": "mycelix.sa-payment-vop/v1",
+  "corpus_id": "ZA-SA-PAYMENT-VOP-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "created_on": "2026-11-04",
+  "as_of": "2026-11-04",
+  "evaluation_at": "2026-11-04T09:04:00Z",
+  "jurisdiction": "ZA",
+  "purpose": "Qualify purpose-bound beneficiary name/account verification outcomes and exact payer intent before payment initiation.",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "SARB_PEM_POSITION_2025",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Position Paper",
+      "url": "https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_policy_position_paper",
+      "supports": [
+        "SARB proposes Verification of Payee / proxy-resolution capability as part of future national payments modernisation",
+        "The proposal connects payee confirmation with safer payment initiation and financial identity"
+      ],
+      "does_not_support": [
+        "A currently operational scheme-wide South African PayShap VoP service",
+        "A participant-specific API, coverage or response SLA"
+      ]
+    },
+    {
+      "id": "SARB_QR_PLUS_12",
+      "authority": "South African Reserve Bank",
+      "title": "QR+ Standard 1.2",
+      "url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/other-publications/2026/qrplus-standard-v1-2",
+      "published_on": "2026-07-07",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_payment_initiation_standard",
+      "supports": [
+        "QR+ standardises payment-initiation data exchange across QR codes, barcodes and digital links",
+        "QR+ includes a PayShap payload"
+      ],
+      "does_not_support": [
+        "A universal bank account/name verification service",
+        "Proof of account ownership, payment authority or settlement"
+      ]
+    },
+    {
+      "id": "EPC_VOP_RULEBOOK_11",
+      "authority": "European Payments Council",
+      "title": "Verification of Payee Scheme Rulebook v1.1",
+      "url": "https://www.europeanpaymentscouncil.eu/news-insights/news/verification-payee-scheme-rulebook-updates-0",
+      "published_on": "2026-09-20",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_scheme_rulebook",
+      "supports": [
+        "VOP Rulebook v1.1 effective 20 September 2026",
+        "Scheme defines response outcomes including match, close match, no match and verification not possible"
+      ],
+      "does_not_support": [
+        "South African PayShap rule or coverage",
+        "Legal identity or ownership proof beyond the scheme's scoped matching response"
+      ]
+    },
+    {
+      "id": "EPC_VOP_API_111",
+      "authority": "European Payments Council",
+      "title": "Verification of Payee Inter-PSP API Specifications v1.1.1",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/implementation-guidelines/verification-payee-scheme-inter-psp-api-specifications-0",
+      "published_on": "2026-09-20",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_inter_psp_api_specification",
+      "supports": [
+        "VOP API v1.1.1 effective 20 September 2026",
+        "Specification clarifies empty fields, character sets, timestamps, headers and content types",
+        "This is an inter-PSP request/response specification"
+      ],
+      "does_not_support": [
+        "A universal payer-facing UI",
+        "South African participant implementation"
+      ]
+    },
+    {
+      "id": "EPC_VOP_SECURITY_21",
+      "authority": "European Payments Council",
+      "title": "Verification of Payee API Security Framework v2.1",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/verification-payee-scheme-api-security-framework-0",
+      "published_on": "2026-09-20",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_api_security_framework",
+      "supports": [
+        "Framework v2.1 establishes security requirements for participant VOP APIs",
+        "Security profile is separate from the semantic matching outcome"
+      ],
+      "does_not_support": [
+        "That a valid API signature proves the account name matches",
+        "South African law or local coverage"
+      ]
+    },
+    {
+      "id": "EPC_VOP_MATCHING_20",
+      "authority": "European Payments Council",
+      "title": "Recommendations for VOP Matching Processes v2.0",
+      "url": "https://www.europeanpaymentscouncil.eu/news-insights/news/epc-publishes-updated-recommendations-matching-processes-under-vop-scheme",
+      "published_on": "2026-11-03",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_matching_recommendations",
+      "supports": [
+        "Recommendations v2.0 cover natural/legal person matching, spelling, transpositions, initials, phonetic variations, trading names and abbreviations",
+        "Responding PSP remains responsible for its matching outcome and may apply its own criteria",
+        "Unicode/character-set handling requires an explicit profile"
+      ],
+      "does_not_support": [
+        "One globally correct fuzzy-matching threshold",
+        "A match as proof of legal identity, account ownership or payment authority"
+      ]
+    },
+    {
+      "id": "ECB_IPR_2025",
+      "authority": "European Central Bank",
+      "title": "Instant Payments Regulation and Verification of Payee",
+      "url": "https://www.ecb.europa.eu/paym/retail/instant_payments/html/instant_payments_regulation.es.html",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_regulatory_comparator",
+      "supports": [
+        "EU IPR requires VOP for standard and instant euro credit transfers",
+        "The payer is offered VOP free and receives a response before payment authorisation",
+        "Outcome distinctions include match, close match, no match and other/verification-not-possible outcomes"
+      ],
+      "does_not_support": [
+        "South African legal requirements",
+        "A claim that all VoP services worldwide are free"
+      ]
+    },
+    {
+      "id": "UK_PSR_SD17_2026",
+      "authority": "UK Payment Systems Regulator",
+      "title": "Specific Direction 17: Confirmation of Payee (PS26/2)",
+      "url": "https://www.psr.org.uk/publications/policy-statements/ps262-specific-direction-17-confirmation-of-payee-removing-the-expiry-date/",
+      "published_on": "2026-10-01",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_regulatory_comparator",
+      "supports": [
+        "UK PSR removed the expiry date from Specific Direction 17 in October 2026",
+        "Direction retains Confirmation of Payee obligations for most PSPs",
+        "PSR reports scale exceeding 320 organisations and more than two million checks per day"
+      ],
+      "does_not_support": [
+        "South African provider coverage or obligations",
+        "Evidence that check volume equals fraud reduction or match accuracy"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "ZA-PAYSHAP-VOP-COVERAGE-UNQUALIFIED-V1",
+      "jurisdiction": "ZA",
+      "scheme": "PayShap / QR+ initiation context",
+      "participant": "unqualified_participant",
+      "service_scope": "payer-facing beneficiary name verification",
+      "profile_version": "unknown",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "coverage": "unknown",
+      "response_taxonomy_state": "not_qualified",
+      "matching_criteria_state": "unknown",
+      "security_profile_state": "unknown",
+      "fallback_policy": "unknown",
+      "source_refs": [
+        "SARB_PEM_POSITION_2025",
+        "SARB_QR_PLUS_12"
+      ],
+      "admission": "no South-African scheme-wide coverage claim; qualify exact participant before use"
+    },
+    {
+      "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+      "jurisdiction": "EU-SEPA",
+      "scheme": "EPC Verification of Payee",
+      "participant": "EPC VOP scheme participant",
+      "service_scope": "inter-PSP account/name matching",
+      "profile_version": "rulebook-v1.1_api-v1.1.1_security-v2.1_matching-v2.0",
+      "observed_on": "2026-11-04",
+      "effective_from": "2026-09-20",
+      "effective_to": null,
+      "coverage": "published_scheme_comparator",
+      "response_taxonomy_state": "match_close_match_no_match_verification_not_possible",
+      "matching_criteria_state": "responding_psp_profiled",
+      "security_profile_state": "EPC_API_SECURITY_FRAMEWORK_V2_1",
+      "fallback_policy": "participant_rulebook_and_local_regulation",
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_11",
+        "EPC_VOP_API_111",
+        "EPC_VOP_SECURITY_21",
+        "EPC_VOP_MATCHING_20"
+      ],
+      "admission": "architecture and interoperability comparator only"
+    },
+    {
+      "profile_id": "UK-PSR-COP-SD17-COMPARATOR-V1",
+      "jurisdiction": "UK",
+      "scheme": "Confirmation of Payee",
+      "participant": "UK PSP subject to SD17",
+      "service_scope": "payer-facing payee confirmation",
+      "profile_version": "PS26-2_snapshot",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "coverage": "published_regulatory_comparator",
+      "response_taxonomy_state": "match_close_match_no_match_other",
+      "matching_criteria_state": "provider_scheme_specific",
+      "security_profile_state": "unknown",
+      "fallback_policy": "UK_SD17_and_participant_terms",
+      "source_refs": [
+        "UK_PSR_SD17_2026"
+      ],
+      "admission": "regulatory/scale comparator only"
+    },
+    {
+      "profile_id": "EU-IPR-VOP-COMPARATOR-V1",
+      "jurisdiction": "EU",
+      "scheme": "EU Instant Payments Regulation",
+      "participant": "in-scope euro PSP",
+      "service_scope": "verification before standard or instant euro credit transfer",
+      "profile_version": "IPR_VOP_requirement_snapshot",
+      "observed_on": "2026-11-04",
+      "effective_from": "2025-10-09",
+      "effective_to": null,
+      "coverage": "published_regulatory_comparator",
+      "response_taxonomy_state": "match_close_match_no_match_other",
+      "matching_criteria_state": "regulation_and_responding_psp",
+      "security_profile_state": "unknown",
+      "fallback_policy": "EU_IPR_and_participant_terms",
+      "source_refs": [
+        "ECB_IPR_2025"
+      ],
+      "admission": "regulatory comparator only"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SA-VOP-001",
+      "scenario_type": "exact_natural_person_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-001",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "sepa-psp-01",
+            "beneficiary_account_commitment": "acct-commit-001",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-001",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-001-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-001",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "sepa-psp-01",
+            "beneficiary_account_commitment": "acct-commit-001",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-001",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-001-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "accepted_exact",
+        "check_id": "VOP-001",
+        "confirmed_request_commitment": "vop-commitment-001-synthetic",
+        "confirmed_beneficiary_account_commitment": "acct-commit-001",
+        "confirmed_name_commitment": "name-commit-001",
+        "payer_authority_state": "valid",
+        "confirmed_at": "2026-11-04T09:01:00Z"
+      },
+      "payment_instruction": {
+        "instruction_id": "INS-VOP-001",
+        "source_check_id": "VOP-001",
+        "request_commitment": "vop-commitment-001-synthetic",
+        "beneficiary_account_commitment": "acct-commit-001",
+        "confirmed_name_commitment": "name-commit-001",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "authorization_state": "valid"
+      },
+      "expected_outcome": "match",
+      "expected_effect": "payment_instruction_only",
+      "expected_disposition": "allow_exact_match_after_payer_authority",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ],
+      "currency": "EUR"
+    },
+    {
+      "scenario_id": "SA-VOP-002",
+      "scenario_type": "exact_legal_entity_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-002",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "sepa-psp-01",
+            "beneficiary_account_commitment": "acct-commit-002",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-002",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-002-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-002",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "sepa-psp-01",
+            "beneficiary_account_commitment": "acct-commit-002",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-002",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-002-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "accepted_exact",
+        "check_id": "VOP-002",
+        "confirmed_request_commitment": "vop-commitment-002-synthetic",
+        "confirmed_beneficiary_account_commitment": "acct-commit-002",
+        "confirmed_name_commitment": "name-commit-002",
+        "payer_authority_state": "valid",
+        "confirmed_at": "2026-11-04T09:01:00Z"
+      },
+      "payment_instruction": {
+        "instruction_id": "INS-VOP-002",
+        "source_check_id": "VOP-002",
+        "request_commitment": "vop-commitment-002-synthetic",
+        "beneficiary_account_commitment": "acct-commit-002",
+        "confirmed_name_commitment": "name-commit-002",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "authorization_state": "valid"
+      },
+      "expected_outcome": "match",
+      "expected_effect": "payment_instruction_only",
+      "expected_disposition": "allow_exact_match_after_payer_authority",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ],
+      "currency": "EUR"
+    },
+    {
+      "scenario_id": "SA-VOP-003",
+      "scenario_type": "case_and_whitespace_profile_permits_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-003",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-003",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-003",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8-NFC",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-003-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-003",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-003",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-003",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8-NFC",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-003-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-003",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "provider_match_without_payer_consent",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-004",
+      "scenario_type": "punctuation_profile_permits_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-004",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-004",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-004",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8-NFC",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-004-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-004",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-004",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-004",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8-NFC",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-004-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-004",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "provider_match_without_payer_consent",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-005",
+      "scenario_type": "diacritic_profile_explicitly_permits_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-005",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-005",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-005",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8-NFC",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-005-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-005",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-005",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-005",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8-NFC",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-005-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-005",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "provider_match_without_payer_consent",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-006",
+      "scenario_type": "isiZulu_or_isiXhosa_utf8_name_preserved",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-006",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-006",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-006",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-006-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-006",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-006",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-006",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-006-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-006",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "provider_match_without_payer_consent",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-007",
+      "scenario_type": "sesotho_or_afrikaans_name_preserved",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-007",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-007",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-007",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-007-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-007",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-007",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-007",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-007-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-007",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "provider_match_without_payer_consent",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-008",
+      "scenario_type": "transposition_returns_close_match_not_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-008",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-008",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-008",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-008-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-008",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-008",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-008",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-008-synthetic",
+            "outcome": "close_match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": "vop-commitment-108-synthetic"
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "reenter_and_recheck",
+        "check_id": "VOP-008",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "close_match",
+      "expected_effect": "recheck_required",
+      "expected_disposition": "fresh_name_input_and_check_required",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-009",
+      "scenario_type": "close_match_corrected_name_new_check_then_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-009",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-009",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-009",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-009-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-009",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-009",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-009",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-009-synthetic",
+            "outcome": "close_match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": "name-corrected-commit-009"
+          }
+        },
+        {
+          "request": {
+            "check_id": "VOP-109",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-109",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-corrected-commit-009",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commit-109-corrected",
+            "requested_at": "2026-11-04T09:02:00Z"
+          },
+          "response": {
+            "check_id": "VOP-109",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-109",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-corrected-commit-009",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commit-109-corrected",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "accepted_exact",
+        "check_id": "VOP-109",
+        "confirmed_request_commitment": "vop-commit-109-corrected",
+        "confirmed_beneficiary_account_commitment": "acct-commit-109",
+        "confirmed_name_commitment": "name-corrected-commit-009",
+        "payer_authority_state": "valid",
+        "confirmed_at": "2026-11-04T09:03:00Z"
+      },
+      "payment_instruction": {
+        "instruction_id": "INS-VOP-009",
+        "source_check_id": "VOP-109",
+        "request_commitment": "vop-commit-109-corrected",
+        "beneficiary_account_commitment": "acct-commit-109",
+        "confirmed_name_commitment": "name-corrected-commit-009",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "authorization_state": "valid"
+      },
+      "expected_outcome": "match",
+      "expected_effect": "payment_instruction_only",
+      "expected_disposition": "new_check_and_consent_required_then_allow",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-010",
+      "scenario_type": "phonetic_similarity_distinct_people_no_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-010",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-010",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-010",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-010-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-010",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-010",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-010",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-010-synthetic",
+            "outcome": "no_match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-010",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "no_match",
+      "expected_effect": "none",
+      "expected_disposition": "do_not_dispatch",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-011",
+      "scenario_type": "common_name_collision_no_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-011",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-011",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-011",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-011-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-011",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-011",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-011",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-011-synthetic",
+            "outcome": "no_match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-011",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "no_match",
+      "expected_effect": "none",
+      "expected_disposition": "do_not_dispatch",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-012",
+      "scenario_type": "trading_name_without_authorised_mapping_no_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-012",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-012",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-012",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-012-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-012",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-012",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-012",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-012-synthetic",
+            "outcome": "no_match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-012",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "no_match",
+      "expected_effect": "none",
+      "expected_disposition": "do_not_dispatch",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-013",
+      "scenario_type": "verification_not_possible_provider_outage",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-013",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-013",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-013",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-013-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-013",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-013",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-013",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-013-synthetic",
+            "outcome": "verification_not_possible",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": "provider_unavailable",
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-013",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "verification_not_possible",
+      "expected_effect": "none",
+      "expected_disposition": "preserve_unknown_or_unavailable",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-014",
+      "scenario_type": "unsupported_participant_coverage_not_possible",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-014",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-014",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-014",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-014-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-014",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-014",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-014",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-014-synthetic",
+            "outcome": "verification_not_possible",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": "provider_unavailable",
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-014",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "verification_not_possible",
+      "expected_effect": "none",
+      "expected_disposition": "preserve_unknown_or_unavailable",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-015",
+      "scenario_type": "not_requested_is_not_verified",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-015",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-015",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-015",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-015-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-015",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-015",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-015",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-015-synthetic",
+            "outcome": "not_requested",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-015",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "not_requested",
+      "expected_effect": "none",
+      "expected_disposition": "keep_unverified",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-016",
+      "scenario_type": "unknown_provider_outcome",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-016",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-016",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-016",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-016-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-016",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-016",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-016",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-016-synthetic",
+            "outcome": "unknown",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-016",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "preserve_unknown_or_unavailable",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-017",
+      "scenario_type": "expired_response",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-017",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-017",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-017",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-017-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-017",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-017",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-017",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-017-synthetic",
+            "outcome": "stale",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T08:59:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-017",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "stale",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-018",
+      "scenario_type": "stale_response_timestamp",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-018",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-018",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-018",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-018-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-018",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-018",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-018",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-018-synthetic",
+            "outcome": "stale",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T08:59:00Z",
+            "valid_until": "2026-11-04T08:59:30Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-018",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "stale",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-019",
+      "scenario_type": "invalid_provider_signature",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-019",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-019",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-019",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-019-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-019",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-019",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-019",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-019-synthetic",
+            "outcome": "unknown",
+            "signature_state": "invalid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-019",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-020",
+      "scenario_type": "revoked_provider_key",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-020",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-020",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-020",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-020-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-020",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-020",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-020",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-020-synthetic",
+            "outcome": "unknown",
+            "signature_state": "valid",
+            "key_state": "revoked",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-020",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-021",
+      "scenario_type": "unknown_provider_authority",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-021",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-021",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-021",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-021-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-021",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-021",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-021",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-021-synthetic",
+            "outcome": "unknown",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "unknown",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-021",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-022",
+      "scenario_type": "wrong_provider_audience",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-022",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-022",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-022",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-022-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-022",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-022",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-022",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:other",
+            "request_commitment": "vop-commitment-022-synthetic",
+            "outcome": "unknown",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-022",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-023",
+      "scenario_type": "wrong_participant_response",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-023",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-023",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-023",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-023-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-023",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "sepa-psp-other",
+            "beneficiary_account_commitment": "acct-commit-023",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-023",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-023-synthetic",
+            "outcome": "unknown",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-023",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-024",
+      "scenario_type": "wrong_account_commitment",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-024",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-024",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-024",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-024-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-024",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-other",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-024",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-024-synthetic",
+            "outcome": "unknown",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-024",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-025",
+      "scenario_type": "wrong_name_input_commitment",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-025",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-025",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-025",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-025-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-025",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-025",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-other",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-025-synthetic",
+            "outcome": "unknown",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-025",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-026",
+      "scenario_type": "wrong_profile_version",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-026",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-026",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-026",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-026-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-026",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-026",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-026",
+            "matching_profile_version": "match-profile-old",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-026-synthetic",
+            "outcome": "stale",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-026",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "stale",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-027",
+      "scenario_type": "wrong_character_profile_echo",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-027",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-027",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-027",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-027-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-027",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-027",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-027",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "ASCII-lossy",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-027-synthetic",
+            "outcome": "unknown",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-027",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "unknown",
+      "expected_effect": "none",
+      "expected_disposition": "reject_unbound_or_unqualified_response",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-028",
+      "scenario_type": "stale_shapid_binding_before_name_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-028",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-028",
+            "alias_state": "stale",
+            "alias_binding_generation": 4,
+            "submitted_name_commitment": "name-commit-028",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-028-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-028",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-028",
+            "alias_state": "stale",
+            "alias_binding_generation": 4,
+            "submitted_name_commitment": "name-commit-028",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-028-synthetic",
+            "outcome": "stale",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-028",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "stale",
+      "expected_effect": "none",
+      "expected_disposition": "requalify_alias_binding_separately",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-029",
+      "scenario_type": "unknown_alias_currentness",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-029",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-029",
+            "alias_state": "unknown",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-029",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-029-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-029",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-029",
+            "alias_state": "unknown",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-029",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-029-synthetic",
+            "outcome": "stale",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-029",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "stale",
+      "expected_effect": "none",
+      "expected_disposition": "requalify_alias_binding_separately",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-030",
+      "scenario_type": "alias_generation_changed_after_prior_check",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-030",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-030",
+            "alias_state": "current",
+            "alias_binding_generation": 6,
+            "submitted_name_commitment": "name-commit-030",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-030-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-030",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-030",
+            "alias_state": "unknown",
+            "alias_binding_generation": 5,
+            "submitted_name_commitment": "name-commit-030",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-030-synthetic",
+            "outcome": "stale",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-030",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "stale",
+      "expected_effect": "none",
+      "expected_disposition": "requalify_alias_binding_separately",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-031",
+      "scenario_type": "payer_cancels_after_close_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-031",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-031",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-031",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-031-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-031",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-031",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-031",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-031-synthetic",
+            "outcome": "close_match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": "vop-commitment-131-synthetic"
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "cancel",
+        "check_id": "VOP-031",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "close_match",
+      "expected_effect": "none",
+      "expected_disposition": "honour_cancel_without_effect",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-032",
+      "scenario_type": "match_but_payer_lacks_payment_authority",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-032",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-032",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-032",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-032-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-032",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-032",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-032",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-032-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "accepted_exact",
+        "check_id": "VOP-032",
+        "confirmed_request_commitment": "vop-commitment-032-synthetic",
+        "confirmed_beneficiary_account_commitment": "acct-commit-032",
+        "confirmed_name_commitment": "name-commit-032",
+        "payer_authority_state": "invalid",
+        "confirmed_at": "2026-11-04T09:01:00Z"
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "deny_instruction_without_exact_payer_authority",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-033",
+      "scenario_type": "match_but_payer_consent_digest_mismatch",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-033",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-033",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-033",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-033-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-033",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-033",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-033",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-033-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "accepted_exact",
+        "check_id": "VOP-033",
+        "confirmed_request_commitment": "different-commitment",
+        "confirmed_beneficiary_account_commitment": "acct-commit-033",
+        "confirmed_name_commitment": "name-commit-033",
+        "payer_authority_state": "valid",
+        "confirmed_at": "2026-11-04T09:01:00Z"
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "deny_instruction_without_exact_payer_authority",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-034",
+      "scenario_type": "match_but_payer_confirmed_wrong_beneficiary",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-034",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-034",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-034",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-034-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-034",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-034",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-034",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-034-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "accepted_exact",
+        "check_id": "VOP-034",
+        "confirmed_request_commitment": "vop-commitment-034-synthetic",
+        "confirmed_beneficiary_account_commitment": "acct-other",
+        "confirmed_name_commitment": "name-commit-034",
+        "payer_authority_state": "valid",
+        "confirmed_at": "2026-11-04T09:01:00Z"
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "deny_instruction_without_exact_payer_authority",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-035",
+      "scenario_type": "match_but_payer_confirmed_wrong_name",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-035",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-035",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-035",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-035-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-035",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-035",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-035",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-035-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "accepted_exact",
+        "check_id": "VOP-035",
+        "confirmed_request_commitment": "vop-commitment-035-synthetic",
+        "confirmed_beneficiary_account_commitment": "acct-commit-035",
+        "confirmed_name_commitment": "name-other",
+        "payer_authority_state": "valid",
+        "confirmed_at": "2026-11-04T09:01:00Z"
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "deny_instruction_without_exact_payer_authority",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-036",
+      "scenario_type": "payer_cancels_after_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-036",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-036",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-036",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-036-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-036",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-036",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-036",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-036-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "cancel",
+        "check_id": "VOP-036",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "honour_cancel_without_effect",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-037",
+      "scenario_type": "south_african_paymentscheme_coverage_unknown",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-037",
+            "profile_id": "ZA-PAYSHAP-VOP-COVERAGE-UNQUALIFIED-V1",
+            "participant": "za-unknown-psp",
+            "beneficiary_account_commitment": "acct-commit-037",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-037",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-037-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-037",
+            "profile_id": "ZA-PAYSHAP-VOP-COVERAGE-UNQUALIFIED-V1",
+            "participant": "za-unknown-psp",
+            "beneficiary_account_commitment": "acct-commit-037",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-037",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-037-synthetic",
+            "outcome": "verification_not_possible",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": "scheme_coverage_unknown",
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "bypass_unverified",
+        "check_id": "VOP-037",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "verification_not_possible",
+      "expected_effect": "none",
+      "expected_disposition": "record_unverified_no_implicit_green",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-038",
+      "scenario_type": "uk_cop_regulatory_comparator_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-038",
+            "profile_id": "UK-PSR-COP-SD17-COMPARATOR-V1",
+            "participant": "uk-psp-01",
+            "beneficiary_account_commitment": "acct-commit-038",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-038",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-038-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-038",
+            "profile_id": "UK-PSR-COP-SD17-COMPARATOR-V1",
+            "participant": "uk-psp-01",
+            "beneficiary_account_commitment": "acct-commit-038",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-038",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-038-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-038",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "comparator_not_south_african_coverage",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-039",
+      "scenario_type": "eu_ipr_vop_comparator_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-039",
+            "profile_id": "EU-IPR-VOP-COMPARATOR-V1",
+            "participant": "eu-euro-psp-01",
+            "beneficiary_account_commitment": "acct-commit-039",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-039",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-039-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-039",
+            "profile_id": "EU-IPR-VOP-COMPARATOR-V1",
+            "participant": "eu-euro-psp-01",
+            "beneficiary_account_commitment": "acct-commit-039",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-039",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-039-synthetic",
+            "outcome": "match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-039",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "match",
+      "expected_effect": "none",
+      "expected_disposition": "comparator_not_south_african_coverage",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-040",
+      "scenario_type": "unsupported_charset_conversion_loss",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-040",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-040",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-040",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "ASCII-lossy",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-040-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-040",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-040",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-040",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "ASCII-lossy",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-040-synthetic",
+            "outcome": "verification_not_possible",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": "unsupported_character_set",
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-040",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "verification_not_possible",
+      "expected_effect": "none",
+      "expected_disposition": "preserve_uncertainty_or_reject_enumeration",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-041",
+      "scenario_type": "bidi_or_homoglyph_confusable_no_match",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-041",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-041",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-041",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-041-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-041",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-041",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-041",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-041-synthetic",
+            "outcome": "no_match",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": "confusable_input",
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-041",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "no_match",
+      "expected_effect": "none",
+      "expected_disposition": "preserve_uncertainty_or_reject_enumeration",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-042",
+      "scenario_type": "empty_name_input_not_requested",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-042",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-042",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-042",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-042-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-042",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-042",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-042",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-042-synthetic",
+            "outcome": "not_requested",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": null,
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-042",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "not_requested",
+      "expected_effect": "none",
+      "expected_disposition": "preserve_uncertainty_or_reject_enumeration",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-043",
+      "scenario_type": "provider_rate_limited",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-043",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-043",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-043",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-043-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-043",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-043",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-043",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-043-synthetic",
+            "outcome": "verification_not_possible",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": "rate_limited",
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-043",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "verification_not_possible",
+      "expected_effect": "none",
+      "expected_disposition": "preserve_uncertainty_or_reject_enumeration",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    },
+    {
+      "scenario_id": "SA-VOP-044",
+      "scenario_type": "unauthenticated_account_enumeration_blocked",
+      "checks": [
+        {
+          "request": {
+            "check_id": "VOP-044",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-044",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-044",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "payer_audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-044-synthetic",
+            "requested_at": "2026-11-04T09:00:00Z"
+          },
+          "response": {
+            "check_id": "VOP-044",
+            "profile_id": "SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+            "participant": "synthetic-psp-a",
+            "beneficiary_account_commitment": "acct-commit-044",
+            "alias_state": "not_applicable",
+            "alias_binding_generation": null,
+            "submitted_name_commitment": "name-commit-044",
+            "matching_profile_version": "match-profile-v2.0",
+            "character_set_profile": "UTF-8",
+            "audience": "payer-psp:synthetic-a",
+            "request_commitment": "vop-commitment-044-synthetic",
+            "outcome": "verification_not_possible",
+            "signature_state": "valid",
+            "key_state": "active",
+            "provider_authority_state": "authorised",
+            "observed_at": "2026-11-04T09:00:01Z",
+            "valid_until": "2026-11-04T09:05:00Z",
+            "reason_code": "unauthorised_enumeration_blocked",
+            "suggested_name_commitment": null
+          }
+        }
+      ],
+      "payer_decision": {
+        "action": "none",
+        "check_id": "VOP-044",
+        "confirmed_request_commitment": null,
+        "confirmed_beneficiary_account_commitment": null,
+        "confirmed_name_commitment": null,
+        "payer_authority_state": "not_applicable",
+        "confirmed_at": null
+      },
+      "payment_instruction": null,
+      "expected_outcome": "verification_not_possible",
+      "expected_effect": "none",
+      "expected_disposition": "preserve_uncertainty_or_reject_enumeration",
+      "required_evidence": [
+        "exact_beneficiary_commitment",
+        "submitted_name_commitment",
+        "typed_provider_response",
+        "currentness_and_audience"
+      ],
+      "negative_controls": [
+        "match_is_not_legal_identity_proof",
+        "no_dispatch_without_exact_payer_authority",
+        "close_match_requires_fresh_check_and_consent"
+      ]
+    }
+  ]
+}
