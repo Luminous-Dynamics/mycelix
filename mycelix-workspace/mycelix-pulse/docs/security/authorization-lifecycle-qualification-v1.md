@@ -94,11 +94,11 @@ A coordinator-side error without these observations is insufficient.
 
 ## Corpus
 
-The companion JSON contains 27 synthetic scenarios across:
+The companion JSON contains 28 synthetic scenarios across:
 
 - conductor capability and exact scope;
 - revocation and overlapping calls;
-- retries, crashes and recovery;
+- grant-creation retry idempotency, revocation retries, crashes and recovery;
 - 0.7.0-to-0.7.1 migration and DirectSignal grants;
 - independent validation, roots and fork ambiguity;
 - policy mapping and observability.
