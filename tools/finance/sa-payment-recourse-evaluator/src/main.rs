@@ -196,26 +196,37 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
     for (index, profile) in profiles.iter().enumerate() {
         let observed = str_at(profile, "observed_on").unwrap_or("");
         if !date_le(observed, as_of) {
-            out.errors.push(format!("profiles[{index}].observed_on: invalid or after as_of"));
+            out.errors.push(format!(
+                "profiles[{index}].observed_on: invalid or after as_of"
+            ));
         }
         let from = profile.get("effective_from").and_then(Value::as_str);
         let to = profile.get("effective_to").and_then(Value::as_str);
         if let (Some(start), Some(end)) = (from, to) {
             if !date_le(start, end) {
-                out.errors.push(format!("profiles[{index}]: effective_to precedes effective_from"));
+                out.errors.push(format!(
+                    "profiles[{index}]: effective_to precedes effective_from"
+                ));
             }
         }
-        let refs = array_at(profile, "source_refs").cloned().unwrap_or_default();
+        let refs = array_at(profile, "source_refs")
+            .cloned()
+            .unwrap_or_default();
         if refs.is_empty() {
-            out.errors.push(format!("profiles[{index}].source_refs: empty source evidence"));
+            out.errors.push(format!(
+                "profiles[{index}].source_refs: empty source evidence"
+            ));
         }
         for reference in refs {
             if !reference.as_str().is_some_and(|id| source_ids.contains(id)) {
-                out.errors.push(format!("profiles[{index}].source_refs: unresolved source"));
+                out.errors
+                    .push(format!("profiles[{index}].source_refs: unresolved source"));
             }
         }
 
-        let capabilities = array_at(profile, "remedy_capabilities").cloned().unwrap_or_default();
+        let capabilities = array_at(profile, "remedy_capabilities")
+            .cloned()
+            .unwrap_or_default();
         for (cap_index, capability) in capabilities.iter().enumerate() {
             let window_state = str_at(capability, "time_window_state").unwrap_or("");
             let window = capability.get("window_seconds");
@@ -228,13 +239,19 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
                 }
                 _ => {}
             }
-            let cap_refs = array_at(capability, "source_refs").cloned().unwrap_or_default();
+            let cap_refs = array_at(capability, "source_refs")
+                .cloned()
+                .unwrap_or_default();
             if cap_refs.is_empty() {
-                out.errors.push(format!("profiles[{index}].remedy_capabilities[{cap_index}].source_refs: empty"));
+                out.errors.push(format!(
+                    "profiles[{index}].remedy_capabilities[{cap_index}].source_refs: empty"
+                ));
             }
             for reference in cap_refs {
                 if !reference.as_str().is_some_and(|id| source_ids.contains(id)) {
-                    out.errors.push(format!("profiles[{index}].remedy_capabilities[{cap_index}].source_refs: unresolved source"));
+                    out.errors.push(format!(
+                        "profiles[{index}].remedy_capabilities[{cap_index}].source_refs: unresolved source"
+                    ));
                 }
             }
         }
@@ -244,12 +261,16 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
         let case_id = str_at(case, "scenario_id").unwrap_or("<missing>");
         let profile_id = str_at(case, "profile_id").unwrap_or("");
         if !profile_ids.contains(profile_id) {
-            out.errors.push(format!("scenarios[{case_index}]: unresolved profile {profile_id}"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: unresolved profile {profile_id}"
+            ));
         }
         let claim = u64_at(case, "claim_amount_minor_units").unwrap_or(0);
         let declared_return = u64_at(case, "actual_returned_minor_units").unwrap_or(u64::MAX);
         if claim == 0 || declared_return > claim {
-            out.errors.push(format!("scenarios[{case_index}]: invalid claim/returned amount"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: invalid claim/returned amount"
+            ));
         }
 
         let events = array_at(case, "events").cloned().unwrap_or_default();
@@ -267,11 +288,14 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
             let path = format!("scenarios[{case_index}].events[{event_index}]");
             let event_id = str_at(event, "event_id").unwrap_or("<missing>");
             if !event_ids.insert(event_id.to_owned()) {
-                out.errors.push(format!("{path}: duplicate event_id {event_id}"));
+                out.errors
+                    .push(format!("{path}: duplicate event_id {event_id}"));
             }
             let sequence = u64_at(event, "sequence").unwrap_or(0);
             if sequence <= previous_sequence {
-                out.errors.push(format!("{path}: event sequence must be strictly increasing"));
+                out.errors.push(format!(
+                    "{path}: event sequence must be strictly increasing"
+                ));
             }
             previous_sequence = sequence;
 
@@ -287,7 +311,10 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
             has_case_closed |= event_type == "case_closed";
 
             if event_type == "funds_returned" {
-                if amount == 0 || authority != "valid" || !matches!(actor, "beneficiary_psp" | "recipient") {
+                if amount == 0
+                    || authority != "valid"
+                    || !matches!(actor, "beneficiary_psp" | "recipient")
+                {
                     out.errors.push(format!("{path}: return requires positive amount, valid authority and beneficiary PSP/recipient actor"));
                 }
                 if event.get("reconciled").and_then(Value::as_bool) != Some(true)
