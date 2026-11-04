@@ -1705,7 +1705,6 @@ mod tests {
     #[test]
     fn terminal_settlement_profile_does_not_authorize_later_accounting_reversal() {
         let ledger = ledger_profile();
-        let policy = policy(&ledger);
         let profile = settlement_profile();
         let mut terminal_profile = profile.clone();
         terminal_profile.profile_ref.id = reference("finality:bank-terminal:v1");
