@@ -65,10 +65,10 @@ fn date_time_after(value: &str, as_of: &str) -> bool {
 }
 
 fn schema_errors(schema_text: &str, corpus_text: &str) -> Result<(Value, Value), Vec<String>> {
-    let schema: Value =
-        serde_json::from_str(schema_text).map_err(|error| vec![format!("schema parse: {error}")])?;
-    let corpus: Value =
-        serde_json::from_str(corpus_text).map_err(|error| vec![format!("corpus parse: {error}")])?;
+    let schema: Value = serde_json::from_str(schema_text)
+        .map_err(|error| vec![format!("schema parse: {error}")])?;
+    let corpus: Value = serde_json::from_str(corpus_text)
+        .map_err(|error| vec![format!("corpus parse: {error}")])?;
     if !jsonschema::meta::is_valid(&schema) {
         return Err(vec!["schema fails Draft 2020-12 meta-schema".into()]);
     }
@@ -274,7 +274,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     if str_at(corpus, "status") != Some("synthetic_reference_only") {
         errors.push("corpus must remain synthetic_reference_only".into());
     }
-    if corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false)
+    if corpus
+        .get("external_effects_enabled")
+        .and_then(Value::as_bool)
+        != Some(false)
         || corpus.get("dispatch_enabled").and_then(Value::as_bool) != Some(false)
     {
         errors.push("external effects and dispatch must remain disabled".into());
@@ -284,7 +287,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         errors.push("as_of must be a valid frozen date".into());
     }
 
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     unique_ids(&sources, "id", "source_register", &mut errors);
@@ -303,25 +308,35 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         .collect();
 
     for (index, profile) in profiles.iter().enumerate() {
-        let refs = array_at(profile, "source_refs").cloned().unwrap_or_default();
+        let refs = array_at(profile, "source_refs")
+            .cloned()
+            .unwrap_or_default();
         if refs.is_empty() {
             errors.push(format!("profiles[{index}].source_refs must not be empty"));
         }
         for reference in refs {
             if !reference.as_str().is_some_and(|id| source_ids.contains(id)) {
-                errors.push(format!("profiles[{index}].source_refs contains unresolved source"));
+                errors.push(format!(
+                    "profiles[{index}].source_refs contains unresolved source"
+                ));
             }
         }
         if str_at(profile, "participant") == Some("ICASA")
             && str_at(profile, "admission") == Some("draft_for_public_comment_not_binding_law")
         {
-            if profile.get("effective_from").is_some_and(|value| !value.is_null()) {
+            if profile
+                .get("effective_from")
+                .is_some_and(|value| !value.is_null())
+            {
                 errors.push(format!(
                     "profiles[{index}]: draft regulation cannot have asserted effective date"
                 ));
             }
         }
-        if profile.get("cooling_off_seconds").is_some_and(|value| !value.is_null()) {
+        if profile
+            .get("cooling_off_seconds")
+            .is_some_and(|value| !value.is_null())
+        {
             errors.push(format!(
                 "profiles[{index}]: no unsourced cooling-off interval may be asserted"
             ));
@@ -331,7 +346,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     for (case_index, case) in scenarios.iter().enumerate() {
         let profile_id = str_at(case, "profile_id").unwrap_or("");
         let Some(profile) = profile_map.get(profile_id) else {
-            errors.push(format!("scenarios[{case_index}]: unresolved profile {profile_id}"));
+            errors.push(format!(
+                "scenarios[{case_index}]: unresolved profile {profile_id}"
+            ));
             continue;
         };
         let alias = &case["alias"];
