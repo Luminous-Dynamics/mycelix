@@ -691,6 +691,11 @@
               }
             }
           }
+        },
+        "not": {
+          "required": [
+            "legacy_locator_ref"
+          ]
         }
       }
     }
