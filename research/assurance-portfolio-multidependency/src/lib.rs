@@ -2042,7 +2042,6 @@ mod tests {
         assert_eq!(report.disposition, AuditDisposition::Complete);
     }
 
-
     #[test]
     fn dependency_edge_count_is_bounded_before_dag_walk() {
         let mut source = node(
