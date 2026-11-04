@@ -1,0 +1,753 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse/zome-signal-wire-v1.schema.json",
+  "title": "Pulse Holochain zome signal wire contract v1",
+  "description": "The 28 currently emitted/declared Mail, Trust, Sync and Federation variants. Rust producers use Serde adjacent tagging with tag=type and content=data. This is a transport shape only: it does not authenticate the sender or make payload claims authoritative.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "EmailReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "sender",
+            "encrypted_subject",
+            "timestamp",
+            "priority"
+          ],
+          "properties": {
+            "email_hash": {},
+            "sender": {},
+            "encrypted_subject": {},
+            "timestamp": {},
+            "priority": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "DeliveryConfirmed"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "recipient",
+            "delivered_at"
+          ],
+          "properties": {
+            "email_hash": {},
+            "recipient": {},
+            "delivered_at": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ReadReceiptReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "reader",
+            "read_at"
+          ],
+          "properties": {
+            "email_hash": {},
+            "reader": {},
+            "read_at": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "EmailStateChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "state"
+          ],
+          "properties": {
+            "email_hash": {},
+            "state": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "is_read",
+                "is_starred",
+                "is_archived",
+                "is_trashed",
+                "folders"
+              ],
+              "properties": {
+                "is_read": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "is_starred": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "is_archived": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "is_trashed": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "folders": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ThreadActivity"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "thread_id",
+            "email_hash",
+            "sender"
+          ],
+          "properties": {
+            "thread_id": {},
+            "email_hash": {},
+            "sender": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "DraftSaved"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "draft_hash"
+          ],
+          "properties": {
+            "draft_hash": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ScheduledEmailSent"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "recipients"
+          ],
+          "properties": {
+            "email_hash": {},
+            "recipients": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "TypingIndicator"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sender",
+            "thread_id"
+          ],
+          "properties": {
+            "sender": {},
+            "thread_id": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "AttestationReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "attestation_hash",
+            "truster",
+            "trust_level",
+            "category"
+          ],
+          "properties": {
+            "attestation_hash": {},
+            "truster": {},
+            "trust_level": {},
+            "category": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "TrustScoreUpdated"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agent",
+            "new_score",
+            "confidence"
+          ],
+          "properties": {
+            "agent": {},
+            "new_score": {},
+            "confidence": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "IntroductionReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "introduction_hash",
+            "introducer",
+            "introduced",
+            "recommendation"
+          ],
+          "properties": {
+            "introduction_hash": {},
+            "introducer": {},
+            "introduced": {},
+            "recommendation": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "DisputeFiled"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dispute_hash",
+            "attestation_hash",
+            "disputer"
+          ],
+          "properties": {
+            "dispute_hash": {},
+            "attestation_hash": {},
+            "disputer": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ByzantineDetected"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agent",
+            "flag_type",
+            "severity"
+          ],
+          "properties": {
+            "agent": {},
+            "flag_type": {},
+            "severity": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "SyncStateChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "vector_clock",
+            "pending_ops"
+          ],
+          "properties": {
+            "vector_clock": {},
+            "pending_ops": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "OperationReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op_id",
+            "op_type",
+            "from_agent"
+          ],
+          "properties": {
+            "op_id": {},
+            "op_type": {},
+            "from_agent": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ConflictDetected"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "conflict_id",
+            "conflict_type"
+          ],
+          "properties": {
+            "conflict_id": {},
+            "conflict_type": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ConflictResolved"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "conflict_id",
+            "resolution"
+          ],
+          "properties": {
+            "conflict_id": {},
+            "resolution": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "Online"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "Offline"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "SyncProgress"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "synced",
+            "total",
+            "peer"
+          ],
+          "properties": {
+            "synced": {},
+            "total": {},
+            "peer": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "SyncComplete"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "peer",
+            "ops_synced"
+          ],
+          "properties": {
+            "peer": {},
+            "ops_synced": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "NetworkDiscovered"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network_id",
+            "network_type"
+          ],
+          "properties": {
+            "network_id": {},
+            "network_type": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "EnvelopeReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "envelope_id",
+            "from_network"
+          ],
+          "properties": {
+            "envelope_id": {},
+            "from_network": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "EnvelopeDelivered"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "envelope_id",
+            "to_network"
+          ],
+          "properties": {
+            "envelope_id": {},
+            "to_network": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "DeliveryFailed"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "envelope_id",
+            "error"
+          ],
+          "properties": {
+            "envelope_id": {},
+            "error": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "BridgeStatusChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bridge_agent",
+            "is_active"
+          ],
+          "properties": {
+            "bridge_agent": {},
+            "is_active": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "RouteChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "route_id",
+            "is_active"
+          ],
+          "properties": {
+            "route_id": {},
+            "is_active": {}
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "PeerStatusChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network_id",
+            "is_reachable"
+          ],
+          "properties": {
+            "network_id": {},
+            "is_reachable": {}
+          }
+        }
+      }
+    }
+  ]
+}
