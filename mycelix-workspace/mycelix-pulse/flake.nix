@@ -234,7 +234,7 @@
               # Zomes run under Holochain/Wasmer, not browser JS or WASI.
               # Disable transitive OS getrandom in the wasm target; zome code
               # needing entropy must call the conductor host API (hdk::random_bytes).
-              export CARGO_ENCODED_RUSTFLAGS=
+              export CARGO_ENCODED_RUSTFLAGS=$'--cfg\037getrandom_backend="unsupported"'
               cd integrity && cargo build --release --target wasm32-unknown-unknown
               cd ../zomes/mail_messages && cargo build --release --target wasm32-unknown-unknown
               cd ../trust_filter && cargo build --release --target wasm32-unknown-unknown
