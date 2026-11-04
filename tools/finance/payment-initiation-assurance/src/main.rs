@@ -668,17 +668,23 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
         ("EU other outcome assigned UK profile", |value| {
             value["cases"][23]["payee_verification"]["scheme_profile"] = json!("UK_FPS_COP");
         }),
-        ("proposal-only South African profile claims a match", |value| {
-            value["cases"][29]["payee_verification"]["result"] = json!("match");
-        }),
+        (
+            "proposal-only South African profile claims a match",
+            |value| {
+                value["cases"][29]["payee_verification"]["result"] = json!("match");
+            },
+        ),
         ("UK profile loses its source binding", |value| {
             value["cases"][20]["payee_verification"]["source_refs"] =
                 json!(["ECB_INSTANT_PAYMENTS_REGULATION_2024_886"]);
         }),
-        ("EU profile invents personal/business account type", |value| {
-            value["cases"][19]["payee_verification"]["requested_account_type"] =
-                json!("business");
-        }),
+        (
+            "EU profile invents personal/business account type",
+            |value| {
+                value["cases"][19]["payee_verification"]["requested_account_type"] =
+                    json!("business");
+            },
+        ),
     ];
     for (name, mutate) in mutations {
         let mut changed = corpus.clone();
@@ -769,7 +775,10 @@ mod tests {
         assert_eq!(close["returned_account_type"], "business");
         assert_eq!(unavailable["result"], "unavailable");
         assert_eq!(unavailable["scheme_profile"], "UK_FPS_COP");
-        assert_eq!(account_type_mismatch["requested_account_type"], "individual");
+        assert_eq!(
+            account_type_mismatch["requested_account_type"],
+            "individual"
+        );
         assert_eq!(account_type_mismatch["returned_account_type"], "business");
         assert_eq!(no_match["fraud_inference"], "not_inferred");
         assert_eq!(
