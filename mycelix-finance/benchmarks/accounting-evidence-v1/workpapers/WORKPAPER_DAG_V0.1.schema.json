@@ -590,10 +590,6 @@
           "minLength": 1,
           "maxLength": 128
         },
-        "exact_value": {
-          "type": "string",
-          "pattern": "^-?(0|[1-9][0-9]*)$"
-        },
         "unit_profile": {
           "$ref": "#/$defs/opaqueRef"
         },
@@ -616,6 +612,9 @@
         },
         "workpaper_commitment_sha256": {
           "$ref": "#/$defs/sha256"
+        },
+        "numeric_value": {
+          "$ref": "#/$defs/numericValue"
         }
       },
       "allOf": [
@@ -852,6 +851,84 @@
           "$ref": "#/$defs/opaqueRef"
         }
       }
+    },
+    "numericValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "encoding",
+            "value",
+            "unit_profile"
+          ],
+          "properties": {
+            "encoding": {
+              "const": "integer_minor_units"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]*)$"
+            },
+            "unit_profile": {
+              "$ref": "#/$defs/opaqueRef"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "encoding",
+            "value",
+            "scale",
+            "unit_profile"
+          ],
+          "properties": {
+            "encoding": {
+              "const": "fixed_decimal"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]*)\\\\.[0-9]+$"
+            },
+            "scale": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 38
+            },
+            "unit_profile": {
+              "$ref": "#/$defs/opaqueRef"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "encoding",
+            "numerator",
+            "denominator",
+            "unit_profile"
+          ],
+          "properties": {
+            "encoding": {
+              "const": "exact_rational"
+            },
+            "numerator": {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]*)$"
+            },
+            "denominator": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "unit_profile": {
+              "$ref": "#/$defs/opaqueRef"
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [
