@@ -1004,7 +1004,7 @@
           "freshness": "fresh",
           "valid_until": "2026-11-05T00:00:00Z",
           "evidence_types": [
-            "provider_receipt"
+            "authenticated_directory_response"
           ]
         }
       ],
@@ -1732,7 +1732,7 @@
           "freshness": "fresh",
           "valid_until": "2026-11-05T00:00:00Z",
           "evidence_types": [
-            "provider_receipt"
+            "authenticated_directory_response"
           ]
         }
       ],
