@@ -503,8 +503,11 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
 type Mutation = (&'static str, fn(&mut Value));
 
 fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
-    if !validate_semantics(corpus).is_empty() {
-        return Err("baseline corpus must pass before mutation campaign".into());
+    let baseline_errors = validate_semantics(corpus);
+    if !baseline_errors.is_empty() {
+        return Err(format!(
+            "baseline corpus must pass before mutation campaign: {baseline_errors:?}"
+        ));
     }
     let mutations: [Mutation; 28] = [
         ("payee substitution marked parsed-only", |value| {
