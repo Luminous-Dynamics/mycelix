@@ -411,70 +411,105 @@ fn mutate_and_expect_failure(
 fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     let baseline = semantic_evaluation(corpus);
     if !baseline.errors.is_empty() || !schema_errors(schema, corpus).is_empty() {
-        return Err(format!("baseline corpus must pass before mutations: {:?}", baseline.errors));
+        return Err(format!(
+            "baseline corpus must pass before mutations: {:?}",
+            baseline.errors
+        ));
     }
     let mut count = 0usize;
 
     mutate_and_expect_failure("external effects enabled", corpus, schema, |v| {
         v["external_effects_enabled"] = json!(true);
-    })?; count += 1;
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("request promoted to full recovery", corpus, schema, |v| {
         v["scenarios"][0]["expected_effect"] = json!("full_return");
         v["scenarios"][0]["expected_disposition"] = json!("record_successor_return");
-    })?; count += 1;
+    })?;
+    count += 1;
 
-    mutate_and_expect_failure("funds held promoted to full recovery", corpus, schema, |v| {
-        v["scenarios"][4]["expected_effect"] = json!("full_return");
-        v["scenarios"][4]["expected_disposition"] = json!("record_successor_return");
-    })?; count += 1;
+    mutate_and_expect_failure(
+        "funds held promoted to full recovery",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][4]["expected_effect"] = json!("full_return");
+            v["scenarios"][4]["expected_disposition"] = json!("record_successor_return");
+        },
+    )?;
+    count += 1;
 
     mutate_and_expect_failure("return amount greater than claim", corpus, schema, |v| {
         v["scenarios"][5]["events"][4]["amount_minor_units"] = json!(20_000);
         v["scenarios"][5]["actual_returned_minor_units"] = json!(20_000);
-    })?; count += 1;
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("return without independent reconciliation", corpus, schema, |v| {
         v["scenarios"][6]["events"][4]["reconciled"] = json!(false);
-    })?; count += 1;
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("duplicate return reference", corpus, schema, |v| {
         let event = v["scenarios"][6]["events"][4].clone();
-        v["scenarios"][6]["events"].as_array_mut().unwrap().insert(5, event);
-    })?; count += 1;
+        v["scenarios"][6]["events"]
+            .as_array_mut()
+            .unwrap()
+            .insert(5, event);
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("unauthorised actor returns funds", corpus, schema, |v| {
         v["scenarios"][6]["events"][4]["actor_role"] = json!("third_party");
-    })?; count += 1;
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("unresolved source reference", corpus, schema, |v| {
         v["profiles"][0]["source_refs"] = json!(["MISSING_SOURCE"]);
-    })?; count += 1;
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("future observed profile", corpus, schema, |v| {
         v["profiles"][0]["observed_on"] = json!("2027-01-01");
-    })?; count += 1;
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("duplicate case identity", corpus, schema, |v| {
         v["scenarios"][1]["scenario_id"] = v["scenarios"][0]["scenario_id"].clone();
-    })?; count += 1;
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("closed case without closure event", corpus, schema, |v| {
         v["scenarios"][5]["events"].as_array_mut().unwrap().pop();
-    })?; count += 1;
+    })?;
+    count += 1;
 
     mutate_and_expect_failure("unknown deadline forged as known", corpus, schema, |v| {
         v["profiles"][0]["remedy_capabilities"][1]["time_window_state"] = json!("known");
         v["profiles"][0]["remedy_capabilities"][1]["window_seconds"] = Value::Null;
-    })?; count += 1;
+    })?;
+    count += 1;
 
-    mutate_and_expect_failure("recipient return missing independent evidence", corpus, schema, |v| {
-        v["scenarios"][6]["events"][4]["evidence_types"] = json!(["provider_callback"]);
-    })?; count += 1;
+    mutate_and_expect_failure(
+        "recipient return missing independent evidence",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][6]["events"][4]["evidence_types"] = json!(["provider_callback"]);
+        },
+    )?;
+    count += 1;
 
-    mutate_and_expect_failure("duplicate economic identity not reconciled", corpus, schema, |v| {
-        v["scenarios"][6]["actual_returned_minor_units"] = json!(0);
-    })?; count += 1;
+    mutate_and_expect_failure(
+        "duplicate economic identity not reconciled",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][6]["actual_returned_minor_units"] = json!(0);
+        },
+    )?;
+    count += 1;
 
     Ok(count)
 }
@@ -489,33 +524,46 @@ fn main() -> Result<(), Box<dyn Error>> {
         match arg.as_str() {
             "--corpus" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--corpus requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--corpus requires a path",
+                    )
                 })?);
                 corpus_text = fs::read_to_string(path)?;
             }
             "--schema" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--schema requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--schema requires a path",
+                    )
                 })?);
                 schema_text = fs::read_to_string(path)?;
             }
             "--self-test" => self_test = true,
             "--help" | "-h" => {
-                println!("sa-payment-recourse-evaluator [--corpus PATH] [--schema PATH] [--self-test]");
+                println!(
+                    "sa-payment-recourse-evaluator [--corpus PATH] [--schema PATH] [--self-test]"
+                );
                 return Ok(());
             }
             other => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     format!("unknown argument: {other}"),
-                ).into());
+                )
+                .into());
             }
         }
     }
 
     let (evaluation, corpus, schema) = evaluate(&corpus_text, &schema_text)
         .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?;
-    let negative_controls = if self_test { run_self_tests(&corpus, &schema)? } else { 0 };
+    let negative_controls = if self_test {
+        run_self_tests(&corpus, &schema)?
+    } else {
+        0
+    };
     let report = json!({
         "evaluator": "mycelix.sa-payment-recourse-evaluator.v1",
         "status": evaluation.status(),
@@ -532,7 +580,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         "errors": evaluation.errors
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
-    if evaluation.status() != "PASS" { std::process::exit(1); }
+    if evaluation.status() != "PASS" {
+        std::process::exit(1);
+    }
     Ok(())
 }
 
