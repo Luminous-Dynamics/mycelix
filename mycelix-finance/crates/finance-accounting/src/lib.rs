@@ -1548,7 +1548,15 @@ mod tests {
         let policy = policy(&ledger);
         let profile = settlement_profile();
         let mut terminal_profile = profile.clone();
+        terminal_profile.profile_ref.id = reference("finality:bank-terminal:v1");
+        terminal_profile.profile_ref.digest = Digest32::repeat(10);
         terminal_profile.reversal_model = ReversalModel::DeclaredTerminalByProfile;
+        let mut policy = policy(&ledger);
+        policy.allowed_settlement_profiles.insert(SettlementProfileBinding {
+            profile_id: terminal_profile.profile_ref.id.clone(),
+            revision: terminal_profile.profile_ref.revision,
+            digest: terminal_profile.profile_ref.digest,
+        });
         let subject = SettlementSubject {
             id: reference("settlement:terminal-subject"),
             attempt: ExecutionAttemptRef::new("attempt:terminal-subject").expect("attempt"),
