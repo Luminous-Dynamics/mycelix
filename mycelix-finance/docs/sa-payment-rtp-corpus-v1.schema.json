@@ -475,7 +475,11 @@
             "beneficiary_psp",
             "system",
             "merchant",
-            "unknown"
+            "unknown",
+            "risk_system",
+            "privacy_guard",
+            "reviewer",
+            "presentation_guard"
           ]
         },
         "authority_state": {
