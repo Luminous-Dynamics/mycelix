@@ -56,7 +56,8 @@ fn valid_date(value: &str) -> bool {
 }
 
 fn timestamp_epoch_seconds(value: &str) -> Option<i64> {
-    if value.len() < 20 || !valid_date(value.get(0..10)?) || value.as_bytes().get(10) != Some(&b'T') {
+    if value.len() < 20 || !valid_date(value.get(0..10)?) || value.as_bytes().get(10) != Some(&b'T')
+    {
         return None;
     }
     let year = value.get(0..4)?.parse::<i64>().ok()?;
@@ -165,10 +166,7 @@ fn find_amount_rule<'a>(profile: &'a Value, rule_id: &str) -> Option<&'a Value> 
         .find(|rule| str_at(rule, "rule_id") == Some(rule_id))
 }
 
-fn receiver_amount_rule<'a>(
-    receiver: &'a Value,
-    route_scope: &str,
-) -> Option<&'a Value> {
+fn receiver_amount_rule<'a>(receiver: &'a Value, route_scope: &str) -> Option<&'a Value> {
     let rules = array_at(receiver, "amount_limit_rules")?;
     rules
         .iter()
@@ -426,7 +424,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             ));
         }
         if !profile_source_refs_resolve(profile, &sources_set) {
-            errors.push(format!("profiles[{index}]: unresolved or inconsistent profile source refs"));
+            errors.push(format!(
+                "profiles[{index}]: unresolved or inconsistent profile source refs"
+            ));
         }
         for rules_key in ["request_count_rules", "amount_limit_rules"] {
             let rules = array_at(profile, rules_key).cloned().unwrap_or_default();
@@ -486,14 +486,18 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let amount_id = str_at(case, "applied_amount_rule_id").unwrap_or("");
             match find_count_rule(profile, count_id) {
                 Some(rule)
-                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) => {}
+                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) =>
+                {
+                }
                 _ => errors.push(format!(
                     "{id}: selected count rule is absent, unqualified or not source-cited"
                 )),
             }
             match find_amount_rule(profile, amount_id) {
                 Some(rule)
-                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) => {}
+                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) =>
+                {
+                }
                 _ => errors.push(format!(
                     "{id}: selected amount rule is absent, unqualified or not source-cited"
                 )),
