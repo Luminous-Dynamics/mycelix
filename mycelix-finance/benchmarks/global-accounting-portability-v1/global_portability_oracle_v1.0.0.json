@@ -1,0 +1,276 @@
+{
+  "benchmark_id": "GLOBAL-ACCOUNTING-PORTABILITY-V1",
+  "oracle_version": "1.0.0",
+  "claim_scope": "expected_behavior_labels_for_synthetic_nonlegal_public_development_cases",
+  "cases": [
+    {
+      "case_id": "GPA-001",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "preserve_each_jurisdiction_axis",
+        "no_tax_outcome_inference"
+      ],
+      "prohibited_claims": [
+        "single_country_shortcut"
+      ],
+      "metric_tags": [
+        "context_resolution",
+        "cross_border"
+      ]
+    },
+    {
+      "case_id": "GPA-002",
+      "expected_disposition": "indeterminate",
+      "required_behaviors": [
+        "missing_required_context_abstention",
+        "name_missing_place_of_supply"
+      ],
+      "prohibited_claims": [
+        "invented_place_of_supply"
+      ],
+      "metric_tags": [
+        "abstention",
+        "tax_context"
+      ]
+    },
+    {
+      "case_id": "GPA-003",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "accounting_framework_separate_from_tax_jurisdiction",
+        "reporting_taxonomy_separate"
+      ],
+      "prohibited_claims": [
+        "framework_implies_tax_law"
+      ],
+      "metric_tags": [
+        "framework_separation"
+      ]
+    },
+    {
+      "case_id": "GPA-004",
+      "expected_disposition": "needs_review",
+      "required_behaviors": [
+        "preserve_selected_edition",
+        "show_2027_effective_date",
+        "eligibility_and_election_unknown"
+      ],
+      "prohibited_claims": [
+        "automatic_edition_migration",
+        "assumed_entity_eligibility"
+      ],
+      "metric_tags": [
+        "version_selection",
+        "temporal_policy"
+      ]
+    },
+    {
+      "case_id": "GPA-005",
+      "expected_disposition": "exact_arithmetic_only",
+      "required_behaviors": [
+        "preserve_three_currency_roles",
+        "use_rational_rate",
+        "no_float"
+      ],
+      "prohibited_claims": [
+        "currency_role_conflation",
+        "implicit_rounding"
+      ],
+      "metric_tags": [
+        "multi_currency",
+        "exact_math"
+      ]
+    },
+    {
+      "case_id": "GPA-006",
+      "expected_disposition": "indeterminate",
+      "required_behaviors": [
+        "detect_fx_source_conflict",
+        "require_rate_policy_and_provenance"
+      ],
+      "prohibited_claims": [
+        "arbitrary_rate_selection"
+      ],
+      "metric_tags": [
+        "fx_provenance",
+        "abstention"
+      ]
+    },
+    {
+      "case_id": "GPA-007",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "use_reporting_timezone_for_period",
+        "preserve_utc_event_and_capture_times"
+      ],
+      "prohibited_claims": [
+        "utc_date_as_local_period"
+      ],
+      "metric_tags": [
+        "timezone",
+        "cutoff"
+      ]
+    },
+    {
+      "case_id": "GPA-008",
+      "expected_disposition": "needs_review",
+      "required_behaviors": [
+        "detect_repeated_wall_clock_time",
+        "require_offset_or_disambiguation"
+      ],
+      "prohibited_claims": [
+        "guess_dst_offset"
+      ],
+      "metric_tags": [
+        "dst",
+        "temporal_ambiguity"
+      ]
+    },
+    {
+      "case_id": "GPA-009",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "parse_using_declared_locale",
+        "preserve_raw_text",
+        "exact_minor_units"
+      ],
+      "prohibited_claims": [
+        "rewrite_original_source_text"
+      ],
+      "metric_tags": [
+        "locale_numeric"
+      ]
+    },
+    {
+      "case_id": "GPA-010",
+      "expected_disposition": "indeterminate",
+      "required_behaviors": [
+        "abstain_on_ambiguous_locale",
+        "preserve_raw_text"
+      ],
+      "prohibited_claims": [
+        "guess_decimal_separator"
+      ],
+      "metric_tags": [
+        "locale_numeric",
+        "abstention"
+      ]
+    },
+    {
+      "case_id": "GPA-011",
+      "expected_disposition": "unsupported_profile",
+      "required_behaviors": [
+        "separate_base_validation_from_country_cius",
+        "report_unsupported_local_profile"
+      ],
+      "prohibited_claims": [
+        "claim_full_country_compliance"
+      ],
+      "metric_tags": [
+        "e_invoice_interop"
+      ]
+    },
+    {
+      "case_id": "GPA-012",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "transport_receipt_scope_only",
+        "invoice_authenticity_unproven",
+        "tax_delivery_settlement_unproven"
+      ],
+      "prohibited_claims": [
+        "transport_equals_authenticity_or_settlement"
+      ],
+      "metric_tags": [
+        "evidence_semantics"
+      ]
+    },
+    {
+      "case_id": "GPA-013",
+      "expected_disposition": "needs_review",
+      "required_behaviors": [
+        "namespace_part_of_identity",
+        "no_cross_namespace_merge_without_link"
+      ],
+      "prohibited_claims": [
+        "identifier_string_only_join"
+      ],
+      "metric_tags": [
+        "identity_namespace"
+      ]
+    },
+    {
+      "case_id": "GPA-014",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "preserve_unmapped_extension",
+        "report_loss_or_unmapped_field"
+      ],
+      "prohibited_claims": [
+        "silent_taxonomy_loss"
+      ],
+      "metric_tags": [
+        "digital_reporting",
+        "mapping_loss"
+      ]
+    },
+    {
+      "case_id": "GPA-015",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "as_known_at_frontier",
+        "preserve_old_revision",
+        "no_historical_mutation"
+      ],
+      "prohibited_claims": [
+        "retroactive_policy_overwrite"
+      ],
+      "metric_tags": [
+        "bitemporal_replay"
+      ]
+    },
+    {
+      "case_id": "GPA-016",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "report_qualified_axis",
+        "withhold_cross_border_tax_conclusion"
+      ],
+      "prohibited_claims": [
+        "complete_conclusion_from_one_profile"
+      ],
+      "metric_tags": [
+        "partial_qualification",
+        "cross_border"
+      ]
+    },
+    {
+      "case_id": "GPA-017",
+      "expected_disposition": "unsupported_profile",
+      "required_behaviors": [
+        "require_approved_framework_mapping"
+      ],
+      "prohibited_claims": [
+        "silent_framework_conversion"
+      ],
+      "metric_tags": [
+        "framework_conversion"
+      ]
+    },
+    {
+      "case_id": "GPA-018",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "semantic_parse_not_byte_integrity",
+        "no_source_authenticity_claim_without_raw_bytes"
+      ],
+      "prohibited_claims": [
+        "parsed_object_equals_original_source"
+      ],
+      "metric_tags": [
+        "source_integrity",
+        "provenance"
+      ]
+    }
+  ]
+}
