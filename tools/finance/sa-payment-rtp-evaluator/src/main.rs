@@ -5,7 +5,7 @@
 
 use jsonschema::draft202012;
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
@@ -501,31 +501,6 @@ fn evaluate(corpus_text: &str, schema_text: &str) -> Result<(Vec<String>, Value,
     let mut errors = semantic_errors(&corpus);
     errors.extend(schema_errors(&schema, &corpus));
     Ok((errors, corpus, schema))
-}
-
-fn schema_errors(schema: &Value, corpus: &Value) -> Vec<String> {
-    let mut errors = Vec::new();
-    if !jsonschema::meta::is_valid(schema) {
-        errors.push("schema is invalid against the JSON Schema meta-schema".into());
-        return errors;
-    }
-    let validator = match draft202012::options()
-        .should_validate_formats(true)
-        .build(schema)
-    {
-        Ok(value) => value,
-        Err(error) => {
-            errors.push(format!("cannot compile Draft 2020-12 schema: {error}"));
-            return errors;
-        }
-    };
-    for error in validator.iter_errors(corpus) {
-        errors.push(format!(
-            "schema error at {}: {error}",
-            error.instance_path()
-        ));
-    }
-    errors
 }
 
 fn mutate_and_reject(
