@@ -199,7 +199,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "allow_scoped_suspected_signal",
       "required_evidence": [
@@ -294,7 +298,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "allow_source_attributed_confirmation",
       "required_evidence": [
@@ -389,7 +397,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "quarantine_status_laundering",
       "required_evidence": [
@@ -484,7 +496,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "preserve_append_only_source_status",
       "required_evidence": [
@@ -579,7 +595,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "preserve_append_only_source_status",
       "required_evidence": [
@@ -674,7 +694,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "keep_source_status_suspected",
       "required_evidence": [
@@ -801,7 +825,11 @@
             "acknowledgement_state": "acknowledged",
             "acknowledged_at": "2026-11-04T09:03:00Z"
           }
-        ]
+        ],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "require_new_signal_and_complete_correction_propagation",
       "required_evidence": [
@@ -852,7 +880,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -883,7 +911,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "reject_stale_signal",
       "required_evidence": [
@@ -935,7 +967,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -966,7 +998,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "quarantine_untrusted_source",
       "required_evidence": [
@@ -1017,7 +1053,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -1048,7 +1084,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "quarantine_untrusted_source",
       "required_evidence": [
@@ -1130,7 +1170,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "reject_unauthorised_source_status",
       "required_evidence": [
@@ -1212,7 +1256,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "reject_wrong_audience",
       "required_evidence": [
@@ -1301,7 +1349,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "deduplicate_common_origin_evidence",
       "required_evidence": [
@@ -1397,7 +1449,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "count_distinct_source_origins_only",
       "required_evidence": [
@@ -1448,7 +1504,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": {
           "score_value": 0.7,
@@ -1490,7 +1546,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "quarantine_unqualified_score",
       "required_evidence": [
@@ -1583,7 +1643,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "score_does_not_change_source_status",
       "required_evidence": [
@@ -1634,7 +1698,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": {
           "score_value": 0.72,
@@ -1689,7 +1753,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "reject_score_as_sole_confirmation",
       "required_evidence": [
@@ -1740,7 +1808,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": {
           "score_value": 0.72,
@@ -1782,7 +1850,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "quarantine_stale_model_score",
       "required_evidence": [
@@ -1833,7 +1905,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": {
           "score_value": 0.72,
@@ -1875,7 +1947,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "out_of_scope"
       },
       "expected_disposition": "preserve_channel_coverage_unknown",
       "required_evidence": [
@@ -1957,7 +2033,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "keep_indicator_as_suspicion",
       "required_evidence": [
@@ -2039,7 +2119,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "allow_scoped_suspicion",
       "required_evidence": [
@@ -2090,7 +2174,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -2121,7 +2205,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "quarantine_compromised_source",
       "required_evidence": [
@@ -2203,7 +2291,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "no_fraud_conclusion_from_vop_alone",
       "required_evidence": [
@@ -2285,7 +2377,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "preserve_unadjudicated_case",
       "required_evidence": [
@@ -2380,7 +2476,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "propagate_disproof",
       "required_evidence": [
@@ -2525,7 +2625,11 @@
             "acknowledgement_state": "acknowledged",
             "acknowledged_at": "2026-11-04T09:03:00Z"
           }
-        ]
+        ],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "retain_correction_pending_state",
       "required_evidence": [
@@ -2576,7 +2680,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "outside-psp",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -2592,6 +2696,19 @@
             "evidence_commitment": "source-evidence-27",
             "superseding_signal_id": null,
             "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "unauthorised_disclosure_attempt_blocked",
+            "actor_role": "system",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:01:00Z",
+            "record_time": "2026-11-04T09:01:01Z",
+            "evidence_commitment": "disclosure-block-receipt-27",
+            "superseding_signal_id": null,
+            "recipient_id": "outside-psp"
           }
         ],
         "local_decision": "none",
@@ -2607,7 +2724,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "reject_unauthorised_disclosure",
       "required_evidence": [
@@ -2689,7 +2810,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "public_stable_identifier_detected"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "reject_public_stable_identifier",
       "required_evidence": [
@@ -2740,7 +2865,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -2771,7 +2896,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "raw_pii_detected_at_ingest_redacted_before_share"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "reject_raw_pii",
       "required_evidence": [
@@ -2853,7 +2982,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "reject_secondary_purpose",
       "required_evidence": [
@@ -2948,7 +3081,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "keep_local_decision_separate",
       "required_evidence": [
@@ -3069,7 +3206,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "preserve_local_appeal_and_correction",
       "required_evidence": [
@@ -3151,7 +3292,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "preserve_event_time_and_record_time",
       "required_evidence": [
@@ -3240,7 +3385,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "preserve_conflicting_source_evidence",
       "required_evidence": [
@@ -3322,7 +3471,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "preserve_unknown_status",
       "required_evidence": [
@@ -3363,7 +3516,7 @@
         "reason_taxonomy_version": "mycelix-fraud-reason-v1",
         "evidence_class": "source_report",
         "evidence_commitment": "source-evidence-36",
-        "source_status": "suspected",
+        "source_status": "unknown",
         "observed_at": "2026-11-04T08:59:00Z",
         "recorded_at": "2026-11-04T09:00:00Z",
         "expires_at": "2026-11-11T09:00:00Z",
@@ -3390,7 +3543,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "return_unknown_not_clean",
       "required_evidence": [
@@ -3441,7 +3598,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": {
           "score_value": 0.72,
@@ -3483,7 +3640,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "out_of_scope"
       },
       "expected_disposition": "declare_channel_coverage_unknown",
       "required_evidence": [
@@ -3591,7 +3752,11 @@
           }
         ],
         "correction_propagation_state": "not_applicable",
-        "correction_recipients": []
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
       },
       "expected_disposition": "preserve_distinct_dispute_state",
       "required_evidence": [
