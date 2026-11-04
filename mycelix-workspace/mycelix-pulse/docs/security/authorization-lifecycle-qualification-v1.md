@@ -111,9 +111,12 @@ The branch now includes a small TLA+ contract model:
 
 - `docs/security/PulseAuthorityLifecycle.tla`
 - `docs/security/PulseAuthorityLifecycle.cfg`
-- `docs/security/PulseAuthorityLifecycle-mutant.cfg`
+- `docs/security/PulseAuthorityLifecycle-mutant.cfg` — deliberate projection-as-authority mutant
+- `docs/security/PulseAuthorityLifecycle-grant-idempotency-mutant.cfg` — deliberate duplicate-grant-on-retry mutant
 
-It models two grant identities, two logical issuance requests, grantor/grantee/outsider actors, host grant state, recipient claims, application revocation state, stale/current projections, idempotent grant retries, acknowledgement loss, host revocation, projection convergence, caller outcomes and one logical domain effect per operation.
+It models two grant identities, two logical issuance requests, grantor/grantee/outsider actors, host grant state, recipient claims, application revocation state, stale/current projections, grant retries, acknowledgement loss, host revocation, projection convergence, caller outcomes and one logical domain effect per operation.
+
+The duplicate-grant mutant enables `DuplicateGrantForRetry`: after a grant's acknowledgement is lost, the retry mints a second CapGrant for the same logical request, overwrites the operation-to-grant binding and leaves the original live. `GrantIdentityInjective` should catch the orphaned first grant. The safe config disables this transition; the grant-idempotency mutant config enables it and checks the identity invariant.
 
 The normal configuration deliberately gives one logical operation domain permission and leaves the other domain-rejected. This encodes the distinction between host function authorization and resource/domain policy: a valid host grant is necessary, but not sufficient, for a domain effect.
 
@@ -125,9 +128,9 @@ IssueGrant -> DeliverClaim -> RevokeGrant
            -> Call(grantee, same grant)
 ```
 
-The safe model must deny that post-revoke call based on host grant state. The mutant config should violate `StaleProjectionDoesNotAllow` and `NoProjectionAuthority`. The timeout action changes only caller-observed outcome to `unknown`; it does not create or undo host grants or domain effects.
+The safe model must deny that post-revoke call based on host grant state. The projection-authority mutant config should violate `StaleProjectionDoesNotAllow` and `NoProjectionAuthority`. The grant-idempotency mutant config should independently violate `GrantIdentityInjective` after creating two host grants for one logical request. The timeout action changes only caller-observed outcome to `unknown`; it does not create or undo host grants or domain effects.
 
-**Execution status:** the TLA+ files and bounded configurations have been authored and structurally reviewed, but TLC has not yet been executed. Do not report a model-check PASS. The first model-check task is to run both configurations with a pinned TLC version, retain the safe run's invariant results and the mutant's counterexample trace, and add both outputs as exact-source receipts. Then expand with two-conductor validator acceptance, concurrent call/revoke orderings, crash points, conflicting roots and partition schedules.
+**Execution status:** the TLA+ files and bounded configurations have been authored and structurally reviewed, but TLC has not yet been executed. Do not report a model-check PASS. The first model-check task is to run all three configurations with a pinned TLC version, retain the safe run's invariant results and the mutant's counterexample trace, and add both outputs as exact-source receipts. Then expand with two-conductor validator acceptance, concurrent call/revoke orderings, crash points, conflicting roots and partition schedules.
 
 ## Qualification stages
 
