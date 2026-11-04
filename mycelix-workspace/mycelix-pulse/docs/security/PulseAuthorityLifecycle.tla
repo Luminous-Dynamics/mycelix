@@ -226,10 +226,10 @@ Call(g, actor, op) ==
           /\ lastOperation' = op
           /\ lastCaller' = actor
           /\ lastHostAuthorized' = hostOK
-          /\ lastHostActiveAtCall' = g \in hostActive
-          /\ lastProjectionActiveAtCall' = projection[g] = "active"
-          /\ lastClaimAtCall' = g \in claims
-          /\ lastDomainAllowedAtCall' = op \in DomainAllowedOps
+          /\ lastHostActiveAtCall' = (g \in hostActive)
+          /\ lastProjectionActiveAtCall' = (projection[g] = "active")
+          /\ lastClaimAtCall' = (g \in claims)
+          /\ lastDomainAllowedAtCall' = (op \in DomainAllowedOps)
           /\ lastDecision' =
                 IF ~hostOK
                 THEN "host-denied"
