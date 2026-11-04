@@ -2214,7 +2214,7 @@
         }
       ],
       "expected_outcome": "recipient_available",
-      "expected_financial_effect": "payment_instruction_only",
+      "expected_financial_effect": "recipient_available_observed",
       "required_evidence": [
         "request_digest",
         "payer_authority_or_explicit_nonacceptance"
@@ -2332,7 +2332,7 @@
         }
       ],
       "expected_outcome": "recipient_available",
-      "expected_financial_effect": "payment_instruction_only",
+      "expected_financial_effect": "recipient_available_observed",
       "required_evidence": [
         "request_digest",
         "payer_authority_or_explicit_nonacceptance"
