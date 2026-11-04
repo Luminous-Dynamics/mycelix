@@ -77,6 +77,7 @@ struct GrantIssued {
 #[serde(deny_unknown_fields)]
 struct GrantRevoked {
     grant_ref: String,
+    actor: String,
     revocation_action_hash: String,
     authority_index: u64,
 }
@@ -423,6 +424,10 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     None => finding(&mut findings, "REVOCATION_WITHOUT_ISSUANCE", "incomplete",
                         Some(&event.event_id), "the corresponding host grant issuance is absent from this trace"),
                     Some(grant) => {
+                        if revoke.actor != grant.grantor {
+                            finding(&mut findings, "REVOCATION_ACTOR_MISMATCH", "violation",
+                                Some(&event.event_id), "only the original grantor may revoke the host grant");
+                        }
                         if grant.revoked_index.is_some() {
                             finding(&mut findings, "GRANT_REVOKED_MORE_THAN_ONCE", "violation",
                                 Some(&event.event_id), "a grant can have only one host revocation transition");
@@ -749,7 +754,7 @@ mod tests {
     #[test]
     fn allow_after_host_revocation_fails() {
         let mut bundle = fixture();
-        let event = bundle.events.iter_mut().find(|e| matches!(e.kind, EventKind::HostCall(_)) &&
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::HostCall(_)) &&
             e.seq == 6).unwrap();
         if let EventKind::HostCall(ref mut call) = event.kind {
             call.authority_index = 5;
@@ -768,7 +773,7 @@ mod tests {
     #[test]
     fn unverified_signal_cannot_mutate_trusted_state() {
         let mut bundle = fixture();
-        let event = bundle.events.iter_mut().find(|e| matches!(e.kind, EventKind::RemoteSignal(_))).unwrap();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::RemoteSignal(_))).unwrap();
         if let EventKind::RemoteSignal(ref mut signal) = event.kind {
             signal.trusted_state_mutation = true;
         }
@@ -780,7 +785,7 @@ mod tests {
     #[test]
     fn stale_checkpoint_must_be_unknown() {
         let mut bundle = fixture();
-        let event = bundle.events.iter_mut().find(|e| matches!(e.kind, EventKind::ProjectionRead(_))).unwrap();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::ProjectionRead(_))).unwrap();
         if let EventKind::ProjectionRead(ref mut read) = event.kind {
             read.decision = ProjectionDecision::TrustedActive;
         }
