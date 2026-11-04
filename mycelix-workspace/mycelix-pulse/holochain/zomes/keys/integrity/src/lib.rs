@@ -273,12 +273,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action.into(), bundle),
+                EntryTypes::PreKeyBundle(bundle) => {
+                    validate_create_pre_key_bundle(action.into(), bundle)
+                }
                 EntryTypes::HybridKeyBundleV2(bundle) => {
                     validate_create_hybrid_key_bundle_v2(action.into(), bundle)
                 }
                 EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action.into(), used),
-                EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action.into(), rotation),
+                EntryTypes::KeyRotation(rotation) => {
+                    validate_create_key_rotation(action.into(), rotation)
+                }
             },
             OpEntry::UpdateEntry { app_entry, action } => match app_entry {
                 // PreKeyBundle updates are a genuine, deliberate cross-agent exception
@@ -292,10 +296,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 // consumed key, or swap key material -- since only identity_key's length
                 // was checked (P0 author-binding Turn B, keys.PreKeyBundle).
                 EntryTypes::PreKeyBundle(bundle) => {
-                    validate_update_pre_key_bundle(
-                        bundle,
-                        action.original_action_address.clone(),
-                    )
+                    validate_update_pre_key_bundle(bundle, action.original_action_address.clone())
                 }
                 EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
                     "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
@@ -310,16 +311,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Link(OpLink::DeleteLink { .. }) => Ok(ValidateCallbackResult::Valid),
         FlatOp::CreateRecord(record) => match record {
             OpRecord::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action.into(), bundle),
-                EntryTypes::HybridKeyBundleV2(bundle) => validate_create_hybrid_key_bundle_v2(action.into(), bundle),
+                EntryTypes::PreKeyBundle(bundle) => {
+                    validate_create_pre_key_bundle(action.into(), bundle)
+                }
+                EntryTypes::HybridKeyBundleV2(bundle) => {
+                    validate_create_hybrid_key_bundle_v2(action.into(), bundle)
+                }
                 EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action.into(), used),
-                EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action.into(), rotation),
+                EntryTypes::KeyRotation(rotation) => {
+                    validate_create_key_rotation(action.into(), rotation)
+                }
             },
             OpRecord::UpdateEntry { app_entry, action } => match app_entry {
-                EntryTypes::PreKeyBundle(bundle) => validate_update_pre_key_bundle(
-                    bundle,
-                    action.original_action_address.clone(),
-                ),
+                EntryTypes::PreKeyBundle(bundle) => {
+                    validate_update_pre_key_bundle(bundle, action.original_action_address.clone())
+                }
                 EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
                     "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
                 )),
@@ -331,10 +337,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { app_entry, action }) => match app_entry {
-            EntryTypes::PreKeyBundle(bundle) => validate_update_pre_key_bundle(
-                bundle,
-                action.original_action_address.clone(),
-            ),
+            EntryTypes::PreKeyBundle(bundle) => {
+                validate_update_pre_key_bundle(bundle, action.original_action_address.clone())
+            }
             _ => Ok(ValidateCallbackResult::Invalid(
                 "Only pre-key bundles have a supported update path".to_string(),
             )),
@@ -426,10 +431,10 @@ mod tests {
             },
             data: ActionData::Create(CreateData {
                 entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
                 entry_hash: EntryHash::from_raw_36(vec![1; 36]),
             }),
         };
