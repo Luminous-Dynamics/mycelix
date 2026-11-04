@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-TUTOR-HISTORY-001",
+  "labels": [
+    {
+      "case_id": "TH001",
+      "accepted_dispositions": [
+        "claim"
+      ],
+      "acceptable_diagnoses": [
+        "persistent_misconception"
+      ],
+      "acceptable_actions": [
+        "collect_unassisted_attempt"
+      ],
+      "required_supporting_evidence_ids": [
+        "th001-e1",
+        "th001-e2",
+        "th001-e4"
+      ],
+      "required_contradicting_evidence_ids": [
+        "th001-e3"
+      ],
+      "requested_evidence": null
+    },
+    {
+      "case_id": "TH002",
+      "accepted_dispositions": [
+        "claim"
+      ],
+      "acceptable_diagnoses": [
+        "scaffold_dependence"
+      ],
+      "acceptable_actions": [
+        "faded_scaffold_practice"
+      ],
+      "required_supporting_evidence_ids": [
+        "th002-e2",
+        "th002-e3"
+      ],
+      "required_contradicting_evidence_ids": [
+        "th002-e1",
+        "th002-e4"
+      ],
+      "requested_evidence": null
+    },
+    {
+      "case_id": "TH003",
+      "accepted_dispositions": [
+        "claim"
+      ],
+      "acceptable_diagnoses": [
+        "recent_unassisted_improvement"
+      ],
+      "acceptable_actions": [
+        "spaced_retrieval"
+      ],
+      "required_supporting_evidence_ids": [
+        "th003-e3",
+        "th003-e4"
+      ],
+      "required_contradicting_evidence_ids": [
+        "th003-e1",
+        "th003-e2"
+      ],
+      "requested_evidence": null
+    },
+    {
+      "case_id": "TH004",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "skill_metadata"
+    },
+    {
+      "case_id": "TH005",
+      "accepted_dispositions": [
+        "claim",
+        "request_more_evidence"
+      ],
+      "acceptable_diagnoses": [
+        "context_specific_conflict"
+      ],
+      "acceptable_actions": [
+        "compare_contexts"
+      ],
+      "required_supporting_evidence_ids": [
+        "th005-e1",
+        "th005-e2"
+      ],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "context_matched_attempt"
+    },
+    {
+      "case_id": "TH006",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "unassisted_attempt"
+    },
+    {
+      "case_id": "TH007",
+      "accepted_dispositions": [
+        "claim"
+      ],
+      "acceptable_diagnoses": [
+        "scaffold_dependence"
+      ],
+      "acceptable_actions": [
+        "faded_scaffold_practice"
+      ],
+      "required_supporting_evidence_ids": [
+        "th007-e1",
+        "th007-e2",
+        "th007-e4"
+      ],
+      "required_contradicting_evidence_ids": [
+        "th007-e3"
+      ],
+      "requested_evidence": null
+    },
+    {
+      "case_id": "TH008",
+      "accepted_dispositions": [
+        "claim"
+      ],
+      "acceptable_diagnoses": [
+        "proven_unassisted_progress"
+      ],
+      "acceptable_actions": [
+        "spaced_retrieval"
+      ],
+      "required_supporting_evidence_ids": [
+        "th008-e1",
+        "th008-e2",
+        "th008-e4"
+      ],
+      "required_contradicting_evidence_ids": [
+        "th008-e3"
+      ],
+      "requested_evidence": null
+    },
+    {
+      "case_id": "TH009",
+      "accepted_dispositions": [
+        "request_more_evidence",
+        "abstain"
+      ],
+      "acceptable_diagnoses": [],
+      "acceptable_actions": [],
+      "required_supporting_evidence_ids": [],
+      "required_contradicting_evidence_ids": [],
+      "requested_evidence": "assistance_provenance"
+    }
+  ]
+}
