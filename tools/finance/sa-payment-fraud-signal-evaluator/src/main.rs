@@ -320,12 +320,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!("{case_id}: expired signal is still marked current"));
             }
         }
-        if matches!(status, "withdrawn" | "corrected" | "expired" | "unknown") {
-            if !array_at(scenario, "disclosures").is_none_or(Vec::is_empty) {
-                errors.push(format!(
-                    "{case_id}: withdrawn/corrected/expired/unknown signal was disclosed as current"
-                ));
-            }
+        if matches!(status, "withdrawn" | "corrected" | "expired" | "unknown")
+            && !array_at(scenario, "disclosures").is_none_or(Vec::is_empty)
+        {
+            errors.push(format!(
+                "{case_id}: withdrawn/corrected/expired/unknown signal was disclosed as current"
+            ));
         }
 
         let refs = array_at(signal, "evidence_refs")
