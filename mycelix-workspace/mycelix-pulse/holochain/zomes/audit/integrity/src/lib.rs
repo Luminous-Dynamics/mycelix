@@ -177,11 +177,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "Audit records are immutable".to_string(),
-                    ))
-                }
+                EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => Ok(
+                    ValidateCallbackResult::Invalid("Audit records are immutable".to_string()),
+                ),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -193,21 +191,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::AuditSummary(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpRecord::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "Audit records are immutable".to_string(),
-                    ))
-                }
+                EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => Ok(
+                    ValidateCallbackResult::Invalid("Audit records are immutable".to_string()),
+                ),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { app_entry, .. }) => match app_entry {
-            EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => {
-                Ok(ValidateCallbackResult::Invalid(
-                    "Audit records are immutable".to_string(),
-                ))
-            }
+            EntryTypes::AuditEntry(_) | EntryTypes::AuditSummary(_) => Ok(
+                ValidateCallbackResult::Invalid("Audit records are immutable".to_string()),
+            ),
         },
         FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
             "Unsupported audit update variant".to_string(),
