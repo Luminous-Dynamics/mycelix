@@ -1132,7 +1132,7 @@ fn validate_create_link(
         | LinkTypes::AgentToThreads
         | LinkTypes::AgentToScheduled => {
             // Agent links must be created by the agent themselves
-            let author_hash: AnyLinkableHash = action.author().into();
+            let author_hash: AnyLinkableHash = action.author().clone().into();
             if base_address != author_hash {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Agent link base must match action author".to_string(),
