@@ -342,7 +342,9 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
+            OpEntry::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
             OpEntry::UpdateEntry {
                 app_entry, action, ..
             } => validate_update_entry(app_entry, action),
@@ -481,7 +483,10 @@ fn validate_attestation(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_score(score: &TrustScore, _action: &TypedAction<EntryCreationData>) -> ExternResult<ValidateCallbackResult> {
+fn validate_score(
+    score: &TrustScore,
+    _action: &TypedAction<EntryCreationData>,
+) -> ExternResult<ValidateCallbackResult> {
     // Score must be in valid range and finite
     if !score.score.is_finite() || score.score < 0.0 || score.score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -694,10 +699,10 @@ mod tests {
             },
             data: ActionData::Create(CreateData {
                 entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
                 entry_hash: EntryHash::from_raw_36(vec![1; 36]),
             }),
         };
