@@ -431,20 +431,30 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         for rules_key in ["request_count_rules", "amount_limit_rules"] {
             let rules = array_at(profile, rules_key).cloned().unwrap_or_default();
             let id_key = "rule_id";
-            check_unique(&rules, id_key, &format!("profiles[{index}].{rules_key}"), &mut errors);
+            check_unique(
+                &rules,
+                id_key,
+                &format!("profiles[{index}].{rules_key}"),
+                &mut errors,
+            );
             for (rule_index, rule) in rules.iter().enumerate() {
                 if !rule_sources_resolve(rule, &sources_set) {
-                    errors.push(format!("profiles[{index}].{rules_key}[{rule_index}]: unresolved source refs"));
+                    errors.push(format!(
+                        "profiles[{index}].{rules_key}[{rule_index}]: unresolved source refs"
+                    ));
                 }
             }
         }
         let expiry_refs = array_at(&profile["expiry_policy"], "source_refs")
             .cloned()
             .unwrap_or_default();
-        if !expiry_refs.iter().all(|item| {
-            item.as_str().is_some_and(|id| sources_set.contains(id))
-        }) {
-            errors.push(format!("profiles[{index}].expiry_policy: unresolved source refs"));
+        if !expiry_refs
+            .iter()
+            .all(|item| item.as_str().is_some_and(|id| sources_set.contains(id)))
+        {
+            errors.push(format!(
+                "profiles[{index}].expiry_policy: unresolved source refs"
+            ));
         }
     }
 
@@ -459,11 +469,16 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!("{id}: invalid timestamp or window interval"));
         }
         let refs = array_at(case, "source_refs").cloned().unwrap_or_default();
-        if !refs.iter().all(|item| item.as_str().is_some_and(|v| sources_set.contains(v))) {
+        if !refs
+            .iter()
+            .all(|item| item.as_str().is_some_and(|v| sources_set.contains(v)))
+        {
             errors.push(format!("{id}: unresolved scenario source reference"));
         }
         if case.get("instruction_created").and_then(Value::as_bool) != Some(false) {
-            errors.push(format!("{id}: limit corpus must not create payment instructions"));
+            errors.push(format!(
+                "{id}: limit corpus must not create payment instructions"
+            ));
         }
 
         if str_at(profile, "limit_knowledge_state") == Some("source_backed") {
@@ -471,16 +486,14 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let amount_id = str_at(case, "applied_amount_rule_id").unwrap_or("");
             match find_count_rule(profile, count_id) {
                 Some(rule)
-                    if rule_sources_resolve(rule, &sources_set)
-                        && case_cites_rule(&refs, rule) => {}
+                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) => {}
                 _ => errors.push(format!(
                     "{id}: selected count rule is absent, unqualified or not source-cited"
                 )),
             }
             match find_amount_rule(profile, amount_id) {
                 Some(rule)
-                    if rule_sources_resolve(rule, &sources_set)
-                        && case_cites_rule(&refs, rule) => {}
+                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) => {}
                 _ => errors.push(format!(
                     "{id}: selected amount rule is absent, unqualified or not source-cited"
                 )),
