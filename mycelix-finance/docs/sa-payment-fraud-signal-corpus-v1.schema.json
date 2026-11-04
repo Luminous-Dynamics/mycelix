@@ -285,7 +285,9 @@
         "source_participant",
         "observed_at",
         "evidence_reference",
-        "attempted_digest"
+        "attempted_digest",
+        "signal_version",
+        "signal_digest"
       ],
       "properties": {
         "event_id": {
@@ -337,6 +339,14 @@
             "string",
             "null"
           ]
+        },
+        "signal_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "signal_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
         }
       }
     },
