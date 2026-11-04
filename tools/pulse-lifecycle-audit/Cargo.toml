@@ -9,6 +9,6 @@ description = "Independent structural verifier for redacted Pulse authorization 
 [workspace]
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
