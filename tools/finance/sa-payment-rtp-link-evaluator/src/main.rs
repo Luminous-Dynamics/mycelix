@@ -93,11 +93,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     if str_at(corpus, "status") != Some("synthetic_reference_only") {
         errors.push("status: corpus must remain synthetic_reference_only".into());
     }
-    if corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false) {
+    if corpus
+        .get("external_effects_enabled")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
         errors.push("external_effects_enabled must be false".into());
     }
 
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     unique_ids(&sources, "id", "source_register", &mut errors);
@@ -114,13 +120,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         .collect();
 
     for (index, profile) in profiles.iter().enumerate() {
-        let references = array_at(profile, "source_refs").cloned().unwrap_or_default();
+        let references = array_at(profile, "source_refs")
+            .cloned()
+            .unwrap_or_default();
         if references.is_empty() {
             errors.push(format!("profiles[{index}].source_refs must not be empty"));
         }
         for reference in references {
             if !reference.as_str().is_some_and(|id| source_ids.contains(id)) {
-                errors.push(format!("profiles[{index}].source_refs contains unknown source"));
+                errors.push(format!(
+                    "profiles[{index}].source_refs contains unknown source"
+                ));
             }
         }
     }
@@ -138,7 +148,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let profile_id = str_at(case, "profile_id").unwrap_or("");
 
         if !profile_ids.contains(profile_id) {
-            errors.push(format!("scenarios[{case_index}]: unknown profile {profile_id}"));
+            errors.push(format!(
+                "scenarios[{case_index}]: unknown profile {profile_id}"
+            ));
         }
         if request_id.is_empty()
             || request_digest.len() != 71
@@ -147,10 +159,14 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             || amount == 0
             || currency.len() != 3
         {
-            errors.push(format!("scenarios[{case_index}]: invalid request identity or money fields"));
+            errors.push(format!(
+                "scenarios[{case_index}]: invalid request identity or money fields"
+            ));
         }
 
-        let events = array_at(case, "events").cloned().unwrap_or_default();
+        let events = array_at(case, "events")
+            .cloned()
+            .unwrap_or_default();
         let mut event_ids = BTreeSet::new();
         let mut previous_sequence = 0_u64;
         let mut request_created = false;
@@ -222,7 +238,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || authority != "valid"
                     || !has_evidence(event, "sealed_pain013_message")
                 {
-                    errors.push(format!("{path}: pain.013 creation lacks exact payee-side origin binding"));
+                    errors.push(format!(
+                        "{path}: pain.013 creation lacks exact payee-side origin binding"
+                    ));
                     quarantined = true;
                 }
             }
@@ -236,7 +254,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || auth != "valid"
                     || !has_evidence(event, "inter_provider_delivery_receipt")
                 {
-                    errors.push(format!("{path}: request delivery lacks payer-side provider and request linkage"));
+                    errors.push(format!(
+                        "{path}: request delivery lacks payer-side provider and request linkage"
+                    ));
                     quarantined = true;
                 }
             }
@@ -260,7 +280,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             if event_stage == "payment_instruction_created" {
                 instruction_count += 1;
                 if instruction_count > 1 {
-                    errors.push(format!("{path}: one RTP request created multiple payment instructions"));
+                    errors.push(format!(
+                        "{path}: one RTP request created multiple payment instructions"
+                    ));
                     quarantined = true;
                 }
                 let candidate = str_at(event, "payment_instruction_id");
@@ -329,7 +351,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || !has_evidence(event, "authenticated_pacs002")
                     || !has_evidence(event, "original_instruction_reference")
                 {
-                    errors.push(format!("{path}: pacs.002 status has invalid participant, role or evidence"));
+                    errors.push(format!(
+                        "{path}: pacs.002 status has invalid participant, role or evidence"
+                    ));
                     quarantined = true;
                 } else if !matching_transfer {
                     status_unmatched = true;
@@ -338,7 +362,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                         "pending" => status_pending = true,
                         "instruction_accepted" => status_accepted = true,
                         "transfer_rejected" => status_rejected = true,
-                        _ => errors.push(format!("{path}: unknown status semantics must remain indeterminate")),
+                        _ => errors.push(format!(
+                            "{path}: unknown status semantics must remain indeterminate"
+                        )),
                     }
                 }
             }
@@ -529,8 +555,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][12]["events"][4]["actor_role"] =
-                json!("payee_rtp_service_provider");
+            value["scenarios"][12]["events"][4]["actor_role"] = json!("payee_rtp_service_provider");
         },
     )?;
     count += 1;
