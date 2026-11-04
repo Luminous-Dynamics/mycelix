@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-accounting-portability-input-v1.0.0.json",
+  "title": "Global Accounting Portability Candidate Input v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "dataset_version",
+    "split",
+    "claim_scope",
+    "generated_on",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "GLOBAL-ACCOUNTING-PORTABILITY-V1"
+    },
+    "dataset_version": {
+      "const": "1.0.0"
+    },
+    "split": {
+      "const": "public_development"
+    },
+    "claim_scope": {
+      "const": "synthetic_nonlegal_global_profile_resolution_and_interoperability_behavior_only"
+    },
+    "generated_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 18,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "task_family",
+        "challenge",
+        "facts",
+        "candidate_task"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^GPA-[0-9]{3}$"
+        },
+        "task_family": {
+          "enum": [
+            "context_resolution",
+            "abstention",
+            "framework_separation",
+            "framework_version",
+            "currency_roles",
+            "fx_provenance",
+            "time_localization",
+            "locale_numeric",
+            "e_invoice_profiles",
+            "evidence_semantics",
+            "identity_namespace",
+            "digital_reporting",
+            "profile_versioning",
+            "partial_qualification",
+            "framework_conversion",
+            "source_integrity"
+          ]
+        },
+        "challenge": {
+          "type": "string",
+          "minLength": 15
+        },
+        "facts": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/fact"
+          }
+        },
+        "candidate_task": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "value"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.]*$"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
