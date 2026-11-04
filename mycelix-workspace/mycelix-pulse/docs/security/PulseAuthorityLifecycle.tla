@@ -139,6 +139,7 @@ DuplicateGrantForRetry(g, op) ==
     /\ g \in Grants
     /\ op \in Ops
     /\ operationGrant[op] \in Grants
+    /\ callerOutcome[op] = "unknown"
     /\ g \notin issued
     /\ operationOwner[g] = NoOp
     /\ attempts[op] < MaxAttempts
