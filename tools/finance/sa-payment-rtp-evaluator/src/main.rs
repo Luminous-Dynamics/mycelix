@@ -716,23 +716,13 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let disposition = str_at(abuse, "expected_abuse_disposition").unwrap_or("unknown");
             let has_event = |kind: &str| events.iter().any(|event| event_type(event) == kind);
 
-            if sender_auth == "verified_provider_credential"
-                && matches!(
-                    claim,
-                    "sender_assertion_only"
-                        | "missing"
-                        | "stale_or_conflicted"
-                        | "unsupported_legal_claim"
-                )
-                && !matches!(
-                    disposition,
-                    "authenticated_sender_not_legitimacy_proof"
-                        | "do_not_assert_verified_obligation"
-                        | "allow_exact_user_instruction_without_debt_conclusion"
-                )
+            if abuse
+                .get("claim_legitimacy_inferred_from_sender_authentication")
+                .and_then(Value::as_bool)
+                != Some(false)
             {
                 errors.push(format!(
-                    "scenarios[{case_index}]: authenticated sender was promoted to claim legitimacy"
+                    "scenarios[{case_index}]: sender authentication was used to infer claim legitimacy"
                 ));
             }
             if claim == "unsupported_legal_claim"
@@ -1039,8 +1029,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |v| {
-            v["scenarios"][46]["abuse_assessment"]["expected_abuse_disposition"] =
-                json!("source_artifact_not_legal_decision");
+            v["scenarios"][46]["abuse_assessment"]["claim_legitimacy_inferred_from_sender_authentication"] =
+                json!(true);
         },
     )?;
     count += 1;
@@ -1253,6 +1243,9 @@ mod tests {
             if str_at(event, "accepted_request_digest") == Some(old_digest.as_str()) {
                 event["accepted_request_digest"] = json!(new_digest.clone());
             }
+        }
+        if scenario["abuse_assessment"]["material_presentation_state"] == "complete" {
+            scenario["abuse_assessment"]["presented_material_digest"] = json!(new_digest);
         }
         let errors = semantic_errors(&corpus);
         assert!(errors.is_empty(), "{errors:?}");
