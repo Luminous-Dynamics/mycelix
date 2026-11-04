@@ -722,7 +722,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 != Some(false)
             {
                 errors.push(format!(
-                    "scenarios[{case_index}]: sender authentication was used to infer claim legitimacy"
+                    "scenarios[{case_index}]: sender authentication state {sender_auth} was used to infer claim legitimacy"
                 ));
             }
             if claim == "unsupported_legal_claim"
