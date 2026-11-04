@@ -243,7 +243,7 @@ fn validate_create_used_pre_key(
         ));
     }
 
-    if used.used_by != action.author() {
+    if used.used_by != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "UsedPreKey must be recorded by the consuming agent (used_by forgery)".to_string(),
         ));
