@@ -61,3 +61,34 @@ Safety gates are non-compensable and are not averaged against latency or cost.
 ## Claim ceiling
 
 This contract does not implement QR+ parsing, payee resolution, user authentication, provider integration, PayShap access or settlement. The corpus evaluator uses synthetic fixtures only.
+
+
+## Provider-authoritative Verification of Payee / Confirmation of Payee
+
+This contract treats verification of the beneficiary's account name/type as a distinct evidence claim between proxy resolution and payer consent.
+
+`proxy resolution != account-name verification != requester identity != collection authority != commercial-claim legitimacy != payer consent`
+
+The EU Instant Payments Regulation overview states that the payer's PSP must offer VoP for standard and instant euro credit transfers, free to the payer. The ECB identifies four result classes: match, close match, no match and other. The euro-area deadline was 9 October 2025; the non-euro-area deadline is 9 July 2027. Source: [ECB IPR overview](https://www.ecb.europa.eu/paym/retail/instant_payments/html/instant_payments_regulation.es.html).
+
+Pay.UK's January 2026 Faster Payments Principles v11 describes CoP checks against both the name and personal/business account type held by the payee PSP, with match, close match, no match and unavailable outcomes. Source: [Pay.UK FPS Principles v11](https://www.wearepay.uk/wp-content/uploads/2026/02/Pay.UK-Faster-Payments-System-Principles-v-11-Jan-2026.pdf), section 10.3, page 26.
+
+SARB's 2025 PEM Position Paper proposes future NPU proxy-resolution and confirmation-of-payee capabilities. This is programme intent, not evidence of a currently operational nationwide South African VoP service. Source: [SARB PEM Position Paper](https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf).
+
+The new 14-case synthetic extension tests:
+- exact, close, no-match, unavailable and other outcomes;
+- stale result, wrong audience and cross-subject replay;
+- personal/business account-type mismatch;
+- alias resolution without available name verification;
+- name match incorrectly promoted to collection authority;
+- beneficiary mutation after query;
+- client-side fuzzy-match promotion;
+- excessive payer-visible disclosure.
+
+The evaluator accepts only provider-authoritative result classifications. It does not calculate approximate name matches. A positive name match does not establish requester authority, debt legitimacy or the payer's consent. Unavailable/other/stale remain indeterminate, not verified. All new fixtures keep dispatch disabled.
+
+## 2026-11-04 SRTP technical-documentation comparator update
+
+The EPC published SRTP Trust & Security Model v1.1.0 (authentication, message integrity and JWS electronic sealing) and SRTP OpenAPI v4.0.1 on 27 October 2026. They align with SRTP Rulebook v4.0; they may be used voluntarily from publication and formally take effect 1 May 2027, when EPC Directory Service use becomes mandatory for all scheme participants. These are European scheme comparators, not South African PayShap Request requirements.
+
+Sources: [EPC publication](https://www.europeanpaymentscouncil.eu/news-insights/news/epc-publishes-updated-technical-documentation-for-the-srtp-scheme), [Trust and Security Model](https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/sepa-request-pay-srtp-trust-and-security-model-0), [OpenAPI v4.0.1](https://www.europeanpaymentscouncil.eu/document-library/implementation-guidelines/sepa-request-pay-srtp-openapi-specifications).
