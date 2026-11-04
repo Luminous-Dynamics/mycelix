@@ -379,3 +379,6 @@ The sample uses canonical non-negative integer strings in minor units, an explic
 - each expected statement equation satisfies assets = liabilities + equity.
 
 This is a smoke-corpus structural/arithmetic check only. No Rust evaluator, Cargo test, model baseline, expert adjudication, external benchmark reproduction or production accounting workflow has been executed. The corpus status string explicitly says it is not a benchmark result.
+
+
+A further byte-level check recomputed the SHA-256 of each document's nested `content` object using sorted-key canonical JSON, no insignificant whitespace and UTF-8 encoding. All 11 document occurrences across the three cases match their declared fingerprints (5 unique canonical source documents). The duplicate invoice deliberately reuses the same document fingerprint.
