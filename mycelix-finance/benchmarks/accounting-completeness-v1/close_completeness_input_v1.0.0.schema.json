@@ -31,7 +31,7 @@
     },
     "cases": {
       "type": "array",
-      "minItems": 13,
+      "minItems": 14,
       "items": {
         "$ref": "#/$defs/case"
       }
@@ -76,7 +76,8 @@
             "absence_vs_zero",
             "valid_non_applicability",
             "evidenced_zero_activity",
-            "approved_scope_exclusion"
+            "approved_scope_exclusion",
+            "control_inventory_disagreement"
           ]
         },
         "close_context": {
@@ -258,7 +259,8 @@
         "captured_at",
         "period_start",
         "period_end",
-        "items"
+        "items",
+        "independence_group_id"
       ],
       "properties": {
         "inventory_id": {
@@ -273,7 +275,8 @@
             "consolidation_perimeter",
             "payroll_roster",
             "inventory_location_register",
-            "related_party_register"
+            "related_party_register",
+            "bank_confirmation_register"
           ]
         },
         "evidence_class": {
@@ -311,6 +314,10 @@
           "items": {
             "$ref": "#/$defs/inventoryItem"
           }
+        },
+        "independence_group_id": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
