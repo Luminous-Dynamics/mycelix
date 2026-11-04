@@ -1,0 +1,22 @@
+[package]
+name = "mycelix-verifier-challenge-registry"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Native SQLx adapter for Mycelix's PostgreSQL consume-once verifier challenge registry"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+rand = "=0.8.6"
+sha2 = "=0.10.9"
+sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid"] }
+tokio = { version = "=1.52.3", features = ["rt", "macros", "sync", "time"] }
+uuid = { version = "=1.23.4", features = ["v4"] }
+zeroize = "=1.9.0"
+thiserror = "=2.0.18"
+
+[dev-dependencies]
+tokio = { version = "=1.52.3", features = ["rt-multi-thread", "macros", "sync", "time"] }
