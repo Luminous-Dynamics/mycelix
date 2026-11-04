@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "trace_id": "pulse-fixture-authority-001",
+  "evidence_class": "synthetic",
+  "source_commit": "0123456789abcdef0123456789abcdef01234567",
+  "conductor_build": "holochain-0.7.0-fixture",
+  "dna_hash": "uhC0k-fixture-dna-hash",
+  "events": [
+    {
+      "seq": 1,
+      "event_id": "grant-issue-1",
+      "evidence_ref": "fixture://host/grant-1",
+      "source": "synthetic",
+      "kind": "grant_issued",
+      "data": {
+        "grant_ref": "grant-A",
+        "grant_action_hash": "uhCkk-grant-A",
+        "grantor": "agent-owner",
+        "grantee": "agent-recipient",
+        "assigned": true,
+        "functions": ["messages.send"],
+        "idempotency_key": "grant-request-001",
+        "authority_index": 1
+      }
+    },
+    {
+      "seq": 2,
+      "event_id": "claim-accept-1",
+      "evidence_ref": "fixture://host/claim-1",
+      "source": "synthetic",
+      "kind": "claim_accepted",
+      "data": {
+        "grant_ref": "grant-A",
+        "recipient": "agent-recipient",
+        "claim_action_hash": "uhCkk-claim-A"
+      }
+    },
+    {
+      "seq": 3,
+      "event_id": "host-call-1",
+      "evidence_ref": "fixture://host/call-1",
+      "source": "synthetic",
+      "kind": "host_call",
+      "data": {
+        "operation_id": "send-operation-001",
+        "attempt_id": 1,
+        "grant_ref": "grant-A",
+        "caller": "agent-recipient",
+        "function": "messages.send",
+        "authority_index": 2,
+        "host_decision": "authorized",
+        "host_state_at_decision": "active",
+        "domain_decision": "allow",
+        "projection_used_for_authorization": false
+      }
+    },
+    {
+      "seq": 4,
+      "event_id": "domain-effect-1",
+      "evidence_ref": "fixture://source-chain/effect-1",
+      "source": "synthetic",
+      "kind": "domain_effect",
+      "data": {
+        "operation_id": "send-operation-001",
+        "attempt_id": 1,
+        "effect_id": "effect-001",
+        "action_hash": "uhCkk-effect-001"
+      }
+    },
+    {
+      "seq": 5,
+      "event_id": "grant-revoke-1",
+      "evidence_ref": "fixture://host/revoke-1",
+      "source": "synthetic",
+      "kind": "grant_revoked",
+      "data": {
+        "grant_ref": "grant-A",
+        "revocation_action_hash": "uhCkk-revoke-A",
+        "authority_index": 3
+      }
+    },
+    {
+      "seq": 6,
+      "event_id": "host-call-after-revoke",
+      "evidence_ref": "fixture://host/call-2",
+      "source": "synthetic",
+      "kind": "host_call",
+      "data": {
+        "operation_id": "send-operation-002",
+        "attempt_id": 1,
+        "grant_ref": "grant-A",
+        "caller": "agent-recipient",
+        "function": "messages.send",
+        "authority_index": 4,
+        "host_decision": "unauthorized",
+        "host_state_at_decision": "revoked",
+        "domain_decision": "not_run",
+        "projection_used_for_authorization": false
+      }
+    },
+    {
+      "seq": 7,
+      "event_id": "stale-projection-read",
+      "evidence_ref": "fixture://observer/read-1",
+      "source": "synthetic",
+      "kind": "projection_read",
+      "data": {
+        "grant_ref": "grant-A",
+        "minimum_epoch": 1,
+        "observed_epoch": 0,
+        "projection_state": "active",
+        "checkpoint_used": true,
+        "decision": "unknown",
+        "used_for_authorization": false
+      }
+    },
+    {
+      "seq": 8,
+      "event_id": "remote-signal-hint",
+      "evidence_ref": "fixture://signal/1",
+      "source": "synthetic",
+      "kind": "remote_signal",
+      "data": {
+        "event_type": "CapabilityRevoked",
+        "trust_class": "unverified_hint",
+        "claimed_sender": "agent-owner",
+        "transport_sender": "agent-attacker",
+        "backing_action_hash": null,
+        "trusted_state_mutation": false,
+        "authorizes_operation": false
+      }
+    },
+    {
+      "seq": 9,
+      "event_id": "caller-outcome-unknown",
+      "evidence_ref": "fixture://client/timeout-1",
+      "source": "synthetic",
+      "kind": "caller_outcome",
+      "data": {
+        "operation_id": "send-operation-001",
+        "attempt_id": 1,
+        "outcome": "unknown"
+      }
+    }
+  ]
+}
