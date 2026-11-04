@@ -89,9 +89,9 @@
           "planes": {
             "host_decision": "AUTHORIZED",
             "domain_result": "EXECUTED",
-            "source_chain": "ACTION_AUTHORED",
-            "validator": "ACCEPTED",
-            "projection": "CURRENT",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
             "observer": "ACKNOWLEDGED"
           },
           "assertions": [
@@ -276,9 +276,9 @@
           "planes": {
             "host_decision": "AUTHORIZED",
             "domain_result": "EXECUTED",
-            "source_chain": "ACTION_AUTHORED",
-            "validator": "ACCEPTED",
-            "projection": "CURRENT",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
             "observer": "ACKNOWLEDGED"
           },
           "assertions": [
@@ -290,7 +290,7 @@
           "planes": {
             "host_decision": "UNAUTHORIZED",
             "domain_result": "NOT_INVOKED",
-            "source_chain": "NO_ACTION",
+            "source_chain": "UNKNOWN",
             "validator": "NOT_OBSERVED",
             "projection": "NOT_APPLICABLE",
             "observer": "ACKNOWLEDGED"
@@ -498,9 +498,9 @@
           "planes": {
             "host_decision": "AUTHORIZED",
             "domain_result": "EXECUTED",
-            "source_chain": "ACTION_AUTHORED",
-            "validator": "ACCEPTED",
-            "projection": "CURRENT",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
             "observer": "ACKNOWLEDGED"
           },
           "assertions": [
