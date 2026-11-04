@@ -188,9 +188,9 @@ fn receiver_limit(receiver: &Value, route_scope: &str) -> Option<u64> {
 fn rule_sources_resolve(rule: &Value, sources: &BTreeSet<String>) -> bool {
     array_at(rule, "source_refs").is_some_and(|refs| {
         !refs.is_empty()
-            && refs.iter().all(|item| {
-                item.as_str().is_some_and(|id| sources.contains(id))
-            })
+            && refs
+                .iter()
+                .all(|item| item.as_str().is_some_and(|id| sources.contains(id)))
     })
 }
 
@@ -199,7 +199,9 @@ fn case_cites_rule(case_refs: &[Value], rule: &Value) -> bool {
         !rule_refs.is_empty()
             && rule_refs.iter().all(|reference| {
                 reference.as_str().is_some_and(|source_id| {
-                    case_refs.iter().any(|item| item.as_str() == Some(source_id))
+                    case_refs
+                        .iter()
+                        .any(|item| item.as_str() == Some(source_id))
                 })
             })
     })
@@ -212,9 +214,9 @@ fn profile_source_refs_resolve(profile: &Value, sources: &BTreeSet<String>) -> b
         (Some("unknown"), None) => true,
         (Some("source_backed"), Some(items)) => {
             !items.is_empty()
-                && items.iter().all(|item| {
-                    item.as_str().is_some_and(|id| sources.contains(id))
-                })
+                && items
+                    .iter()
+                    .all(|item| item.as_str().is_some_and(|id| sources.contains(id)))
         }
         _ => false,
     }
@@ -244,16 +246,18 @@ fn window_valid(case: &Value) -> bool {
     }
 }
 
-fn expected_disposition(case: &Value, profile: &Value, profiles: &BTreeMap<String, Value>) -> &'static str {
+fn expected_disposition(
+    case: &Value,
+    profile: &Value,
+    profiles: &BTreeMap<String, Value>,
+) -> &'static str {
     let limit_state = str_at(profile, "limit_knowledge_state").unwrap_or("unknown");
     let direction = str_at(case, "direction").unwrap_or("");
     let route_scope = str_at(case, "route_scope").unwrap_or("");
     let window = str_at(case, "window_semantics").unwrap_or("");
     let count_before = u64_at(case, "requests_in_window_before").unwrap_or(0);
-    let counterparty_before =
-        u64_at(case, "counterparty_requests_in_window_before").unwrap_or(0);
-    let amount_before =
-        u64_at(case, "aggregate_amount_before_minor_units").unwrap_or(0);
+    let counterparty_before = u64_at(case, "counterparty_requests_in_window_before").unwrap_or(0);
+    let amount_before = u64_at(case, "aggregate_amount_before_minor_units").unwrap_or(0);
     let amount = u64_at(case, "requested_amount_minor_units").unwrap_or(0);
     let pending_appeal = str_at(case, "appeal_state") == Some("pending");
 
@@ -285,13 +289,19 @@ fn expected_disposition(case: &Value, profile: &Value, profiles: &BTreeMap<Strin
     if let Some(maximum) = u64_at(count_rule, "max_requests_per_counterparty") {
         count_exceeded |= counterparty_before.saturating_add(1) > maximum;
     }
-    if matches!(scope, "requester_account_any_counterparty" | "all_counterparties")
-        && counterparty_before > count_before
+    if matches!(
+        scope,
+        "requester_account_any_counterparty" | "all_counterparties"
+    ) && counterparty_before > count_before
     {
         return "reject_wrong_rule_application";
     }
     if count_exceeded {
-        return if pending_appeal { "appeal_review" } else { "reject_count_limit" };
+        return if pending_appeal {
+            "appeal_review"
+        } else {
+            "reject_count_limit"
+        };
     }
 
     let amount_rule_id = str_at(case, "applied_amount_rule_id").unwrap_or("");
@@ -376,11 +386,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     if str_at(corpus, "jurisdiction") != Some("ZA") {
         errors.push("jurisdiction: expected ZA".into());
     }
-    if corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false) {
+    if corpus
+        .get("external_effects_enabled")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
         errors.push("external_effects_enabled: must be false".into());
     }
 
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     check_unique(&sources, "id", "source_register", &mut errors);
@@ -396,14 +412,18 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     for (index, source) in sources.iter().enumerate() {
         let observed = str_at(source, "observed_on").unwrap_or("");
         if !valid_date(observed) || observed > as_of {
-            errors.push(format!("source_register[{index}]: invalid or future observation date"));
+            errors.push(format!(
+                "source_register[{index}]: invalid or future observation date"
+            ));
         }
     }
 
     for (index, profile) in profiles.iter().enumerate() {
         let observed = str_at(profile, "observed_on").unwrap_or("");
         if !valid_date(observed) || observed > as_of {
-            errors.push(format!("profiles[{index}]: invalid or future observation date"));
+            errors.push(format!(
+                "profiles[{index}]: invalid or future observation date"
+            ));
         }
         if !profile_source_refs_resolve(profile, &sources_set) {
             errors.push(format!("profiles[{index}]: unresolved or inconsistent profile source refs"));
