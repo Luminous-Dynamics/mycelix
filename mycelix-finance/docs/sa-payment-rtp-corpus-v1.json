@@ -145,13 +145,54 @@
         "The FAQ lists payer fee bands of R0-R100 free, R100.01-R1000 R1, and R1000.01-R3000 R3.50.",
         "The same FAQ says the maximum requested amount is R100 per transaction and a customer can make two requests per day or within 24 hours to any South African bank.",
         "The FAQ describes a pending request as cancellable by the sender, a default one-day expiry, and decline without money being taken.",
-        "The FAQ says the request carries the sender name and reference, and acceptance triggers an immediate, irrevocable payment."
+        "The FAQ says the request carries the sender name and reference, and acceptance triggers an immediate, irrevocable payment.",
+        "The FAQ says the request includes the sender's name and reference, while telling users to decline if they do not know who sent it or why.",
+        "The FAQ says only logged-in users can send or approve requests in the Capitec app.",
+        "The FAQ says the requester can cancel a sent request if the person has already paid, and that the request has an expiry date."
       ],
       "does_not_support": [
         "An effective date for the displayed limits or fee schedule.",
         "A universal rule or fee schedule for every PayShap Request participant.",
         "A reconciled interpretation of fee bands above R100 when the same FAQ caps request amounts at R100.",
-        "A guarantee that sender authentication establishes that the underlying request or asserted debt is legitimate."
+        "A guarantee that sender authentication establishes that the underlying request or asserted debt is legitimate.",
+        "That the displayed sender name cryptographically identifies the legal person, proves the sender has authority to collect for the named beneficiary, or validates the underlying invoice/debt."
+      ]
+    },
+    {
+      "id": "EPC_VOP_RULEBOOK_2026",
+      "authority": "European Payments Council",
+      "title": "Verification of Payee Scheme Rulebook v1.1",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/rulebooks/verification-payee-scheme-rulebook-0",
+      "published_on": "2026-03-16",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_inter_psp_scheme_rulebook",
+      "supports": [
+        "VOP v1.1 is effective 20 September 2026.",
+        "Requesting PSP asks responding PSP to check an IBAN and payee name or eligible identifier; response can be match, close match, no match or check not possible.",
+        "The scheme concerns account/name verification before SCT or SCT Inst payment initiation."
+      ],
+      "does_not_support": [
+        "The EPC says VOP messaging cannot be relied upon to identify a private or legal person.",
+        "A matching account name does not establish invoice legitimacy, collect authority, absence of account compromise, or voluntariness of a payment request.",
+        "South African PayShap/PayShap Request participant conformance or law."
+      ]
+    },
+    {
+      "id": "EPC_VOP_MATCHING_2026",
+      "authority": "European Payments Council",
+      "title": "EPC Recommendations for VOP matching processes v2.0",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/epc-recommendations-matching-processes-under-vop-scheme",
+      "published_on": "2026-11-03",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_scheme_implementation_guidance",
+      "supports": [
+        "Version 2.0 published 3 November 2026 addresses character sets and match outcomes for natural and legal persons.",
+        "Guidance discusses spelling differences, transposed letters, initials, phonetic variations, commercial names and accepted abbreviations.",
+        "Responding PSP remains responsible for its matching outcome and may apply its own criteria."
+      ],
+      "does_not_support": [
+        "That a close/match response proves the underlying request is legitimate or the account operator is acting voluntarily.",
+        "South African ShapID matching rules or participant-specific limits."
       ]
     }
   ],
@@ -327,6 +368,34 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "unknown",
+      "fee_source_refs": []
+    },
+    {
+      "profile_id": "EU-SEPA-VERIFICATION-OF-PAYEE-V1_1-COMPARATOR-V1",
+      "jurisdiction": "EU-SEPA",
+      "service": "Verification of Payee",
+      "participant": "European Payments Council scheme",
+      "product_scope": "SCT / SCT Inst pre-initiation payee account/name check",
+      "channel_scope": "inter-PSP messaging",
+      "profile_version": "VOP-rulebook-v1.1; matching-guidance-v2.0",
+      "observed_on": "2026-11-04",
+      "effective_from": "2026-09-20",
+      "effective_to": null,
+      "temporal_state": "published_scheme_version_and_current_matching_guidance",
+      "max_request_minor_units": null,
+      "max_requests_per_24h": null,
+      "max_combined_request_minor_units_per_24h": null,
+      "fee_state": "participant_specific_unknown",
+      "fee_note": "Account/name matching comparator only; does not prove identity or legitimacy of an RTP request.",
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026",
+        "EPC_VOP_MATCHING_2026"
+      ],
+      "admission": "architecture_comparator_only",
+      "request_count_scope": "not_applicable",
+      "requester_fee_minor_units": null,
+      "payer_fee_bands": [],
+      "payer_fee_schedule_state": "not_applicable",
       "fee_source_refs": []
     }
   ],
@@ -1903,7 +1972,7 @@
     },
     {
       "scenario_id": "SA-RTP-020",
-      "scenario_type": "combined_daily_value_limit_exceeded",
+      "scenario_type": "per_request_amount_over_cap_with_fee_band_conflict",
       "request": {
         "request_id": "REQ-020",
         "request_version": 1,
@@ -1944,7 +2013,8 @@
       "negative_controls": [
         "request_delivery_is_not_payment",
         "no_instruction_without_matching_acceptance",
-        "payment_outcome_is_not_implied_by_request_status"
+        "payment_outcome_is_not_implied_by_request_status",
+        "fee_band_above_request_cap_is_not_evidence_of_allowed_amount"
       ]
     },
     {
