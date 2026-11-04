@@ -60,6 +60,8 @@ pub struct CapabilityGrantDelivery {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GrantCapabilityInput {
+    /// Stable client-generated logical grant ID reused unchanged across retries.
+    pub operation_id: String,
     pub grantee: AgentPubKey,
     pub access_type: MailboxAccessType,
     pub permissions: MailboxPermissions,
@@ -82,6 +84,37 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         )));
     }
 
+    if input.operation_id.trim().is_empty()
+        || input.operation_id.as_bytes().len() > 128
+        || input.operation_id.contains('\0')
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "operation_id must contain 1-128 non-whitespace UTF-8 bytes and no NUL".to_string(),
+        )));
+    }
+
+    // Hash the client ID with a domain separator and grantor identity. The raw
+    // operation ID is never written to the public DHT or ordinary telemetry.
+    let idempotency_key_hash = capability_idempotency_key_hash(&my_agent, &input.operation_id)?;
+    let request_digest = capability_request_digest(&input)?;
+
+    // The source-chain-local index is the deduplication authority. A same-key,
+    // same-request retry returns the original record before a new CapSecret is
+    // generated. A conflicting payload or corrupt index fails closed.
+    if let Some(existing_hash) = find_existing_capability_for_request(
+        &my_agent,
+        &idempotency_key_hash,
+        &request_digest,
+    )? {
+        return Ok(existing_hash);
+    }
+
+    let functions = determine_granted_functions(
+        &input.access_type,
+        &input.permissions,
+        input.restrictions.as_ref(),
+    )?;
+
     // Holochain's host-generated 512-bit secret is the only supported source of
     // capability secrets. Never persist it in the application/DHT entry.
     let secret = generate_cap_secret()?;
@@ -94,12 +127,6 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
     let id = format!("cap_{}_{}_{}", my_agent, now.as_micros(), entropy_suffix);
-    let functions = determine_granted_functions(
-        &input.access_type,
-        &input.permissions,
-        input.restrictions.as_ref(),
-    )?;
-
     // The private grant's exact action hash is required to revoke conductor-level
     // authorization later. The entire zome call is atomic, so later failures roll
     // back this grant rather than leaving an untracked authorization behind.
@@ -125,6 +152,8 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         revocation_reason: None,
         system_grant_action_hash: Some(system_grant_action_hash),
         secret_hash,
+        idempotency_key_hash: Some(idempotency_key_hash.clone()),
+        request_digest: Some(request_digest),
     };
 
     let cap_hash = create_entry(EntryTypes::MailboxCapability(capability))?;
@@ -145,6 +174,15 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         LinkTag::new(format!("from:{}", my_agent)),
     )?;
 
+    // Author-local idempotency index. Its integrity validator proves that the
+    // link author is the grantor and that the target record carries the same digest.
+    create_link(
+        my_agent.clone(),
+        cap_hash.clone(),
+        LinkTypes::AgentToCapabilityIdempotencyKey,
+        LinkTag::new(idempotency_key_hash),
+    )?;
+
     // Do not send the secret from this transaction: its local grant/entry actions
     // have not committed yet. The caller must invoke deliver_capability_grant after
     // this call succeeds; that second call performs an acknowledged remote handoff.
@@ -153,6 +191,97 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
     log_capability_action(&cap_hash, AuditAction::GrantCapability, true, None)?;
 
     Ok(cap_hash)
+}
+
+fn capability_idempotency_key_hash(
+    grantor: &AgentPubKey,
+    operation_id: &str,
+) -> ExternResult<Vec<u8>> {
+    let canonical = serde_json::to_vec(&(
+        "mycelix.pulse.capability-grant.idempotency.v1",
+        grantor,
+        operation_id,
+    ))
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    Ok(Sha256::digest(canonical).to_vec())
+}
+
+fn capability_request_digest(input: &GrantCapabilityInput) -> ExternResult<Vec<u8>> {
+    // The tuple order is the canonical field order for request-v1. Bump the
+    // domain/API version if grant request semantics or permission evaluation changes.
+    let canonical = serde_json::to_vec(&(
+        "mycelix.pulse.capability-grant.request.v1",
+        &input.grantee,
+        &input.access_type,
+        &input.permissions,
+        &input.restrictions,
+        &input.expires_at,
+    ))
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    Ok(Sha256::digest(canonical).to_vec())
+}
+
+fn find_existing_capability_for_request(
+    grantor: &AgentPubKey,
+    idempotency_key_hash: &[u8],
+    request_digest: &[u8],
+) -> ExternResult<Option<ActionHash>> {
+    let query = LinkQuery::try_new(
+        grantor.clone(),
+        LinkTypes::AgentToCapabilityIdempotencyKey,
+    )?
+    .tag_prefix(LinkTag::new(idempotency_key_hash.to_vec()));
+    let links = get_links(query, GetStrategy::Local)?;
+    let mut found: Option<ActionHash> = None;
+
+    for link in links {
+        // Prefix queries may return neighboring digests; require exact byte equality.
+        if link.tag.0.as_slice() != idempotency_key_hash {
+            continue;
+        }
+        let Some(target_hash) = link.target.into_action_hash() else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "IDEMPOTENCY_INDEX_CORRUPT: index target is not an ActionHash".to_string(),
+            )));
+        };
+        let Some(record) = get(target_hash.clone(), GetOptions::default())? else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "IDEMPOTENCY_INDEX_CORRUPT: index target record is missing; refusing to mint a replacement".to_string(),
+            )));
+        };
+        let capability: MailboxCapability = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "IDEMPOTENCY_INDEX_CORRUPT: index target is not a MailboxCapability".to_string(),
+            )))?;
+
+        if capability.grantor != *grantor
+            || capability.idempotency_key_hash.as_deref() != Some(idempotency_key_hash)
+            || !capability.request_digest.as_deref().is_some_and(|value| value.len() == 32)
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "IDEMPOTENCY_INDEX_CORRUPT: indexed capability does not match grantor/key".to_string(),
+            )));
+        }
+        if capability.request_digest.as_deref() != Some(request_digest) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "IDEMPOTENCY_CONFLICT: operation_id was already committed with a different request".to_string(),
+            )));
+        }
+        if let Some(previous) = &found {
+            if previous != &target_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "IDEMPOTENCY_INDEX_CORRUPT: multiple capabilities share one operation ID".to_string(),
+                )));
+            }
+        } else {
+            found = Some(target_hash);
+        }
+    }
+
+    Ok(found)
 }
 
 fn determine_granted_functions(
