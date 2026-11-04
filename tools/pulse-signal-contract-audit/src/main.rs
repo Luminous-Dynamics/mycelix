@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut findings = Vec::new();
     let mut zomes = Vec::new();
     let expected_schema_version = signal_schema["$id"].as_str()
-        .is_some_and(|id| id.ends_with("/pulse-zome-signal-wire-v1.schema.json"));
+        .is_some_and(|id| id.ends_with("/zome-signal-wire-v1.schema.json"));
     if !expected_schema_version {
         findings.push("signal JSON Schema $id is missing the v1 wire-contract identifier".to_string());
     }
