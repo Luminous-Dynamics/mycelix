@@ -53,3 +53,14 @@ Measure latency and coverage separately at request→response, response→instru
 ## Claim ceiling
 
 This is synthetic evidence-linkage conformance only. It establishes no South African live mapping, real bank interoperability, funds movement, settlement finality, legal entitlement or current participant availability.
+
+
+## Partial-payment capability and residual accounting
+
+Absa's current PayShap Request page says a payer may partially pay when the sender enables the Amount Modification Indicator (AMI). Pay.UK documents a configurable Pay Part option. Neither source establishes unlimited successive instalments or automatic legal discharge of the remaining commercial obligation.
+
+The profile separates request amount, payer-selected amount, payer amount-consent evidence, payment instruction amount, transfer amount, recipient-credited amount, settlement evidence and the residual request amount. A reduced amount must be bound to a distinct payer-visible amount-confirmation event. Transfer and recipient-credit evidence must match that selection.
+
+The synthetic AMI fixture combines an observed product capability with generic ISO 20022 message fixtures only to test the evidence contract; it does **not** claim Absa uses those exact pain/pacs versions in production. The fixture supports one reduced-amount instruction. Multiple partial transfers remain unknown and are rejected by this profile. South African PayShap message linkage remains unqualified pending authorised participant specifications.
+
+The benchmark distinguishes `partial_recipient_available` from `recipient_available` and `settled_final`. It tracks credited and remaining request amounts in integer minor units. The remaining request amount is not, by itself, a legal conclusion about an underlying debt.
