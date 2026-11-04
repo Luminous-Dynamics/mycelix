@@ -406,8 +406,7 @@ fn validate_update_entry(
         // Delegated Admin transitions require a controller-signed execution lease and
         // a separate immutable proof; this update shape does not carry that proof.
         EntryTypes::SharedMailbox(mailbox) => {
-            let original_record =
-                must_get_valid_record(action.original_action_address.clone())?;
+            let original_record = must_get_valid_record(action.original_action_address.clone())?;
             let original: SharedMailbox = original_record
                 .entry()
                 .to_app_option()
@@ -505,7 +504,10 @@ fn is_valid_owner_member_append(
 
     added_member.added_by == *author
         && !matches!(added_member.role, SharedMailboxRole::Owner)
-        && !original.members.iter().any(|member| member.agent == added_member.agent)
+        && !original
+            .members
+            .iter()
+            .any(|member| member.agent == added_member.agent)
 }
 
 fn validate_shared_mailbox(
@@ -566,7 +568,11 @@ mod shared_mailbox_transition_tests {
         AgentPubKey::from_raw_32(vec![byte; 32])
     }
 
-    fn member(agent: AgentPubKey, role: SharedMailboxRole, added_by: AgentPubKey) -> SharedMailboxMember {
+    fn member(
+        agent: AgentPubKey,
+        role: SharedMailboxRole,
+        added_by: AgentPubKey,
+    ) -> SharedMailboxMember {
         SharedMailboxMember {
             agent,
             role,
@@ -582,7 +588,11 @@ mod shared_mailbox_transition_tests {
             name: "Operations".to_string(),
             owner: owner.clone(),
             email_address: "ops@example.test".to_string(),
-            members: vec![member(owner.clone(), SharedMailboxRole::Owner, owner.clone())],
+            members: vec![member(
+                owner.clone(),
+                SharedMailboxRole::Owner,
+                owner.clone(),
+            )],
             created_at: Timestamp::from_micros(0),
             is_active: true,
             settings: SharedMailboxSettings::default(),
@@ -593,8 +603,14 @@ mod shared_mailbox_transition_tests {
     fn original_owner_can_append_one_new_member() {
         let owner = agent(1);
         let mut proposed = mailbox(owner.clone());
-        proposed.members.push(member(agent(2), SharedMailboxRole::Viewer, owner.clone()));
-        assert!(is_valid_owner_member_append(&mailbox(owner.clone()), &proposed, &owner));
+        proposed
+            .members
+            .push(member(agent(2), SharedMailboxRole::Viewer, owner.clone()));
+        assert!(is_valid_owner_member_append(
+            &mailbox(owner.clone()),
+            &proposed,
+            &owner
+        ));
     }
 
     #[test]
@@ -603,8 +619,14 @@ mod shared_mailbox_transition_tests {
         let attacker = agent(2);
         let original = mailbox(owner.clone());
         let mut proposed = original.clone();
-        proposed.members.push(member(attacker.clone(), SharedMailboxRole::Admin, attacker.clone()));
-        assert!(!is_valid_owner_member_append(&original, &proposed, &attacker));
+        proposed.members.push(member(
+            attacker.clone(),
+            SharedMailboxRole::Admin,
+            attacker.clone(),
+        ));
+        assert!(!is_valid_owner_member_append(
+            &original, &proposed, &attacker
+        ));
     }
 
     #[test]
@@ -612,9 +634,15 @@ mod shared_mailbox_transition_tests {
         let owner = agent(1);
         let admin = agent(2);
         let mut original = mailbox(owner.clone());
-        original.members.push(member(admin.clone(), SharedMailboxRole::Admin, owner.clone()));
+        original.members.push(member(
+            admin.clone(),
+            SharedMailboxRole::Admin,
+            owner.clone(),
+        ));
         let mut proposed = original.clone();
-        proposed.members.push(member(agent(3), SharedMailboxRole::Viewer, admin.clone()));
+        proposed
+            .members
+            .push(member(agent(3), SharedMailboxRole::Viewer, admin.clone()));
         assert!(!is_valid_owner_member_append(&original, &proposed, &admin));
     }
 
@@ -622,12 +650,22 @@ mod shared_mailbox_transition_tests {
     fn member_append_cannot_smuggle_name_or_settings_mutation() {
         let owner = agent(1);
         let mut proposed = mailbox(owner.clone());
-        proposed.members.push(member(agent(2), SharedMailboxRole::Viewer, owner.clone()));
+        proposed
+            .members
+            .push(member(agent(2), SharedMailboxRole::Viewer, owner.clone()));
         proposed.name = "Attacker controlled".to_string();
-        assert!(!is_valid_owner_member_append(&mailbox(owner.clone()), &proposed, &owner));
+        assert!(!is_valid_owner_member_append(
+            &mailbox(owner.clone()),
+            &proposed,
+            &owner
+        ));
         proposed.name = "Operations".to_string();
         proposed.settings.allow_send_as = true;
-        assert!(!is_valid_owner_member_append(&mailbox(owner.clone()), &proposed, &owner));
+        assert!(!is_valid_owner_member_append(
+            &mailbox(owner.clone()),
+            &proposed,
+            &owner
+        ));
     }
 
     #[test]
@@ -639,11 +677,17 @@ mod shared_mailbox_transition_tests {
         original.members.push(original_member);
         let mut rewritten = original.clone();
         rewritten.members[1].role = SharedMailboxRole::Owner;
-        rewritten.members.push(member(agent(3), SharedMailboxRole::Viewer, owner.clone()));
+        rewritten
+            .members
+            .push(member(agent(3), SharedMailboxRole::Viewer, owner.clone()));
         assert!(!is_valid_owner_member_append(&original, &rewritten, &owner));
 
         let mut duplicate = original.clone();
-        duplicate.members.push(member(admin.clone(), SharedMailboxRole::Viewer, owner.clone()));
+        duplicate.members.push(member(
+            admin.clone(),
+            SharedMailboxRole::Viewer,
+            owner.clone(),
+        ));
         assert!(!is_valid_owner_member_append(&original, &duplicate, &owner));
     }
 
@@ -651,8 +695,14 @@ mod shared_mailbox_transition_tests {
     fn direct_member_append_cannot_assign_another_owner_role() {
         let owner = agent(1);
         let mut proposed = mailbox(owner.clone());
-        proposed.members.push(member(agent(2), SharedMailboxRole::Owner, owner.clone()));
-        assert!(!is_valid_owner_member_append(&mailbox(owner.clone()), &proposed, &owner));
+        proposed
+            .members
+            .push(member(agent(2), SharedMailboxRole::Owner, owner.clone()));
+        assert!(!is_valid_owner_member_append(
+            &mailbox(owner.clone()),
+            &proposed,
+            &owner
+        ));
     }
 }
 
