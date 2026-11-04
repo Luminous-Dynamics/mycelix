@@ -261,6 +261,11 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
 
         let refs = array_at(signal, "evidence_refs").cloned().unwrap_or_default();
+        if !refs.iter().any(|reference| {
+            str_at(reference, "participant_id") == Some(source)
+        }) {
+            errors.push(format!("{case_id}: primary source participant is absent from evidence lineage"));
+        }
         if source_state == "authorized" {
             for reference in &refs {
                 let participant = str_at(reference, "participant_id").unwrap_or("");
