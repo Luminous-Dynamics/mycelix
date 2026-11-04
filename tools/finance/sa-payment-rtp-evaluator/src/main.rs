@@ -795,6 +795,17 @@ mod tests {
     }
 
     #[test]
+    fn request_digest_is_bound_to_amount() {
+        let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
+        let mut changed = corpus.clone();
+        changed["scenarios"][5]["request"]["amount_minor_units"] = json!(6000);
+        assert!(
+            !semantic_errors(&changed).is_empty(),
+            "an altered amount must fail the recomputed request commitment"
+        );
+    }
+
+    #[test]
     fn negative_mutation_campaign_rejects_consent_and_status_attacks() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
