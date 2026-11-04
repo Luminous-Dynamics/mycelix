@@ -1,6 +1,13 @@
 name: Pulse Authority Lifecycle Model
 
 on:
+  push:
+    branches:
+      - "research/pulse-authority-lifecycle-v1-20261104"
+    paths:
+      - ".github/workflows/pulse-authority-model.yml"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   pull_request:
     paths:
       - ".github/workflows/pulse-authority-model.yml"
@@ -114,7 +121,8 @@ jobs:
             echo "safe_config_sha256=$(sha256sum PulseAuthorityLifecycle.cfg | cut -d' ' -f1)"
             echo "projection_mutant_sha256=$(sha256sum PulseAuthorityLifecycle-mutant.cfg | cut -d' ' -f1)"
             echo "grant_idempotency_mutant_sha256=$(sha256sum PulseAuthorityLifecycle-grant-idempotency-mutant.cfg | cut -d' ' -f1)"
-            java -version 2>&1 | head -1
+            java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
+            sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
           } > "${RUNNER_TEMP}/pulse-tlc-artifacts/receipt.txt"
 
       - name: Upload model-check logs and counterexamples
