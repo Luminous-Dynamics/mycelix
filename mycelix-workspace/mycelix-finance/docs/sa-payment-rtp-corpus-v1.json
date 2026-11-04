@@ -194,6 +194,50 @@
         "That a close/match response proves the underlying request is legitimate or the account operator is acting voluntarily.",
         "South African ShapID matching rules or participant-specific limits."
       ]
+    },
+    {
+      "id": "ABSA_PAYSHAP_REQUEST_2026",
+      "authority": "Absa Bank",
+      "title": "PayShap Request product and FAQ",
+      "url": "https://www.absa.co.za/self-service/digital-banking-services/digital-ways-to-pay/payshap-request/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_product_and_faq_snapshot",
+      "supports": [
+        "Absa page says sent requests to other banks are limited to R50,000 per transaction; Absa-to-Absa ShapID requests up to R3,000; on-us account-number requests up to R5 million.",
+        "Absa says senders may send unlimited requests per day but at most five to the same recipient per day; recipients may receive unlimited total requests but at most five from the same sender per day.",
+        "Absa states requests sent by Absa expire after 45 days.",
+        "Absa permits payers to accept or decline; partial/reduced payment is available when the sender enabled the Amount Modification Indicator.",
+        "Absa limits PayShap to domestic South African transactions and describes app-based request flow."
+      ],
+      "does_not_support": [
+        "A guarantee that a request is legitimate merely because it is delivered in the Absa app.",
+        "A fee schedule for the PayShap Request flow.",
+        "A default expiry shorter than the stated 45-day period.",
+        "The same limits for requests sent from other participants or every off-us recipient bank."
+      ]
+    },
+    {
+      "id": "NEDBANK_PAYSHAP_REQUEST_2026",
+      "authority": "Nedbank",
+      "title": "PayShap Request FAQs",
+      "url": "https://personal.nedbank.co.za/bank/digital-banking/needs/payments/payshap/payshap-request-faqs.html",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_faq_snapshot",
+      "supports": [
+        "Nedbank says PayShap Requests can be up to R50,000 per transaction per day, subject to potentially lower limits at other banks.",
+        "Nedbank states no daily limit on the number of PayShap Requests that can be sent or paid.",
+        "Nedbank sets a 14-day default request expiry, configurable to a date between the current day and 45 days from creation.",
+        "Nedbank says a payer may decline, a decline closes the request and it cannot later be accepted; the requester is notified of the decline reason.",
+        "Nedbank says a cancelled request is closed and cannot be resent."
+      ],
+      "does_not_support": [
+        "A universal PayShap request limit across other participants.",
+        "A fee schedule specific to the Request flow.",
+        "Partial-payment availability.",
+        "A legal conclusion about the underlying debt or the legitimacy of a request."
+      ]
     }
   ],
   "profiles": [
@@ -244,7 +288,43 @@
       "payer_fee_schedule_state": "internal_source_conflict",
       "fee_source_refs": [
         "CAPITEC_RTP_FAQ_2026"
-      ]
+      ],
+      "amount_limit_rules": [
+        {
+          "route_scope": "generic",
+          "maximum_minor_units": 10000,
+          "qualification": "Current Capitec product page and FAQ snapshot; request amount cap stated as R100.",
+          "source_refs": [
+            "CAPITEC_RTP_PRODUCT_2026",
+            "CAPITEC_RTP_FAQ_2026"
+          ]
+        }
+      ],
+      "request_count_rules": [
+        {
+          "direction": "outbound",
+          "max_requests_per_24h": 2,
+          "max_per_counterparty_per_24h": null,
+          "aggregate_unlimited": false,
+          "counterparty_scope": "any recipient at any South African bank; requester account",
+          "source_refs": [
+            "CAPITEC_RTP_FAQ_2026"
+          ],
+          "qualification": "FAQ says two requests in 24 hours to anyone at any SA bank."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": 1,
+        "minimum_days": null,
+        "maximum_days": null,
+        "requester_can_set": true,
+        "source_refs": [
+          "CAPITEC_RTP_FAQ_2026"
+        ],
+        "qualification": "One-day default when sender does not choose an expiry; FAQ also says sender can set an expiry date, but publishes no maximum."
+      },
+      "partial_payment_policy": "full_amount_only",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-BLOG-2025-V1",
@@ -286,7 +366,33 @@
       "payer_fee_schedule_state": "historical_snapshot",
       "fee_source_refs": [
         "CAPITEC_RTP_BLOG_2025"
-      ]
+      ],
+      "amount_limit_rules": [
+        {
+          "route_scope": "generic",
+          "maximum_minor_units": 50000,
+          "qualification": "Historical 2025 Capitec explainer; not current authority.",
+          "source_refs": [
+            "CAPITEC_RTP_BLOG_2025"
+          ]
+        }
+      ],
+      "request_count_rules": [
+        {
+          "direction": "outbound",
+          "max_requests_per_24h": 2,
+          "max_per_counterparty_per_24h": null,
+          "aggregate_unlimited": false,
+          "counterparty_scope": "any recipient; historical explainer",
+          "source_refs": [
+            "CAPITEC_RTP_BLOG_2025"
+          ],
+          "qualification": "Historical 2025 source says two daily requests."
+        }
+      ],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "SEPA-SRTP-SCHEME-V4-COMPARATOR-V1",
@@ -314,7 +420,12 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "unknown",
-      "fee_source_refs": []
+      "fee_source_refs": [],
+      "amount_limit_rules": [],
+      "request_count_rules": [],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "UK-REQUEST-TO-PAY-FRAMEWORK-COMPARATOR-V1",
@@ -341,7 +452,12 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "unknown",
-      "fee_source_refs": []
+      "fee_source_refs": [],
+      "amount_limit_rules": [],
+      "request_count_rules": [],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "IN-UPI-P2P-COLLECT-RETIRED-V1",
@@ -368,7 +484,12 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "unknown",
-      "fee_source_refs": []
+      "fee_source_refs": [],
+      "amount_limit_rules": [],
+      "request_count_rules": [],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "EU-SEPA-VERIFICATION-OF-PAYEE-V1-1-COMPARATOR-V1",
@@ -396,7 +517,182 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "not_applicable",
-      "fee_source_refs": []
+      "fee_source_refs": [],
+      "amount_limit_rules": [],
+      "request_count_rules": [],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
+    },
+    {
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+      "jurisdiction": "ZA",
+      "service": "PayShap Request",
+      "participant": "Absa Bank",
+      "product_scope": "consumer",
+      "channel_scope": "Absa Banking App",
+      "profile_version": "current_public_product_faq_snapshot_2026-11-04",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_state": "observed_current_public_faq_effective_date_not_stated",
+      "max_request_minor_units": null,
+      "max_requests_per_24h": null,
+      "max_combined_request_minor_units_per_24h": null,
+      "fee_state": "unknown",
+      "fee_note": "No PayShap Request fee schedule established from the product page snapshot.",
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "admission": "participant_and_account_terms_must_be_verified",
+      "request_count_scope": "unknown",
+      "requester_fee_minor_units": null,
+      "payer_fee_bands": [],
+      "payer_fee_schedule_state": "unknown",
+      "fee_source_refs": [],
+      "amount_limit_rules": [
+        {
+          "route_scope": "on_us_account",
+          "maximum_minor_units": 500000000,
+          "qualification": "Absa-to-Absa request using account number; R5 million per request.",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ]
+        },
+        {
+          "route_scope": "on_us_shapid",
+          "maximum_minor_units": 300000,
+          "qualification": "Absa-to-Absa request using ShapID; R3,000 per request.",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ]
+        },
+        {
+          "route_scope": "off_us",
+          "maximum_minor_units": 5000000,
+          "qualification": "Requests to other banks up to R50,000 per transaction, subject to the receiving participant's lower PayShap Request limit.",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ]
+        },
+        {
+          "route_scope": "generic",
+          "maximum_minor_units": null,
+          "qualification": "No single generic cap is published; apply the matching on-us account, on-us ShapID or off-us rule.",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ]
+        }
+      ],
+      "request_count_rules": [
+        {
+          "direction": "outbound",
+          "max_requests_per_24h": null,
+          "max_per_counterparty_per_24h": 5,
+          "aggregate_unlimited": true,
+          "counterparty_scope": "same recipient",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Unlimited daily total, at most five requests to the same recipient per day."
+        },
+        {
+          "direction": "inbound",
+          "max_requests_per_24h": null,
+          "max_per_counterparty_per_24h": 5,
+          "aggregate_unlimited": true,
+          "counterparty_scope": "same sender",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Unlimited daily total, at most five requests from the same sender per day."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": null,
+        "minimum_days": null,
+        "maximum_days": 45,
+        "requester_can_set": null,
+        "source_refs": [
+          "ABSA_PAYSHAP_REQUEST_2026"
+        ],
+        "qualification": "Absa-sent requests expire after 45 days; no default-selection control was established from the published page."
+      },
+      "partial_payment_policy": "supported_if_ami",
+      "decline_policy": "unknown"
+    },
+    {
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+      "jurisdiction": "ZA",
+      "service": "PayShap Request",
+      "participant": "Nedbank",
+      "product_scope": "consumer",
+      "channel_scope": "Nedbank Money app and Online Banking",
+      "profile_version": "current_public_faq_snapshot_2026-11-04",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_state": "observed_current_public_faq_effective_date_not_stated",
+      "max_request_minor_units": 5000000,
+      "max_requests_per_24h": null,
+      "max_combined_request_minor_units_per_24h": null,
+      "fee_state": "unknown",
+      "fee_note": "Nedbank publishes generic PayShap transfer pricing elsewhere; this snapshot does not quantify a separate Request flow fee.",
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "admission": "participant_and_account_terms_must_be_verified",
+      "request_count_scope": "not_applicable",
+      "requester_fee_minor_units": null,
+      "payer_fee_bands": [],
+      "payer_fee_schedule_state": "unknown",
+      "fee_source_refs": [],
+      "amount_limit_rules": [
+        {
+          "route_scope": "generic",
+          "maximum_minor_units": 5000000,
+          "qualification": "Nedbank FAQ says requests up to R50,000 per transaction per day; other banks may impose lower limits.",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ]
+        }
+      ],
+      "request_count_rules": [
+        {
+          "direction": "outbound",
+          "max_requests_per_24h": null,
+          "max_per_counterparty_per_24h": null,
+          "aggregate_unlimited": true,
+          "counterparty_scope": "all payers",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Nedbank FAQ explicitly says there is no daily limit on the number of requests sent."
+        },
+        {
+          "direction": "inbound",
+          "max_requests_per_24h": null,
+          "max_per_counterparty_per_24h": null,
+          "aggregate_unlimited": true,
+          "counterparty_scope": "all senders",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Nedbank FAQ explicitly says there is no daily limit on the number of requests paid."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": 14,
+        "minimum_days": 0,
+        "maximum_days": 45,
+        "requester_can_set": true,
+        "source_refs": [
+          "NEDBANK_PAYSHAP_REQUEST_2026"
+        ],
+        "qualification": "Default is 14 days; the sender can choose an expiry from the current day to 45 days after creation."
+      },
+      "partial_payment_policy": "unknown",
+      "decline_policy": "decline_closes_no_reopen"
     }
   ],
   "scenarios": [
@@ -2879,6 +3175,841 @@
         "request_delivery_is_not_payment",
         "no_instruction_without_matching_acceptance",
         "payment_outcome_is_not_implied_by_request_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-033",
+      "scenario_type": "absa_on_us_account_amount_within_R5m_limit",
+      "request": {
+        "request_id": "REQ-033",
+        "request_version": 1,
+        "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 100000000,
+        "currency": "ZAR",
+        "reference": "INV-033",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "absa_app",
+        "request_digest": "sha256:0e39db4827f7a5eeaa1985a5a38968300ea980d611671da55e13ddaaf1654a7e",
+        "limit_route_scope": "on_us_account"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:0e39db4827f7a5eeaa1985a5a38968300ea980d611671da55e13ddaaf1654a7e",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:0e39db4827f7a5eeaa1985a5a38968300ea980d611671da55e13ddaaf1654a7e",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-034",
+      "scenario_type": "absa_on_us_shapid_amount_above_R3000",
+      "request": {
+        "request_id": "REQ-034",
+        "request_version": 1,
+        "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 300001,
+        "currency": "ZAR",
+        "reference": "INV-034",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "absa_app",
+        "request_digest": "sha256:2637b073f029a02a3c7ccd44b05067c095fcd35f64cbb0d91a8198d93c292784",
+        "limit_route_scope": "on_us_shapid"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_rejected_by_participant_limit",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:2637b073f029a02a3c7ccd44b05067c095fcd35f64cbb0d91a8198d93c292784",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "rejected_by_limit",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-035",
+      "scenario_type": "absa_off_us_amount_above_R50000",
+      "request": {
+        "request_id": "REQ-035",
+        "request_version": 1,
+        "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 5000001,
+        "currency": "ZAR",
+        "reference": "INV-035",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "absa_app",
+        "request_digest": "sha256:db840171a5cd5e610ce2fc335f98625f148580124c1c0509f651e0bf941cba14",
+        "limit_route_scope": "off_us"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_rejected_by_participant_limit",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:db840171a5cd5e610ce2fc335f98625f148580124c1c0509f651e0bf941cba14",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "rejected_by_limit",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-036",
+      "scenario_type": "absa_sixth_outbound_request_to_same_recipient",
+      "request": {
+        "request_id": "REQ-036",
+        "request_version": 1,
+        "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-036",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "absa_app",
+        "request_digest": "sha256:c6f7c4e1eabb3602e65af519b5c2fa4fd27fc4124e433def6bf81c4e27a5bea0",
+        "limit_route_scope": "generic"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_rejected_by_request_rate_limit",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:c6f7c4e1eabb3602e65af519b5c2fa4fd27fc4124e433def6bf81c4e27a5bea0",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "rejected_by_limit",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-037",
+      "scenario_type": "absa_sixth_inbound_request_from_same_sender",
+      "request": {
+        "request_id": "REQ-037",
+        "request_version": 1,
+        "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-037",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "absa_app",
+        "request_digest": "sha256:c5c53b3539d4a734f503179a4cdce45de732a3f462cee4e2494f16362f7b6f5e",
+        "limit_route_scope": "generic"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_rejected_by_request_rate_limit",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:c5c53b3539d4a734f503179a4cdce45de732a3f462cee4e2494f16362f7b6f5e",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "rejected_by_limit",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-038",
+      "scenario_type": "absa_partial_payment_attempt_without_AMI",
+      "request": {
+        "request_id": "REQ-038",
+        "request_version": 1,
+        "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "reference": "INV-038",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "absa_app",
+        "request_digest": "sha256:d4c0e37bfa37af36a07b89a90dd7f799e4521f69c79d65a41c48a5b4cb64a584",
+        "limit_route_scope": "generic",
+        "amount_modification_indicator": false
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:d4c0e37bfa37af36a07b89a90dd7f799e4521f69c79d65a41c48a5b4cb64a584",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "partial_payment_attempted",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:d4c0e37bfa37af36a07b89a90dd7f799e4521f69c79d65a41c48a5b4cb64a584",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "partial_payment_rejected",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:d4c0e37bfa37af36a07b89a90dd7f799e4521f69c79d65a41c48a5b4cb64a584",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-039",
+      "scenario_type": "absa_partial_payment_option_when_AMI_enabled",
+      "request": {
+        "request_id": "REQ-039",
+        "request_version": 1,
+        "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "reference": "INV-039",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "absa_app",
+        "request_digest": "sha256:00338a1e721e6ae61e3b2f334b883aa0b8026bc9990de4b0d84778e2cd417548",
+        "limit_route_scope": "generic",
+        "amount_modification_indicator": true
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:00338a1e721e6ae61e3b2f334b883aa0b8026bc9990de4b0d84778e2cd417548",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "partial_payment_attempted",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:00338a1e721e6ae61e3b2f334b883aa0b8026bc9990de4b0d84778e2cd417548",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "partial_payment_option_offered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:00338a1e721e6ae61e3b2f334b883aa0b8026bc9990de4b0d84778e2cd417548",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-040",
+      "scenario_type": "nedbank_R50000_request_within_published_cap",
+      "request": {
+        "request_id": "REQ-040",
+        "request_version": 1,
+        "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 5000000,
+        "currency": "ZAR",
+        "reference": "INV-040",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "nedbank_money_app",
+        "request_digest": "sha256:266351ad1f634a7b8a790c04e1262e71c2596760e1014a195a828cdf45f67b4b"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:266351ad1f634a7b8a790c04e1262e71c2596760e1014a195a828cdf45f67b4b",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:266351ad1f634a7b8a790c04e1262e71c2596760e1014a195a828cdf45f67b4b",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-041",
+      "scenario_type": "nedbank_request_above_R50000_published_cap",
+      "request": {
+        "request_id": "REQ-041",
+        "request_version": 1,
+        "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 5000001,
+        "currency": "ZAR",
+        "reference": "INV-041",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "nedbank_money_app",
+        "request_digest": "sha256:a68ed4c0f7861a9e503ffd9b1ace2efe32fb4bbced178b4dd9260857d3cc535d"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_rejected_by_participant_limit",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:a68ed4c0f7861a9e503ffd9b1ace2efe32fb4bbced178b4dd9260857d3cc535d",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "rejected_by_limit",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-042",
+      "scenario_type": "nedbank_default_14_day_expiry",
+      "request": {
+        "request_id": "REQ-042",
+        "request_version": 1,
+        "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "reference": "INV-042",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-18T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "nedbank_money_app",
+        "request_digest": "sha256:233469279b7c58f3370f2e05e6fadc9b783be2863dbdda63b05ac4638a50f27c",
+        "expiry_selection": "default"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:233469279b7c58f3370f2e05e6fadc9b783be2863dbdda63b05ac4638a50f27c",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_expired",
+          "actor_role": "system",
+          "authority_state": "valid",
+          "request_digest": "sha256:233469279b7c58f3370f2e05e6fadc9b783be2863dbdda63b05ac4638a50f27c",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-18T08:00:01Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "expired",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-043",
+      "scenario_type": "nedbank_custom_expiry_45_day_upper_bound",
+      "request": {
+        "request_id": "REQ-043",
+        "request_version": 1,
+        "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "reference": "INV-043",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-12-19T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "nedbank_money_app",
+        "request_digest": "sha256:976c95b94309f972505f15cf717087302fc6cc75b7cb438cdc490daf979f3ce7",
+        "expiry_selection": "custom"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:976c95b94309f972505f15cf717087302fc6cc75b7cb438cdc490daf979f3ce7",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:976c95b94309f972505f15cf717087302fc6cc75b7cb438cdc490daf979f3ce7",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-044",
+      "scenario_type": "nedbank_no_daily_request_count_cap_published",
+      "request": {
+        "request_id": "REQ-044",
+        "request_version": 1,
+        "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "reference": "INV-044",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "nedbank_money_app",
+        "request_digest": "sha256:1a1eb1cdc5f21c90d90745e98cb6a5adb076d489d00af94e2b47528dfa9e2331"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:1a1eb1cdc5f21c90d90745e98cb6a5adb076d489d00af94e2b47528dfa9e2331",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:1a1eb1cdc5f21c90d90745e98cb6a5adb076d489d00af94e2b47528dfa9e2331",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-045",
+      "scenario_type": "nedbank_declined_request_cannot_later_be_accepted",
+      "request": {
+        "request_id": "REQ-045",
+        "request_version": 1,
+        "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "reference": "INV-045",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "nedbank_money_app",
+        "request_digest": "sha256:3a13a7bc71721b244780ca090b5d9b9044668125d486e3ad998e50f762c24b79"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:3a13a7bc71721b244780ca090b5d9b9044668125d486e3ad998e50f762c24b79",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:3a13a7bc71721b244780ca090b5d9b9044668125d486e3ad998e50f762c24b79",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "request_viewed",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:3a13a7bc71721b244780ca090b5d9b9044668125d486e3ad998e50f762c24b79",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "payer_declined",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:3a13a7bc71721b244780ca090b5d9b9044668125d486e3ad998e50f762c24b79",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "payer_accepted",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:3a13a7bc71721b244780ca090b5d9b9044668125d486e3ad998e50f762c24b79",
+          "accepted_request_digest": "sha256:3a13a7bc71721b244780ca090b5d9b9044668125d486e3ad998e50f762c24b79",
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "declined",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "SA-RTP-046",
+      "scenario_type": "nedbank_cancelled_request_cannot_be_reopened_by_accept",
+      "request": {
+        "request_id": "REQ-046",
+        "request_version": 1,
+        "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+        "requester_identity": "requester:synthetic-merchant-02",
+        "payer_identity": "payer:synthetic-user-02",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-02",
+        "amount_minor_units": 10000,
+        "currency": "ZAR",
+        "reference": "INV-046",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-05T08:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "nedbank_money_app",
+        "request_digest": "sha256:79a40a28316f3e29c6eacdce5822f9bee75fa2807d9dd32efac29085e5a4a901"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:79a40a28316f3e29c6eacdce5822f9bee75fa2807d9dd32efac29085e5a4a901",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_cancelled",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:79a40a28316f3e29c6eacdce5822f9bee75fa2807d9dd32efac29085e5a4a901",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "payer_accepted",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:79a40a28316f3e29c6eacdce5822f9bee75fa2807d9dd32efac29085e5a4a901",
+          "accepted_request_digest": "sha256:79a40a28316f3e29c6eacdce5822f9bee75fa2807d9dd32efac29085e5a4a901",
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:00:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "cancelled",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "request_delivery_is_not_payment",
+        "participant_limit_is_not_universal",
+        "no_payment_effect_without_exact_acceptance"
       ]
     }
   ],
