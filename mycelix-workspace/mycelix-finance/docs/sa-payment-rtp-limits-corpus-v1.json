@@ -1,0 +1,1161 @@
+{
+  "schema": "mycelix.sa-payment-rtp-limits/v1",
+  "corpus_id": "ZA-SA-PAYMENT-RTP-LIMIT-FAIRNESS-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "created_on": "2026-11-04",
+  "as_of": "2026-11-04",
+  "jurisdiction": "ZA",
+  "purpose": "Qualify participant-, direction-, route- and counterparty-scoped Request-to-Pay amount, count and expiry limits without cross-participant inheritance.",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "CAPITEC_RTP_FAQ_2026",
+      "authority": "Capitec Bank",
+      "title": "PayShap Request FAQ",
+      "url": "https://www.capitecbank.co.za/were-here-to-help/faqs/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_faq_snapshot",
+      "supports": [
+        "Two requests per 24 hours to any South African bank, scoped to the requester account.",
+        "Request amount limited to R100 per transaction; sender may be charged no fee while payer fees are disclosed.",
+        "Other banks may apply lower limits, which the sender is told to check with the receiver."
+      ],
+      "does_not_support": [
+        "A limit of two requests per recipient rather than across the requester account.",
+        "A universal PayShap limit across participants.",
+        "A fixed receiving-bank lower limit without the receiver's current product terms."
+      ]
+    },
+    {
+      "id": "CAPITEC_RTP_PRODUCT_2026",
+      "authority": "Capitec Bank",
+      "title": "PayShap Request product page",
+      "url": "https://www.capitecbank.co.za/personal/transact/payshap-request/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_current_product_page_snapshot",
+      "supports": [
+        "R100 per request and two transactions every 24 hours to a combined R200.",
+        "A verified cellphone number / ShapID is used in the described app journey."
+      ],
+      "does_not_support": [
+        "Limits for other participants.",
+        "A legal identity or collection mandate from ShapID validation."
+      ]
+    },
+    {
+      "id": "ABSA_PAYSHAP_REQUEST_2026",
+      "authority": "Absa Bank",
+      "title": "PayShap Request product and FAQ",
+      "url": "https://www.absa.co.za/self-service/digital-banking-services/digital-ways-to-pay/payshap-request/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_product_page_snapshot",
+      "supports": [
+        "Unlimited daily outbound requests, but no more than five to the same recipient per day.",
+        "Inbound requests have no total daily cap, but no more than five from the same sender per day.",
+        "On-us account-number maximum R5,000,000; on-us ShapID maximum R3,000; off-us maximum R50,000 subject to receiving participant lower limit.",
+        "Absa-sent requests expire after 45 days; partial payment is available when AMI is enabled."
+      ],
+      "does_not_support": [
+        "A single generic amount limit independent of on-us account, on-us ShapID or off-us route.",
+        "A calendar-day or rolling-24-hour interpretation where page only says per day.",
+        "A universal lower-limit value for every receiving bank."
+      ]
+    },
+    {
+      "id": "NEDBANK_PAYSHAP_REQUEST_2026",
+      "authority": "Nedbank",
+      "title": "PayShap Request FAQs",
+      "url": "https://personal.nedbank.co.za/bank/digital-banking/needs/payments/payshap/payshap-request-faqs.html",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_faq_snapshot",
+      "supports": [
+        "R50,000 maximum per request per day, subject to lower limits at other banks.",
+        "No daily limit on the number of PayShap Requests a customer can send or pay.",
+        "Default expiry is 14 days; sender can select a date between today and 45 days from creation.",
+        "Declined requests close and cannot later be accepted."
+      ],
+      "does_not_support": [
+        "An unlimited amount per transaction or no monetary limit.",
+        "A daily request-count cap not published by the provider.",
+        "A universal expiry or count rule across participants."
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "jurisdiction": "ZA",
+      "participant": "Capitec Bank",
+      "product": "PayShap Request consumer app",
+      "observed_on": "2026-11-04",
+      "effective_date_state": "unknown",
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
+      ],
+      "limit_knowledge_state": "source_backed",
+      "request_count_rules": [
+        {
+          "rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+          "direction": "outbound",
+          "scope": "requester_account_any_counterparty",
+          "window_semantics": "rolling_24h",
+          "max_requests_total": 2,
+          "max_requests_per_counterparty": null,
+          "aggregate_state": "source_backed",
+          "source_refs": [
+            "CAPITEC_RTP_FAQ_2026"
+          ],
+          "qualification": "Two requests in 24 hours to anyone at any SA bank."
+        }
+      ],
+      "amount_limit_rules": [
+        {
+          "rule_id": "CAP-GENERIC-PER-REQUEST",
+          "route_scope": "generic",
+          "max_per_request_minor_units": 10000,
+          "aggregate_amount_limit_minor_units": 20000,
+          "aggregate_window_semantics": "rolling_24h",
+          "source_refs": [
+            "CAPITEC_RTP_FAQ_2026",
+            "CAPITEC_RTP_PRODUCT_2026"
+          ],
+          "qualification": "R100 per request; the product page explicitly states a combined R200 value over two requests per 24 hours."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": 1,
+        "minimum_days": null,
+        "maximum_days": null,
+        "maximum_state": "unknown",
+        "source_refs": [
+          "CAPITEC_RTP_FAQ_2026"
+        ],
+        "qualification": "FAQ says one-day default; sender can choose expiry but no maximum is published."
+      }
+    },
+    {
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "jurisdiction": "ZA",
+      "participant": "Absa Bank",
+      "product": "PayShap Request consumer/business app",
+      "observed_on": "2026-11-04",
+      "effective_date_state": "unknown",
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "limit_knowledge_state": "source_backed",
+      "request_count_rules": [
+        {
+          "rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+          "direction": "outbound",
+          "scope": "same_recipient",
+          "window_semantics": "day_unspecified",
+          "max_requests_total": null,
+          "max_requests_per_counterparty": 5,
+          "aggregate_state": "source_backed_unlimited_total",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Unlimited daily total; up to five requests per recipient per day."
+        },
+        {
+          "rule_id": "ABSA-IN-SAME-SENDER-DAY",
+          "direction": "inbound",
+          "scope": "same_sender",
+          "window_semantics": "day_unspecified",
+          "max_requests_total": null,
+          "max_requests_per_counterparty": 5,
+          "aggregate_state": "source_backed_unlimited_total",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Unlimited daily inbound total; up to five requests from the same sender per day."
+        }
+      ],
+      "amount_limit_rules": [
+        {
+          "rule_id": "ABSA-ONUS-ACCOUNT",
+          "route_scope": "on_us_account",
+          "max_per_request_minor_units": 500000000,
+          "aggregate_amount_limit_minor_units": null,
+          "aggregate_window_semantics": "unknown",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "R5 million per on-us account-number request."
+        },
+        {
+          "rule_id": "ABSA-ONUS-SHAPID",
+          "route_scope": "on_us_shapid",
+          "max_per_request_minor_units": 300000,
+          "aggregate_amount_limit_minor_units": null,
+          "aggregate_window_semantics": "unknown",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "R3,000 per on-us ShapID request."
+        },
+        {
+          "rule_id": "ABSA-OFFUS",
+          "route_scope": "off_us",
+          "max_per_request_minor_units": 5000000,
+          "aggregate_amount_limit_minor_units": null,
+          "aggregate_window_semantics": "unknown",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "R50,000 off-us request; receiver may impose a lower limit."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": null,
+        "minimum_days": null,
+        "maximum_days": 45,
+        "maximum_state": "source_backed",
+        "source_refs": [
+          "ABSA_PAYSHAP_REQUEST_2026"
+        ],
+        "qualification": "Absa-sent requests expire after 45 days."
+      }
+    },
+    {
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-LIMITS-V1",
+      "jurisdiction": "ZA",
+      "participant": "Nedbank",
+      "product": "PayShap Request Money app and Online Banking",
+      "observed_on": "2026-11-04",
+      "effective_date_state": "unknown",
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "limit_knowledge_state": "source_backed",
+      "request_count_rules": [
+        {
+          "rule_id": "NED-OUT-NO-DAILY-COUNT-CAP",
+          "direction": "outbound",
+          "scope": "all_counterparties",
+          "window_semantics": "day_unspecified",
+          "max_requests_total": null,
+          "max_requests_per_counterparty": null,
+          "aggregate_state": "source_backed_unlimited_count",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "FAQ explicitly says no daily limit on number of requests sent."
+        },
+        {
+          "rule_id": "NED-IN-NO-DAILY-COUNT-CAP",
+          "direction": "inbound",
+          "scope": "all_counterparties",
+          "window_semantics": "day_unspecified",
+          "max_requests_total": null,
+          "max_requests_per_counterparty": null,
+          "aggregate_state": "source_backed_unlimited_count",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "FAQ explicitly says no daily limit on number of requests paid."
+        }
+      ],
+      "amount_limit_rules": [
+        {
+          "rule_id": "NED-GENERIC-PER-REQUEST",
+          "route_scope": "generic",
+          "max_per_request_minor_units": 5000000,
+          "aggregate_amount_limit_minor_units": null,
+          "aggregate_window_semantics": "unknown",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Up to R50,000 per transaction; other banks may impose a lower limit."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": 14,
+        "minimum_days": 0,
+        "maximum_days": 45,
+        "maximum_state": "source_backed",
+        "source_refs": [
+          "NEDBANK_PAYSHAP_REQUEST_2026"
+        ],
+        "qualification": "Default 14 days; sender may select today through 45 days."
+      }
+    },
+    {
+      "profile_id": "ZA-UNQUALIFIED-REQUEST-LIMITS-V1",
+      "jurisdiction": "ZA",
+      "participant": "unqualified_participant",
+      "product": "unknown Request-to-Pay product",
+      "observed_on": "2026-11-04",
+      "effective_date_state": "unknown",
+      "source_refs": [],
+      "limit_knowledge_state": "unknown",
+      "request_count_rules": [],
+      "amount_limit_rules": [],
+      "expiry_policy": {
+        "default_days": null,
+        "minimum_days": null,
+        "maximum_days": null,
+        "maximum_state": "unknown",
+        "source_refs": [],
+        "qualification": "No participant product terms supplied; every limit remains unknown."
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SA-RTP-LIMIT-001",
+      "scenario_type": "capitec_first_request_within_account_rolling_window",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "rolling_24h",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 100,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-002",
+      "scenario_type": "capitec_second_request_to_different_recipient_same_account",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "rolling_24h",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 1,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 100,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:002",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-003",
+      "scenario_type": "capitec_third_request_blocked_across_distinct_recipients",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "rolling_24h",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 2,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 100,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:003",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_count_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-004",
+      "scenario_type": "capitec_rolling_24h_window_spans_midnight",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "rolling_24h",
+      "observed_at": "2026-11-04T19:30:00+02:00",
+      "window_start_at": "2026-11-03T20:30:00+02:00",
+      "requests_in_window_before": 2,
+      "counterparty_requests_in_window_before": 1,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 100,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_count_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-005",
+      "scenario_type": "capitec_amount_at_R100_boundary",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "rolling_24h",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-006",
+      "scenario_type": "capitec_amount_one_cent_over_R100",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "rolling_24h",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10001,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_amount_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-007",
+      "scenario_type": "capitec_combined_value_at_R200_boundary",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "rolling_24h",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 1,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 10000,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-008",
+      "scenario_type": "capitec_combined_value_one_cent_over_R200",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "rolling_24h",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 1,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 10001,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_aggregate_amount_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-009",
+      "scenario_type": "absa_fifth_outbound_request_same_recipient_allowed",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 40,
+      "counterparty_requests_in_window_before": 4,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-010",
+      "scenario_type": "absa_sixth_outbound_request_same_recipient_blocked",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 41,
+      "counterparty_requests_in_window_before": 5,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_count_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-011",
+      "scenario_type": "absa_fifth_inbound_request_same_sender_allowed",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "inbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 40,
+      "counterparty_requests_in_window_before": 4,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-IN-SAME-SENDER-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-012",
+      "scenario_type": "absa_sixth_inbound_request_same_sender_blocked",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "inbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 41,
+      "counterparty_requests_in_window_before": 5,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-IN-SAME-SENDER-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_count_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-013",
+      "scenario_type": "absa_unlimited_daily_outbound_total_across_distinct_recipients",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 100,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-014",
+      "scenario_type": "absa_on_us_account_at_R5m_boundary",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "on_us_account",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 500000000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-ONUS-ACCOUNT",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-015",
+      "scenario_type": "absa_on_us_account_one_cent_over_R5m",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "on_us_account",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 500000001,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-ONUS-ACCOUNT",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_amount_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-016",
+      "scenario_type": "absa_on_us_shapid_at_R3000_boundary",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "on_us_shapid",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 300000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-ONUS-SHAPID",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-017",
+      "scenario_type": "absa_off_us_at_R50000_boundary",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 5000000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-018",
+      "scenario_type": "absa_off_us_one_cent_over_R50000",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 5000001,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_amount_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-019",
+      "scenario_type": "absa_off_us_receiver_capitec_lower_limit_applies",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 15000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "receiver_limit_source_state": "source_backed",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_receiver_lower_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026",
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-020",
+      "scenario_type": "absa_off_us_receiver_limit_unknown_not_invented",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 40000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": "ZA-UNQUALIFIED-REQUEST-LIMITS-V1",
+      "receiver_limit_source_state": "unknown",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-021",
+      "scenario_type": "nedbank_twentieth_request_in_day_allowed_no_count_cap",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 19,
+      "counterparty_requests_in_window_before": 19,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "NED-OUT-NO-DAILY-COUNT-CAP",
+      "applied_amount_rule_id": "NED-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-022",
+      "scenario_type": "nedbank_R50000_per_transaction_boundary",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 5000000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "NED-OUT-NO-DAILY-COUNT-CAP",
+      "applied_amount_rule_id": "NED-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-023",
+      "scenario_type": "nedbank_one_cent_above_R50000_per_transaction",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 5000001,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "NED-OUT-NO-DAILY-COUNT-CAP",
+      "applied_amount_rule_id": "NED-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_amount_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-024",
+      "scenario_type": "nedbank_default_14_day_expiry",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "NED-OUT-NO-DAILY-COUNT-CAP",
+      "applied_amount_rule_id": "NED-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": 14,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-025",
+      "scenario_type": "nedbank_custom_45_day_expiry_boundary",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "NED-OUT-NO-DAILY-COUNT-CAP",
+      "applied_amount_rule_id": "NED-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": 45,
+      "appeal_state": "none",
+      "expected_disposition": "allow",
+      "instruction_created": false,
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-026",
+      "scenario_type": "nedbank_46_day_expiry_rejected",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "NED-OUT-NO-DAILY-COUNT-CAP",
+      "applied_amount_rule_id": "NED-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": 46,
+      "appeal_state": "none",
+      "expected_disposition": "reject_expiry_limit",
+      "instruction_created": false,
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-027",
+      "scenario_type": "unknown_participant_high_count_does_not_invent_rejection",
+      "profile_id": "ZA-UNQUALIFIED-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 100,
+      "counterparty_requests_in_window_before": 100,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 999999999,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": null,
+      "applied_amount_rule_id": null,
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "unknown",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "do_not_reject_unknown_limit",
+      "instruction_created": false,
+      "source_refs": [],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-028",
+      "scenario_type": "absa_inbound_cannot_apply_outbound_rule",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "inbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 0,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_wrong_rule_application",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-029",
+      "scenario_type": "capitec_calendar_day_reset_cannot_replace_rolling_24h",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "generic",
+      "window_semantics": "calendar_day",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 2,
+      "counterparty_requests_in_window_before": 0,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 100,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "CAP-OUT-ACCOUNT-ROLLING-24H",
+      "applied_amount_rule_id": "CAP-GENERIC-PER-REQUEST",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "none",
+      "expected_disposition": "reject_wrong_rule_application",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    },
+    {
+      "scenario_id": "SA-RTP-LIMIT-030",
+      "scenario_type": "false_positive_count_rejection_requires_appeal_review",
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-LIMITS-V1",
+      "direction": "outbound",
+      "route_scope": "off_us",
+      "window_semantics": "day_unspecified",
+      "observed_at": "2026-11-04T12:00:00+02:00",
+      "window_start_at": "2026-11-03T12:00:00+02:00",
+      "requests_in_window_before": 2,
+      "counterparty_requests_in_window_before": 6,
+      "aggregate_amount_before_minor_units": 0,
+      "requested_amount_minor_units": 10000,
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "counterparty_subject_ref": "urn:synthetic:counterparty:001",
+      "applied_count_rule_id": "ABSA-OUT-SAME-RECIPIENT-DAY",
+      "applied_amount_rule_id": "ABSA-OFFUS",
+      "receiver_profile_id": null,
+      "receiver_limit_source_state": "not_applicable",
+      "requested_expiry_days": null,
+      "appeal_state": "pending",
+      "expected_disposition": "appeal_review",
+      "instruction_created": false,
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "notes": "Synthetic case; no real payer, requester or account data."
+    }
+  ]
+}
