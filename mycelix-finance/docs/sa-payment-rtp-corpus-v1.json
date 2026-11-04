@@ -2811,5 +2811,45 @@
         "payment_outcome_is_not_implied_by_request_status"
       ]
     }
-  ]
+  ],
+  "request_digest_contract": {
+    "algorithm": "SHA-256",
+    "domain_separator": "MYCELIX-SA-PAYMENT-RTP-REQUEST-V1",
+    "separator_terminator": "NUL",
+    "canonicalization": "MYCELIX-CANONICAL-JSON-V1",
+    "canonicalization_rules": [
+      "UTF-8 compact JSON serialization",
+      "recursively lexicographically sorted object keys",
+      "array order preserved",
+      "JSON strings serialized with standard JSON escaping",
+      "integer numeric values only; floating-point values forbidden",
+      "null and booleans use their lowercase JSON literals"
+    ],
+    "hashed_payload": "complete request object with request_digest omitted",
+    "included_fields": [
+      "request_id",
+      "request_version",
+      "profile_id",
+      "requester_identity",
+      "payer_identity",
+      "beneficiary_identity",
+      "amount_minor_units",
+      "currency",
+      "reference",
+      "purpose",
+      "fee_minor_units",
+      "expiry_at",
+      "issued_at",
+      "channel"
+    ],
+    "excluded_fields": [
+      "request_digest"
+    ],
+    "vectors": [
+      {
+        "scenario_id": "SA-RTP-001",
+        "expected_digest": "sha256:f0c529b1b421f96ef3bed2469800c253e60d2b38586f197225807fc886c66485"
+      }
+    ]
+  }
 }
