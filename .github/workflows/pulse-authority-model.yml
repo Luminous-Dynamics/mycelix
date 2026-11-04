@@ -7,11 +7,13 @@ on:
     paths:
       - ".github/workflows/pulse-authority-model.yml"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   pull_request:
     paths:
       - ".github/workflows/pulse-authority-model.yml"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   workflow_dispatch:
 
@@ -103,6 +105,57 @@ jobs:
           grep -q "GrantIdentityInjective" \
             "${RUNNER_TEMP}/pulse-tlc-artifacts/grant-idempotency-mutant/tlc.log"
 
+      - name: Check safe mailbox integrity model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-safe/states" \
+            -config PulseMailboxValidation.cfg \
+            PulseMailboxValidation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-safe/tlc.log"
+
+      - name: Require proposed-state mailbox authorization mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-proposed-state-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-proposed-state-mutant/states" \
+            -config PulseMailboxValidation-proposed-state-mutant.cfg \
+            PulseMailboxValidation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-proposed-state-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "OnlyOriginalOwnerMayUpdate" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-proposed-state-mutant/tlc.log"
+
+      - name: Require mailbox protected-field smuggling mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant/states" \
+            -config PulseMailboxValidation-field-mutation-mutant.cfg \
+            PulseMailboxValidation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "ProtectedFieldsRemainImmutable" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant/tlc.log"
+
       - name: Record exact model receipt
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
@@ -127,6 +180,10 @@ jobs:
             echo "safe_config_sha256=$(sha256sum PulseAuthorityLifecycle.cfg | cut -d' ' -f1)"
             echo "projection_mutant_sha256=$(sha256sum PulseAuthorityLifecycle-mutant.cfg | cut -d' ' -f1)"
             echo "grant_idempotency_mutant_sha256=$(sha256sum PulseAuthorityLifecycle-grant-idempotency-mutant.cfg | cut -d' ' -f1)"
+            echo "mailbox_spec_sha256=$(sha256sum PulseMailboxValidation.tla | cut -d' ' -f1)"
+            echo "mailbox_safe_config_sha256=$(sha256sum PulseMailboxValidation.cfg | cut -d' ' -f1)"
+            echo "mailbox_proposed_state_mutant_sha256=$(sha256sum PulseMailboxValidation-proposed-state-mutant.cfg | cut -d' ' -f1)"
+            echo "mailbox_field_mutation_mutant_sha256=$(sha256sum PulseMailboxValidation-field-mutation-mutant.cfg | cut -d' ' -f1)"
             java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
             sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
           } > "${RUNNER_TEMP}/pulse-tlc-artifacts/receipt.txt"
