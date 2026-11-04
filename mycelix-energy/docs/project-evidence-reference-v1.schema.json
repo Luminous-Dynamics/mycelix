@@ -1,0 +1,582 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-energy/docs/project-evidence-reference-v1.schema.json",
+  "title": "Mycelix Energy Project Evidence Reference v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reference_id",
+    "project_binding",
+    "claim_binding",
+    "issuer_profile",
+    "evidence_class",
+    "canonical_desci_reference",
+    "temporal_scope",
+    "lifecycle",
+    "provenance",
+    "verification_receipt",
+    "access_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "reference_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_binding": {
+      "$ref": "#/$defs/projectBinding"
+    },
+    "claim_binding": {
+      "$ref": "#/$defs/claimBinding"
+    },
+    "issuer_profile": {
+      "$ref": "#/$defs/issuerProfile"
+    },
+    "evidence_class": {
+      "enum": [
+        "self_asserted",
+        "issuer_signed",
+        "authenticated_meter",
+        "independently_reconciled_measurement",
+        "official_source_publication",
+        "validated_model_output",
+        "unvalidated_model_output",
+        "analyst_assumption",
+        "contradictory_document",
+        "unassessed_legacy_locator"
+      ]
+    },
+    "canonical_desci_reference": {
+      "$ref": "#/$defs/desciReference"
+    },
+    "temporal_scope": {
+      "$ref": "#/$defs/temporalScope"
+    },
+    "lifecycle": {
+      "$ref": "#/$defs/lifecycle"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "verification_receipt": {
+      "$ref": "#/$defs/verificationReceipt"
+    },
+    "access_policy": {
+      "$ref": "#/$defs/accessPolicy"
+    },
+    "limitations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    },
+    "blake3": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "rfc3339Utc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"
+    },
+    "projectBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "energy_project_id",
+        "project_revision_ref",
+        "site_id",
+        "subject_id",
+        "boundary_id",
+        "boundary_profile"
+      ],
+      "properties": {
+        "energy_project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project_revision_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "site_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boundary_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boundary_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "point_of_connection_id": {
+          "type": "string"
+        },
+        "asset_id": {
+          "type": "string"
+        }
+      }
+    },
+    "claimBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "proposition_id",
+        "proposition",
+        "materiality",
+        "required_for_gate"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposition_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "materiality": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "required_for_gate": {
+          "type": "boolean"
+        }
+      }
+    },
+    "issuerProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issuer_actor_id",
+        "issuer_organization_id",
+        "issuer_role",
+        "authority_profile_id",
+        "authority_registry_revision",
+        "authority_receipt_ref"
+      ],
+      "properties": {
+        "issuer_actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer_organization_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "issuer_role": {
+          "enum": [
+            "developer",
+            "system_operator",
+            "offtaker",
+            "independent_verifier",
+            "model_registry",
+            "epc_contractor",
+            "central_bank",
+            "regulator",
+            "other"
+          ]
+        },
+        "authority_profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_registry_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "desciReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deployment_profile",
+        "research_object_id",
+        "claim_id",
+        "artifact_id",
+        "artifact_content_hash",
+        "artifact_media_type",
+        "artifact_availability",
+        "evidence_attached_event_id",
+        "evidence_attached_event_hash",
+        "stream_id",
+        "stream_sequence",
+        "append_receipt"
+      ],
+      "properties": {
+        "deployment_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "research_object_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "claim_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "artifact_content_hash": {
+          "$ref": "#/$defs/blake3"
+        },
+        "artifact_media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_availability": {
+          "enum": [
+            "public",
+            "controlled",
+            "embargoed",
+            "unavailable"
+          ]
+        },
+        "artifact_locator_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_attached_event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "evidence_attached_event_hash": {
+          "$ref": "#/$defs/blake3"
+        },
+        "stream_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "stream_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "append_receipt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_id",
+            "stream_id",
+            "sequence",
+            "event_hash",
+            "received_at",
+            "receipt_ref"
+          ],
+          "properties": {
+            "event_id": {
+              "$ref": "#/$defs/uuid"
+            },
+            "stream_id": {
+              "$ref": "#/$defs/uuid"
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "event_hash": {
+              "$ref": "#/$defs/blake3"
+            },
+            "received_at": {
+              "$ref": "#/$defs/rfc3339Utc"
+            },
+            "receipt_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "temporalScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid_from",
+        "valid_until",
+        "known_at",
+        "occurred_at",
+        "time_basis"
+      ],
+      "properties": {
+        "valid_from": {
+          "$ref": "#/$defs/rfc3339Utc"
+        },
+        "valid_until": {
+          "$ref": "#/$defs/rfc3339Utc"
+        },
+        "known_at": {
+          "$ref": "#/$defs/rfc3339Utc"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/rfc3339Utc"
+        },
+        "time_basis": {
+          "enum": [
+            "issuer_declared_and_verified",
+            "measurement_interval",
+            "official_release_period",
+            "model_execution_window",
+            "analyst_assumption",
+            "legacy_unassessed"
+          ]
+        },
+        "time_scope_source_ref": {
+          "type": "string"
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "last_transition_event_ref",
+        "supersedes",
+        "superseded_by",
+        "dispute_ref"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "current",
+            "superseded",
+            "disputed",
+            "retracted",
+            "expired",
+            "unavailable",
+            "unassessed_legacy_locator"
+          ]
+        },
+        "last_transition_event_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "supersedes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "superseded_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dispute_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transition_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_family_id",
+        "source_release_id",
+        "artifact_bytes_hash",
+        "ingestion_profile",
+        "transformation_refs"
+      ],
+      "properties": {
+        "source_family_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_release_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_bytes_hash": {
+          "$ref": "#/$defs/blake3"
+        },
+        "ingestion_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transformation_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "upstream_source_family_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "coverage_note": {
+          "type": "string"
+        }
+      }
+    },
+    "verificationReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verifier_id",
+        "verification_policy_id",
+        "verification_policy_version",
+        "verification_receipt_ref",
+        "verification_receipt_hash",
+        "verified_at",
+        "result"
+      ],
+      "properties": {
+        "verifier_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification_policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification_policy_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification_receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification_receipt_hash": {
+          "$ref": "#/$defs/blake3"
+        },
+        "verified_at": {
+          "$ref": "#/$defs/rfc3339Utc"
+        },
+        "result": {
+          "enum": [
+            "verified",
+            "failed",
+            "indeterminate",
+            "not_checked"
+          ]
+        },
+        "checks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "authority_status": {
+          "enum": [
+            "authorized",
+            "not_authorized",
+            "unknown",
+            "revoked",
+            "not_applicable"
+          ]
+        },
+        "signature_status": {
+          "enum": [
+            "valid",
+            "invalid",
+            "not_present",
+            "not_checked"
+          ]
+        },
+        "scope_status": {
+          "enum": [
+            "matches",
+            "mismatch",
+            "unknown"
+          ]
+        },
+        "temporal_status": {
+          "enum": [
+            "valid",
+            "future_known",
+            "expired",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "accessPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "license_ref",
+        "redaction_profile",
+        "access_decision"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "public",
+            "controlled",
+            "embargoed",
+            "unavailable"
+          ]
+        },
+        "license_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "redaction_profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "access_decision": {
+          "enum": [
+            "permitted",
+            "restricted",
+            "denied",
+            "unknown"
+          ]
+        }
+      }
+    }
+  }
+}
