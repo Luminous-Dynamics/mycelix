@@ -10,7 +10,13 @@ CREATE ROLE verifier_challenge_runtime
     PASSWORD 'ci-only-verifier-challenge-runtime';
 
 -- SECURITY DEFINER functions execute as a dedicated non-login owner that owns
--- both the schema and table. The runtime login receives only function EXECUTE.
+-- both the schema and table. PostgreSQL requires the new schema owner to
+-- hold CREATE on the containing database during ownership transfer. Revoke it
+-- immediately after the transfer so the function owner has no database DDL
+-- privilege during test execution.
+GRANT CREATE ON DATABASE challenge_registry_test
+    TO verifier_challenge_registry_owner;
+
 ALTER SCHEMA identity_security
     OWNER TO verifier_challenge_registry_owner;
 ALTER TABLE identity_security.verifier_challenges
@@ -21,6 +27,9 @@ ALTER FUNCTION identity_security.register_verifier_challenge(
 ALTER FUNCTION identity_security.consume_verifier_challenge(
     BYTEA, TEXT, TEXT, UUID, BYTEA, BYTEA
 ) OWNER TO verifier_challenge_registry_owner;
+
+REVOKE CREATE ON DATABASE challenge_registry_test
+    FROM verifier_challenge_registry_owner;
 
 REVOKE ALL ON SCHEMA identity_security FROM PUBLIC;
 REVOKE ALL ON TABLE identity_security.verifier_challenges FROM PUBLIC;
