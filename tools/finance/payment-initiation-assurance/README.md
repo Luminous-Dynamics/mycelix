@@ -24,7 +24,7 @@ cargo run --manifest-path tools/finance/payment-initiation-assurance/Cargo.toml
 - Unknown external outcomes retain their original operation identity and are queried/reconciled rather than blindly retried.
 - Published QR+ standard is not evidence that the operational pilot or merchant implementation is complete.
 
-The 19 cases and 26 deterministic negative mutations are synthetic conformance fixtures. The tool does not parse actual QR+ payloads, access provider directories, authenticate users, or dispatch payments.
+The 33 cases and 28 deterministic negative mutations are synthetic conformance fixtures. The tool does not parse actual QR+ payloads, access provider directories, authenticate users, or dispatch payments.
 
 ## Claim ceiling
 
@@ -35,4 +35,4 @@ Passing the evaluator establishes only that this synthetic corpus and its semant
 
 The 14-case extension qualifies provider-reported `match`, `close_match`, `no_match`, `unavailable` and `other` outcomes. Results bind the exact opaque account subject, payment-intent subject, issuer, participant, audience, freshness interval, account type, payer presentation and source profile. An exact name match does not establish collection authority or debt legitimacy. Client-side fuzzy matching is not treated as provider verification. All cases remain effects-disabled.
 
-Comparators are source-dated EU VoP and UK CoP frameworks. SARB's South African NPU/VoP proposal is not treated as evidence of a live nationwide service.
+Comparators are source-dated EU VoP and UK CoP frameworks. SARB's South African NPU/VoP proposal is not treated as evidence of a live nationwide service. The Rust evaluator qualifies fixture-declared signature state and issuer/audience binding; it does not itself verify cryptographic JWS/signature bytes or establish issuer-key trust.
