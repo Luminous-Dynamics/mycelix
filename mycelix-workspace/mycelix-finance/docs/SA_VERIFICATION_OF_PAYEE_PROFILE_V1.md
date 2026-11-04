@@ -87,3 +87,10 @@ Use EPC VOP v1.1 / API v1.1.1 / Security Framework v2.1 / Matching Recommendatio
 ## Claim ceiling
 
 A passing synthetic evaluator proves only that the frozen response/authority/intent contract rejects modeled binding and status-laundering failures. It proves no live South African VOP service, no bank coverage, no account ownership, no legal identity equivalence, no fraud-reduction result, no SARB endorsement and no live-payment safety.
+
+
+## Transaction-intent and payer-subject binding
+
+A check envelope is transaction-scoped even though the underlying provider matching API may only compare account/name fields. Mycelix binds the provider response to a payer-subject commitment and an immutable payment-intent commitment, then requires the payer decision and any instruction to preserve the same commitments, amount, currency and reference. This is a local orchestration/evidence binding; it does not claim the EPC provider's VOP API natively consumes payment amount or invoice data.
+
+A valid name-match result for one payer or payment intent cannot be replayed into another. The profile's matching-algorithm version and allowed character-set profile are also bound to the exact check. Synthetic fixture commitments are opaque test identifiers, not hashes of real customer data.
