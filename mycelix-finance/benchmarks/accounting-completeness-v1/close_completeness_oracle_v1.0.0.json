@@ -177,6 +177,21 @@
         "positive_control",
         "approved_scope_exclusion"
       ]
+    },
+    {
+      "case_id": "FCC-014",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "BANK-RESERVE-014"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "control_inventory_incompleteness",
+        "independent_universe_cross_check",
+        "balanced_but_incomplete"
+      ]
     }
   ]
 }
