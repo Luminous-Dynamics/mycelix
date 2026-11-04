@@ -66,10 +66,10 @@
           lairPkg
 
           # Node.js for frontend
+          # Node 24 includes npm; nixpkgs 26.05 removed the nodePackages set.
           nodejs_24
-          nodePackages.npm
-          nodePackages.typescript
-          nodePackages.typescript-language-server
+          typescript
+          typescript-language-server
 
           # IPFS for content storage
           kubo  # IPFS daemon
