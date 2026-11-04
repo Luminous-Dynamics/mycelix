@@ -77,10 +77,7 @@ fn source_refs_resolve(
         errors.push(format!("{path}.source_refs: empty"));
     }
     for reference in refs {
-        if !reference
-            .as_str()
-            .is_some_and(|id| sources.contains(id))
-        {
+        if !reference.as_str().is_some_and(|id| sources.contains(id)) {
             errors.push(format!("{path}.source_refs: unresolved source"));
         }
     }
@@ -103,7 +100,7 @@ fn distinct_origins(signal: &Value) -> (usize, bool) {
     (origins.len(), duplicate_claim)
 }
 
-fn score_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static str> {
+fn score_disposition(signal: &Value) -> Option<&'static str> {
     if signal["model_score"].is_null() {
         return None;
     }
@@ -128,7 +125,10 @@ fn score_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static str
 
 fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static str> {
     let availability = str_at(signal, "availability_state").unwrap_or("signal_present");
-    if matches!(availability, "provider_unavailable" | "no_coverage" | "no_signal_returned") {
+    if matches!(
+        availability,
+        "provider_unavailable" | "no_coverage" | "no_signal_returned"
+    ) {
         return Some("return_unknown_not_clean");
     }
 
@@ -145,7 +145,10 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
     }
 
     if str_at(signal, "source_role") != Some("originating_psp")
-        && matches!(status, "confirmed" | "disproved" | "withdrawn" | "corrected")
+        && matches!(
+            status,
+            "confirmed" | "disproved" | "withdrawn" | "corrected"
+        )
     {
         return Some("reject_unauthorised_source_status");
     }
@@ -155,9 +158,6 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
         let effect = str_at(event, "source_status_effect").unwrap_or("unchanged");
         let actor = str_at(event, "actor_role").unwrap_or("unknown");
         let event_type = str_at(event, "event_type").unwrap_or("");
-        if event_type == "recipient_local_decision" && effect != "unchanged" {
-            return Some("keep_local_decision_separate");
-        }
         if event_type == "recipient_local_decision" {
             if effect != "unchanged" {
                 return Some("keep_local_decision_separate");
@@ -165,14 +165,11 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
             continue;
         }
         if effect != "unchanged"
-            && (actor != "originating_psp"
-                || str_at(event, "authority_state") != Some("valid"))
+            && (actor != "originating_psp" || str_at(event, "authority_state") != Some("valid"))
         {
             return Some("quarantine_status_laundering");
         }
-        if effect == "confirmed"
-            && str_at(signal, "evidence_class") == Some("model_score_only")
-        {
+        if effect == "confirmed" && str_at(signal, "evidence_class") == Some("model_score_only") {
             return Some("reject_score_as_sole_confirmation");
         }
     }
@@ -183,7 +180,9 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
     }
 
     let actual_recipient = str_at(signal, "actual_recipient").unwrap_or("");
-    let audiences = array_at(signal, "permitted_audiences").cloned().unwrap_or_default();
+    let audiences = array_at(signal, "permitted_audiences")
+        .cloned()
+        .unwrap_or_default();
     let recipient_allowed = audiences
         .iter()
         .any(|audience| audience.as_str() == Some(actual_recipient));
@@ -200,20 +199,31 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
     let requested = str_at(signal, "requested_purpose").unwrap_or("unknown");
     if purpose == "unknown"
         || requested != purpose
-        || matches!(requested, "unrelated_credit_scoring" | "unrelated_disclosure" | "marketing")
+        || matches!(
+            requested,
+            "unrelated_credit_scoring" | "unrelated_disclosure" | "marketing"
+        )
     {
         return Some("reject_secondary_purpose");
     }
 
     let subject = str_at(signal, "subject_reference").unwrap_or("");
-    if subject.starts_with("sha256:") || subject.starts_with("phone:") || subject.starts_with("account:") {
+    if subject.starts_with("sha256:")
+        || subject.starts_with("phone:")
+        || subject.starts_with("account:")
+    {
         return Some("reject_public_stable_identifier");
     }
-    let privacy = array_at(signal, "privacy_findings").cloned().unwrap_or_default();
+    let privacy = array_at(signal, "privacy_findings")
+        .cloned()
+        .unwrap_or_default();
     if privacy.iter().any(|item| {
         matches!(
             item.as_str(),
-            Some("raw_pii_present_in_share_attempt" | "raw_pii_detected_at_ingest_redacted_before_share")
+            Some(
+                "raw_pii_present_in_share_attempt"
+                    | "raw_pii_detected_at_ingest_redacted_before_share"
+            )
         )
     }) {
         return Some("reject_raw_pii");
@@ -225,16 +235,14 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
         return Some("deduplicate_common_origin_evidence");
     }
 
-    if let Some(score_disposition) = score_disposition(signal, evaluation_at) {
+    if let Some(score_disposition) = score_disposition(signal) {
         return Some(score_disposition);
     }
     if str_at(signal, "channel_coverage_state") != Some("qualified_synthetic") {
         return Some("declare_channel_coverage_unknown");
     }
 
-    if status == "confirmed"
-        && str_at(signal, "evidence_class") == Some("model_score_only")
-    {
+    if status == "confirmed" && str_at(signal, "evidence_class") == Some("model_score_only") {
         return Some("reject_score_as_sole_confirmation");
     }
 
@@ -249,9 +257,10 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
         let recipients = array_at(signal, "correction_recipients")
             .cloned()
             .unwrap_or_default();
-        if recipients.iter().any(|recipient| {
-            str_at(recipient, "acknowledgement_state") == Some("pending")
-        }) {
+        if recipients
+            .iter()
+            .any(|recipient| str_at(recipient, "acknowledgement_state") == Some("pending"))
+        {
             return Some("retain_correction_pending_state");
         }
     }
@@ -294,7 +303,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     }
 
     let evaluation_at = str_at(corpus, "evaluation_at").unwrap_or("");
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     check_unique(&sources, "id", "source_register", &mut errors);
@@ -311,7 +322,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         .collect();
 
     for (index, profile) in profiles.iter().enumerate() {
-        source_refs_resolve(profile, &source_ids, &format!("profiles[{index}]"), &mut errors);
+        source_refs_resolve(
+            profile,
+            &source_ids,
+            &format!("profiles[{index}]"),
+            &mut errors,
+        );
     }
 
     for (index, scenario) in scenarios.iter().enumerate() {
@@ -334,7 +350,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             }
             let sequence = u64_at(event, "sequence").unwrap_or(0);
             if sequence <= prior_sequence {
-                errors.push(format!("{event_path}: sequence must be strictly increasing"));
+                errors.push(format!(
+                    "{event_path}: sequence must be strictly increasing"
+                ));
             }
             prior_sequence = sequence;
 
@@ -363,8 +381,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
 
         if str_at(signal, "source_status") == Some("confirmed")
             && last_source_status.is_none()
-            && str_at(scenario, "expected_disposition")
-                != Some("reject_unauthorised_source_status")
+            && str_at(scenario, "expected_disposition") != Some("reject_unauthorised_source_status")
         {
             errors.push(format!(
                 "{path}: confirmed status lacks an authorised origin-source status event"
@@ -382,7 +399,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         if str_at(signal, "source_status") == Some("corrected")
             && str_at(signal, "correction_propagation_state") == Some("complete")
         {
-            let recipients = array_at(signal, "correction_recipients").cloned().unwrap_or_default();
+            let recipients = array_at(signal, "correction_recipients")
+                .cloned()
+                .unwrap_or_default();
             if recipients.iter().any(|recipient| {
                 str_at(recipient, "acknowledgement_state") != Some("acknowledged")
                     || recipient.get("acknowledged_at").is_none_or(Value::is_null)
@@ -431,90 +450,170 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     }
     let mut count = 0;
 
-    mutate_and_reject("external effects enabled", corpus, schema, |value| {
-        value["external_effects_enabled"] = json!(true);
-    })?;
+    mutate_and_reject(
+        "external effects enabled",
+        corpus,
+        schema,
+        |value| {
+            value["external_effects_enabled"] = json!(true);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("relay promotion hidden as harmless forward", corpus, schema, |value| {
-        value["scenarios"][2]["signal"]["events"][1]["source_status_effect"] = json!("unchanged");
-    })?;
+    mutate_and_reject(
+        "relay promotion hidden as harmless forward",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][2]["signal"]["events"][1]["source_status_effect"] = json!("unchanged");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("confirmed status without authoritative event", corpus, schema, |value| {
-        value["scenarios"][1]["signal"]["events"][1]["actor_role"] = json!("relay_participant");
-    })?;
+    mutate_and_reject(
+        "confirmed status without authoritative event",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][1]["signal"]["events"][1]["actor_role"] = json!("relay_participant");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("score-only confirmation treated as valid", corpus, schema, |value| {
-        value["scenarios"][16]["signal"]["evidence_class"] =
-            json!("independently_verified_case_evidence");
-    })?;
+    mutate_and_reject(
+        "score-only confirmation treated as valid",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][16]["signal"]["evidence_class"] =
+                json!("independently_verified_case_evidence");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("duplicate origin counted as independent evidence", corpus, schema, |value| {
-        value["scenarios"][12]["signal"]["independent_evidence_count"] = json!(1);
-        value["scenarios"][12]["signal"]["evidence_contributions"][1]["independent_claim"] =
-            json!(false);
-    })?;
+    mutate_and_reject(
+        "duplicate origin counted as independent evidence",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][12]["signal"]["independent_evidence_count"] = json!(1);
+            value["scenarios"][12]["signal"]["evidence_contributions"][1]["independent_claim"] =
+                json!(false);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("wrong audience disclosed instead of quarantined", corpus, schema, |value| {
-        value["scenarios"][11]["signal"]["dissemination_state"] = json!("shared");
-    })?;
+    mutate_and_reject(
+        "wrong audience disclosed instead of quarantined",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][11]["signal"]["dissemination_state"] = json!("shared");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("public stable identifier accepted as pairwise subject", corpus, schema, |value| {
-        value["scenarios"][27]["signal"]["subject_reference"] =
-            json!("pairwise:synthetic-subject");
-    })?;
+    mutate_and_reject(
+        "public stable identifier accepted as pairwise subject",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][27]["signal"]["subject_reference"] =
+                json!("pairwise:synthetic-subject");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("raw PII finding removed without correction", corpus, schema, |value| {
-        value["scenarios"][28]["signal"]["privacy_findings"] = json!(["none"]);
-    })?;
+    mutate_and_reject(
+        "raw PII finding removed without correction",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][28]["signal"]["privacy_findings"] = json!(["none"]);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("unrelated credit scoring purpose shared", corpus, schema, |value| {
-        value["scenarios"][29]["signal"]["dissemination_state"] = json!("shared");
-    })?;
+    mutate_and_reject(
+        "unrelated credit scoring purpose shared",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][29]["signal"]["dissemination_state"] = json!("shared");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("correction marked complete with pending recipient", corpus, schema, |value| {
-        value["scenarios"][25]["signal"]["correction_propagation_state"] = json!("complete");
-    })?;
+    mutate_and_reject(
+        "correction marked complete with pending recipient",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][25]["signal"]["correction_propagation_state"] = json!("complete");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("local recipient decision mutates source status", corpus, schema, |value| {
-        value["scenarios"][31]["signal"]["events"][1]["source_status_effect"] = json!("unchanged");
-    })?;
+    mutate_and_reject(
+        "local recipient decision mutates source status",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][31]["signal"]["events"][1]["source_status_effect"] = json!("unchanged");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("expired signal reused as current", corpus, schema, |value| {
-        value["scenarios"][7]["signal"]["expires_at"] = json!("2026-11-12T09:00:00Z");
-    })?;
+    mutate_and_reject(
+        "expired signal reused as current",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][7]["signal"]["expires_at"] = json!("2026-11-12T09:00:00Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("no signal returned reported as clean suspected case", corpus, schema, |value| {
-        value["scenarios"][35]["signal"]["availability_state"] = json!("signal_present");
-        value["scenarios"][35]["signal"]["source_status"] = json!("suspected");
-    })?;
+    mutate_and_reject(
+        "no signal returned reported as clean suspected case",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][35]["signal"]["availability_state"] = json!("signal_present");
+            value["scenarios"][35]["signal"]["source_status"] = json!("suspected");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("uncalibrated model score accepted", corpus, schema, |value| {
-        value["scenarios"][14]["signal"]["model_score"]["calibration_state"] =
-            json!("qualified_synthetic_only");
-    })?;
+    mutate_and_reject(
+        "uncalibrated model score accepted",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][14]["signal"]["model_score"]["calibration_state"] =
+                json!("qualified_synthetic_only");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("out-of-scope channel score admitted", corpus, schema, |value| {
-        value["scenarios"][36]["signal"]["channel_coverage_state"] = json!("qualified_synthetic");
-    })?;
+    mutate_and_reject(
+        "out-of-scope channel score admitted",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][36]["signal"]["channel_coverage_state"] = json!("qualified_synthetic");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("unauthorised local recipient decision admitted", corpus, schema, |value| {
-        value["scenarios"][31]["signal"]["local_authority_state"] = json!("invalid");
-    })?;
+    mutate_and_reject(
+        "unauthorised local recipient decision admitted",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][31]["signal"]["local_authority_state"] = json!("invalid");
+        },
+    )?;
     count += 1;
 
     Ok(count)
