@@ -715,6 +715,46 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
+    mutate_and_reject(
+        "partial instruction without its amount-consent event",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][26]["events"][4]["amount_consent_id"] = json!("EV-MISSING");
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "partial instruction amount differs from payer-selected amount",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][26]["events"][4]["amount_minor_units"] = json!(6_000);
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "partial credit erases residual amount",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][26]["expected_remaining_minor_units"] = json!(0);
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "partial request is promoted to fully recipient available",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][26]["expected_state"] = json!("recipient_available");
+        },
+    )?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -795,15 +835,15 @@ mod tests {
     fn checked_in_schema_and_corpus_validate() {
         let (errors, corpus, _) = evaluate(DEFAULT_CORPUS, DEFAULT_SCHEMA).expect("evaluation");
         assert!(errors.is_empty(), "{errors:?}");
-        assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 7);
-        assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 3);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 26);
+        assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 9);
+        assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 4);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 31);
     }
 
     #[test]
     fn negative_mutations_reject_false_correlation_and_status_promotion() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 10);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 14);
     }
 }
