@@ -154,7 +154,7 @@ fn validate_create_audit_entry(
     // role exists anywhere in this hApp that would need to log an entry on another
     // agent's behalf.
     if let Some(agent) = &entry.actor.agent_pub_key {
-        if agent != &action.author() {
+        if agent != action.author() {
             return Ok(ValidateCallbackResult::Invalid(
                 "AuditEntry actor.agent_pub_key must match action author".to_string(),
             ));
