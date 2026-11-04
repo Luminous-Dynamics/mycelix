@@ -24,6 +24,7 @@ CONSTANTS
     NoGrant, NoOp, NoAgent,
     DomainAllowedOps,
     UseProjectionAuthority,
+    UseGrantIdempotency,
     MaxAttempts
 
 Grants == {g1, g2}
@@ -36,6 +37,7 @@ ASSUME
     /\ NoAgent \notin Agents
     /\ DomainAllowedOps \subseteq Ops
     /\ UseProjectionAuthority \in BOOLEAN
+    /\ UseGrantIdempotency \in BOOLEAN
     /\ MaxAttempts \in Nat
     /\ MaxAttempts >= 2
 
@@ -125,6 +127,31 @@ RetryGrant(op) ==
     /\ UNCHANGED
         << hostActive, issued, retired, appState, projection, claims,
            operationGrant, operationOwner, effectCount, hostAuthorizedOps,
+           lastGrant, lastOperation, lastCaller, lastDecision,
+           lastHostAuthorized, lastHostActiveAtCall,
+           lastProjectionActiveAtCall, lastClaimAtCall,
+           lastDomainAllowedAtCall, lastCallMadeEffect >>
+
+(* Deliberately unsafe mutant: a lost acknowledgement retry mints a second
+   CapGrant for the same logical request. The original grant stays live. *)
+DuplicateGrantForRetry(g, op) ==
+    /\ UseGrantIdempotency = FALSE
+    /\ g \in Grants
+    /\ op \in Ops
+    /\ operationGrant[op] \in Grants
+    /\ g \notin issued
+    /\ operationOwner[g] = NoOp
+    /\ attempts[op] < MaxAttempts
+    /\ hostActive' = hostActive \cup {g}
+    /\ issued' = issued \cup {g}
+    /\ appState' = [appState EXCEPT ![g] = "active"]
+    /\ projection' = [projection EXCEPT ![g] = "active"]
+    /\ operationGrant' = [operationGrant EXCEPT ![op] = g]
+    /\ operationOwner' = [operationOwner EXCEPT ![g] = op]
+    /\ attempts' = [attempts EXCEPT ![op] = @ + 1]
+    /\ callerOutcome' = [callerOutcome EXCEPT ![op] = "acknowledged"]
+    /\ UNCHANGED
+        << retired, claims, effectCount, hostAuthorizedOps,
            lastGrant, lastOperation, lastCaller, lastDecision,
            lastHostAuthorized, lastHostActiveAtCall,
            lastProjectionActiveAtCall, lastClaimAtCall,
@@ -252,6 +279,7 @@ ReconcileOutcome(op) ==
 Next ==
     \/ \E g \in Grants, op \in Ops : IssueGrant(g, op)
     \/ \E op \in Ops : RetryGrant(op)
+    \/ \E g \in Grants, op \in Ops : DuplicateGrantForRetry(g, op)
     \/ \E op \in Ops : DropGrantAck(op)
     \/ \E g \in Grants : DeliverClaim(g)
     \/ \E g \in Grants : RevokeGrant(g)
