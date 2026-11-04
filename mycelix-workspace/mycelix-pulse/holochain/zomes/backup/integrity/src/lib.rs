@@ -406,7 +406,7 @@ fn validate_create_entry(
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::BackupManifest(manifest) => {
-            if manifest.agent != action.author() {
+            if manifest.agent != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Backup agent must match author".to_string(),
                 ));
@@ -442,7 +442,7 @@ fn validate_create_entry(
                     "manifest_hash entry must decode as BackupManifest".to_string()
                 )))?;
 
-            if manifest.agent != action.author() {
+            if manifest.agent != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "BackupChunk's manifest is not owned by the chunk's committer".to_string(),
                 ));
@@ -456,7 +456,7 @@ fn validate_create_entry(
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::RestoreOperation(restore) => {
-            if restore.agent != action.author() {
+            if restore.agent != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Restore agent must match author".to_string(),
                 ));
@@ -467,7 +467,7 @@ fn validate_create_entry(
             // Bind to its committer -- set_backup_schedule already overrides `.agent` from
             // agent_info() coordinator-side despite taking the whole struct as raw input,
             // so this never rejects a legitimate schedule (P0 author-binding gap).
-            if schedule.agent != action.author() {
+            if schedule.agent != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Backup schedule agent must match author".to_string(),
                 ));
