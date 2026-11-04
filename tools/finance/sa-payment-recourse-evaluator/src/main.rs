@@ -461,18 +461,32 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
             }
         }
 
-        if computed_effect == "full_return" && str_at(case, "expected_disposition") != Some("record_successor_return") {
-            out.errors.push(format!("scenarios[{case_index}]: full return must be recorded as successor return"));
+        if computed_effect == "full_return"
+            && str_at(case, "expected_disposition") != Some("record_successor_return")
+        {
+            out.errors.push(format!(
+                "scenarios[{case_index}]: full return must be recorded as successor return"
+            ));
         }
-        if computed_effect == "partial_return" && str_at(case, "expected_disposition") != Some("retain_residual_loss") {
-            out.errors.push(format!("scenarios[{case_index}]: partial return must preserve residual loss"));
+        if computed_effect == "partial_return"
+            && str_at(case, "expected_disposition") != Some("retain_residual_loss")
+        {
+            out.errors.push(format!(
+                "scenarios[{case_index}]: partial return must preserve residual loss"
+            ));
         }
-        if return_total == 0 && str_at(case, "expected_disposition") == Some("record_successor_return") {
-            out.errors.push(format!("scenarios[{case_index}]: cannot record successor return without returned value"));
+        if return_total == 0
+            && str_at(case, "expected_disposition") == Some("record_successor_return")
+        {
+            out.errors.push(format!(
+                "scenarios[{case_index}]: cannot record successor return without returned value"
+            ));
         }
 
         if case_id.is_empty() {
-            out.errors.push(format!("scenarios[{case_index}]: missing scenario identity"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: missing scenario identity"
+            ));
         }
     }
 
@@ -543,9 +557,14 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_expect_failure("return without independent reconciliation", corpus, schema, |v| {
-        v["scenarios"][6]["events"][4]["reconciled"] = json!(false);
-    })?;
+    mutate_and_expect_failure(
+        "return without independent reconciliation",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][6]["events"][4]["reconciled"] = json!(false);
+        },
+    )?;
     count += 1;
 
     mutate_and_expect_failure("duplicate return reference", corpus, schema, |v| {
