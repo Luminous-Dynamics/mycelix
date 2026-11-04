@@ -18,6 +18,7 @@ on:
     paths:
       - ".github/workflows/pulse-signal-contract-audit.yml"
       - "tools/pulse-signal-contract-audit/**"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-zome-signal-wire-v1.schema.json"
       - "mycelix-workspace/mycelix-pulse/holochain/client/src/signals/SignalHub.ts"
       - "mycelix-workspace/mycelix-pulse/holochain/client/src/types/index.ts"
       - "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs"
