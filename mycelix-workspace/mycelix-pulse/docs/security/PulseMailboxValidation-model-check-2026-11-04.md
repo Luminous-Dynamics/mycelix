@@ -25,6 +25,12 @@ The same mailbox model configurations were rerun in model workflow [run #36](htt
 
 Artifact ID `13336008629`, ZIP SHA-256 `421090d8fee0115e78b3ce436ebfa5399bd0c6f6a6d24071dd899381af09de41`. This reproduces the same finite scope, not additional scenario coverage.
 
+## Repeat run
+
+The safe and mutant mailbox configurations reproduced their prior outcomes in [model workflow run #60](https://github.com/Luminous-Dynamics/mycelix/actions/runs/41857220290), on PR head `34b1d695b8ce7d5bc878ee9d3025fa738514f1d2` (merge checkout `8e4943ff`). Safe: 37 generated / 20 distinct states, empty queue; proposed-state mutant: `OnlyOriginalOwnerMayUpdate`; protected-field mutant: `ProtectedFieldsRemainImmutable`.
+
+Artifact ID `13337303730`, ZIP SHA-256 `17da4b4450375fd6c262aa59f80d680954f297a2a8cd4a55b8a2b542995ca36a`. Same bounds and model logic; this does not expand scenario coverage.
+
 ## Modeled security contract
 
 The model starts with an Owner and an existing Admin. A deliberately permissive coordinator may author any proposed operation. The receiving validator is modeled independently and enforces:
