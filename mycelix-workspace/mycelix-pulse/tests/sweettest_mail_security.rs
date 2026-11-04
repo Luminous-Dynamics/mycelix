@@ -1246,16 +1246,25 @@ struct SharedMailboxSnapshot {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain 0.7 conductor (nix develop)"]
 async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
-    let mut conductor = SweetConductor::standard().await;
+    let mut conductors = SweetConductorBatch::standard(2).await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
-    let (alice, bob) = conductor
+    let apps = conductors
         .setup_app("test-app", &[dna_file.clone()])
         .await
-        .unwrap()
-        .into_tuple();
+        .expect("mail DNA should install on both independent conductors");
+    conductors.exchange_peer_info().await;
+    let cells = apps.cells_flattened();
+    assert_eq!(cells.len(), 2, "expected one cell on each conductor");
+    let alice = cells[0].clone();
+    let bob = cells[1].clone();
+    assert_ne!(
+        alice.agent_pubkey(),
+        bob.agent_pubkey(),
+        "owner and member must be distinct agents on separate conductors"
+    );
 
-    let original_mailbox_hash: ActionHash = conductor
+    let original_mailbox_hash: ActionHash = conductors[0]
         .call_fallible(
             &alice.zome("mail_capabilities"),
             "create_shared_mailbox",
@@ -1270,7 +1279,7 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
 
     // The owner directly adds Bob as Admin. This establishes a legitimate
     // delegated role without granting the ordinary direct-add endpoint to him.
-    let first_update_hash: ActionHash = conductor
+    let first_update_hash: ActionHash = conductors[0]
         .call_fallible(
             &alice.zome("mail_capabilities"),
             "add_shared_mailbox_member",
@@ -1288,7 +1297,7 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
         .await
         .expect("owner/member mailbox indexes should integrate");
 
-    let bob_mailboxes: Vec<(ActionHash, SharedMailboxSnapshot)> = conductor
+    let bob_mailboxes: Vec<(ActionHash, SharedMailboxSnapshot)> = conductors[1]
         .call_fallible(
             &bob.zome("mail_capabilities"),
             "get_my_shared_mailboxes",
@@ -1312,7 +1321,7 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
     // Admin direct-add must fail at the coordinator guard, before the
     // duplicate/new-member validation path can author an Update or Link.
     let probe_agent = AgentPubKey::from_raw_32(vec![0x42; 32]);
-    let admin_add: Result<ActionHash, _> = conductor
+    let admin_add: Result<ActionHash, _> = conductors[1]
         .call_fallible(
             &bob.zome("mail_capabilities"),
             "add_shared_mailbox_member",
@@ -1330,7 +1339,7 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
         "rejection must name the missing lease requirement, got: {admin_error}"
     );
 
-    let after_admin_attempt: Vec<(ActionHash, SharedMailboxSnapshot)> = conductor
+    let after_admin_attempt: Vec<(ActionHash, SharedMailboxSnapshot)> = conductors[1]
         .call_fallible(
             &bob.zome("mail_capabilities"),
             "get_my_shared_mailboxes",
@@ -1350,7 +1359,7 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
     // the latest Update before appending Charlie, rather than creating a fork
     // from the stale root and losing Bob's earlier membership.
     let charlie = AgentPubKey::from_raw_32(vec![0x43; 32]);
-    let second_update_hash: ActionHash = conductor
+    let second_update_hash: ActionHash = conductors[0]
         .call_fallible(
             &alice.zome("mail_capabilities"),
             "add_shared_mailbox_member",
@@ -1369,8 +1378,8 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
         .await
         .expect("second mailbox update should converge on owner and member indexes");
 
-    for cell in [&alice, &bob] {
-        let visible: Vec<(ActionHash, SharedMailboxSnapshot)> = conductor
+    for (conductor_index, cell) in [(0usize, &alice), (1usize, &bob)] {
+        let visible: Vec<(ActionHash, SharedMailboxSnapshot)> = conductors[conductor_index]
             .call_fallible(
                 &cell.zome("mail_capabilities"),
                 "get_my_shared_mailboxes",
@@ -1380,7 +1389,7 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
             .expect("owner and member queries should resolve current mailbox state");
         let current = visible
             .iter()
-            .find(|(_, mailbox)| mailbox.id == bob_view.id)
+            .find(|(_, mailbox)| mailbox.id == mailbox_id)
             .map(|(_, mailbox)| mailbox)
             .expect("mailbox should remain indexed");
         assert_eq!(current.members.len(), 3);
