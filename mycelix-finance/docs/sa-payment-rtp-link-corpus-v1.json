@@ -1,0 +1,4027 @@
+{
+  "schema": "mycelix.sa-payment-rtp-link/v1",
+  "corpus_id": "SA-PAYMENT-RTP-LINK-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "as_of": "2026-11-04",
+  "jurisdiction": "ZA",
+  "purpose": "Qualify a replay-safe evidence link between RTP request, payer response, payment instruction, interbank credit transfer, status report, beneficiary credit and settlement finality.",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "ISO20022_MESSAGE_CATALOG_2026",
+      "authority": "ISO 20022",
+      "title": "ISO 20022 Message Definitions Catalogue",
+      "url": "https://www.iso20022.org/iso-20022-message-definitions",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_current_message_catalogue",
+      "supports": [
+        "Catalogue lists pain.013.001.12 CreditorPaymentActivationRequest and pain.014.001.12 CreditorPaymentActivationRequestStatusReport",
+        "Catalogue distinguishes message definitions and message sets"
+      ],
+      "does_not_support": [
+        "South African PayShap participant usage or bilateral field mappings",
+        "A completed transfer or recipient credit"
+      ]
+    },
+    {
+      "id": "ISO20022_RTP_LINK_BEST_PRACTICE",
+      "authority": "ISO 20022 RTP Global Market Practice",
+      "title": "Best Practices: Linking Request for Payment (pain.013) to Customer Credit Transfer (pacs.008)",
+      "url": "https://www.iso20022.org/sites/default/files/2020-11/RTPG_BestPractices_Linking_Request_for_Payment_to%20Customer_Credit_Transfer_November2020.pdf",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_industry_best_practice_note",
+      "supports": [
+        "The transfer sent after a request is accepted needs an explicit link back to the original request",
+        "The sender and its bank need to identify which later pacs.008 transfer resulted from a particular pain.013 request"
+      ],
+      "does_not_support": [
+        "A universal field tuple for every domestic scheme",
+        "A guarantee that the beneficiary account has been credited or settlement is final"
+      ]
+    },
+    {
+      "id": "ISO20022_PACS002_STATUS_REFERENCE",
+      "authority": "ISO 20022",
+      "title": "FIToFIPaymentStatusReport message definition reference",
+      "url": "https://www.iso20022.org/sites/default/files/2020-12/ISO20022_MDRPart2_PaymentsClearingAndSettlement_2020_2021_v1_ForSEGReview.pdf",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_message_definition_reference_draft_snapshot",
+      "supports": [
+        "pacs.002 reports positive, negative or pending status of a previously sent instruction",
+        "Status refers to an original instruction through references"
+      ],
+      "does_not_support": [
+        "Beneficiary account credit merely from status acceptance",
+        "A current production message version for a specific South African scheme"
+      ]
+    },
+    {
+      "id": "EPC_SRTP_RULEBOOK_V4",
+      "authority": "European Payments Council",
+      "title": "SEPA Request-to-Pay Scheme Rulebook v4.0",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/rulebooks/sepa-request-pay-scheme-rulebook-version-v40",
+      "observed_on": "2026-11-04",
+      "published_on": "2024-11-29",
+      "effective_from": "2025-10-05",
+      "evidence_class": "official_interoperability_scheme_rulebook",
+      "supports": [
+        "SRTP is messaging functionality not a payment instrument",
+        "Rulebook v4.0 is effective 5 October 2025"
+      ],
+      "does_not_support": [
+        "South African participant rules or a PayShap production map"
+      ]
+    },
+    {
+      "id": "EPC_SRTP_IG_V4",
+      "authority": "European Payments Council",
+      "title": "SEPA Request-to-Pay Implementation Guidelines v4.0",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/implementation-guidelines/sepa-request-pay-implementation-guidelines-version-40",
+      "observed_on": "2026-11-04",
+      "published_on": "2025-06-30",
+      "effective_from": "2025-10-05",
+      "evidence_class": "official_iso20022_interoperability_guideline",
+      "supports": [
+        "Separate payee-to-payee RTP service provider, inter-RTP service provider and payer-to-payer RTP service provider message spaces"
+      ],
+      "does_not_support": [
+        "A PayShap-specific message map"
+      ]
+    },
+    {
+      "id": "EPC_SRTP_TRUST_SECURITY_V1_1",
+      "authority": "European Payments Council",
+      "title": "SEPA Request-to-Pay Trust and Security Model v1.1.0",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/sepa-request-pay-srtp-trust-and-security-model-0",
+      "observed_on": "2026-11-04",
+      "published_on": "2026-10-27",
+      "evidence_class": "official_scheme_security_model",
+      "supports": [
+        "SRTP API authentication and message integrity controls",
+        "Electronic sealing based on JWS approach"
+      ],
+      "does_not_support": [
+        "Legal legitimacy of request content",
+        "Proof that transfer executed or beneficiary credited"
+      ]
+    },
+    {
+      "id": "SARB_PSMB_TRANSITION",
+      "authority": "South African Reserve Bank",
+      "title": "PSMB Transition",
+      "url": "https://www.resbank.co.za/en/home/what-we-do/payments-and-settlements/psmb",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_jurisdictional_governance_source",
+      "supports": [
+        "SARB/PayInc payment-system regulatory, authorisation and clearing roles"
+      ],
+      "does_not_support": [
+        "PayShap RTP message fields or participant-specific correlations"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "SEPA-SRTP-V4-FOUR-CORNER-COMPARATOR-V1",
+      "jurisdiction": "EU-SEPA",
+      "scheme": "SEPA SRTP",
+      "topology": "four_corner",
+      "participants": [
+        "payee",
+        "payee_rtp_service_provider",
+        "payer_rtp_service_provider",
+        "payer"
+      ],
+      "message_versions": [
+        "pain.013.001.12",
+        "pain.014.001.12"
+      ],
+      "payment_message_versions": [
+        "pacs.008"
+      ],
+      "status_message_versions": [
+        "pacs.002"
+      ],
+      "security_profile": "EPC-SRTP-TrustSecurity-v1.1.0",
+      "observed_on": "2026-11-04",
+      "source_refs": [
+        "EPC_SRTP_RULEBOOK_V4",
+        "EPC_SRTP_IG_V4",
+        "EPC_SRTP_TRUST_SECURITY_V1_1"
+      ],
+      "admission": "architecture_comparator_only"
+    },
+    {
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "jurisdiction": "GENERIC",
+      "scheme": "ISO 20022 RTP generic market practice",
+      "topology": "direct_or_relay_as_profiled",
+      "participants": [
+        "creditor",
+        "creditor_agent",
+        "debtor_agent",
+        "debtor",
+        "clearing_operator",
+        "settlement_operator"
+      ],
+      "message_versions": [
+        "pain.013.001.12",
+        "pain.014.001.12"
+      ],
+      "payment_message_versions": [
+        "pacs.008"
+      ],
+      "status_message_versions": [
+        "pacs.002"
+      ],
+      "security_profile": "bilateral_profile_required",
+      "observed_on": "2026-11-04",
+      "source_refs": [
+        "ISO20022_MESSAGE_CATALOG_2026",
+        "ISO20022_RTP_LINK_BEST_PRACTICE",
+        "ISO20022_PACS002_STATUS_REFERENCE"
+      ],
+      "admission": "generic_mapping_comparator_only"
+    },
+    {
+      "profile_id": "ZA-PAYSHAP-RTP-UNQUALIFIED-LINKAGE-V1",
+      "jurisdiction": "ZA",
+      "scheme": "PayShap Request",
+      "topology": "unknown_until_participant_specs",
+      "participants": [
+        "requester",
+        "requester_psp",
+        "payer_psp",
+        "payer",
+        "debtor_agent",
+        "creditor_agent"
+      ],
+      "message_versions": [],
+      "payment_message_versions": [],
+      "status_message_versions": [],
+      "security_profile": "unknown",
+      "observed_on": "2026-11-04",
+      "source_refs": [
+        "SARB_PSMB_TRANSITION"
+      ],
+      "admission": "not_admissible_as_production_mapping_until_authorised_participant_specs_are_supplied"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "RTP-LINK-001",
+      "scenario_type": "request_delivered_no_response",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-001",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-001",
+        "request_digest": "sha256:reqalinka001aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-001"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-1",
+          "original_request_id": "REQ-LINK-001",
+          "request_digest": "sha256:reqalinka001aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-1",
+          "original_request_id": "REQ-LINK-001",
+          "request_digest": "sha256:reqalinka001aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        }
+      ],
+      "expected_state": "request_only",
+      "expected_disposition": "preserve_request_only",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-002",
+      "scenario_type": "accepted_response_no_payment_instruction",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-002",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-002",
+        "request_digest": "sha256:reqalinka002aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-002"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-2",
+          "original_request_id": "REQ-LINK-002",
+          "request_digest": "sha256:reqalinka002aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-2",
+          "original_request_id": "REQ-LINK-002",
+          "request_digest": "sha256:reqalinka002aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-2",
+          "original_request_id": "REQ-LINK-002",
+          "request_digest": "sha256:reqalinka002aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        }
+      ],
+      "expected_state": "accepted_no_instruction",
+      "expected_disposition": "do_not_infer_payment",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-003",
+      "scenario_type": "instruction_created_no_transfer",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-003",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-003",
+        "request_digest": "sha256:reqalinka003aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-003"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-3",
+          "original_request_id": "REQ-LINK-003",
+          "request_digest": "sha256:reqalinka003aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-3",
+          "original_request_id": "REQ-LINK-003",
+          "request_digest": "sha256:reqalinka003aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-3",
+          "original_request_id": "REQ-LINK-003",
+          "request_digest": "sha256:reqalinka003aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-003",
+          "request_digest": "sha256:reqalinka003aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-3",
+          "end_to_end_id": "E2E-REQ-LINK-003",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        }
+      ],
+      "expected_state": "instruction_created",
+      "expected_disposition": "await_transfer_message",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-004",
+      "scenario_type": "pacs008_linked_pacs002_pending",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-004",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-004",
+        "request_digest": "sha256:reqalinka004aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-004"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-4",
+          "original_request_id": "REQ-LINK-004",
+          "request_digest": "sha256:reqalinka004aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-4",
+          "original_request_id": "REQ-LINK-004",
+          "request_digest": "sha256:reqalinka004aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-4",
+          "original_request_id": "REQ-LINK-004",
+          "request_digest": "sha256:reqalinka004aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-004",
+          "request_digest": "sha256:reqalinka004aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-4",
+          "end_to_end_id": "E2E-REQ-LINK-004",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-4",
+          "original_request_id": "REQ-LINK-004",
+          "request_digest": "sha256:reqalinka004aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-4",
+          "end_to_end_id": "E2E-REQ-LINK-004",
+          "transaction_id": "TX-4",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "interbank_status_report",
+          "actor_role": "creditor_agent",
+          "participant_id": "CREDITOR_AGENT",
+          "message_type": "pacs.002",
+          "message_id": "PACS002-4",
+          "original_request_id": "REQ-LINK-004",
+          "request_digest": "sha256:reqalinka004aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-4",
+          "end_to_end_id": "E2E-REQ-LINK-004",
+          "transaction_id": "TX-4",
+          "status_code": "PDNG",
+          "status_semantics": "pending",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs002",
+            "original_instruction_reference"
+          ]
+        }
+      ],
+      "expected_state": "transfer_pending",
+      "expected_disposition": "do_not_promote_pending",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-005",
+      "scenario_type": "pacs002_accepted_not_credit",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-005",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-005",
+        "request_digest": "sha256:reqalinka005aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-005"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-5",
+          "original_request_id": "REQ-LINK-005",
+          "request_digest": "sha256:reqalinka005aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-5",
+          "original_request_id": "REQ-LINK-005",
+          "request_digest": "sha256:reqalinka005aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-5",
+          "original_request_id": "REQ-LINK-005",
+          "request_digest": "sha256:reqalinka005aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-005",
+          "request_digest": "sha256:reqalinka005aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-5",
+          "end_to_end_id": "E2E-REQ-LINK-005",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-5",
+          "original_request_id": "REQ-LINK-005",
+          "request_digest": "sha256:reqalinka005aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-5",
+          "end_to_end_id": "E2E-REQ-LINK-005",
+          "transaction_id": "TX-5",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "interbank_status_report",
+          "actor_role": "creditor_agent",
+          "participant_id": "CREDITOR_AGENT",
+          "message_type": "pacs.002",
+          "message_id": "PACS002-5",
+          "original_request_id": "REQ-LINK-005",
+          "request_digest": "sha256:reqalinka005aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-5",
+          "end_to_end_id": "E2E-REQ-LINK-005",
+          "transaction_id": "TX-5",
+          "status_code": "ACCP",
+          "status_semantics": "instruction_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs002",
+            "original_instruction_reference"
+          ]
+        }
+      ],
+      "expected_state": "transfer_status_only",
+      "expected_disposition": "do_not_promote_acceptance_to_credit",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-006",
+      "scenario_type": "pacs002_rejected_transfer",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-006",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-006",
+        "request_digest": "sha256:reqalinka006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-006"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-6",
+          "original_request_id": "REQ-LINK-006",
+          "request_digest": "sha256:reqalinka006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-6",
+          "original_request_id": "REQ-LINK-006",
+          "request_digest": "sha256:reqalinka006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-6",
+          "original_request_id": "REQ-LINK-006",
+          "request_digest": "sha256:reqalinka006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-006",
+          "request_digest": "sha256:reqalinka006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-6",
+          "end_to_end_id": "E2E-REQ-LINK-006",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-6",
+          "original_request_id": "REQ-LINK-006",
+          "request_digest": "sha256:reqalinka006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-6",
+          "end_to_end_id": "E2E-REQ-LINK-006",
+          "transaction_id": "TX-6",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "interbank_status_report",
+          "actor_role": "creditor_agent",
+          "participant_id": "CREDITOR_AGENT",
+          "message_type": "pacs.002",
+          "message_id": "PACS002-6",
+          "original_request_id": "REQ-LINK-006",
+          "request_digest": "sha256:reqalinka006aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-6",
+          "end_to_end_id": "E2E-REQ-LINK-006",
+          "transaction_id": "TX-6",
+          "status_code": "RJCT",
+          "status_semantics": "transfer_rejected",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs002",
+            "original_instruction_reference"
+          ]
+        }
+      ],
+      "expected_state": "transfer_rejected",
+      "expected_disposition": "preserve_rejection",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-007",
+      "scenario_type": "recipient_credit_without_settlement_finality",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-007",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-007",
+        "request_digest": "sha256:reqalinka007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-007"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-7",
+          "original_request_id": "REQ-LINK-007",
+          "request_digest": "sha256:reqalinka007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-7",
+          "original_request_id": "REQ-LINK-007",
+          "request_digest": "sha256:reqalinka007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-7",
+          "original_request_id": "REQ-LINK-007",
+          "request_digest": "sha256:reqalinka007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-007",
+          "request_digest": "sha256:reqalinka007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-7",
+          "end_to_end_id": "E2E-REQ-LINK-007",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-7",
+          "original_request_id": "REQ-LINK-007",
+          "request_digest": "sha256:reqalinka007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-7",
+          "end_to_end_id": "E2E-REQ-LINK-007",
+          "transaction_id": "TX-7",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 7,
+          "stage": "recipient_credit_confirmed",
+          "actor_role": "creditor_agent",
+          "participant_id": "CREDITOR_AGENT",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-007",
+          "request_digest": "sha256:reqalinka007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-7",
+          "end_to_end_id": "E2E-REQ-LINK-007",
+          "transaction_id": "TX-7",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "beneficiary_account_credit_receipt",
+            "creditor_agent_confirmation"
+          ]
+        }
+      ],
+      "expected_state": "recipient_available",
+      "expected_disposition": "do_not_infer_settlement_finality",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-008",
+      "scenario_type": "same_amount_wrong_request_reference",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-008",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-008",
+        "request_digest": "sha256:reqalinka008aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-008"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-8",
+          "original_request_id": "REQ-LINK-008",
+          "request_digest": "sha256:reqalinka008aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-8",
+          "original_request_id": "REQ-LINK-008",
+          "request_digest": "sha256:reqalinka008aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-8",
+          "original_request_id": "REQ-LINK-008",
+          "request_digest": "sha256:reqalinka008aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-008",
+          "request_digest": "sha256:reqalinka008aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-8",
+          "end_to_end_id": "E2E-REQ-LINK-008",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-8",
+          "original_request_id": "REQ-OTHER-008",
+          "request_digest": "sha256:reqalinka008aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-8",
+          "end_to_end_id": "E2E-REQ-LINK-008",
+          "transaction_id": "TX-8",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "transfer_unmatched",
+      "expected_disposition": "reject_wrong_request_link",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-009",
+      "scenario_type": "correct_amount_wrong_end_to_end_id",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-009",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-009",
+        "request_digest": "sha256:reqalinka009aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-009"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-9",
+          "original_request_id": "REQ-LINK-009",
+          "request_digest": "sha256:reqalinka009aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-9",
+          "original_request_id": "REQ-LINK-009",
+          "request_digest": "sha256:reqalinka009aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-9",
+          "original_request_id": "REQ-LINK-009",
+          "request_digest": "sha256:reqalinka009aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-009",
+          "request_digest": "sha256:reqalinka009aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-9",
+          "end_to_end_id": "E2E-REQ-LINK-009",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-9",
+          "original_request_id": "REQ-LINK-009",
+          "request_digest": "sha256:reqalinka009aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-9",
+          "end_to_end_id": "E2E-WRONG",
+          "transaction_id": "TX-9",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "transfer_unmatched",
+      "expected_disposition": "reject_wrong_transfer_link",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-010",
+      "scenario_type": "duplicate_pacs008_same_transaction_id",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-010",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-010",
+        "request_digest": "sha256:reqalinka010aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-010"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-10",
+          "original_request_id": "REQ-LINK-010",
+          "request_digest": "sha256:reqalinka010aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-10",
+          "original_request_id": "REQ-LINK-010",
+          "request_digest": "sha256:reqalinka010aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-10",
+          "original_request_id": "REQ-LINK-010",
+          "request_digest": "sha256:reqalinka010aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-010",
+          "request_digest": "sha256:reqalinka010aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-10",
+          "end_to_end_id": "E2E-REQ-LINK-010",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-10",
+          "original_request_id": "REQ-LINK-010",
+          "request_digest": "sha256:reqalinka010aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-10",
+          "end_to_end_id": "E2E-REQ-LINK-010",
+          "transaction_id": "TX-10",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-10-DUP",
+          "original_request_id": "REQ-LINK-010",
+          "request_digest": "sha256:reqalinka010aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-10",
+          "end_to_end_id": "E2E-REQ-LINK-010",
+          "transaction_id": "TX-10",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "one_transfer_idempotent",
+      "expected_disposition": "deduplicate_same_transfer",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-011",
+      "scenario_type": "one_request_two_distinct_transfers",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-011",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-011",
+        "request_digest": "sha256:reqalinka011aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-011"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-11",
+          "original_request_id": "REQ-LINK-011",
+          "request_digest": "sha256:reqalinka011aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-11",
+          "original_request_id": "REQ-LINK-011",
+          "request_digest": "sha256:reqalinka011aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-11",
+          "original_request_id": "REQ-LINK-011",
+          "request_digest": "sha256:reqalinka011aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-011",
+          "request_digest": "sha256:reqalinka011aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-11",
+          "end_to_end_id": "E2E-REQ-LINK-011",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-11",
+          "original_request_id": "REQ-LINK-011",
+          "request_digest": "sha256:reqalinka011aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-11",
+          "end_to_end_id": "E2E-REQ-LINK-011",
+          "transaction_id": "TX-11",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-11-B",
+          "original_request_id": "REQ-LINK-011",
+          "request_digest": "sha256:reqalinka011aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-11",
+          "end_to_end_id": "E2E-REQ-LINK-011",
+          "transaction_id": "TX-11-B",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "ambiguous_link",
+      "expected_disposition": "quarantine_one_to_many",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-012",
+      "scenario_type": "two_requests_one_transfer_id",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-012",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-012",
+        "request_digest": "sha256:reqalinka012aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-012"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-12",
+          "original_request_id": "REQ-LINK-012",
+          "request_digest": "sha256:reqalinka012aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-12",
+          "original_request_id": "REQ-LINK-012",
+          "request_digest": "sha256:reqalinka012aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-12",
+          "original_request_id": "REQ-LINK-012",
+          "request_digest": "sha256:reqalinka012aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-012",
+          "request_digest": "sha256:reqalinka012aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-12",
+          "end_to_end_id": "E2E-REQ-LINK-012",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-12",
+          "original_request_id": "REQ-LINK-012",
+          "request_digest": "sha256:reqalinka012aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-12",
+          "end_to_end_id": "E2E-REQ-LINK-012",
+          "transaction_id": "TX-12",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-12",
+          "original_request_id": "REQ-OTHER-12",
+          "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "payment_instruction_id": "INS-12",
+          "end_to_end_id": "E2E-REQ-LINK-012",
+          "transaction_id": "TX-12",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "ambiguous_link",
+      "expected_disposition": "quarantine_many_to_one",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-013",
+      "scenario_type": "valid_transfer_full_settlement_chain",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-013",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-013",
+        "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-013"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-13",
+          "original_request_id": "REQ-LINK-013",
+          "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-13",
+          "original_request_id": "REQ-LINK-013",
+          "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-13",
+          "original_request_id": "REQ-LINK-013",
+          "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-013",
+          "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-13",
+          "end_to_end_id": "E2E-REQ-LINK-013",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-13",
+          "original_request_id": "REQ-LINK-013",
+          "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-13",
+          "end_to_end_id": "E2E-REQ-LINK-013",
+          "transaction_id": "TX-13",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "interbank_status_report",
+          "actor_role": "creditor_agent",
+          "participant_id": "CREDITOR_AGENT",
+          "message_type": "pacs.002",
+          "message_id": "PACS002-13",
+          "original_request_id": "REQ-LINK-013",
+          "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-13",
+          "end_to_end_id": "E2E-REQ-LINK-013",
+          "transaction_id": "TX-13",
+          "status_code": "ACCP",
+          "status_semantics": "instruction_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs002",
+            "original_instruction_reference"
+          ]
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 7,
+          "stage": "recipient_credit_confirmed",
+          "actor_role": "creditor_agent",
+          "participant_id": "CREDITOR_AGENT",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-013",
+          "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-13",
+          "end_to_end_id": "E2E-REQ-LINK-013",
+          "transaction_id": "TX-13",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "beneficiary_account_credit_receipt",
+            "creditor_agent_confirmation"
+          ]
+        },
+        {
+          "event_id": "EV-8",
+          "sequence": 8,
+          "stage": "settlement_confirmed",
+          "actor_role": "settlement_operator",
+          "participant_id": "SETTLEMENT_OPERATOR",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-013",
+          "request_digest": "sha256:reqalinka013aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-13",
+          "end_to_end_id": "E2E-REQ-LINK-013",
+          "transaction_id": "TX-13",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "settlement_finality_receipt",
+            "settlement_operator_confirmation"
+          ]
+        }
+      ],
+      "expected_state": "settled_final",
+      "expected_disposition": "record_each_stage_separately",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-014",
+      "scenario_type": "request_cancel_after_instruction_not_payment_reversal",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-014",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-014",
+        "request_digest": "sha256:reqalinka014aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-014"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-14",
+          "original_request_id": "REQ-LINK-014",
+          "request_digest": "sha256:reqalinka014aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-14",
+          "original_request_id": "REQ-LINK-014",
+          "request_digest": "sha256:reqalinka014aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-14",
+          "original_request_id": "REQ-LINK-014",
+          "request_digest": "sha256:reqalinka014aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-014",
+          "request_digest": "sha256:reqalinka014aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-14",
+          "end_to_end_id": "E2E-REQ-LINK-014",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "request_cancelled",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-014",
+          "request_digest": "sha256:reqalinka014aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "cancellation_request_receipt"
+          ]
+        }
+      ],
+      "expected_state": "cancel_after_instruction",
+      "expected_disposition": "do_not_reverse_transfer",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-015",
+      "scenario_type": "authentic_message_wrong_participant_role",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-015",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-015",
+        "request_digest": "sha256:reqalinka015aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-015"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-15",
+          "original_request_id": "REQ-LINK-015",
+          "request_digest": "sha256:reqalinka015aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-15",
+          "original_request_id": "REQ-LINK-015",
+          "request_digest": "sha256:reqalinka015aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-15",
+          "original_request_id": "REQ-LINK-015",
+          "request_digest": "sha256:reqalinka015aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-015",
+          "request_digest": "sha256:reqalinka015aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-15",
+          "end_to_end_id": "E2E-REQ-LINK-015",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-15",
+          "original_request_id": "REQ-LINK-015",
+          "request_digest": "sha256:reqalinka015aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-15",
+          "end_to_end_id": "E2E-REQ-LINK-015",
+          "transaction_id": "TX-15",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "quarantined",
+      "expected_disposition": "reject_role_mismatch",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-016",
+      "scenario_type": "invalid_message_authentication",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-016",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-016",
+        "request_digest": "sha256:reqalinka016aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-016"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-16",
+          "original_request_id": "REQ-LINK-016",
+          "request_digest": "sha256:reqalinka016aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-16",
+          "original_request_id": "REQ-LINK-016",
+          "request_digest": "sha256:reqalinka016aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-16",
+          "original_request_id": "REQ-LINK-016",
+          "request_digest": "sha256:reqalinka016aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-016",
+          "request_digest": "sha256:reqalinka016aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-16",
+          "end_to_end_id": "E2E-REQ-LINK-016",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-16",
+          "original_request_id": "REQ-LINK-016",
+          "request_digest": "sha256:reqalinka016aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-16",
+          "end_to_end_id": "E2E-REQ-LINK-016",
+          "transaction_id": "TX-16",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "invalid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "quarantined",
+      "expected_disposition": "reject_unverified_transfer_message",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-017",
+      "scenario_type": "revoked_signing_key_profile",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-017",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-017",
+        "request_digest": "sha256:reqalinka017aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-017"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-17",
+          "original_request_id": "REQ-LINK-017",
+          "request_digest": "sha256:reqalinka017aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-17",
+          "original_request_id": "REQ-LINK-017",
+          "request_digest": "sha256:reqalinka017aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-17",
+          "original_request_id": "REQ-LINK-017",
+          "request_digest": "sha256:reqalinka017aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-017",
+          "request_digest": "sha256:reqalinka017aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-17",
+          "end_to_end_id": "E2E-REQ-LINK-017",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-17",
+          "original_request_id": "REQ-LINK-017",
+          "request_digest": "sha256:reqalinka017aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-17",
+          "end_to_end_id": "E2E-REQ-LINK-017",
+          "transaction_id": "TX-17",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "revoked",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "quarantined",
+      "expected_disposition": "reject_revoked_key",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-018",
+      "scenario_type": "stale_message_version_after_profile_change",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-018",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-018",
+        "request_digest": "sha256:reqalinka018aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-018"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-18",
+          "original_request_id": "REQ-LINK-018",
+          "request_digest": "sha256:reqalinka018aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-18",
+          "original_request_id": "REQ-LINK-018",
+          "request_digest": "sha256:reqalinka018aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-18",
+          "original_request_id": "REQ-LINK-018",
+          "request_digest": "sha256:reqalinka018aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-018",
+          "request_digest": "sha256:reqalinka018aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-18",
+          "end_to_end_id": "E2E-REQ-LINK-018",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008.legacy",
+          "message_id": "PACS008-18",
+          "original_request_id": "REQ-LINK-018",
+          "request_digest": "sha256:reqalinka018aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-18",
+          "end_to_end_id": "E2E-REQ-LINK-018",
+          "transaction_id": "TX-18",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "quarantined",
+      "expected_disposition": "requalify_message_version",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-019",
+      "scenario_type": "amount_mismatch_in_transfer",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-019",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-019",
+        "request_digest": "sha256:reqalinka019aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-019"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-19",
+          "original_request_id": "REQ-LINK-019",
+          "request_digest": "sha256:reqalinka019aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-19",
+          "original_request_id": "REQ-LINK-019",
+          "request_digest": "sha256:reqalinka019aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-19",
+          "original_request_id": "REQ-LINK-019",
+          "request_digest": "sha256:reqalinka019aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-019",
+          "request_digest": "sha256:reqalinka019aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-19",
+          "end_to_end_id": "E2E-REQ-LINK-019",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-19",
+          "original_request_id": "REQ-LINK-019",
+          "request_digest": "sha256:reqalinka019aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-19",
+          "end_to_end_id": "E2E-REQ-LINK-019",
+          "transaction_id": "TX-19",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12499,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "transfer_unmatched",
+      "expected_disposition": "reject_amount_mismatch",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-020",
+      "scenario_type": "currency_mismatch_in_transfer",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-020",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-020",
+        "request_digest": "sha256:reqalinka020aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-020"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-20",
+          "original_request_id": "REQ-LINK-020",
+          "request_digest": "sha256:reqalinka020aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-20",
+          "original_request_id": "REQ-LINK-020",
+          "request_digest": "sha256:reqalinka020aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-20",
+          "original_request_id": "REQ-LINK-020",
+          "request_digest": "sha256:reqalinka020aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-020",
+          "request_digest": "sha256:reqalinka020aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-20",
+          "end_to_end_id": "E2E-REQ-LINK-020",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-20",
+          "original_request_id": "REQ-LINK-020",
+          "request_digest": "sha256:reqalinka020aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-20",
+          "end_to_end_id": "E2E-REQ-LINK-020",
+          "transaction_id": "TX-20",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "USD",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        }
+      ],
+      "expected_state": "transfer_unmatched",
+      "expected_disposition": "reject_currency_mismatch",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-021",
+      "scenario_type": "pacs002_from_unexpected_participant",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-021",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-021",
+        "request_digest": "sha256:reqalinka021aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-021"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-21",
+          "original_request_id": "REQ-LINK-021",
+          "request_digest": "sha256:reqalinka021aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-21",
+          "original_request_id": "REQ-LINK-021",
+          "request_digest": "sha256:reqalinka021aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-21",
+          "original_request_id": "REQ-LINK-021",
+          "request_digest": "sha256:reqalinka021aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-021",
+          "request_digest": "sha256:reqalinka021aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-21",
+          "end_to_end_id": "E2E-REQ-LINK-021",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-21",
+          "original_request_id": "REQ-LINK-021",
+          "request_digest": "sha256:reqalinka021aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-21",
+          "end_to_end_id": "E2E-REQ-LINK-021",
+          "transaction_id": "TX-21",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "interbank_status_report",
+          "actor_role": "unknown",
+          "participant_id": "UNKNOWN",
+          "message_type": "pacs.002",
+          "message_id": "PACS002-21",
+          "original_request_id": "REQ-LINK-021",
+          "request_digest": "sha256:reqalinka021aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-21",
+          "end_to_end_id": "E2E-REQ-LINK-021",
+          "transaction_id": "TX-21",
+          "status_code": "ACCP",
+          "status_semantics": "instruction_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs002",
+            "original_instruction_reference"
+          ]
+        }
+      ],
+      "expected_state": "quarantined",
+      "expected_disposition": "reject_status_role_mismatch",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-022",
+      "scenario_type": "request_response_replay_no_second_instruction",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-022",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-022",
+        "request_digest": "sha256:reqalinka022aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-022"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-22",
+          "original_request_id": "REQ-LINK-022",
+          "request_digest": "sha256:reqalinka022aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-22",
+          "original_request_id": "REQ-LINK-022",
+          "request_digest": "sha256:reqalinka022aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-22",
+          "original_request_id": "REQ-LINK-022",
+          "request_digest": "sha256:reqalinka022aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-022",
+          "request_digest": "sha256:reqalinka022aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-22",
+          "end_to_end_id": "E2E-REQ-LINK-022",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-22-REPLAY",
+          "original_request_id": "REQ-LINK-022",
+          "request_digest": "sha256:reqalinka022aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        }
+      ],
+      "expected_state": "instruction_created",
+      "expected_disposition": "idempotent_response_replay",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-023",
+      "scenario_type": "transfer_absent_outcome_unknown",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-023",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-023",
+        "request_digest": "sha256:reqalinka023aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-023"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-23",
+          "original_request_id": "REQ-LINK-023",
+          "request_digest": "sha256:reqalinka023aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-23",
+          "original_request_id": "REQ-LINK-023",
+          "request_digest": "sha256:reqalinka023aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-23",
+          "original_request_id": "REQ-LINK-023",
+          "request_digest": "sha256:reqalinka023aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-023",
+          "request_digest": "sha256:reqalinka023aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-23",
+          "end_to_end_id": "E2E-REQ-LINK-023",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        }
+      ],
+      "expected_state": "instruction_created",
+      "expected_disposition": "preserve_unknown_transfer_outcome",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-024",
+      "scenario_type": "transfer_and_credit_confirmed_without_finality",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-024",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-024",
+        "request_digest": "sha256:reqalinka024aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-024"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-24",
+          "original_request_id": "REQ-LINK-024",
+          "request_digest": "sha256:reqalinka024aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-24",
+          "original_request_id": "REQ-LINK-024",
+          "request_digest": "sha256:reqalinka024aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-24",
+          "original_request_id": "REQ-LINK-024",
+          "request_digest": "sha256:reqalinka024aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-024",
+          "request_digest": "sha256:reqalinka024aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-24",
+          "end_to_end_id": "E2E-REQ-LINK-024",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "stage": "credit_transfer_sent",
+          "actor_role": "debtor_agent",
+          "participant_id": "DEBTOR_AGENT",
+          "message_type": "pacs.008",
+          "message_id": "PACS008-24",
+          "original_request_id": "REQ-LINK-024",
+          "request_digest": "sha256:reqalinka024aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-24",
+          "end_to_end_id": "E2E-REQ-LINK-024",
+          "transaction_id": "TX-24",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs008",
+            "interbank_transfer_message"
+          ]
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 7,
+          "stage": "recipient_credit_confirmed",
+          "actor_role": "creditor_agent",
+          "participant_id": "CREDITOR_AGENT",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-024",
+          "request_digest": "sha256:reqalinka024aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-24",
+          "end_to_end_id": "E2E-REQ-LINK-024",
+          "transaction_id": "TX-24",
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "beneficiary_account_credit_receipt",
+            "creditor_agent_confirmation"
+          ]
+        }
+      ],
+      "expected_state": "recipient_available",
+      "expected_disposition": "do_not_infer_settlement_finality",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-025",
+      "scenario_type": "transfer_status_only_without_pacs008",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-025",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-025",
+        "request_digest": "sha256:reqalinka025aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-025"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-25",
+          "original_request_id": "REQ-LINK-025",
+          "request_digest": "sha256:reqalinka025aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-25",
+          "original_request_id": "REQ-LINK-025",
+          "request_digest": "sha256:reqalinka025aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-25",
+          "original_request_id": "REQ-LINK-025",
+          "request_digest": "sha256:reqalinka025aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "stage": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "participant_id": "PAYER_PSP",
+          "message_type": null,
+          "message_id": null,
+          "original_request_id": "REQ-LINK-025",
+          "request_digest": "sha256:reqalinka025aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-25",
+          "end_to_end_id": "E2E-REQ-LINK-025",
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "payer_authorization_receipt",
+            "instruction_creation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "stage": "interbank_status_report",
+          "actor_role": "creditor_agent",
+          "participant_id": "CREDITOR_AGENT",
+          "message_type": "pacs.002",
+          "message_id": "PACS002-25",
+          "original_request_id": "REQ-LINK-025",
+          "request_digest": "sha256:reqalinka025aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": "INS-25",
+          "end_to_end_id": "E2E-REQ-LINK-025",
+          "transaction_id": "TX-25",
+          "status_code": "ACCP",
+          "status_semantics": "instruction_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "authenticated_pacs002",
+            "original_instruction_reference"
+          ]
+        }
+      ],
+      "expected_state": "status_unmatched",
+      "expected_disposition": "quarantine_orphan_status",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    },
+    {
+      "scenario_id": "RTP-LINK-026",
+      "scenario_type": "valid_authentication_not_claim_legitimacy",
+      "profile_id": "ISO20022-RTP-GENERIC-LINKAGE-COMPARATOR-V1",
+      "request": {
+        "request_id": "REQ-LINK-026",
+        "request_message_type": "pain.013.001.12",
+        "request_message_id": "MSG-REQ-LINK-026",
+        "request_digest": "sha256:reqalinka026aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "requester_participant": "PSP-PAYEE-01",
+        "payer_participant": "PSP-PAYER-01",
+        "end_to_end_id": "E2E-REQ-LINK-026"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "stage": "request_created",
+          "actor_role": "payee_rtp_service_provider",
+          "participant_id": "PAYEE_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-26",
+          "original_request_id": "REQ-LINK-026",
+          "request_digest": "sha256:reqalinka026aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": 12500,
+          "currency": "ZAR",
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "sealed_pain013_message",
+            "request_identity_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "stage": "request_delivered",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.013.001.12",
+          "message_id": "PAIN013-26",
+          "original_request_id": "REQ-LINK-026",
+          "request_digest": "sha256:reqalinka026aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": null,
+          "status_semantics": null,
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "inter_provider_delivery_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "stage": "request_response",
+          "actor_role": "payer_rtp_service_provider",
+          "participant_id": "PAYER_RTP_SERVICE_PROVIDER",
+          "message_type": "pain.014.001.12",
+          "message_id": "PAIN014-26",
+          "original_request_id": "REQ-LINK-026",
+          "request_digest": "sha256:reqalinka026aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payment_instruction_id": null,
+          "end_to_end_id": null,
+          "transaction_id": null,
+          "status_code": "ACCP",
+          "status_semantics": "request_accepted",
+          "amount_minor_units": null,
+          "currency": null,
+          "authentication_state": "valid",
+          "authority_state": "valid",
+          "evidence_types": [
+            "pain014_response_receipt"
+          ]
+        }
+      ],
+      "expected_state": "accepted_no_instruction",
+      "expected_disposition": "seal_does_not_prove_invoice",
+      "negative_controls": [
+        "request_response_is_not_transfer",
+        "pacs002_is_not_credit",
+        "amount_reference_match_is_not_link",
+        "seal_validity_is_not_legal_legitimacy"
+      ]
+    }
+  ]
+}
