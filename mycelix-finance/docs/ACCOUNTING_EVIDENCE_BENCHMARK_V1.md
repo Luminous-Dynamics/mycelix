@@ -473,3 +473,42 @@ References:
 - https://www.ifrs.org/news-and-events/news/2026/02/ifrs-accounting-taxonomy-2025-to-remain-current-for-2026/
 - https://www.sec.gov/newsroom/whats-new/260915-edgar-263-release-xbrl-taxonomies-update
 
+
+
+## 16. Digital reporting and taxonomy-version qualification
+
+The benchmark now includes [FIN-REPORTING-001 / #5802](https://github.com/Luminous-Dynamics/mycelix/issues/5802) as a downstream reporting-output track. It is distinct from journal correctness and statement reconstruction: a correct statement can still be an invalid reporting deliverable if its taxonomy concept, entry point, reporting context, units, dimension, period or filing-validation package is wrong.
+
+### IFRS taxonomy versioning
+
+The IFRS Foundation states that the 2025 IFRS Accounting Taxonomy remains current for 2026 reporting periods and that the next annual taxonomy is expected in Q1 2027. Its 2026 guidance identifies taxonomy elements retained for comparative tagging that are expired/prohibited for periods beginning on or after 1 January 2026. The exact 2025 package and chosen entry point must therefore be pinned to the reporting profile and period.
+
+References:
+- https://www.ifrs.org/news-and-events/news/2026/02/ifrs-accounting-taxonomy-2025-to-remain-current-for-2026/
+- https://www.ifrs.org/issued-standards/ifrs-taxonomy/ifrs-accounting-taxonomy-2025/
+- https://www.ifrs.org/content/dam/ifrs/standards/taxonomy/2026/guidance-on-use-of-2025-ifrs-taxonomy.pdf
+
+### Jurisdiction-specific filing profiles
+
+SEC EDGAR Release 26.3 (deployed 14 September 2026) no longer accepts the 2024 IFRS taxonomy and confirms the 2025 IFRS taxonomy remains current for 2026 reporting periods. The EDGAR XBRL Technical Specifications are versioned per release; the October 2026 guide records technical changes. This illustrates that taxonomy version, validator package and filing-system rules are related but distinct versioned inputs.
+
+References:
+- https://www.sec.gov/newsroom/whats-new/260915-edgar-263-release-xbrl-taxonomies-update
+- https://www.sec.gov/submit-filings/technical-specifications
+
+Do not infer South African CIPC or SARS filing requirements from SEC EDGAR acceptance. Any South African filing profile requires the competent regulator's primary taxonomy, format, filing manual and effective-date instrument before it can be marked supported.
+
+### Reporting-output test dimensions
+
+- taxonomy package digest and entry-point selection;
+- correct element mapping and avoidance of unnecessary custom extensions;
+- entity, period, currency/unit, decimals/scale and dimensions;
+- standard vs extension concept semantics, labels, references and relationships;
+- presentation / calculation / definition linkbase integrity;
+- fact parity with independently reconstructed Mycelix statement values;
+- expired-element / comparative-period rules and transition profile;
+- validation against the exact selected filing-system artifacts;
+- clear non-authoritative treatment of model-suggested mappings;
+- strict exclusion of hypothetical Symtropy scenario values from actual reporting outputs.
+
+A syntactically valid XBRL instance does not prove the underlying accounting is correct. A correct statement does not prove the filing tags are correct. Report both as independent dimensions; never trade an arithmetic or authority gate against a higher rubric score.
