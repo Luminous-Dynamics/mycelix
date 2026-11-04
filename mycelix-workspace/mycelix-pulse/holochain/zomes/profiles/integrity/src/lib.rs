@@ -32,22 +32,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
             let base_address = action.base_address.clone();
             match link_type {
-            // AgentToProfile links must be created by the agent themselves --
-            // set_profile already derives the base from agent_info() coordinator-side with
-            // zero user input, but this was previously completely unvalidated at the DHT
-            // level, letting a modified coordinator link an arbitrary agent hash to any
-            // Profile entry (P0 author-binding gap). Mirrors the identical pattern already
-            // established in this cluster's messages zome.
-            LinkTypes::AgentToProfile => {
-                let author_hash: AnyLinkableHash = action.author().into();
-                if base_address != author_hash {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "Agent link base must match action author".to_string(),
-                    ));
+                // AgentToProfile links must be created by the agent themselves --
+                // set_profile already derives the base from agent_info() coordinator-side with
+                // zero user input, but this was previously completely unvalidated at the DHT
+                // level, letting a modified coordinator link an arbitrary agent hash to any
+                // Profile entry (P0 author-binding gap). Mirrors the identical pattern already
+                // established in this cluster's messages zome.
+                LinkTypes::AgentToProfile => {
+                    let author_hash: AnyLinkableHash = action.author().into();
+                    if base_address != author_hash {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Agent link base must match action author".to_string(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::PathComponent => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::PathComponent => Ok(ValidateCallbackResult::Valid),
             }
         }
         FlatOp::Update(_) => Ok(ValidateCallbackResult::Invalid(
