@@ -321,14 +321,17 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
                     || !evidence_contains(event, "independent_return_receipt")
                     || !evidence_contains(event, "independent_ledger_reconciliation")
                 {
-                    out.errors.push(format!("{path}: return requires independent receipt and ledger reconciliation"));
+                    out.errors.push(format!(
+                        "{path}: return requires independent receipt and ledger reconciliation"
+                    ));
                 }
                 let Some(reference) = str_at(event, "return_reference") else {
                     out.errors.push(format!("{path}: return_reference missing"));
                     continue;
                 };
                 if !return_refs.insert(reference.to_owned()) {
-                    out.errors.push(format!("{path}: duplicate return_reference {reference}"));
+                    out.errors
+                        .push(format!("{path}: duplicate return_reference {reference}"));
                 }
                 return_total = match return_total.checked_add(amount) {
                     Some(total) => total,
@@ -339,36 +342,58 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
                 };
                 out.verified_return_count += 1;
             } else if amount != 0 {
-                out.errors.push(format!("{path}: non-return event cannot contribute returned amount"));
+                out.errors.push(format!(
+                    "{path}: non-return event cannot contribute returned amount"
+                ));
             }
 
-            if authority == "invalid" && !matches!(
-                event_type,
-                "unauthorised_submission_blocked"
-                    | "data_disclosure_blocked"
-                    | "case_closure_attempt_rejected"
-                    | "remedy_misclassification_blocked"
-            ) {
-                out.errors.push(format!("{path}: invalid authority cannot create an accepted case/economic event"));
+            if authority == "invalid"
+                && !matches!(
+                    event_type,
+                    "unauthorised_submission_blocked"
+                        | "data_disclosure_blocked"
+                        | "case_closure_attempt_rejected"
+                        | "remedy_misclassification_blocked"
+                )
+            {
+                out.errors.push(format!(
+                    "{path}: invalid authority cannot create an accepted case/economic event"
+                ));
             }
-            if event_type == "funds_held" && (authority != "valid" || !evidence_contains(event, "hold_confirmation")) {
-                out.errors.push(format!("{path}: hold requires valid authority and hold confirmation"));
+            if event_type == "funds_held"
+                && (authority != "valid" || !evidence_contains(event, "hold_confirmation"))
+            {
+                out.errors.push(format!(
+                    "{path}: hold requires valid authority and hold confirmation"
+                ));
             }
         }
 
         if return_total != declared_return {
-            out.errors.push(format!("scenarios[{case_index}]: declared returned amount differs from verified return events"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: declared returned amount differs from verified return events"
+            ));
         }
         if return_total > claim {
-            out.errors.push(format!("scenarios[{case_index}]: returned amount exceeds claim"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: returned amount exceeds claim"
+            ));
         }
-        if return_total > 0 && !events.iter().any(|event| str_at(event, "event_type") == Some("funds_returned")) {
-            out.errors.push(format!("scenarios[{case_index}]: returned amount lacks return event"));
+        if return_total > 0
+            && !events
+                .iter()
+                .any(|event| str_at(event, "event_type") == Some("funds_returned"))
+        {
+            out.errors.push(format!(
+                "scenarios[{case_index}]: returned amount lacks return event"
+            ));
         }
         out.returned_minor_units = match out.returned_minor_units.checked_add(return_total) {
             Some(total) => total,
             None => {
-                out.errors.push(format!("scenarios[{case_index}]: corpus returned-value total overflow"));
+                out.errors.push(format!(
+                    "scenarios[{case_index}]: corpus returned-value total overflow"
+                ));
                 u64::MAX
             }
         };
@@ -381,7 +406,11 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
             "funds_held_not_returned"
         } else if has_location {
             "funds_located_not_returned"
-        } else if has_recall || events.iter().any(|event| str_at(event, "event_type") == Some("return_instruction_observed")) {
+        } else if has_recall
+            || events
+                .iter()
+                .any(|event| str_at(event, "event_type") == Some("return_instruction_observed"))
+        {
             "request_only"
         } else if events.iter().any(|event| {
             matches!(
@@ -401,18 +430,29 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
 
         let disposition = str_at(case, "case_disposition").unwrap_or("");
         if disposition == "open" && has_case_closed {
-            out.errors.push(format!("scenarios[{case_index}]: open case contains case_closed event"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: open case contains case_closed event"
+            ));
         }
         if disposition != "open" && !has_case_closed {
-            out.errors.push(format!("scenarios[{case_index}]: closed case lacks case_closed event"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: closed case lacks case_closed event"
+            ));
         }
         if matches!(disposition, "closed_with_return") && return_total == 0 {
-            out.errors.push(format!("scenarios[{case_index}]: closed_with_return requires returned value"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: closed_with_return requires returned value"
+            ));
         }
         if matches!(disposition, "closed_without_return") && return_total != 0 {
-            out.errors.push(format!("scenarios[{case_index}]: closed_without_return conflicts with returned value"));
+            out.errors.push(format!(
+                "scenarios[{case_index}]: closed_without_return conflicts with returned value"
+            ));
         }
-        if let Some(close_event) = events.iter().find(|event| str_at(event, "event_type") == Some("case_closed")) {
+        if let Some(close_event) = events
+            .iter()
+            .find(|event| str_at(event, "event_type") == Some("case_closed"))
+        {
             if str_at(close_event, "closure_disposition") != Some(disposition)
                 || str_at(close_event, "authority_state") != Some("valid")
                 || !evidence_contains(close_event, "case_disposition_notice")
