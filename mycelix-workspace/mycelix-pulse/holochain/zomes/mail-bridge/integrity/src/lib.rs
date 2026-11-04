@@ -1149,7 +1149,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::CreateEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => {
                 validate_create_entry(app_entry, action.into())
-            },
+            }
             OpEntry::UpdateEntry { app_entry, .. } => validate_update_entry(app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -1172,7 +1172,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-
 // Shared validation functions keep the HDI 0.8 StoreEntry, StoreRecord, and Update
 // operations on the same policy path.
 fn validate_create_entry(
@@ -1180,249 +1179,223 @@ fn validate_create_entry(
     action: TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
-                EntryTypes::MailBridgeQuery(query) => {
-                    if query.requester != action.author() {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Requester must match author".to_string(),
-                        ));
-                    }
-                    if query.domain.is_empty() || query.query_type.is_empty() {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Domain and query_type cannot be empty".to_string(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                EntryTypes::SenderProofConsumption(consumption) => {
-                    validate_sender_proof_consumption(&consumption, &action)
-                }
-                EntryTypes::SenderProofVerifierArtifactRecord(record) => {
-                    validate_sender_proof_verifier_artifact_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierTransparencyRecord(record) => {
-                    validate_sender_proof_verifier_transparency_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCompatibilityRecord(record) => {
-                    validate_sender_proof_verifier_compatibility_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutPlanRecord(record) => {
-                    validate_sender_proof_verifier_rollout_plan_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutStateRecord(record) => {
-                    validate_sender_proof_verifier_rollout_state_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_rollout_checkpoint_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutHealthRecord(record) => {
-                    validate_sender_proof_verifier_rollout_health_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRolloutSafetyActionRecord(record) => {
-                    validate_sender_proof_verifier_rollout_safety_action_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierTelemetryRetentionRecord(record) => {
-                    validate_sender_proof_verifier_telemetry_retention_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierRollbackDrillRecord(record) => {
-                    validate_sender_proof_verifier_rollback_drill_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierReleaseAttestationRecord(record) => {
-                    validate_sender_proof_verifier_release_attestation_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyCeremonyRecord(record) => {
-                    validate_sender_proof_verifier_custody_ceremony_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyCompromiseRecord(record) => {
-                    validate_sender_proof_verifier_custody_compromise_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyRecoveryRecord(record) => {
-                    validate_sender_proof_verifier_custody_recovery_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyRotationRecord(record) => {
-                    validate_sender_proof_verifier_custody_rotation_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierCustodyRotationCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_custody_rotation_checkpoint_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceLossNoticeRecord(record) => {
-                    validate_sender_proof_verifier_device_loss_notice_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceSuccessionRecord(record) => {
-                    validate_sender_proof_verifier_device_succession_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceSuccessionCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_device_succession_checkpoint_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceAttestationRecord(record) => {
-                    validate_sender_proof_verifier_device_attestation_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceCloneEvidenceRecord(record) => {
-                    validate_sender_proof_verifier_device_clone_evidence_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceDecommissionRecord(record) => {
-                    validate_sender_proof_verifier_device_decommission_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceAttestationCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_device_attestation_checkpoint_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceTrustPolicyRecord(record) => {
-                    validate_sender_proof_verifier_device_trust_policy_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceMeasurementPolicyRecord(record) => {
-                    validate_sender_proof_verifier_device_measurement_policy_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceAttestationRootRotationRecord(record) => {
-                    validate_sender_proof_verifier_device_attestation_root_rotation_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierDeviceTrustBindingRecord(record) => {
-                    validate_sender_proof_verifier_device_trust_binding_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceTrustCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_device_trust_checkpoint_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierMeasuredBootPolicyRecord(record) => {
-                    validate_sender_proof_verifier_measured_boot_policy_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierMeasuredBootEvidenceRecord(record) => {
-                    validate_sender_proof_verifier_measured_boot_evidence_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierDeviceTrustRevocationSetRecord(record) => {
-                    validate_sender_proof_verifier_device_trust_revocation_set_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierMeasurementRecoveryRecord(record) => {
-                    validate_sender_proof_verifier_measurement_recovery_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierMeasuredBootCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_measured_boot_checkpoint_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierEndorsementPolicyRecord(record) => {
-                    validate_sender_proof_verifier_endorsement_policy_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierManufacturerRootSetRecord(record) => {
-                    validate_sender_proof_verifier_manufacturer_root_set_record(&record, &action)
-                }
-                EntryTypes::SenderProofVerifierEndorsementChainEvidenceRecord(record) => {
-                    validate_sender_proof_verifier_endorsement_chain_evidence_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierEndorsementRevocationSetRecord(record) => {
-                    validate_sender_proof_verifier_endorsement_revocation_set_record(
-                        &record, &action,
-                    )
-                }
-                EntryTypes::SenderProofVerifierEndorsementCheckpointRecord(record) => {
-                    validate_sender_proof_verifier_endorsement_checkpoint_record(&record, &action)
-                }
-                EntryTypes::SenderProofConflictEvidence(evidence) => {
-                    validate_sender_proof_conflict_evidence(&evidence, &action)
-                }
-                EntryTypes::SenderProofAuthorityForkEvidence(evidence) => {
-                    validate_sender_proof_authority_fork_evidence(&evidence, &action)
-                }
-                EntryTypes::SenderProofConflictQuarantine(quarantine) => {
-                    validate_sender_proof_conflict_quarantine(&quarantine, &action)
-                }
-                EntryTypes::SenderProofActivationPolicyRecord(record) => {
-                    validate_sender_proof_activation_policy_record(&record, &action)
-                }
-                EntryTypes::SenderProofActivationAuditEvent(event) => {
-                    validate_sender_proof_activation_audit_event(&event, &action)
-                }
-                EntryTypes::MailBridgeEvent(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::MailBridgeQuery(query) => {
+            if query.requester != action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Requester must match author".to_string(),
+                ));
+            }
+            if query.domain.is_empty() || query.query_type.is_empty() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Domain and query_type cannot be empty".to_string(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        EntryTypes::SenderProofConsumption(consumption) => {
+            validate_sender_proof_consumption(&consumption, &action)
+        }
+        EntryTypes::SenderProofVerifierArtifactRecord(record) => {
+            validate_sender_proof_verifier_artifact_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierTransparencyRecord(record) => {
+            validate_sender_proof_verifier_transparency_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCompatibilityRecord(record) => {
+            validate_sender_proof_verifier_compatibility_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutPlanRecord(record) => {
+            validate_sender_proof_verifier_rollout_plan_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutStateRecord(record) => {
+            validate_sender_proof_verifier_rollout_state_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutCheckpointRecord(record) => {
+            validate_sender_proof_verifier_rollout_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutHealthRecord(record) => {
+            validate_sender_proof_verifier_rollout_health_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRolloutSafetyActionRecord(record) => {
+            validate_sender_proof_verifier_rollout_safety_action_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierTelemetryRetentionRecord(record) => {
+            validate_sender_proof_verifier_telemetry_retention_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierRollbackDrillRecord(record) => {
+            validate_sender_proof_verifier_rollback_drill_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierReleaseAttestationRecord(record) => {
+            validate_sender_proof_verifier_release_attestation_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyCeremonyRecord(record) => {
+            validate_sender_proof_verifier_custody_ceremony_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyCompromiseRecord(record) => {
+            validate_sender_proof_verifier_custody_compromise_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyRecoveryRecord(record) => {
+            validate_sender_proof_verifier_custody_recovery_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyRotationRecord(record) => {
+            validate_sender_proof_verifier_custody_rotation_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierCustodyRotationCheckpointRecord(record) => {
+            validate_sender_proof_verifier_custody_rotation_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceLossNoticeRecord(record) => {
+            validate_sender_proof_verifier_device_loss_notice_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceSuccessionRecord(record) => {
+            validate_sender_proof_verifier_device_succession_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceSuccessionCheckpointRecord(record) => {
+            validate_sender_proof_verifier_device_succession_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceAttestationRecord(record) => {
+            validate_sender_proof_verifier_device_attestation_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceCloneEvidenceRecord(record) => {
+            validate_sender_proof_verifier_device_clone_evidence_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceDecommissionRecord(record) => {
+            validate_sender_proof_verifier_device_decommission_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceAttestationCheckpointRecord(record) => {
+            validate_sender_proof_verifier_device_attestation_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceTrustPolicyRecord(record) => {
+            validate_sender_proof_verifier_device_trust_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceMeasurementPolicyRecord(record) => {
+            validate_sender_proof_verifier_device_measurement_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceAttestationRootRotationRecord(record) => {
+            validate_sender_proof_verifier_device_attestation_root_rotation_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceTrustBindingRecord(record) => {
+            validate_sender_proof_verifier_device_trust_binding_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceTrustCheckpointRecord(record) => {
+            validate_sender_proof_verifier_device_trust_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierMeasuredBootPolicyRecord(record) => {
+            validate_sender_proof_verifier_measured_boot_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierMeasuredBootEvidenceRecord(record) => {
+            validate_sender_proof_verifier_measured_boot_evidence_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierDeviceTrustRevocationSetRecord(record) => {
+            validate_sender_proof_verifier_device_trust_revocation_set_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierMeasurementRecoveryRecord(record) => {
+            validate_sender_proof_verifier_measurement_recovery_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierMeasuredBootCheckpointRecord(record) => {
+            validate_sender_proof_verifier_measured_boot_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierEndorsementPolicyRecord(record) => {
+            validate_sender_proof_verifier_endorsement_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierManufacturerRootSetRecord(record) => {
+            validate_sender_proof_verifier_manufacturer_root_set_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierEndorsementChainEvidenceRecord(record) => {
+            validate_sender_proof_verifier_endorsement_chain_evidence_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierEndorsementRevocationSetRecord(record) => {
+            validate_sender_proof_verifier_endorsement_revocation_set_record(&record, &action)
+        }
+        EntryTypes::SenderProofVerifierEndorsementCheckpointRecord(record) => {
+            validate_sender_proof_verifier_endorsement_checkpoint_record(&record, &action)
+        }
+        EntryTypes::SenderProofConflictEvidence(evidence) => {
+            validate_sender_proof_conflict_evidence(&evidence, &action)
+        }
+        EntryTypes::SenderProofAuthorityForkEvidence(evidence) => {
+            validate_sender_proof_authority_fork_evidence(&evidence, &action)
+        }
+        EntryTypes::SenderProofConflictQuarantine(quarantine) => {
+            validate_sender_proof_conflict_quarantine(&quarantine, &action)
+        }
+        EntryTypes::SenderProofActivationPolicyRecord(record) => {
+            validate_sender_proof_activation_policy_record(&record, &action)
+        }
+        EntryTypes::SenderProofActivationAuditEvent(event) => {
+            validate_sender_proof_activation_audit_event(&event, &action)
+        }
+        EntryTypes::MailBridgeEvent(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 fn validate_update_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
     match entry {
-                EntryTypes::SenderProofConsumption(_) => Ok(ValidateCallbackResult::Invalid(
-                    "sender-proof consumption records are append-only".to_string(),
-                )),
-                EntryTypes::SenderProofVerifierArtifactRecord(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof verifier artifact records are append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofVerifierTransparencyRecord(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof verifier transparency records are append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofVerifierCompatibilityRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutPlanRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutStateRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutHealthRecord(_)
-                | EntryTypes::SenderProofVerifierRolloutSafetyActionRecord(_)
-                | EntryTypes::SenderProofVerifierTelemetryRetentionRecord(_)
-                | EntryTypes::SenderProofVerifierRollbackDrillRecord(_)
-                | EntryTypes::SenderProofVerifierReleaseAttestationRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyCeremonyRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyCompromiseRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyRecoveryRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyRotationRecord(_)
-                | EntryTypes::SenderProofVerifierCustodyRotationCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceLossNoticeRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceSuccessionRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceSuccessionCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceAttestationRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceCloneEvidenceRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceDecommissionRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceAttestationCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceTrustPolicyRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceMeasurementPolicyRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceAttestationRootRotationRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceTrustBindingRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceTrustCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierMeasuredBootPolicyRecord(_)
-                | EntryTypes::SenderProofVerifierMeasuredBootEvidenceRecord(_)
-                | EntryTypes::SenderProofVerifierDeviceTrustRevocationSetRecord(_)
-                | EntryTypes::SenderProofVerifierMeasurementRecoveryRecord(_)
-                | EntryTypes::SenderProofVerifierMeasuredBootCheckpointRecord(_)
-                | EntryTypes::SenderProofVerifierEndorsementPolicyRecord(_)
-                | EntryTypes::SenderProofVerifierManufacturerRootSetRecord(_)
-                | EntryTypes::SenderProofVerifierEndorsementChainEvidenceRecord(_)
-                | EntryTypes::SenderProofVerifierEndorsementRevocationSetRecord(_)
-                | EntryTypes::SenderProofVerifierEndorsementCheckpointRecord(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof verifier rollout records are append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofConflictEvidence(_) => Ok(ValidateCallbackResult::Invalid(
-                    "sender-proof conflict evidence is append-only".to_string(),
-                )),
-                EntryTypes::SenderProofAuthorityForkEvidence(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof authority-fork evidence is append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofConflictQuarantine(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof conflict quarantine is append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofActivationPolicyRecord(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof activation policy records are append-only".to_string(),
-                    ))
-                }
-                EntryTypes::SenderProofActivationAuditEvent(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "sender-proof activation audit events are append-only".to_string(),
-                    ))
-                }
+        EntryTypes::SenderProofConsumption(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof consumption records are append-only".to_string(),
+        )),
+        EntryTypes::SenderProofVerifierArtifactRecord(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof verifier artifact records are append-only".to_string(),
+        )),
+        EntryTypes::SenderProofVerifierTransparencyRecord(_) => {
+            Ok(ValidateCallbackResult::Invalid(
+                "sender-proof verifier transparency records are append-only".to_string(),
+            ))
+        }
+        EntryTypes::SenderProofVerifierCompatibilityRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutPlanRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutStateRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutHealthRecord(_)
+        | EntryTypes::SenderProofVerifierRolloutSafetyActionRecord(_)
+        | EntryTypes::SenderProofVerifierTelemetryRetentionRecord(_)
+        | EntryTypes::SenderProofVerifierRollbackDrillRecord(_)
+        | EntryTypes::SenderProofVerifierReleaseAttestationRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyCeremonyRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyCompromiseRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyRecoveryRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyRotationRecord(_)
+        | EntryTypes::SenderProofVerifierCustodyRotationCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceLossNoticeRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceSuccessionRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceSuccessionCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceAttestationRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceCloneEvidenceRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceDecommissionRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceAttestationCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceTrustPolicyRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceMeasurementPolicyRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceAttestationRootRotationRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceTrustBindingRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceTrustCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierMeasuredBootPolicyRecord(_)
+        | EntryTypes::SenderProofVerifierMeasuredBootEvidenceRecord(_)
+        | EntryTypes::SenderProofVerifierDeviceTrustRevocationSetRecord(_)
+        | EntryTypes::SenderProofVerifierMeasurementRecoveryRecord(_)
+        | EntryTypes::SenderProofVerifierMeasuredBootCheckpointRecord(_)
+        | EntryTypes::SenderProofVerifierEndorsementPolicyRecord(_)
+        | EntryTypes::SenderProofVerifierManufacturerRootSetRecord(_)
+        | EntryTypes::SenderProofVerifierEndorsementChainEvidenceRecord(_)
+        | EntryTypes::SenderProofVerifierEndorsementRevocationSetRecord(_)
+        | EntryTypes::SenderProofVerifierEndorsementCheckpointRecord(_) => {
+            Ok(ValidateCallbackResult::Invalid(
+                "sender-proof verifier rollout records are append-only".to_string(),
+            ))
+        }
+        EntryTypes::SenderProofConflictEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof conflict evidence is append-only".to_string(),
+        )),
+        EntryTypes::SenderProofAuthorityForkEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof authority-fork evidence is append-only".to_string(),
+        )),
+        EntryTypes::SenderProofConflictQuarantine(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof conflict quarantine is append-only".to_string(),
+        )),
+        EntryTypes::SenderProofActivationPolicyRecord(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof activation policy records are append-only".to_string(),
+        )),
+        EntryTypes::SenderProofActivationAuditEvent(_) => Ok(ValidateCallbackResult::Invalid(
+            "sender-proof activation audit events are append-only".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Invalid(
             "Mail bridge entries are append-only".to_string(),
         )),
@@ -3333,7 +3306,9 @@ fn validate_sender_proof_conflict_quarantine(
             "unsupported sender-proof conflict disposition".to_string(),
         ));
     }
-    if quarantine.quarantined_by != action.author() || quarantine.quarantined_at != action.timestamp() {
+    if quarantine.quarantined_by != action.author()
+        || quarantine.quarantined_at != action.timestamp()
+    {
         return Ok(ValidateCallbackResult::Invalid(
             "conflict quarantine author and timestamp must match action provenance".to_string(),
         ));
