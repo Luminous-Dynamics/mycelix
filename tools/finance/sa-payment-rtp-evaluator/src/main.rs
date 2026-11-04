@@ -880,9 +880,14 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
-    mutate_and_reject("expiry event cannot precede request expiry", corpus, schema, |v| {
-        v["scenarios"][3]["events"][2]["observed_at"] = json!("2026-11-04T09:59:59Z");
-    })?;
+    mutate_and_reject(
+        "expiry event cannot precede request expiry",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][3]["events"][2]["observed_at"] = json!("2026-11-04T09:59:59Z");
+        },
+    )?;
     count += 1;
 
     Ok(count)
