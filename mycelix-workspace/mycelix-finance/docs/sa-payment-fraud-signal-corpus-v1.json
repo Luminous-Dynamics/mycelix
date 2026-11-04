@@ -1,0 +1,2490 @@
+{
+  "schema": "mycelix.sa-payment-fraud-signal/v1",
+  "corpus_id": "ZA-SA-PAYMENT-FRAUD-SIGNAL-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "as_of": "2026-11-04",
+  "created_on": "2026-11-04",
+  "jurisdiction": "ZA",
+  "purpose": "Qualify scoped, source-bound fraud signals with correction, appeal, expiry and privacy constraints.",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "SARB_PEM_POSITION_2025",
+      "authority": "South African Reserve Bank",
+      "title": "Positioning the SARB's Payments Ecosystem Modernisation Programme",
+      "url": "https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf",
+      "published_on": "2025-01-01",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_policy_proposal",
+      "supports": [
+        "The paper proposes a future NPU baseline fraud protection capability",
+        "The paper describes participant reporting of suspected and actual fraud",
+        "The paper describes transactional fraud scoring across payment channels and participants"
+      ],
+      "does_not_support": [
+        "Operational nationwide fraud-sharing API",
+        "Current authority to share identified customer data",
+        "SARB endorsement of Mycelix"
+      ]
+    },
+    {
+      "id": "SARB_PEM_PROGRAMME_2026",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Programme",
+      "url": "https://resbank.co.za/en/home/what-we-do/payments-and-settlements/pem",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_programme_status_page",
+      "supports": [
+        "SARB says an insights capability and fraud framework will be developed",
+        "PEM programme aims to use payments data to identify trends and combat fraud"
+      ],
+      "does_not_support": [
+        "A live shared fraud registry or API",
+        "Participant coverage or operational service level",
+        "Legal basis for any particular data disclosure"
+      ]
+    },
+    {
+      "id": "BIS_FRAUD_CROSS_BORDER_2026",
+      "authority": "BIS Committee on Payments and Market Infrastructures / PIE Task Team 2",
+      "title": "Enhancing cross-border payments — addressing fraud",
+      "url": "https://www.bis.org/cpmi/pietf/fraud_report_2026.pdf",
+      "published_on": "2026-02-01",
+      "observed_on": "2026-11-04",
+      "evidence_class": "international_policy_and_industry_report",
+      "supports": [
+        "Fragmented data across payment networks impedes complete fraud intelligence",
+        "Privacy and regulatory differences hinder cross-border data sharing",
+        "Fraud prevention needs proportionate collaboration and coordination"
+      ],
+      "does_not_support": [
+        "Authority to share South African customer data",
+        "A prescribed Mycelix federated registry design",
+        "Proof that a shared global blacklist is necessary"
+      ]
+    },
+    {
+      "id": "BIS_FPS_INTERLINK_2026",
+      "authority": "BIS Committee on Payments and Market Infrastructures / PIE Task Team 2",
+      "title": "Enhancing cross-border payments: Fast Payment System interlinking",
+      "url": "https://www.bis.org/cpmi/pietf/fps_feb_2026.pdf",
+      "published_on": "2026-02-01",
+      "observed_on": "2026-11-04",
+      "evidence_class": "international_policy_and_industry_report",
+      "supports": [
+        "Common fraud data taxonomies and data models for confirming payees are relevant to FPS interlinking",
+        "Information sharing must respect legal and policy limits",
+        "Governance and escalation roles should be clear"
+      ],
+      "does_not_support": [
+        "A universal cross-border fraud data permission",
+        "A requirement to share raw account or customer records"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+      "jurisdiction": "ZA",
+      "profile_status": "synthetic_test_profile_only",
+      "allowed_source_participants": [
+        "PSP_A",
+        "PSP_B",
+        "PSP_C"
+      ],
+      "allowed_audiences": [
+        "participating_psp_fraud_team"
+      ],
+      "allowed_purposes": [
+        "payment_fraud_prevention"
+      ],
+      "max_signal_ttl_seconds": 604800,
+      "source_refs": [
+        "SARB_PEM_POSITION_2025",
+        "SARB_PEM_PROGRAMME_2026"
+      ],
+      "notes": "Synthetic participant profile only; no South African participant has been admitted."
+    },
+    {
+      "profile_id": "ZA-PEM-FUTURE-NPU-PROPOSAL-V1",
+      "jurisdiction": "ZA",
+      "profile_status": "proposal_only",
+      "allowed_source_participants": [],
+      "allowed_audiences": [],
+      "allowed_purposes": [],
+      "max_signal_ttl_seconds": null,
+      "source_refs": [
+        "SARB_PEM_POSITION_2025",
+        "SARB_PEM_PROGRAMME_2026"
+      ],
+      "notes": "Policy direction only; must not imply operational NPU fraud signal infrastructure."
+    },
+    {
+      "profile_id": "XBRD-FPS-INTERLINK-SYNTHETIC-V1",
+      "jurisdiction": "MULTI",
+      "profile_status": "synthetic_test_profile_only",
+      "allowed_source_participants": [
+        "PSP_A",
+        "PSP_B"
+      ],
+      "allowed_audiences": [
+        "participating_psp_fraud_team"
+      ],
+      "allowed_purposes": [
+        "payment_fraud_prevention"
+      ],
+      "max_signal_ttl_seconds": 86400,
+      "source_refs": [
+        "BIS_FRAUD_CROSS_BORDER_2026",
+        "BIS_FPS_INTERLINK_2026"
+      ],
+      "notes": "Synthetic cross-border comparator; each jurisdiction's legal basis and recipient permission remain unqualified."
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SA-FS-001",
+      "scenario_type": "single_suspected_report_step_up",
+      "signal": {
+        "signal_id": "SIG-001",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-001",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-1",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-1",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [
+        {
+          "disclosure_id": "DISC-1",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:10:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false
+        }
+      ],
+      "receiver_decision": {
+        "action": "step_up_authentication",
+        "basis": "single_signal_precaution",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "retain_suspected_and_step_up",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-002",
+      "scenario_type": "suspected_not_promoted_by_source_without_confirmation",
+      "signal": {
+        "signal_id": "SIG-002",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-002",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-2",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-2",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-2",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 2,
+          "event_type": "source_confirmation_attempt_rejected",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "invalid",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "manual_review",
+        "basis": "source_evidence_incomplete",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "retain_suspected",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-003",
+      "scenario_type": "derived_reports_same_root_not_independent",
+      "signal": {
+        "signal_id": "SIG-003",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-003",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-3",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-SAME",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          },
+          {
+            "participant_id": "PSP_B",
+            "root_event_id": "ROOT-SAME",
+            "independence": "derived_copy",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-4",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "do_not_count_duplicate_corroboration",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-004",
+      "scenario_type": "unauthorised_source_quarantined",
+      "signal": {
+        "signal_id": "SIG-004",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_X",
+        "source_authority_state": "unknown",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-004",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-4",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_X",
+            "root_event_id": "ROOT-4",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-5",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_X",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "quarantine_source",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-005",
+      "scenario_type": "wrong_audience_disclosure_blocked",
+      "signal": {
+        "signal_id": "SIG-005",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-005",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-5",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-5",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-6",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 2,
+          "event_type": "out_of_audience_disclosure_blocked",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "invalid",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "block_wrong_audience",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-006",
+      "scenario_type": "secondary_use_credit_scoring_blocked",
+      "signal": {
+        "signal_id": "SIG-006",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "credit_scoring",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-006",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-6",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-6",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-8",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-9",
+          "sequence": 2,
+          "event_type": "secondary_use_blocked",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "invalid",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "block_secondary_use",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-007",
+      "scenario_type": "raw_account_identifier_disclosure_blocked",
+      "signal": {
+        "signal_id": "SIG-007",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-007",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-7",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-7",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-10",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-11",
+          "sequence": 2,
+          "event_type": "raw_pii_disclosure_blocked",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "invalid",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "block_privacy_leak",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-008",
+      "scenario_type": "account_existence_enumeration_blocked",
+      "signal": {
+        "signal_id": "SIG-008",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-008",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-8",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-8",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-12",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-13",
+          "sequence": 2,
+          "event_type": "existence_oracle_query_blocked",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "invalid",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "block_enumeration",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-009",
+      "scenario_type": "public_hash_identifier_rejected",
+      "signal": {
+        "signal_id": "SIG-009",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "public_hash",
+          "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "scope_id": "GLOBAL",
+          "key_id": "NONE"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-9",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-9",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-14",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "reject_unscoped_public_hash",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-010",
+      "scenario_type": "expired_signal_not_current",
+      "signal": {
+        "signal_id": "SIG-010",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "expired",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-010",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-10",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-10",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-03T12:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-15",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-16",
+          "sequence": 2,
+          "event_type": "signal_expired",
+          "from_status": "suspected",
+          "to_status": "expired",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-03T12:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "expire_signal",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-011",
+      "scenario_type": "withdrawn_signal_not_redisclosed",
+      "signal": {
+        "signal_id": "SIG-011",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "withdrawn",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-011",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-11",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-11",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-17",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-18",
+          "sequence": 2,
+          "event_type": "signal_withdrawn",
+          "from_status": "suspected",
+          "to_status": "withdrawn",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagate_withdrawal",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-012",
+      "scenario_type": "correction_supersedes_prior_subject_binding",
+      "signal": {
+        "signal_id": "SIG-012",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-012",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-12",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-12",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-19",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-20",
+          "sequence": 2,
+          "event_type": "signal_corrected",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagate_correction",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-013",
+      "scenario_type": "contested_signal_visible_as_contested_only",
+      "signal": {
+        "signal_id": "SIG-013",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "contested",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-013",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-13",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-13",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-21",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-22",
+          "sequence": 2,
+          "event_type": "signal_contested",
+          "from_status": "suspected",
+          "to_status": "contested",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [
+        {
+          "disclosure_id": "DISC-13",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "contested",
+          "observed_at": "2026-11-04T09:10:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false
+        }
+      ],
+      "receiver_decision": {
+        "action": "manual_review",
+        "basis": "contested_signal_requires_review",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "manual_review_contested",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-014",
+      "scenario_type": "appeal_upheld_and_signal_corrected",
+      "signal": {
+        "signal_id": "SIG-014",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-014",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-14",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-14",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "accepted"
+      },
+      "events": [
+        {
+          "event_id": "EV-23",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-24",
+          "sequence": 2,
+          "event_type": "appeal_resolved_correction",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "allow",
+        "basis": "appeal_upheld",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagate_appeal_correction",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-015",
+      "scenario_type": "informal_merchant_false_positive_review",
+      "signal": {
+        "signal_id": "SIG-015",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "under_review",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-015",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-15",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-15",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-25",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-26",
+          "sequence": 2,
+          "event_type": "signal_contested",
+          "from_status": "suspected",
+          "to_status": "under_review",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "manual_review",
+        "basis": "appeal_pending",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "protect_contested_merchant",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-016",
+      "scenario_type": "cross_border_use_without_legal_profile_quarantined",
+      "signal": {
+        "signal_id": "SIG-016",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZW",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-016",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-16",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-16",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-27",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "quarantine_cross_jurisdiction",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-017",
+      "scenario_type": "single_signal_automatic_denial_blocked",
+      "signal": {
+        "signal_id": "SIG-017",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-017",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-17",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-17",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-28",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-29",
+          "sequence": 2,
+          "event_type": "automatic_denial_attempt_blocked",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "invalid",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "automatic_single_signal_denial_blocked",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "block_automatic_denial",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-018",
+      "scenario_type": "single_signal_step_up_is_proportionate",
+      "signal": {
+        "signal_id": "SIG-018",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-018",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-18",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-18",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-30",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [
+        {
+          "disclosure_id": "DISC-18",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:10:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false
+        }
+      ],
+      "receiver_decision": {
+        "action": "step_up_authentication",
+        "basis": "single_signal_precaution",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "allow_proportionate_step_up",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-019",
+      "scenario_type": "minimal_disclosure_for_authorised_recipient",
+      "signal": {
+        "signal_id": "SIG-019",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-019",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-19",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-19",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-31",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [
+        {
+          "disclosure_id": "DISC-19",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:10:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false
+        }
+      ],
+      "receiver_decision": {
+        "action": "monitor",
+        "basis": "scoped_signal",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "allow_minimised_disclosure",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-020",
+      "scenario_type": "revoked_signing_key_signal_quarantined",
+      "signal": {
+        "signal_id": "SIG-020",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "revoked",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-020",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-20",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-20",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-32",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "quarantine_revoked_source",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-021",
+      "scenario_type": "evidence_digest_change_without_new_version_blocked",
+      "signal": {
+        "signal_id": "SIG-021",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-021",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-21",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-21",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-33",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-34",
+          "sequence": 2,
+          "event_type": "evidence_digest_mutation_blocked",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "invalid",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "block_digest_mutation",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-022",
+      "scenario_type": "future_clock_skew_signal_quarantined",
+      "signal": {
+        "signal_id": "SIG-022",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-022",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-22",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-22",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-35",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-36",
+          "sequence": 2,
+          "event_type": "clock_skew_quarantined",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "unknown",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-05T00:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "quarantine_clock_skew",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-023",
+      "scenario_type": "replay_wrong_audience_blocked",
+      "signal": {
+        "signal_id": "SIG-023",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-023",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-23",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-23",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-37",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-38",
+          "sequence": 2,
+          "event_type": "replay_wrong_audience_blocked",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "invalid",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "block_replay",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-024",
+      "scenario_type": "departed_participant_access_revoked",
+      "signal": {
+        "signal_id": "SIG-024",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-024",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-24",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-24",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-39",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-40",
+          "sequence": 2,
+          "event_type": "recipient_access_revoked",
+          "from_status": "suspected",
+          "to_status": null,
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "revoke_recipient_access",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-025",
+      "scenario_type": "duplicate_correction_event_deduplicated",
+      "signal": {
+        "signal_id": "SIG-025",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-025",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-25",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-25",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-41",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-42",
+          "sequence": 2,
+          "event_type": "signal_corrected",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-43",
+          "sequence": 3,
+          "event_type": "duplicate_correction_event_ignored",
+          "from_status": "corrected",
+          "to_status": null,
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "deduplicate_correction",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-026",
+      "scenario_type": "later_legitimate_transaction_corrects_suspicion",
+      "signal": {
+        "signal_id": "SIG-026",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-026",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-26",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-26",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-44",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-45",
+          "sequence": 2,
+          "event_type": "source_correction_recorded",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "allow",
+        "basis": "source_correction_received",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagate_legitimacy_correction",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-027",
+      "scenario_type": "confirmed_source_signal_later_overturned",
+      "signal": {
+        "signal_id": "SIG-027",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "withdrawn",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-027",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-27",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-27",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-46",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-47",
+          "sequence": 2,
+          "event_type": "source_finding_overturned",
+          "from_status": "suspected",
+          "to_status": "withdrawn",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-48",
+          "sequence": 3,
+          "event_type": "correction_propagation_required",
+          "from_status": "withdrawn",
+          "to_status": null,
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:06:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagate_overturn",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-028",
+      "scenario_type": "missing_purpose_or_provenance_rejected",
+      "signal": {
+        "signal_id": "SIG-028",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "unknown",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "unknown",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-028",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-28",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-28",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-49",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "quarantine_missing_provenance",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-029",
+      "scenario_type": "corroboration_requires_independent_roots",
+      "signal": {
+        "signal_id": "SIG-029",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "suspected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-029",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-29",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-29",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          },
+          {
+            "participant_id": "PSP_B",
+            "root_event_id": "ROOT-29",
+            "independence": "derived_copy",
+            "evidence_class": "source_report"
+          },
+          {
+            "participant_id": "PSP_C",
+            "root_event_id": "ROOT-29",
+            "independence": "derived_copy",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-50",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "no_adverse_action",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "reject_derived_corroboration",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-030",
+      "scenario_type": "false_positive_patterns_trigger_fairness_review",
+      "signal": {
+        "signal_id": "SIG-030",
+        "signal_version": 1,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "source_report",
+        "status": "under_review",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-030",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "root_event_id": "ROOT-30",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-30",
+            "independence": "independent",
+            "evidence_class": "source_report"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-51",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        },
+        {
+          "event_id": "EV-52",
+          "sequence": 2,
+          "event_type": "fairness_review_opened",
+          "from_status": "suspected",
+          "to_status": "under_review",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "EVIDENCE-SYNTHETIC-01",
+          "attempted_digest": null
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "manual_review",
+        "basis": "cohort_error_audit",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "record_fairness_review",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ]
+    }
+  ]
+}
