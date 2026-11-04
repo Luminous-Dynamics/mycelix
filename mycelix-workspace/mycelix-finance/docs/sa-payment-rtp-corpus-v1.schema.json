@@ -15,7 +15,8 @@
     "external_effects_enabled",
     "source_register",
     "profiles",
-    "scenarios"
+    "scenarios",
+    "request_digest_contract"
   ],
   "properties": {
     "schema": {
@@ -65,6 +66,9 @@
       "items": {
         "$ref": "#/$defs/scenario"
       }
+    },
+    "request_digest_contract": {
+      "$ref": "#/$defs/request_digest_contract"
     }
   },
   "$defs": {
@@ -550,6 +554,80 @@
         },
         "currency": {
           "const": "ZAR"
+        }
+      }
+    },
+    "request_digest_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "domain_separator",
+        "separator_terminator",
+        "canonicalization",
+        "canonicalization_rules",
+        "hashed_payload",
+        "included_fields",
+        "excluded_fields",
+        "vectors"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "SHA-256"
+        },
+        "domain_separator": {
+          "const": "MYCELIX-SA-PAYMENT-RTP-REQUEST-V1"
+        },
+        "separator_terminator": {
+          "const": "NUL"
+        },
+        "canonicalization": {
+          "const": "MYCELIX-CANONICAL-JSON-V1"
+        },
+        "canonicalization_rules": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "hashed_payload": {
+          "const": "complete request object with request_digest omitted"
+        },
+        "included_fields": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "excluded_fields": {
+          "const": [
+            "request_digest"
+          ]
+        },
+        "vectors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scenario_id",
+              "expected_digest"
+            ],
+            "properties": {
+              "scenario_id": {
+                "type": "string"
+              },
+              "expected_digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              }
+            }
+          }
         }
       }
     }
