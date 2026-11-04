@@ -93,3 +93,10 @@ A source-side correction is not proof that a receiving institution has invalidat
 Each propagation obligation binds the recipient, historical version/digest, current version/digest, decision-impact assessment, practicability assessment, status, timestamps and receipt evidence. Pending, delivered or acknowledged-but-not-invalidated cases remain unresolved for operational purposes. A documented exception or reasoned "no decision impact" disposition is explicit; neither is silently treated as a successful invalidation.
 
 The synthetic recipient-propagation profile does not establish a universal propagation SLA. Any measured p50/p95/p99 target must be set by the actual participant agreement and applicable law/profile.
+
+
+## Historical recipient inventory completeness
+
+A propagation report is not complete merely because every currently listed recipient has acknowledged. Before a corrected, withdrawn or expired signal can be reported as fully propagated, the source must qualify the historical disclosure inventory itself.
+
+Each case now declares whether its prior-recipient inventory is `complete`, `incomplete`, `unknown` or `not_applicable`, together with a count, evidence reference and verification timestamp. A changed signal with an unknown or incomplete recipient inventory remains quarantined: the system cannot claim that every prior recipient was notified or invalidated. A complete zero-recipient inventory is different from a missing inventory and must be supported by its own evidence.
