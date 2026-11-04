@@ -127,3 +127,23 @@ Sources: [Capitec FAQ](https://www.capitecbank.co.za/were-here-to-help/faqs/), [
 - A partial-payment option is only admissible under the participant's qualified policy and an immutable AMI field in the request commitment.
 - Expiry duration is checked against the selected participant profile; a request's chosen expiry does not modify the profile.
 - Decline and cancellation terminality is participant-specific; do not inherit Nedbank's no-reopen rule to other participants without source evidence.
+
+
+## Abuse resistance and non-coercive payer safeguards (v1 extension)
+
+The synthetic corpus adds sixteen adversarial cases (SA-RTP-047 through SA-RTP-062). It distinguishes sender credential authentication from requester identity, invoice evidence, payer choice, purpose-limited data use and material-presentation integrity.
+
+A verified provider credential is not proof that an invoice or asserted debt is legitimate. A request may show a sender name and reference, but that is not a legal adjudication. The payer can decline or report an unknown request without creating payment authority. Confusable/mismatched beneficiary identities, incomplete material presentations and unrelated secondary data-use purposes fail closed. A false-positive block must have an appeal/correction path.
+
+The corpus measures report/decline rates, repeat contact after decline, accessibility parity, confirmed fraud and appeal reversals. It does not optimise raw acceptance rate or treat repeat contact as universally prohibited where participant rules are unknown.
+
+See `SA-PAY-RTP-ABUSE-001` (#5768) for the detailed threat model, evidence dimensions and claim ceiling.
+
+
+## 2026-11-04 SARB fraud-intelligence architecture context
+
+The SARB's PEM position paper proposes that a future National Payments Utility provide baseline fraud protection, with participants reporting suspected and actual fraudulent transactions and transactional risk scoring across payment channels and participants. It also links financial identity and proxy resolution / Confirmation of Payee with fraud mitigation. The 9 April 2026 PEM industry dialogue later reported that the fraud framework had been developed and that priority items were being scoped, while the insights-platform stakeholder alignment remained in progress. SARB also lists a Fraud and Intelligence Information Sharing Forum for private-sector PEM participants.
+
+Sources are registered separately as `SARB_PEM_POSITION_2025`, `SARB_PEM_DIALOGUE_2026_04`, and `SARB_PEM_WORKING_GROUPS_2026`. These are **programme design and progress evidence**, not proof of a currently operational national fraud-scoring service or a live API.
+
+Mycelix's role should be compatible with a future federated framework: preserve source, status, confidence, freshness, purpose, correction and appeal evidence; never convert sender authentication into claim legitimacy or a source's suspicion into an adjudicated fact. This profile does not establish SARB endorsement, participation in the PEM forum, or eligibility to submit national fraud reports.

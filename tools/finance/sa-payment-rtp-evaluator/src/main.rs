@@ -675,7 +675,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         } else if events.iter().any(|event| {
             matches!(
                 event_type(event),
-                "request_rejected_by_channel_profile" | "profile_retired_reject"
+                "request_rejected_by_channel_profile"
+                    | "profile_retired_reject"
+                    | "request_rejected_by_abuse_rate_limit"
             )
         }) {
             "rejected_by_profile"
@@ -699,6 +701,138 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!(
                 "scenarios[{case_index}]: request status cannot be promoted to a financial effect"
             ));
+        }
+
+        if let Some(abuse) = case.get("abuse_assessment") {
+            let sender_auth = str_at(abuse, "sender_authentication_state").unwrap_or("unknown");
+            let identity = str_at(abuse, "requester_identity_resolution").unwrap_or("unknown");
+            let claim = str_at(abuse, "claim_evidence_state").unwrap_or("unknown");
+            let presentation = str_at(abuse, "material_presentation_state").unwrap_or("unknown");
+            let presented_digest = str_at(abuse, "presented_material_digest");
+            let payer_action = str_at(abuse, "payer_action").unwrap_or("none");
+            let repeat_count = u64_at(abuse, "repeat_contact_after_decline_count").unwrap_or(0);
+            let data_purpose =
+                str_at(abuse, "secondary_data_use_purpose").unwrap_or("not_applicable");
+            let disposition = str_at(abuse, "expected_abuse_disposition").unwrap_or("unknown");
+            let has_event = |kind: &str| events.iter().any(|event| event_type(event) == kind);
+
+            if abuse
+                .get("claim_legitimacy_inferred_from_sender_authentication")
+                .and_then(Value::as_bool)
+                != Some(false)
+            {
+                errors.push(format!(
+                    "scenarios[{case_index}]: sender authentication state {sender_auth} was used to infer claim legitimacy"
+                ));
+            }
+            if claim == "unsupported_legal_claim"
+                && disposition != "do_not_assert_verified_obligation"
+            {
+                errors.push(format!(
+                    "scenarios[{case_index}]: unsupported legal/debt claim lacks explicit non-adjudication disposition"
+                ));
+            }
+            if matches!(identity, "confusable" | "mismatch")
+                && disposition != "reject_confusable_or_mismatched_identity"
+            {
+                errors.push(format!(
+                    "scenarios[{case_index}]: confusable or mismatched identity lacks rejection disposition"
+                ));
+            }
+            if matches!(identity, "confusable" | "mismatch") && instruction_count > 0 {
+                errors.push(format!(
+                    "scenarios[{case_index}]: confusable or mismatched identity created payment instruction"
+                ));
+            }
+            if presentation != "complete"
+                && (acceptance_sequence.is_some() || instruction_count > 0)
+            {
+                errors.push(format!(
+                    "scenarios[{case_index}]: incomplete, inaccessible or mismatched material presentation was accepted"
+                ));
+            }
+            if presentation == "complete" && presented_digest != Some(recomputed_digest.as_str()) {
+                errors.push(format!(
+                    "scenarios[{case_index}]: complete material presentation is not bound to request digest"
+                ));
+            }
+            if payer_action == "accepted" && acceptance_sequence.is_none() {
+                errors.push(format!(
+                    "scenarios[{case_index}]: payer_action accepted lacks exact acceptance event"
+                ));
+            }
+            if acceptance_sequence.is_some() && payer_action != "accepted" {
+                errors.push(format!(
+                    "scenarios[{case_index}]: acceptance event does not match declared payer action"
+                ));
+            }
+            if payer_action == "declined" && !declined {
+                errors.push(format!(
+                    "scenarios[{case_index}]: payer_action declined lacks decline event"
+                ));
+            }
+            if payer_action == "reported" && !has_event("abuse_report_submitted") {
+                errors.push(format!(
+                    "scenarios[{case_index}]: payer report lacks abuse-report event"
+                ));
+            }
+            if payer_action == "blocked" && !has_event("request_blocked") {
+                errors.push(format!(
+                    "scenarios[{case_index}]: payer block lacks request-blocked event"
+                ));
+            }
+            if payer_action == "appealed" && !has_event("appeal_submitted") {
+                errors.push(format!(
+                    "scenarios[{case_index}]: appeal action lacks appeal-submitted event"
+                ));
+            }
+            if matches!(
+                payer_action,
+                "declined" | "reported" | "blocked" | "appealed"
+            ) && instruction_count > 0
+            {
+                errors.push(format!(
+                    "scenarios[{case_index}]: decline/report/block/appeal was promoted to payment instruction"
+                ));
+            }
+            if repeat_count > 0 && disposition != "escalate_repeat_contact_review" {
+                errors.push(format!(
+                    "scenarios[{case_index}]: repeat contact after decline is not surfaced for review"
+                ));
+            }
+            if matches!(
+                data_purpose,
+                "unrelated_credit_scoring" | "unrelated_disclosure" | "marketing"
+            ) {
+                if !has_event("secondary_data_use_blocked") || instruction_count > 0 {
+                    errors.push(format!(
+                        "scenarios[{case_index}]: unrelated secondary data use was not blocked"
+                    ));
+                }
+                if disposition != "reject_secondary_data_use" {
+                    errors.push(format!(
+                        "scenarios[{case_index}]: unrelated secondary data use lacks rejection disposition"
+                    ));
+                }
+            }
+            if disposition == "allow_exact_user_instruction_without_debt_conclusion"
+                && (payer_action != "accepted"
+                    || instruction_count != 1
+                    || claim == "verified_external_reference")
+            {
+                errors.push(format!(
+                    "scenarios[{case_index}]: user instruction without debt conclusion has inconsistent evidence"
+                ));
+            }
+            if str_at(abuse, "presentation_modality") == Some("screen_reader")
+                && presentation == "complete"
+                && acceptance_sequence.is_some()
+                && presented_digest != Some(recomputed_digest.as_str())
+            {
+                errors.push(format!(
+                    "scenarios[{case_index}]: accessible presentation lost material-field binding"
+                ));
+            }
         }
     }
     errors
@@ -890,6 +1024,94 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
+    mutate_and_reject(
+        "authenticated sender promoted to debt legitimacy",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][46]["abuse_assessment"]["claim_legitimacy_inferred_from_sender_authentication"] =
+                json!(true);
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "confusable identity allowed to instruct payment",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][61]["abuse_assessment"]["requester_identity_resolution"] =
+                json!("confusable");
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "incomplete material presentation accepted",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][61]["abuse_assessment"]["material_presentation_state"] =
+                json!("incomplete");
+            v["scenarios"][61]["abuse_assessment"]["presented_material_digest"] = Value::Null;
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject("decline promoted to instruction", corpus, schema, |v| {
+        let digest = v["scenarios"][61]["request"]["request_digest"].clone();
+        let mut accepted = v["scenarios"][61]["events"][3].clone();
+        accepted["event_id"] = json!("EV-6");
+        accepted["sequence"] = json!(6);
+        accepted["request_digest"] = digest.clone();
+        accepted["accepted_request_digest"] = digest.clone();
+        let mut instruction = v["scenarios"][61]["events"][4].clone();
+        instruction["event_id"] = json!("EV-7");
+        instruction["sequence"] = json!(7);
+        instruction["request_digest"] = digest.clone();
+        instruction["accepted_request_digest"] = digest;
+        v["scenarios"][49]["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(accepted);
+        v["scenarios"][49]["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(instruction);
+    })?;
+    count += 1;
+
+    mutate_and_reject(
+        "unrelated secondary data use admitted",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][57]["events"][1]["event_type"] = json!("secondary_data_use_attempted");
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "repeat contact hidden from abuse disposition",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][49]["abuse_assessment"]["expected_abuse_disposition"] =
+                json!("preserve_user_decline_or_report");
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "appeal accepted without appeal receipt",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][59]["events"][2]["event_type"] = json!("appeal_not_submitted");
+        },
+    )?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -967,7 +1189,7 @@ mod tests {
         let (errors, corpus, _) = evaluate(DEFAULT_CORPUS, DEFAULT_SCHEMA).expect("evaluation");
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 8);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 46);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 62);
     }
 
     #[test]
@@ -1022,6 +1244,9 @@ mod tests {
                 event["accepted_request_digest"] = json!(new_digest.clone());
             }
         }
+        if scenario["abuse_assessment"]["material_presentation_state"] == "complete" {
+            scenario["abuse_assessment"]["presented_material_digest"] = json!(new_digest);
+        }
         let errors = semantic_errors(&corpus);
         assert!(errors.is_empty(), "{errors:?}");
     }
@@ -1030,6 +1255,6 @@ mod tests {
     fn negative_mutation_campaign_rejects_consent_and_status_attacks() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 16);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 23);
     }
 }
