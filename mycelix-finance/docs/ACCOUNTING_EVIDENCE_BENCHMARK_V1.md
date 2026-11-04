@@ -330,20 +330,20 @@ Do not sum scores across these tracks. Report the capability, metric, split, dat
 
 ## 13. Competitive reality as of 4 November 2026
 
-The incumbent category is moving quickly and already includes many capabilities that were previously proposed as differentiators:
+The incumbent category is moving quickly and already includes many capabilities that were previously proposed as differentiators. Compare **announced functionality, pilot availability, phased rollout and general availability** separately:
 
-- Intuit announced Agentic Books Close in Intuit Accountant Suite, workflow playbooks, portfolio intelligence and a unified platform across QuickBooks / Enterprise Suite / Accountant Suite. Its 4 November 2026 announcement reports more than 250,000 accounting firms adopted Intuit Accountant Suite; Intuit describes an ecosystem spanning 60+ specialized language models, 100+ AI skill agents, 100+ workflows and 74 financial domains. These are vendor-reported figures and product claims, not independent benchmark results.
-- NetSuite 2026.2 describes an AI transaction-matching assistant, Intelligent Flux Analysis, close-management tasks, payment automation and reporting workflow capabilities.
-- QuickBooks' 2026 documentation describes Accounting AI that asks for context and can update transactions automatically with user permission.
-- Sage announced embedded AI agents across finance, HR and operations in April 2026.
+- **Intuit (announcement: 27 October 2026).** Intuit announced monthly Agentic Books Close in Intuit Accountant Suite, firm playbooks and portfolio intelligence across QuickBooks / Enterprise Suite / Accountant Suite. Its press release reports more than 250,000 accounting firms have adopted Intuit Accountant Suite (vendor-reported). Crucially, Agentic Books Close is described as **in pilot with select Accountant Suite customers**, is an add-on and is marked "coming soon"; this is not evidence of general availability to all customers. The feature follows firm SOPs, keeps an audit log, and leaves accountants to supervise, review, approve and manage exceptions.
+- **Oracle NetSuite 2026.2.** The vendor describes an AI transaction-matching assistant for ambiguous matches, a suggestions workspace showing up to five likely options, customer-invoice/vendor-bill matching, and user/system audit details. It also describes Intelligent Flux Analysis and close-manager task improvements. The stated flow preserves human review before ambiguous suggestions are submitted. These are vendor product claims; independent efficacy and false-match rates are not supplied by the announcement.
+- **Sage (announcement: 28 April 2026).** Sage announced the Finance Intelligence Agent for Sage Intacct as a **phased rollout**, allowing finance teams to ask questions and prepare actions such as payment reminders and approvals while people retain final decisions. Sage says recommendations include their underlying data, logic and assumptions and AI-driven actions are logged. The release states general availability was scheduled for later in 2026; do not treat the April announcement alone as proof that every feature is now generally available.
+- **QuickBooks.** Its 2026 documentation describes accounting-agent capabilities that can ask for context and make permitted transaction updates. Availability is product-, market- and permission-specific; do not assume that a US product feature is enabled for every South African customer.
 
 Primary/vendor references:
-- https://investors.intuit.com/news-events/press-releases/detail/1329/intuit-expands-intelligence-platform-to-power-the-next-era-of-accounting-firm-and-business-growth
-- https://www.netsuite.com/portal/resource/articles/financial-management/netsuite-2026-2-adds-ai-capabilities-for-smarter-bank-reconciliation-close-management-labor-insights-and-more.shtml
-- https://quickbooks.intuit.com/learn-support/en-za/help-article/accounting-bookkeeping/overview-agents-quickbooks-online/L9irCAtK4_ZA_en_ZA
-- https://www.sage.com/en-us/news/press-releases/2026/04/sage-expands-ai-agents-across-finance-hr-and-operations-to-automate-workflows/
+- Intuit, 27 October 2026: https://investors.intuit.com/news-events/press-releases/detail/1329/intuit-expands-intelligence-platform-to-power-the-next-era-of-accounting-firm-and-business-growth
+- NetSuite 2026.2: https://www.netsuite.com/portal/resource/articles/financial-management/netsuite-2026-2-adds-ai-capabilities-for-smarter-bank-reconciliation-close-management-labor-insights-and-more.shtml
+- Sage, 28 April 2026: https://www.sage.com/en-us/news/press-releases/2026/04/sage-expands-ai-agents-across-finance-hr-and-operations-to-automate-workflows/
+- QuickBooks documentation (market-specific): https://quickbooks.intuit.com/learn-support/en-za/help-article/accounting-bookkeeping/overview-agents-quickbooks-online/L9irCAtK4_ZA_en_ZA
 
-**Strategic consequence:** do not claim that continuous close, AI transaction matching, natural-language finance assistance, or agentic workflow automation is uniquely ours. Incumbents have distribution, integrations, customer context, existing accounting systems and deeply embedded workflows.
+**Strategic consequence:** do not claim that continuous close, AI transaction matching, natural-language finance assistance, or agentic workflow automation is uniquely ours. The incumbent category already has a feature and rollout pipeline, distribution, integrations, customer context and deeply embedded workflows. The benchmark must compare what is actually available on a specified plan/market and must record announcement date, pilot/beta/GA state and eligibility.
 
 The defensible differentiation hypothesis is narrower and harder:
 - source-to-statement provenance with independent reconstruction;
