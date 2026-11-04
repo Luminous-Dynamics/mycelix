@@ -1130,6 +1130,7 @@ dependencies = [
  "hdk",
  "mail_capabilities_integrity",
  "serde",
+ "serde_json",
  "sha2",
 ]
 
