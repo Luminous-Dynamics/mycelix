@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-fraud-benchmark-v1.schema.json",
+  "title": "Mycelix South African Payment Fraud Benchmark Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "manifest_id",
+    "status",
+    "as_of",
+    "jurisdiction",
+    "external_effects_enabled",
+    "purpose",
+    "sources",
+    "reference_cohorts",
+    "metric_definitions",
+    "evaluation_contract",
+    "official_language_modalities",
+    "counterfactual_pair_definitions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-fraud-benchmark/v1"
+    },
+    "manifest_id": {
+      "const": "ZA-SA-PAYMENT-FRAUD-BENCHMARK-V1"
+    },
+    "status": {
+      "const": "benchmark_protocol_and_public_comparators"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "reference_cohorts": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/cohort"
+      }
+    },
+    "metric_definitions": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/metric"
+      }
+    },
+    "evaluation_contract": {
+      "$ref": "#/$defs/evaluation_contract"
+    },
+    "official_language_modalities": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/official_language"
+      }
+    },
+    "counterfactual_pair_definitions": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "$ref": "#/$defs/counterfactual_pair"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "published_on",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cohort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cohort_id",
+        "geography",
+        "instrument_scope",
+        "period_start",
+        "period_end",
+        "data_class",
+        "source_refs",
+        "comparison_role",
+        "limitations"
+      ],
+      "properties": {
+        "cohort_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "geography": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period_start": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "period_end": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "data_class": {
+          "enum": [
+            "observed_industry_aggregate",
+            "regulator_reimbursement_aggregate",
+            "synthetic_research_dataset",
+            "peer_reviewed_research_pilot"
+          ]
+        },
+        "metric_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reported_value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ratio_numerator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ratio_denominator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reported_claims": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in_scope_claims": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reimbursed_value_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "reimbursed_value_minor_units_gbp": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "claims_closed_within_5_business_days_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "claims_closed_within_35_business_days_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "reported_row_counts": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "row_count_discrepancy_state": {
+          "const": "unresolved_conflicting_counts_in_dataset_card"
+        },
+        "fraud_label_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reported_fraud_share_basis_points": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "synthetic_account_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "federated_silo_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reported_f1_basis_points": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "reported_auc_basis_points": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "reported_precision_basis_points": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "comparison_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_id",
+        "numerator",
+        "denominator",
+        "unit",
+        "must_report_by",
+        "label_window_required"
+      ],
+      "properties": {
+        "metric_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "numerator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "denominator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "enum": [
+            "ratio",
+            "basis_points",
+            "milliseconds",
+            "hours",
+            "probability_error"
+          ]
+        },
+        "must_report_by": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "label_window_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "evaluation_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporal_cutoff_required",
+        "time_split_required",
+        "entity_grouped_holdout_required",
+        "random_row_split_only_prohibited",
+        "feature_leakage_after_outcome_prohibited",
+        "freeze_policy_and_label_versions",
+        "unresolved_and_unlabelled_cases_retained",
+        "cross_jurisdiction_transfer_claims_prohibited",
+        "single_composite_score_prohibited",
+        "default_raw_cross_participant_pii_exchange",
+        "model_baselines",
+        "group_keys",
+        "prevalence_stress_basis_points",
+        "provisional_hot_path_p99_target_ms",
+        "provisional_latency_target_claim_ceiling",
+        "required_subgroup_dimensions",
+        "no_live_provider_data",
+        "no_production_deployment_claim",
+        "selective_prediction_required",
+        "counterfactual_equivalence_tests_required",
+        "material_change_reconfirmation_tests_required",
+        "language_and_modality_stratification_required",
+        "native_language_adjudication_required",
+        "distinct_sign_language_presentation_required",
+        "no_language_performance_claim_without_adjudicated_holdout",
+        "selective_prediction_stress_coverage_basis_points",
+        "abstention_actions",
+        "official_language_ids",
+        "counterfactual_pair_types"
+      ],
+      "properties": {
+        "temporal_cutoff_required": {
+          "const": true
+        },
+        "time_split_required": {
+          "const": true
+        },
+        "entity_grouped_holdout_required": {
+          "const": true
+        },
+        "random_row_split_only_prohibited": {
+          "const": true
+        },
+        "feature_leakage_after_outcome_prohibited": {
+          "const": true
+        },
+        "freeze_policy_and_label_versions": {
+          "const": true
+        },
+        "unresolved_and_unlabelled_cases_retained": {
+          "const": true
+        },
+        "cross_jurisdiction_transfer_claims_prohibited": {
+          "const": true
+        },
+        "single_composite_score_prohibited": {
+          "const": true
+        },
+        "default_raw_cross_participant_pii_exchange": {
+          "const": false
+        },
+        "model_baselines": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "group_keys": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "prevalence_stress_basis_points": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "provisional_hot_path_p99_target_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "provisional_latency_target_claim_ceiling": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_subgroup_dimensions": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "no_live_provider_data": {
+          "const": true
+        },
+        "no_production_deployment_claim": {
+          "const": true
+        },
+        "selective_prediction_required": {
+          "const": true
+        },
+        "counterfactual_equivalence_tests_required": {
+          "const": true
+        },
+        "material_change_reconfirmation_tests_required": {
+          "const": true
+        },
+        "language_and_modality_stratification_required": {
+          "const": true
+        },
+        "native_language_adjudication_required": {
+          "const": true
+        },
+        "distinct_sign_language_presentation_required": {
+          "const": true
+        },
+        "no_language_performance_claim_without_adjudicated_holdout": {
+          "const": true
+        },
+        "selective_prediction_stress_coverage_basis_points": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          }
+        },
+        "abstention_actions": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "official_language_ids": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "counterfactual_pair_types": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "official_language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language_id",
+        "display_name",
+        "official_status_as_of",
+        "modality",
+        "evaluation_state",
+        "native_reviewer_state",
+        "performance_claim",
+        "source_refs",
+        "required_evidence"
+      ],
+      "properties": {
+        "language_id": {
+          "type": "string",
+          "minLength": 2
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 2
+        },
+        "official_status_as_of": {
+          "const": "2026-11-04"
+        },
+        "modality": {
+          "enum": [
+            "written_spoken",
+            "signed_visual"
+          ]
+        },
+        "evaluation_state": {
+          "const": "not_yet_evaluated"
+        },
+        "native_reviewer_state": {
+          "const": "not_yet_recruited"
+        },
+        "performance_claim": {
+          "const": "none"
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "counterfactual_pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pair_id",
+        "pair_class",
+        "transformation",
+        "expected_relation",
+        "required_decision",
+        "material_consent_change",
+        "ground_truth_rule",
+        "language_scope",
+        "evidence_state"
+      ],
+      "properties": {
+        "pair_id": {
+          "type": "string",
+          "pattern": "^CF-[A-Z]+-[0-9]{3}$"
+        },
+        "pair_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transformation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_relation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_decision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "material_consent_change": {
+          "type": "boolean"
+        },
+        "ground_truth_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language_scope": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_state": {
+          "const": "synthetic_template_not_measured"
+        }
+      }
+    }
+  }
+}
