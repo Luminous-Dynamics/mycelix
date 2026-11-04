@@ -1,0 +1,3652 @@
+{
+  "schema": "mycelix.sa-payment-alias-lifecycle/v1",
+  "corpus_id": "ZA-SHAPID-LIFECYCLE-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "as_of": "2026-11-04",
+  "external_effects_enabled": false,
+  "dispatch_enabled": false,
+  "source_register": [
+    {
+      "id": "NEDBANK_SHAPID_LIFECYCLE_2026",
+      "authority": "Nedbank",
+      "title": "PayShap Request FAQs",
+      "url": "https://personal.nedbank.co.za/bank/digital-banking/needs/payments/payshap/payshap-request-faqs.html",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_faq_snapshot",
+      "supports": [
+        "A ShapID is usually the primary cellphone number registered with Nedbank.",
+        "A number already registered as a default ShapID at another bank must be deregistered there before becoming the Nedbank default; a bank-qualified form can be used.",
+        "Nedbank says an old ShapID that no longer matches the customer's primary cellphone number is automatically deleted at end of business day after a number change.",
+        "Nedbank describes checking that the cellphone number linked to its account is owned by the same person."
+      ],
+      "does_not_support": [
+        "A universal PayShap alias deletion SLA across participants.",
+        "A number-recycling cooling-off period.",
+        "A telecom subscriber record alone as bank-account ownership proof."
+      ]
+    },
+    {
+      "id": "STANDBANK_SHAPID_LIFECYCLE_2026",
+      "authority": "Standard Bank",
+      "title": "PayShap product and FAQ page",
+      "url": "https://www.standardbank.co.za/southafrica/personal/products-and-services/ways-to-bank/innovative-payment-solutions/payshap",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_product_faq_snapshot",
+      "supports": [
+        "Standard Bank describes bank-qualified ShapIDs and one primary ShapID among aliases at multiple banks.",
+        "The provider documents editing and deleting ShapIDs.",
+        "The payment flow displays the recipient name and ShapID/legal name for payer confirmation."
+      ],
+      "does_not_support": [
+        "A common cross-bank alias state machine or global directory SLA.",
+        "A universal cooling-off rule for phone-number reassignment."
+      ]
+    },
+    {
+      "id": "ICASA_NUMBERING_FOURTH_AMENDMENT_2026",
+      "authority": "ICASA",
+      "title": "Final Numbering Plan Fourth Amendment Regulations announcement",
+      "url": "https://www.icasa.org.za/news/2026/icasa-publishes-final-amendments-to-the-numbering-plan-regulations",
+      "published_on": "2026-07-02",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_regulator_final_regulation_announcement",
+      "supports": [
+        "ICASA says the Fourth Amendment standardises churn, deactivation and recycling of inactive mobile numbers.",
+        "The announcement says subscribers are to have a reasonable opportunity to retain numbers before deactivation.",
+        "The announcement describes a six-month transition from Gazette publication for licensee implementation."
+      ],
+      "does_not_support": [
+        "The exact implementation date from the news page alone.",
+        "A specific operator's current recycling or quarantine interval.",
+        "A PayShap bank alias deregistration deadline."
+      ]
+    },
+    {
+      "id": "ICASA_NUMBERING_FIFTH_AMENDMENT_DRAFT_2026",
+      "authority": "ICASA",
+      "title": "Draft Numbering Plan Fifth Amendment Regulations 2026 announcement",
+      "url": "https://www.icasa.org.za/news/2026/icasa-publishes-draft-numbering-plan-fifth-amendment-regulations-2026",
+      "published_on": "2026-10-29",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_regulator_draft_for_public_comment",
+      "supports": [
+        "The draft proposes mobile subscriber registration and biometric verification on assignment/activation/reactivation and SIM-swap requests.",
+        "ICASA says the draft was published for public comment with 30 days for submissions."
+      ],
+      "does_not_support": [
+        "A final binding biometric rule as of 4 November 2026.",
+        "Proof that any particular operator has implemented the draft proposals."
+      ]
+    },
+    {
+      "id": "ICASA_NUMBERING_PLAN_2016_CONTEXT",
+      "authority": "ICASA",
+      "title": "Numbering Plan and ownership overview",
+      "url": "https://www.icasa.org.za/pages/numbering",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_regulator_numbering_overview",
+      "supports": [
+        "ICASA allocates national numbering resources to licensed operators, who assign numbers to subscribers."
+      ],
+      "does_not_support": [
+        "A permanent identity relationship between a mobile number and one subscriber.",
+        "Bank-account ownership or ShapID registration status."
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "ZA-NEDBANK-SHAPID-PERSONAL-2026-V1",
+      "jurisdiction": "ZA",
+      "participant": "Nedbank",
+      "alias_namespace": "primary_shapid_and_bank_qualified_shapid",
+      "product_scope": "consumer and small business",
+      "channel_scope": "provider-managed digital banking; exact channel rules are product-specific",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "default_alias_policy": "one default ShapID per participating-bank registration; bank-qualified aliases may distinguish additional banks",
+      "phone_change_policy": "provider FAQ says old ShapID mismatch is automatically deleted at end of business day; users are advised to deregister earlier",
+      "ownership_policy": "provider says cellphone number linked to Nedbank account must be owned by same person",
+      "reassignment_policy": "unknown",
+      "cooling_off_seconds": null,
+      "source_refs": [
+        "NEDBANK_SHAPID_LIFECYCLE_2026"
+      ],
+      "admission": "source_specific_public_faq_snapshot_effective_date_unknown"
+    },
+    {
+      "profile_id": "ZA-STANDARD-BANK-SHAPID-PERSONAL-2026-V1",
+      "jurisdiction": "ZA",
+      "participant": "Standard Bank",
+      "alias_namespace": "primary_shapid_and_bank_qualified_shapid",
+      "product_scope": "consumer",
+      "channel_scope": "Banking App and Cellphone Banking",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "default_alias_policy": "multiple bank ShapIDs may exist; one is marked primary",
+      "phone_change_policy": "provider documents edit and delete operations; exact automatic cleanup timing unknown",
+      "ownership_policy": "registration links a cellphone number to a bank account; exact re-verification and SIM-swap process not qualified here",
+      "reassignment_policy": "unknown",
+      "cooling_off_seconds": null,
+      "source_refs": [
+        "STANDBANK_SHAPID_LIFECYCLE_2026"
+      ],
+      "admission": "source_specific_public_product_faq_snapshot_effective_date_unknown"
+    },
+    {
+      "profile_id": "ZA-ICASA-NUMBERING-FOURTH-AMENDMENT-V1",
+      "jurisdiction": "ZA",
+      "participant": "ICASA",
+      "alias_namespace": "telecommunications_number_assignment",
+      "product_scope": "national numbering resource",
+      "channel_scope": "licensed electronic communications providers",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "default_alias_policy": "not applicable",
+      "phone_change_policy": "final Fourth Amendment announcement describes churn/deactivation/recycling standardisation",
+      "ownership_policy": "telecommunications numbering assignment is not bank account ownership",
+      "reassignment_policy": "transition and operator-specific implementation details require Gazette/operator verification",
+      "cooling_off_seconds": null,
+      "source_refs": [
+        "ICASA_NUMBERING_FOURTH_AMENDMENT_2026",
+        "ICASA_NUMBERING_PLAN_2016_CONTEXT"
+      ],
+      "admission": "official_final_regulation_announcement_exact_effective_date_unknown"
+    },
+    {
+      "profile_id": "ZA-ICASA-NUMBERING-FIFTH-DRAFT-V1",
+      "jurisdiction": "ZA",
+      "participant": "ICASA",
+      "alias_namespace": "telecommunications_number_assignment",
+      "product_scope": "draft subscriber-registration rules",
+      "channel_scope": "mobile number assignment, activation/reactivation and SIM swap (proposed)",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "default_alias_policy": "not applicable",
+      "phone_change_policy": "draft proposal",
+      "ownership_policy": "draft proposal for biometric verification",
+      "reassignment_policy": "draft proposal only",
+      "cooling_off_seconds": null,
+      "source_refs": [
+        "ICASA_NUMBERING_FIFTH_AMENDMENT_DRAFT_2026"
+      ],
+      "admission": "draft_for_public_comment_not_binding_law"
+    },
+    {
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "jurisdiction": "ZA",
+      "participant": "synthetic_reference_harness",
+      "alias_namespace": "synthetic_primary_and_bank_qualified_aliases",
+      "product_scope": "test fixture only",
+      "channel_scope": "synthetic",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "default_alias_policy": "synthetic rules are explicit per scenario",
+      "phone_change_policy": "requires new generation and re-verification in this harness",
+      "ownership_policy": "separate subscriber-control and bank-account-binding evidence",
+      "reassignment_policy": "quarantine until a new authoritative provider binding is established",
+      "cooling_off_seconds": null,
+      "source_refs": [
+        "NEDBANK_SHAPID_LIFECYCLE_2026",
+        "STANDBANK_SHAPID_LIFECYCLE_2026",
+        "ICASA_NUMBERING_FOURTH_AMENDMENT_2026"
+      ],
+      "admission": "synthetic_only_no_live_provider_or_telecom_connection"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SHAPID-001",
+      "scenario_type": "active_alias_fresh_exact_binding",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-001",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        }
+      ],
+      "expected_state": "active_resolved",
+      "resolution_allowed": true,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-002",
+      "scenario_type": "phone_number_changed_old_shapid_pending_end_of_day_deletion",
+      "profile_id": "ZA-NEDBANK-SHAPID-PERSONAL-2026-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-002",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "phone_number_changed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "customer_profile_change_receipt"
+          ]
+        }
+      ],
+      "expected_state": "change_pending_quarantine",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-003",
+      "scenario_type": "manual_provider_deregistration",
+      "profile_id": "ZA-NEDBANK-SHAPID-PERSONAL-2026-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-003",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "provider_deregistration",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "deregistration_receipt"
+          ]
+        }
+      ],
+      "expected_state": "revoked",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-004",
+      "scenario_type": "signed_revocation_invalidates_cached_positive",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-004",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "alias_revoked",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "signed_revocation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 7,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "old_cache_positive"
+          ]
+        }
+      ],
+      "expected_state": "revoked",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-005",
+      "scenario_type": "telecom_number_release_bank_status_unknown",
+      "profile_id": "ZA-ICASA-NUMBERING-FOURTH-AMENDMENT-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-005",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "number_release_reported",
+          "actor": "provider",
+          "participant_id": "ICASA",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "telecom_release_notice"
+          ]
+        }
+      ],
+      "expected_state": "reassignment_quarantine",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-006",
+      "scenario_type": "recycled_number_new_subscriber_old_binding_persists",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-006",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "number_reassigned",
+          "actor": "provider",
+          "participant_id": "mobile_operator",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "new_subscriber_assignment_receipt"
+          ]
+        }
+      ],
+      "expected_state": "reassignment_quarantine",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-007",
+      "scenario_type": "sim_control_without_bank_account_ownership",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-007",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "sim_control_only"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "provider_receipt"
+          ]
+        }
+      ],
+      "expected_state": "ownership_unverified",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-008",
+      "scenario_type": "old_payer_intent_after_phone_change",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-008",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "payer_intent_presented",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "payer_presentation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 7,
+          "event_type": "phone_number_changed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "customer_profile_change_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-8",
+          "sequence": 8,
+          "event_type": "payer_confirmation_attempted",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "old_intent_confirmation"
+          ]
+        }
+      ],
+      "expected_state": "reauthorisation_required",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": true,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-009",
+      "scenario_type": "default_alias_collision_across_banks_without_deregistration",
+      "profile_id": "ZA-NEDBANK-SHAPID-PERSONAL-2026-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-009",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "default_alias_conflict",
+          "actor": "provider",
+          "participant_id": "multi_bank_directory",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "two_default_claims"
+          ]
+        }
+      ],
+      "expected_state": "default_conflict",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-010",
+      "scenario_type": "default_alias_transferred_after_source_deregistration",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-010",
+        "namespace": "bank_qualified_shapid",
+        "generation": 2,
+        "participant_id": "BankB",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "default_alias_deregistered",
+          "actor": "provider",
+          "participant_id": "BankA",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bankA_deregistration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "BankB",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bankB_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "BankB",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "BankB",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "BankB",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "BankB",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        }
+      ],
+      "expected_state": "active_resolved",
+      "resolution_allowed": true,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-011",
+      "scenario_type": "bank_qualified_alias_coexists_with_other_bank_default",
+      "profile_id": "ZA-STANDARD-BANK-SHAPID-PERSONAL-2026-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-011",
+        "namespace": "bank_qualified_shapid",
+        "generation": 1,
+        "participant_id": "StandardBank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "StandardBank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "StandardBank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "StandardBank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "StandardBank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "StandardBank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        }
+      ],
+      "expected_state": "active_resolved",
+      "resolution_allowed": true,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-012",
+      "scenario_type": "conflicting_cross_bank_default_ownership",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-012",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "cross_participant_binding_conflict",
+          "actor": "provider",
+          "participant_id": "alias_directory",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "conflicting_default_claim"
+          ]
+        }
+      ],
+      "expected_state": "conflict",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-013",
+      "scenario_type": "registration_without_account_binding",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-013",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "provider_receipt"
+          ]
+        }
+      ],
+      "expected_state": "ownership_unverified",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-014",
+      "scenario_type": "bank_account_closed_cached_alias",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-014",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "account_closed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_closure_receipt"
+          ]
+        }
+      ],
+      "expected_state": "revoked",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-015",
+      "scenario_type": "sim_swap_signal_unknown_resolution_status",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-015",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "sim_swap_signal",
+          "actor": "provider",
+          "participant_id": "mobile_operator",
+          "authority_state": "unknown",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "sim_swap_risk_signal"
+          ]
+        }
+      ],
+      "expected_state": "reassignment_quarantine",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-016",
+      "scenario_type": "draft_icasa_biometric_proposal_misrepresented_as_binding_law",
+      "profile_id": "ZA-ICASA-NUMBERING-FIFTH-DRAFT-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-016",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "policy_claim_used",
+          "actor": "provider",
+          "participant_id": "ICASA",
+          "authority_state": "unknown",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "draft_fifth_amendment_cited_as_final"
+          ]
+        }
+      ],
+      "expected_state": "policy_claim_unqualified",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-017",
+      "scenario_type": "final_icasa_churn_framework_invented_as_operator_cooldown",
+      "profile_id": "ZA-ICASA-NUMBERING-FOURTH-AMENDMENT-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-017",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "policy_claim_used",
+          "actor": "provider",
+          "participant_id": "ICASA",
+          "authority_state": "unknown",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "operator_cooldown_not_in_source"
+          ]
+        }
+      ],
+      "expected_state": "policy_claim_unqualified",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-018",
+      "scenario_type": "resolver_result_stale",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-018",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "stale",
+          "valid_until": "2026-11-03T00:00:00Z",
+          "evidence_types": [
+            "expired_directory_response"
+          ]
+        }
+      ],
+      "expected_state": "stale",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-019",
+      "scenario_type": "directory_epoch_advanced_after_old_resolver_result",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-019",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "directory_epoch_advanced",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 2,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "directory_epoch_receipt"
+          ]
+        }
+      ],
+      "expected_state": "stale",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-020",
+      "scenario_type": "old_and_new_generation_both_resolve_positive",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-020",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "different_generation_positive"
+          ]
+        }
+      ],
+      "expected_state": "conflict",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-021",
+      "scenario_type": "reactivation_with_new_generation_and_fresh_account_binding",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-021",
+        "namespace": "primary_shapid",
+        "generation": 2,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_rebound",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "new_binding_generation_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 2,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "provider_receipt"
+          ]
+        }
+      ],
+      "expected_state": "active_resolved",
+      "resolution_allowed": true,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-022",
+      "scenario_type": "raw_qr_old_alias_resolves_to_new_beneficiary",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-022",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "qr_raw_alias_claim",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "untrusted_qr_text"
+          ]
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 7,
+          "event_type": "payer_display_mismatch",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "confirmed_name_does_not_match"
+          ]
+        }
+      ],
+      "expected_state": "reauthorisation_required",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": true,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-023",
+      "scenario_type": "unauthenticated_alias_enumeration_throttled",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-023",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_enumeration_attempt",
+          "actor": "unauthenticated_caller",
+          "participant_id": "Nedbank",
+          "authority_state": "invalid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "rate_limit_exceeded",
+            "no_account_disclosure"
+          ]
+        }
+      ],
+      "expected_state": "rate_limited",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-024",
+      "scenario_type": "same_alias_generation_exact_replay_is_idempotent",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-024",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "exact_same_generation_fingerprint_replay"
+          ]
+        }
+      ],
+      "expected_state": "active_resolved",
+      "resolution_allowed": true,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-025",
+      "scenario_type": "same_alias_id_changed_binding_fingerprint_conflict",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-025",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "alias_fingerprint_changed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "same_alias_generation_different_beneficiary"
+          ]
+        }
+      ],
+      "expected_state": "fingerprint_conflict",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-026",
+      "scenario_type": "number_ported_network_alias_provider_status_unknown",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-026",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "number_ported",
+          "actor": "provider",
+          "participant_id": "mobile_operator",
+          "authority_state": "unknown",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "portability_event_no_bank_confirmation"
+          ]
+        }
+      ],
+      "expected_state": "ownership_unverified",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-027",
+      "scenario_type": "provider_resolution_name_does_not_match_presented_name",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-027",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "payer_display_mismatch",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_display_name_mismatch"
+          ]
+        }
+      ],
+      "expected_state": "reauthorisation_required",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": true,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-028",
+      "scenario_type": "revocation_after_historic_payment_does_not_rewrite_effect",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-028",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "payment_authorisation_recorded",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "historical_payment_authorization_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 7,
+          "event_type": "alias_revoked",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "later_alias_revocation"
+          ]
+        }
+      ],
+      "expected_state": "historical_binding_only",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-029",
+      "scenario_type": "alias_reactivated_without_new_generation",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-029",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "alias_suspended",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "suspension_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-7",
+          "sequence": 7,
+          "event_type": "alias_reactivated",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "reactivation_without_new_generation"
+          ]
+        }
+      ],
+      "expected_state": "rebind_required",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    },
+    {
+      "scenario_id": "SHAPID-030",
+      "scenario_type": "same_generation_rebound_to_different_beneficiary",
+      "profile_id": "SYNTHETIC-SHAPID-LIFECYCLE-HARNESS-V1",
+      "alias": {
+        "alias_id": "ALIAS-HASH-030",
+        "namespace": "primary_shapid",
+        "generation": 1,
+        "participant_id": "Nedbank",
+        "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "alias_registered",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "alias_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "alias_owner_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_identity_match",
+            "alias_control_verified"
+          ]
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "bank_account_binding_verified",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "bank_account_binding_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "provider_registration_confirmed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "provider_registration_receipt"
+          ]
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "resolver_result",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "directory_epoch": 1,
+          "freshness": "fresh",
+          "valid_until": "2026-11-05T00:00:00Z",
+          "evidence_types": [
+            "authenticated_directory_response"
+          ]
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "alias_fingerprint_changed",
+          "actor": "provider",
+          "participant_id": "Nedbank",
+          "authority_state": "valid",
+          "generation": 1,
+          "beneficiary_commitment": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "directory_epoch": 1,
+          "freshness": null,
+          "valid_until": null,
+          "evidence_types": [
+            "same_generation_new_beneficiary"
+          ]
+        }
+      ],
+      "expected_state": "fingerprint_conflict",
+      "resolution_allowed": false,
+      "requires_new_payer_consent": false,
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "alias_binding_snapshot",
+        "provider_or_operator_evidence"
+      ],
+      "negative_controls": [
+        "no_alias_is_permanent_identity",
+        "no_stale_cache_authority",
+        "no_dispatch_from_resolution"
+      ]
+    }
+  ]
+}
