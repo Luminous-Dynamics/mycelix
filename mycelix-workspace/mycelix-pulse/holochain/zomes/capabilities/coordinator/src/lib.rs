@@ -103,14 +103,14 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
     // The private grant's exact action hash is required to revoke conductor-level
     // authorization later. The entire zome call is atomic, so later failures roll
     // back this grant rather than leaving an untracked authorization behind.
-    let system_grant_action_hash = create_cap_grant(CapGrantEntry {
-        tag: id.clone(),
-        access: CapAccess::Assigned {
+    let system_grant_action_hash = create_cap_grant(CapGrant::new_zome_call_grant(
+        id.clone(),
+        GrantConstraint::Assigned {
             secret: secret.clone(),
             assignees: BTreeSet::from([input.grantee.clone()]),
         },
         functions,
-    })?;
+    ))?;
 
     let capability = MailboxCapability {
         id: id.clone(),
