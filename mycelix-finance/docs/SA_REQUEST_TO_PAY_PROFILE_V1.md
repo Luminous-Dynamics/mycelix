@@ -61,3 +61,19 @@ Never maximise acceptance through dark patterns, concealing requester identity, 
 ## Claim ceiling
 
 The corpus is synthetic. It establishes no Capitec integration, live participant permission, effective-date certainty, fee guarantee, payment settlement or real-world superiority. Current product and account terms must be verified with the participant before operational use.
+
+
+## 2026-11-04 Capitec fee-incidence and requester-limit clarification
+
+A further current FAQ snapshot makes the cost incidence explicit but also reveals an internal documentation conflict:
+
+- Capitec says sending a PayShap Request is free.
+- It says the fee is charged to the person receiving/approving the request; the FAQ's bands are R0–R100 free, R100.01–R1,000 R1, and R1,000.01–R3,000 R3.50.
+- The same FAQ says the request maximum is R100 and the account may make two requests per day / within 24 hours to any South African bank.
+- The FAQ says a request includes the sender's name/reference, may be declined without money being taken, a pending request can be cancelled by the sender, and the default expiry is one day. Once approved, its FAQ describes the payment as immediate and irrevocable.
+
+Source: [Capitec PayShap Request FAQ](https://www.capitecbank.co.za/were-here-to-help/faqs/), observed 4 November 2026. The page does not state the effective date of these terms.
+
+**Qualification rule:** retain the two-request limit as scoped to the requester account because the FAQ says "you can make two requests in 24 hours to anyone". Preserve the payer-fee bands but mark the schedule internally conflicting because two of the three fee bands exceed the same FAQ's R100 request cap. Do not generalise the Capitec fee/limit to other participants. The 2025 blog remains a separate historical profile with R500 maximum and its own fee snapshot.
+
+This confirms why the outcomes benchmark must track requester and payer fees separately: a free request sent by a merchant need not mean a free payment for the payer. The fee schedule is a public product-term observation, not a matched realised-cost result.
