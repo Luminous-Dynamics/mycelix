@@ -236,10 +236,21 @@ jobs:
             node --version | grep -qE "^v24\\."
           '
 
+      - name: Check zome entropy uses Holochain host APIs
+        working-directory: mycelix-workspace/mycelix-pulse
+        run: |
+          if rg -nE '(^|[^[:alnum:]_])(rand|rand_core|getrandom)::|use[[:space:]]+(rand|rand_core|getrandom)(::|[[:space:];])' holochain/zomes; then
+            echo "Zomes must use Holochain host APIs for entropy, never OS/JS getrandom directly."
+            exit 1
+          fi
+
       - name: Build active Pulse alpha zomes for wasm32
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
           nix develop --command bash -lc '
+            # Holochain zomes have no browser JS or WASI host. Make transitive
+            # getrandom calls fail closed; application entropy must use hdk::random_bytes.
+            export CARGO_ENCODED_RUSTFLAGS="$(printf "%s\\037" "-D" "warnings" "--cfg" "getrandom_backend=\\\"unsupported\\\"")"
             cargo build --manifest-path holochain/Cargo.toml --workspace --release --target wasm32-unknown-unknown
           '
 
