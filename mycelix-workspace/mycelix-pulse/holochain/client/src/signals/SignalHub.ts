@@ -58,37 +58,60 @@ export class SignalHub {
   }
 
   private parseSignal(appSignal: AppSignal): MycelixSignal | null {
-    const payload = appSignal.payload as { type?: string; [key: string]: unknown };
-
-    if (!payload || typeof payload.type !== 'string') {
+    const payload = appSignal.payload as unknown;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       return null;
     }
 
-    // Determine signal category based on type
-    const type = payload.type;
+    const envelope = payload as { type?: unknown; data?: unknown };
+    if (typeof envelope.type !== 'string') {
+      return null;
+    }
 
-    // Message signals
+    const type = envelope.type;
+    const unitVariant = type === 'Online' || type === 'Offline';
+    let data: Record<string, unknown>;
+    if (envelope.data === undefined || envelope.data === null) {
+      // Serde omits the content field for unit variants in the adjacent-tag format.
+      if (!unitVariant) return null;
+      data = {};
+    } else if (
+      typeof envelope.data === 'object' &&
+      !Array.isArray(envelope.data)
+    ) {
+      data = envelope.data as Record<string, unknown>;
+    } else {
+      return null;
+    }
+
+    // Normalize the Rust type/data v1 envelope to the flat discriminated
+    // union used by existing UI consumers. The outer serializer discriminator
+    // always wins over a field with the same name inside data.
+    const normalized = { ...data, type } as Record<string, unknown>;
+
     if (['EmailReceived', 'DeliveryConfirmed', 'ReadReceiptReceived',
-         'EmailStateChanged', 'ThreadActivity', 'TypingIndicator'].includes(type)) {
-      return payload as MessageSignal;
+         'EmailStateChanged', 'ThreadActivity', 'DraftSaved',
+         'ScheduledEmailSent', 'TypingIndicator'].includes(type)) {
+      return normalized as MessageSignal;
     }
 
-    // Trust signals
-    if (['AttestationCreated', 'AttestationRevoked', 'TrustScoreChanged',
-         'ByzantineFlagRaised'].includes(type)) {
-      return payload as TrustSignal;
+    // Trust notifications are advisory wake-up hints. A consumer must fetch
+    // and validate the exact record before promoting any claimed state.
+    if (['AttestationReceived', 'TrustScoreUpdated', 'IntroductionReceived',
+         'DisputeFiled', 'ByzantineDetected'].includes(type)) {
+      return normalized as TrustSignal;
     }
 
-    // Sync signals
     if (['SyncStateChanged', 'OperationReceived', 'ConflictDetected',
-         'ConflictResolved', 'Online', 'Offline', 'SyncProgress'].includes(type)) {
-      return payload as SyncSignal;
+         'ConflictResolved', 'Online', 'Offline', 'SyncProgress',
+         'SyncComplete'].includes(type)) {
+      return normalized as SyncSignal;
     }
 
-    // Federation signals
     if (['NetworkDiscovered', 'EnvelopeReceived', 'EnvelopeDelivered',
-         'DeliveryFailed', 'BridgeStatusChanged'].includes(type)) {
-      return payload as FederationSignal;
+         'DeliveryFailed', 'BridgeStatusChanged', 'RouteChanged',
+         'PeerStatusChanged'].includes(type)) {
+      return normalized as FederationSignal;
     }
 
     return null;
