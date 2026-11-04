@@ -574,6 +574,14 @@
           "source_refs": [
             "ABSA_PAYSHAP_REQUEST_2026"
           ]
+        },
+        {
+          "route_scope": "generic",
+          "maximum_minor_units": null,
+          "qualification": "No single generic cap is published; apply the matching on-us account, on-us ShapID or off-us rule.",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ]
         }
       ],
       "request_count_rules": [
@@ -3682,7 +3690,8 @@
         "expiry_at": "2026-11-18T08:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "nedbank_money_app",
-        "request_digest": "sha256:373c37f53a0f78d1c321142b287c3cae3775d9067ab4bf0bf8ca09338ee40de9"
+        "request_digest": "sha256:233469279b7c58f3370f2e05e6fadc9b783be2863dbdda63b05ac4638a50f27c",
+        "expiry_selection": "default"
       },
       "events": [
         {
@@ -3691,7 +3700,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:373c37f53a0f78d1c321142b287c3cae3775d9067ab4bf0bf8ca09338ee40de9",
+          "request_digest": "sha256:233469279b7c58f3370f2e05e6fadc9b783be2863dbdda63b05ac4638a50f27c",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:00:00Z",
@@ -3703,7 +3712,7 @@
           "event_type": "request_expired",
           "actor_role": "system",
           "authority_state": "valid",
-          "request_digest": "sha256:373c37f53a0f78d1c321142b287c3cae3775d9067ab4bf0bf8ca09338ee40de9",
+          "request_digest": "sha256:233469279b7c58f3370f2e05e6fadc9b783be2863dbdda63b05ac4638a50f27c",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-18T08:00:01Z",
@@ -3740,7 +3749,8 @@
         "expiry_at": "2026-12-19T08:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "nedbank_money_app",
-        "request_digest": "sha256:969acdd9eadb7a696655aeadfbfdeef0aaafa7a9de67cab8f9b9339d6f0442ca"
+        "request_digest": "sha256:976c95b94309f972505f15cf717087302fc6cc75b7cb438cdc490daf979f3ce7",
+        "expiry_selection": "custom"
       },
       "events": [
         {
@@ -3749,7 +3759,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:969acdd9eadb7a696655aeadfbfdeef0aaafa7a9de67cab8f9b9339d6f0442ca",
+          "request_digest": "sha256:976c95b94309f972505f15cf717087302fc6cc75b7cb438cdc490daf979f3ce7",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:00:00Z",
@@ -3761,7 +3771,7 @@
           "event_type": "request_delivered",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:969acdd9eadb7a696655aeadfbfdeef0aaafa7a9de67cab8f9b9339d6f0442ca",
+          "request_digest": "sha256:976c95b94309f972505f15cf717087302fc6cc75b7cb438cdc490daf979f3ce7",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:00:00Z",
