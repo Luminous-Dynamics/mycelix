@@ -297,7 +297,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-002",
@@ -381,7 +387,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-003",
@@ -457,7 +469,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-004",
@@ -527,7 +545,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-005",
@@ -611,7 +635,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-006",
@@ -695,7 +725,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-007",
@@ -779,7 +815,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-008",
@@ -863,7 +905,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-009",
@@ -933,7 +981,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-010",
@@ -1017,7 +1071,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-011",
@@ -1088,12 +1148,12 @@
       "disclosures": [],
       "receiver_decision": {
         "action": "none",
-        "basis": "no_adverse_action",
+        "basis": "prior_recipient_inventory_unknown_signal_quarantined",
         "automatic": false,
         "independent_review": false,
         "essential_access_affected": false
       },
-      "expected_disposition": "propagate_withdrawal",
+      "expected_disposition": "propagation_inventory_incomplete",
       "negative_controls": [
         "no_status_promotion_without_evidence",
         "no_public_pii_hash",
@@ -1101,7 +1161,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "unknown",
+        "recipient_count": 0,
+        "evidence_reference": "HISTORICAL-DISCLOSURE-INVENTORY-NOT-CAPTURED-SA-FS-011",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-012",
@@ -1172,12 +1238,12 @@
       "disclosures": [],
       "receiver_decision": {
         "action": "none",
-        "basis": "no_adverse_action",
+        "basis": "prior_recipient_inventory_unknown_signal_quarantined",
         "automatic": false,
         "independent_review": false,
         "essential_access_affected": false
       },
-      "expected_disposition": "propagate_correction",
+      "expected_disposition": "propagation_inventory_incomplete",
       "negative_controls": [
         "no_status_promotion_without_evidence",
         "no_public_pii_hash",
@@ -1185,7 +1251,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "unknown",
+        "recipient_count": 0,
+        "evidence_reference": "HISTORICAL-DISCLOSURE-INVENTORY-NOT-CAPTURED-SA-FS-012",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-013",
@@ -1292,7 +1364,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-014",
@@ -1362,13 +1440,13 @@
       ],
       "disclosures": [],
       "receiver_decision": {
-        "action": "allow",
-        "basis": "appeal_upheld",
+        "action": "none",
+        "basis": "prior_recipient_inventory_unknown_signal_quarantined",
         "automatic": false,
-        "independent_review": true,
+        "independent_review": false,
         "essential_access_affected": false
       },
-      "expected_disposition": "propagate_appeal_correction",
+      "expected_disposition": "propagation_inventory_incomplete",
       "negative_controls": [
         "no_status_promotion_without_evidence",
         "no_public_pii_hash",
@@ -1376,7 +1454,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "unknown",
+        "recipient_count": 0,
+        "evidence_reference": "HISTORICAL-DISCLOSURE-INVENTORY-NOT-CAPTURED-SA-FS-014",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-015",
@@ -1474,7 +1558,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-016",
@@ -1544,7 +1634,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-017",
@@ -1628,7 +1724,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-018",
@@ -1721,7 +1823,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-019",
@@ -1811,7 +1919,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-020",
@@ -1881,7 +1995,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-021",
@@ -1965,7 +2085,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-022",
@@ -2049,7 +2175,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-023",
@@ -2133,7 +2265,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-024",
@@ -2217,7 +2355,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-025",
@@ -2302,12 +2446,12 @@
       "disclosures": [],
       "receiver_decision": {
         "action": "none",
-        "basis": "no_adverse_action",
+        "basis": "prior_recipient_inventory_unknown_signal_quarantined",
         "automatic": false,
         "independent_review": false,
         "essential_access_affected": false
       },
-      "expected_disposition": "deduplicate_correction",
+      "expected_disposition": "propagation_inventory_incomplete",
       "negative_controls": [
         "no_status_promotion_without_evidence",
         "no_public_pii_hash",
@@ -2315,7 +2459,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "unknown",
+        "recipient_count": 0,
+        "evidence_reference": "HISTORICAL-DISCLOSURE-INVENTORY-NOT-CAPTURED-SA-FS-025",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-026",
@@ -2385,13 +2535,13 @@
       ],
       "disclosures": [],
       "receiver_decision": {
-        "action": "allow",
-        "basis": "source_correction_received",
+        "action": "none",
+        "basis": "prior_recipient_inventory_unknown_signal_quarantined",
         "automatic": false,
-        "independent_review": true,
+        "independent_review": false,
         "essential_access_affected": false
       },
-      "expected_disposition": "propagate_legitimacy_correction",
+      "expected_disposition": "propagation_inventory_incomplete",
       "negative_controls": [
         "no_status_promotion_without_evidence",
         "no_public_pii_hash",
@@ -2399,7 +2549,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "unknown",
+        "recipient_count": 0,
+        "evidence_reference": "HISTORICAL-DISCLOSURE-INVENTORY-NOT-CAPTURED-SA-FS-026",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-027",
@@ -2484,12 +2640,12 @@
       "disclosures": [],
       "receiver_decision": {
         "action": "none",
-        "basis": "no_adverse_action",
+        "basis": "prior_recipient_inventory_unknown_signal_quarantined",
         "automatic": false,
         "independent_review": false,
         "essential_access_affected": false
       },
-      "expected_disposition": "propagate_overturn",
+      "expected_disposition": "propagation_inventory_incomplete",
       "negative_controls": [
         "no_status_promotion_without_evidence",
         "no_public_pii_hash",
@@ -2497,7 +2653,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "unknown",
+        "recipient_count": 0,
+        "evidence_reference": "HISTORICAL-DISCLOSURE-INVENTORY-NOT-CAPTURED-SA-FS-027",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-028",
@@ -2567,7 +2729,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-029",
@@ -2649,7 +2817,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-030",
@@ -2747,7 +2921,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-031",
@@ -2860,7 +3040,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-032",
@@ -2967,7 +3153,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-033",
@@ -3037,7 +3229,13 @@
         "no_single_signal_permanent_denial"
       ],
       "historical_disclosures": [],
-      "correction_propagations": []
+      "correction_propagations": [],
+      "historical_disclosure_inventory": {
+        "status": "not_applicable",
+        "recipient_count": 0,
+        "evidence_reference": "NO_SUPERSEDED_SIGNAL_VERSION",
+        "verified_at": null
+      }
     },
     {
       "scenario_id": "SA-FS-034",
@@ -3164,7 +3362,13 @@
           "reason": null,
           "evidence_reference": "SYNTHETIC-PROPAGATION-EVIDENCE"
         }
-      ]
+      ],
+      "historical_disclosure_inventory": {
+        "status": "complete",
+        "recipient_count": 1,
+        "evidence_reference": "SYNTHETIC-DISCLOSURE-LEDGER-SA-FS-034",
+        "verified_at": "2026-11-04T09:03:00Z"
+      }
     },
     {
       "scenario_id": "SA-FS-035",
@@ -3291,7 +3495,13 @@
           "reason": null,
           "evidence_reference": "SYNTHETIC-PROPAGATION-EVIDENCE"
         }
-      ]
+      ],
+      "historical_disclosure_inventory": {
+        "status": "complete",
+        "recipient_count": 1,
+        "evidence_reference": "SYNTHETIC-DISCLOSURE-LEDGER-SA-FS-035",
+        "verified_at": "2026-11-04T09:03:00Z"
+      }
     },
     {
       "scenario_id": "SA-FS-036",
@@ -3418,7 +3628,13 @@
           "reason": "Recipient inventory reviewed; no past, current or planned decision about the data subject used this disclosure",
           "evidence_reference": "IMPACT-ASSESSMENT-036"
         }
-      ]
+      ],
+      "historical_disclosure_inventory": {
+        "status": "complete",
+        "recipient_count": 1,
+        "evidence_reference": "SYNTHETIC-DISCLOSURE-LEDGER-SA-FS-036",
+        "verified_at": "2026-11-04T09:03:00Z"
+      }
     },
     {
       "scenario_id": "SA-FS-037",
@@ -3545,7 +3761,13 @@
           "reason": "Synthetic example: recipient endpoint is unavailable; responsible-party review and alternative contact attempts are recorded. This is an exception record, not a legal safe harbour.",
           "evidence_reference": "PRACTICABILITY-ASSESSMENT-037"
         }
-      ]
+      ],
+      "historical_disclosure_inventory": {
+        "status": "complete",
+        "recipient_count": 1,
+        "evidence_reference": "SYNTHETIC-DISCLOSURE-LEDGER-SA-FS-037",
+        "verified_at": "2026-11-04T09:03:00Z"
+      }
     },
     {
       "scenario_id": "SA-FS-038",
@@ -3672,7 +3894,13 @@
           "reason": null,
           "evidence_reference": "SYNTHETIC-PROPAGATION-EVIDENCE"
         }
-      ]
+      ],
+      "historical_disclosure_inventory": {
+        "status": "complete",
+        "recipient_count": 1,
+        "evidence_reference": "SYNTHETIC-DISCLOSURE-LEDGER-SA-FS-038",
+        "verified_at": "2026-11-04T09:03:00Z"
+      }
     },
     {
       "scenario_id": "SA-FS-039",
@@ -3799,7 +4027,13 @@
           "reason": null,
           "evidence_reference": "SYNTHETIC-PROPAGATION-EVIDENCE"
         }
-      ]
+      ],
+      "historical_disclosure_inventory": {
+        "status": "complete",
+        "recipient_count": 1,
+        "evidence_reference": "SYNTHETIC-DISCLOSURE-LEDGER-SA-FS-039",
+        "verified_at": "2026-11-04T09:03:00Z"
+      }
     }
   ]
 }
