@@ -151,7 +151,7 @@ The abstract test coordinator can author any proposal. The receiving validator i
 
 The safe model requires the original owner for the direct transition, one append only, the correct author provenance, and no protected-field mutation. A remote observer's projection is a subset of validator-integrated state; authoring an action does not make it accepted or visible. A valid delegated Admin transition is intentionally not modeled as available until the controller-signed lease protocol is implemented and qualified.
 
-The TLC workflow now runs all three mailbox configurations in addition to the authorization lifecycle configurations. TLC has not yet executed these new mailbox models; do not report a pass until run logs show the safe model exhausts its state queue and each mutant fails on its intended invariant. The corresponding runtime experiment is tracked in [#5781](https://github.com/Luminous-Dynamics/mycelix/issues/5781).
+The TLC workflow now runs all three mailbox configurations in addition to the authorization lifecycle configurations. **The first exact run (#32) passed the safe mailbox model** with 37 generated / 20 distinct states and no invariant error. The proposed-state mutant was caught by `OnlyOriginalOwnerMayUpdate`; the protected-field mutant was caught by `ProtectedFieldsRemainImmutable`. Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41852865450. Full tool/source/state receipt: `docs/security/PulseMailboxValidation-model-check-2026-11-04.md`. The corresponding real two-conductor experiment remains open in [#5781](https://github.com/Luminous-Dynamics/mycelix/issues/5781).
 
 ## Qualification stages
 
