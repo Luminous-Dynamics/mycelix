@@ -311,10 +311,10 @@ fn expected_disposition(
     if amount > maximum {
         return "reject_amount_limit";
     }
-    if let Some(aggregate_limit) = u64_at(amount_rule, "aggregate_amount_limit_minor_units") {
-        if amount_before.saturating_add(amount) > aggregate_limit {
-            return "reject_aggregate_amount_limit";
-        }
+    if let Some(aggregate_limit) = u64_at(amount_rule, "aggregate_amount_limit_minor_units")
+        && amount_before.saturating_add(amount) > aggregate_limit
+    {
+        return "reject_aggregate_amount_limit";
     }
 
     if let Some(receiver_id) = str_at(case, "receiver_profile_id") {
@@ -340,15 +340,15 @@ fn expected_disposition(
     if let Some(expiry_days) = case.get("requested_expiry_days").and_then(Value::as_u64) {
         let expiry = &profile["expiry_policy"];
         if str_at(expiry, "maximum_state") == Some("source_backed") {
-            if let Some(maximum_days) = u64_at(expiry, "maximum_days") {
-                if expiry_days > maximum_days {
-                    return "reject_expiry_limit";
-                }
+            if let Some(maximum_days) = u64_at(expiry, "maximum_days")
+                && expiry_days > maximum_days
+            {
+                return "reject_expiry_limit";
             }
-            if let Some(minimum_days) = u64_at(expiry, "minimum_days") {
-                if expiry_days < minimum_days {
-                    return "reject_expiry_limit";
-                }
+            if let Some(minimum_days) = u64_at(expiry, "minimum_days")
+                && expiry_days < minimum_days
+            {
+                return "reject_expiry_limit";
             }
         }
     }
