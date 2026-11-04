@@ -1248,8 +1248,8 @@ pub fn deliver_capability_grant(requested_hash: ActionHash) -> ExternResult<()> 
             "System grant tag does not match the application capability".to_string()
         )));
     }
-    let secret = match grant.access {
-        CapAccess::Assigned { secret, assignees } if assignees.contains(&capability.grantee) => {
+    let secret = match grant.constraint {
+        GrantConstraint::Assigned { secret, assignees } if assignees.contains(&capability.grantee) => {
             secret
         }
         _ => {
