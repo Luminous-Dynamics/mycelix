@@ -69,7 +69,9 @@
             "e_invoice_semantics",
             "digital_reporting_taxonomy",
             "digital_tax_reporting_reference",
-            "jurisdiction_profile"
+            "jurisdiction_profile",
+            "locale_data",
+            "timezone_database"
           ]
         },
         "version": {
