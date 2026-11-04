@@ -822,7 +822,7 @@ mod tests {
     #[test]
     fn coordinator_assertion_cannot_substitute_for_host_receipt() {
         let mut bundle = fixture();
-        let event = bundle.events.iter_mut().find(|e| matches!(e.kind, EventKind::HostCall(_))).unwrap();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::HostCall(_))).unwrap();
         event.source = EvidenceSource::Coordinator;
         let report = run(&bundle);
         assert_eq!(report.status, Status::Incomplete);
