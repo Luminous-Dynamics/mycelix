@@ -39,7 +39,7 @@ CREATE OR REPLACE FUNCTION identity_security.register_verifier_challenge(
     p_transaction_id UUID,
     p_request_digest BYTEA,
     p_holder_binding_digest BYTEA,
-    p_expires_at TIMESTAMPTZ
+    p_ttl_seconds INTEGER
 ) RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -55,9 +55,9 @@ BEGIN
        OR p_verifier_id IS NULL OR length(p_verifier_id) NOT BETWEEN 1 AND 512
        OR p_audience IS NULL OR length(p_audience) NOT BETWEEN 1 AND 2048
        OR p_transaction_id IS NULL
-       OR p_expires_at IS NULL
-       OR p_expires_at <= db_now
-       OR p_expires_at > db_now + INTERVAL '10 minutes' THEN
+       OR p_ttl_seconds IS NULL
+       OR p_ttl_seconds < 1
+       OR p_ttl_seconds > 600 THEN
         RETURN FALSE;
     END IF;
 
@@ -66,7 +66,8 @@ BEGIN
         request_digest, holder_binding_digest, issued_at, expires_at
     ) VALUES (
         p_challenge_digest, p_verifier_id, p_audience, p_transaction_id,
-        p_request_digest, p_holder_binding_digest, db_now, p_expires_at
+        p_request_digest, p_holder_binding_digest, db_now,
+        db_now + (p_ttl_seconds * INTERVAL '1 second')
     )
     ON CONFLICT (challenge_digest) DO NOTHING;
 
@@ -121,7 +122,7 @@ $$;
 -- access to the table. Keep digest tombstones to prevent accidental reuse.
 REVOKE ALL ON identity_security.verifier_challenges FROM PUBLIC;
 REVOKE ALL ON FUNCTION identity_security.register_verifier_challenge(
-    BYTEA, TEXT, TEXT, UUID, BYTEA, BYTEA, TIMESTAMPTZ
+    BYTEA, TEXT, TEXT, UUID, BYTEA, BYTEA, INTEGER
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION identity_security.consume_verifier_challenge(
     BYTEA, TEXT, TEXT, UUID, BYTEA, BYTEA
