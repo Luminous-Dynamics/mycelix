@@ -13,7 +13,7 @@
       "authority": "South African Reserve Bank",
       "title": "Positioning the SARB's Payments Ecosystem Modernisation Programme",
       "url": "https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf",
-      "published_on": "2025-01-01",
+      "published_on": null,
       "observed_on": "2026-11-04",
       "evidence_class": "official_policy_proposal",
       "supports": [
@@ -50,7 +50,7 @@
       "authority": "BIS Committee on Payments and Market Infrastructures / PIE Task Team 2",
       "title": "Enhancing cross-border payments — addressing fraud",
       "url": "https://www.bis.org/cpmi/pietf/fraud_report_2026.pdf",
-      "published_on": "2026-02-01",
+      "published_on": null,
       "observed_on": "2026-11-04",
       "evidence_class": "international_policy_and_industry_report",
       "supports": [
@@ -69,7 +69,7 @@
       "authority": "BIS Committee on Payments and Market Infrastructures / PIE Task Team 2",
       "title": "Enhancing cross-border payments: Fast Payment System interlinking",
       "url": "https://www.bis.org/cpmi/pietf/fps_feb_2026.pdf",
-      "published_on": "2026-02-01",
+      "published_on": null,
       "observed_on": "2026-11-04",
       "evidence_class": "international_policy_and_industry_report",
       "supports": [
