@@ -24,7 +24,7 @@ cargo run --manifest-path tools/finance/payment-initiation-assurance/Cargo.toml
 - Unknown external outcomes retain their original operation identity and are queried/reconciled rather than blindly retried.
 - Published QR+ standard is not evidence that the operational pilot or merchant implementation is complete.
 
-The 33 cases and 28 deterministic negative mutations are synthetic conformance fixtures. The tool does not parse actual QR+ payloads, access provider directories, authenticate users, or dispatch payments.
+The 33 cases and 33 deterministic negative mutations are synthetic conformance fixtures. The tool does not parse actual QR+ payloads, access provider directories, authenticate users, or dispatch payments.
 
 ## Claim ceiling
 
