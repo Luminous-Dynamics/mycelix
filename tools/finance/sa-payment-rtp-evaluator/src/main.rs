@@ -796,7 +796,7 @@ mod tests {
     fn checked_in_schema_and_corpus_validate() {
         let (errors, corpus, _) = evaluate(DEFAULT_CORPUS, DEFAULT_SCHEMA).expect("evaluation");
         assert!(errors.is_empty(), "{errors:?}");
-        assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 5);
+        assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 6);
         assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 32);
     }
 
