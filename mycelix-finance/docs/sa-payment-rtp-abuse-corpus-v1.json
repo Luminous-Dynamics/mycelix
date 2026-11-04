@@ -1,0 +1,2555 @@
+{
+  "schema": "mycelix.sa-payment-rtp-abuse/v1",
+  "corpus_id": "ZA-SA-PAYMENT-RTP-ABUSE-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "as_of": "2026-11-04",
+  "jurisdiction": "ZA",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "CAPITEC_RTP_FAQ_2026",
+      "authority": "Capitec Bank",
+      "title": "PayShap Request FAQ",
+      "url": "https://www.capitecbank.co.za/were-here-to-help/faqs/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_faq_snapshot",
+      "supports": [
+        "PayShap Request displays sender name/reference and is only accessed through the logged-in Capitec app.",
+        "A recipient unsure who or why the request was sent can decline it without money being taken.",
+        "The FAQ states two requests per 24 hours to any SA bank for the requester account.",
+        "Capitec's FAQ cautions that other banks may have their own limits and tells the sender to check with the receiver; this does not provide those other banks' limits."
+      ],
+      "does_not_support": [
+        "Sender display name proves legal identity, collector authority or invoice legitimacy.",
+        "Declining a request removes an underlying legal debt or obligation.",
+        "Two requests per 24 hours is a universal limit for every PayShap participant."
+      ]
+    },
+    {
+      "id": "EPC_VOP_MATCHING_2026",
+      "authority": "European Payments Council",
+      "title": "EPC Recommendations for VOP matching processes v2.0",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/epc-recommendations-matching-processes-under-vop-scheme",
+      "published_on": "2026-11-03",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_scheme_implementation_guidance",
+      "supports": [
+        "v2.0 published 3 November 2026 addresses character sets and natural/legal-person name variants including initials, spelling, phonetic and commercial names.",
+        "Responding PSP remains responsible for its matching outcome and may use its own criteria."
+      ],
+      "does_not_support": [
+        "Close/match is proof of legitimacy, voluntariness or authority to collect.",
+        "South African ShapID matching rules."
+      ]
+    },
+    {
+      "id": "EPC_VOP_NO_MATCH_PAYER_CHOICE_2026",
+      "authority": "European Payments Council",
+      "title": "What should a PSP do or not do when a No Match or Verification check not possible is received?",
+      "url": "https://www.europeanpaymentscouncil.eu/faq/verification-payee-scheme/rulebook/what-should-psp-do-not-do-when-no-match-or-verification",
+      "published_on": "2026-01-27",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_scheme_faq_snapshot",
+      "supports": [
+        "For the EPC VOP/SCT comparator, the PSP informs the payer when there is a no-match or verification unavailable response and warns of misdirected-funds risk.",
+        "The EPC FAQ says the payer decides whether to proceed; preventing an eligible credit transfer solely because of the VOP result breaches the EPC VOP and SCT(Inst) rulebooks."
+      ],
+      "does_not_support": [
+        "A requirement that South African PSPs must permit or block a PayShap Request after an account-name discrepancy.",
+        "A determination of the payer's legal obligation or requester legitimacy."
+      ]
+    },
+    {
+      "id": "EPC_VOP_RULEBOOK_2026",
+      "authority": "European Payments Council",
+      "title": "Verification of Payee Scheme Rulebook v1.1",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/rulebooks/verification-payee-scheme-rulebook-0",
+      "published_on": "2026-03-16",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_inter_psp_scheme_rulebook",
+      "supports": [
+        "VOP v1.1 effective 20 September 2026 compares account identifier and payee name prior to eligible SEPA credit transfers.",
+        "Possible outcomes include match, close match, no match and verification not possible."
+      ],
+      "does_not_support": [
+        "EPC states VOP messaging cannot be relied upon to identify a private or legal person.",
+        "A VOP match proves an invoice, collection mandate or payment request is legitimate.",
+        "South African PayShap participant conformance."
+      ]
+    },
+    {
+      "id": "EPC_VOP_SCHEME_OVERVIEW_2026",
+      "authority": "European Payments Council",
+      "title": "Verification of Payee (VOP)",
+      "url": "https://www.europeanpaymentscouncil.eu/what-we-do/other-schemes/verification-payee-vop",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_inter_psp_scheme_description",
+      "supports": [
+        "VOP is messaging functionality for checking certain data about a payee account.",
+        "EPC explicitly says VOP cannot be relied upon to identify a private or legal person.",
+        "Responses distinguish match, close match, no match and verification check not possible."
+      ],
+      "does_not_support": [
+        "A VOP match establishes legal identity or contractual capacity.",
+        "A name match proves invoice authenticity, collection mandate or requester authority.",
+        "South African PayShap participant rules."
+      ]
+    },
+    {
+      "id": "PAYUK_RTP_FRAMEWORK",
+      "authority": "Pay.UK",
+      "title": "Request to Pay",
+      "url": "https://www.wearepay.uk/what-we-do/overlay-services/request-to-pay/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_industry_service_description",
+      "supports": [
+        "Request to Pay supports secure communication and payer options including pay, query, pay part, pay later and decline."
+      ],
+      "does_not_support": [
+        "A decline or request response changes the underlying legal obligation.",
+        "Pay.UK behaviour is a South African product rule."
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SA-RTP-ABUSE-001",
+      "scenario_type": "authenticated_sender_display_name_is_not_legal_identity",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "sender_session_only",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:001",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-002",
+      "scenario_type": "account_name_match_does_not_prove_collect_authority",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "account_name_match",
+      "collection_authority": "not_provided",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "account_name_match_only",
+      "instruction_created": false,
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:002",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-003",
+      "scenario_type": "verified_merchant_beneficiary_mismatch",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "verified_for_beneficiary",
+      "commercial_claim_evidence": "invoice_evidence_bound",
+      "payee_binding": "mismatch",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "reject_payee_mismatch",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:003",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-004",
+      "scenario_type": "verified_requester_without_invoice_evidence",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "verified_for_beneficiary",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "commercial_claim_unsubstantiated",
+      "expected_claim_ceiling": "requester_authority_supported",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:004",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-005",
+      "scenario_type": "unsupported_false_debt_or_legal_threat",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "not_provided",
+      "commercial_claim_evidence": "unsupported_legal_assertion",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "coercive_language",
+        "unsupported_legal_claim"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "flag_unsupported_claim",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:005",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-005-01",
+          "signal_code": "coercive_language",
+          "issuer_class": "payer_report",
+          "evidence_state": "unverified",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "requester_account",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:005",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:39d810f4e905f4f348de8d6beec907c936b24d27f7ee1eeb5a5c3b55d2255f08"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-006",
+      "scenario_type": "repeat_after_decline_below_source_backed_request_limit",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "verified_for_beneficiary",
+      "commercial_claim_evidence": "invoice_evidence_bound",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": true,
+      "request_count_24h": 2,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "repeat_after_decline"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "repeat_after_decline_review",
+      "expected_claim_ceiling": "commercial_evidence_present_nonlegal",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:006",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-006-01",
+          "signal_code": "repeat_after_decline",
+          "issuer_class": "system_audit",
+          "evidence_state": "corroborated",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "requester_account",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:006",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:f941fb76b8b97e3d5c10ebe5623164318418dcbe61fb14a904831432896f3b89"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-007",
+      "scenario_type": "requester_account_exceeds_published_capitec_request_count",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 3,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "request_flood"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "blocked_by_published_limit",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:007",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-008",
+      "scenario_type": "authenticated_but_suspected_compromised_merchant_credential",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "suspected",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "invoice_evidence_bound",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "suspected_account_compromise"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "credential_compromise_review",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:008",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-008-01",
+          "signal_code": "credential_compromise",
+          "issuer_class": "provider_security_notice",
+          "evidence_state": "corroborated",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "requester_credential",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:008",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:ad5524cd9e18b784b063943e27ae82a83eb9376fc328930c9cf25b5bbb84d73f"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-009",
+      "scenario_type": "lookalike_or_confusable_shapid",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "confusable",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "confusable",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "identity_confusable"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "manual_identity_review",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "EPC_VOP_MATCHING_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:009",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-009-01",
+          "signal_code": "identity_confusable",
+          "issuer_class": "automated_heuristic",
+          "evidence_state": "unverified",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "requester_account",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:009",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:654e07ca020e107212c543f4d32c9d204ab37fb1697d0a2d9ed68092b012e83f"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-010",
+      "scenario_type": "unresolved_or_ambiguous_payee_binding",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "account_name_match",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "ambiguous",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "manual_identity_review",
+      "expected_claim_ceiling": "account_name_match_only",
+      "instruction_created": false,
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:010",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-011",
+      "scenario_type": "stale_invoice_or_order_evidence",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "verified_for_beneficiary",
+      "commercial_claim_evidence": "stale",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "commercial_claim_unsubstantiated",
+      "expected_claim_ceiling": "requester_authority_supported",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:011",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-012",
+      "scenario_type": "payer_reports_request_while_request_remains_pending",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "reported",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "payer_report"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "report_no_payment_effect",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:012",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-012-01",
+          "signal_code": "payer_report",
+          "issuer_class": "payer_report",
+          "evidence_state": "unverified",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "requester_account",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:012",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:1d3259233c141b23853300d310c234683b54c4b6a7862f32768f00536be90d74"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-013",
+      "scenario_type": "payer_declines_unknown_request",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "declined",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "decline_no_payment_effect",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:013",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-014",
+      "scenario_type": "request_data_reused_for_unrelated_credit_scoring",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "unrelated_secondary_use"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "credit_scoring",
+      "appeal_state": "none",
+      "expected_disposition": "reject_secondary_data_use",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:014",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-014-01",
+          "signal_code": "secondary_data_use",
+          "issuer_class": "system_audit",
+          "evidence_state": "independently_confirmed",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "merchant_identity",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:014",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:61da99cb7c7de7782437e244d6cf74f5a3d92c9a3e2788e1c1f93a139c82aa04"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-015",
+      "scenario_type": "request_data_disclosed_to_unrelated_marketer",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "unrelated_secondary_use"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "marketing_disclosure",
+      "appeal_state": "none",
+      "expected_disposition": "reject_secondary_data_use",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:015",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-015-01",
+          "signal_code": "secondary_data_use",
+          "issuer_class": "system_audit",
+          "evidence_state": "independently_confirmed",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "merchant_identity",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:015",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:e2d33b296dc2e4e240d686c234c580d323b83036da7e3c7f4f2084b4b09614b1"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-016",
+      "scenario_type": "accessibility_presentation_omits_material_fee_or_beneficiary",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "amount",
+          "currency",
+          "reference",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "incomplete",
+        "ai_summary_used": false,
+        "ai_summary_fields": []
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "presentation_incomplete",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:016",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-017",
+      "scenario_type": "small_informal_merchant_false_positive_block_appeal",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "unknown",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "merchant_record_only",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "false_positive_block_appeal"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "pending",
+      "expected_disposition": "appeal_review_not_automatic_exclusion",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:017",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-017-01",
+          "signal_code": "false_positive_block",
+          "issuer_class": "third_party_complaint",
+          "evidence_state": "unverified",
+          "freshness_state": "unknown",
+          "appeal_state": "pending",
+          "subject_scope": "merchant_identity",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:017",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:e7097b99648953fb317a62d42f063abed05000d2ba43b37968f8c45c1bddb588"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-018",
+      "scenario_type": "ai_summary_omits_material_amount_or_fee",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": true,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "reference",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "presentation_incomplete",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:018",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-019",
+      "scenario_type": "intermediary_lacks_authority_to_collect_for_beneficiary",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "not_provided",
+      "commercial_claim_evidence": "invoice_evidence_bound",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "unauthorised_intermediary"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "requester_identity_only",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:019",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-020",
+      "scenario_type": "sender_account_name_match_but_commercial_party_not_identified",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "account_name_match",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "account_name_match_only",
+      "instruction_created": false,
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026",
+        "EPC_VOP_MATCHING_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:020",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-021",
+      "scenario_type": "valid_requester_and_evidence_but_repeat_after_decline",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "verified_for_beneficiary",
+      "commercial_claim_evidence": "invoice_evidence_bound",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": true,
+      "request_count_24h": 2,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "repeat_after_decline"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "repeat_after_decline_review",
+      "expected_claim_ceiling": "commercial_evidence_present_nonlegal",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:021",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-021-01",
+          "signal_code": "repeat_after_decline",
+          "issuer_class": "system_audit",
+          "evidence_state": "corroborated",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "requester_account",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:021",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:db38cfda1186cd7d3c069335d0005007743cab4cfae22d533bcaf7f575fb29a2"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-022",
+      "scenario_type": "verified_sender_with_conflicting_collection_authority",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "conflicting",
+      "commercial_claim_evidence": "invoice_evidence_bound",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "authority_conflict"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "requester_identity_only",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:022",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-022-01",
+          "signal_code": "authority_conflict",
+          "issuer_class": "third_party_complaint",
+          "evidence_state": "corroborated",
+          "freshness_state": "current",
+          "appeal_state": "pending",
+          "subject_scope": "merchant_identity",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:022",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:77af3c5c80500a6f7deba876052b40f238bcb3b6b509654c9bdf6d6396a70a08"
+        }
+      ],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-023",
+      "scenario_type": "user_query_does_not_authorise_payment",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "queried",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [
+        "payer_query"
+      ],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "query_no_payment_effect",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:023",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-024",
+      "scenario_type": "requester_limit_unknown_for_non_capitec_participant",
+      "profile_id": "ZA-UNQUALIFIED-PARTICIPANT-REQUEST-V1",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 3,
+      "published_request_limit_24h": null,
+      "limit_source_state": "unknown",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "limit_unknown_do_not_invent_rejection",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "requester_subject_ref": "urn:synthetic:requester:024",
+      "risk_observations": [],
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-025",
+      "scenario_type": "stale_correlated_complaint_not_a_permanent_block",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_subject_ref": "urn:synthetic:requester:025",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-025-01",
+          "signal_code": "past_request_complaint",
+          "issuer_class": "third_party_complaint",
+          "evidence_state": "corroborated",
+          "freshness_state": "stale",
+          "appeal_state": "none",
+          "subject_scope": "merchant_identity",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:025",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:f6f7750affd5174afb3fc806bbb7f3b701a34f19b824ef6fcb14dfc27f459a4c"
+        }
+      ],
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-026",
+      "scenario_type": "overturned_false_positive_is_refuted_not_recycled",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_subject_ref": "urn:synthetic:requester:026",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "reversed",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-026-01",
+          "signal_code": "past_impersonation_claim",
+          "issuer_class": "independent_adjudication",
+          "evidence_state": "refuted",
+          "freshness_state": "stale",
+          "appeal_state": "overturned",
+          "subject_scope": "merchant_identity",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:026",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:d9a8b199dc576ca1d7c9aec31d2f41abc794a155c4701f4ebfb02677da982ab8"
+        }
+      ],
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-027",
+      "scenario_type": "current_provider_compromise_signal_with_pending_appeal_routes_to_review",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_subject_ref": "urn:synthetic:requester:027",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "suspected",
+      "requester_identity_evidence": "verified_merchant_identity",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-027-01",
+          "signal_code": "credential_compromise",
+          "issuer_class": "provider_security_notice",
+          "evidence_state": "corroborated",
+          "freshness_state": "current",
+          "appeal_state": "pending",
+          "subject_scope": "requester_credential",
+          "subject_binding_state": "bound",
+          "subject_ref": "urn:synthetic:requester:027",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:d625539073dea3c89e4f0a8f8b2841d5b35df19ecb82210fa63aba8efec27d62"
+        }
+      ],
+      "expected_disposition": "credential_compromise_review",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-028",
+      "scenario_type": "cross_subject_observation_is_unbound_and_not_reused",
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "requester_subject_ref": "urn:synthetic:requester:028",
+      "requester_authentication": "authenticated_session",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "display_name_only",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "unknown",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 1,
+      "published_request_limit_24h": 2,
+      "limit_source_state": "source_backed",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "risk_observations": [
+        {
+          "observation_id": "OBS-028-01",
+          "signal_code": "credential_compromise",
+          "issuer_class": "provider_security_notice",
+          "evidence_state": "corroborated",
+          "freshness_state": "current",
+          "appeal_state": "none",
+          "subject_scope": "requester_credential",
+          "subject_binding_state": "unbound",
+          "subject_ref": "urn:synthetic:requester:999",
+          "observed_on": "2026-11-04",
+          "expires_on": null,
+          "purpose_scope": "payment_request_abuse_only",
+          "evidence_commitment": "sha256:5b3309fbcd5982a192cf86c850bc4cfae01459e398f55c47be3ab4511a85e0fd"
+        }
+      ],
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "notes": "Synthetic case only; no real payer, merchant or transaction data.",
+      "payee_verification_scheme": "not_performed",
+      "payee_verification_result": "not_performed",
+      "payee_verification_guidance": null,
+      "payer_warning_state": "not_applicable",
+      "payer_choice_state": "not_applicable"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-029",
+      "scenario_type": "vop_match_is_account_name_evidence_not_legal_identity_or_collect_authority",
+      "profile_id": "EU-SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+      "requester_authentication": "unknown",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "account_name_match",
+      "collection_authority": "not_provided",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "exact",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 0,
+      "published_request_limit_24h": null,
+      "limit_source_state": "not_applicable",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "identity_or_authority_unqualified",
+      "expected_claim_ceiling": "account_name_match_only",
+      "instruction_created": false,
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026",
+        "EPC_VOP_MATCHING_2026",
+        "EPC_VOP_SCHEME_OVERVIEW_2026"
+      ],
+      "notes": "Synthetic EPC VOP comparator only. It is not a South African PayShap rule, legal-identity proof, collection mandate or commercial-claim proof.",
+      "requester_subject_ref": "urn:synthetic:requester:029",
+      "risk_observations": [],
+      "payee_verification_scheme": "EPC_VOP_V1_1_COMPARATOR",
+      "payee_verification_result": "match",
+      "payee_verification_guidance": "EPC_VOP_MATCHING_V2.0",
+      "payer_warning_state": "not_required",
+      "payer_choice_state": "preserved"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-030",
+      "scenario_type": "vop_close_match_requires_bounded_name_variation_review",
+      "profile_id": "EU-SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+      "requester_authentication": "unknown",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "account_name_match",
+      "collection_authority": "not_provided",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "ambiguous",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 0,
+      "published_request_limit_24h": null,
+      "limit_source_state": "not_applicable",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "manual_identity_review",
+      "expected_claim_ceiling": "account_name_match_only",
+      "instruction_created": false,
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026",
+        "EPC_VOP_MATCHING_2026",
+        "EPC_VOP_SCHEME_OVERVIEW_2026"
+      ],
+      "notes": "Synthetic close-match case. EPC VOP matching guidance v2.0 describes spelling/transposition, initials, phonetic and commercial-name variants; a close match is not legal identity or collection authority.",
+      "requester_subject_ref": "urn:synthetic:requester:030",
+      "risk_observations": [],
+      "payee_verification_scheme": "EPC_VOP_V1_1_COMPARATOR",
+      "payee_verification_result": "match",
+      "payee_verification_guidance": "EPC_VOP_MATCHING_V2.0",
+      "payer_warning_state": "not_required",
+      "payer_choice_state": "preserved"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-031",
+      "scenario_type": "vop_no_match_warns_but_does_not_silently_block_payer_choice",
+      "profile_id": "EU-SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+      "requester_authentication": "unknown",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "unknown",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "ambiguous",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 0,
+      "published_request_limit_24h": null,
+      "limit_source_state": "not_applicable",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "manual_identity_review",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026",
+        "EPC_VOP_MATCHING_2026",
+        "EPC_VOP_SCHEME_OVERVIEW_2026",
+        "EPC_VOP_NO_MATCH_PAYER_CHOICE_2026"
+      ],
+      "notes": "Synthetic EPC VOP comparator. No-match is disclosed as a misdirected-funds risk warning; payer choice remains separate from the match result. EU scheme mechanics are not imported as South African law.",
+      "requester_subject_ref": "urn:synthetic:requester:031",
+      "risk_observations": [],
+      "payee_verification_scheme": "EPC_VOP_V1_1_COMPARATOR",
+      "payee_verification_result": "no_match",
+      "payee_verification_guidance": "EPC_VOP_MATCHING_V2.0",
+      "payer_warning_state": "warning_displayed",
+      "payer_choice_state": "preserved"
+    },
+    {
+      "scenario_id": "SA-RTP-ABUSE-032",
+      "scenario_type": "vop_verification_unavailable_is_indeterminate_not_a_mismatch",
+      "profile_id": "EU-SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+      "requester_authentication": "unknown",
+      "credential_compromise_state": "unknown",
+      "requester_identity_evidence": "unknown",
+      "collection_authority": "unknown",
+      "commercial_claim_evidence": "missing",
+      "payee_binding": "ambiguous",
+      "payer_action": "pending",
+      "prior_declined": false,
+      "request_count_24h": 0,
+      "published_request_limit_24h": null,
+      "limit_source_state": "not_applicable",
+      "abuse_signals": [],
+      "presentation": {
+        "required_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "displayed_material_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ],
+        "accessibility_state": "qualified",
+        "ai_summary_used": false,
+        "ai_summary_fields": [
+          "requester",
+          "beneficiary",
+          "amount",
+          "currency",
+          "reference",
+          "fees",
+          "expiry",
+          "purpose"
+        ]
+      },
+      "secondary_data_use": "none",
+      "appeal_state": "none",
+      "expected_disposition": "manual_identity_review",
+      "expected_claim_ceiling": "unproven",
+      "instruction_created": false,
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026",
+        "EPC_VOP_MATCHING_2026",
+        "EPC_VOP_SCHEME_OVERVIEW_2026",
+        "EPC_VOP_NO_MATCH_PAYER_CHOICE_2026"
+      ],
+      "notes": "Synthetic EPC VOP comparator. Verification unavailable is indeterminate, not proof of fraud or identity mismatch; record uncertainty and preserve the payer-choice state.",
+      "requester_subject_ref": "urn:synthetic:requester:032",
+      "risk_observations": [],
+      "payee_verification_scheme": "EPC_VOP_V1_1_COMPARATOR",
+      "payee_verification_result": "verification_not_possible",
+      "payee_verification_guidance": "EPC_VOP_MATCHING_V2.0",
+      "payer_warning_state": "warning_displayed",
+      "payer_choice_state": "preserved"
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "EU-SEPA-EPC-VOP-V1-1-COMPARATOR-V1",
+      "jurisdiction": "EU-SEPA",
+      "participant": "European Payments Council VOP scheme",
+      "product": "Verification of Payee v1.1 and matching guidance v2.0 comparator",
+      "observed_on": "2026-11-04",
+      "effective_from": "2026-09-20",
+      "request_limit_24h": null,
+      "request_limit_scope": "not_applicable",
+      "source_refs": [
+        "EPC_VOP_RULEBOOK_2026",
+        "EPC_VOP_MATCHING_2026",
+        "EPC_VOP_SCHEME_OVERVIEW_2026",
+        "EPC_VOP_NO_MATCH_PAYER_CHOICE_2026"
+      ],
+      "qualification": "architecture_comparator_only_not_South_African_PayShap_conformance"
+    },
+    {
+      "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+      "jurisdiction": "ZA",
+      "participant": "Capitec Bank",
+      "product": "PayShap Request consumer app",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "request_limit_24h": 2,
+      "request_limit_scope": "requester_account",
+      "source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ],
+      "qualification": "provider_specific_observed_effective_date_unknown"
+    },
+    {
+      "profile_id": "ZA-UNQUALIFIED-PARTICIPANT-REQUEST-V1",
+      "jurisdiction": "ZA",
+      "participant": "unqualified_participant",
+      "product": "unknown Request-to-Pay product",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "request_limit_24h": null,
+      "request_limit_scope": "unknown",
+      "source_refs": [],
+      "qualification": "no participant product terms supplied"
+    }
+  ]
+}
