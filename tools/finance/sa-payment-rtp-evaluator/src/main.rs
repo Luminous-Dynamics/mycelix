@@ -307,9 +307,14 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         if let Some(maximum) = u64_at(profile, "max_request_minor_units")
             && amount > maximum
             && !array_at(case, "events").is_some_and(|events| {
-                events
-                    .iter()
-                    .any(|event| event_type(event) == "request_rejected_by_participant_limit")
+                events.iter().any(|event| {
+                    matches!(
+                        event_type(event),
+                        "request_rejected_by_participant_limit"
+                            | "terms_version_conflict_detected"
+                            | "request_not_admitted_for_live_profile"
+                    )
+                })
             })
         {
             errors.push(format!(
