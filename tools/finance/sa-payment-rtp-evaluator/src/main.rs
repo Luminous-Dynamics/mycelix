@@ -5,7 +5,7 @@
 
 use jsonschema::draft202012;
 use serde_json::{Value, json};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
@@ -303,7 +303,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             if kind == "payer_declined" {
                 declined = true;
             }
-            if kind == "terms_version_conflict_detected" {
+            if matches!(kind, "terms_version_conflict_detected" | "request_not_admitted_for_live_profile") {
                 conflict = true;
             }
 
@@ -425,7 +425,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 "scenarios[{case_index}]: expected_outcome does not match observed request/payment lifecycle"
             ));
         }
-        let financial_effect = if instruction_count == 0 {
+        let financial_effect = if recipient_available {
+            "recipient_available_observed"
+        } else if instruction_count == 0 {
             "none"
         } else {
             "payment_instruction_only"
@@ -539,8 +541,14 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("cancelled request creates instruction", corpus, schema, |v| {
-        v["scenarios"][4]["events"].push(v["scenarios"][5]["events"][3].clone());
-        v["scenarios"][4]["events"].push(v["scenarios"][5]["events"][4].clone());
+        let mut accepted = v["scenarios"][5]["events"][3].clone();
+        accepted["event_id"] = json!("EV-4");
+        accepted["sequence"] = json!(4);
+        let mut instruction = v["scenarios"][5]["events"][4].clone();
+        instruction["event_id"] = json!("EV-5");
+        instruction["sequence"] = json!(5);
+        v["scenarios"][4]["events"].as_array_mut().unwrap().push(accepted);
+        v["scenarios"][4]["events"].as_array_mut().unwrap().push(instruction);
     })?;
     count += 1;
 
@@ -560,8 +568,14 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("declined request promoted to instruction", corpus, schema, |v| {
-        v["scenarios"][2]["events"].push(v["scenarios"][5]["events"][3].clone());
-        v["scenarios"][2]["events"].push(v["scenarios"][5]["events"][4].clone());
+        let mut accepted = v["scenarios"][5]["events"][3].clone();
+        accepted["event_id"] = json!("EV-5");
+        accepted["sequence"] = json!(5);
+        let mut instruction = v["scenarios"][5]["events"][4].clone();
+        instruction["event_id"] = json!("EV-6");
+        instruction["sequence"] = json!(6);
+        v["scenarios"][2]["events"].as_array_mut().unwrap().push(accepted);
+        v["scenarios"][2]["events"].as_array_mut().unwrap().push(instruction);
     })?;
     count += 1;
 
