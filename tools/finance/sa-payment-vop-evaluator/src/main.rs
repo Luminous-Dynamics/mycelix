@@ -838,6 +838,6 @@ mod tests {
     fn negative_mutation_campaign_rejects_vop_status_and_consent_laundering() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 17);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 18);
     }
 }
