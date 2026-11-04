@@ -1,5 +1,6 @@
 use regex::Regex;
 use serde::Serialize;
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::error::Error;
@@ -36,8 +37,10 @@ struct VariantReport {
     name: String,
     rust_fields: Vec<String>,
     typescript_fields: Option<Vec<String>>,
+    schema_fields: Option<Vec<String>>,
     present_in_typescript: bool,
     field_set_matches: bool,
+    schema_field_set_matches: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -49,6 +52,8 @@ struct ZomeReport {
     rust_variants: Vec<VariantReport>,
     missing_from_typescript: Vec<String>,
     extra_in_typescript: Vec<String>,
+    missing_from_schema: Vec<String>,
+    extra_in_schema: Vec<String>,
     signal_hub_filter_array_count: usize,
     signal_hub_filters_complete: bool,
     codec_compatible_with_v1_envelope_decoder: bool,
@@ -60,6 +65,8 @@ struct AuditReport {
     status: String,
     repository_root: String,
     signal_hub_decodes_adjacent_type_data_envelope: bool,
+    signal_schema_variant_count: usize,
+    signal_schema_complete: bool,
     zomes: Vec<ZomeReport>,
     findings: Vec<String>,
 }
@@ -87,9 +94,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let signal_hub = fs::read_to_string(client_root.join("signals/SignalHub.ts"))?;
     let filters = extract_filter_arrays(&signal_hub)?;
     let adjacent_envelope = signal_hub_decodes_adjacent_envelope(&signal_hub);
+    let schema_path = root.join("docs/security/pulse-zome-signal-wire-v1.schema.json");
+    let signal_schema: Value = serde_json::from_slice(&fs::read(schema_path)?)?;
+    let schema_variants = extract_schema_variants(&signal_schema)?;
+    let schema_names = schema_variants.keys().cloned().collect::<BTreeSet<_>>();
 
     let mut findings = Vec::new();
     let mut zomes = Vec::new();
+    let expected_schema_version = signal_schema["$id"].as_str()
+        .is_some_and(|id| id.ends_with("/pulse-zome-signal-wire-v1.schema.json"));
+    if !expected_schema_version {
+        findings.push("signal JSON Schema $id is missing the v1 wire-contract identifier".to_string());
+    }
 
     for spec in ZOMES {
         let rust_path = root.join(spec.rust_path);
@@ -113,6 +129,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         let ts_names = ts_variants.keys().cloned().collect::<BTreeSet<_>>();
         let missing = rust_names.difference(&ts_names).cloned().collect::<Vec<_>>();
         let extra = ts_names.difference(&rust_names).cloned().collect::<Vec<_>>();
+        let missing_schema = rust_names.difference(&schema_names).cloned().collect::<Vec<_>>();
+        let extra_schema = schema_names.difference(
+            &ZOMES.iter()
+                .flat_map(|z| {
+                    let rust = fs::read_to_string(root.join(z.rust_path)).ok()?;
+                    let file = syn::parse_file(&rust).ok()?;
+                    let item = file.items.into_iter().find_map(|item| match item {
+                        Item::Enum(item) if item.ident == z.rust_enum => Some(item),
+                        _ => None,
+                    })?;
+                    Some(rust_variants(&item).into_iter().map(|v| v.name).collect::<Vec<_>>())
+                })
+                .flatten()
+                .collect::<BTreeSet<_>>()
+        ).cloned().collect::<Vec<_>>();
 
         for name in &missing {
             findings.push(format!("{}: Rust variant {} is missing from TypeScript {}", spec.category, name, spec.ts_alias));
@@ -120,25 +151,44 @@ fn main() -> Result<(), Box<dyn Error>> {
         for name in &extra {
             findings.push(format!("{}: TypeScript variant {} is absent from Rust {}", spec.category, name, spec.rust_enum));
         }
+        for name in &missing_schema {
+            findings.push(format!("{}: Rust variant {} is missing from the v1 JSON Schema", spec.category, name));
+        }
+        for name in &extra_schema {
+            findings.push(format!("{}: v1 JSON Schema variant {} is absent from all Rust producers", spec.category, name));
+        }
 
         let mut variant_reports = Vec::new();
         for rust_variant in &rust_variants {
             let ts_fields = ts_variants.get(&rust_variant.name).cloned();
+            let schema_fields = schema_variants.get(&rust_variant.name).cloned();
+            let rust_field_set = rust_variant.fields.iter().cloned().collect::<BTreeSet<_>>();
             let field_match = ts_fields.as_ref().is_some_and(|fields| {
-                fields.iter().cloned().collect::<BTreeSet<_>>()
-                    == rust_variant.fields.iter().cloned().collect::<BTreeSet<_>>()
+                fields.iter().cloned().collect::<BTreeSet<_>>() == rust_field_set
+            });
+            let schema_field_match = schema_fields.as_ref().is_some_and(|fields| {
+                fields.iter().cloned().collect::<BTreeSet<_>>() == rust_field_set
             });
             if let Some(fields) = &ts_fields {
                 if !field_match {
                     findings.push(format!("{}: field drift for {} (Rust {:?}, TypeScript {:?})", spec.category, rust_variant.name, rust_variant.fields, fields));
                 }
             }
+            if let Some(fields) = &schema_fields {
+                if !schema_field_match {
+                    findings.push(format!("{}: JSON Schema field drift for {} (Rust {:?}, Schema {:?})", spec.category, rust_variant.name, rust_variant.fields, fields));
+                }
+            } else {
+                findings.push(format!("{}: JSON Schema has no definition for Rust variant {}", spec.category, rust_variant.name));
+            }
             variant_reports.push(VariantReport {
                 name: rust_variant.name.clone(),
                 rust_fields: rust_variant.fields.clone(),
                 typescript_fields: ts_fields,
+                schema_fields,
                 present_in_typescript: ts_names.contains(&rust_variant.name),
                 field_set_matches: field_match,
+                schema_field_set_matches: schema_field_match,
             });
         }
 
@@ -175,6 +225,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             rust_variants: variant_reports,
             missing_from_typescript: missing,
             extra_in_typescript: extra,
+            missing_from_schema: missing_schema,
+            extra_in_schema: extra_schema,
             signal_hub_filter_array_count: category_filters.len(),
             signal_hub_filters_complete: filters_complete,
             codec_compatible_with_v1_envelope_decoder: codec_compatible,
@@ -186,6 +238,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         status: if findings.is_empty() { "PASS" } else { "FAIL" }.to_string(),
         repository_root: root.display().to_string(),
         signal_hub_decodes_adjacent_type_data_envelope: adjacent_envelope,
+        signal_schema_variant_count: schema_variants.len(),
+        signal_schema_complete: schema_variants.len() == 28
+            && schema_names.len() == 28
+            && expected_schema_version,
         zomes,
         findings,
     };
@@ -255,6 +311,48 @@ fn rust_representation(item: &ItemEnum) -> Result<RustRepresentation, Box<dyn Er
 struct FilterArray {
     category: String,
     variants: BTreeSet<String>,
+}
+
+fn extract_schema_variants(schema: &Value) -> Result<BTreeMap<String, Vec<String>>, Box<dyn Error>> {
+    let alternatives = schema.get("oneOf")
+        .and_then(Value::as_array)
+        .ok_or("signal schema must define a top-level oneOf array")?;
+    let mut variants = BTreeMap::new();
+    for alternative in alternatives {
+        let properties = alternative.get("properties")
+            .and_then(Value::as_object)
+            .ok_or("signal schema variant must have properties")?;
+        let name = properties.get("type")
+            .and_then(|value| value.get("const"))
+            .and_then(Value::as_str)
+            .ok_or("signal schema variant must have a constant type discriminator")?
+            .to_string();
+        let fields = match properties.get("data") {
+            None => Vec::new(),
+            Some(data) => {
+                let object = data.get("properties")
+                    .and_then(Value::as_object)
+                    .ok_or_else(|| format!("signal schema data for {name} must define properties"))?;
+                let mut fields = object.keys().cloned().collect::<Vec<_>>();
+                fields.sort();
+                let required = data.get("required")
+                    .and_then(Value::as_array)
+                    .ok_or_else(|| format!("signal schema data for {name} must define required fields"))?
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(ToString::to_string)
+                    .collect::<BTreeSet<_>>();
+                if required != fields.iter().cloned().collect::<BTreeSet<_>>() {
+                    return Err(format!("signal schema data fields for {name} must all be required").into());
+                }
+                fields
+            }
+        };
+        if variants.insert(name.clone(), fields).is_some() {
+            return Err(format!("duplicate signal schema variant {name}").into());
+        }
+    }
+    Ok(variants)
 }
 
 fn signal_hub_decodes_adjacent_envelope(source: &str) -> bool {
@@ -402,6 +500,33 @@ mod tests {
         let variants = extract_typescript_variants(body).unwrap();
         assert_eq!(variants["One"], vec!["value"]);
         assert!(variants.contains_key("Two"));
+    }
+
+    #[test]
+    fn signal_schema_variant_fields_are_extracted() {
+        let schema: Value = serde_json::json!({
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": { "const": "EmailReceived" },
+                        "data": {
+                            "type": "object",
+                            "properties": { "email_hash": {}, "sender": {} },
+                            "required": ["email_hash", "sender"],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "properties": { "type": { "const": "Online" } }
+                }
+            ]
+        });
+        let variants = extract_schema_variants(&schema).unwrap();
+        assert_eq!(variants["EmailReceived"], vec!["email_hash", "sender"]);
+        assert!(variants["Online"].is_empty());
     }
 
     #[test]
