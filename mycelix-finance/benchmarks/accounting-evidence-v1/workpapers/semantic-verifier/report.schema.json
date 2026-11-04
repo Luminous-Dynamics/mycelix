@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-acc-workpaper-semantic-report-v0.1.json",
+  "title": "FIN-ACC Workpaper DAG Semantic Report v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "status",
+    "dag_id",
+    "digests",
+    "input_schema_validation",
+    "check_count",
+    "checks",
+    "topological_order",
+    "missing_required_node_kinds",
+    "stale_nodes",
+    "affected_descendants",
+    "ready_blockers",
+    "report_schema_validation"
+  ],
+  "properties": {
+    "report_schema": { "const": "fin-acc-workpaper-semantic-report.v0.1" },
+    "status": { "enum": ["INVALID", "VALID_NOT_READY", "READY_ELIGIBLE"] },
+    "dag_id": { "type": ["string", "null"] },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dag_sha256", "schema_sha256", "verifier_source_sha256", "report_schema_sha256"],
+      "properties": {
+        "dag_sha256": { "$ref": "#/$defs/sha256" },
+        "schema_sha256": { "$ref": "#/$defs/sha256" },
+        "verifier_source_sha256": { "$ref": "#/$defs/sha256" },
+        "report_schema_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "input_schema_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "errors"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "check_count": { "type": "integer", "minimum": 0 },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["invariant", "passed", "severity", "detail"],
+        "properties": {
+          "invariant": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "severity": { "enum": ["error", "blocker", "warning", "info"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "topological_order": { "type": "array", "items": { "type": "string" } },
+    "missing_required_node_kinds": { "type": "array", "items": { "type": "string" } },
+    "stale_nodes": { "type": "array", "items": { "type": "string" } },
+    "affected_descendants": { "type": "array", "items": { "type": "string" } },
+    "ready_blockers": { "type": "array", "items": { "type": "string" } },
+    "report_schema_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "errors"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
