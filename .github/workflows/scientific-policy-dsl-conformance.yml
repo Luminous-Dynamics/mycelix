@@ -1,0 +1,120 @@
+name: Scientific policy DSL conformance
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-desci/src/core/src/scientific_governance.rs"
+      - "mycelix-desci/src/core/src/scientific_events.rs"
+      - "mycelix-desci/src/core/src/scientific_credentials.rs"
+      - "mycelix-desci/Cargo.toml"
+      - "mycelix-desci/Cargo.lock"
+      - "docs/research/scientific-policy-dsl-bakeoff-v0.1/**"
+      - "docs/research/SCIENTIFIC_POLICY_DSL_BENCHMARK_PLAN_V0_1.md"
+      - ".github/workflows/scientific-policy-dsl-conformance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scientific-policy-dsl-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  corpus-integrity:
+    name: Frozen corpus and adapter integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Check policy and projection corpus denominators
+        run: |
+          jq -e '(.policyCases | length) == 30 and ([.policyCases[] | select(.expected == "allow")] | length) == 18 and ([.policyCases[] | select(.expected == "deny")] | length) == 12 and (.projectionCases | length) == 10 and (.prePolicyAndCommitGates | length) == 11' docs/research/scientific-policy-dsl-bakeoff-v0.1/cases.json
+          jq -e 'length == 30 and ([.[] | select(.decision == "allow")] | length) == 18 and ([.[] | select(.decision == "deny")] | length) == 12' docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-tests.json
+          test "$(grep -c '^test_auth_' docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy_test.rego)" -eq 30
+          test "$(grep -c '^test_' docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy_test.rego)" -eq 38
+
+  rust-reference:
+    name: Existing Rust policy and projection oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Rust formatting
+        run: rustfmt --check --edition 2024 mycelix-desci/src/core/src/scientific_governance.rs mycelix-desci/src/core/src/scientific_events.rs
+      - name: Execute frozen authorization oracle and cross-engine adapter checks
+        run: >
+          cargo test --locked
+          --manifest-path mycelix-desci/Cargo.toml
+          -p mycelix-desci-core
+          --lib scientific_governance::tests
+          -- --nocapture
+      - name: Execute epistemic projection conformance fixtures
+        run: >
+          cargo test --locked
+          --manifest-path mycelix-desci/Cargo.toml
+          -p mycelix-desci-core
+          --lib scientific_events::tests
+          -- --nocapture
+
+  cedar-engine:
+    name: Cedar schema validation and 30-case parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install Cedar CLI 4.14.0
+        run: |
+          cargo install cedar-policy-cli --version 4.14.0 --locked
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Validate Cedar policy against declared schema
+        run: |
+          cedar validate \
+            --schema docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json \
+            --schema-format json \
+            --policies docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar
+      - name: Execute all 30 Cedar authorization vectors
+        run: |
+          cedar run-tests \
+            --policies docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-policy.cedar \
+            --schema docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-schema.json \
+            --schema-format json \
+            --tests docs/research/scientific-policy-dsl-bakeoff-v0.1/cedar-tests.json
+
+  opa-engine:
+    name: OPA Rego strict checks and 38 tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install pinned Go toolchain for OPA source build
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.2"
+
+      - name: Build OPA 1.22.0 from versioned Go module
+        env:
+          GOSUMDB: sum.golang.org
+          GOTOOLCHAIN: local
+        run: |
+          go version
+          go install github.com/open-policy-agent/opa@v1.22.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          opa version
+      - name: Check Rego modules in strict mode
+        run: |
+          opa check --strict \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy_test.rego
+      - name: Execute all 30 frozen Rego cases and eight additional controls
+        run: |
+          opa test -v \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy.rego \
+            docs/research/scientific-policy-dsl-bakeoff-v0.1/opa-policy_test.rego

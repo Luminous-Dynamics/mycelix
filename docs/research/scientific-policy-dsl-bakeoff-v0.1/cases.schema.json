@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-scientific-authz-conformance-v0.1.json",
+  "title": "Mycelix scientific authorization conformance corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite",
+    "status",
+    "baseline",
+    "policyCases",
+    "prePolicyAndCommitGates",
+    "notes",
+    "projectionCases"
+  ],
+  "properties": {
+    "suite": {
+      "const": "MYCELIX-SCIENTIFIC-AUTHZ-CONFORMANCE-0.1"
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "revision",
+        "path",
+        "blobSha",
+        "policyId",
+        "policyVersion",
+        "description"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "format": "uri"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blobSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "policyId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policyVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "policyCases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/policyCase"
+      }
+    },
+    "prePolicyAndCommitGates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/gate"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "projectionCases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/projectionCase"
+      }
+    }
+  },
+  "$defs": {
+    "policyCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "stage",
+        "action",
+        "actor",
+        "claim",
+        "expected",
+        "referenceRule"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^AUTH-[0-9]{3}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "const": "policy"
+        },
+        "action": {
+          "enum": [
+            "claim_proposed",
+            "legacy_claim_imported",
+            "evidence_attached",
+            "attestation_recorded",
+            "attestation_corrected",
+            "attestation_withdrawn",
+            "claim_superseded",
+            "claim_retracted"
+          ]
+        },
+        "actor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "roles"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "roles": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "contributor",
+                  "reviewer",
+                  "editor",
+                  "institution",
+                  "service",
+                  "migration_service",
+                  "registry_admin"
+                ]
+              }
+            },
+            "organizations": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "claim": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "exists"
+          ],
+          "properties": {
+            "exists": {
+              "type": "boolean"
+            },
+            "creatorActorId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "creatorOrganizationId": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "attestation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "ordinary",
+                "ordinary_review",
+                "independent_replication"
+              ]
+            }
+          }
+        },
+        "targetAttestation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "exists"
+          ],
+          "properties": {
+            "exists": {
+              "type": "boolean"
+            },
+            "authorActorId": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "actingOrganizationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected": {
+          "enum": [
+            "allow",
+            "deny"
+          ]
+        },
+        "expectedProjectionEffect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "referenceRule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewQuestion": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "guard",
+        "when",
+        "expected"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^GATE-[0-9]{3}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "guard": {
+          "type": "string",
+          "minLength": 1
+        },
+        "when": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected": {
+          "enum": [
+            "reject_before_policy",
+            "reject_before_commit",
+            "reject",
+            "return_original_append_receipt_without_reauthorizing"
+          ]
+        }
+      }
+    },
+    "projectionCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "creatorActorId",
+        "attestations",
+        "expected"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^PROJ-[0-9]{3}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "creatorActorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "creatorOrganizationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attestations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "actorId",
+              "kind",
+              "status"
+            ],
+            "properties": {
+              "actorId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "actingOrganizationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "review",
+                  "computational_reproduction",
+                  "independent_replication"
+                ]
+              },
+              "outcome": {
+                "enum": [
+                  "supports",
+                  "does_not_support",
+                  "inconclusive"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "active",
+                  "withdrawn"
+                ]
+              }
+            }
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reviewCount",
+            "supportiveReproductionCount",
+            "supportiveIndependentReplicationCount",
+            "nonSupportingResultCount",
+            "inconclusiveResultCount",
+            "withdrawnAttestationCount"
+          ],
+          "properties": {
+            "reviewCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "supportiveReproductionCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "supportiveIndependentReplicationCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nonSupportingResultCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inconclusiveResultCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "withdrawnAttestationCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "reviewQuestion": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

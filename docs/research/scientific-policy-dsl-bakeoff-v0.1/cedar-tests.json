@@ -1,0 +1,1508 @@
+[
+  {
+    "name": "AUTH-001 contributor_can_propose_genesis_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:alice\"",
+      "action": "Mycelix::Action::\"claim_proposed\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-001\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:alice"
+        },
+        "attrs": {
+          "actorId": "actor:alice",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-001"
+        },
+        "attrs": {
+          "exists": false
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "claim_proposed"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-002 editor_can_propose_genesis_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:editor\"",
+      "action": "Mycelix::Action::\"claim_proposed\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-002\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:editor"
+        },
+        "attrs": {
+          "actorId": "actor:editor",
+          "roles": [
+            "editor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-002"
+        },
+        "attrs": {
+          "exists": false
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "claim_proposed"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-003 institution_can_propose_genesis_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:institution\"",
+      "action": "Mycelix::Action::\"claim_proposed\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-003\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:institution"
+        },
+        "attrs": {
+          "actorId": "actor:institution",
+          "roles": [
+            "institution"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-003"
+        },
+        "attrs": {
+          "exists": false
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "claim_proposed"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-004 reviewer_alone_cannot_propose_genesis_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:reviewer\"",
+      "action": "Mycelix::Action::\"claim_proposed\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-004\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:reviewer"
+        },
+        "attrs": {
+          "actorId": "actor:reviewer",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-004"
+        },
+        "attrs": {
+          "exists": false
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "claim_proposed"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-005 proposal_cannot_reinitialize_existing_claim_stream",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:alice\"",
+      "action": "Mycelix::Action::\"claim_proposed\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-005\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:alice"
+        },
+        "attrs": {
+          "actorId": "actor:alice",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-005"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "claim_proposed"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-006 migration_service_can_import_legacy_genesis",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:migrator\"",
+      "action": "Mycelix::Action::\"legacy_claim_imported\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-006\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:migrator"
+        },
+        "attrs": {
+          "actorId": "actor:migrator",
+          "roles": [
+            "migration_service"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-006"
+        },
+        "attrs": {
+          "exists": false
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "legacy_claim_imported"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-007 contributor_cannot_import_legacy_genesis",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:alice\"",
+      "action": "Mycelix::Action::\"legacy_claim_imported\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-007\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:alice"
+        },
+        "attrs": {
+          "actorId": "actor:alice",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-007"
+        },
+        "attrs": {
+          "exists": false
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "legacy_claim_imported"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-008 legacy_import_cannot_reinitialize_existing_stream",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:migrator\"",
+      "action": "Mycelix::Action::\"legacy_claim_imported\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-008\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:migrator"
+        },
+        "attrs": {
+          "actorId": "actor:migrator",
+          "roles": [
+            "migration_service"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-008"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "legacy_claim_imported"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-009 claim_owner_can_attach_evidence",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:alice\"",
+      "action": "Mycelix::Action::\"evidence_attached\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-009\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:alice"
+        },
+        "attrs": {
+          "actorId": "actor:alice",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-009"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "evidence_attached"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-010 editor_can_attach_evidence_to_another_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:editor\"",
+      "action": "Mycelix::Action::\"evidence_attached\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-010\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:editor"
+        },
+        "attrs": {
+          "actorId": "actor:editor",
+          "roles": [
+            "editor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-010"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "evidence_attached"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-011 institution_can_attach_evidence_to_another_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:institution\"",
+      "action": "Mycelix::Action::\"evidence_attached\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-011\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:institution"
+        },
+        "attrs": {
+          "actorId": "actor:institution",
+          "roles": [
+            "institution"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-011"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "evidence_attached"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-012 unrelated_contributor_cannot_attach_evidence",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:bob\"",
+      "action": "Mycelix::Action::\"evidence_attached\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-012\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:bob"
+        },
+        "attrs": {
+          "actorId": "actor:bob",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-012"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "evidence_attached"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-013 reviewer_can_record_attestation",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:reviewer\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-013\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:reviewer"
+        },
+        "attrs": {
+          "actorId": "actor:reviewer",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-013"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-014 contributor_can_record_attestation",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:contributor\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-014\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:contributor"
+        },
+        "attrs": {
+          "actorId": "actor:contributor",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-014"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-015 institution_can_record_attestation",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:institution\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-015\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:institution"
+        },
+        "attrs": {
+          "actorId": "actor:institution",
+          "roles": [
+            "institution"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-015"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-016 editor_role_alone_cannot_record_attestation",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:editor\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-016\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:editor"
+        },
+        "attrs": {
+          "actorId": "actor:editor",
+          "roles": [
+            "editor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-016"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-017 claim_creator_cannot_attest_own_independent_replication",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:alice\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-017\"",
+      "context": {
+        "attestationKind": "independent_replication",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:alice"
+        },
+        "attrs": {
+          "actorId": "actor:alice",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-017"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-018 creator_organization_cannot_count_as_independent_replication",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:bob\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-018\"",
+      "context": {
+        "attestationKind": "independent_replication",
+        "targetAttestationExists": false,
+        "actingOrganizationId": "org:creator"
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:bob"
+        },
+        "attrs": {
+          "actorId": "actor:bob",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": [
+            "org:creator"
+          ]
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-018"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice",
+          "creatorOrganizationId": "org:creator"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-019 distinct_authorized_organization_can_record_independent_replication",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:bob\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-019\"",
+      "context": {
+        "attestationKind": "independent_replication",
+        "targetAttestationExists": false,
+        "actingOrganizationId": "org:independent"
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:bob"
+        },
+        "attrs": {
+          "actorId": "actor:bob",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": [
+            "org:independent"
+          ]
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-019"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice",
+          "creatorOrganizationId": "org:creator"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-020 attestation_author_can_correct_own_attestation",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:reviewer\"",
+      "action": "Mycelix::Action::\"attestation_corrected\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-020\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": true,
+        "targetAttestationAuthorId": "actor:reviewer"
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:reviewer"
+        },
+        "attrs": {
+          "actorId": "actor:reviewer",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-020"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_corrected"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-021 editor_can_correct_another_attestation",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:editor\"",
+      "action": "Mycelix::Action::\"attestation_corrected\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-021\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": true,
+        "targetAttestationAuthorId": "actor:reviewer"
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:editor"
+        },
+        "attrs": {
+          "actorId": "actor:editor",
+          "roles": [
+            "editor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-021"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_corrected"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-022 unrelated_reviewer_cannot_correct_another_attestation",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:bob\"",
+      "action": "Mycelix::Action::\"attestation_corrected\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-022\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": true,
+        "targetAttestationAuthorId": "actor:reviewer"
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:bob"
+        },
+        "attrs": {
+          "actorId": "actor:bob",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-022"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_corrected"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-023 nonexistent_attestation_cannot_be_corrected",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:reviewer\"",
+      "action": "Mycelix::Action::\"attestation_corrected\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-023\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:reviewer"
+        },
+        "attrs": {
+          "actorId": "actor:reviewer",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-023"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_corrected"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-024 claim_owner_can_retract_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:alice\"",
+      "action": "Mycelix::Action::\"claim_retracted\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-024\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:alice"
+        },
+        "attrs": {
+          "actorId": "actor:alice",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-024"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "claim_retracted"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-025 editor_can_supersede_another_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:editor\"",
+      "action": "Mycelix::Action::\"claim_superseded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-025\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:editor"
+        },
+        "attrs": {
+          "actorId": "actor:editor",
+          "roles": [
+            "editor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-025"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "claim_superseded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-026 unrelated_contributor_cannot_retract_another_claim",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:bob\"",
+      "action": "Mycelix::Action::\"claim_retracted\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-026\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:bob"
+        },
+        "attrs": {
+          "actorId": "actor:bob",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-026"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "claim_retracted"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-027 all_non_genesis_actions_require_existing_claim_stream",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:alice\"",
+      "action": "Mycelix::Action::\"evidence_attached\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-027\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:alice"
+        },
+        "attrs": {
+          "actorId": "actor:alice",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-027"
+        },
+        "attrs": {
+          "exists": false
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "evidence_attached"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "deny",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-028 claim_creator_can_correct_their_own_attestation_without_editor_role",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:reviewer\"",
+      "action": "Mycelix::Action::\"attestation_withdrawn\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-028\"",
+      "context": {
+        "attestationKind": "ordinary",
+        "targetAttestationExists": true,
+        "targetAttestationAuthorId": "actor:reviewer"
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:reviewer"
+        },
+        "attrs": {
+          "actorId": "actor:reviewer",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-028"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_withdrawn"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-029 distinct_reviewer_without_declared_organization_can_record_independent_replication",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:bob\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-029\"",
+      "context": {
+        "attestationKind": "independent_replication",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:bob"
+        },
+        "attrs": {
+          "actorId": "actor:bob",
+          "roles": [
+            "reviewer"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-029"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice",
+          "creatorOrganizationId": "org:creator"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  },
+  {
+    "name": "AUTH-030 claim_creator_can_submit_ordinary_review_but_receives_no_reviewer_credit",
+    "request": {
+      "principal": "Mycelix::Actor::\"actor:alice\"",
+      "action": "Mycelix::Action::\"attestation_recorded\"",
+      "resource": "Mycelix::Claim::\"claim-AUTH-030\"",
+      "context": {
+        "attestationKind": "ordinary_review",
+        "targetAttestationExists": false
+      }
+    },
+    "entities": [
+      {
+        "uid": {
+          "type": "Mycelix::Actor",
+          "id": "actor:alice"
+        },
+        "attrs": {
+          "actorId": "actor:alice",
+          "roles": [
+            "contributor"
+          ],
+          "organizations": []
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Claim",
+          "id": "claim-AUTH-030"
+        },
+        "attrs": {
+          "exists": true,
+          "creatorActorId": "actor:alice"
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Mycelix::Action",
+          "id": "attestation_recorded"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ],
+    "decision": "allow",
+    "reason": [],
+    "num_errors": 0
+  }
+]

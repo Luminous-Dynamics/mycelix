@@ -2085,6 +2085,7 @@ impl CanonicalEncoder {
 mod tests {
     use super::*;
     use chrono::TimeZone;
+    use serde_json::Value;
     use tempfile::tempdir;
 
     fn actor(value: &str) -> ActorId {
@@ -2124,6 +2125,217 @@ mod tests {
             locator: "ipfs://bafy-test".to_string(),
             license: Some("CC-BY-4.0".to_string()),
             availability: ArtifactAvailability::Public,
+        }
+    }
+
+    #[test]
+    fn frozen_projection_corpus_matches_epistemic_qualification_rules() {
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../../../../docs/research/scientific-policy-dsl-bakeoff-v0.1/cases.json"
+        ))
+        .expect("committed authorization/projection corpus must be valid JSON");
+        let cases = corpus
+            .get("projectionCases")
+            .and_then(Value::as_array)
+            .expect("corpus must contain projectionCases");
+        assert_eq!(
+            cases.len(),
+            10,
+            "update the frozen projection case count deliberately"
+        );
+
+        for case in cases {
+            let creator = actor(
+                case.get("creatorActorId")
+                    .and_then(Value::as_str)
+                    .expect("creatorActorId"),
+            );
+            let creator_organization = case
+                .get("creatorOrganizationId")
+                .and_then(Value::as_str)
+                .map(organization);
+            let claim_id = ClaimId::new();
+            let now = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+            let genesis_envelope = ScientificEventEnvelope::genesis(
+                creator.clone(),
+                now.clone(),
+                proposed_payload(claim_id, ResearchObjectId::new()),
+            )
+            .unwrap();
+            let genesis_envelope = match creator_organization {
+                Some(organization) => genesis_envelope.with_acting_organization(organization),
+                None => genesis_envelope,
+            };
+            let genesis = SignedScientificEvent::sign(genesis_envelope, &key(1)).unwrap();
+            let mut events = vec![genesis.clone()];
+            let mut previous = genesis;
+            let attestations = case
+                .get("attestations")
+                .and_then(Value::as_array)
+                .expect("attestations array");
+
+            let needs_evidence = attestations.iter().any(|record| {
+                matches!(
+                    record.get("kind").and_then(Value::as_str),
+                    Some("computational_reproduction" | "independent_replication")
+                )
+            });
+            let evidence_id = if needs_evidence {
+                let id = ArtifactId::new();
+                let evidence = SignedScientificEvent::sign(
+                    ScientificEventEnvelope::next(
+                        &previous,
+                        creator.clone(),
+                        now.clone() + Duration::seconds(1),
+                        ScientificEventPayload::EvidenceAttached {
+                            claim_id,
+                            artifact: artifact(id),
+                        },
+                    )
+                    .unwrap(),
+                    &key(1),
+                )
+                .unwrap();
+                previous = evidence.clone();
+                events.push(evidence);
+                Some(id)
+            } else {
+                None
+            };
+
+            for (index, record) in attestations.iter().enumerate() {
+                let actor_id = actor(
+                    record
+                        .get("actorId")
+                        .and_then(Value::as_str)
+                        .expect("attestation actorId"),
+                );
+                let organization_id = record
+                    .get("actingOrganizationId")
+                    .and_then(Value::as_str)
+                    .map(organization);
+                let kind = match record.get("kind").and_then(Value::as_str) {
+                    Some("review") => AttestationKind::Review,
+                    Some("computational_reproduction") => {
+                        let outcome = match record.get("outcome").and_then(Value::as_str) {
+                            Some("supports") => EvidenceOutcome::Supports,
+                            Some("does_not_support") => EvidenceOutcome::DoesNotSupport,
+                            Some("inconclusive") => EvidenceOutcome::Inconclusive,
+                            other => {
+                                panic!("{}: invalid reproduction outcome {other:?}", case["id"])
+                            }
+                        };
+                        AttestationKind::ComputationalReproduction { outcome }
+                    }
+                    Some("independent_replication") => {
+                        let outcome = match record.get("outcome").and_then(Value::as_str) {
+                            Some("supports") => EvidenceOutcome::Supports,
+                            Some("does_not_support") => EvidenceOutcome::DoesNotSupport,
+                            Some("inconclusive") => EvidenceOutcome::Inconclusive,
+                            other => {
+                                panic!("{}: invalid replication outcome {other:?}", case["id"])
+                            }
+                        };
+                        AttestationKind::IndependentReplication { outcome }
+                    }
+                    other => panic!("{}: invalid attestation kind {other:?}", case["id"]),
+                };
+                let requires_evidence = matches!(
+                    &kind,
+                    AttestationKind::ComputationalReproduction { .. }
+                        | AttestationKind::IndependentReplication { .. }
+                );
+                let attestation_id = AttestationId::new();
+                let attestation = Attestation {
+                    id: attestation_id,
+                    claim_id,
+                    kind,
+                    evidence_ids: if requires_evidence {
+                        vec![evidence_id.expect("reproduction/replication case attaches evidence")]
+                    } else {
+                        Vec::new()
+                    },
+                    statement: Some("Synthetic projection conformance case".to_string()),
+                    protocol_reference: requires_evidence.then(|| "protocol:v1".to_string()),
+                };
+
+                let seed = u8::try_from(index + 2)
+                    .expect("projection case has fewer than 254 attestations");
+                let signing_key = key(seed);
+                let envelope = ScientificEventEnvelope::next(
+                    &previous,
+                    actor_id.clone(),
+                    now.clone() + Duration::seconds(2 + (index as i64 * 2)),
+                    ScientificEventPayload::AttestationRecorded { attestation },
+                )
+                .unwrap();
+                let envelope = match organization_id {
+                    Some(organization) => envelope.with_acting_organization(organization),
+                    None => envelope,
+                };
+                let recorded = SignedScientificEvent::sign(envelope, &signing_key).unwrap();
+                previous = recorded.clone();
+                events.push(recorded);
+
+                if record.get("status").and_then(Value::as_str) == Some("withdrawn") {
+                    let withdrawn = SignedScientificEvent::sign(
+                        ScientificEventEnvelope::next(
+                            &previous,
+                            actor_id,
+                            now.clone() + Duration::seconds(3 + (index as i64 * 2)),
+                            ScientificEventPayload::AttestationWithdrawn {
+                                claim_id,
+                                attestation_id,
+                                reason: "Synthetic projection fixture withdrawal".to_string(),
+                            },
+                        )
+                        .unwrap(),
+                        &signing_key,
+                    )
+                    .unwrap();
+                    previous = withdrawn.clone();
+                    events.push(withdrawn);
+                }
+            }
+
+            let projection = ClaimProjection::rebuild(&events)
+                .unwrap_or_else(|error| panic!("{}: projection failed: {error}", case["id"]));
+            let expected = case.get("expected").expect("expected projection metrics");
+            for (field, actual) in [
+                ("reviewCount", projection.evidence_profile.review_count),
+                (
+                    "supportiveReproductionCount",
+                    projection.evidence_profile.supportive_reproduction_count,
+                ),
+                (
+                    "supportiveIndependentReplicationCount",
+                    projection
+                        .evidence_profile
+                        .supportive_independent_replication_count,
+                ),
+                (
+                    "nonSupportingResultCount",
+                    projection.evidence_profile.non_supporting_result_count,
+                ),
+                (
+                    "inconclusiveResultCount",
+                    projection.evidence_profile.inconclusive_result_count,
+                ),
+                (
+                    "withdrawnAttestationCount",
+                    projection.evidence_profile.withdrawn_attestation_count,
+                ),
+            ] {
+                let expected_value = expected
+                    .get(field)
+                    .and_then(Value::as_u64)
+                    .unwrap_or_else(|| panic!("{}: missing expected metric {field}", case["id"]));
+                assert_eq!(
+                    actual as u64, expected_value,
+                    "{} metric {field}",
+                    case["id"]
+                );
+            }
         }
     }
 
