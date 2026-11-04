@@ -109,9 +109,7 @@ fn score_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static str
     }
     let score = &signal["model_score"];
     let calibration = str_at(score, "calibration_state").unwrap_or("unknown");
-    let window_end = str_at(score, "evaluation_window_end").unwrap_or("");
-    let evaluation_date = evaluation_at.get(0..10).unwrap_or("");
-    if calibration == "stale" || (!window_end.is_empty() && window_end < evaluation_date) {
+    if calibration == "stale" {
         return Some("quarantine_stale_model_score");
     }
     if calibration != "qualified_synthetic_only"
