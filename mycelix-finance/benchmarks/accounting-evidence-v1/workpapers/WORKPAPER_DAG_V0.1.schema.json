@@ -1,0 +1,889 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-acc-workpaper-dag-v0.1.json",
+  "title": "FIN-ACC Evidence-Bound Workpaper DAG v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "dag_id",
+    "dag_version",
+    "created_at",
+    "reporting_context",
+    "frontiers",
+    "nodes",
+    "close_disposition",
+    "required_node_kinds"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "fin-acc-workpaper-dag.v0.1"
+    },
+    "dag_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "dag_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reporting_context": {
+      "$ref": "#/$defs/reportingContext"
+    },
+    "frontiers": {
+      "$ref": "#/$defs/frontiers"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "close_disposition": {
+      "enum": [
+        "not_ready",
+        "ready_with_scope_limitations",
+        "ready_for_authorized_signoff",
+        "rejected"
+      ]
+    },
+    "known_scope_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required_node_kinds": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "source_inventory",
+          "evidence_population_qualification",
+          "assertion_workpaper",
+          "reconciliation_workpaper",
+          "accounting_projection_candidate",
+          "journal_projection",
+          "trial_balance_reconstruction",
+          "financial_statement_projection",
+          "independent_verification",
+          "taxonomy_validation",
+          "human_review",
+          "close_readiness"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "opaqueRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref_id"
+      ],
+      "properties": {
+        "ref_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96
+        },
+        "authority_class": {
+          "enum": [
+            "source_observation",
+            "approved_policy",
+            "authorized_decision",
+            "candidate_analysis",
+            "deterministic_verification",
+            "simulation_output",
+            "human_review"
+          ]
+        },
+        "qualification_status": {
+          "enum": [
+            "qualified",
+            "unqualified",
+            "unknown",
+            "not_applicable"
+          ]
+        }
+      }
+    },
+    "reportingContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "legal_entity_ref",
+        "reporting_period_start",
+        "reporting_period_end",
+        "accounting_framework_profile",
+        "jurisdiction_profile",
+        "currency_profile"
+      ],
+      "properties": {
+        "legal_entity_ref": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "reporting_period_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "reporting_period_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "accounting_framework_profile": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "jurisdiction_profile": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "currency_profile": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "consolidation_scope_ref": {
+          "$ref": "#/$defs/opaqueRef"
+        }
+      }
+    },
+    "frontiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_scope_manifest",
+        "evidence_frontier",
+        "policy_snapshot",
+        "account_taxonomy",
+        "authority_frontier"
+      ],
+      "properties": {
+        "source_scope_manifest": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "evidence_frontier": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "policy_snapshot": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "account_taxonomy": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "authority_frontier": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "knowledge_frontier": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "validator_build": {
+          "$ref": "#/$defs/opaqueRef"
+        }
+      }
+    },
+    "evidenceInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_ref",
+        "purpose"
+      ],
+      "properties": {
+        "input_ref": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "purpose": {
+          "enum": [
+            "source_support",
+            "source_contradiction",
+            "scope_population",
+            "policy_authority",
+            "authorization",
+            "settlement_observation",
+            "physical_operation",
+            "calculation_input",
+            "prior_workpaper",
+            "review_evidence"
+          ]
+        },
+        "assertion_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "evidence_origin_group": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      }
+    },
+    "filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_path",
+        "operator",
+        "value"
+      ],
+      "properties": {
+        "field_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "operator": {
+          "enum": [
+            "eq",
+            "ne",
+            "lt",
+            "lte",
+            "gt",
+            "gte",
+            "in",
+            "not_in",
+            "is_present",
+            "is_absent"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "boolean",
+            "integer"
+          ]
+        }
+      }
+    },
+    "aggregation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_ref",
+        "field_path",
+        "operation"
+      ],
+      "properties": {
+        "input_ref": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "field_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "operation": {
+          "enum": [
+            "sum",
+            "count",
+            "count_distinct",
+            "min",
+            "max",
+            "average",
+            "weighted_sum"
+          ]
+        },
+        "weight_field_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "calculationRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recipe_id",
+        "recipe_version",
+        "operation",
+        "input_refs",
+        "filters",
+        "join_semantics",
+        "null_semantics",
+        "unit_profile",
+        "rounding"
+      ],
+      "properties": {
+        "recipe_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "recipe_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "implementation_ref": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "operation": {
+          "enum": [
+            "sum",
+            "difference",
+            "ratio",
+            "weighted_average",
+            "grouped_aggregation",
+            "ageing_bucket",
+            "reconciliation_match",
+            "threshold_evaluation",
+            "manual_judgement"
+          ]
+        },
+        "input_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaqueRef"
+          }
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/filter"
+          }
+        },
+        "group_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "join_semantics": {
+          "enum": [
+            "none",
+            "one_to_one",
+            "one_to_many_with_explicit_aggregation",
+            "many_to_many_with_explicit_aggregation"
+          ]
+        },
+        "join_keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "expected_cardinality": {
+          "enum": [
+            "one",
+            "zero_or_one",
+            "many",
+            "one_to_many",
+            "many_to_many",
+            "unknown"
+          ]
+        },
+        "numerator": {
+          "$ref": "#/$defs/aggregation"
+        },
+        "denominator": {
+          "$ref": "#/$defs/aggregation"
+        },
+        "zero_denominator_disposition": {
+          "enum": [
+            "reject",
+            "indeterminate",
+            "needs_authorized_review"
+          ]
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "cutoff_semantics": {
+          "enum": [
+            "start_inclusive_end_inclusive",
+            "start_inclusive_end_exclusive",
+            "explicit_event_time_predicate",
+            "not_applicable"
+          ]
+        },
+        "null_semantics": {
+          "enum": [
+            "unknown_not_zero",
+            "exclude_with_explicit_count",
+            "reject",
+            "profile_defined"
+          ]
+        },
+        "unit_profile": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "precision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 38
+        },
+        "rounding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "stage"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "none",
+                "half_up",
+                "half_even",
+                "toward_zero",
+                "away_from_zero",
+                "floor",
+                "ceiling",
+                "profile_defined"
+              ]
+            },
+            "stage": {
+              "enum": [
+                "per_input",
+                "per_line",
+                "per_group",
+                "final_result",
+                "profile_defined"
+              ]
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "ratio"
+              }
+            },
+            "required": [
+              "operation"
+            ]
+          },
+          "then": {
+            "required": [
+              "numerator",
+              "denominator",
+              "zero_denominator_disposition"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "enum": [
+                  "ratio",
+                  "weighted_average",
+                  "grouped_aggregation"
+                ]
+              }
+            },
+            "required": [
+              "operation"
+            ]
+          },
+          "then": {
+            "required": [
+              "join_semantics"
+            ]
+          }
+        }
+      ]
+    },
+    "reviewRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "review_class"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "review_class": {
+          "enum": [
+            "none",
+            "routine_accountant",
+            "senior_accountant",
+            "tax_specialist",
+            "audit_specialist",
+            "authorized_finance_owner",
+            "multi_party_approval"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "terminal_disposition",
+        "limitations"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "not_started",
+            "in_progress",
+            "completed",
+            "aborted",
+            "blocked",
+            "invalidated_stale"
+          ]
+        },
+        "terminal_disposition": {
+          "enum": [
+            "not_terminal",
+            "completed_and_verified",
+            "completed_with_scope_limitations",
+            "needs_evidence",
+            "contradicted",
+            "needs_authorized_review",
+            "unsupported_profile",
+            "indeterminate",
+            "blocked_by_stale_frontier",
+            "failed_invariant",
+            "timed_out_or_aborted"
+          ]
+        },
+        "payload_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "result_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "exact_value": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$"
+        },
+        "unit_profile": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "verified_by": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaqueRef"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "workpaper_commitment_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "terminal_disposition": {
+                "enum": [
+                  "completed_and_verified",
+                  "completed_with_scope_limitations"
+                ]
+              }
+            },
+            "required": [
+              "payload_sha256",
+              "result_type",
+              "produced_at",
+              "workpaper_commitment_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "not_started",
+                  "in_progress"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "terminal_disposition": {
+                "const": "not_terminal"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "invalidated_stale"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "terminal_disposition": {
+                "const": "blocked_by_stale_frontier"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "aborted"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "terminal_disposition": {
+                "const": "timed_out_or_aborted"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "blocked"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "terminal_disposition": {
+                "enum": [
+                  "needs_evidence",
+                  "contradicted",
+                  "needs_authorized_review",
+                  "unsupported_profile",
+                  "indeterminate",
+                  "blocked_by_stale_frontier",
+                  "failed_invariant",
+                  "timed_out_or_aborted"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "node_kind",
+        "owner_system",
+        "authority_class",
+        "required_in_close",
+        "depends_on",
+        "inputs",
+        "review_requirement",
+        "result",
+        "frontier_bindings"
+      ],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "node_kind": {
+          "enum": [
+            "source_inventory",
+            "evidence_population_qualification",
+            "assertion_workpaper",
+            "reconciliation_workpaper",
+            "accounting_projection_candidate",
+            "journal_projection",
+            "trial_balance_reconstruction",
+            "financial_statement_projection",
+            "independent_verification",
+            "taxonomy_validation",
+            "human_review",
+            "close_readiness"
+          ]
+        },
+        "owner_system": {
+          "enum": [
+            "mycelix",
+            "symthaea",
+            "symtropy",
+            "human_reviewer",
+            "external_source"
+          ]
+        },
+        "authority_class": {
+          "enum": [
+            "source_observation",
+            "candidate_analysis",
+            "deterministic_financial_projection",
+            "independent_verification",
+            "human_authorized_decision",
+            "simulation_non_authoritative"
+          ]
+        },
+        "required_in_close": {
+          "type": "boolean"
+        },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceInput"
+          }
+        },
+        "calculation_recipe": {
+          "$ref": "#/$defs/calculationRecipe"
+        },
+        "review_requirement": {
+          "$ref": "#/$defs/reviewRequirement"
+        },
+        "result": {
+          "$ref": "#/$defs/result"
+        },
+        "frontier_bindings": {
+          "$ref": "#/$defs/frontierBindings"
+        }
+      }
+    },
+    "frontierBindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "source_scope_manifest": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "evidence_frontier": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "policy_snapshot": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "account_taxonomy": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "authority_frontier": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "knowledge_frontier": {
+          "$ref": "#/$defs/opaqueRef"
+        },
+        "validator_build": {
+          "$ref": "#/$defs/opaqueRef"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "close_disposition": {
+            "const": "ready_for_authorized_signoff"
+          }
+        },
+        "required": [
+          "close_disposition"
+        ]
+      },
+      "then": {
+        "properties": {
+          "frontiers": {
+            "properties": {
+              "source_scope_manifest": {
+                "required": [
+                  "qualification_status"
+                ],
+                "properties": {
+                  "qualification_status": {
+                    "const": "qualified"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
