@@ -49,7 +49,7 @@ struct ZomeReport {
     rust_enum: String,
     typescript_alias: String,
     rust_representation: RustRepresentation,
-    rust_enum_variants: Vec<VariantReport>,
+    rust_variants: Vec<VariantReport>,
     missing_from_typescript: Vec<String>,
     extra_in_typescript: Vec<String>,
     missing_from_schema: Vec<String>,
