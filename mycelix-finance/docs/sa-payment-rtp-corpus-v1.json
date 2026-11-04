@@ -4075,12 +4075,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:b06a34a59aa78d0f179babc51921b2cacf7f592d2de0909a606001171ee10553",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof"
+        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4158,12 +4159,13 @@
         "requester_identity_resolution": "confusable",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:3468ffe41b5530149825c780c2dda819fb5fb6168f6c1b004200dce5917f545a",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "reject_confusable_or_mismatched_identity"
+        "expected_abuse_disposition": "reject_confusable_or_mismatched_identity",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4229,12 +4231,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "missing",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:13f7231e3f9e4cbcceb6b8a5750355347c70a42fd043597c4c7a7055ddd311df",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof"
+        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4336,12 +4339,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:1186b67a43131201462f16df206bc0f87e68c64093e5a68eada2484496ed8a3a",
         "payer_action": "declined",
         "repeat_contact_after_decline_count": 1,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "escalate_repeat_contact_review"
+        "expected_abuse_disposition": "escalate_repeat_contact_review",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4407,12 +4411,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "unsupported_legal_claim",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:152f0183c282cfb1fea7815660069d8a9846e4481fdcdf34616b503603afa0a4",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "do_not_assert_verified_obligation"
+        "expected_abuse_disposition": "do_not_assert_verified_obligation",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4466,12 +4471,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:15239fbebe9d0e5c38fbfb45ded4a72cfa4fe8f155e615d64054737a4a56071c",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 3,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "escalate_repeat_contact_review"
+        "expected_abuse_disposition": "escalate_repeat_contact_review",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4537,12 +4543,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "stale_or_conflicted",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:1f67e7dae5e7ca96cd004c4940c848cafb5fcecdb8edfbcb15bf58de698cc06a",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof"
+        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4620,12 +4627,13 @@
         "requester_identity_resolution": "mismatch",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:f7e6521288527ff5636d19073c95e057e96fa13057d00924d40e4a41d33beb90",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "reject_confusable_or_mismatched_identity"
+        "expected_abuse_disposition": "reject_confusable_or_mismatched_identity",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4715,12 +4723,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "missing",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:2426debe212fd56607603e53c952f6ffe86f983df760386e4db1305faf1c95bc",
         "payer_action": "reported",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "preserve_user_decline_or_report"
+        "expected_abuse_disposition": "preserve_user_decline_or_report",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4798,12 +4807,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "missing",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:7ba1a7004da5abc3d7b9ab0ff6d8359bb8135ea1d087567a98f05394bb7999a7",
         "payer_action": "reported",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "preserve_user_decline_or_report"
+        "expected_abuse_disposition": "preserve_user_decline_or_report",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4869,12 +4879,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "stale_or_conflicted",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:cd4fc1e6352cae6e07ec248d0e40273bcf270c5e06945312482783d6e9d4436d",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof"
+        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -4952,12 +4963,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:bf90c019365967558f648611cd6dfed698d792b4032dd1a3dfe720eee4f8fd93",
         "payer_action": "declined",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "unrelated_credit_scoring",
-        "expected_abuse_disposition": "reject_secondary_data_use"
+        "expected_abuse_disposition": "reject_secondary_data_use",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -5059,12 +5071,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "verified_external_reference",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be",
         "payer_action": "accepted",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "screen_reader",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "accessibility_parity_confirmed"
+        "expected_abuse_disposition": "accessibility_parity_confirmed",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -5154,12 +5167,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:263f75624df675ff2aee1080179a67d5c03ec2a83daa3a9368005ca6cf9fda30",
         "payer_action": "appealed",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "preserve_appeal_and_requalify"
+        "expected_abuse_disposition": "preserve_appeal_and_requalify",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -5225,12 +5239,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "incomplete",
-        "presented_material_digest": "sha256:774e2865e89139e1a216ff5fc2d0702555884723e629a7ff8e020fb205ef9e66",
+        "presented_material_digest": null,
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "require_complete_material_presentation"
+        "expected_abuse_disposition": "require_complete_material_presentation",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     },
     {
@@ -5332,12 +5347,13 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "complete",
-        "presented_material_digest": null,
+        "presented_material_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354",
         "payer_action": "accepted",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
         "secondary_data_use_purpose": "request_fulfilment",
-        "expected_abuse_disposition": "allow_exact_user_instruction_without_debt_conclusion"
+        "expected_abuse_disposition": "allow_exact_user_instruction_without_debt_conclusion",
+        "claim_legitimacy_inferred_from_sender_authentication": false
       }
     }
   ],
