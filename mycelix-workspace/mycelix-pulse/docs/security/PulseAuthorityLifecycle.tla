@@ -290,6 +290,10 @@ NoProjectionAuthority ==
     lastHostAuthorized
     => (lastHostActiveAtCall /\ lastClaimAtCall /\ lastCaller = grantee)
 
+StaleProjectionDoesNotAllow ==
+    lastProjectionActiveAtCall /\ ~lastHostActiveAtCall
+    => ~lastHostAuthorized
+
 NoEffectWithoutHostAuthorization ==
     /\ \A op \in Ops :
         effectCount[op] = 1 => op \in hostAuthorizedOps
