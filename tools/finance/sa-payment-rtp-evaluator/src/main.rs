@@ -586,7 +586,10 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         instruction["event_id"] = json!("EV-99");
         instruction["sequence"] = json!(6);
         instruction["instruction_id"] = json!("INS-DUPLICATE");
-        v["scenarios"][5]["events"].as_array_mut().unwrap().push(instruction);
+        v["scenarios"][5]["events"]
+            .as_array_mut()
+            .unwrap()
+            .push(instruction);
     })?;
     count += 1;
 
