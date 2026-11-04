@@ -11,7 +11,7 @@ an atomic one-time operation.
 
 This migration adds a digest-only challenge table bound to verifier ID,
 audience, transaction, request digest, holder-binding digest, issue time and
-expiry; duplicate-digest rejection during registration; a SECURITY DEFINER
+expiry computed by PostgreSQL from a bounded TTL; duplicate-digest rejection during registration; a SECURITY DEFINER
 registration function; a single conditional UPDATE as the consume
 serialization point; and public-role revocation for direct table/function
 access.
@@ -112,9 +112,6 @@ not proof of behavior under failover or a split-brain deployment.
 
 ## Limits
 
-This is a schema and stored-procedure contract only. It does not add a running
-service, SQLx adapter, API authentication, deployment, or independent
-concurrency-test result. No Cargo or PostgreSQL test was run in the authoring
-environment. Issue #5746 remains open until the service, cross-process race
+This is a schema and stored-procedure contract plus a separately excluded native SQLx adapter. It does not add API authentication, deployment, or an independent PostgreSQL concurrency-test result until its exact-head workflow passes. No PostgreSQL test was run in the authoring environment. Issue #5746 remains open until the service, cross-process race
 test, failover guarantees and verifier integration are implemented and
 reviewed.
