@@ -852,7 +852,7 @@
           "authority_state": "invalid",
           "request_digest": "sha256:1075267ae37f3c3a4e38ab8eb7c95b4fddbe4e82b02cdd930a613810bef1baa7",
           "accepted_request_digest": "sha256:1075267ae37f3c3a4e38ab8eb7c95b4fddbe4e82b02cdd930a613810bef1baa7",
-          "instruction_id": "",
+          "instruction_id": null,
           "observed_at": "2026-11-04T09:12:00Z",
           "receipt_id": null
         }
@@ -1404,7 +1404,7 @@
           "authority_state": "invalid",
           "request_digest": "sha256:91eed76e1476d3cdcdcc303b3d46bea271c2a8cf02d330ac850ae6fe125ca734",
           "accepted_request_digest": "sha256:91eed76e1476d3cdcdcc303b3d46bea271c2a8cf02d330ac850ae6fe125ca734",
-          "instruction_id": "",
+          "instruction_id": null,
           "observed_at": "2026-11-04T10:00:01Z",
           "receipt_id": null
         }
