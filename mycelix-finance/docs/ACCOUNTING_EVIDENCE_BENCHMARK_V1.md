@@ -268,3 +268,88 @@ The benchmark protocol is coordinated with these existing and newly scoped owner
 - Symtropy [#3043](https://github.com/Luminous-Dynamics/symtropy/issues/3043) tracks a concrete legacy TEND demurrage rounding defect. The default Symtropy source currently applies an independent one-unit minimum adjustment to each positive/negative balance. The case [+100, -50, -50] can become [+99, -49, -49], changing the zero-sum total by +1. Do not use that simulation path as financial authority; correct and qualify its explicit economic semantics first.
 
 The existing Symthaea benchmark infrastructure (#10370 and #9735) remains the preferred run-evidence and reproducibility substrate. Do not create a second benchmark receipt schema or duplicate the task universe.
+
+
+## 12. Expanded 2026 benchmark landscape — do not collapse scores
+
+A November 2026 review found a broader set of public and semi-public finance/accounting evaluation tracks. The benchmark suite should use each only for the capability it actually measures.
+
+### A. APEX-Accounting — professional month-end close workflows
+
+Mercor and Ramp's APEX-Accounting evaluates simulated-company bookkeeping and month-end-close work across accounting systems, spreadsheets, PDFs and other files. The public board snapshot checked 1 November 2026 reports a leading 71.5% mean score over criteria passed. The benchmark page describes 10 worlds / 100 leaderboard tasks / 1,475 grading criteria; the associated paper describes 160 private tasks across 10 worlds. The open release is only one world / 10 tasks. It excludes tax, audit, consolidation, multi-entity and multi-currency accounting, and clarification-seeking. Its rubric judge is an LLM judge, so we should preserve its native score for comparison while independently checking deterministic numeric and journal invariants.
+
+References:
+- https://www.mercor.com/blog/introducing-the-ai-productivity-index-for-accounting/
+- https://benchmarks.finance/benchmarks/apex-accounting/
+
+### B. BlueFin — spreadsheet dynamic correctness
+
+BlueFin evaluates professional spreadsheet tasks for workbook synthesis, manipulation and interrogation, emphasizing whether formulas continue working when inputs change. Its 2026 v1 reports 131 tasks / 3,225 rubric criteria, 11 public tasks and 120 held-out evaluation tasks. The highest reported result in the checked May 2026 results was 49.6% criteria-weighted score. Its grader is an LM judge validated against expert ratings (reported Krippendorff alpha 0.826). It does not cover accounting close or live data.
+
+References:
+- https://arxiv.org/abs/2605.XXXXX
+- https://benchmarks.finance/benchmarks/bluefin/
+
+The arXiv identifier must be resolved from the linked primary benchmark paper before any benchmark reproduction or paper citation is frozen. The benchmark directory is a discovery aid, not a substitute for checking original rights and methods.
+
+### C. DualEntry DualBench100 — controlled task-level accounting
+
+Retain its exact v1.0 case set and deterministic checks where rights permit. Report its original repeated-run task-pass and tolerance metrics, but add exact-value and category-level scores. Its synthetic 101-case profile is useful for common tasks, not a proxy for real-world financial-statement completeness.
+
+Reference: https://www.dualentry.com/benchmark
+
+### D. FINBALANCE — evidence-to-statements correctness
+
+Retain this as the primary public reference for multi-document source binding, journal projection, statement aggregation and inconsistency detection. Its exact-statement score is not comparable to the rubric or task-pass metrics above.
+
+Reference: https://aclanthology.org/2026.findings-emnlp.675/
+
+### E. General finance indexes and benchmark registries
+
+Artificial Analysis' Finance & Accounting Index currently combines agentic knowledge work (30%), business knowledge (25%), reasoning (15%), non-hallucination (15%), agentic tool use (10%), and long-context work (5%). This is useful for model selection and broad financial literacy/agent capability, but it is not an accounting-ledger correctness benchmark.
+
+Reference: https://artificialanalysis.ai/indexes/finance-and-accounting/
+
+The third-party benchmarks.finance directory reported 47 finance benchmarks and 419 sourced scores across 234 models as of 3 November 2026, with separate metrics rather than a universal aggregate. Use it to discover relevant benchmark candidates and provenance, not as an authoritative industry standard or a score to optimize directly.
+
+Reference: https://benchmarks.finance/
+
+### F. Minimum benchmark portfolio for Mycelix
+
+Keep a small, complementary portfolio:
+1. FINBALANCE-compatible track — source documents to independently reconstructed statements.
+2. APEX-compatible track — multi-step close and bookkeeping workflows.
+3. DualBench100-compatible track — common structured accounting tasks and consistency.
+4. BlueFin-compatible track — spreadsheet formulas and dynamic correctness.
+5. Mycelix adversarial track — evidence integrity, authorization, exact-money and replay semantics.
+6. Field/pilot track — rights-cleared historical workflows with professional adjudication and measured human handling time.
+
+Do not sum scores across these tracks. Report the capability, metric, split, date, source and evaluator for each.
+
+## 13. Competitive reality as of 4 November 2026
+
+The incumbent category is moving quickly and already includes many capabilities that were previously proposed as differentiators:
+
+- Intuit announced Agentic Books Close in Intuit Accountant Suite, workflow playbooks, portfolio intelligence and a unified platform across QuickBooks / Enterprise Suite / Accountant Suite. Its 4 November 2026 announcement reports more than 250,000 accounting firms adopted Intuit Accountant Suite; Intuit describes an ecosystem spanning 60+ specialized language models, 100+ AI skill agents, 100+ workflows and 74 financial domains. These are vendor-reported figures and product claims, not independent benchmark results.
+- NetSuite 2026.2 describes an AI transaction-matching assistant, Intelligent Flux Analysis, close-management tasks, payment automation and reporting workflow capabilities.
+- QuickBooks' 2026 documentation describes Accounting AI that asks for context and can update transactions automatically with user permission.
+- Sage announced embedded AI agents across finance, HR and operations in April 2026.
+
+Primary/vendor references:
+- https://investors.intuit.com/news-events/press-releases/detail/1329/intuit-expands-intelligence-platform-to-power-the-next-era-of-accounting-firm-and-business-growth
+- https://www.netsuite.com/portal/resource/articles/financial-management/netsuite-2026-2-adds-ai-capabilities-for-smarter-bank-reconciliation-close-management-labor-insights-and-more.shtml
+- https://quickbooks.intuit.com/learn-support/en-za/help-article/accounting-bookkeeping/overview-agents-quickbooks-online/L9irCAtK4_ZA_en_ZA
+- https://www.sage.com/en-us/news/press-releases/2026/04/sage-expands-ai-agents-across-finance-hr-and-operations-to-automate-workflows/
+
+**Strategic consequence:** do not claim that continuous close, AI transaction matching, natural-language finance assistance, or agentic workflow automation is uniquely ours. Incumbents have distribution, integrations, customer context, existing accounting systems and deeply embedded workflows.
+
+The defensible differentiation hypothesis is narrower and harder:
+- source-to-statement provenance with independent reconstruction;
+- explicit separation of economic authorization/settlement from accounting representation;
+- exact-money and cross-language canonical semantics;
+- adversarially qualified evidence and safe exception dispositions;
+- policy snapshots with effective dates and reproducible treatment;
+- portable evidence and review workpapers across existing accounting systems;
+- business-operational digital twins that are reconciled to observed accounting facts rather than mixed into the ledger.
+
+The product strategy should initially be **an intelligence, evidence and independent-verification layer that works with incumbent systems**, not a costly rip-and-replace accounting suite.
