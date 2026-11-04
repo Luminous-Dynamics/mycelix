@@ -92,3 +92,16 @@ The canonical payload is the complete request object with only `request_digest` 
 The Rust evaluator recomputes the digest for each request and rejects any request whose declared digest differs. Acceptance and payment-instruction events must bind that recomputed value. A field change without a new version/digest and new payer acceptance is invalid.
 
 A reference vector is stored in `request_digest_contract.vectors` and checked by unit tests. This is a protocol-specific canonicalization profile; it must not be silently replaced by a different JSON serializer or digest scope.
+
+
+## Identity and authenticity boundary (verified 4 November 2026)
+
+The Capitec FAQ says a PayShap Request displays the sender's name and reference, can be sent/approved only by a logged-in user in its app, and can be declined where the recipient does not know who sent it or why. This proves only the documented user-interface and access-control claims. A displayed sender name is not proof of legal-person identity, authority to collect for a beneficiary, invoice validity, or absence of compromised sender credentials.
+
+The European Payments Council's Verification of Payee (VOP) scheme is a useful but bounded comparator. VOP v1.1 became effective 20 September 2026 and lets a payer PSP ask a payee PSP to compare an account identifier/name, returning match, close match, no match or unable-to-check. EPC explicitly says VOP messaging cannot be relied upon to identify a private or legal person. Its matching guidance v2.0, published 3 November 2026, addresses character sets, natural/legal person name differences, initials, phonetic and commercial-name variants. This improves account/name mismatch detection; it still does not establish that an invoice is genuine or a requester is authorised to collect it.
+
+Thus keep five independent claims: sender account/session authenticated; displayed counterparty/account matched; sender authorised to request for the beneficiary; underlying commercial claim supported; payer voluntarily accepts the exact immutable request. Never collapse them into a single `verified` flag.
+
+## Capitec amount/fee inconsistency
+
+The current FAQ has a R100 per-request cap but also lists payer fee bands for R100.01–R3,000. Requests above R100 must therefore be rejected/quarantined according to the stated per-request cap; the fee bands above R100 are preserved as contradictory tariff text, not evidence that those request amounts are admissible. The FAQ says two requests per 24 hours but does not state a combined daily value ceiling; that separate monetary field remains unknown.
