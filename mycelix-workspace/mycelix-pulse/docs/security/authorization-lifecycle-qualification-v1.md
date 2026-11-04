@@ -105,6 +105,30 @@ The companion JSON contains 28 synthetic scenarios across:
 
 Each scenario provides an event sequence, explicit happens-before edges where known, expected observations by plane, and assertions. The schema is closed-world: unknown fields fail validation. The corpus includes no raw secrets or personal data.
 
+## Finite-state model artifact
+
+The branch now includes a small TLA+ contract model:
+
+- `docs/security/PulseAuthorityLifecycle.tla`
+- `docs/security/PulseAuthorityLifecycle.cfg`
+- `docs/security/PulseAuthorityLifecycle-mutant.cfg`
+
+It models two grant identities, two logical issuance requests, grantor/grantee/outsider actors, host grant state, recipient claims, application revocation state, stale/current projections, idempotent grant retries, acknowledgement loss, host revocation, projection convergence, caller outcomes and one logical domain effect per operation.
+
+The normal configuration deliberately gives one logical operation domain permission and leaves the other domain-rejected. This encodes the distinction between host function authorization and resource/domain policy: a valid host grant is necessary, but not sufficient, for a domain effect.
+
+The unsafe mutant switches host decisions to the application projection. Its expected counterexample schedule is:
+
+```text
+IssueGrant -> DeliverClaim -> RevokeGrant
+           -> (projection remains active)
+           -> Call(grantee, same grant)
+```
+
+The safe model must deny that post-revoke call based on host grant state. The mutant config should violate `StaleProjectionDoesNotAllow` and `NoProjectionAuthority`. The timeout action changes only caller-observed outcome to `unknown`; it does not create or undo host grants or domain effects.
+
+**Execution status:** the TLA+ files and bounded configurations have been authored and structurally reviewed, but TLC has not yet been executed. Do not report a model-check PASS. The first model-check task is to run both configurations with a pinned TLC version, retain the safe run's invariant results and the mutant's counterexample trace, and add both outputs as exact-source receipts. Then expand with two-conductor validator acceptance, concurrent call/revoke orderings, crash points, conflicting roots and partition schedules.
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
