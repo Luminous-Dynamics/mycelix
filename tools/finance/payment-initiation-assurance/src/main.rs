@@ -335,8 +335,7 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                     }
                     "UK_FPS_COP" if result == "no_match" => {
                         requested_type == returned_type
-                            || (requested_type != returned_type
-                                && requested_type != "not_specified"
+                            || (requested_type != "not_specified"
                                 && returned_type != "unknown")
                     }
                     "UK_FPS_COP" => {
