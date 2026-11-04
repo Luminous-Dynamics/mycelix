@@ -247,7 +247,7 @@ jobs:
       - name: Build active Pulse alpha zomes for wasm32
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
-          CARGO_ENCODED_RUSTFLAGS=$'-D\\037warnings\\037--cfg\\037getrandom_backend="unsupported"' nix develop --command cargo build --manifest-path holochain/Cargo.toml --workspace --release --target wasm32-unknown-unknown
+          CARGO_ENCODED_RUSTFLAGS=$'-D\037warnings\037--cfg\037getrandom_backend="unsupported"' nix develop --command cargo build --manifest-path holochain/Cargo.toml --workspace --release --target wasm32-unknown-unknown
 
       - name: Pack the exact Holochain 0.7 Sweettest DNA
         working-directory: mycelix-workspace/mycelix-pulse
