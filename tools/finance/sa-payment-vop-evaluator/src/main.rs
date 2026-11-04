@@ -79,9 +79,8 @@ fn eq_field(left: &Value, left_key: &str, right: &Value, right_key: &str) -> boo
 }
 
 fn allowed_outcome(profile: &Value, outcome: &str) -> bool {
-    array_at(profile, "allowed_outcomes").is_some_and(|values| {
-        values.iter().any(|value| value.as_str() == Some(outcome))
-    })
+    array_at(profile, "allowed_outcomes")
+        .is_some_and(|values| values.iter().any(|value| value.as_str() == Some(outcome)))
 }
 
 fn is_definitive(outcome: &str) -> bool {
@@ -115,7 +114,10 @@ fn qualified_response(
         ("payer_audience", "audience"),
         ("request_commitment", "request_commitment"),
         ("payer_subject_commitment", "payer_subject_commitment"),
-        ("transaction_intent_commitment", "transaction_intent_commitment"),
+        (
+            "transaction_intent_commitment",
+            "transaction_intent_commitment",
+        ),
     ] {
         if !eq_field(request, request_key, response, response_key) {
             errors.push(format!(
@@ -147,8 +149,7 @@ fn qualified_response(
 
     let signature = str_at(response, "signature_state").unwrap_or("unknown");
     let key_state = str_at(response, "key_state").unwrap_or("unknown");
-    let provider_authority =
-        str_at(response, "provider_authority_state").unwrap_or("unknown");
+    let provider_authority = str_at(response, "provider_authority_state").unwrap_or("unknown");
     let audience_matches = eq_field(request, "payer_audience", response, "audience");
     let alias_state = str_at(request, "alias_state").unwrap_or("unknown");
     let alias_generation = request
@@ -180,19 +181,17 @@ fn qualified_response(
         ));
         bound = false;
     }
-    if str_at(request, "matching_profile_version")
-        != str_at(profile, "matching_profile_version")
-    {
+    if str_at(request, "matching_profile_version") != str_at(profile, "matching_profile_version") {
         errors.push(format!(
             "{path}: request matching-profile version differs from the source-bound participant profile"
         ));
         bound = false;
     }
-    let charset_allowed = array_at(profile, "allowed_character_set_profiles")
-        .is_some_and(|values| {
-            values.iter().any(|value| {
-                value.as_str() == str_at(request, "character_set_profile")
-            })
+    let charset_allowed =
+        array_at(profile, "allowed_character_set_profiles").is_some_and(|values| {
+            values
+                .iter()
+                .any(|value| value.as_str() == str_at(request, "character_set_profile"))
         });
     if !charset_allowed && is_definitive(outcome) {
         errors.push(format!(
@@ -235,16 +234,15 @@ fn qualified_response(
         bound = false;
     }
 
-    if outcome == "match"
-        && str_at(profile, "coverage") == Some("unknown")
-    {
+    if outcome == "match" && str_at(profile, "coverage") == Some("unknown") {
         errors.push(format!(
             "{path}: unqualified participant coverage cannot emit an admitted Match"
         ));
         bound = false;
     }
 
-    bound && fresh
+    bound
+        && fresh
         && signature == "valid"
         && key_state == "active"
         && provider_authority == "authorised"
@@ -279,12 +277,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     let sources = array_at(corpus, "source_register")
         .cloned()
         .unwrap_or_default();
-    let profiles = array_at(corpus, "profiles")
-        .cloned()
-        .unwrap_or_default();
-    let scenarios = array_at(corpus, "scenarios")
-        .cloned()
-        .unwrap_or_default();
+    let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
+    let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
 
     check_unique(&sources, "id", "source_register", &mut errors);
     check_unique(&profiles, "profile_id", "profiles", &mut errors);
@@ -322,13 +316,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!("profiles[{index}].source_refs: empty"));
         }
         for reference in refs {
-            if !reference
-                .as_str()
-                .is_some_and(|id| source_ids.contains(id))
-            {
-                errors.push(format!(
-                    "profiles[{index}].source_refs: unresolved source"
-                ));
+            if !reference.as_str().is_some_and(|id| source_ids.contains(id)) {
+                errors.push(format!("profiles[{index}].source_refs: unresolved source"));
             }
         }
         if str_at(profile, "coverage") == Some("unknown")
@@ -365,13 +354,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 all_checks_qualified.push(false);
                 continue;
             };
-            let qualified = qualified_response(
-                check,
-                profile,
-                evaluation_at,
-                &mut errors,
-                &check_path,
-            );
+            let qualified =
+                qualified_response(check, profile, evaluation_at, &mut errors, &check_path);
             all_checks_qualified.push(qualified);
 
             let outcome = str_at(response, "outcome").unwrap_or("unknown");
@@ -445,10 +429,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 "{path}: reenter_and_recheck requires a Close Match outcome"
             ));
         }
-        if action == "bypass_unverified" && !matches!(
-            last_outcome,
-            "verification_not_possible" | "not_requested" | "unknown" | "stale"
-        ) {
+        if action == "bypass_unverified"
+            && !matches!(
+                last_outcome,
+                "verification_not_possible" | "not_requested" | "unknown" | "stale"
+            )
+        {
             errors.push(format!(
                 "{path}: unverified bypass action conflicts with a definitive provider response"
             ));
@@ -472,8 +458,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     == str_at(last_request, "payment_reference_commitment")
                 && u64_at(instruction, "amount_minor_units")
                     == u64_at(last_request, "payment_amount_minor_units")
-                && str_at(instruction, "currency")
-                    == str_at(last_request, "payment_currency")
+                && str_at(instruction, "currency") == str_at(last_request, "payment_currency")
                 && str_at(instruction, "authorization_state") == Some("valid")
                 && u64_at(instruction, "amount_minor_units").is_some_and(|amount| amount > 0);
             if !instruction_matches {
@@ -543,137 +528,227 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     }
     let mut count = 0;
 
-    mutate_and_reject("external effects enabled", corpus, schema, |value| {
-        value["external_effects_enabled"] = json!(true);
-    })?;
+    mutate_and_reject(
+        "external effects enabled",
+        corpus,
+        schema,
+        |value| {
+            value["external_effects_enabled"] = json!(true);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("invalid signature promoted to Match", corpus, schema, |value| {
-        value["scenarios"][18]["checks"][0]["response"]["outcome"] = json!("match");
-        value["scenarios"][18]["expected_outcome"] = json!("match");
-    })?;
+    mutate_and_reject(
+        "invalid signature promoted to Match",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][18]["checks"][0]["response"]["outcome"] = json!("match");
+            value["scenarios"][18]["expected_outcome"] = json!("match");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("revoked key promoted to Match", corpus, schema, |value| {
-        value["scenarios"][19]["checks"][0]["response"]["outcome"] = json!("match");
-        value["scenarios"][19]["expected_outcome"] = json!("match");
-    })?;
+    mutate_and_reject(
+        "revoked key promoted to Match",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][19]["checks"][0]["response"]["outcome"] = json!("match");
+            value["scenarios"][19]["expected_outcome"] = json!("match");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("wrong audience response accepted", corpus, schema, |value| {
-        value["scenarios"][0]["checks"][0]["response"]["audience"] = json!("payer-psp:other");
-    })?;
+    mutate_and_reject(
+        "wrong audience response accepted",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["checks"][0]["response"]["audience"] = json!("payer-psp:other");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("wrong beneficiary account promoted to Match", corpus, schema, |value| {
-        value["scenarios"][23]["checks"][0]["response"]["beneficiary_account_commitment"] =
-            json!("acct-other");
-        value["scenarios"][23]["checks"][0]["response"]["outcome"] = json!("match");
-        value["scenarios"][23]["expected_outcome"] = json!("match");
-    })?;
+    mutate_and_reject(
+        "wrong beneficiary account promoted to Match",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][23]["checks"][0]["response"]["beneficiary_account_commitment"] =
+                json!("acct-other");
+            value["scenarios"][23]["checks"][0]["response"]["outcome"] = json!("match");
+            value["scenarios"][23]["expected_outcome"] = json!("match");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("No Match promoted into payer acceptance", corpus, schema, |value| {
-        value["scenarios"][9]["payer_decision"]["action"] = json!("accepted_exact");
-        value["scenarios"][9]["payer_decision"]["confirmed_request_commitment"] =
-            value["scenarios"][9]["checks"][0]["request"]["request_commitment"].clone();
-        value["scenarios"][9]["payer_decision"]["confirmed_beneficiary_account_commitment"] =
-            value["scenarios"][9]["checks"][0]["request"]["beneficiary_account_commitment"].clone();
-        value["scenarios"][9]["payer_decision"]["confirmed_name_commitment"] =
-            value["scenarios"][9]["checks"][0]["request"]["submitted_name_commitment"].clone();
-        value["scenarios"][9]["payer_decision"]["payer_authority_state"] = json!("valid");
-        value["scenarios"][9]["payer_decision"]["confirmed_at"] = json!("2026-11-04T09:01:00Z");
-    })?;
+    mutate_and_reject(
+        "No Match promoted into payer acceptance",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][9]["payer_decision"]["action"] = json!("accepted_exact");
+            value["scenarios"][9]["payer_decision"]["confirmed_request_commitment"] =
+                value["scenarios"][9]["checks"][0]["request"]["request_commitment"].clone();
+            value["scenarios"][9]["payer_decision"]["confirmed_beneficiary_account_commitment"] =
+                value["scenarios"][9]["checks"][0]["request"]["beneficiary_account_commitment"].clone();
+            value["scenarios"][9]["payer_decision"]["confirmed_name_commitment"] =
+                value["scenarios"][9]["checks"][0]["request"]["submitted_name_commitment"].clone();
+            value["scenarios"][9]["payer_decision"]["payer_authority_state"] = json!("valid");
+            value["scenarios"][9]["payer_decision"]["confirmed_at"] = json!("2026-11-04T09:01:00Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("Close Match accepted without recheck", corpus, schema, |value| {
-        value["scenarios"][7]["payer_decision"]["action"] = json!("accepted_exact");
-        value["scenarios"][7]["payer_decision"]["confirmed_request_commitment"] =
-            value["scenarios"][7]["checks"][0]["request"]["request_commitment"].clone();
-        value["scenarios"][7]["payer_decision"]["confirmed_beneficiary_account_commitment"] =
-            value["scenarios"][7]["checks"][0]["request"]["beneficiary_account_commitment"].clone();
-        value["scenarios"][7]["payer_decision"]["confirmed_name_commitment"] =
-            value["scenarios"][7]["checks"][0]["request"]["submitted_name_commitment"].clone();
-        value["scenarios"][7]["payer_decision"]["payer_authority_state"] = json!("valid");
-        value["scenarios"][7]["payer_decision"]["confirmed_at"] = json!("2026-11-04T09:01:00Z");
-    })?;
+    mutate_and_reject(
+        "Close Match accepted without recheck",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][7]["payer_decision"]["action"] = json!("accepted_exact");
+            value["scenarios"][7]["payer_decision"]["confirmed_request_commitment"] =
+                value["scenarios"][7]["checks"][0]["request"]["request_commitment"].clone();
+            value["scenarios"][7]["payer_decision"]["confirmed_beneficiary_account_commitment"] =
+                value["scenarios"][7]["checks"][0]["request"]["beneficiary_account_commitment"].clone();
+            value["scenarios"][7]["payer_decision"]["confirmed_name_commitment"] =
+                value["scenarios"][7]["checks"][0]["request"]["submitted_name_commitment"].clone();
+            value["scenarios"][7]["payer_decision"]["payer_authority_state"] = json!("valid");
+            value["scenarios"][7]["payer_decision"]["confirmed_at"] = json!("2026-11-04T09:01:00Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("alias generation mismatch", corpus, schema, |value| {
-        value["scenarios"][0]["checks"][0]["response"]["alias_binding_generation"] = json!(999);
-    })?;
+    mutate_and_reject(
+        "alias generation mismatch",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["checks"][0]["response"]["alias_binding_generation"] = json!(999);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("expired response promoted to Match", corpus, schema, |value| {
-        value["scenarios"][16]["checks"][0]["response"]["outcome"] = json!("match");
-        value["scenarios"][16]["expected_outcome"] = json!("match");
-    })?;
+    mutate_and_reject(
+        "expired response promoted to Match",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][16]["checks"][0]["response"]["outcome"] = json!("match");
+            value["scenarios"][16]["expected_outcome"] = json!("match");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("payer consent binds wrong name", corpus, schema, |value| {
-        value["scenarios"][0]["payer_decision"]["action"] = json!("accepted_exact");
-        value["scenarios"][0]["payer_decision"]["confirmed_request_commitment"] =
-            value["scenarios"][0]["checks"][0]["request"]["request_commitment"].clone();
-        value["scenarios"][0]["payer_decision"]["confirmed_beneficiary_account_commitment"] =
-            value["scenarios"][0]["checks"][0]["request"]["beneficiary_account_commitment"].clone();
-        value["scenarios"][0]["payer_decision"]["confirmed_name_commitment"] = json!("name-other");
-        value["scenarios"][0]["payer_decision"]["payer_authority_state"] = json!("valid");
-        value["scenarios"][0]["payer_decision"]["confirmed_at"] = json!("2026-11-04T09:01:00Z");
-    })?;
+    mutate_and_reject(
+        "payer consent binds wrong name",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["payer_decision"]["action"] = json!("accepted_exact");
+            value["scenarios"][0]["payer_decision"]["confirmed_request_commitment"] =
+                value["scenarios"][0]["checks"][0]["request"]["request_commitment"].clone();
+            value["scenarios"][0]["payer_decision"]["confirmed_beneficiary_account_commitment"] =
+                value["scenarios"][0]["checks"][0]["request"]["beneficiary_account_commitment"].clone();
+            value["scenarios"][0]["payer_decision"]["confirmed_name_commitment"] = json!("name-other");
+            value["scenarios"][0]["payer_decision"]["payer_authority_state"] = json!("valid");
+            value["scenarios"][0]["payer_decision"]["confirmed_at"] = json!("2026-11-04T09:01:00Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("unauthorised payer accepted exact match", corpus, schema, |value| {
-        value["scenarios"][0]["payer_decision"]["action"] = json!("accepted_exact");
-        value["scenarios"][0]["payer_decision"]["confirmed_request_commitment"] =
-            value["scenarios"][0]["checks"][0]["request"]["request_commitment"].clone();
-        value["scenarios"][0]["payer_decision"]["confirmed_beneficiary_account_commitment"] =
-            value["scenarios"][0]["checks"][0]["request"]["beneficiary_account_commitment"].clone();
-        value["scenarios"][0]["payer_decision"]["confirmed_name_commitment"] =
-            value["scenarios"][0]["checks"][0]["request"]["submitted_name_commitment"].clone();
-        value["scenarios"][0]["payer_decision"]["payer_authority_state"] = json!("invalid");
-        value["scenarios"][0]["payer_decision"]["confirmed_at"] = json!("2026-11-04T09:01:00Z");
-    })?;
+    mutate_and_reject(
+        "unauthorised payer accepted exact match",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["payer_decision"]["action"] = json!("accepted_exact");
+            value["scenarios"][0]["payer_decision"]["confirmed_request_commitment"] =
+                value["scenarios"][0]["checks"][0]["request"]["request_commitment"].clone();
+            value["scenarios"][0]["payer_decision"]["confirmed_beneficiary_account_commitment"] =
+                value["scenarios"][0]["checks"][0]["request"]["beneficiary_account_commitment"].clone();
+            value["scenarios"][0]["payer_decision"]["confirmed_name_commitment"] =
+                value["scenarios"][0]["checks"][0]["request"]["submitted_name_commitment"].clone();
+            value["scenarios"][0]["payer_decision"]["payer_authority_state"] = json!("invalid");
+            value["scenarios"][0]["payer_decision"]["confirmed_at"] = json!("2026-11-04T09:01:00Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("unknown ZA coverage promoted to Match", corpus, schema, |value| {
-        value["scenarios"][36]["checks"][0]["response"]["outcome"] = json!("match");
-        value["scenarios"][36]["expected_outcome"] = json!("match");
-    })?;
+    mutate_and_reject(
+        "unknown ZA coverage promoted to Match",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][36]["checks"][0]["response"]["outcome"] = json!("match");
+            value["scenarios"][36]["expected_outcome"] = json!("match");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("payer subject replayed across checks", corpus, schema, |value| {
-        value["scenarios"][0]["checks"][0]["response"]["payer_subject_commitment"] =
-            json!("payer-subject-other");
-    })?;
+    mutate_and_reject(
+        "payer subject replayed across checks",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["checks"][0]["response"]["payer_subject_commitment"] =
+                json!("payer-subject-other");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("transaction intent replayed across checks", corpus, schema, |value| {
-        value["scenarios"][0]["checks"][0]["response"]["transaction_intent_commitment"] =
-            json!("intent-other");
-    })?;
+    mutate_and_reject(
+        "transaction intent replayed across checks",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["checks"][0]["response"]["transaction_intent_commitment"] =
+                json!("intent-other");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("request uses unqualified matching profile version", corpus, schema, |value| {
-        value["scenarios"][0]["checks"][0]["request"]["matching_profile_version"] =
-            json!("old-matching-profile");
-    })?;
+    mutate_and_reject(
+        "request uses unqualified matching profile version",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["checks"][0]["request"]["matching_profile_version"] =
+                json!("old-matching-profile");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("lossy character conversion promoted to Match", corpus, schema, |value| {
-        value["scenarios"][39]["checks"][0]["response"]["outcome"] = json!("match");
-        value["scenarios"][39]["expected_outcome"] = json!("match");
-    })?;
+    mutate_and_reject(
+        "lossy character conversion promoted to Match",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][39]["checks"][0]["response"]["outcome"] = json!("match");
+            value["scenarios"][39]["expected_outcome"] = json!("match");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("payer confirms wrong payment intent", corpus, schema, |value| {
-        value["scenarios"][0]["payer_decision"]["confirmed_payment_intent_commitment"] =
-            json!("intent-other");
-    })?;
+    mutate_and_reject(
+        "payer confirms wrong payment intent",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["payer_decision"]["confirmed_payment_intent_commitment"] =
+                json!("intent-other");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("instruction amount differs from confirmed intent", corpus, schema, |value| {
-        value["scenarios"][0]["payment_instruction"]["amount_minor_units"] = json!(9999);
-    })?;
+    mutate_and_reject(
+        "instruction amount differs from confirmed intent",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["payment_instruction"]["amount_minor_units"] = json!(9999);
+        },
+    )?;
     count += 1;
 
     Ok(count)
@@ -689,13 +764,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         match arg.as_str() {
             "--corpus" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--corpus requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--corpus requires a path",
+                    )
                 })?);
                 corpus_text = fs::read_to_string(path)?;
             }
             "--schema" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--schema requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--schema requires a path",
+                    )
                 })?);
                 schema_text = fs::read_to_string(path)?;
             }
@@ -708,14 +789,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     format!("unknown argument: {other}"),
-                ).into());
+                )
+                .into());
             }
         }
     }
 
     let (errors, corpus, schema) = evaluate(&corpus_text, &schema_text)
         .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?;
-    let mutation_count = if self_test { run_self_tests(&corpus, &schema)? } else { 0 };
+    let mutation_count = if self_test {
+        run_self_tests(&corpus, &schema)?
+    } else {
+        0
+    };
     let status = if errors.is_empty() { "PASS" } else { "FAIL" };
     let report = json!({
         "evaluator": "mycelix.sa-payment-vop-evaluator.v1",
