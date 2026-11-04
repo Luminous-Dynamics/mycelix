@@ -51,7 +51,7 @@ struct ZomeReport {
     extra_in_typescript: Vec<String>,
     signal_hub_filter_array_count: usize,
     signal_hub_filters_complete: bool,
-    codec_compatible_with_current_flat_parser: bool,
+    codec_compatible_with_v1_envelope_decoder: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,7 +59,7 @@ struct AuditReport {
     schema_version: u32,
     status: String,
     repository_root: String,
-    signal_hub_uses_flat_type_payload: bool,
+    signal_hub_decodes_adjacent_type_data_envelope: bool,
     zomes: Vec<ZomeReport>,
     findings: Vec<String>,
 }
@@ -86,8 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ts_types = fs::read_to_string(client_root.join("types/index.ts"))?;
     let signal_hub = fs::read_to_string(client_root.join("signals/SignalHub.ts"))?;
     let filters = extract_filter_arrays(&signal_hub)?;
-    let flat_payload = signal_hub.contains("typeof payload.type")
-        && signal_hub.contains("payload.type");
+    let adjacent_envelope = signal_hub_decodes_adjacent_envelope(&signal_hub);
 
     let mut findings = Vec::new();
     let mut zomes = Vec::new();
@@ -156,15 +155,16 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
 
-        // Only internally tagged enums can be represented by the flat {type, ...}
-        // payload expected by the current SignalHub. Adjacent and external tagging
-        // require a shape-aware decoder.
+        // Pulse v1 uses one explicit adjacent-tag wire contract: { type, data }.
+        // SignalHub validates that envelope and normalizes the data object to the
+        // flat discriminated union used by existing client consumers.
         let codec_compatible = matches!(
             &representation,
-            RustRepresentation::InternallyTagged { tag } if tag == "type"
-        ) && flat_payload;
+            RustRepresentation::AdjacentlyTagged { tag, content }
+                if tag == "type" && content == "data"
+        ) && adjacent_envelope;
         if !codec_compatible {
-            findings.push(format!("{}: {:?} is incompatible with SignalHub's flat payload decoder", spec.category, representation));
+            findings.push(format!("{}: {:?} is incompatible with SignalHub's v1 type/data envelope decoder", spec.category, representation));
         }
 
         zomes.push(ZomeReport {
@@ -177,7 +177,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             extra_in_typescript: extra,
             signal_hub_filter_array_count: category_filters.len(),
             signal_hub_filters_complete: filters_complete,
-            codec_compatible_with_current_flat_parser: codec_compatible,
+            codec_compatible_with_v1_envelope_decoder: codec_compatible,
         });
     }
 
@@ -185,7 +185,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         schema_version: 1,
         status: if findings.is_empty() { "PASS" } else { "FAIL" }.to_string(),
         repository_root: root.display().to_string(),
-        signal_hub_uses_flat_type_payload: flat_payload,
+        signal_hub_decodes_adjacent_type_data_envelope: adjacent_envelope,
         zomes,
         findings,
     };
@@ -255,6 +255,13 @@ fn rust_representation(item: &ItemEnum) -> Result<RustRepresentation, Box<dyn Er
 struct FilterArray {
     category: String,
     variants: BTreeSet<String>,
+}
+
+fn signal_hub_decodes_adjacent_envelope(source: &str) -> bool {
+    source.contains("const envelope = payload as { type?: unknown; data?: unknown }")
+        && source.contains("typeof envelope.type !== 'string'")
+        && source.contains("envelope.data")
+        && source.contains("...data, type")
 }
 
 fn extract_filter_arrays(source: &str) -> Result<Vec<FilterArray>, Box<dyn Error>> {
@@ -395,6 +402,23 @@ mod tests {
         let variants = extract_typescript_variants(body).unwrap();
         assert_eq!(variants["One"], vec!["value"]);
         assert!(variants.contains_key("Two"));
+    }
+
+    #[test]
+    fn signal_hub_adjacent_envelope_decoder_is_required() {
+        let safe = r#"
+            const envelope = payload as { type?: unknown; data?: unknown };
+            if (typeof envelope.type !== 'string') return null;
+            if (envelope.data === undefined) return null;
+            const normalized = { ...data, type };
+        "#;
+        assert!(signal_hub_decodes_adjacent_envelope(safe));
+
+        let flat_only = r#"
+            const payload = appSignal.payload as { type?: string };
+            if (typeof payload.type !== 'string') return null;
+        "#;
+        assert!(!signal_hub_decodes_adjacent_envelope(flat_only));
     }
 
     #[test]
