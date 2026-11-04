@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "contract_id": "PRAXIS-SYMTHAEA-ADVISOR-001",
+  "request_id": "synthetic-advisory-001",
+  "advisory_consent_granted": true,
+  "policy_profile": {
+    "profile_id": "praxis-support-selection",
+    "profile_version": "1"
+  },
+  "goal": {
+    "target_capability_id": "fractions.equivalent-values",
+    "summary": "Practice equivalent fractions with a hint followed by an independent attempt."
+  },
+  "evidence_snapshot": {
+    "snapshot_id": "synthetic-snapshot-001",
+    "snapshot_digest_blake3": "1111111111111111111111111111111111111111111111111111111111111111",
+    "captured_at": "2026-10-23T10:00:00Z",
+    "evidence_items": [
+      {
+        "evidence_id": "goal-001",
+        "kind": "learner_goal",
+        "epistemic_status": "learner_reported",
+        "summary": "The learner requested a brief hint and then an independent attempt."
+      },
+      {
+        "evidence_id": "availability-001",
+        "kind": "support_availability",
+        "epistemic_status": "observed",
+        "summary": "The AI hint service and matched offline practice are available."
+      },
+      {
+        "evidence_id": "policy-001",
+        "kind": "course_policy",
+        "epistemic_status": "observed",
+        "summary": "The task is low-stakes practice and permits scaffolding."
+      }
+    ]
+  },
+  "evidence_sufficiency": "sufficient",
+  "displacement_risk": "low",
+  "human_support_must_be_preserved": false,
+  "accessibility_requirements": [],
+  "assessment_policy": "permits_scaffolding",
+  "preferred_actions": [
+    "ai_hint_then_retrieval",
+    "retrieval_practice"
+  ],
+  "support_options": [
+    {
+      "action": "ai_hint_then_retrieval",
+      "available": true,
+      "accessible_for_context": true,
+      "policy_permitted": true,
+      "basis_evidence_refs": [
+        "goal-001",
+        "availability-001",
+        "policy-001"
+      ]
+    },
+    {
+      "action": "retrieval_practice",
+      "available": true,
+      "accessible_for_context": true,
+      "policy_permitted": true,
+      "basis_evidence_refs": [
+        "goal-001",
+        "availability-001"
+      ]
+    },
+    {
+      "action": "human_support",
+      "available": false,
+      "accessible_for_context": true,
+      "policy_permitted": true,
+      "basis_evidence_refs": [
+        "availability-001"
+      ]
+    },
+    {
+      "action": "offline_fallback",
+      "available": true,
+      "accessible_for_context": true,
+      "policy_permitted": true,
+      "basis_evidence_refs": [
+        "availability-001"
+      ]
+    }
+  ]
+}

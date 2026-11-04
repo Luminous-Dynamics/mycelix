@@ -21,6 +21,7 @@ pub mod errors;
 pub mod export_formats;
 pub mod proof_of_learning;
 pub mod provenance;
+pub mod symthaea_advisor;
 pub mod types;
 pub mod validation;
 
