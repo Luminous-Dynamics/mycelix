@@ -84,9 +84,83 @@ export class SignalHub {
       return null;
     }
 
-    // Normalize the Rust type/data v1 envelope to the flat discriminated
-    // union used by existing UI consumers. The outer serializer discriminator
-    // always wins over a field with the same name inside data.
+    // Exact field sets are part of the wire contract. This rejects both
+    // missing required fields and unrecognized additions before a typed signal
+    // reaches application handlers.
+    const fieldsByType: Record<string, readonly string[]> = {
+      EmailReceived: ['email_hash', 'sender', 'encrypted_subject', 'timestamp', 'priority'],
+      DeliveryConfirmed: ['email_hash', 'recipient', 'delivered_at'],
+      ReadReceiptReceived: ['email_hash', 'reader', 'read_at'],
+      EmailStateChanged: ['email_hash', 'state'],
+      ThreadActivity: ['thread_id', 'email_hash', 'sender'],
+      DraftSaved: ['draft_hash'],
+      ScheduledEmailSent: ['email_hash', 'recipients'],
+      TypingIndicator: ['sender', 'thread_id'],
+      AttestationReceived: ['attestation_hash', 'truster', 'trust_level', 'category'],
+      TrustScoreUpdated: ['agent', 'new_score', 'confidence'],
+      IntroductionReceived: ['introduction_hash', 'introducer', 'introduced', 'recommendation'],
+      DisputeFiled: ['dispute_hash', 'attestation_hash', 'disputer'],
+      ByzantineDetected: ['agent', 'flag_type', 'severity'],
+      SyncStateChanged: ['vector_clock', 'pending_ops'],
+      OperationReceived: ['op_id', 'op_type', 'from_agent'],
+      ConflictDetected: ['conflict_id', 'conflict_type'],
+      ConflictResolved: ['conflict_id', 'resolution'],
+      Online: [],
+      Offline: [],
+      SyncProgress: ['synced', 'total', 'peer'],
+      SyncComplete: ['peer', 'ops_synced'],
+      NetworkDiscovered: ['network_id', 'network_type'],
+      EnvelopeReceived: ['envelope_id', 'from_network'],
+      EnvelopeDelivered: ['envelope_id', 'to_network'],
+      DeliveryFailed: ['envelope_id', 'error'],
+      BridgeStatusChanged: ['bridge_agent', 'is_active'],
+      RouteChanged: ['route_id', 'is_active'],
+      PeerStatusChanged: ['network_id', 'is_reachable'],
+    };
+    const expectedFields = fieldsByType[type];
+    if (!expectedFields) return null;
+    const actualFields = Object.keys(data);
+    if (
+      actualFields.length !== expectedFields.length ||
+      !expectedFields.every((field) => Object.prototype.hasOwnProperty.call(data, field))
+    ) {
+      return null;
+    }
+
+    if (type === 'EmailStateChanged') {
+      const state = data.state as unknown;
+      if (!state || typeof state !== 'object' || Array.isArray(state)) return null;
+      const stateFields = ['is_read', 'is_starred', 'is_archived', 'is_trashed', 'folders'];
+      const stateRecord = state as Record<string, unknown>;
+      if (
+        Object.keys(stateRecord).length !== stateFields.length ||
+        !stateFields.every((field) => Object.prototype.hasOwnProperty.call(stateRecord, field)) ||
+        !['is_read', 'is_starred', 'is_archived', 'is_trashed'].every(
+          (field) => stateRecord[field] === null || typeof stateRecord[field] === 'boolean'
+        ) ||
+        !(stateRecord.folders === null || Array.isArray(stateRecord.folders))
+      ) {
+        return null;
+      }
+    }
+
+    const numericFields: Record<string, readonly string[]> = {
+      TrustScoreUpdated: ['new_score', 'confidence'],
+      AttestationReceived: ['trust_level'],
+      IntroductionReceived: ['recommendation'],
+      ByzantineDetected: ['severity'],
+      SyncStateChanged: ['pending_ops'],
+      SyncProgress: ['synced', 'total'],
+      SyncComplete: ['ops_synced'],
+    };
+    for (const field of numericFields[type] ?? []) {
+      if (typeof data[field] !== 'number' || !Number.isFinite(data[field] as number)) {
+        return null;
+      }
+    }
+
+    // Normalize the validated Rust type/data v1 envelope to the flat union
+    // used by current consumers. The outer discriminator always wins.
     const normalized = { ...data, type } as Record<string, unknown>;
 
     if (['EmailReceived', 'DeliveryConfirmed', 'ReadReceiptReceived',
@@ -95,7 +169,7 @@ export class SignalHub {
       return normalized as MessageSignal;
     }
 
-    // Trust notifications are advisory wake-up hints. A consumer must fetch
+    // Trust notifications remain advisory wake-up hints. A consumer must fetch
     // and validate the exact record before promoting any claimed state.
     if (['AttestationReceived', 'TrustScoreUpdated', 'IntroductionReceived',
          'DisputeFiled', 'ByzantineDetected'].includes(type)) {
@@ -108,13 +182,7 @@ export class SignalHub {
       return normalized as SyncSignal;
     }
 
-    if (['NetworkDiscovered', 'EnvelopeReceived', 'EnvelopeDelivered',
-         'DeliveryFailed', 'BridgeStatusChanged', 'RouteChanged',
-         'PeerStatusChanged'].includes(type)) {
-      return normalized as FederationSignal;
-    }
-
-    return null;
+    return normalized as FederationSignal;
   }
 
   private dispatch(signal: MycelixSignal): void {
