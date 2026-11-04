@@ -361,7 +361,8 @@
       "expected_disposition": "allow",
       "instruction_created": false,
       "source_refs": [
-        "CAPITEC_RTP_FAQ_2026"
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
@@ -389,7 +390,8 @@
       "expected_disposition": "reject_count_limit",
       "instruction_created": false,
       "source_refs": [
-        "CAPITEC_RTP_FAQ_2026"
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
@@ -417,7 +419,8 @@
       "expected_disposition": "reject_count_limit",
       "instruction_created": false,
       "source_refs": [
-        "CAPITEC_RTP_FAQ_2026"
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
@@ -445,7 +448,8 @@
       "expected_disposition": "allow",
       "instruction_created": false,
       "source_refs": [
-        "CAPITEC_RTP_PRODUCT_2026"
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
@@ -473,7 +477,8 @@
       "expected_disposition": "reject_amount_limit",
       "instruction_created": false,
       "source_refs": [
-        "CAPITEC_RTP_PRODUCT_2026"
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
@@ -501,7 +506,8 @@
       "expected_disposition": "allow",
       "instruction_created": false,
       "source_refs": [
-        "CAPITEC_RTP_PRODUCT_2026"
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
@@ -529,7 +535,8 @@
       "expected_disposition": "reject_aggregate_amount_limit",
       "instruction_created": false,
       "source_refs": [
-        "CAPITEC_RTP_PRODUCT_2026"
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
@@ -838,7 +845,8 @@
       "instruction_created": false,
       "source_refs": [
         "ABSA_PAYSHAP_REQUEST_2026",
-        "CAPITEC_RTP_PRODUCT_2026"
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
@@ -1116,7 +1124,8 @@
       "expected_disposition": "reject_wrong_rule_application",
       "instruction_created": false,
       "source_refs": [
-        "CAPITEC_RTP_FAQ_2026"
+        "CAPITEC_RTP_FAQ_2026",
+        "CAPITEC_RTP_PRODUCT_2026"
       ],
       "notes": "Synthetic case; no real payer, requester or account data."
     },
