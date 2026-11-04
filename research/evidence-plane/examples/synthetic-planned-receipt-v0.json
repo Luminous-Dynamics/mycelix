@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.1.0",
+  "receipt_id": "synthetic:antarctic-energy-profile-v0:planned",
+  "created_at": "2026-10-22T00:00:00Z",
+  "run_status": "planned",
+  "evidence_tier": "S0",
+  "claim_ceiling": "synthetic_only",
+  "subject": {
+    "repository": "Luminous-Dynamics/symtropy",
+    "commit": null,
+    "artifact_path": "research/antarctic-energy-resilience/cases/antarctic_station_v0.synthetic.json",
+    "artifact_sha256": null
+  },
+  "sources": [],
+  "transforms": [],
+  "benchmark": {
+    "protocol_id": "antarctic-energy-resilience-v0",
+    "protocol_sha256": null,
+    "pre_registered_at": null,
+    "split_strategy": "not_applicable",
+    "split_lock_sha256": null,
+    "budget": {
+      "wall_clock_seconds": 0,
+      "cpu_core_seconds": 0,
+      "gpu_seconds": 0,
+      "peak_memory_bytes": 0,
+      "network_policy": "none"
+    },
+    "baseline_arms": [],
+    "primary_metrics": [
+      "planned software-accounting checks only; no measured fuel/service outcome"
+    ],
+    "results_summary": {
+      "state": "not_run",
+      "observed_result_count": 0,
+      "note": "Illustrative planned receipt only. No physical or operational result is asserted."
+    }
+  },
+  "gates": {
+    "source_integrity": "unknown",
+    "rights_stewardship": "unknown",
+    "transform_reproducibility": "unknown",
+    "split_lock": "unknown",
+    "budget_parity": "unknown",
+    "negative_controls": "unknown",
+    "exact_head": "unknown",
+    "safety_critical_regression": "unknown",
+    "independent_verification": "unknown",
+    "domain_validation": "unknown"
+  },
+  "independent_verification": {
+    "status": "none",
+    "verifier_kind": "none",
+    "verifier_ref": null,
+    "replayed_commit": null,
+    "note": "No verifier has run."
+  },
+  "limitations": [
+    "Schema fixture only, not a completed benchmark.",
+    "Commit and artifact hash are null because this is a plan, not an exact-head execution receipt.",
+    "Synthetic scenarios cannot support station-specific engineering, physical energy use, fuel savings, safety or field-performance claims."
+  ]
+}
