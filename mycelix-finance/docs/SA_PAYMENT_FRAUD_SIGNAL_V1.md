@@ -1,0 +1,66 @@
+# South African Federated Fraud Signal Contract v1
+
+**Status:** effects-disabled synthetic reference. This is not a fraud registry, risk model, SARB programme integration or legal decision service.
+
+## Purpose and boundary
+
+A fraud signal is a scoped, source-bound assertion, not an identity fact or a legal determination.
+
+`signal received != allegation verified != account controlled by bad actor != legal finding != payment decision`
+
+The receiver must retain its own decision authority. A signal may justify proportionate review or step-up authentication under an applicable participant policy; it must not create a permanent adverse identity fact or automatically deny essential payment access on its own.
+
+## South African policy context
+
+SARB's 2025 PEM Position Paper proposes a future NPU baseline fraud capability involving participant reporting of suspected and actual fraud and transactional fraud scoring. SARB's current PEM page says an insights capability and fraud framework will be developed. These sources describe programme direction, not a live national fraud API or current authority to share individual customer data.
+
+The February 2026 BIS CPMI/PIE fraud report identifies data fragmentation and privacy/regulatory differences as barriers to cross-network fraud intelligence. The FPS interlinking report identifies common taxonomies and governance for lawful information exchange as important design considerations.
+
+## Paradigm: federated evidence, not a global blacklist
+
+The contract supports participant-to-participant or brokered query/response with explicit source, purpose, audience and expiry. It does not require copying raw customer histories into one central store.
+
+Use provider-issued opaque subject tokens or purpose-scoped keyed commitments. A public hash of a phone number, bank account or national ID is not anonymisation. Never expose whether an arbitrary identifier exists through an unauthenticated query.
+
+## Typed status and evidence
+
+Signals may be:
+- `suspected`;
+- `corroborated` (requires independent source roots and participants);
+- `confirmed_by_source` (a source's own final case disposition, not a universal/legal finding);
+- `contested`;
+- `under_review`;
+- `corrected`;
+- `withdrawn`;
+- `expired`; or
+- `unknown`.
+
+Copies derived from one root report are not independent corroboration. A downstream participant copying a report does not create a new independent source.
+
+## Purpose and disclosure
+
+The synthetic profile permits only `payment_fraud_prevention` and the audience `participating_psp_fraud_team`. Disclosures are minimised and exclude raw account, phone, national ID and unrestricted history fields. Signals cannot be reused for credit scoring, marketing, unrelated eligibility or requester disclosure.
+
+## Correction, appeal and expiry
+
+Every status change is append-only. A correction/withdrawal supersedes the prior assertion without erasing history. Receivers must propagate status and stop presenting withdrawn, corrected, expired or otherwise stale evidence as current. Appeals remain visible as submitted/under review until an explicit outcome exists.
+
+A receiver's prior decision remains auditable but may need reassessment after correction. The source remains accountable for the accuracy and timely updating of its signal.
+
+## Benchmark
+
+Hard gates:
+- no suspected-to-confirmed promotion without source-authorised final evidence;
+- no duplicate downstream reports counted as independent corroboration;
+- no wrong source, audience, subject, jurisdiction or purpose;
+- no expired, withdrawn or corrected assertion presented as current;
+- no raw PII or public low-entropy identifier hash in shared output;
+- no out-of-purpose disclosure or identifier-enumeration oracle;
+- no permanent automatic denial based solely on one signal;
+- all signal changes, corrections, withdrawals, appeals and expiries replay deterministically.
+
+Outcome measurements should include false-positive and confirmed-signal rates on adjudicated matched cases, correction propagation time, stale exposure duration, appeal reversal, privacy leakage, unnecessary disclosure, wrongful denial, user friction and participant coverage. Keep suspected, corroborated, source-confirmed, contested, corrected and overturned cases separate. A high block rate is not success.
+
+## Claim ceiling
+
+The corpus is synthetic. A passing evaluator establishes only the typed provenance, purpose and lifecycle semantics of the fixture contract. It proves no fraud-detection accuracy, lawful sharing basis, nationwide interoperability, customer outcome, participant adoption or SARB endorsement.
