@@ -796,7 +796,7 @@
         "source_authority_state": "authorized",
         "category": "suspected_scam",
         "evidence_class": "source_report",
-        "status": "suspected",
+        "status": "unknown",
         "purpose": "payment_fraud_prevention",
         "audience": "participating_psp_fraud_team",
         "subject_reference": {
@@ -826,7 +826,7 @@
           "sequence": 1,
           "event_type": "signal_created",
           "from_status": null,
-          "to_status": "suspected",
+          "to_status": "unknown",
           "authority_state": "authorized",
           "source_participant": "PSP_A",
           "observed_at": "2026-11-04T09:00:00Z",
@@ -838,8 +838,8 @@
       ],
       "disclosures": [],
       "receiver_decision": {
-        "action": "none",
-        "basis": "no_adverse_action",
+        "action": "reject_signal",
+        "basis": "unscoped_public_hash_not_acceptable",
         "automatic": false,
         "independent_review": false,
         "essential_access_affected": false
