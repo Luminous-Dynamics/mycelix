@@ -202,12 +202,12 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
         }
         let from = profile.get("effective_from").and_then(Value::as_str);
         let to = profile.get("effective_to").and_then(Value::as_str);
-        if let (Some(start), Some(end)) = (from, to) {
-            if !date_le(start, end) {
-                out.errors.push(format!(
-                    "profiles[{index}]: effective_to precedes effective_from"
-                ));
-            }
+        if let (Some(start), Some(end)) = (from, to)
+            && !date_le(start, end)
+        {
+            out.errors.push(format!(
+                "profiles[{index}]: effective_to precedes effective_from"
+            ));
         }
         let refs = array_at(profile, "source_refs")
             .cloned()
@@ -452,13 +452,11 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
         if let Some(close_event) = events
             .iter()
             .find(|event| str_at(event, "event_type") == Some("case_closed"))
-        {
-            if str_at(close_event, "closure_disposition") != Some(disposition)
+            && (str_at(close_event, "closure_disposition") != Some(disposition)
                 || str_at(close_event, "authority_state") != Some("valid")
-                || !evidence_contains(close_event, "case_disposition_notice")
-            {
-                out.errors.push(format!("scenarios[{case_index}]: case closure lacks matching disposition, authority or evidence"));
-            }
+                || !evidence_contains(close_event, "case_disposition_notice"))
+        {
+            out.errors.push(format!("scenarios[{case_index}]: case closure lacks matching disposition, authority or evidence"));
         }
 
         if computed_effect == "full_return"
