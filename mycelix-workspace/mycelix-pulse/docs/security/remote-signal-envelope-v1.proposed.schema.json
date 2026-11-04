@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse/remote-signal-envelope-v1.proposed.schema.json",
+  "title": "Pulse Remote Signal Envelope v1 (proposed)",
+  "description": "A transport-level notification envelope. It is an advisory hint, never an authorization grant or proof of the payload's truth. Sender identity is supplied by Holochain transport metadata and MUST NOT be trusted from a payload field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "event_id",
+    "event_type",
+    "schema_version",
+    "payload"
+  ],
+  "properties": {
+    "protocol_version": {
+      "const": 1
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Stable logical event identity used for deduplication. Retransmission attempts reuse this ID."
+    },
+    "event_type": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$",
+      "description": "Namespaced event name, for example pulse.trust.attestation.received."
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "source_action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Optional exact ActionHash reference to the record that motivated the hint. Absence is permitted for ephemeral hints. The receiver still fetches and validates the record."
+    },
+    "logical_operation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Stable identity of the logical domain operation; distinct from one transport attempt."
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Unique delivery attempt identity. Never use it as the logical deduplication key."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Informational sender clock only. It is not a causal order, freshness proof, or revocation boundary."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-specific minimal payload. A separately versioned event schema MUST constrain allowed keys and value sizes. Plaintext message content, capability secrets, private keys, session tokens and self-declared trust classifications are forbidden."
+    }
+  },
+  "not": {
+    "anyOf": [
+      { "required": ["source_agent"] },
+      { "required": ["trust_class"] },
+      { "required": ["verified"] },
+      { "required": ["evidence_ref"] },
+      { "required": ["cap_secret"] },
+      { "required": ["secret"] },
+      { "required": ["private_key"] }
+    ]
+  },
+  "$comment": "PROPOSED CONTRACT ONLY. Do not implement as production wire format until per-event payload schemas, canonical serialization fixtures, Rust/TypeScript generation, size limits, compatibility policy and two-conductor adversarial tests are accepted."
+}
