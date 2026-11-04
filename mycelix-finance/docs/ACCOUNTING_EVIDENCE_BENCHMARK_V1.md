@@ -266,6 +266,7 @@ The benchmark protocol is coordinated with these existing and newly scoped owner
 - Symthaea [#7036](https://github.com/Luminous-Dynamics/symthaea/issues/7036) and [#5612](https://github.com/Luminous-Dynamics/symthaea/issues/5612) own financial-function comparison and neutral capital-allocation scenario work.
 - Symtropy [PR #3091](https://github.com/Luminous-Dynamics/symtropy/pull/3091) contains a separate exact-integer mutual-credit prototype with pooled demurrage and explicit reserve-funded debt relief. Treat it as a research/reference model, not the production Mycelix ledger and not a direct repair to the legacy Bevy economy path.
 - Symtropy [#3043](https://github.com/Luminous-Dynamics/symtropy/issues/3043) tracks a concrete legacy TEND demurrage rounding defect. The default Symtropy source currently applies an independent one-unit minimum adjustment to each positive/negative balance. The case [+100, -50, -50] can become [+99, -49, -49], changing the zero-sum total by +1. Do not use that simulation path as financial authority; correct and qualify its explicit economic semantics first.
+- Mycelix [#5798](https://github.com/Luminous-Dynamics/mycelix/issues/5798) defines assertion-/purpose-specific evidence relevance and reliability; Mycelix [#5799](https://github.com/Luminous-Dynamics/mycelix/issues/5799) defines candidate/oracle separation and matched evaluation using the existing Symthaea run-manifest and benchmark-evidence substrate.
 
 The existing Symthaea benchmark infrastructure (#10370 and #9735) remains the preferred run-evidence and reproducibility substrate. Do not create a second benchmark receipt schema or duplicate the task universe.
 
@@ -310,7 +311,7 @@ Artificial Analysis' Finance & Accounting Index currently combines agentic knowl
 
 Reference: https://artificialanalysis.ai/indexes/finance-and-accounting/
 
-The third-party benchmarks.finance directory reported 52 finance benchmarks as of 2 November 2026, and explicitly keeps each benchmark on its own metric rather than providing a universal aggregate. The directory is a discovery aid with source/date/provenance fields, not an authoritative industry standard or a score to optimize directly.
+The third-party benchmarks.finance directory reported 52 finance benchmarks as of 2 November 2026, including seven in financial spreadsheets/accounting, and explicitly keeps each benchmark on its own metric rather than providing a universal aggregate. The directory is a discovery aid with source/date/provenance fields, not an authoritative industry standard or a score to optimize directly.
 
 Reference: https://benchmarks.finance/
 
@@ -417,7 +418,7 @@ Finch measures long, multi-step enterprise finance and accounting workflows span
 This is a useful operational/file-workflow baseline, but it is not an independent accounting-ledger correctness benchmark. Preserve its human-evaluation distinction and license notice.
 
 References:
-- https://arxiv.org/abs/2506.12345
+- https://arxiv.org/abs/2512.13168
 - https://benchmarks.finance/benchmarks/finch/
 
 ### D. BlueFin — keep the rights boundary visible
