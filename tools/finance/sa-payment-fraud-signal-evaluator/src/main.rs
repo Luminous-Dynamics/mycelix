@@ -298,6 +298,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let mut last_state: Option<String> = None;
         let mut seen_confirmation = false;
         let mut seen_correction = false;
+        let mut previous_event_seconds: Option<i64> = None;
         let mut seen_withdrawal = false;
         let mut seen_appeal = false;
         for (event_index, event) in events.iter().enumerate() {
@@ -322,8 +323,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let blocked_clock_skew = event_type == "clock_skew_quarantined"
                 && authority_state == "unknown"
                 && event.get("to_status").is_none_or(Value::is_null);
-            if observed.len() < 20 || (observed > AS_OF && !blocked_clock_skew) {
-                errors.push(format!("{path}: event timestamp is malformed or an untrusted future event is not quarantined"));
+            let event_seconds = parse_utc_seconds(observed);
+            if event_seconds.is_none() {
+                errors.push(format!("{path}: event timestamp is not valid UTC RFC3339 seconds"));
+            } else if let Some(current) = event_seconds {
+                if previous_event_seconds.is_some_and(|prior| current < prior) {
+                    errors.push(format!("{path}: event time moves backwards"));
+                }
+                previous_event_seconds = Some(current);
+                if current > parse_utc_seconds(AS_OF).unwrap_or(i64::MAX) && !blocked_clock_skew {
+                    errors.push(format!("{path}: future event is not quarantined"));
+                }
             }
             if let Some(to_status) = event.get("to_status").and_then(Value::as_str) {
                 last_state = Some(to_status.to_owned());
