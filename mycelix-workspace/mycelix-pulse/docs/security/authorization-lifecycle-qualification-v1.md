@@ -44,6 +44,19 @@ authority intent
 
 The system must preserve an evidence record for each transition. An application capability record is a projection and audit reference; it is not a substitute for a real host CapGrant. A domain policy may independently reject an operation even after the conductor authorizes the zome call.
 
+### Conductor authority is necessary, but not a universal object ACL
+
+The Holochain conductor enforces whether an incoming call may invoke a granted zome function for the target cell. That is a host boundary, not a generic mailbox-row or document-object policy engine.
+
+Therefore Pulse must preserve two separate checks:
+
+- **Function invocation authority:** the conductor checks the incoming call against the exact cell's host grant, caller key/secret constraint and function set.
+- **Domain-resource authority:** the invoked coordinator checks whether that authenticated principal may access the exact mailbox/message/resource and whether the requested state transition is permitted.
+
+A narrow host function allowlist reduces reachable attack surface. It does not make a broad function safe if that function omits record-level participant, owner, membership, generation or purpose checks. Conversely, a DHT membership record cannot manufacture a host grant that the conductor does not recognize.
+
+The same separation applies to integrity validation: validators decide whether authored data transitions obey the DNA's rules; they do not retroactively prove that an incoming zome call was authorized at the host boundary.
+
 ### Exact identities
 
 Future runtime traces should bind (without exposing secrets):
