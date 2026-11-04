@@ -77,6 +77,7 @@ struct GrantIssued {
 #[serde(deny_unknown_fields)]
 struct GrantRevoked {
     grant_ref: String,
+    target_grant_action_hash: String,
     actor: String,
     revocation_action_hash: String,
     authority_index: u64,
@@ -86,6 +87,7 @@ struct GrantRevoked {
 #[serde(deny_unknown_fields)]
 struct ClaimAccepted {
     grant_ref: String,
+    grant_action_hash: String,
     recipient: String,
     claim_action_hash: String,
 }
@@ -122,6 +124,7 @@ struct HostCall {
     operation_id: String,
     attempt_id: u32,
     grant_ref: String,
+    grant_action_hash: String,
     caller: String,
     function: String,
     authority_index: u64,
@@ -264,7 +267,9 @@ struct GrantState {
     functions: BTreeSet<String>,
     idempotency_key: String,
     issued_index: u64,
+    issued_seq: u64,
     revoked_index: Option<u64>,
+    revoked_seq: Option<u64>,
     claimed: bool,
 }
 
@@ -404,7 +409,9 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                         functions: issue.functions.iter().cloned().collect(),
                         idempotency_key: issue.idempotency_key.clone(),
                         issued_index: issue.authority_index,
+                        issued_seq: event.seq,
                         revoked_index: None,
+                        revoked_seq: None,
                         claimed: false,
                     });
                 }
@@ -424,6 +431,10 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     None => finding(&mut findings, "REVOCATION_WITHOUT_ISSUANCE", "incomplete",
                         Some(&event.event_id), "the corresponding host grant issuance is absent from this trace"),
                     Some(grant) => {
+                        if revoke.target_grant_action_hash != grant.grant_action_hash {
+                            finding(&mut findings, "REVOCATION_TARGET_HASH_MISMATCH", "violation",
+                                Some(&event.event_id), "revocation must reference the exact host grant ActionHash");
+                        }
                         if revoke.actor != grant.grantor {
                             finding(&mut findings, "REVOCATION_ACTOR_MISMATCH", "violation",
                                 Some(&event.event_id), "only the original grantor may revoke the host grant");
@@ -441,6 +452,7 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                                 Some(&event.event_id), "the original grant identity binding is incomplete");
                         }
                         grant.revoked_index = Some(revoke.authority_index);
+                        grant.revoked_seq = Some(event.seq);
                     }
                 }
             }
@@ -454,6 +466,15 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     None => finding(&mut findings, "CLAIM_WITHOUT_GRANT", "incomplete",
                         Some(&event.event_id), "claim references a grant not present in the trace"),
                     Some(grant) => {
+                        if claim.grant_action_hash != grant.grant_action_hash {
+                            finding(&mut findings, "CLAIM_GRANT_HASH_MISMATCH", "violation",
+                                Some(&event.event_id), "claim must reference the exact issued grant ActionHash");
+                        }
+                        if event.seq <= grant.issued_seq ||
+                            grant.revoked_seq.is_some_and(|revoked_seq| event.seq >= revoked_seq) {
+                            finding(&mut findings, "CLAIM_OUTSIDE_GRANT_LIFETIME", "violation",
+                                Some(&event.event_id), "claim acceptance must occur after issuance and before revocation");
+                        }
                         if claim.recipient != grant.grantee {
                             finding(&mut findings, "CLAIM_RECIPIENT_MISMATCH", "violation",
                                 Some(&event.event_id), "claim recipient differs from the assigned grantee");
@@ -491,6 +512,10 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     None => finding(&mut findings, "HOST_CALL_WITHOUT_GRANT", "incomplete",
                         Some(&event.event_id), "matching grant issuance is absent from this trace"),
                     Some(grant) => {
+                        if call.grant_action_hash != grant.grant_action_hash {
+                            finding(&mut findings, "CALL_GRANT_HASH_MISMATCH", "violation",
+                                Some(&event.event_id), "host call must be bound to the exact issued grant ActionHash");
+                        }
                         let active = call.authority_index > grant.issued_index &&
                             grant.revoked_index.is_none_or(|revoked| call.authority_index < revoked);
                         let expected_state = if active { HostGrantState::Active }
