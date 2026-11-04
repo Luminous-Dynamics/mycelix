@@ -325,36 +325,54 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     errors.push(format!("{path}: acceptance requires viewed request, payer actor and valid authority"));
                 }
                 if accepted_digest != Some(digest) || event_digest != digest || terms_mutated {
-                    errors.push(format!("{path}: acceptance is not bound to the unchanged displayed request"));
+                    errors.push(format!(
+                        "{path}: acceptance is not bound to the unchanged displayed request"
+                    ));
                 }
                 if cancelled || expired || declined || observed >= expires_at {
-                    errors.push(format!("{path}: acceptance after cancel, decline or expiry"));
+                    errors.push(format!(
+                        "{path}: acceptance after cancel, decline or expiry"
+                    ));
                 }
                 if acceptance_sequence.replace(sequence).is_some() {
-                    errors.push(format!("{path}: multiple payer acceptance events for one request"));
+                    errors.push(format!(
+                        "{path}: multiple payer acceptance events for one request"
+                    ));
                 }
             }
 
             if kind == "payment_instruction_created" {
                 instruction_count += 1;
                 if instruction_count > 1 {
-                    errors.push(format!("{path}: more than one payment instruction for one request"));
+                    errors.push(format!(
+                        "{path}: more than one payment instruction for one request"
+                    ));
                 }
                 if let Some(accepted_at) = acceptance_sequence {
                     if sequence <= accepted_at {
-                        errors.push(format!("{path}: instruction does not follow payer acceptance"));
+                        errors.push(format!(
+                            "{path}: instruction does not follow payer acceptance"
+                        ));
                     }
                 } else {
-                    errors.push(format!("{path}: payment instruction created without payer acceptance"));
+                    errors.push(format!(
+                        "{path}: payment instruction created without payer acceptance"
+                    ));
                 }
                 if actor != "payer_psp" || authority != "valid" {
-                    errors.push(format!("{path}: instruction creation requires authorised payer PSP"));
+                    errors.push(format!(
+                        "{path}: instruction creation requires authorised payer PSP"
+                    ));
                 }
                 if accepted_digest != Some(digest) || event_digest != digest || terms_mutated {
-                    errors.push(format!("{path}: instruction does not preserve the accepted request digest"));
+                    errors.push(format!(
+                        "{path}: instruction does not preserve the accepted request digest"
+                    ));
                 }
                 if cancelled || expired || declined {
-                    errors.push(format!("{path}: instruction follows cancelled, expired or declined request"));
+                    errors.push(format!(
+                        "{path}: instruction follows cancelled, expired or declined request"
+                    ));
                 }
                 match event_instruction {
                     Some(id) if !id.is_empty() => instruction_id = Some(id.to_owned()),
@@ -362,15 +380,21 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 }
             }
 
-            if matches!(kind, "duplicate_acceptance_callback_ignored" | "concurrent_instruction_suppressed")
-                && instruction_id.as_deref() != event_instruction
+            if matches!(
+                kind,
+                "duplicate_acceptance_callback_ignored" | "concurrent_instruction_suppressed"
+            ) && instruction_id.as_deref() != event_instruction
             {
-                errors.push(format!("{path}: suppressed duplicate does not resolve to the existing instruction"));
+                errors.push(format!(
+                    "{path}: suppressed duplicate does not resolve to the existing instruction"
+                ));
             }
 
             if kind == "provider_outcome_unknown" {
                 if instruction_id.as_deref() != event_instruction || authority != "unknown" {
-                    errors.push(format!("{path}: unknown provider outcome is not bound to the instruction"));
+                    errors.push(format!(
+                        "{path}: unknown provider outcome is not bound to the instruction"
+                    ));
                 }
                 provider_unknown = true;
             }
@@ -386,19 +410,27 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
 
         if instruction_count == 0 && acceptance_sequence.is_some() {
-            errors.push(format!("{case_id}: payer acceptance lacks a separately observed instruction result"));
+            errors.push(format!(
+                "{case_id}: payer acceptance lacks a separately observed instruction result"
+            ));
         }
         if instruction_count > 0 && acceptance_sequence.is_none() {
-            errors.push(format!("{case_id}: instruction exists without a valid acceptance"));
+            errors.push(format!(
+                "{case_id}: instruction exists without a valid acceptance"
+            ));
         }
         if cancelled && instruction_count > 0 {
-            errors.push(format!("{case_id}: pre-acceptance cancellation created an instruction"));
+            errors.push(format!(
+                "{case_id}: pre-acceptance cancellation created an instruction"
+            ));
         }
         if expired && instruction_count > 0 {
             errors.push(format!("{case_id}: expired request created an instruction"));
         }
         if declined && instruction_count > 0 {
-            errors.push(format!("{case_id}: declined request created an instruction"));
+            errors.push(format!(
+                "{case_id}: declined request created an instruction"
+            ));
         }
         if conflict && instruction_count > 0 {
             errors.push(format!("{case_id}: conflicting terms version was admitted"));
@@ -420,7 +452,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             "declined"
         } else if expired {
             "expired"
-        } else if events.iter().any(|event| event_type(event) == "request_rejected_by_participant_limit") {
+        } else if events
+            .iter()
+            .any(|event| event_type(event) == "request_rejected_by_participant_limit")
+        {
             "rejected_by_limit"
         } else if events.iter().any(|event| {
             matches!(
