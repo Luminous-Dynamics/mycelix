@@ -855,8 +855,8 @@
             "evidence_class": "source_report"
           }
         ],
-        "observed_at": "2026-11-04T09:00:00Z",
-        "recorded_at": "2026-11-04T09:00:01Z",
+        "observed_at": "2026-11-02T09:00:00Z",
+        "recorded_at": "2026-11-02T09:00:01Z",
         "expires_at": "2026-11-03T12:00:00Z",
         "appeal_state": "not_submitted"
       },
@@ -869,7 +869,7 @@
           "to_status": "suspected",
           "authority_state": "authorized",
           "source_participant": "PSP_A",
-          "observed_at": "2026-11-04T09:00:00Z",
+          "observed_at": "2026-11-02T09:00:00Z",
           "evidence_reference": "EVIDENCE-SYNTHETIC-01",
           "attempted_digest": null
         },
