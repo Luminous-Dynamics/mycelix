@@ -9,21 +9,18 @@
 //!
 //! The first source adapter accepts only constructor-controlled QualifiedSettlement
 //! values. Other economic sources require their own qualified adapters.
-
 use mycelix_business_core::{Digest32, ReferenceId};
 use mycelix_finance_exact::{AssetAmount, AssetId};
 use mycelix_finance_settlement::{QualifiedSettlement, ReversalModel};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
-
 pub const ACCOUNTING_JOURNAL_SCHEMA_V1: u16 = 1;
 pub const MAX_ACCOUNTS: usize = 100_000;
 pub const MAX_UNIT_PROFILES: usize = 10_000;
 pub const MAX_POSTINGS_PER_ENTRY: usize = 256;
 pub const MAX_ID_BYTES: usize = 512;
 pub const MAX_DECIMAL_SCALE: u8 = 18;
-
 const LEDGER_DOMAIN: &[u8] = b"mycelix:fin-eco-006:ledger-profile:v1\0";
 const UNIT_DOMAIN: &[u8] = b"mycelix:fin-eco-006:asset-unit:v1\0";
 const POLICY_DOMAIN: &[u8] = b"mycelix:fin-eco-006:projection-policy:v1\0";
