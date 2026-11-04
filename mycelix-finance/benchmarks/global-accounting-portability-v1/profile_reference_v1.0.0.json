@@ -129,7 +129,7 @@
       "dimension": "timezone_database",
       "version": "2026f (2026-10-27)",
       "status": "reference_only",
-      "authority_class": "standards_body",
+      "authority_class": "data_maintainer",
       "source_url": "https://www.iana.org/time-zones",
       "valid_from": null,
       "notes": "Time-zone history and rules change with political decisions; pin release to reproduce event-time conversion."
