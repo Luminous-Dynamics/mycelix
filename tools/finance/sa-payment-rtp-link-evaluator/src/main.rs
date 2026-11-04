@@ -178,6 +178,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let requester_participant = str_at(request, "requester_participant").unwrap_or("");
         let payer_participant = str_at(request, "payer_participant").unwrap_or("");
         let profile_id = str_at(case, "profile_id").unwrap_or("");
+        let profile = profiles
+            .iter()
+            .find(|profile| str_at(profile, "profile_id") == Some(profile_id));
+        let partial_payment_state = profile
+            .and_then(|profile| str_at(profile, "partial_payment_state"))
+            .unwrap_or("unknown");
 
         if !profile_ids.contains(profile_id) {
             errors.push(format!(
@@ -211,6 +217,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let mut request_created = false;
         let mut accepted_response = false;
         let mut instruction_id: Option<String> = None;
+        let mut instruction_amount_minor_units = amount;
+        let mut amount_consent: Option<(String, u64)> = None;
         let mut instruction_count = 0_u32;
         let mut valid_transfers: Vec<Value> = Vec::new();
         let mut transfer_message_count = 0_u32;
@@ -316,6 +324,30 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 }
             }
 
+            if event_stage == "payer_amount_consent" {
+                let selected_amount = u64_at(event, "amount_minor_units").unwrap_or(0);
+                let supported = matches!(
+                    partial_payment_state,
+                    "single_reduced_amount_supported" | "multiple_partial_transfers_supported"
+                );
+                if !supported
+                    || actor != "payer"
+                    || participant != payer_participant
+                    || !same_link(event, request, None)
+                    || auth != "valid"
+                    || authority != "valid"
+                    || selected_amount == 0
+                    || selected_amount >= amount
+                    || !has_evidence(event, "payer_amount_presentation_receipt")
+                    || !has_evidence(event, "payer_amount_acceptance_receipt")
+                    || amount_consent.is_some()
+                {
+                    quarantined = true;
+                } else {
+                    amount_consent = Some((event_id.to_owned(), selected_amount));
+                }
+            }
+
             if event_stage == "payment_instruction_created" {
                 instruction_count += 1;
                 if instruction_count > 1 {
@@ -325,6 +357,18 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     quarantined = true;
                 }
                 let candidate = str_at(event, "payment_instruction_id");
+                let selected_amount = u64_at(event, "amount_minor_units").unwrap_or(0);
+                let consent_id = str_at(event, "amount_consent_id");
+                let partial_amount_valid = if selected_amount == amount {
+                    consent_id.is_none()
+                } else {
+                    matches!(
+                        partial_payment_state,
+                        "single_reduced_amount_supported" | "multiple_partial_transfers_supported"
+                    ) && amount_consent.as_ref().is_some_and(|(id, value)| {
+                        Some(id.as_str()) == consent_id && *value == selected_amount
+                    })
+                };
                 if !accepted_response
                     || actor != "payer_rtp_service_provider"
                     || participant != payer_participant
@@ -332,15 +376,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || candidate.is_none()
                     || auth != "valid"
                     || authority != "valid"
-                    || u64_at(event, "amount_minor_units") != Some(amount)
+                    || selected_amount == 0
+                    || !partial_amount_valid
                     || str_at(event, "currency") != Some(currency)
                     || !has_evidence(event, "payer_authorization_receipt")
                     || !has_evidence(event, "instruction_creation_receipt")
                 {
-                    errors.push(format!("{path}: payment instruction lacks exact accepted request and payer authority"));
+                    errors.push(format!("{path}: payment instruction lacks exact accepted request, amount consent or payer authority"));
                     quarantined = true;
                 } else {
                     instruction_id = candidate.map(str::to_owned);
+                    instruction_amount_minor_units = selected_amount;
                 }
             }
 
@@ -351,7 +397,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     && accepted_response
                     && same_link(event, request, instruction_id.as_deref())
                     && str_at(event, "end_to_end_id") == Some(end_to_end_id)
-                    && u64_at(event, "amount_minor_units") == Some(amount)
+                    && u64_at(event, "amount_minor_units") == Some(instruction_amount_minor_units)
                     && str_at(event, "currency") == Some(currency);
                 if actor != "debtor_agent"
                     || participant != payer_participant
@@ -409,7 +455,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     str_at(transfer, "transaction_id") == transaction_id
                         && same_link(event, request, instruction_id.as_deref())
                         && str_at(event, "end_to_end_id") == Some(end_to_end_id)
-                        && u64_at(event, "amount_minor_units") == Some(amount)
+                        && u64_at(event, "amount_minor_units") == Some(instruction_amount_minor_units)
                         && str_at(event, "currency") == Some(currency)
                 });
                 if actor != "creditor_agent"
@@ -435,7 +481,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     str_at(transfer, "transaction_id") == transaction_id
                         && same_link(event, request, instruction_id.as_deref())
                         && str_at(event, "end_to_end_id") == Some(end_to_end_id)
-                        && u64_at(event, "amount_minor_units") == Some(amount)
+                        && u64_at(event, "amount_minor_units") == Some(instruction_amount_minor_units)
                         && str_at(event, "currency") == Some(currency)
                 });
                 if actor != "settlement_operator"
@@ -465,6 +511,23 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             .filter_map(|transfer| str_at(transfer, "transaction_id").map(str::to_owned))
             .collect();
 
+        let credited_minor_units = if recipient_credit {
+            instruction_amount_minor_units
+        } else {
+            0
+        };
+        let remaining_minor_units = amount.saturating_sub(credited_minor_units);
+        let declared_credited = u64_at(case, "expected_credited_minor_units").unwrap_or(u64::MAX);
+        let declared_remaining = u64_at(case, "expected_remaining_minor_units").unwrap_or(u64::MAX);
+        if credited_minor_units > amount
+            || declared_credited != credited_minor_units
+            || declared_remaining != remaining_minor_units
+        {
+            errors.push(format!(
+                "scenarios[{case_index}]: credited and remaining amounts do not reconcile to independently observed recipient credit"
+            ));
+        }
+
         let computed_state = if quarantined {
             "quarantined"
         } else if ambiguous_transfer_mapping {
@@ -473,8 +536,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             "transfer_unmatched"
         } else if status_unmatched {
             "status_unmatched"
+        } else if settlement_finality && recipient_credit && credited_minor_units < amount {
+            "partial_settled_final"
         } else if settlement_finality {
             "settled_final"
+        } else if recipient_credit && credited_minor_units < amount {
+            "partial_recipient_available"
         } else if recipient_credit {
             "recipient_available"
         } else if status_rejected {
