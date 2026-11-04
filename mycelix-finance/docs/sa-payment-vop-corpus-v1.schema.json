@@ -155,7 +155,9 @@
         "security_profile_state",
         "fallback_policy",
         "source_refs",
-        "admission"
+        "admission",
+        "matching_profile_version",
+        "allowed_outcomes"
       ],
       "properties": {
         "profile_id": {
@@ -233,6 +235,26 @@
         "admission": {
           "type": "string",
           "minLength": 1
+        },
+        "matching_profile_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowed_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "match",
+              "close_match",
+              "no_match",
+              "verification_not_possible",
+              "not_requested",
+              "unknown",
+              "stale"
+            ]
+          }
         }
       }
     },
