@@ -1,4 +1,4 @@
-name: Pulse Holochain 0.7.1 Evaluation
+name: Pulse Holochain 0.7.x Qualification
 
 on:
   pull_request:
@@ -31,7 +31,7 @@ jobs:
     name: Resolve and commit Holochain 0.7 candidate lockfiles
     outputs:
       qualified_sha: ${{ steps.commit-lockfiles.outputs.qualified_sha }}
-    if: ${{ (github.event_name == 'pull_request' && contains(fromJSON('[\"upgrade/pulse-holochain-0.7\",\"research/pulse-holochain-0.7.1-evaluation\"]'), github.event.pull_request.head.ref) && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && contains(fromJSON('[\"upgrade/pulse-holochain-0.7\",\"research/pulse-holochain-0.7.1-evaluation\"]'), github.ref_name)) }}
+    if: ${{ (github.event_name == 'pull_request' && (github.event.pull_request.head.ref == 'upgrade/pulse-holochain-0.7' || github.event.pull_request.head.ref == 'research/pulse-holochain-0.7.1-evaluation') && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && (github.ref_name == 'upgrade/pulse-holochain-0.7' || github.ref_name == 'research/pulse-holochain-0.7.1-evaluation')) }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -130,7 +130,7 @@ jobs:
           echo "qualified_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   holochain-07:
-    name: Holochain 0.7 compile, tests, and clients
+    name: Holochain 0.7 candidate compile, tests, and clients
     needs: [relock-and-push]
     if: ${{ always() && (needs.relock-and-push.result == 'success' || needs.relock-and-push.result == 'skipped') }}
     runs-on: ubuntu-latest
@@ -159,7 +159,14 @@ jobs:
         run: |
           grep -F 'hdk = "=0.7.1"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
           grep -F 'hdi = "=0.8.1"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+          grep -F 'holochain_integrity_types = "=0.7.1"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+          grep -F 'holochain_zome_types = "=0.7.1"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+          grep -F 'holo_hash = "=0.7.1"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
+          grep -F 'hdk_derive = "=0.7.1"' mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
           grep -F 'holochain = { version = "=0.7.1"' mycelix-workspace/mycelix-pulse/tests/Cargo.toml
+          grep -F 'holochain_types = { version = "=0.7.1"' mycelix-workspace/mycelix-pulse/tests/Cargo.toml
+          grep -F 'hdi = "=0.8.1"' mycelix-workspace/mycelix-pulse/tests/Cargo.toml
+          grep -F '"@holochain/client": "^0.21.1"' mycelix-workspace/mycelix-pulse/holochain/client/package.json
           grep -F 'holochain_client = "=0.9.0"' mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml
           grep -F 'holochain_client = "=0.9.0"' mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml
           if grep -R -nE 'hdk[[:space:]]*=[[:space:]]*"?=?0\.(6|7\.0)|hdi[[:space:]]*=[[:space:]]*"?=?0\.(7|8\.0)|hdk[[:space:]]*=[[:space:]]*\{[^}]*version[[:space:]]*=[[:space:]]*"=?0\.(6|7\.0)|hdi[[:space:]]*=[[:space:]]*\{[^}]*version[[:space:]]*=[[:space:]]*"=?0\.(7|8\.0)' mycelix-workspace/mycelix-pulse/holochain/zomes mycelix-workspace/mycelix-pulse/happ/dna; then
@@ -216,7 +223,7 @@ jobs:
             mycelix-workspace/mycelix-pulse/holochain/client/src/types/index.ts
 
   nix-07:
-    name: Holochain 0.7 Nix and DNA packaging
+    name: Holochain 0.7 candidate Nix and DNA packaging
     needs: [relock-and-push]
     if: ${{ always() && (needs.relock-and-push.result == 'success' || needs.relock-and-push.result == 'skipped') }}
     runs-on: ubuntu-latest
