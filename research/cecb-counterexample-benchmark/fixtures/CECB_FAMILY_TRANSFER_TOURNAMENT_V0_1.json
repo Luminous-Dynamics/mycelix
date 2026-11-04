@@ -1,0 +1,19 @@
+{
+  "schema_version": "cecb.split_manifest.v0.1",
+  "split_id": "structural_response_reversal_a_to_b",
+  "split_rule": "leave_one_model_family_out_v0.1",
+  "development_family": "family_a",
+  "holdout_family": "family_b",
+  "development_label_source": "observed_label",
+  "evaluation_label_source": "latent_truth",
+  "budgets": [3, 5, 9],
+  "observation_selection": "evenly_spaced_v0.1",
+  "random_seed": null,
+  "metrics": ["tp", "fp", "fn", "tn"],
+  "claim_ceiling": "synthetic_negative_control_only",
+  "limitations": [
+    "The two structural families are public deterministic fixtures.",
+    "This manifest is for a known-answer software test, not a blind generalization benchmark.",
+    "Candidate processes must receive only the candidate view and budgeted development-label oracle."
+  ]
+}

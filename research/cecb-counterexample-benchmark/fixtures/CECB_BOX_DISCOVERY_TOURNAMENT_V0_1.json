@@ -1,0 +1,33 @@
+{
+  "schema_version": "cecb.box_discovery_manifest.v0.1",
+  "split_id": "three_shape_box_hypothesis_tournament",
+  "split_rule": "alternating_input_index_v0.1",
+  "cases": [
+    "axis_aligned_2d",
+    "oblique_2d",
+    "nonlinear_interaction_2d"
+  ],
+  "development_label_source": "observed_label",
+  "evaluation_label_source": "latent_truth",
+  "development_point_count": 41,
+  "holdout_point_count": 40,
+  "label_query_budget": 41,
+  "observation_selection": "all_development_rows_in_source_order_v0.1",
+  "random_seed": null,
+  "method_id": "cecb.exhaustive_axis_box_1d2d",
+  "method_version": "0.1.0",
+  "metrics": [
+    "development_errors",
+    "rule_complexity",
+    "tp",
+    "fp",
+    "fn",
+    "tn"
+  ],
+  "claim_ceiling": "synthetic_hypothesis_class_comparison_only",
+  "limitations": [
+    "The exhaustive box learner is limited to one or two dimensions.",
+    "The three public deterministic fixtures are known-answer tests, not a blind benchmark.",
+    "This is not an implementation of PRIM or CART and makes no state-of-the-art claim."
+  ]
+}

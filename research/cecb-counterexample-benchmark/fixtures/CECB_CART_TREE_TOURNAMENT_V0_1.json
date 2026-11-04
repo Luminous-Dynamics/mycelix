@@ -1,0 +1,42 @@
+{
+  "schema_version": "cecb.cart_tree_tournament_manifest.v0.1",
+  "split_id": "three_shape_cart_tree_tournament_plus_family_reversal",
+  "split_rule": "alternating_input_index_v0.1",
+  "development_label_source": "observed_label",
+  "evaluation_label_source": "latent_truth",
+  "shape_cases": [
+    "axis_aligned_2d",
+    "oblique_2d",
+    "nonlinear_interaction_2d"
+  ],
+  "tree_depths": [1, 3],
+  "shape_case_development_point_count": 41,
+  "shape_case_holdout_point_count": 40,
+  "shape_case_label_query_budget": 41,
+  "family_transfer": {
+    "development_family": "family_a",
+    "holdout_family": "family_b",
+    "label_query_budget": 9,
+    "tree_depth": 3
+  },
+  "observation_selection": "all_development_rows_in_source_order_v0.1",
+  "random_seed": null,
+  "method_id": "cecb.cart_gini_depth_limited",
+  "method_version": "0.1.0",
+  "metrics": [
+    "development_errors",
+    "rule_complexity",
+    "tp",
+    "fp",
+    "fn",
+    "tn",
+    "candidate_query_count"
+  ],
+  "claim_ceiling": "synthetic_hypothesis_class_and_complexity_comparison_only",
+  "limitations": [
+    "This bounded CART-style implementation is not asserted to match any vendor's CART implementation or default configuration.",
+    "The three public deterministic shapes are known-answer tests, not a blind benchmark.",
+    "The family-reversal test is a deliberately tiny negative control, not evidence about real simulator families.",
+    "No state-of-the-art or real-world performance claim is made."
+  ]
+}

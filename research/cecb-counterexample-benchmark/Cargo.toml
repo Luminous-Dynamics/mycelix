@@ -1,0 +1,8 @@
+[package]
+name = "cecb-counterexample-benchmark"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Known-truth synthetic landscapes and independent counterexample-region scorer for CECB"
+
+[workspace]
