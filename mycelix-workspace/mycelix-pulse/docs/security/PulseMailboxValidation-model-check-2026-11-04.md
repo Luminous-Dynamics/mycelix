@@ -19,6 +19,12 @@
 
 The workflow only passes the two mutant steps if TLC exits non-zero and the expected invariant name appears in the log. A generic parse failure does not satisfy those checks.
 
+## Repeat run
+
+The same mailbox model configurations were rerun in model workflow [run #36](https://github.com/Luminous-Dynamics/mycelix/actions/runs/41853504791), against PR head `d31079d4606e05268e33d4ea2bb310bc6bb99a93` (merge checkout `dec4aeef`). The safe model again completed 37 generated / 20 distinct states; the proposed-state mutant again violated `OnlyOriginalOwnerMayUpdate`; and the field-smuggling mutant again violated `ProtectedFieldsRemainImmutable`.
+
+Artifact ID `13336008629`, ZIP SHA-256 `421090d8fee0115e78b3ce436ebfa5399bd0c6f6a6d24071dd899381af09de41`. This reproduces the same finite scope, not additional scenario coverage.
+
 ## Modeled security contract
 
 The model starts with an Owner and an existing Admin. A deliberately permissive coordinator may author any proposed operation. The receiving validator is modeled independently and enforces:
