@@ -859,10 +859,7 @@ mod tests {
             receiver_case["receiver_rule"]["receiver_profile_id"],
             "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1"
         );
-        assert_eq!(
-            receiver_case["receiver_rule"]["route_scope"],
-            "generic"
-        );
+        assert_eq!(receiver_case["receiver_rule"]["route_scope"], "generic");
         assert_eq!(
             receiver_case["evidence_class"],
             "deterministic_unsigned_local_evaluation"
