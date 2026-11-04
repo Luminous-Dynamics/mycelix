@@ -163,6 +163,7 @@ export class SignalHub {
     // used by current consumers. The outer discriminator always wins.
     const normalized = { ...data, type } as Record<string, unknown>;
 
+    // Message signals
     if (['EmailReceived', 'DeliveryConfirmed', 'ReadReceiptReceived',
          'EmailStateChanged', 'ThreadActivity', 'DraftSaved',
          'ScheduledEmailSent', 'TypingIndicator'].includes(type)) {
@@ -171,18 +172,28 @@ export class SignalHub {
 
     // Trust notifications remain advisory wake-up hints. A consumer must fetch
     // and validate the exact record before promoting any claimed state.
+    // Trust signals
     if (['AttestationReceived', 'TrustScoreUpdated', 'IntroductionReceived',
          'DisputeFiled', 'ByzantineDetected'].includes(type)) {
       return normalized as TrustSignal;
     }
 
+    // Sync signals
     if (['SyncStateChanged', 'OperationReceived', 'ConflictDetected',
          'ConflictResolved', 'Online', 'Offline', 'SyncProgress',
          'SyncComplete'].includes(type)) {
       return normalized as SyncSignal;
     }
 
-    return normalized as FederationSignal;
+    // Federation signals
+    if (['NetworkDiscovered', 'EnvelopeReceived', 'EnvelopeDelivered',
+         'DeliveryFailed', 'BridgeStatusChanged', 'RouteChanged',
+         'PeerStatusChanged'].includes(type)) {
+      return normalized as FederationSignal;
+    }
+
+    // Unknown variants fail closed; never coerce them into FederationSignal.
+    return null;
   }
 
   private dispatch(signal: MycelixSignal): void {
@@ -212,7 +223,8 @@ export class SignalHub {
 
     // Message signals
     if (['EmailReceived', 'DeliveryConfirmed', 'ReadReceiptReceived',
-         'EmailStateChanged', 'ThreadActivity', 'TypingIndicator'].includes(type)) {
+         'EmailStateChanged', 'ThreadActivity', 'DraftSaved',
+         'ScheduledEmailSent', 'TypingIndicator'].includes(type)) {
       this.messageHandlers.forEach(handler => {
         try { handler(signal as MessageSignal); }
         catch (e) { this.handleError(e as Error, signal); }
@@ -220,8 +232,8 @@ export class SignalHub {
     }
 
     // Trust signals
-    if (['AttestationCreated', 'AttestationRevoked', 'TrustScoreChanged',
-         'ByzantineFlagRaised'].includes(type)) {
+    if (['AttestationReceived', 'TrustScoreUpdated', 'IntroductionReceived',
+         'DisputeFiled', 'ByzantineDetected'].includes(type)) {
       this.trustHandlers.forEach(handler => {
         try { handler(signal as TrustSignal); }
         catch (e) { this.handleError(e as Error, signal); }
@@ -230,7 +242,8 @@ export class SignalHub {
 
     // Sync signals
     if (['SyncStateChanged', 'OperationReceived', 'ConflictDetected',
-         'ConflictResolved', 'Online', 'Offline', 'SyncProgress'].includes(type)) {
+         'ConflictResolved', 'Online', 'Offline', 'SyncProgress',
+         'SyncComplete'].includes(type)) {
       this.syncHandlers.forEach(handler => {
         try { handler(signal as SyncSignal); }
         catch (e) { this.handleError(e as Error, signal); }
@@ -239,7 +252,8 @@ export class SignalHub {
 
     // Federation signals
     if (['NetworkDiscovered', 'EnvelopeReceived', 'EnvelopeDelivered',
-         'DeliveryFailed', 'BridgeStatusChanged'].includes(type)) {
+         'DeliveryFailed', 'BridgeStatusChanged', 'RouteChanged',
+         'PeerStatusChanged'].includes(type)) {
       this.federationHandlers.forEach(handler => {
         try { handler(signal as FederationSignal); }
         catch (e) { this.handleError(e as Error, signal); }
