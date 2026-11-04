@@ -146,7 +146,11 @@
         "security_profile",
         "observed_on",
         "source_refs",
-        "admission"
+        "admission",
+        "partial_payment_state",
+        "partial_permission_mechanism",
+        "multiple_partial_transfers_state",
+        "remainder_policy"
       ],
       "properties": {
         "profile_id": {
@@ -208,6 +212,37 @@
         "admission": {
           "type": "string",
           "minLength": 1
+        },
+        "partial_payment_state": {
+          "enum": [
+            "not_supported",
+            "single_reduced_amount_supported",
+            "multiple_partial_transfers_supported",
+            "unknown"
+          ]
+        },
+        "partial_permission_mechanism": {
+          "enum": [
+            "AMI",
+            "scheme_option",
+            "bilateral_rule",
+            "unknown"
+          ]
+        },
+        "multiple_partial_transfers_state": {
+          "enum": [
+            "supported",
+            "not_supported",
+            "unknown"
+          ]
+        },
+        "remainder_policy": {
+          "enum": [
+            "remains_due",
+            "new_request_required",
+            "schedule_separately_agreed",
+            "unknown"
+          ]
         }
       }
     },
@@ -285,7 +320,8 @@
         "currency",
         "authentication_state",
         "authority_state",
-        "evidence_types"
+        "evidence_types",
+        "amount_consent_id"
       ],
       "properties": {
         "event_id": {
@@ -407,6 +443,13 @@
           "items": {
             "type": "string"
           }
+        },
+        "amount_consent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
       }
     },
@@ -421,7 +464,9 @@
         "events",
         "expected_state",
         "expected_disposition",
-        "negative_controls"
+        "negative_controls",
+        "expected_credited_minor_units",
+        "expected_remaining_minor_units"
       ],
       "properties": {
         "scenario_id": {
@@ -461,7 +506,9 @@
             "quarantined",
             "cancel_after_instruction",
             "one_transfer_idempotent",
-            "status_unmatched"
+            "status_unmatched",
+            "partial_recipient_available",
+            "partial_settled_final"
           ]
         },
         "expected_disposition": {
@@ -474,6 +521,14 @@
           "items": {
             "type": "string"
           }
+        },
+        "expected_credited_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_remaining_minor_units": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
