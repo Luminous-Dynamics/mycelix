@@ -9,10 +9,11 @@ Public synthetic development package for [Mycelix #5811](https://github.com/Lumi
 - global_portability_input_v1.0.0.schema.json: closed candidate-input schema.
 - global_portability_oracle_v1.0.0.json: evaluator-only behavior labels; do not pass to candidate systems.
 - global_portability_oracle_v1.0.0.schema.json: closed oracle schema.
+- Locale/time reference pins: Unicode CLDR 49 and IANA tzdb 2026f.
 - ../../docs/GLOBAL_ACCOUNTING_PORTABILITY_V1.md: architecture, benchmark, targets and claim ceiling.
 
 ## Scope
-The 18 fixtures test global context resolution and safe interoperability. They use synthetic jurisdictions, currencies, tax profiles and framework aliases. They encode no tax rate, legal conclusion or statutory rule. The IFRS for SMEs 2025 effective-date fact is a sourced reference, not an executable accounting rule.
+The 22 fixtures test global context resolution and safe interoperability. They use synthetic jurisdictions, currencies, tax profiles and framework aliases. They encode no tax rate, legal conclusion or statutory rule. Locale/time cases pin Unicode CLDR 49 and IANA tzdb 2026f as reference releases only. The IFRS for SMEs 2025 effective-date fact is a sourced reference, not an executable accounting rule.
 
 ## Honest coverage status
 The profile catalog lists real standards and infrastructure only as research/reference inputs. No real jurisdiction + accounting framework + tax + invoice + reporting combination is marked qualified. South African initial research remains review-required; see Mycelix #5785 and #5792.
