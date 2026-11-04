@@ -11,10 +11,10 @@ an atomic one-time operation.
 
 This migration adds a digest-only challenge table bound to verifier ID,
 audience, transaction, request digest, holder-binding digest, issue time and
-expiry computed by PostgreSQL from a bounded TTL; duplicate-digest rejection during registration; a SECURITY DEFINER
-registration function; a single conditional UPDATE as the consume
-serialization point; and public-role revocation for direct table/function
-access.
+expiry computed by PostgreSQL from a bounded TTL; duplicate-digest rejection
+during registration; a SECURITY DEFINER registration function; a single
+conditional UPDATE as the consume serialization point; and public-role
+revocation for direct table/function access.
 
 The verifier generates 256 random bits from an OS CSPRNG, constructs the wire
 challenge, computes a domain-separated SHA-256 digest over the exact challenge
@@ -24,27 +24,61 @@ challenge must never be logged or written to the database.
 
 ## Required call sequence
 
-1. Generate an unpredictable challenge with at least 256 random bits.
-2. Bind it to verifier, audience, transaction/session, exact request digest,
-   holder-binding digest and a short expiry.
-3. Call register_verifier_challenge. A false result means collision,
-   malformed input or invalid expiry; generate a new challenge and do not
-   issue the failed value.
-4. Return the raw challenge to the holder in the signed presentation request.
-5. Verify the holder signature and exact challenge/request/context equality.
-6. Call consume_verifier_challenge on the authoritative primary inside a
-   database transaction.
-7. Commit that transaction successfully before returning authentication
-   acceptance to the caller. A TRUE function result inside an uncommitted
-   transaction is not yet a durable consume event.
-8. Accept authentication only if the transaction commit is confirmed. False,
-   timeout, SQL error, serialization failure, ambiguous commit result, failover
-   uncertainty or database outage is authentication failure/unknown; there is
-   no equality-only fallback.
+1. Call the native SQLx adapter's issue method with verifier ID, audience,
+   transaction ID, exact request digest, holder-binding digest and a TTL from
+   one through 600 seconds.
+2. The adapter generates 256 unpredictable bits using the OS CSPRNG, computes
+   a domain-separated SHA-256 digest, and registers that digest. PostgreSQL
+   computes issued_at and expires_at from its own clock and the bounded TTL.
+3. Return the raw challenge to the holder in the signed presentation request.
+   The raw value remains in memory only and is redacted from Debug output.
+4. Verify the holder signature and exact challenge/request/context equality
+   before calling the consume method.
+5. Call consume_and_commit on the authoritative primary. The adapter begins a
+   transaction, invokes the atomic conditional UPDATE and commits only when
+   the function returns true.
+6. Accept authentication only after COMMIT is acknowledged. A false function
+   result is a rejection. A COMMIT transport error is an unknown outcome and
+   requires a fresh challenge; the old challenge is never retried.
+7. Database outage, serialization failure, ambiguous commit, failover
+   uncertainty or an unavailable primary is authentication failure/unknown.
+   There is no equality-only or local-cache fallback.
 
 The UPDATE itself is the atomic consume-once decision. Do not implement this as
 a SELECT followed by an UPDATE. A retry after a lost verifier response must
 not re-accept the consumed challenge; the verifier issues a fresh challenge.
+
+## Native SQLx adapter
+
+The separate native service crate lives at
+`mycelix-identity/challenge-registry/service`. It is explicitly excluded from
+the Holochain WASM workspace so SQLx and native TLS/runtime dependencies do not
+leak into zome builds.
+
+The adapter:
+- uses the OS CSPRNG for 256-bit challenges;
+- stores only SHA-256 over the versioned domain separator and exact 32-byte
+  challenge material;
+- keeps raw material in a non-serializable, redacted-Debug, zeroize-on-drop
+  wrapper;
+- validates verifier, audience, transaction ID, request digest, and
+  holder-binding digest before database calls;
+- restricts TTL to whole seconds from 1 to 600, with PostgreSQL computing the
+  issue and expiry timestamps from its own clock;
+- commits a successful consume in an explicit SQLx transaction before
+  returning true;
+- maps a commit transport failure to CommitOutcomeUnknown and never retries
+  the same challenge.
+
+The caller remains responsible for verifying the holder signature and exact
+presentation bindings before invoking consume_and_commit. The adapter is not
+a signature verifier and does not change the V1 presentation verifier by
+itself.
+
+The exact-head workflow runs against PostgreSQL 18.6. It applies the migration,
+runs the sequential SQL contract, starts the two-process psql race, runs the
+Rust unit suite, runs an additional race across two independent SQLx pools,
+and runs warnings-denied Clippy.
 
 ## Deployment requirements before high-assurance use
 
@@ -112,6 +146,4 @@ not proof of behavior under failover or a split-brain deployment.
 
 ## Limits
 
-This is a schema and stored-procedure contract plus a separately excluded native SQLx adapter. It does not add API authentication, deployment, or an independent PostgreSQL concurrency-test result until its exact-head workflow passes. No PostgreSQL test was run in the authoring environment. Issue #5746 remains open until the service, cross-process race
-test, failover guarantees and verifier integration are implemented and
-reviewed.
+This is a schema/stored-procedure contract plus a separately excluded native SQLx adapter. It does not add API authentication, deployment, or failover qualification. The PostgreSQL 18.6 exact-head workflow is the executable qualification gate; no database test is claimed before that workflow passes. Issue #5746 remains open until the service, cross-process race test, failover guarantees and V1 verifier integration are reviewed.
