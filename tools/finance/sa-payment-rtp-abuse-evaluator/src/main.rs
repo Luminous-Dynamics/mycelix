@@ -421,7 +421,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         };
 
         let source_refs = array_at(case, "source_refs").cloned().unwrap_or_default();
-        for reference in source_refs {
+        for reference in &source_refs {
             if !reference
                 .as_str()
                 .is_some_and(|source_id| source_ids.contains(source_id))
