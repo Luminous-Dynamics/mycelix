@@ -834,6 +834,26 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
+    mutate_and_reject("unsupported request limit route", corpus, schema, |v| {
+        v["scenarios"][32]["request"]["limit_route_scope"] = json!("international");
+    })?;
+    count += 1;
+
+    mutate_and_reject("partial payment option offered without AMI support", corpus, schema, |v| {
+        v["profiles"][6]["partial_payment_policy"] = json!("unsupported");
+    })?;
+    count += 1;
+
+    mutate_and_reject("rate-limit rejection without published counter", corpus, schema, |v| {
+        v["profiles"][6]["request_count_rules"] = json!([]);
+    })?;
+    count += 1;
+
+    mutate_and_reject("Nedbank expiry exceeds published 45-day maximum", corpus, schema, |v| {
+        v["scenarios"][42]["request"]["expiry_at"] = json!("2027-01-01T08:00:00Z");
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -910,8 +930,8 @@ mod tests {
     fn checked_in_schema_and_corpus_validate() {
         let (errors, corpus, _) = evaluate(DEFAULT_CORPUS, DEFAULT_SCHEMA).expect("evaluation");
         assert!(errors.is_empty(), "{errors:?}");
-        assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 6);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 32);
+        assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 8);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 46);
     }
 
     #[test]
@@ -971,6 +991,6 @@ mod tests {
     fn negative_mutation_campaign_rejects_consent_and_status_attacks() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 11);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 15);
     }
 }
