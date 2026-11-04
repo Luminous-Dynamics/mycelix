@@ -567,7 +567,7 @@ fn validate_network(
     // register_network already derives owner from agent_info() coordinator-side with
     // zero user input -- bind it at the DHT level too (P0 author-binding gap: ownership
     // was previously only a link, not a provable entry field).
-    if network.owner != action.author() {
+    if network.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "FederatedNetwork owner must match action author".to_string(),
         ));
@@ -626,7 +626,7 @@ fn validate_route(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "network_registration_hash must reference a valid FederatedNetwork entry".to_string()
         )))?;
-    if network.owner != action.author() {
+    if network.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the source network's owner may create a route for it".to_string(),
         ));
@@ -736,7 +736,7 @@ fn validate_envelope(
                 "relay_bridge_registration_hash must reference a valid BridgeAgent entry"
                     .to_string()
             )))?;
-        if bridge.agent != action.author() {
+        if bridge.agent != *action.author() {
             return Ok(ValidateCallbackResult::Invalid(
                 "relay_bridge_registration_hash must reference the committer's own \
                  BridgeAgent registration"
@@ -809,7 +809,7 @@ fn validate_bridge_agent(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Agent must be the author
-    if bridge.agent != action.author() {
+    if bridge.agent != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Bridge agent must match action author".to_string(),
         ));
@@ -844,7 +844,7 @@ fn validate_domain(
     }
 
     // Admin must be author
-    if domain.admin_agent != action.author() {
+    if domain.admin_agent != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Domain admin must match author".to_string(),
         ));
