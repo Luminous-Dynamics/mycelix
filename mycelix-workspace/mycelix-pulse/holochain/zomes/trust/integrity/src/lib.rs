@@ -387,7 +387,7 @@ fn validate_update_entry(
     match entry {
         // Attestations can only be updated by truster (to revoke)
         EntryTypes::TrustAttestation(attestation) => {
-            if attestation.truster != action.author() {
+            if attestation.truster != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only truster can update attestation".to_string(),
                 ));
@@ -396,7 +396,7 @@ fn validate_update_entry(
         }
         // Disputes can be updated for resolution by disputer only
         EntryTypes::TrustDispute(dispute) => {
-            if dispute.disputer != action.author() {
+            if dispute.disputer != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the disputer can update a dispute".to_string(),
                 ));
@@ -423,7 +423,7 @@ fn validate_attestation(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Truster must be the author
-    if attestation.truster != action.author() {
+    if attestation.truster != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Truster must match action author".to_string(),
         ));
@@ -570,7 +570,7 @@ fn validate_dispute(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Disputer must be author
-    if dispute.disputer != action.author() {
+    if dispute.disputer != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Disputer must match action author".to_string(),
         ));
@@ -591,7 +591,7 @@ fn validate_introduction(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Introducer must be author
-    if intro.introducer != action.author() {
+    if intro.introducer != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Introducer must match action author".to_string(),
         ));
