@@ -190,6 +190,20 @@ This is source inventory, not a notification-authentication fix. The expected in
 
 The next repair phase should establish one versioned event envelope, generate Rust/TypeScript fixtures from a single schema, and classify remote payloads as unverified hints until exact record retrieval and validation succeed. Keep that client-protocol work separate from authorization enforcement.
 
+## Proposed remote signal envelope v1
+
+A strict draft schema has been added at `docs/security/remote-signal-envelope-v1.proposed.schema.json`. It is explicitly a proposal, not a production wire-format change.
+
+The key protocol distinction is:
+
+- **Transport identity:** obtained from Holochain's authenticated callback metadata, never from a sender-controlled `source_agent` payload field.
+- **Wire hint:** event ID, namespaced event type, schema version, optional exact source ActionHash, optional logical operation/attempt IDs, informational timestamp and the minimal event payload.
+- **Local classification:** `VERIFIED_RECORD`, `AUTHENTICATED_PEER_HINT`, `UNVERIFIED_HINT`, `LOCAL_ONLY`, `UNKNOWN` or `REJECTED` is computed by the receiving code. It must never be asserted by the sender.
+- **Evidence reference:** created locally after the receiver fetches and verifies the exact record; not accepted as sender proof.
+- **Authority:** still enforced by host CapGrant plus integrity/domain validation. Neither the envelope nor an AuthorityCheckpoint is a permission token.
+
+The schema forbids sender-supplied trust/verification fields, source-agent claims and secret-like keys at the envelope level. It is not yet an event-complete schema: event-specific payload schemas, size bounds, serialization fixtures, compatibility policy and two-conductor tests are prerequisites for implementation. The schema was parsed successfully as JSON after creation.
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
