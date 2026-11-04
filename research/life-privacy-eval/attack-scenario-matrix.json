@@ -1,0 +1,152 @@
+{
+  "schema_version": "1.0",
+  "name": "LIFE cross-format linkability scenario matrix",
+  "status": "research-proposal",
+  "purpose": "Require comparable observer capabilities and counterfactuals across credential formats without pretending every channel applies identically to every format.",
+  "principles": [
+    "Declare the observer and its capabilities before collecting scores.",
+    "Keep attacker-visible artifacts separate from ground-truth subject labels.",
+    "Use the same subject cohort, task, session schedule and auxiliary-data budget across compared formats.",
+    "Run each attack separately and also report the strongest observed attack; never average away a successful attack.",
+    "Treat inapplicable format-specific channels as not-applicable, not as a privacy success.",
+    "Report residual threats and operational leakage separately from cryptographic proof properties."
+  ],
+  "fixture_strata": {
+    "stable_artifact": "Repeated or cohort-identifying credential artifacts, stable keys or issuer identifiers.",
+    "status_metadata": "Status / registry lookups, network timing and operational metadata.",
+    "structure_only": "Format-visible proof or presentation structure such as disclosed-message indexes, message count, size or ordering.",
+    "noisy_control": "No deliberate identity signal; control for leakage caused by labels, IDs, ordering or dataset generation."
+  },
+  "scenarios": [
+    {
+      "id": "stable-artifact-reuse",
+      "fixture_stratum": "stable_artifact",
+      "observer": "single verifier or colluding verifiers",
+      "observable_channels": ["serialized-credential-or-presentation", "artifact-digest", "stable-holder-or-device-key", "issuer-key-or-certificate"],
+      "sd_jwt": "applicable; repeated issuer-signed SD-JWT bytes or stable key material can correlate sessions",
+      "bbs": "profile-dependent; derived proofs should differ, but issuer-key cohort and disclosed metadata remain observable",
+      "mdoc": "profile-dependent; test issuer-authenticated credential and device-binding artifacts separately",
+      "counterfactual": "Compare byte-identical reuse against freshly derived or reissued artifacts while keeping claims and transaction purpose fixed.",
+      "required": true
+    },
+    {
+      "id": "quasi-identifier-join",
+      "fixture_stratum": "status_metadata",
+      "observer": "single verifier with bounded auxiliary data",
+      "observable_channels": ["revealed-claim-values", "rare-attribute-combinations", "claim-buckets", "external-reference-values"],
+      "sd_jwt": "applicable",
+      "bbs": "applicable",
+      "mdoc": "applicable",
+      "counterfactual": "Hold proof mechanics fixed and ablate each revealed field and field combination; evaluate top-1 and top-k re-identification.",
+      "required": true
+    },
+    {
+      "id": "status-lookup-correlation",
+      "fixture_stratum": "status_metadata",
+      "observer": "issuer, status service, verifier or colluding parties",
+      "observable_channels": ["status-list-uri", "status-index", "lookup-timestamp", "request-origin", "refresh-pattern"],
+      "sd_jwt": "profile-dependent; measure list or endpoint access, not just token contents",
+      "bbs": "profile-dependent; measure status mechanism used by the deployment",
+      "mdoc": "profile-dependent; measure status or revocation mechanism used by the deployment",
+      "counterfactual": "Compare direct online lookups, cached status evidence and privacy-preserving status assertions where supported; record freshness and revocation latency.",
+      "required": true
+    },
+    {
+      "id": "network-and-timing",
+      "fixture_stratum": "status_metadata",
+      "observer": "network observer or service operator",
+      "observable_channels": ["request-time", "response-time", "ip-or-network-prefix", "tls-session-linkage", "user-agent-class", "payload-size"],
+      "sd_jwt": "applicable at deployment layer",
+      "bbs": "applicable at deployment layer",
+      "mdoc": "applicable at deployment layer, including proximity/device protocols where in scope",
+      "counterfactual": "Evaluate content-only, size-only, timing-only and joint attacks; keep transport assumptions explicit.",
+      "required": true
+    },
+    {
+      "id": "proof-structure-fingerprint",
+      "fixture_stratum": "structure_only",
+      "observer": "verifier",
+      "observable_channels": ["message-count", "revealed-message-indexes", "proof-length", "claim-order", "optional-field-pattern"],
+      "sd_jwt": "applicable to disclosure shape, claim order, token size and optional disclosure sets",
+      "bbs": "applicable; BBS proof message count and revealed indexes can be linkability signals",
+      "mdoc": "profile-dependent; measure disclosed namespace/item sets, response shape and size",
+      "counterfactual": "Compare a fixed disclosure set across subjects, then vary the set while holding subject labels independent; report the smallest structural cohort.",
+      "required": true
+    },
+    {
+      "id": "issuer-key-cohort",
+      "fixture_stratum": "stable_artifact",
+      "observer": "verifier and optionally a colluding issuer",
+      "observable_channels": ["issuer-key-id", "public-key", "issuer-certificate", "credential-batch", "key-rotation-time"],
+      "sd_jwt": "applicable",
+      "bbs": "applicable; issuer key partitioning can mark cohorts",
+      "mdoc": "applicable to issuer certificates and trust-chain choice",
+      "counterfactual": "Compare one-key, planned rotation and artificially partitioned-key issuance; report cohort sizes and attacker advantage.",
+      "required": true
+    },
+    {
+      "id": "issuance-and-replenishment",
+      "fixture_stratum": "status_metadata",
+      "observer": "issuer or service observing issuance, renewal or limited-use token replenishment",
+      "observable_channels": ["issuance-time", "renewal-time", "batch-id", "replenishment-event", "presentation-frequency"],
+      "sd_jwt": "profile-dependent",
+      "bbs": "profile-dependent",
+      "mdoc": "profile-dependent",
+      "counterfactual": "Compare online issuance / replenishment with pre-issued batches or privacy-preserving refresh patterns where technically supported.",
+      "required": true
+    },
+    {
+      "id": "multi-session-behavior",
+      "fixture_stratum": "status_metadata",
+      "observer": "colluding verifiers over repeated sessions",
+      "observable_channels": ["session-intervals", "interaction-sequence", "device-class", "presentation-frequency", "service-order"],
+      "sd_jwt": "applicable at wallet/application layer",
+      "bbs": "applicable at wallet/application layer",
+      "mdoc": "applicable at wallet/application layer",
+      "counterfactual": "Run longitudinal traces with identical credential facts but shuffled service order and cadence; evaluate held-out subjects.",
+      "required": true
+    },
+    {
+      "id": "cross-source-reidentification",
+      "fixture_stratum": "status_metadata",
+      "observer": "verifier or colluding verifier with a declared auxiliary dataset",
+      "observable_channels": ["revealed-claims", "public-records", "service-specific-cohort-data"],
+      "sd_jwt": "applicable",
+      "bbs": "applicable",
+      "mdoc": "applicable",
+      "counterfactual": "Publish auxiliary-data provenance, join keys and coverage; compare no-auxiliary and bounded-auxiliary results without exposing real personal records.",
+      "required": true
+    },
+    {
+      "id": "no-signal-control",
+      "fixture_stratum": "noisy_control",
+      "observer": "all claimed adversaries",
+      "observable_channels": ["opaque-random-pair-id-only", "no-labels", "no-subject-identifiers"],
+      "sd_jwt": "applicable",
+      "bbs": "applicable",
+      "mdoc": "applicable",
+      "counterfactual": "Shuffle scores relative to labels and verify attack advantage returns to chance within uncertainty; test for pair-ID, row-order and split leakage.",
+      "required": true
+    },
+    {
+      "id": "issuer-verifier-collusion",
+      "fixture_stratum": "stable_artifact",
+      "observer": "issuer and verifier sharing logs",
+      "observable_channels": ["issuance-record", "credential-batch", "issuer-key-cohort", "presentation-time", "status-events"],
+      "sd_jwt": "applicable; do not claim issuer-verifier unlinkability from SD-JWT alone",
+      "bbs": "profile-dependent; test key partitioning, issuance records and disclosed metadata despite unlinkable derived proofs",
+      "mdoc": "profile-dependent; make trust-ecosystem and issuer visibility assumptions explicit",
+      "counterfactual": "State whether the issuer knows credential presentation events or can correlate issuance, key cohort, status and timing; report the residual channel.",
+      "required": true
+    }
+  ],
+  "comparison_protocol": {
+    "subject_split": "Train/tune identities and held-out test identities must be disjoint. The evaluator mechanically rejects overlap in the provided identity namespace.",
+    "same_cohort": "Compared formats must use matched subject cohorts, target tasks, purpose, session count, session schedule and auxiliary-data budget.",
+    "attack_suite": "At minimum run a simple rule baseline, a tabular supervised baseline when labels exist, and a longitudinal sequence baseline when trace data exists; report each separately.",
+    "primary_report": ["roc_auc_with_subject_clustered_ci95", "average_precision", "tpr_at_fpr_le_1pct", "tpr_at_fpr_le_5pct", "top_1_reidentification", "worst_stratum", "effective_anonymity_set"],
+    "separate_utility_and_cost": ["unauthorized-claims-disclosed", "necessary-claim-completion-rate", "presentation-bytes", "verification-p50-p95-p99", "peak-memory", "measured-energy"],
+    "winner_rule": "Do not assign a universal format winner. Report profile-specific results, uncertainty and remaining channels; any claimed privacy improvement must preserve the declared task utility and security requirements.",
+    "smoke_fixture_note": "The checked-in fixture covers only four broad strata and is not a coverage claim for the full scenario catalogue."
+  }
+}

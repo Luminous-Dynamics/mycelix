@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LIFE closed-set retrieval risk report v1.0",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluator_version",
+    "evaluation_mode",
+    "rank_tie_policy",
+    "uncertainty_scope",
+    "seed",
+    "requested_bootstrap_replicates",
+    "valid_bootstrap_replicates",
+    "query_count",
+    "unique_query_subjects",
+    "candidate_pool_size",
+    "uniform_chance_baseline",
+    "metrics",
+    "bootstrap_ci95",
+    "by_stratum",
+    "sample_size_gate",
+    "task_utility_evidence_present",
+    "official_conformance_evidence_present",
+    "overall_release_gate",
+    "interpretation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "evaluator_version": {
+      "type": "string"
+    },
+    "evaluation_mode": {
+      "const": "closed_set_ranked_reidentification"
+    },
+    "rank_tie_policy": {
+      "const": "uniform_fractional_credit_across_true_candidate_tie_block"
+    },
+    "uncertainty_scope": {
+      "const": "query_subject_cluster_bootstrap_conditioned_on_fixed_candidate_pool"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requested_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "valid_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "query_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "unique_query_subjects": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "candidate_pool_size": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "uniform_chance_baseline": {
+      "type": "object",
+      "required": [
+        "top_1",
+        "top_3",
+        "top_5",
+        "top_10"
+      ],
+      "properties": {
+        "top_1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_3": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_5": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_10": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "query_count",
+        "top_1_reidentification_rate",
+        "top_3_reidentification_rate",
+        "top_5_reidentification_rate",
+        "top_10_reidentification_rate",
+        "mean_reciprocal_rank",
+        "mean_expected_rank",
+        "median_expected_rank",
+        "p95_expected_rank"
+      ],
+      "properties": {
+        "query_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "top_1_reidentification_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_3_reidentification_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_5_reidentification_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_10_reidentification_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mean_reciprocal_rank": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mean_expected_rank": {
+          "type": "number",
+          "minimum": 1
+        },
+        "median_expected_rank": {
+          "type": "number",
+          "minimum": 1
+        },
+        "p95_expected_rank": {
+          "type": "number",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "bootstrap_ci95": {
+      "type": "object",
+      "required": [
+        "top_1",
+        "top_5",
+        "mean_reciprocal_rank"
+      ],
+      "properties": {
+        "top_1": {
+          "$ref": "#/$defs/interval"
+        },
+        "top_5": {
+          "$ref": "#/$defs/interval"
+        },
+        "mean_reciprocal_rank": {
+          "$ref": "#/$defs/interval"
+        }
+      },
+      "additionalProperties": false
+    },
+    "by_stratum": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stratum",
+          "metrics"
+        ],
+        "properties": {
+          "stratum": {
+            "type": "string",
+            "minLength": 1
+          },
+          "metrics": {
+            "$ref": "#/$defs/summary"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sample_size_gate": {
+      "enum": [
+        "SMOKE_ONLY_BELOW_MINIMUM",
+        "MINIMUM_COUNTS_MET_REQUIRES_REVIEW"
+      ]
+    },
+    "task_utility_evidence_present": {
+      "const": false
+    },
+    "official_conformance_evidence_present": {
+      "const": false
+    },
+    "overall_release_gate": {
+      "const": "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
+    },
+    "interpretation": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "interval": {
+      "type": "object",
+      "required": [
+        "low",
+        "high",
+        "valid_replicates"
+      ],
+      "properties": {
+        "low": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "high": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "valid_replicates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "query_count",
+        "top_1_reidentification_rate",
+        "top_3_reidentification_rate",
+        "top_5_reidentification_rate",
+        "top_10_reidentification_rate",
+        "mean_reciprocal_rank",
+        "mean_expected_rank",
+        "median_expected_rank",
+        "p95_expected_rank"
+      ],
+      "properties": {
+        "query_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "top_1_reidentification_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_3_reidentification_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_5_reidentification_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_10_reidentification_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mean_reciprocal_rank": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mean_expected_rank": {
+          "type": "number",
+          "minimum": 1
+        },
+        "median_expected_rank": {
+          "type": "number",
+          "minimum": 1
+        },
+        "p95_expected_rank": {
+          "type": "number",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

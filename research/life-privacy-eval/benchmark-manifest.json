@@ -1,0 +1,421 @@
+{
+  "name": "LIFE Privacy Evaluation — held-out linkability metrics",
+  "version": "0.9.0",
+  "status": "research-prototype",
+  "language": "Rust",
+  "dependencies": [],
+  "inputs": {
+    "truth": "oracle-only truth TSV; must never be passed to attack scoring code",
+    "scores": "attack output with pair_id and score only",
+    "training_subjects": "subject IDs available during attacker training/tuning; must be disjoint from test subjects"
+  },
+  "metrics": [
+    "ROC-AUC",
+    "average_precision",
+    "TPR_at_FPR_le_1pct",
+    "TPR_at_FPR_le_5pct",
+    "subject_cluster_bootstrap_CI95_AUC",
+    "per_stratum_metrics",
+    "paired_treatment_minus_baseline_ROC_AUC_with_subject_cluster_bootstrap_CI95",
+    "validation_locked_TPR_FPR_at_fixed_threshold_with_subject_cluster_bootstrap_intervals",
+    "closed_set_top_1_top_3_top_5_top_10_reidentification_rate",
+    "mean_reciprocal_rank",
+    "expected_target_rank_distribution",
+    "query_subject_cluster_bootstrap_CI95_conditioned_on_fixed_candidate_pool",
+    "validation_locked_open_set_false_positive_identification_rate",
+    "FNIR_at_fixed_FPIR_top_1_3_5_10",
+    "query_subject_cluster_bootstrap_CI95_for_open_set_FNIR_and_FPIR",
+    "one_sided_exact_Clopper_Pearson_upper_bound_on_subject_level_any_session_false_identification_rate",
+    "gallery_size_specific_validation_locked_FNIR_at_rank_1_3_5_10_and_FPIR",
+    "frozen_reference_threshold_gallery_scaling_curve",
+    "crossed_query_subject_and_gallery_draw_bootstrap_intervals_exploratory",
+    "per_gallery_draw_exact_Clopper_Pearson_subject_level_any_false_identification_upper_bound",
+    "Bonferroni_simultaneous_confidence_adjustment_across_gallery_draws_within_each_size_and_threshold_policy"
+  ],
+  "bootstrap": {
+    "method": "subject-cluster resampling with pair multiplicity weights",
+    "default_replicates": 1000,
+    "default_seed": 9901,
+    "interval": "percentile 95% interval; not a formal privacy guarantee"
+  },
+  "pilot_minimums": {
+    "heldout_pairs": 10000,
+    "distinct_test_subjects": 2000,
+    "interpretation": "necessary sample-size gates, not sufficient evidence or an automatic pass"
+  },
+  "nonclaims": [
+    "not a credential verifier",
+    "not a linkability attacker",
+    "not RFC/OIDF/W3C conformance",
+    "not a differential-privacy proof",
+    "not a SOTA claim",
+    "does not measure attack runtime, throughput, memory, payload size or energy"
+  ],
+  "source_contracts": [
+    "Cargo.lock has no external dependencies",
+    "scores TSV cannot contain labels or subject IDs",
+    "subject overlap between train and test fails closed",
+    "pair IDs are opaque and unique"
+  ],
+  "scenario_matrix_file": "attack-scenario-matrix.json",
+  "declared_scenario_count": 11,
+  "comparison_policy": "Run all required observer/scenario pairs where applicable; separately report each attacker and the strongest attacker result. Never treat an inapplicable channel as a privacy pass.",
+  "paired_comparison": {
+    "command": "compare",
+    "baseline_scores": "pair_id and finite score only",
+    "treatment_scores": "pair_id and finite score only",
+    "pairing": "exact pair IDs, subjects, labels and strata must match; both score files join independently against oracle truth",
+    "uncertainty": "paired subject-cluster bootstrap; same subject multiplicities applied to baseline and treatment; percentile 95% interval for treatment-minus-baseline ROC-AUC",
+    "proposed_max_treatment_auc_upper": 0.55,
+    "claim_ceiling": "a supported paired AUC reduction is not an unlinkability pass; smoke-size inputs cannot qualify a profile; utility and official conformance are not evaluated"
+  },
+  "paired_comparison_schema_file": "paired-comparison.schema.json",
+  "low_fpr_reporting_policy": {
+    "old_command": "TPR at empirical FPR caps is an exploratory test-curve statistic; no validation-locked threshold",
+    "calibrated_command": "Select threshold using validation labels only; enforce disjoint calibration/test subjects and pair handles; report fixed-threshold test TPR/FPR",
+    "zero_false_positive_policy": "zero observed false positives do not qualify rare-event risk; report inconclusive unless a separately justified tail-risk method is provided",
+    "overall_release_gate": "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
+  },
+  "calibrated_report_schema_file": "calibrated-operating-point.schema.json",
+  "report_schema_version": "1.1",
+  "schema_change_note": "Added explicit fields declaring empirical low-FPR test-curve values are descriptive, not validation-locked operating points.",
+  "threat_coverage_matrix_file": "threat-coverage-matrix.json",
+  "threat_coverage_matrix_schema_version": "1.0",
+  "threat_coverage_entry_count": 15,
+  "attack_profile_count": 6,
+  "coverage_contract_change_note": "W3C credential threat-to-evidence mapping is design coverage only; it does not imply implementation, mitigation, conformance, or release qualification.",
+  "retrieval_evaluation": {
+    "command": "retrieval",
+    "version": "1.0",
+    "mode": "closed_set_ranked_reidentification",
+    "truth_schema": "query_id, query_subject, candidate_id, candidate_subject, true_match, stratum; oracle-only and never passed to attack scoring",
+    "score_schema": "query_id, candidate_id, score only; opaque handles and finite score",
+    "cohort_policy": "Every query has exactly one true candidate and exactly the same candidate-handle/subject pool; query subject must be present in the candidate pool",
+    "leakage_guards": [
+      "unique query/candidate pairs",
+      "consistent candidate-handle-to-subject mapping",
+      "training identities disjoint from all query and candidate subjects",
+      "exact truth/score pair join; no missing or extra scores"
+    ],
+    "tie_policy": "Uniform expected rank over the true candidate's tied score block; fractional Top-k credit and expected reciprocal rank prevent identifier-order tie breaks",
+    "metrics": [
+      "top_1_reidentification_rate",
+      "top_3_reidentification_rate",
+      "top_5_reidentification_rate",
+      "top_10_reidentification_rate",
+      "mean_reciprocal_rank",
+      "mean/median/p95 expected rank",
+      "uniform-random Top-k baseline",
+      "per-stratum metrics"
+    ],
+    "uncertainty": "Query-subject cluster bootstrap conditioned on a fixed candidate pool; it does not account for candidate-pool sampling uncertainty",
+    "sample_minimums": {
+      "queries": 2000,
+      "distinct_query_subjects": 2000,
+      "candidate_pool_size": 10,
+      "interpretation": "screening floor only; never an automatic privacy pass"
+    },
+    "claim_ceiling": "Ranked retrieval risk only. Scores are not calibrated posterior probabilities; no effective anonymity set is inferred. Task utility and official conformance are separate gates."
+  },
+  "retrieval_report_schema_file": "retrieval-report.schema.json",
+  "retrieval_fixture_note": "Four-query synthetic known-answer fixture validates ranking and tie semantics only; no real-credential or SOTA claim.",
+  "open_set_evaluation": {
+    "command": "open-set",
+    "report_schema_file": "open-set-report.schema.json",
+    "mode": "validation_locked_open_set_identification",
+    "definitions": {
+      "mated_query": "Exactly one true candidate exists in the candidate pool.",
+      "nonmated_query": "The query subject is absent from the candidate pool and no candidate row is a true match.",
+      "FPIR": "Fraction of non-mated query subjects for which any candidate score is at least the locked threshold.",
+      "FNIR_at_rank_k": "Fraction of mated queries whose true candidate is not accepted at the locked threshold within top K; tied target rank receives fractional credit."
+    },
+    "threshold_selection": "Validation-only: maximize rank-1 correct identification rate while empirical validation FPIR remains at or below the declared cap; tie-breaking prefers lower observed FPIR. Freeze before test.",
+    "split_policy": [
+      "Validation/test query IDs and query subject identities are disjoint",
+      "Training subjects are disjoint from all query and candidate subjects",
+      "Validation/test candidate handles and subject mappings must match exactly",
+      "Each partition contains mated and non-mated queries; each query has zero or one true match"
+    ],
+    "uncertainty": "Class-stratified query-subject cluster bootstrap for FNIR@rank1, FNIR@rank5 and FPIR; conditional on a fixed candidate pool",
+    "pilot_minimums": {
+      "mated_queries_per_partition": 2000,
+      "nonmated_queries_per_partition": 2000,
+      "distinct_mated_subjects_per_partition": 2000,
+      "distinct_nonmated_subjects_per_partition": 2000,
+      "candidate_pool_size": 10,
+      "interpretation": "screening floor per class, not a confidence guarantee or automatic pass; distinct identities, not repeated sessions, must satisfy subject counts"
+    },
+    "zero_false_identification_policy": "Zero events are not a pass by themselves. Report a one-sided exact Clopper-Pearson upper bound over independent non-mated subject clusters. At 95% confidence, zero events require 299 clusters for a 1% target and 2,995 clusters for a 0.1% target; these exact-binomial calculations assume independent representative Bernoulli subject clusters and remain conditional on the frozen scorer and fixed gallery.",
+    "claim_ceiling": "Open-set identification metrics only. Ranking scores are not posterior probabilities; the mode does not claim an effective anonymity set, task utility, official protocol conformance, or a formal privacy guarantee.",
+    "report_schema_version": "1.2",
+    "subject_level_risk_bound": {
+      "method": "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification",
+      "confidence_level": 0.95,
+      "unit": "one non-mated query-subject cluster; event=any query from that subject has any candidate score at or above the validation-locked threshold",
+      "formula": "one-sided exact Clopper-Pearson upper confidence endpoint; for zero events U=1-alpha^(1/n), otherwise solve P[Binomial(n,U) <= observed_events]=alpha",
+      "operating_gate": "the independent test upper bound must not exceed max_fpir_target and the query-level FPIR bootstrap upper interval must also not exceed the same target; passing remains provisional and does not imply privacy, utility or conformance",
+      "assumptions_and_limits": [
+        "subject clusters are treated as independent draws conditional on the frozen scorer and fixed candidate gallery",
+        "conditional on the fixed gallery; does not cover gallery-population uncertainty, distribution shift, or dependent subjects",
+        "conservative distribution-free bound; not a differential-privacy or formal unlinkability guarantee"
+      ],
+      "zero_event_subject_clusters_for_target_1pct_at_95pct": 299,
+      "zero_event_subject_clusters_for_target_0_1pct_at_95pct": 2995,
+      "coverage_validation": {
+        "method": "exhaustive_binomial_pmf_sum_for_every_observed_event_count_on_a_preregistered_probability_grid",
+        "trial_counts": [
+          5,
+          10,
+          20,
+          50,
+          100
+        ],
+        "true_event_probabilities": [
+          0.005,
+          0.01,
+          0.025,
+          0.05,
+          0.1,
+          0.25,
+          0.5,
+          0.75,
+          0.9,
+          0.99
+        ],
+        "required_minimum_coverage": 0.95,
+        "interpretation": "deterministic finite-grid numerical regression check only; not a proof for every probability, independence violation, population shift, or gallery uncertainty"
+      },
+      "notes": [
+        "The v0.8 unit suite exhaustively sums the binomial probability mass over observed-event counts for a finite preregistered grid and checks at-least-95% coverage; this is a deterministic finite-grid regression check, not a universal proof."
+      ]
+    }
+  },
+  "open_set_fixture_note": "Four-query-per-partition synthetic control tests validation locking, mated/non-mated separation, candidate-pool consistency, per-subject session aggregation and risk-bound semantics only; no real-credential result is implied.",
+  "gallery_scaling_protocol_file": "GALLERY-SCALING-BENCHMARK.md",
+  "gallery_scaling_protocol_status": "design_only_not_implemented",
+  "gallery_scaling_protocol_scope": "Preregister operational gallery sizes, nested reproducible identity samples, per-size validation-locked thresholds and crossed query/gallery uncertainty before reporting deployment-scale open-set claims.",
+  "gallery_sweep_evaluation": {
+    "mode": "gallery_scaling_open_set_identification",
+    "report_schema_file": "gallery-sweep-report.schema.json",
+    "input_contract": {
+      "query_truth": "query_id, query_subject, stratum; oracle-only",
+      "scores": "query_id, candidate_id, finite score; score grid must be complete over the declared candidate frame",
+      "candidate_frame": "candidate_id, candidate_subject; oracle-only identity-level candidates, one candidate per subject",
+      "training_subjects": "disjoint from all query and candidate subjects"
+    },
+    "gallery_sampling": {
+      "method": "deterministic seeded uniform-without-replacement nested prefix draws",
+      "minimum_draw_count": 2,
+      "largest_size_must_equal_candidate_frame_size": true,
+      "seeded_sampler": "xorshift64",
+      "size_grid": "strictly increasing integer sizes; nested samples within draw"
+    },
+    "threshold_policies": [
+      "validation-locked per-size threshold at declared empirical FPIR cap",
+      "frozen threshold selected at preregistered reference gallery size and reused unchanged across sizes"
+    ],
+    "uncertainty": {
+      "method": "crossed resampling of query-subject clusters and gallery-draw clusters",
+      "status": "finite-grid coverage diagnostic executed; sparse-event undercoverage reproduced; exploratory intervals are not certification evidence",
+      "coverage_study_file": "coverage/gallery_crossed_bootstrap.py",
+      "last_coverage_study": {
+        "seed": 990117,
+        "outer_studies_per_scenario": 250,
+        "bootstrap_replicates_per_study": 120,
+        "scenarios": 7,
+        "sparse_iid_p001_observed_coverage": 0.484,
+        "sparse_iid_p001_coverage_mc_wilson_95pct_ci": [
+          0.4228,
+          0.5457
+        ],
+        "crossed_sparse_small_observed_coverage": 0.844,
+        "crossed_sparse_small_coverage_mc_wilson_95pct_ci": [
+          0.7939,
+          0.8837
+        ],
+        "qualification": "finite synthetic diagnostic only; the sparse-event failure is a blocker, not a pass",
+        "results": [
+          {
+            "scenario": "iid_sparse_p001",
+            "p": 0.001,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.484,
+            "wilson_95": [
+              0.4227644,
+              0.5457198
+            ],
+            "zero_event_fraction": 0.516
+          },
+          {
+            "scenario": "iid_sparse_p005",
+            "p": 0.005,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.956,
+            "wilson_95": [
+              0.9229422,
+              0.9752562
+            ],
+            "zero_event_fraction": 0.044
+          },
+          {
+            "scenario": "crossed_sparse_small",
+            "p": 0.01,
+            "subjects": 20,
+            "gallery_draws": 10,
+            "observed_coverage": 0.844,
+            "wilson_95": [
+              0.7938541,
+              0.8837342
+            ],
+            "zero_event_fraction": 0.156
+          },
+          {
+            "scenario": "subject_clustered_p01",
+            "p": 0.01,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.992,
+            "wilson_95": [
+              0.9713055,
+              0.9978034
+            ],
+            "zero_event_fraction": 0.004
+          },
+          {
+            "scenario": "gallery_clustered_p01",
+            "p": 0.01,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.992,
+            "wilson_95": [
+              0.9713055,
+              0.9978034
+            ],
+            "zero_event_fraction": 0.004
+          },
+          {
+            "scenario": "crossed_clustered_p10",
+            "p": 0.1,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.976,
+            "wilson_95": [
+              0.9486379,
+              0.9889552
+            ],
+            "zero_event_fraction": 0
+          },
+          {
+            "scenario": "crossed_clustered_p50",
+            "p": 0.5,
+            "subjects": 30,
+            "gallery_draws": 20,
+            "observed_coverage": 0.968,
+            "wilson_95": [
+              0.9381376,
+              0.9836976
+            ],
+            "zero_event_fraction": 0
+          }
+        ]
+      },
+      "coverage_report_schema_file": "gallery-crossed-bootstrap-coverage.schema.json"
+    },
+    "nonclaims": [
+      "pairwise scores are assumed gallery-invariant",
+      "candidate-frame conditional only",
+      "not formal unlinkability or differential privacy",
+      "task utility and official conformance gates remain closed"
+    ],
+    "per_draw_subject_risk_bound": {
+      "method": "one_sided_exact_Clopper_Pearson_binomial_upper_bound",
+      "event": "for one realized gallery, a non-mated query subject has any query session whose top candidate score crosses the locked threshold",
+      "alpha_spending": "Bonferroni across all reported gallery-size × gallery-draw × threshold-policy cells: 0.05 / (gallery_size_count * draw_count * 2)",
+      "assumptions": "independent representative query-subject clusters conditional on each realized gallery and scorer",
+      "scope_limit": "does not quantify candidate-frame sampling uncertainty; this conditional bound does not qualify the crossed percentile-bootstrap intervals",
+      "coverage_regression_grid": {
+        "method": "exact binomial PMF summation over all observed event counts",
+        "alpha_levels": [
+          0.05,
+          0.01,
+          0.00625,
+          0.00078125,
+          0.001
+        ],
+        "trial_counts": [
+          5,
+          10,
+          20,
+          50,
+          100
+        ],
+        "probability_grid": [
+          0.001,
+          0.01,
+          0.05,
+          0.25,
+          0.5,
+          0.9,
+          0.99
+        ],
+        "minimum_coverage_by_grid_point": "1 - alpha (within stated floating-point tolerance)",
+        "test_name": "exact_binomial_bound_has_coverage_at_bonferroni_family_alpha_levels"
+      }
+    },
+    "performance_measurements": {
+      "status": "NOT_MEASURED_PRECOMPUTED_SCORE_INPUTS",
+      "reason": "gallery-sweep consumes precomputed attacker score grids and does not execute or profile the attacker",
+      "required_for_industry_comparison": [
+        "p50/p95/p99 per-query search latency",
+        "end-to-end throughput",
+        "peak resident memory",
+        "candidate/template and transmitted payload bytes",
+        "measured energy per query on named hardware",
+        "scorer/container/configuration digest",
+        "failure-to-process and excluded-query counts"
+      ],
+      "evidence_policy": "populate from a separately instrumented scorer-run receipt; never estimate these fields from evaluator runtime"
+    },
+    "operational_scale_declaration": {
+      "optional_cli_argument": "intended-operational-size",
+      "outputs": [
+        "declared_operational_gallery_size",
+        "largest_gallery_to_declared_operational_size_ratio",
+        "operational_scale_gate"
+      ],
+      "interpretation": "compares the evaluated largest gallery with an explicitly supplied intended gallery size; if omitted, status is NOT_DECLARED",
+      "nonclaim": "a 90% size ratio is only a scale-coverage indicator and is not protocol conformance or a universal credential-privacy requirement"
+    }
+  },
+  "population_shift_stress": {
+    "script": "coverage/open_set_threshold_shift.py",
+    "report_schema_file": "coverage/open-set-shift-report.schema.json",
+    "protocol_file": "OPEN-SET-SHIFT-BENCHMARK.md",
+    "mode": "synthetic_open_set_validation_locked_threshold_transport_stress",
+    "status": "synthetic_research_diagnostic",
+    "default_seed": 990129,
+    "default_calibration_queries": 100000,
+    "default_test_queries_per_scenario": 100000,
+    "target_fpir": 0.01,
+    "scenario_count": 7,
+    "scenarios": [
+      "no_shift_control",
+      "mean_shift_plus_0_25_sd",
+      "mean_shift_plus_0_50_sd",
+      "scale_shift_1_25x",
+      "scale_shift_1_50x",
+      "one_percent_heavy_tail_contamination",
+      "new_shifted_stratum_10_percent"
+    ],
+    "metrics": [
+      "locked_threshold",
+      "observed_fpir",
+      "false_identification_count",
+      "wilson_95_binomial_interval",
+      "aggregate_and_worst_stratum_fpir"
+    ],
+    "claim_ceiling": "Synthetic score-distribution stress test only; no credential-format or deployed-attacker evidence; Wilson intervals do not cover population transport error; no privacy pass."
+  }
+}

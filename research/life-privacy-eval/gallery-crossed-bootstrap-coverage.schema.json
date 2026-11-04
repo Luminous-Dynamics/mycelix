@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/life-privacy-eval/gallery-crossed-bootstrap-coverage.schema.json",
+  "title": "LIFE Crossed Bootstrap Coverage Diagnostic",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "method",
+    "seed",
+    "outer_studies_per_scenario",
+    "bootstrap_replicates_per_study",
+    "scenarios",
+    "known_sparse_event_undercoverage_reproduced",
+    "qualification"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "method": {
+      "const": "two_way_crossed_subject_and_gallery_draw_percentile_bootstrap"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "outer_studies_per_scenario": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "bootstrap_replicates_per_study": {
+      "type": "integer",
+      "minimum": 50
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "required": [
+          "scenario",
+          "subjects",
+          "gallery_draws",
+          "true_marginal_event_probability",
+          "outer_studies",
+          "bootstrap_replicates_per_study",
+          "observed_95pct_coverage",
+          "coverage_monte_carlo_wilson_95pct_interval",
+          "mean_interval_width",
+          "fraction_studies_with_zero_events",
+          "interpretation"
+        ],
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subjects": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "gallery_draws": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "true_marginal_event_probability": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "subject_log_odds_effect": {
+            "type": "number"
+          },
+          "gallery_log_odds_effect": {
+            "type": "number"
+          },
+          "outer_studies": {
+            "type": "integer",
+            "minimum": 100
+          },
+          "bootstrap_replicates_per_study": {
+            "type": "integer",
+            "minimum": 50
+          },
+          "observed_95pct_coverage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "coverage_monte_carlo_wilson_95pct_interval": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "mean_interval_width": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "fraction_studies_with_zero_events": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "interpretation": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "known_sparse_event_undercoverage_reproduced": {
+      "const": true
+    },
+    "qualification": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LIFE validation-locked operating point report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluator_version",
+    "evaluation_mode",
+    "threshold_source",
+    "seed",
+    "requested_bootstrap_replicates",
+    "valid_bootstrap_replicates",
+    "max_fpr_target",
+    "calibration_pairs",
+    "calibration_subjects",
+    "test_pairs",
+    "positive_pairs",
+    "negative_pairs",
+    "unique_test_subjects",
+    "training_subject_count",
+    "subject_overlap_count",
+    "calibration_threshold",
+    "validation_tpr_at_locked_threshold",
+    "validation_fpr_at_locked_threshold",
+    "true_positives",
+    "false_positives",
+    "empirical_fpr_resolution",
+    "test_tpr_at_locked_threshold",
+    "test_fpr_at_locked_threshold",
+    "test_tpr_cluster_bootstrap_ci95",
+    "test_fpr_cluster_bootstrap_ci95",
+    "observed_zero_false_positives",
+    "rare_event_inference_status",
+    "sample_size_gate",
+    "operating_point_gate",
+    "task_utility_evidence_present",
+    "official_conformance_evidence_present",
+    "overall_release_gate",
+    "interpretation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "evaluator_version": {
+      "type": "string"
+    },
+    "evaluation_mode": {
+      "const": "validation_locked_operating_point"
+    },
+    "threshold_source": {
+      "const": "validation_only_locked_before_test"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requested_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "valid_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_fpr_target": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "calibration_pairs": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "calibration_subjects": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "test_pairs": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "positive_pairs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "negative_pairs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "unique_test_subjects": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "training_subject_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "subject_overlap_count": {
+      "const": 0
+    },
+    "calibration_threshold": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "validation_tpr_at_locked_threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "validation_fpr_at_locked_threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "true_positives": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "false_positives": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "empirical_fpr_resolution": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "test_tpr_at_locked_threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "test_fpr_at_locked_threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "test_tpr_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "test_fpr_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "observed_zero_false_positives": {
+      "type": "boolean"
+    },
+    "rare_event_inference_status": {
+      "enum": [
+        "ZERO_FALSE_POSITIVES_DO_NOT_CERTIFY_TAIL_RISK",
+        "CLUSTER_BOOTSTRAP_INTERVAL_REPORTED_NO_FORMAL_PRIVACY_GUARANTEE"
+      ]
+    },
+    "sample_size_gate": {
+      "enum": [
+        "SMOKE_ONLY_BELOW_MINIMUM",
+        "MINIMUM_COUNTS_MET_REQUIRES_REVIEW"
+      ]
+    },
+    "operating_point_gate": {
+      "enum": [
+        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM",
+        "INCONCLUSIVE_ZERO_FP_CANNOT_BOUND_RARE_EVENT_RISK",
+        "PROVISIONAL_PASS_REQUIRES_REVIEW",
+        "FAIL",
+        "INCONCLUSIVE"
+      ]
+    },
+    "task_utility_evidence_present": {
+      "const": false
+    },
+    "official_conformance_evidence_present": {
+      "const": false
+    },
+    "overall_release_gate": {
+      "const": "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
+    },
+    "interpretation": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "interval": {
+      "type": "object",
+      "required": [
+        "low",
+        "high",
+        "valid_replicates"
+      ],
+      "properties": {
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "valid_replicates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+query_id	query_subject	candidate_id	candidate_subject	true_match	stratum
+val_q_a	subject_a	cand_a	subject_a	1	known_rank1
+val_q_a	subject_a	cand_b	subject_b	0	known_rank1
+val_q_a	subject_a	cand_c	subject_c	0	known_rank1
+val_q_a	subject_a	cand_d	subject_d	0	known_rank1
+val_q_b	subject_b	cand_a	subject_a	0	known_rank2
+val_q_b	subject_b	cand_b	subject_b	1	known_rank2
+val_q_b	subject_b	cand_c	subject_c	0	known_rank2
+val_q_b	subject_b	cand_d	subject_d	0	known_rank2
+val_q_u1	unknown_val_1	cand_a	subject_a	0	unknown_high_score
+val_q_u1	unknown_val_1	cand_b	subject_b	0	unknown_high_score
+val_q_u1	unknown_val_1	cand_c	subject_c	0	unknown_high_score
+val_q_u1	unknown_val_1	cand_d	subject_d	0	unknown_high_score
+val_q_u2	unknown_val_2	cand_a	subject_a	0	unknown_low_score
+val_q_u2	unknown_val_2	cand_b	subject_b	0	unknown_low_score
+val_q_u2	unknown_val_2	cand_c	subject_c	0	unknown_low_score
+val_q_u2	unknown_val_2	cand_d	subject_d	0	unknown_low_score

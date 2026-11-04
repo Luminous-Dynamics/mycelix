@@ -1,0 +1,94 @@
+name: LIFE open-set population-shift diagnostic
+
+on:
+  pull_request:
+    paths:
+      - "research/life-privacy-eval/coverage/open_set_threshold_shift.py"
+      - "research/life-privacy-eval/coverage/open-set-shift-report.schema.json"
+      - "research/life-privacy-eval/OPEN-SET-SHIFT-BENCHMARK.md"
+      - "research/life-privacy-eval/benchmark-manifest.json"
+      - ".github/workflows/life-open-set-shift.yml"
+  push:
+    paths:
+      - "research/life-privacy-eval/coverage/open_set_threshold_shift.py"
+      - "research/life-privacy-eval/coverage/open-set-shift-report.schema.json"
+      - "research/life-privacy-eval/OPEN-SET-SHIFT-BENCHMARK.md"
+      - "research/life-privacy-eval/benchmark-manifest.json"
+      - ".github/workflows/life-open-set-shift.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shift-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact benchmark subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Run deterministic stress diagnostic twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=research/life-privacy-eval
+          out=target/life-open-set-shift
+          mkdir -p "$out"
+          python3 "$root/coverage/open_set_threshold_shift.py" --self-test > "$out/report-a.json"
+          python3 "$root/coverage/open_set_threshold_shift.py" --self-test > "$out/report-b.json"
+          cmp "$out/report-a.json" "$out/report-b.json"
+          python3 - "$root" "$out/report-a.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          report = json.loads(Path(sys.argv[2]).read_text())
+          schema = json.loads((root / "coverage/open-set-shift-report.schema.json").read_text())
+          assert set(schema["required"]).issubset(report)
+          assert report["schema_version"] == schema["properties"]["schema_version"]["const"]
+          assert report["qualification_status"] == "NOT_A_PRIVACY_PASS_SYNTHETIC_SHIFT_DIAGNOSTIC_ONLY"
+          assert report["synthetic_only"] is True
+          assert report["target_fpir"] == 0.01
+          assert len(report["scenarios"]) == 7
+          names = {row["scenario"] for row in report["scenarios"]}
+          assert names == set(schema["expected_scenarios"]["const"])
+          for row in report["scenarios"]:
+              assert row["queries"] == 100000
+              assert isinstance(row["false_identifications"], int)
+              assert 0 <= row["observed_fpir"] <= 1
+              assert len(row["wilson_95_ci"]) == 2
+              assert row["wilson_95_ci"][0] <= row["observed_fpir"] <= row["wilson_95_ci"][1]
+          controls = report["directional_controls"]
+          assert controls["mean_shift_exceeds_no_shift"] is True
+          assert controls["shifted_stratum_exceeds_target"] is True
+          shifted = next(row for row in report["scenarios"] if row["scenario"] == "new_shifted_stratum_10_percent")
+          assert shifted["strata"]["shifted_stratum"]["observed_fpir"] > report["target_fpir"]
+          assert len(report["limitations"]) >= 4
+          manifest = json.loads((root / "benchmark-manifest.json").read_text())
+          assert manifest["population_shift_stress"]["script"] == "coverage/open_set_threshold_shift.py"
+          assert manifest["population_shift_stress"]["report_schema_file"] == "coverage/open-set-shift-report.schema.json"
+          PY
+          sha256sum \
+            "$root/coverage/open_set_threshold_shift.py" \
+            "$root/coverage/open-set-shift-report.schema.json" \
+            "$root/OPEN-SET-SHIFT-BENCHMARK.md" \
+            "$root/benchmark-manifest.json" \
+            "$out/report-a.json" > "$out/sha256-receipt.txt"
+          cat "$out/sha256-receipt.txt"
+
+      - name: Publish deterministic evidence bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: life-open-set-shift-${{ github.sha }}
+          path: target/life-open-set-shift/
+          if-no-files-found: error
+          retention-days: 30

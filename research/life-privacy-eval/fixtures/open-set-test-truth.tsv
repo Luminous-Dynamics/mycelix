@@ -1,0 +1,17 @@
+query_id	query_subject	candidate_id	candidate_subject	true_match	stratum
+test_q_c	subject_c	cand_a	subject_a	0	test_known_rank1
+test_q_c	subject_c	cand_b	subject_b	0	test_known_rank1
+test_q_c	subject_c	cand_c	subject_c	1	test_known_rank1
+test_q_c	subject_c	cand_d	subject_d	0	test_known_rank1
+test_q_d	subject_d	cand_a	subject_a	0	test_known_rank3
+test_q_d	subject_d	cand_b	subject_b	0	test_known_rank3
+test_q_d	subject_d	cand_c	subject_c	0	test_known_rank3
+test_q_d	subject_d	cand_d	subject_d	1	test_known_rank3
+test_q_u3	unknown_test_3	cand_a	subject_a	0	test_unknown_high
+test_q_u3	unknown_test_3	cand_b	subject_b	0	test_unknown_high
+test_q_u3	unknown_test_3	cand_c	subject_c	0	test_unknown_high
+test_q_u3	unknown_test_3	cand_d	subject_d	0	test_unknown_high
+test_q_u4	unknown_test_4	cand_a	subject_a	0	test_unknown_low
+test_q_u4	unknown_test_4	cand_b	subject_b	0	test_unknown_low
+test_q_u4	unknown_test_4	cand_c	subject_c	0	test_unknown_low
+test_q_u4	unknown_test_4	cand_d	subject_d	0	test_unknown_low
