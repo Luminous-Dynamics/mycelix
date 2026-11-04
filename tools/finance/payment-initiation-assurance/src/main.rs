@@ -289,10 +289,7 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                         "cases[{index}]: VoP provider response is not authenticated under its declared profile"
                     ));
                 }
-                if !matches!(
-                    fraud_inference,
-                    "not_inferred" | "separately_evidenced" | "unknown"
-                ) {
+                if !matches!(fraud_inference, "not_inferred" | "unknown") {
                     errors.push(format!(
                         "cases[{index}]: fraud cannot be inferred from a name-verification result"
                     ));
@@ -393,7 +390,12 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                         }
                     }
                     "vop_unavailable" | "vop_other" | "vop_alias_resolved_vop_unavailable" => {
-                        if !matches!(result, "unavailable" | "other")
+                        let expected_result = if category == "vop_other" {
+                            "other"
+                        } else {
+                            "unavailable"
+                        };
+                        if result != expected_result
                             || !payer_notified
                             || !matches!(payer_decision, "review" | "cancel")
                         {
@@ -460,7 +462,11 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                         }
                     }
                     "vop_subject_changed_after_query" => {
-                        if query_subject == intent_subject || current || payer_decision != "review" {
+                        if query_subject == intent_subject
+                            || response_subject != query_subject
+                            || current
+                            || payer_decision != "review"
+                        {
                             errors.push(format!(
                                 "cases[{index}]: changed beneficiary must invalidate the previous VoP result and require re-query"
                             ));
@@ -513,7 +519,7 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
     if !validate_semantics(corpus).is_empty() {
         return Err("baseline corpus must pass before mutation campaign".into());
     }
-    let mutations: [Mutation; 27] = [
+    let mutations: [Mutation; 28] = [
         ("payee substitution marked parsed-only", |value| {
             value["cases"][2]["expected"] = json!("parsed_unverified");
         }),
@@ -602,6 +608,9 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
             value["cases"][21]["payee_verification"]["fraud_inference"] =
                 json!("fraud_inferred_from_name_mismatch");
         }),
+        ("unavailable and other result classes collapsed", |value| {
+            value["cases"][23]["payee_verification"]["result"] = json!("unavailable");
+        }),
     ];
     for (name, mutate) in mutations {
         let mut changed = corpus.clone();
@@ -669,9 +678,9 @@ mod tests {
     }
 
     #[test]
-    fn mutation_campaign_rejects_all_27_controls() {
+    fn mutation_campaign_rejects_all_28_controls() {
         let corpus: Value = serde_json::from_str(CORPUS).expect("corpus JSON");
-        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 27);
+        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 28);
     }
 
     #[test]
