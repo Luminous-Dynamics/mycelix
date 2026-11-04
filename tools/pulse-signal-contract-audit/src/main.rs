@@ -117,7 +117,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }).ok_or_else(|| format!("{} not found in {}", spec.rust_enum, rust_path.display()))?;
 
         let representation = rust_representation(item)?;
-        let rust_variants = rust_variants(item);
+        let rust_enum_variants = rust_variants(item);
         let ts_body = extract_type_alias(&ts_types, spec.ts_alias)
             .ok_or_else(|| format!("TypeScript alias {} not found", spec.ts_alias))?;
         let ts_variants = extract_typescript_variants(ts_body)?;
