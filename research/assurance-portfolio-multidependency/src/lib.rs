@@ -10,7 +10,6 @@
 //! not authenticate source bytes, real-world ownership, or inventory
 //! completeness.
 use std::collections::{BTreeMap, BTreeSet};
-
 /// Upper bound on declared dependency nodes accepted by the reference model.
 /// This prevents attacker-controlled graph size from exhausting memory or
 /// relying on recursive call-stack depth.
