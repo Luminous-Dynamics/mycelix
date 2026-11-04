@@ -593,16 +593,27 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("cancelled request creates instruction", corpus, schema, |v| {
-        let mut accepted = v["scenarios"][5]["events"][3].clone();
-        accepted["event_id"] = json!("EV-4");
-        accepted["sequence"] = json!(4);
-        let mut instruction = v["scenarios"][5]["events"][4].clone();
-        instruction["event_id"] = json!("EV-5");
-        instruction["sequence"] = json!(5);
-        v["scenarios"][4]["events"].as_array_mut().unwrap().push(accepted);
-        v["scenarios"][4]["events"].as_array_mut().unwrap().push(instruction);
-    })?;
+    mutate_and_reject(
+        "cancelled request creates instruction",
+        corpus,
+        schema,
+        |v| {
+            let mut accepted = v["scenarios"][5]["events"][3].clone();
+            accepted["event_id"] = json!("EV-4");
+            accepted["sequence"] = json!(4);
+            let mut instruction = v["scenarios"][5]["events"][4].clone();
+            instruction["event_id"] = json!("EV-5");
+            instruction["sequence"] = json!(5);
+            v["scenarios"][4]["events"]
+                .as_array_mut()
+                .unwrap()
+                .push(accepted);
+            v["scenarios"][4]["events"]
+                .as_array_mut()
+                .unwrap()
+                .push(instruction);
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("unknown source profile", corpus, schema, |v| {
