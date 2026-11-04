@@ -44,7 +44,10 @@ A calculation recipe retains named numerator and denominator references, source 
 - one-to-many and many-to-many joins require explicit aggregation semantics;
 - ratio operations require a named denominator and a zero-denominator disposition;
 - currency/unit conversion requires a versioned profile and separate evidence;
-- the exact output value is a canonical integer string in the declared unit domain for this v0.1 shape.
+- monetary minor-unit results use canonical signed integer strings bound to a versioned unit profile;
+- ratios/weighted averages can use exact numerator/denominator strings without premature rounding;
+- fixed-decimal results declare an explicit scale and unit profile, with exact decimal parsing (no exponent/floating-point coercion);
+- the calculation recipe still binds the source population, filters, denominator, joins and rounding stage.
 
 ## Claim ceiling
 
@@ -67,3 +70,8 @@ Two commitments are distinct:
 - `workpaper_commitment_sha256` commits to the complete canonical workpaper (node identity/version, inputs, parent commitments, calculation recipe, frontier bindings, review requirement, result payload and verifier state).
 
 A downstream `prior_workpaper` input must bind the parent's `workpaper_commitment_sha256` and exact node/version identity. It must not bind only a rendered number or narrative. Completed workpapers require both digests. In-progress examples intentionally have neither.
+
+
+## Exact numeric result representations
+
+`numeric_value` is a tagged union: integer minor units, fixed-scale decimal, or exact rational. Use integer minor units for ZAR/SAP/etc only when the matching unit profile explicitly defines that atomic unit. Use exact rational for rates/ratios/weighted averages until a profile-defined rounding step is reached. A semantic verifier must reject a zero denominator, a decimal whose textual scale disagrees with its declared scale, non-canonical negative zero, unsupported units, overflow and any attempt to compare/add values with different profiles. Do not convert these values through binary floating point.
