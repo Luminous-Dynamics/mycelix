@@ -31,6 +31,7 @@
       "kind": "claim_accepted",
       "data": {
         "grant_ref": "grant-A",
+        "grant_action_hash": "uhCkk-grant-A",
         "recipient": "agent-recipient",
         "claim_action_hash": "uhCkk-claim-A"
       }
@@ -45,6 +46,7 @@
         "operation_id": "send-operation-001",
         "attempt_id": 1,
         "grant_ref": "grant-A",
+        "grant_action_hash": "uhCkk-grant-A",
         "caller": "agent-recipient",
         "function": "messages.send",
         "authority_index": 2,
@@ -75,6 +77,8 @@
       "kind": "grant_revoked",
       "data": {
         "grant_ref": "grant-A",
+        "target_grant_action_hash": "uhCkk-grant-A",
+        "actor": "agent-owner",
         "revocation_action_hash": "uhCkk-revoke-A",
         "authority_index": 3
       }
