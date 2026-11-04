@@ -271,6 +271,72 @@
         "source_integrity",
         "provenance"
       ]
+    },
+    {
+      "case_id": "GPA-019",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "parse_pinned_locale_and_numbering_system",
+        "preserve_raw_arabic_indic_text",
+        "exact_minor_units"
+      ],
+      "prohibited_claims": [
+        "ascii_only_digit_assumption",
+        "rewrite_original_text"
+      ],
+      "metric_tags": [
+        "arabic_numbering",
+        "locale_numeric",
+        "rtl"
+      ]
+    },
+    {
+      "case_id": "GPA-020",
+      "expected_disposition": "needs_review",
+      "required_behaviors": [
+        "preserve_raw_unicode_strings",
+        "normalization_not_identity_proof",
+        "require_authoritative_cross_namespace_link"
+      ],
+      "prohibited_claims": [
+        "merge_by_display_name_only"
+      ],
+      "metric_tags": [
+        "unicode_identity",
+        "identifier_namespace"
+      ]
+    },
+    {
+      "case_id": "GPA-021",
+      "expected_disposition": "indeterminate",
+      "required_behaviors": [
+        "require_calendar_data_version",
+        "preserve_original_calendar_and_date",
+        "no_unpinned_calendar_conversion"
+      ],
+      "prohibited_claims": [
+        "assumed_gregorian_mapping"
+      ],
+      "metric_tags": [
+        "non_gregorian_calendar",
+        "calendar_versioning"
+      ]
+    },
+    {
+      "case_id": "GPA-022",
+      "expected_disposition": "needs_review",
+      "required_behaviors": [
+        "require_pinned_tzdb_version",
+        "preserve_timezone_and_local_wall_time",
+        "require_offset_or_resolver_evidence"
+      ],
+      "prohibited_claims": [
+        "host_timezone_database_as_implicit_authority"
+      ],
+      "metric_tags": [
+        "tzdb_versioning",
+        "temporal_replay"
+      ]
     }
   ]
 }
