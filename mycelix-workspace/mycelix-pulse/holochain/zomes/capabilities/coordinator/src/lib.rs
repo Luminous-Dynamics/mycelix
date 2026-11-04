@@ -907,7 +907,12 @@ pub fn add_shared_mailbox_member(
         )))?;
 
     match caller_member.role {
-        SharedMailboxRole::Owner | SharedMailboxRole::Admin => {}
+        SharedMailboxRole::Owner => {}
+        SharedMailboxRole::Admin => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Admin member additions require a controller-signed delegated execution lease; direct member addition is owner-only".to_string()
+            )));
+        }
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Insufficient permissions to add members".to_string()
