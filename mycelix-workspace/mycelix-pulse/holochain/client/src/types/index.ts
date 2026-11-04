@@ -329,6 +329,8 @@ export interface SharedMailboxMember {
 }
 
 export interface GrantCapabilityInput {
+  /** Stable logical operation ID; reuse unchanged when retrying the same grant. */
+  operation_id: string;
   grantee: AgentPubKey;
   access_type: MailboxAccessType;
   permissions: MailboxPermissions;
