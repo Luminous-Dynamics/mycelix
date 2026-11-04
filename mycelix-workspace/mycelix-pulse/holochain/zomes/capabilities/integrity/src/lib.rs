@@ -443,7 +443,7 @@ fn validate_capability(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Grantor must be author
-    if cap.grantor != **action.author() {
+    if cap.grantor != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Grantor must match author".to_string(),
         ));
