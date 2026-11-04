@@ -572,6 +572,154 @@
         }
       ],
       "candidate_task": "Distinguish semantic availability from byte integrity and source authenticity."
+    },
+    {
+      "case_id": "GPA-019",
+      "task_family": "locale_numeric",
+      "challenge": "A monetary value uses Arabic-Indic digits and Arabic grouping/decimal symbols under an explicit locale.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "ar-EG"
+        },
+        {
+          "path": "numbering_system",
+          "value": "arab"
+        },
+        {
+          "path": "raw_amount_text",
+          "value": "١٬٢٣٤٫٥٦"
+        },
+        {
+          "path": "currency_id",
+          "value": "CUR-A"
+        },
+        {
+          "path": "minor_unit_scale",
+          "value": 2
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        },
+        {
+          "path": "text_direction",
+          "value": "rtl"
+        }
+      ],
+      "candidate_task": "Parse using the pinned locale and numbering system; preserve the original string and return exact minor-unit value."
+    },
+    {
+      "case_id": "GPA-020",
+      "task_family": "identity_namespace",
+      "challenge": "Two legal names become visually/equivalently matching after Unicode normalization but lack a shared authority identifier.",
+      "facts": [
+        {
+          "path": "party_a_name_raw",
+          "value": "Café Supply"
+        },
+        {
+          "path": "party_b_name_raw",
+          "value": "Café Supply"
+        },
+        {
+          "path": "normalization_form_for_comparison",
+          "value": "NFC"
+        },
+        {
+          "path": "party_a_namespace",
+          "value": "JUR-A-COMPANY-REGISTRY"
+        },
+        {
+          "path": "party_b_namespace",
+          "value": "JUR-B-TAX-REGISTRY"
+        },
+        {
+          "path": "shared_authoritative_identifier",
+          "value": null
+        },
+        {
+          "path": "raw_source_strings_preserved",
+          "value": true
+        }
+      ],
+      "candidate_task": "Use normalization for comparison only; determine whether the parties can be merged without an authoritative cross-namespace link."
+    },
+    {
+      "case_id": "GPA-021",
+      "task_family": "time_localization",
+      "challenge": "A non-Gregorian calendar date is supplied without a pinned calendar-data release.",
+      "facts": [
+        {
+          "path": "source_calendar_id",
+          "value": "islamic-umalqura"
+        },
+        {
+          "path": "source_date_text",
+          "value": "1448-02-12"
+        },
+        {
+          "path": "calendar_data_release",
+          "value": null
+        },
+        {
+          "path": "locale",
+          "value": "ar-SA"
+        },
+        {
+          "path": "timezone",
+          "value": "Asia/Riyadh"
+        },
+        {
+          "path": "reporting_period_mapping_requested",
+          "value": true
+        },
+        {
+          "path": "source_text_preserved",
+          "value": true
+        }
+      ],
+      "candidate_task": "Decide whether the date can be mapped reproducibly without an exact calendar data/profile version."
+    },
+    {
+      "case_id": "GPA-022",
+      "task_family": "time_localization",
+      "challenge": "A time-zone rule changes between tzdb releases, so replay depends on the exact database version.",
+      "facts": [
+        {
+          "path": "timezone",
+          "value": "America/Havana"
+        },
+        {
+          "path": "local_timestamp",
+          "value": "2026-11-01T01:30:00"
+        },
+        {
+          "path": "capture_tzdb_version",
+          "value": null
+        },
+        {
+          "path": "current_tzdb_version",
+          "value": "2026f"
+        },
+        {
+          "path": "current_tzdb_release_date",
+          "value": "2026-10-27"
+        },
+        {
+          "path": "historical_replay_required",
+          "value": true
+        },
+        {
+          "path": "source_offset",
+          "value": null
+        }
+      ],
+      "candidate_task": "Require a pinned time-zone data release and explicit offset/resolution before claiming a reproducible instant."
     }
   ]
 }
