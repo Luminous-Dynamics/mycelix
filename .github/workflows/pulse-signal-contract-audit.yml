@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/pulse-signal-contract-audit.yml"
       - "tools/pulse-signal-contract-audit/**"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-zome-signal-wire-v1.schema.json"
       - "mycelix-workspace/mycelix-pulse/holochain/client/src/signals/SignalHub.ts"
       - "mycelix-workspace/mycelix-pulse/holochain/client/src/types/index.ts"
       - "mycelix-workspace/mycelix-pulse/holochain/zomes/messages/coordinator/src/lib.rs"
@@ -60,10 +61,13 @@ jobs:
             --root mycelix-workspace/mycelix-pulse \
             --output "${RUNNER_TEMP}/pulse-signal-contract-report.json" \
             --report-only
-          jq -r '"status: " + .status, "findings: " + (.findings | length | tostring)' \
+          jq -r '"status: " + .status, "findings: " + (.findings | length | tostring), "schema variants: " + (.signal_schema_variant_count | tostring)' \
             "${RUNNER_TEMP}/pulse-signal-contract-report.json" >> "$GITHUB_STEP_SUMMARY"
+          jq -e '.status == "PASS" and (.findings | length) == 0 and .signal_schema_complete == true and .signal_schema_variant_count == 28' \
+            "${RUNNER_TEMP}/pulse-signal-contract-report.json"
 
       - name: Upload source-derived contract report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pulse-signal-contract-${{ github.sha }}
@@ -71,5 +75,6 @@ jobs:
             ${{ runner.temp }}/pulse-signal-contract-report.json
             ${{ runner.temp }}/pulse-signal-cargo-lock.sha256
             tools/pulse-signal-contract-audit/Cargo.lock
-          if-no-files-found: error
+            mycelix-workspace/mycelix-pulse/docs/security/pulse-zome-signal-wire-v1.schema.json
+          if-no-files-found: warn
           retention-days: 30
