@@ -127,3 +127,14 @@ Sources: [Capitec FAQ](https://www.capitecbank.co.za/were-here-to-help/faqs/), [
 - A partial-payment option is only admissible under the participant's qualified policy and an immutable AMI field in the request commitment.
 - Expiry duration is checked against the selected participant profile; a request's chosen expiry does not modify the profile.
 - Decline and cancellation terminality is participant-specific; do not inherit Nedbank's no-reopen rule to other participants without source evidence.
+
+
+## Abuse resistance and non-coercive payer safeguards (v1 extension)
+
+The synthetic corpus adds sixteen adversarial cases (SA-RTP-047 through SA-RTP-062). It distinguishes sender credential authentication from requester identity, invoice evidence, payer choice, purpose-limited data use and material-presentation integrity.
+
+A verified provider credential is not proof that an invoice or asserted debt is legitimate. A request may show a sender name and reference, but that is not a legal adjudication. The payer can decline or report an unknown request without creating payment authority. Confusable/mismatched beneficiary identities, incomplete material presentations and unrelated secondary data-use purposes fail closed. A false-positive block must have an appeal/correction path.
+
+The corpus measures report/decline rates, repeat contact after decline, accessibility parity, confirmed fraud and appeal reversals. It does not optimise raw acceptance rate or treat repeat contact as universally prohibited where participant rules are unknown.
+
+See `SA-PAY-RTP-ABUSE-001` (#5768) for the detailed threat model, evidence dimensions and claim ceiling.
