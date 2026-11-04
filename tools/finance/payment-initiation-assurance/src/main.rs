@@ -759,6 +759,8 @@ mod tests {
         let close = &cases[20]["payee_verification"];
         let unavailable = &cases[22]["payee_verification"];
         let no_match = &cases[21]["payee_verification"];
+        let account_type_mismatch = &cases[27]["payee_verification"];
+        let proposal_only = &cases[29]["payee_verification"];
         assert_eq!(exact["result"], "match");
         assert_eq!(exact["requested_account_type"], "not_specified");
         assert_eq!(exact["returned_account_type"], "unknown");
@@ -766,19 +768,17 @@ mod tests {
         assert_eq!(close["requested_account_type"], "business");
         assert_eq!(close["returned_account_type"], "business");
         assert_eq!(unavailable["result"], "unavailable");
+        assert_eq!(unavailable["scheme_profile"], "UK_FPS_COP");
+        assert_eq!(account_type_mismatch["requested_account_type"], "individual");
+        assert_eq!(account_type_mismatch["returned_account_type"], "business");
         assert_eq!(no_match["fraud_inference"], "not_inferred");
         assert_eq!(
             exact["collection_authority_inferred_from_name_match"],
             false
         );
-        assert_eq!(
-            cases[29]["payee_verification"]["scheme_profile"],
-            "ZA_NPU_PROPOSAL_ONLY"
-        );
-        assert_eq!(
-            cases[29]["payee_verification"]["provider_signature_state"],
-            "unknown"
-        );
+        assert_eq!(proposal_only["scheme_profile"], "ZA_NPU_PROPOSAL_ONLY");
+        assert_eq!(proposal_only["provider_signature_state"], "unknown");
+        assert_eq!(proposal_only["result"], "unavailable");
         assert!(validate_semantics(&corpus).is_empty());
     }
 }
