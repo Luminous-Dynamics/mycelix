@@ -993,7 +993,9 @@ fn resolve_latest_shared_mailbox(
     mailbox_hash: ActionHash,
 ) -> ExternResult<(ActionHash, SharedMailbox)> {
     let record = get(mailbox_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Shared mailbox state is unknown: root record is unavailable".to_string())
+        WasmErrorInner::Guest(
+            "Shared mailbox state is unknown: root record is unavailable".to_string(),
+        )
     ))?;
     let mailbox: SharedMailbox = record
         .entry()
@@ -1003,11 +1005,7 @@ fn resolve_latest_shared_mailbox(
             "Shared mailbox state is unknown: root entry has another type".to_string()
         )))?;
 
-    let mut latest = (
-        record.action().action_seq(),
-        mailbox_hash.clone(),
-        mailbox,
-    );
+    let mut latest = (record.action().action_seq(), mailbox_hash.clone(), mailbox);
     let mut frontier = vec![mailbox_hash];
     let mut visited = HashSet::new();
 
@@ -1019,13 +1017,15 @@ fn resolve_latest_shared_mailbox(
         };
         let Details::Record(details) = details else {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "Shared mailbox state is unknown: hash did not resolve to record details".to_string()
+                "Shared mailbox state is unknown: hash did not resolve to record details"
+                    .to_string()
             )));
         };
 
         if details.updates.len() > 1 {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "Shared mailbox state is conflicting: multiple updates descend from the same head".to_string()
+                "Shared mailbox state is conflicting: multiple updates descend from the same head"
+                    .to_string()
             )));
         }
 
@@ -1036,7 +1036,8 @@ fn resolve_latest_shared_mailbox(
             }
             let Some(update_record) = get(update_hash.clone(), GetOptions::default())? else {
                 return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Shared mailbox state is unknown: a referenced update record is unavailable".to_string()
+                    "Shared mailbox state is unknown: a referenced update record is unavailable"
+                        .to_string()
                 )));
             };
             let Some(updated_mailbox) = update_record
