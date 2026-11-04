@@ -68,7 +68,7 @@ fn timestamp_epoch_seconds(value: &str) -> Option<i64> {
     if hour > 23 || minute > 59 || second > 60 {
         return None;
     }
-    let y = year - i64::from(month <= 2);
+    let y = year - if month <= 2 { 1 } else { 0 };
     let era = y.div_euclid(400);
     let year_of_era = y - era * 400;
     let month_prime = month + if month > 2 { -3 } else { 9 };
