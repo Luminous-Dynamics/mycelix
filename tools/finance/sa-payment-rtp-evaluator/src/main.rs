@@ -165,8 +165,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     }
     let digest_contract = &corpus["request_digest_contract"];
     if str_at(digest_contract, "algorithm") != Some("SHA-256")
-        || str_at(digest_contract, "domain_separator")
-            != Some("MYCELIX-SA-PAYMENT-RTP-REQUEST-V1")
+        || str_at(digest_contract, "domain_separator") != Some("MYCELIX-SA-PAYMENT-RTP-REQUEST-V1")
         || str_at(digest_contract, "separator_terminator") != Some("NUL")
         || str_at(digest_contract, "canonicalization") != Some("MYCELIX-CANONICAL-JSON-V1")
         || str_at(digest_contract, "hashed_payload")
@@ -180,7 +179,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let scenario_id = str_at(vector, "scenario_id").unwrap_or("");
             let expected = str_at(vector, "expected_digest").unwrap_or("");
             let scenario = array_at(corpus, "scenarios").and_then(|items| {
-                items.iter().find(|item| str_at(item, "scenario_id") == Some(scenario_id))
+                items
+                    .iter()
+                    .find(|item| str_at(item, "scenario_id") == Some(scenario_id))
             });
             match scenario.and_then(|item| compute_request_digest(&item["request"]).ok()) {
                 Some(actual) if actual == expected => {}
