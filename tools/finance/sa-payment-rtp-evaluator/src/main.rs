@@ -332,7 +332,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     | "request_not_admitted_for_live_profile"
             )
         });
-        let amount_rules = array_at(profile, "amount_limit_rules").cloned().unwrap_or_default();
+        let amount_rules = array_at(profile, "amount_limit_rules")
+            .cloned()
+            .unwrap_or_default();
         if !amount_rules.is_empty() {
             let route = str_at(request, "limit_route_scope").unwrap_or("generic");
             match amount_rules.iter().find(|rule| str_at(rule, "route_scope") == Some(route)) {
@@ -359,7 +361,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             ));
         }
 
-        if let Some(policy) = profile.get("expiry_policy").filter(|value| !value.is_null()) {
+        if let Some(policy) = profile
+            .get("expiry_policy")
+            .filter(|value| !value.is_null())
+        {
             let elapsed_days = civil_day(expires_at)
                 .zip(civil_day(issued_at))
                 .map(|(expires, issued)| expires - issued);
@@ -581,12 +586,13 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             .iter()
             .any(|event| event_type(event) == "request_rejected_by_request_rate_limit");
         if rate_limit_rejected {
-            let has_published_counter = array_at(profile, "request_count_rules").is_some_and(|rules| {
-                rules.iter().any(|rule| {
-                    u64_at(rule, "max_requests_per_24h").is_some()
-                        || u64_at(rule, "max_per_counterparty_per_24h").is_some()
-                })
-            });
+            let has_published_counter =
+                array_at(profile, "request_count_rules").is_some_and(|rules| {
+                    rules.iter().any(|rule| {
+                        u64_at(rule, "max_requests_per_24h").is_some()
+                            || u64_at(rule, "max_per_counterparty_per_24h").is_some()
+                    })
+                });
             if !has_published_counter {
                 errors.push(format!(
                     "{case_id}: a request rate-limit rejection is unsupported by the participant profile"
@@ -602,8 +608,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 .get("amount_modification_indicator")
                 .and_then(Value::as_bool)
                 == Some(true);
-            let partial_supported = str_at(profile, "partial_payment_policy")
-                == Some("supported_if_ami");
+            let partial_supported =
+                str_at(profile, "partial_payment_policy") == Some("supported_if_ami");
             let offered = events
                 .iter()
                 .any(|event| event_type(event) == "partial_payment_option_offered");
@@ -839,19 +845,34 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("partial payment option offered without AMI support", corpus, schema, |v| {
-        v["profiles"][6]["partial_payment_policy"] = json!("unsupported");
-    })?;
+    mutate_and_reject(
+        "partial payment option offered without AMI support",
+        corpus,
+        schema,
+        |v| {
+            v["profiles"][6]["partial_payment_policy"] = json!("unsupported");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("rate-limit rejection without published counter", corpus, schema, |v| {
-        v["profiles"][6]["request_count_rules"] = json!([]);
-    })?;
+    mutate_and_reject(
+        "rate-limit rejection without published counter",
+        corpus,
+        schema,
+        |v| {
+            v["profiles"][6]["request_count_rules"] = json!([]);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("Nedbank expiry exceeds published 45-day maximum", corpus, schema, |v| {
-        v["scenarios"][42]["request"]["expiry_at"] = json!("2027-01-01T08:00:00Z");
-    })?;
+    mutate_and_reject(
+        "Nedbank expiry exceeds published 45-day maximum",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][42]["request"]["expiry_at"] = json!("2027-01-01T08:00:00Z");
+        },
+    )?;
     count += 1;
 
     Ok(count)
