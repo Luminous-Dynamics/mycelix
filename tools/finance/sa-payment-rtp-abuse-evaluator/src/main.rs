@@ -461,7 +461,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 ));
             }
             if vop_guidance != Some("EPC_VOP_MATCHING_V2.0") {
-                errors.push(format!("{id}: VOP matching guidance version must be explicitly bound"));
+                errors.push(format!(
+                    "{id}: VOP matching guidance version must be explicitly bound"
+                ));
             }
             let base_vop_sources = [
                 "EPC_VOP_RULEBOOK_2026",
@@ -473,11 +475,14 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     .iter()
                     .any(|item| item.as_str() == Some(source_id))
             }) {
-                errors.push(format!("{id}: VOP comparator source register is incomplete"));
+                errors.push(format!(
+                    "{id}: VOP comparator source register is incomplete"
+                ));
             }
             match vop_result {
                 "match"
-                    if str_at(case, "requester_identity_evidence") == Some("account_name_match")
+                    if str_at(case, "requester_identity_evidence")
+                        == Some("account_name_match")
                         && str_at(case, "collection_authority")
                             != Some("verified_for_beneficiary")
                         && str_at(case, "expected_claim_ceiling")
@@ -492,8 +497,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     if !matches!(
                         str_at(case, "payee_binding"),
                         Some("ambiguous" | "confusable")
-                    ) || str_at(case, "expected_disposition")
-                        != Some("manual_identity_review")
+                    ) || str_at(case, "expected_disposition") != Some("manual_identity_review")
                     {
                         errors.push(format!(
                             "{id}: VOP close match must remain a manual identity-review state"
@@ -501,9 +505,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     }
                 }
                 "no_match" | "verification_not_possible" => {
-                    let no_match_source_present = source_refs.iter().any(|item| {
-                        item.as_str() == Some("EPC_VOP_NO_MATCH_PAYER_CHOICE_2026")
-                    });
+                    let no_match_source_present = source_refs
+                        .iter()
+                        .any(|item| item.as_str() == Some("EPC_VOP_NO_MATCH_PAYER_CHOICE_2026"));
                     if payer_warning != "warning_displayed"
                         || payer_choice != "preserved"
                         || str_at(case, "payee_binding") == Some("mismatch")
@@ -1004,8 +1008,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |v| {
-            v["scenarios"][29]["expected_disposition"] =
-                json!("identity_or_authority_unqualified");
+            v["scenarios"][29]["expected_disposition"] = json!("identity_or_authority_unqualified");
         },
     )?;
     count += 1;
@@ -1020,14 +1023,9 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
-    mutate_and_reject(
-        "VOP no-match warning suppressed",
-        corpus,
-        schema,
-        |v| {
-            v["scenarios"][30]["payer_warning_state"] = json!("not_required");
-        },
-    )?;
+    mutate_and_reject("VOP no-match warning suppressed", corpus, schema, |v| {
+        v["scenarios"][30]["payer_warning_state"] = json!("not_required");
+    })?;
     count += 1;
 
     mutate_and_reject(
@@ -1137,10 +1135,7 @@ mod tests {
     fn vop_name_match_never_substitutes_for_collection_authority() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let matched = &corpus["scenarios"][28];
-        assert_eq!(
-            str_at(matched, "payee_verification_result"),
-            Some("match")
-        );
+        assert_eq!(str_at(matched, "payee_verification_result"), Some("match"));
         assert_eq!(
             str_at(matched, "collection_authority"),
             Some("not_provided")
@@ -1155,10 +1150,7 @@ mod tests {
             str_at(no_match, "payer_warning_state"),
             Some("warning_displayed")
         );
-        assert_eq!(
-            str_at(no_match, "payer_choice_state"),
-            Some("preserved")
-        );
+        assert_eq!(str_at(no_match, "payer_choice_state"), Some("preserved"));
     }
 
     #[test]
