@@ -55,11 +55,48 @@ fn valid_date(value: &str) -> bool {
     (1..=max_day).contains(&day)
 }
 
+fn timestamp_epoch_seconds(value: &str) -> Option<i64> {
+    if value.len() < 20 || !valid_date(value.get(0..10)?) || value.as_bytes().get(10) != Some(&b'T') {
+        return None;
+    }
+    let year = value.get(0..4)?.parse::<i64>().ok()?;
+    let month = value.get(5..7)?.parse::<i64>().ok()?;
+    let day = value.get(8..10)?.parse::<i64>().ok()?;
+    let hour = value.get(11..13)?.parse::<i64>().ok()?;
+    let minute = value.get(14..16)?.parse::<i64>().ok()?;
+    let second = value.get(17..19)?.parse::<i64>().ok()?;
+    if hour > 23 || minute > 59 || second > 60 {
+        return None;
+    }
+    let y = year - i64::from(month <= 2);
+    let era = y.div_euclid(400);
+    let year_of_era = y - era * 400;
+    let month_prime = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * month_prime + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    let days = era * 146_097 + day_of_era - 719_468;
+
+    let zone = value.get(19..)?;
+    let offset_seconds = if zone == "Z" {
+        0
+    } else {
+        let sign = match zone.as_bytes().first()? {
+            b'+' => 1_i64,
+            b'-' => -1_i64,
+            _ => return None,
+        };
+        let offset_hour = zone.get(1..3)?.parse::<i64>().ok()?;
+        let offset_minute = zone.get(4..6)?.parse::<i64>().ok()?;
+        if offset_hour > 23 || offset_minute > 59 || zone.as_bytes().get(3) != Some(&b':') {
+            return None;
+        }
+        sign * (offset_hour * 3_600 + offset_minute * 60)
+    };
+    Some(days * 86_400 + hour * 3_600 + minute * 60 + second - offset_seconds)
+}
+
 fn valid_timestamp(value: &str) -> bool {
-    value.len() >= 20
-        && valid_date(&value[..10])
-        && value.as_bytes().get(10) == Some(&b'T')
-        && (value.ends_with('Z') || value.contains('+') || value.rfind('-').is_some_and(|i| i > 10))
+    timestamp_epoch_seconds(value).is_some()
 }
 
 fn schema_errors(schema: &Value, corpus: &Value) -> Vec<String> {
@@ -157,6 +194,17 @@ fn rule_sources_resolve(rule: &Value, sources: &BTreeSet<String>) -> bool {
     })
 }
 
+fn case_cites_rule(case_refs: &[Value], rule: &Value) -> bool {
+    array_at(rule, "source_refs").is_some_and(|rule_refs| {
+        !rule_refs.is_empty()
+            && rule_refs.iter().all(|reference| {
+                reference.as_str().is_some_and(|source_id| {
+                    case_refs.iter().any(|item| item.as_str() == Some(source_id))
+                })
+            })
+    })
+}
+
 fn profile_source_refs_resolve(profile: &Value, sources: &BTreeSet<String>) -> bool {
     let refs = array_at(profile, "source_refs");
     match (str_at(profile, "limit_knowledge_state"), refs) {
@@ -179,12 +227,18 @@ fn window_valid(case: &Value) -> bool {
     let Some(start) = str_at(case, "window_start_at") else {
         return false;
     };
-    if !valid_timestamp(observed) || !valid_timestamp(start) || start > observed {
+    let (Some(observed_seconds), Some(start_seconds)) = (
+        timestamp_epoch_seconds(observed),
+        timestamp_epoch_seconds(start),
+    ) else {
+        return false;
+    };
+    if start_seconds > observed_seconds {
         return false;
     }
     let semantics = str_at(case, "window_semantics").unwrap_or("");
     match semantics {
-        "rolling_24h" => true,
+        "rolling_24h" => observed_seconds - start_seconds <= 86_400,
         "calendar_day" | "day_unspecified" => true,
         _ => false,
     }
@@ -390,6 +444,19 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
         if case.get("instruction_created").and_then(Value::as_bool) != Some(false) {
             errors.push(format!("{id}: limit corpus must not create payment instructions"));
+        }
+
+        if str_at(profile, "limit_knowledge_state") == Some("source_backed") {
+            let count_id = str_at(case, "applied_count_rule_id").unwrap_or("");
+            let amount_id = str_at(case, "applied_amount_rule_id").unwrap_or("");
+            match find_count_rule(profile, count_id) {
+                Some(rule) if case_cites_rule(&refs, rule) => {}
+                _ => errors.push(format!("{id}: selected count rule is missing or its exact source is not cited")),
+            }
+            match find_amount_rule(profile, amount_id) {
+                Some(rule) if case_cites_rule(&refs, rule) => {}
+                _ => errors.push(format!("{id}: selected amount rule is missing or its exact source is not cited")),
+            }
         }
 
         if str_at(profile, "limit_knowledge_state") == Some("unknown") {
