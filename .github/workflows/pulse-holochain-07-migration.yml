@@ -247,12 +247,7 @@ jobs:
       - name: Build active Pulse alpha zomes for wasm32
         working-directory: mycelix-workspace/mycelix-pulse
         run: |
-          nix develop --command bash -lc '
-            # Holochain zomes have no browser JS or WASI host. Make transitive
-            # getrandom calls fail closed; application entropy must use hdk::random_bytes.
-            export CARGO_ENCODED_RUSTFLAGS="$(printf "%s\\037" "-D" "warnings" "--cfg" "getrandom_backend=\\\"unsupported\\\"")"
-            cargo build --manifest-path holochain/Cargo.toml --workspace --release --target wasm32-unknown-unknown
-          '
+          CARGO_ENCODED_RUSTFLAGS=$'-D\\037warnings\\037--cfg\\037getrandom_backend="unsupported"' nix develop --command cargo build --manifest-path holochain/Cargo.toml --workspace --release --target wasm32-unknown-unknown
 
       - name: Pack the exact Holochain 0.7 Sweettest DNA
         working-directory: mycelix-workspace/mycelix-pulse
