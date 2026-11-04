@@ -523,3 +523,31 @@ For the live-board version described above, propose >=70% Mean Criteria Score as
 ### Close-workpaper execution semantics
 
 The benchmark should include a durable typed workpaper/DAG evaluation, tracked in [FIN-ACC-CLOSE-001 / #5803](https://github.com/Luminous-Dynamics/mycelix/issues/5803). This addresses multi-step propagation failure (including correct intermediate values later used with the wrong denominator) by committing intermediate values with exact formula/filter/denominator/unit/source/policy frontier and parent workpaper digests. It must compose the existing Mycelix Business Fabric coordination and Decision Capsule contracts (#566–#571), not add a second workflow engine. Recompute only descendants of a changed source/policy/scope frontier; keep historical workpapers immutable. Every required node receives one terminal disposition. A missing node, stale checkpoint or unresolved external outcome cannot be interpreted as a completed close.
+
+
+## 17. Competitive target matrix — distinct instruments, separate ambitions
+
+The current external snapshots are useful for directional comparison but are not one leaderboard. The table below is a **proposed target matrix**, not measured Luminous performance. Each comparison must pin the task split, evaluator, scoring version, model/tool budget, number of attempts and rights.
+
+| Track | Current public reference checked 4 Nov 2026 | Proposed initial ambition | Stretch ambition | Interpretation boundary |
+|---|---:|---:|---:|---|
+| FINBALANCE | At most 46% exact final-statement accuracy across six models | ≥70% exact statements | ≥85% | Exact statement correctness on a compatible, rights-cleared source bundle |
+| DualBench100 v1.0 | 91.1% leading public overall score | ≥95% overall | ≥97% | Must also clear ≥90% in each category; preserve native tolerance score and exact values |
+| APEX-Accounting live-board condition | 61.8% ± 4.0 Mean Criteria Score; 160 tasks / 2,186 criteria / eight attempts | ≥70% | ≥80% | Rubric criteria score only; record Pass@1/Pass@8/Pass^8 and methodology conflicts |
+| EMB v1.1 | 76.73% leading reported score; one public task, private validation/test; proprietary | ≥80% after authorized access | ≥85% after authorized access | Spreadsheet modelling, exact-cell and rubric modes; separate v1.0/v1.1; no public-sample leaderboard claim |
+| BlueFin v1 | 49.6% leading criteria-weighted score | ≥60% | ≥65% | Spreadsheet synthesis/manipulation; CC-BY-NC dataset and CC-BY-NC-SA paper require rights controls |
+| Finch v5 | 38.4% highest reported human-evaluated workflow pass rate | ≥50% | ≥60% | Multi-file long workflow; use expert-human gold and report LLM-rubric separately |
+| FIN-ACC internal completeness | No directly comparable industry-wide score | 0 seeded material omissions declared complete | 0 | Hard gate, not an aggregate quality score |
+| FIN-ACC internal source/journal/statement invariants | No directly comparable industry-wide score | 100% on supported frozen cases | 100% on expanded expert-reviewed set | Hard gate, deterministic independent reconstruction |
+
+### Rules for using this matrix
+
+1. Do not combine percentages into a universal "accounting intelligence score".
+2. Never compare current APEX 61.8% with the earlier 71.5% snapshot as if the same task/scoring version; the owner materials conflict on task count, attempt count and coverage.
+3. EMB v1.1's private validation/test split and BlueFin's non-commercial license mean that a public one-task/sample run cannot reproduce their leaderboards. Do not import/train/re-host restricted sets without permission.
+4. Finch's expert human evaluation is its primary quality reference; an LLM rubric is a separate auxiliary metric. Preserve that distinction.
+5. APEX/EMB/BlueFin/Finch are useful workflow or spreadsheet baselines, but their criterion/workflow scores do not establish exact debit-credit, source completeness, policy correctness, settlement or audit sufficiency.
+6. For every external score publish the exact candidate, version, configuration, dataset and evaluator digests, task split, attempt budget, p50/p95 latency, cost, failures/abstentions and uncertainty interval.
+
+The commercial metric remains **fully loaded cost per independently verified, complete and approvable entity-period**, with connector, extraction, model, verifier, reviewer, rework and exception cost included. A period with unresolved material completeness/authority gates does not enter the denominator.
+
