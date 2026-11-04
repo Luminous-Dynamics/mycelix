@@ -97,7 +97,7 @@ fn compute_request_digest(request: &Value) -> Result<String, String> {
     let bytes = serde_json::to_vec(&canonical_json(&payload))
         .map_err(|error| format!("canonical request serialization failed: {error}"))?;
     let mut hasher = Sha256::new();
-    hasher.update(b"MYCELIX-SA-PAYMENT-RTP-REQUEST-V1\\0");
+    hasher.update(b"MYCELIX-SA-PAYMENT-RTP-REQUEST-V1\0");
     hasher.update(bytes);
     Ok(format!("sha256:{:x}", hasher.finalize()))
 }
