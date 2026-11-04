@@ -170,9 +170,9 @@
       "temporal_state": "observed_current_page_effective_date_unknown",
       "max_request_minor_units": 10000,
       "max_requests_per_24h": 2,
-      "max_combined_request_minor_units_per_24h": 20000,
+      "max_combined_request_minor_units_per_24h": null,
       "fee_state": "same_faq_request_cap_and_payer_fee_bands_conflict",
-      "fee_note": "FAQ says requester fee is zero and the payer/approver pays amount-based fees; the same FAQ caps requests at R100 but lists additional payer-fee bands above R100. Preserve the mismatch; do not infer an applicable fee above the stated cap.",
+      "fee_note": "FAQ says requester fee is zero and the payer/approver pays amount-based fees; the same FAQ caps requests at R100 but lists additional payer-fee bands above R100. Preserve the mismatch; do not infer an applicable fee above the stated cap. The FAQ does not state a separate combined daily-value cap; leave that field unknown rather than deriving one.",
       "source_refs": [
         "CAPITEC_RTP_PRODUCT_2026",
         "CAPITEC_RTP_FAQ_2026"
