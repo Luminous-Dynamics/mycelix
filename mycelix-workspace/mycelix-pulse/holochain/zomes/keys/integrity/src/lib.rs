@@ -64,7 +64,7 @@ fn validate_create_hybrid_key_bundle_v2(
     let mut signature = [0; 64];
     signature.copy_from_slice(&bundle.agent_signature);
     if !verify_signature_raw(
-        action.author(),
+        action.author().clone(),
         Signature(signature),
         hybrid_key_signing_content(&bundle),
     )? {
@@ -188,7 +188,7 @@ fn validate_create_pre_key_bundle(
     let mut signature = [0u8; 64];
     signature.copy_from_slice(&bundle.signed_pre_key_signature);
     if !verify_signature_raw(
-        action.author(),
+        action.author().clone(),
         Signature(signature),
         pre_key_signing_content(&bundle),
     )? {
