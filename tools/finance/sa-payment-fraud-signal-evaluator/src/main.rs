@@ -26,10 +26,6 @@ fn array_at<'a>(value: &'a Value, key: &str) -> Option<&'a Vec<Value>> {
     value.get(key).and_then(Value::as_array)
 }
 
-fn status_name(value: &Value) -> &'static str {
-    if value.is_null() { "null" } else { value.as_str().unwrap_or("<invalid>") }
-}
-
 fn schema_errors(schema: &Value, corpus: &Value) -> Vec<String> {
     let mut errors = Vec::new();
     if !jsonschema::meta::is_valid(schema) {
@@ -128,16 +124,32 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         };
         let source = str_at(signal, "source_participant").unwrap_or("");
         let source_state = str_at(signal, "source_authority_state").unwrap_or("");
+        let signal_jurisdiction = str_at(signal, "jurisdiction").unwrap_or("");
+        let profile_jurisdiction = str_at(profile, "jurisdiction").unwrap_or("");
+        let disclosures_empty = array_at(scenario, "disclosures").is_none_or(Vec::is_empty);
+        let decision_action = str_at(&scenario["receiver_decision"], "action").unwrap_or("");
+        if profile_jurisdiction != "MULTI" && profile_jurisdiction != signal_jurisdiction
+            && (!disclosures_empty || decision_action != "none"
+                || str_at(scenario, "expected_disposition") != Some("quarantine_cross_jurisdiction"))
+        {
+            errors.push(format!("{case_id}: cross-jurisdiction use lacks an explicit quarantine disposition"));
+        }
         let profile_status = str_at(profile, "profile_status").unwrap_or("");
         let allowed_sources = array_at(profile, "allowed_source_participants");
         let source_allowed = allowed_sources.is_some_and(|items| items.iter().any(|v| v.as_str() == Some(source)));
-        if profile_status == "proposal_only" && is_current_status(str_at(signal, "status").unwrap_or("")) {
+        if profile_status == "proposal_only"
+            && source_state == "authorized"
+            && is_current_status(str_at(signal, "status").unwrap_or(""))
+        {
             errors.push(format!("{case_id}: proposal-only programme profile cannot produce current operational signal"));
         }
         if source_state == "authorized" && !source_allowed {
             errors.push(format!("{case_id}: source participant is not admitted by this profile"));
         }
         if source_state != "authorized" {
+            if str_at(signal, "status") != Some("unknown") {
+                errors.push(format!("{case_id}: unknown/revoked source signal must remain unknown"));
+            }
             if !array_at(scenario, "disclosures").is_none_or(Vec::is_empty) {
                 errors.push(format!("{case_id}: unknown/revoked source must not disclose a signal"));
             }
@@ -205,7 +217,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let source_confirmation = refs.iter().any(|reference| {
                 str_at(reference, "evidence_class") == Some("source_final_case_disposition")
                     && str_at(reference, "participant_id") == Some(source)
-            });
+            }) && str_at(signal, "evidence_class") == Some("source_final_case_disposition");
             if !source_confirmation || source_state != "authorized" {
                 errors.push(format!("{case_id}: confirmed_by_source lacks an authorised source final case disposition"));
             }
@@ -236,8 +248,13 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!("{path}: revoked source cannot emit an accepted status event"));
             }
             let observed = str_at(event, "observed_at").unwrap_or("");
-            if observed.len() < 20 || observed > AS_OF {
-                errors.push(format!("{path}: event timestamp is malformed or after as_of"));
+            let event_type = str_at(event, "event_type").unwrap_or("");
+            let authority_state = str_at(event, "authority_state").unwrap_or("");
+            let blocked_clock_skew = event_type == "clock_skew_quarantined"
+                && authority_state == "unknown"
+                && event.get("to_status").is_none_or(Value::is_null);
+            if observed.len() < 20 || (observed > AS_OF && !blocked_clock_skew) {
+                errors.push(format!("{path}: event timestamp is malformed or an untrusted future event is not quarantined"));
             }
             if let Some(to_status) = event.get("to_status").and_then(Value::as_str) {
                 last_state = Some(to_status.to_owned());
@@ -265,6 +282,11 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
         if status == "confirmed_by_source" && !seen_confirmation {
             errors.push(format!("{case_id}: source-confirmed status lacks a recorded confirmation transition"));
+        }
+        if matches!(status, "corrected" | "withdrawn")
+            && signal.get("signal_version").and_then(Value::as_u64).unwrap_or(0) < 2
+        {
+            errors.push(format!("{case_id}: correction/withdrawal must advance the signal version"));
         }
         if status == "corrected" && !seen_correction {
             errors.push(format!("{case_id}: corrected status lacks a correction transition"));
@@ -327,9 +349,6 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
         if status == "under_review" && signal.get("appeal_state").and_then(Value::as_str) == Some("under_review") && action == "deny_access" {
             errors.push(format!("{case_id}: unresolved appeal cannot be treated as a final adverse fact"));
-        }
-        if case_index >= scenarios.len() {
-            errors.push("unreachable scenario index".into());
         }
     }
     errors
@@ -483,7 +502,7 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 4);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 3);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 30);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 33);
     }
 
     #[test]
