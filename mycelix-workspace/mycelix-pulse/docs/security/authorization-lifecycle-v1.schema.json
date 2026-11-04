@@ -1,0 +1,348 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-authorization-lifecycle-v1.schema.json",
+  "title": "Pulse Authorization Lifecycle Qualification Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_id",
+    "profile_version",
+    "status",
+    "dataset_type",
+    "source_context",
+    "outcome_planes",
+    "scenario_count",
+    "scenarios"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "profile_id": {
+      "const": "PULSE-AUTH-LIFECYCLE-QUAL-001"
+    },
+    "profile_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "research-corpus-not-runtime-qualified"
+    },
+    "dataset_type": {
+      "const": "synthetic"
+    },
+    "source_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pulse_migration_pr",
+        "holochain_071_profile_pr",
+        "holochain_071_qualification_issue",
+        "source_commit"
+      ],
+      "properties": {
+        "pulse_migration_pr": {
+          "type": "string",
+          "format": "uri"
+        },
+        "holochain_071_profile_pr": {
+          "type": "string",
+          "format": "uri"
+        },
+        "holochain_071_qualification_issue": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "outcome_planes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_decision",
+        "domain_result",
+        "source_chain",
+        "validator",
+        "projection",
+        "observer"
+      ],
+      "properties": {
+        "host_decision": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "AUTHORIZED",
+              "UNAUTHORIZED",
+              "UNKNOWN",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "domain_result": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "EXECUTED",
+              "REJECTED",
+              "NOT_INVOKED",
+              "UNKNOWN",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "source_chain": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "ACTION_AUTHORED",
+              "NO_ACTION",
+              "UNKNOWN",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "validator": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "ACCEPTED",
+              "REJECTED",
+              "NOT_OBSERVED",
+              "UNKNOWN",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "projection": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "CURRENT",
+              "STALE",
+              "CONFLICTING",
+              "UNKNOWN",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "observer": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "ACKNOWLEDGED",
+              "NO_ACK",
+              "UNKNOWN",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "scenario_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "family",
+          "title",
+          "threat",
+          "events",
+          "checks",
+          "notes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,5}-[0-9]{2}$"
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5
+          },
+          "threat": {
+            "type": "string",
+            "minLength": 10
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "order",
+                "actor",
+                "action",
+                "request_id",
+                "attempt",
+                "note"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^e[1-9][0-9]*$"
+                },
+                "order": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "actor": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "action": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "request_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "grant_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "attempt": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "happens_before": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "concurrent_group": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 5
+                }
+              }
+            }
+          },
+          "checks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "after",
+                "planes",
+                "assertions"
+              ],
+              "properties": {
+                "after": {
+                  "type": "string"
+                },
+                "planes": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "host_decision",
+                    "domain_result",
+                    "source_chain",
+                    "validator",
+                    "projection",
+                    "observer"
+                  ],
+                  "properties": {
+                    "host_decision": {
+                      "enum": [
+                        "AUTHORIZED",
+                        "UNAUTHORIZED",
+                        "UNKNOWN",
+                        "NOT_APPLICABLE"
+                      ]
+                    },
+                    "domain_result": {
+                      "enum": [
+                        "EXECUTED",
+                        "REJECTED",
+                        "NOT_INVOKED",
+                        "UNKNOWN",
+                        "NOT_APPLICABLE"
+                      ]
+                    },
+                    "source_chain": {
+                      "enum": [
+                        "ACTION_AUTHORED",
+                        "NO_ACTION",
+                        "UNKNOWN",
+                        "NOT_APPLICABLE"
+                      ]
+                    },
+                    "validator": {
+                      "enum": [
+                        "ACCEPTED",
+                        "REJECTED",
+                        "NOT_OBSERVED",
+                        "UNKNOWN",
+                        "NOT_APPLICABLE"
+                      ]
+                    },
+                    "projection": {
+                      "enum": [
+                        "CURRENT",
+                        "STALE",
+                        "CONFLICTING",
+                        "UNKNOWN",
+                        "NOT_APPLICABLE"
+                      ]
+                    },
+                    "observer": {
+                      "enum": [
+                        "ACKNOWLEDGED",
+                        "NO_ACK",
+                        "UNKNOWN",
+                        "NOT_APPLICABLE"
+                      ]
+                    }
+                  }
+                },
+                "assertions": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    }
+  }
+}
