@@ -59,6 +59,48 @@ fn unique_ids(values: &[Value], key: &str, label: &str, errors: &mut Vec<String>
     }
 }
 
+fn parse_utc_seconds(value: &str) -> Option<i64> {
+    if value.len() != 20
+        || value.as_bytes().get(10) != Some(&b'T')
+        || value.as_bytes().get(19) != Some(&b'Z')
+    {
+        return None;
+    }
+    let year = value[0..4].parse::<i64>().ok()?;
+    let month = value[5..7].parse::<i64>().ok()?;
+    let day = value[8..10].parse::<i64>().ok()?;
+    let hour = value[11..13].parse::<i64>().ok()?;
+    let minute = value[14..16].parse::<i64>().ok()?;
+    let second = value[17..19].parse::<i64>().ok()?;
+    if !(1..=12).contains(&month)
+        || !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=59).contains(&second)
+    {
+        return None;
+    }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return None,
+    };
+    if !(1..=max_day).contains(&day) {
+        return None;
+    }
+    let adjusted_year = year - i64::from(month <= 2);
+    let era = adjusted_year.div_euclid(400);
+    let year_of_era = adjusted_year - era * 400;
+    let adjusted_month = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * adjusted_month + 2) / 5 + day - 1;
+    let day_of_era =
+        year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    let days = era * 146_097 + day_of_era - 719_468;
+    Some(days * 86_400 + hour * 3_600 + minute * 60 + second)
+}
+
 fn is_current_status(status: &str) -> bool {
     matches!(status, "suspected" | "corroborated" | "confirmed_by_source" | "contested" | "under_review")
 }
@@ -189,11 +231,28 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
 
         let status = str_at(signal, "status").unwrap_or("");
+        let observed_at = str_at(signal, "observed_at").unwrap_or("");
+        let recorded_at = str_at(signal, "recorded_at").unwrap_or("");
         let expiry = str_at(signal, "expires_at").unwrap_or("");
-        if expiry.len() < 20 {
-            errors.push(format!("{case_id}: expiry timestamp missing or malformed"));
-        } else if expiry <= AS_OF && status != "expired" {
-            errors.push(format!("{case_id}: expired signal is still marked current"));
+        let observed_seconds = parse_utc_seconds(observed_at);
+        let recorded_seconds = parse_utc_seconds(recorded_at);
+        let expiry_seconds = parse_utc_seconds(expiry);
+        if observed_seconds.is_none() || recorded_seconds.is_none() || expiry_seconds.is_none() {
+            errors.push(format!("{case_id}: signal timestamps must be valid UTC RFC3339 seconds"));
+        } else if let (Some(observed), Some(recorded), Some(expires)) =
+            (observed_seconds, recorded_seconds, expiry_seconds)
+        {
+            if recorded < observed || expires <= observed {
+                errors.push(format!("{case_id}: recorded/expiry time precedes signal observation"));
+            }
+            if let Some(max_ttl) = profile.get("max_signal_ttl_seconds").and_then(Value::as_u64)
+                && expires - observed > max_ttl as i64
+            {
+                errors.push(format!("{case_id}: signal lifetime exceeds profile maximum TTL"));
+            }
+            if expires <= parse_utc_seconds(AS_OF).unwrap_or(i64::MAX) && status != "expired" {
+                errors.push(format!("{case_id}: expired signal is still marked current"));
+            }
         }
         if matches!(status, "withdrawn" | "corrected" | "expired" | "unknown") {
             if !array_at(scenario, "disclosures").is_none_or(Vec::is_empty) {
@@ -202,6 +261,16 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
 
         let refs = array_at(signal, "evidence_refs").cloned().unwrap_or_default();
+        if source_state == "authorized" {
+            for reference in &refs {
+                let participant = str_at(reference, "participant_id").unwrap_or("");
+                if !allowed_sources.is_some_and(|items| {
+                    items.iter().any(|item| item.as_str() == Some(participant))
+                }) {
+                    errors.push(format!("{case_id}: evidence reference participant is outside the admitted source profile"));
+                }
+            }
+        }
         let independent_roots: BTreeSet<String> = refs.iter()
             .filter(|reference| str_at(reference, "independence") == Some("independent"))
             .filter_map(|reference| str_at(reference, "root_event_id").map(str::to_owned))
