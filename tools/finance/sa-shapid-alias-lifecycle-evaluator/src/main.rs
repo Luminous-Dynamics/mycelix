@@ -181,7 +181,7 @@ fn compute_state(case: &Value, profile: &Value, as_of: &str) -> (&'static str, b
             }
             "number_ported" => ownership_uncertain = true,
             "alias_revoked" | "provider_deregistration" | "account_closed" => revoked = true,
-            "alias_suspended" => revoked = true,
+            "alias_suspended" => rebind_required = true,
             "alias_reactivated" => {
                 if event_generation.is_none_or(|value| value <= generation) {
                     rebind_required = true;
