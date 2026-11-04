@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [workspace]
 
 [dependencies]
-# Holochain 0.6 - Coordinator zomes use hdk
+# Holochain 0.7.1 - Coordinator zomes use hdk
 hdk = "=0.7.1"
 holochain_zome_types = "=0.7.1"
 holochain_integrity_types = "=0.7.1"
