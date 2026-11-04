@@ -694,7 +694,7 @@
           }
         ],
         "local_decision": "dispute_opened",
-        "local_authority_state": "not_applicable",
+        "local_authority_state": "valid",
         "independent_evidence_count": 1,
         "evidence_contributions": [
           {
@@ -2916,7 +2916,7 @@
         "correction_propagation_state": "not_applicable",
         "correction_recipients": [],
         "privacy_findings": [
-          "raw_pii_detected_at_ingest_redacted_before_share"
+          "raw_pii_present_in_share_attempt"
         ],
         "channel_coverage_state": "qualified_synthetic"
       },
@@ -3758,7 +3758,7 @@
           }
         ],
         "local_decision": "dispute_opened",
-        "local_authority_state": "not_applicable",
+        "local_authority_state": "valid",
         "independent_evidence_count": 1,
         "evidence_contributions": [
           {
