@@ -1,0 +1,85 @@
+{
+  "benchmark_id": "LIFE-RELATIONAL-001",
+  "version": "0.1.0",
+  "status": "synthetic_research_only",
+  "seed_hex": "52454c4154494f4e",
+  "training_cohorts": 96,
+  "test_cohorts": 96,
+  "cohort_sizes": [
+    4,
+    8,
+    16,
+    32
+  ],
+  "peer_signal_probability_ppm": [
+    550000,
+    650000,
+    750000,
+    850000,
+    950000
+  ],
+  "coarsening_factor": 4,
+  "target_protected_value_available_to_attacker": false,
+  "attacker_side_information": [
+    "exact_cohort_membership_in_exact_arm",
+    "coarsened_bucket_membership_in_coarse_arm"
+  ],
+  "attacker_profiles": [
+    "population_prior",
+    "exact_cohort_peer_majority",
+    "coarse_neighborhood_peer_majority",
+    "overlapping_group_union_peer_majority",
+    "randomized_peer_negative_control",
+    "uncorrelated_target_negative_control"
+  ],
+  "primary_metrics": [
+    "seed_id",
+    "accuracy_ppm",
+    "balanced_accuracy_ppm",
+    "prior_accuracy_ppm",
+    "lift_vs_prior_ppm",
+    "mean_peer_observations",
+    "direct_target_protected_disclosures",
+    "decision_threshold_ppm",
+    "selective_coverage_ppm",
+    "selective_accuracy_ppm",
+    "abstained_targets",
+    "peer_observation_delta_vs_exact_cohort"
+  ],
+  "claim_ceiling": "synthetic_cross_subject_inference_attack",
+  "nonclaims": [
+    "differential_privacy",
+    "real_world_group_privacy",
+    "anonymity",
+    "causality",
+    "production_protocol_assurance"
+  ],
+  "confidence_score": "uncalibrated_max_vote_share_or_training_prior_majority_share",
+  "decision_threshold_ppm": [
+    500000,
+    625000,
+    750000,
+    875000,
+    950000
+  ],
+  "relation_model": {
+    "primary_membership": "one primary cohort",
+    "secondary_membership": "one independently indexed cross-cohort group",
+    "secondary_group_count": "max(1, floor(primary_cohort_count / 4))",
+    "attacker_union_rule": "candidate shares primary cohort OR secondary group",
+    "visibility": "relationship metadata is explicit attacker side information"
+  },
+  "evaluation_seeds": [
+    1,
+    7,
+    23,
+    41,
+    97
+  ],
+  "report_grain": [
+    "profile",
+    "seed_id",
+    "cohort_size",
+    "peer_signal_probability"
+  ]
+}

@@ -1,0 +1,78 @@
+name: LIFE relational privacy spillover benchmark
+
+on:
+  pull_request:
+    paths:
+      - "research/life-relational-privacy/**"
+      - ".github/workflows/life-relational-privacy.yml"
+  push:
+    paths:
+      - "research/life-relational-privacy/**"
+      - ".github/workflows/life-relational-privacy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact benchmark subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo +1.96.0 fmt --manifest-path research/life-relational-privacy/Cargo.toml --all -- --check
+
+      - name: Run tests
+        run: cargo +1.96.0 test --locked --manifest-path research/life-relational-privacy/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo +1.96.0 clippy --locked --manifest-path research/life-relational-privacy/Cargo.toml --all-targets -- -D warnings
+
+      - name: Compare deterministic reports and emit receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p target/life-relational-privacy
+          cargo +1.96.0 run --release --locked --manifest-path research/life-relational-privacy/Cargo.toml > target/life-relational-privacy/report-a.csv
+          cargo +1.96.0 run --release --locked --manifest-path research/life-relational-privacy/Cargo.toml > target/life-relational-privacy/report-b.csv
+          cmp target/life-relational-privacy/report-a.csv target/life-relational-privacy/report-b.csv
+          mv target/life-relational-privacy/report-a.csv target/life-relational-privacy/report.csv
+          rm target/life-relational-privacy/report-b.csv
+          {
+            echo "status=synthetic-relational-privacy-invariants-passed"
+            echo "commit=$QUALIFIED_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "rust=$(rustc +1.96.0 --version)"
+            echo "manifest_sha256=$(sha256sum research/life-relational-privacy/manifest.json | cut -d' ' -f1)"
+            echo "report_sha256=$(sha256sum target/life-relational-privacy/report.csv | cut -d' ' -f1)"
+            echo "claim_ceiling=SyntheticCrossSubjectInferenceAttack"
+          } | tee target/life-relational-privacy/qualification.txt
+          sha256sum target/life-relational-privacy/report.csv target/life-relational-privacy/qualification.txt > target/life-relational-privacy/sha256sums.txt
+
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: life-relational-privacy-${{ env.QUALIFIED_SHA }}
+          path: |
+            target/life-relational-privacy/
+            research/life-relational-privacy/manifest.json
+          if-no-files-found: error
