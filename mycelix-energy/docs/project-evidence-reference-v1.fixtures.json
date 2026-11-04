@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "disclosure": "Synthetic public conformance fixtures only. UUIDs, hashes, issuers, project IDs and timestamps do not refer to real records. This is not a hidden oracle or proof of DeSci runtime availability.",
+  "cases": [
+    {
+      "case_id": "valid-reference-001",
+      "expected_disposition": "eligible_for_policy_evaluation",
+      "reason": "All synthetic event/artifact/receipt/issuer/subject/boundary/time references are internally consistent; factual truth is not established."
+    },
+    {
+      "case_id": "legacy-url-002",
+      "expected_disposition": "unassessed_legacy_locator",
+      "reason": "A raw locator has no content digest, canonical DeSci event or authority receipt."
+    },
+    {
+      "case_id": "wrong-boundary-003",
+      "expected_disposition": "blocked",
+      "reason": "The evidence subject/boundary does not match the Energy project's exact point of connection."
+    },
+    {
+      "case_id": "future-known-004",
+      "expected_disposition": "blocked",
+      "reason": "Canonical server received_at is after the requested historical decision frontier."
+    },
+    {
+      "case_id": "unauthorized-signer-005",
+      "expected_disposition": "blocked",
+      "reason": "The event signature is valid but the actor lacks the required system_operator authority at the registry revision."
+    },
+    {
+      "case_id": "superseded-evidence-006",
+      "expected_disposition": "historical_only",
+      "reason": "The record remains in history but a current required gate cannot be satisfied by it."
+    },
+    {
+      "case_id": "copied-source-family-007",
+      "expected_disposition": "eligible_but_not_independent_corroboration",
+      "reason": "Multiple artifacts derived from one upstream source remain one provenance family."
+    },
+    {
+      "case_id": "embargoed-public-view-008",
+      "expected_disposition": "blocked",
+      "reason": "The caller is not authorized to retrieve controlled/embargoed artifact bytes or metadata."
+    }
+  ]
+}
