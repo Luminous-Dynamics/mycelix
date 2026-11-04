@@ -67,13 +67,15 @@ struct AuditReport {
 fn main() -> Result<(), Box<dyn Error>> {
     let mut root = env::current_dir()?;
     let mut output: Option<PathBuf> = None;
+    let mut report_only = false;
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--root" => root = PathBuf::from(args.next().ok_or("--root requires a path")?),
             "--output" => output = Some(PathBuf::from(args.next().ok_or("--output requires a path")?)),
+            "--report-only" => report_only = true,
             "--help" | "-h" => {
-                println!("pulse-signal-contract-audit [--root REPOSITORY_ROOT] [--output REPORT.json]");
+                println!("pulse-signal-contract-audit [--root REPOSITORY_ROOT] [--output REPORT.json] [--report-only]");
                 return Ok(());
             }
             other => return Err(format!("unknown argument: {other}").into()),
@@ -194,7 +196,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     } else {
         println!("{json}");
     }
-    if report.status == "FAIL" {
+    if report.status == "FAIL" && !report_only {
         return Err(format!("signal contract drift: {} finding(s)", report.findings.len()).into());
     }
     Ok(())
@@ -274,7 +276,10 @@ fn extract_filter_arrays(source: &str) -> Result<Vec<FilterArray>, Box<dyn Error
         ]),
     ];
     for (phase, sections) in phases {
-        let phase_start = source.find(phase).unwrap_or(source.len());
+        let phase_start = match phase {
+            "parseSignal" => source.find("private parseSignal"),
+            _ => source.find("private dispatchToCategory"),
+        }.unwrap_or(source.len());
         let phase_end = if phase == "parseSignal" {
             source.find("private dispatch(").unwrap_or(source.len())
         } else {
