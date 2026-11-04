@@ -451,7 +451,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     str_at(transfer, "transaction_id") == transaction_id
                         && same_link(event, request, instruction_id.as_deref())
                         && str_at(event, "end_to_end_id") == Some(end_to_end_id)
-                        && u64_at(event, "amount_minor_units") == Some(instruction_amount_minor_units)
+                        && u64_at(event, "amount_minor_units")
+                            == Some(instruction_amount_minor_units)
                         && str_at(event, "currency") == Some(currency)
                 });
                 if actor != "creditor_agent"
@@ -477,7 +478,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     str_at(transfer, "transaction_id") == transaction_id
                         && same_link(event, request, instruction_id.as_deref())
                         && str_at(event, "end_to_end_id") == Some(end_to_end_id)
-                        && u64_at(event, "amount_minor_units") == Some(instruction_amount_minor_units)
+                        && u64_at(event, "amount_minor_units")
+                            == Some(instruction_amount_minor_units)
                         && str_at(event, "currency") == Some(currency)
                 });
                 if actor != "settlement_operator"
