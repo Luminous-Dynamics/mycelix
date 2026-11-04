@@ -31,13 +31,22 @@ Grants == {g1, g2}
 Ops == {op1, op2}
 Agents == {grantor, grantee, outsider}
 
-ASSUME
+(* Keep configuration constraints observable as separate invariants rather
+   than a monolithic ASSUME, so a bad finite-model configuration reports exactly
+   which binding is invalid. *)
+NoSentinelCollision ==
     /\ NoGrant \notin Grants
     /\ NoOp \notin Ops
     /\ NoAgent \notin Agents
-    /\ DomainAllowedOps \subseteq Ops
+
+DomainAllowedOpsAreValid ==
+    DomainAllowedOps \subseteq Ops
+
+BooleanSwitchesAreValid ==
     /\ UseProjectionAuthority \in BOOLEAN
     /\ UseGrantIdempotency \in BOOLEAN
+
+AttemptBoundIsValid ==
     /\ MaxAttempts \in Nat
     /\ MaxAttempts >= 2
 
