@@ -1,0 +1,577 @@
+{
+  "benchmark_id": "GLOBAL-ACCOUNTING-PORTABILITY-V1",
+  "dataset_version": "1.0.0",
+  "split": "public_development",
+  "claim_scope": "synthetic_nonlegal_global_profile_resolution_and_interoperability_behavior_only",
+  "generated_on": "2026-11-04",
+  "cases": [
+    {
+      "case_id": "GPA-001",
+      "task_family": "context_resolution",
+      "challenge": "All transaction jurisdiction axes differ; do not collapse them into one country.",
+      "facts": [
+        {
+          "path": "seller_jurisdiction",
+          "value": "JUR-A"
+        },
+        {
+          "path": "buyer_jurisdiction",
+          "value": "JUR-B"
+        },
+        {
+          "path": "ship_from_jurisdiction",
+          "value": "JUR-C"
+        },
+        {
+          "path": "ship_to_jurisdiction",
+          "value": "JUR-D"
+        },
+        {
+          "path": "place_of_supply_jurisdiction",
+          "value": "JUR-B"
+        },
+        {
+          "path": "legal_entity_domicile",
+          "value": "JUR-A"
+        },
+        {
+          "path": "reporting_entity",
+          "value": "ENTITY-A"
+        }
+      ],
+      "candidate_task": "Return each independent applicability axis; do not infer tax results."
+    },
+    {
+      "case_id": "GPA-002",
+      "task_family": "abstention",
+      "challenge": "The transaction context omits a required place-of-supply jurisdiction.",
+      "facts": [
+        {
+          "path": "seller_jurisdiction",
+          "value": "JUR-A"
+        },
+        {
+          "path": "buyer_jurisdiction",
+          "value": "JUR-B"
+        },
+        {
+          "path": "ship_from_jurisdiction",
+          "value": "JUR-A"
+        },
+        {
+          "path": "ship_to_jurisdiction",
+          "value": "JUR-B"
+        },
+        {
+          "path": "place_of_supply_jurisdiction",
+          "value": null
+        },
+        {
+          "path": "tax_decision_requested",
+          "value": true
+        }
+      ],
+      "candidate_task": "Decide whether tax applicability can be qualified and name missing context."
+    },
+    {
+      "case_id": "GPA-003",
+      "task_family": "framework_separation",
+      "challenge": "Financial reporting framework and tax jurisdiction are separate axes.",
+      "facts": [
+        {
+          "path": "legal_jurisdiction",
+          "value": "JUR-A"
+        },
+        {
+          "path": "accounting_framework",
+          "value": "SYN-FRAMEWORK-A"
+        },
+        {
+          "path": "tax_jurisdiction",
+          "value": "JUR-B"
+        },
+        {
+          "path": "tax_profile_id",
+          "value": "SYN-TAX-B"
+        },
+        {
+          "path": "reporting_taxonomy",
+          "value": "SYN-XBRL-A"
+        },
+        {
+          "path": "tax_rates_are_synthetic",
+          "value": true
+        }
+      ],
+      "candidate_task": "Resolve each profile independently; do not infer tax law from accounting framework."
+    },
+    {
+      "case_id": "GPA-004",
+      "task_family": "framework_version",
+      "challenge": "IFRS for SMEs 2025 third edition differs from 2015; eligibility and election are unknown.",
+      "facts": [
+        {
+          "path": "framework_family",
+          "value": "IFRS_FOR_SMES"
+        },
+        {
+          "path": "selected_edition",
+          "value": "2015"
+        },
+        {
+          "path": "new_edition",
+          "value": "2025"
+        },
+        {
+          "path": "new_edition_effective_from",
+          "value": "2027-01-01"
+        },
+        {
+          "path": "reporting_period_start",
+          "value": "2026-01-01"
+        },
+        {
+          "path": "early_application_permitted",
+          "value": true
+        },
+        {
+          "path": "entity_eligibility_confirmed",
+          "value": null
+        },
+        {
+          "path": "early_application_election",
+          "value": null
+        }
+      ],
+      "candidate_task": "Preserve version facts; avoid automatic migration or assumed eligibility."
+    },
+    {
+      "case_id": "GPA-005",
+      "task_family": "currency_roles",
+      "challenge": "Transaction, functional and presentation currencies differ; arithmetic is declared and synthetic.",
+      "facts": [
+        {
+          "path": "transaction_currency",
+          "value": "CUR-A"
+        },
+        {
+          "path": "functional_currency",
+          "value": "CUR-B"
+        },
+        {
+          "path": "presentation_currency",
+          "value": "CUR-C"
+        },
+        {
+          "path": "transaction_amount_minor",
+          "value": "10001"
+        },
+        {
+          "path": "transaction_minor_unit_scale",
+          "value": 2
+        },
+        {
+          "path": "fx_rate_numerator",
+          "value": "3"
+        },
+        {
+          "path": "fx_rate_denominator",
+          "value": "2"
+        },
+        {
+          "path": "fx_rate_direction",
+          "value": "CUR-B_per_CUR-A"
+        },
+        {
+          "path": "rounding_policy",
+          "value": "round_half_even_at_final_posting_only"
+        },
+        {
+          "path": "all_currency_profiles_synthetic",
+          "value": true
+        }
+      ],
+      "candidate_task": "Use exact rational arithmetic without floating-point or currency-role conflation."
+    },
+    {
+      "case_id": "GPA-006",
+      "task_family": "fx_provenance",
+      "challenge": "Two FX sources conflict for the same effective instant and purpose.",
+      "facts": [
+        {
+          "path": "fx_source_1_rate",
+          "value": "1.12"
+        },
+        {
+          "path": "fx_source_1_id",
+          "value": "SYN-FX-A"
+        },
+        {
+          "path": "fx_source_2_rate",
+          "value": "1.14"
+        },
+        {
+          "path": "fx_source_2_id",
+          "value": "SYN-FX-B"
+        },
+        {
+          "path": "fx_effective_at",
+          "value": "2026-10-31T23:00:00Z"
+        },
+        {
+          "path": "fx_purpose",
+          "value": "synthetic_reporting_translation"
+        },
+        {
+          "path": "rate_selection_policy_id",
+          "value": null
+        }
+      ],
+      "candidate_task": "Determine whether a rate can be selected and identify missing policy/evidence."
+    },
+    {
+      "case_id": "GPA-007",
+      "task_family": "time_localization",
+      "challenge": "UTC date differs from the reporting entity's local calendar date.",
+      "facts": [
+        {
+          "path": "event_time_utc",
+          "value": "2026-01-01T00:30:00Z"
+        },
+        {
+          "path": "reporting_timezone",
+          "value": "America/Los_Angeles"
+        },
+        {
+          "path": "local_event_time",
+          "value": "2025-12-31T16:30:00-08:00"
+        },
+        {
+          "path": "reporting_period_end_local",
+          "value": "2025-12-31"
+        },
+        {
+          "path": "capture_time_utc",
+          "value": "2026-01-01T00:31:00Z"
+        }
+      ],
+      "candidate_task": "Use reporting timezone for period and preserve UTC event/capture times."
+    },
+    {
+      "case_id": "GPA-008",
+      "task_family": "time_localization",
+      "challenge": "A repeated daylight-saving wall-clock time has no UTC offset.",
+      "facts": [
+        {
+          "path": "local_timestamp",
+          "value": "2026-11-01T01:30:00"
+        },
+        {
+          "path": "timezone",
+          "value": "America/New_York"
+        },
+        {
+          "path": "utc_offset",
+          "value": null
+        },
+        {
+          "path": "dst_transition_context",
+          "value": "fall_back_repeated_hour"
+        }
+      ],
+      "candidate_task": "Decide whether the local time resolves uniquely or requires disambiguation."
+    },
+    {
+      "case_id": "GPA-009",
+      "task_family": "locale_numeric",
+      "challenge": "A locale-declared decimal representation must be parsed without rewriting source text.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "de-DE"
+        },
+        {
+          "path": "raw_amount_text",
+          "value": "1.234,56"
+        },
+        {
+          "path": "currency_id",
+          "value": "CUR-A"
+        },
+        {
+          "path": "minor_unit_scale",
+          "value": 2
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        }
+      ],
+      "candidate_task": "Parse under declared locale and return raw text plus exact minor-unit value."
+    },
+    {
+      "case_id": "GPA-010",
+      "task_family": "locale_numeric",
+      "challenge": "A numeric string has no declared locale and must not be guessed.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": null
+        },
+        {
+          "path": "raw_amount_text",
+          "value": "1,234.56"
+        },
+        {
+          "path": "currency_id",
+          "value": "CUR-A"
+        },
+        {
+          "path": "minor_unit_scale",
+          "value": 2
+        },
+        {
+          "path": "source_language",
+          "value": "unknown"
+        }
+      ],
+      "candidate_task": "Decide whether the amount can be parsed safely; preserve unresolved text."
+    },
+    {
+      "case_id": "GPA-011",
+      "task_family": "e_invoice_profiles",
+      "challenge": "Base UBL/EN 16931 validation passes but country-qualified CIUS is unsupported.",
+      "facts": [
+        {
+          "path": "syntax_id",
+          "value": "UBL-2.1"
+        },
+        {
+          "path": "semantic_standard_id",
+          "value": "EN-16931"
+        },
+        {
+          "path": "base_validation",
+          "value": "pass"
+        },
+        {
+          "path": "country_cius_id",
+          "value": "CIUS-JUR-B-v9"
+        },
+        {
+          "path": "country_cius_profile_status",
+          "value": "unsupported"
+        },
+        {
+          "path": "validator_version",
+          "value": "3.0.21"
+        }
+      ],
+      "candidate_task": "Separate base syntax/semantic from country-qualified state; do not claim local compliance."
+    },
+    {
+      "case_id": "GPA-012",
+      "task_family": "evidence_semantics",
+      "challenge": "Peppol transport receipt is offered as proof of invoice authenticity, tax correctness and settlement.",
+      "facts": [
+        {
+          "path": "network_profile",
+          "value": "PEPPOL-BIS-BILLING-3"
+        },
+        {
+          "path": "transport_receipt_status",
+          "value": "accepted"
+        },
+        {
+          "path": "source_authenticity_evidence",
+          "value": null
+        },
+        {
+          "path": "tax_policy_profile_status",
+          "value": "unqualified"
+        },
+        {
+          "path": "delivery_evidence",
+          "value": null
+        },
+        {
+          "path": "payment_settlement_evidence",
+          "value": null
+        }
+      ],
+      "candidate_task": "State exactly what transport receipt supports and what remains unsupported."
+    },
+    {
+      "case_id": "GPA-013",
+      "task_family": "identity_namespace",
+      "challenge": "Two entities share the same identifier string in different issuer namespaces.",
+      "facts": [
+        {
+          "path": "party_a_identifier",
+          "value": "12345678"
+        },
+        {
+          "path": "party_a_namespace",
+          "value": "JUR-A-COMPANY-REGISTRY"
+        },
+        {
+          "path": "party_b_identifier",
+          "value": "12345678"
+        },
+        {
+          "path": "party_b_namespace",
+          "value": "JUR-B-TAX-REGISTRY"
+        },
+        {
+          "path": "explicit_cross_namespace_link",
+          "value": null
+        }
+      ],
+      "candidate_task": "Decide whether identities can be merged; preserve issuer namespaces."
+    },
+    {
+      "case_id": "GPA-014",
+      "task_family": "digital_reporting",
+      "challenge": "An XBRL taxonomy extension concept has no qualified target mapping.",
+      "facts": [
+        {
+          "path": "source_taxonomy_id",
+          "value": "SYN-TAXONOMY-A"
+        },
+        {
+          "path": "target_taxonomy_id",
+          "value": "SYN-TAXONOMY-B"
+        },
+        {
+          "path": "source_concept",
+          "value": "Extension:ClimateCost"
+        },
+        {
+          "path": "mapping_status",
+          "value": "unmapped"
+        },
+        {
+          "path": "extension_documentation_available",
+          "value": false
+        }
+      ],
+      "candidate_task": "Return loss-aware mapping and retain unmapped extension concept."
+    },
+    {
+      "case_id": "GPA-015",
+      "task_family": "profile_versioning",
+      "challenge": "A profile changed after the original decision; replay must retain the original known-at frontier.",
+      "facts": [
+        {
+          "path": "profile_id",
+          "value": "SYN-TAX-PACK-A"
+        },
+        {
+          "path": "old_revision",
+          "value": "1"
+        },
+        {
+          "path": "new_revision",
+          "value": "2"
+        },
+        {
+          "path": "old_capture_time",
+          "value": "2026-02-01T10:00:00Z"
+        },
+        {
+          "path": "new_capture_time",
+          "value": "2026-05-01T10:00:00Z"
+        },
+        {
+          "path": "original_decision_time",
+          "value": "2026-03-01T10:00:00Z"
+        },
+        {
+          "path": "query_mode",
+          "value": "as_known_at"
+        }
+      ],
+      "candidate_task": "Replay original decision using only the approved snapshot known at the historical frontier."
+    },
+    {
+      "case_id": "GPA-016",
+      "task_family": "partial_qualification",
+      "challenge": "Only one of two required jurisdiction profile packs is qualified.",
+      "facts": [
+        {
+          "path": "jurisdiction_a_profile_status",
+          "value": "qualified_for_declared_scope"
+        },
+        {
+          "path": "jurisdiction_b_profile_status",
+          "value": "review_required"
+        },
+        {
+          "path": "cross_border_transaction",
+          "value": true
+        },
+        {
+          "path": "complete_tax_conclusion_requested",
+          "value": true
+        }
+      ],
+      "candidate_task": "Report supported partial result while withholding unqualified cross-border conclusion."
+    },
+    {
+      "case_id": "GPA-017",
+      "task_family": "framework_conversion",
+      "challenge": "A mapping between accounting frameworks has not been reviewed or approved.",
+      "facts": [
+        {
+          "path": "source_framework",
+          "value": "SYN-GAAP-A"
+        },
+        {
+          "path": "target_framework",
+          "value": "SYN-GAAP-B"
+        },
+        {
+          "path": "mapping_profile_id",
+          "value": null
+        },
+        {
+          "path": "mapping_review_status",
+          "value": "not_reviewed"
+        },
+        {
+          "path": "target_statement_requested",
+          "value": true
+        }
+      ],
+      "candidate_task": "Determine whether conversion is permitted or must be refused/qualified."
+    },
+    {
+      "case_id": "GPA-018",
+      "task_family": "source_integrity",
+      "challenge": "A normalized parsed object exists but original source bytes are unavailable.",
+      "facts": [
+        {
+          "path": "parsed_document_available",
+          "value": true
+        },
+        {
+          "path": "raw_source_bytes_available",
+          "value": false
+        },
+        {
+          "path": "content_digest_available",
+          "value": false
+        },
+        {
+          "path": "parser_version",
+          "value": "SYN-PARSER-1"
+        },
+        {
+          "path": "source_authenticity_requested",
+          "value": true
+        }
+      ],
+      "candidate_task": "Distinguish semantic availability from byte integrity and source authenticity."
+    }
+  ]
+}
