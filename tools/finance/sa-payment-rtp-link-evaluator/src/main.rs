@@ -559,10 +559,15 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("request digest no longer matches canonical fields", corpus, schema, |value| {
-        value["scenarios"][12]["request"]["request_digest"] =
-            json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    })?;
+    mutate_and_reject(
+        "request digest no longer matches canonical fields",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][12]["request"]["request_digest"] =
+                json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject(
