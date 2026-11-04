@@ -4011,6 +4011,1334 @@
         "participant_limit_is_not_universal",
         "no_payment_effect_without_exact_acceptance"
       ]
+    },
+    {
+      "scenario_id": "SA-RTP-033",
+      "scenario_type": "authenticated_requester_without_invoice_evidence",
+      "request": {
+        "request_id": "REQ-ABUSE-033",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-034",
+      "scenario_type": "confusable_shapid_or_merchant_identity",
+      "request": {
+        "request_id": "REQ-ABUSE-034",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "requester_identity_confusable",
+          "actor_role": "system",
+          "authority_state": "invalid",
+          "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "request_rejected_by_channel_profile",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "rejected_by_profile",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "confusable",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "reject_confusable_or_mismatched_identity"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-035",
+      "scenario_type": "compromised_verified_merchant_credential",
+      "request": {
+        "request_id": "REQ-ABUSE-035",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "requester_compromise_alert",
+          "actor_role": "risk_system",
+          "authority_state": "unknown",
+          "request_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "compromised",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "missing",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-036",
+      "scenario_type": "repeat_request_after_explicit_decline",
+      "request": {
+        "request_id": "REQ-ABUSE-036",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "request_viewed",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "payer_declined",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "repeat_contact_after_decline_detected",
+          "actor_role": "risk_system",
+          "authority_state": "unknown",
+          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "declined",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "declined",
+        "repeat_contact_after_decline_count": 1,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "escalate_repeat_contact_review"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-037",
+      "scenario_type": "unsupported_debt_collection_or_legal_threat",
+      "request": {
+        "request_id": "REQ-ABUSE-037",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "unsupported_legal_claim_detected",
+          "actor_role": "risk_system",
+          "authority_state": "unknown",
+          "request_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "unsupported_legal_claim",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "do_not_assert_verified_obligation"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-038",
+      "scenario_type": "request_flood_blocked_by_participant_abuse_control",
+      "request": {
+        "request_id": "REQ-ABUSE-038",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_rejected_by_abuse_rate_limit",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "rejected_by_profile",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 3,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "escalate_repeat_contact_review"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-039",
+      "scenario_type": "authenticated_sender_compromised_session_sends_request",
+      "request": {
+        "request_id": "REQ-ABUSE-039",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "compromised_session_detected",
+          "actor_role": "risk_system",
+          "authority_state": "unknown",
+          "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "compromised",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "stale_or_conflicted",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-040",
+      "scenario_type": "beneficiary_identity_mismatch",
+      "request": {
+        "request_id": "REQ-ABUSE-040",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "beneficiary_mismatch_detected",
+          "actor_role": "system",
+          "authority_state": "invalid",
+          "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "request_rejected_by_channel_profile",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "rejected_by_profile",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "mismatch",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "reject_confusable_or_mismatched_identity"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-041",
+      "scenario_type": "unknown_request_reported_and_declined",
+      "request": {
+        "request_id": "REQ-ABUSE-041",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "payer_declined",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "abuse_report_submitted",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "declined",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "missing",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "reported",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "preserve_user_decline_or_report"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-042",
+      "scenario_type": "request_reported_without_acceptance",
+      "request": {
+        "request_id": "REQ-ABUSE-042",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "abuse_report_submitted",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "missing",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "reported",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "preserve_user_decline_or_report"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-043",
+      "scenario_type": "stale_requester_reputation_not_promoted_to_proof",
+      "request": {
+        "request_id": "REQ-ABUSE-043",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "stale_reputation_evidence_detected",
+          "actor_role": "risk_system",
+          "authority_state": "unknown",
+          "request_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "stale_or_conflicted",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "authenticated_sender_not_legitimacy_proof"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-044",
+      "scenario_type": "unrelated_credit_scoring_data_use_blocked",
+      "request": {
+        "request_id": "REQ-ABUSE-044",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "secondary_data_use_blocked",
+          "actor_role": "privacy_guard",
+          "authority_state": "valid",
+          "request_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "payer_declined",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "declined",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "declined",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "unrelated_credit_scoring",
+        "expected_abuse_disposition": "reject_secondary_data_use"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-045",
+      "scenario_type": "screen_reader_material_presentation_parity",
+      "request": {
+        "request_id": "REQ-ABUSE-045",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "request_viewed",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "payer_accepted",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "accepted_request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": "ACCEPT-INS-045"
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "accepted_request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "instruction_id": "INS-045",
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "instruction_created",
+      "expected_financial_effect": "payment_instruction_only",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "verified_external_reference",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "accepted",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "screen_reader",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "accessibility_parity_confirmed"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-046",
+      "scenario_type": "false_positive_requester_block_appeal",
+      "request": {
+        "request_id": "REQ-ABUSE-046",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "abuse_control_blocked",
+          "actor_role": "risk_system",
+          "authority_state": "valid",
+          "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "appeal_submitted",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "appeal_resolved_false_positive",
+          "actor_role": "reviewer",
+          "authority_state": "valid",
+          "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "appealed",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "preserve_appeal_and_requalify"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-047",
+      "scenario_type": "ai_summary_omits_material_fee_or_payee",
+      "request": {
+        "request_id": "REQ-ABUSE-047",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "material_presentation_incomplete",
+          "actor_role": "presentation_guard",
+          "authority_state": "invalid",
+          "request_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "request_only",
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "incomplete",
+        "presented_material_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "payer_action": "none",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "require_complete_material_presentation"
+      }
+    },
+    {
+      "scenario_id": "SA-RTP-048",
+      "scenario_type": "payer_accepts_exact_request_without_verified_debt_conclusion",
+      "request": {
+        "request_id": "REQ-ABUSE-048",
+        "request_version": 1,
+        "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
+        "requester_identity": "requester:synthetic-merchant-01",
+        "payer_identity": "payer:synthetic-user-01",
+        "beneficiary_identity": "beneficiary:synthetic-merchant-01",
+        "amount_minor_units": 5000,
+        "currency": "ZAR",
+        "reference": "INV-001",
+        "purpose": "invoice_payment",
+        "fee_minor_units": null,
+        "expiry_at": "2026-11-04T10:00:00Z",
+        "issued_at": "2026-11-04T08:00:00Z",
+        "channel": "capitec_app",
+        "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "request_created",
+          "actor_role": "requester",
+          "authority_state": "valid",
+          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "request_delivered",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "request_viewed",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "accepted_request_digest": null,
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "payer_accepted",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "accepted_request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "instruction_id": null,
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": "ACCEPT-INS-048"
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "payment_instruction_created",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "accepted_request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "instruction_id": "INS-048",
+          "observed_at": "2026-11-04T09:30:00Z",
+          "receipt_id": null
+        }
+      ],
+      "expected_outcome": "instruction_created",
+      "expected_financial_effect": "payment_instruction_only",
+      "required_evidence": [
+        "request_digest",
+        "requester_identity_profile",
+        "payer_authority_or_explicit_nonacceptance"
+      ],
+      "negative_controls": [
+        "sender_authentication_is_not_claim_legitimacy",
+        "decline_or_report_is_not_acceptance",
+        "material_projection_matches_accepted_digest"
+      ],
+      "abuse_assessment": {
+        "sender_authentication_state": "verified_provider_credential",
+        "requester_identity_resolution": "exact",
+        "claim_evidence_state": "sender_assertion_only",
+        "material_presentation_state": "complete",
+        "presented_material_digest": null,
+        "payer_action": "accepted",
+        "repeat_contact_after_decline_count": 0,
+        "presentation_modality": "standard_app",
+        "secondary_data_use_purpose": "request_fulfilment",
+        "expected_abuse_disposition": "allow_exact_user_instruction_without_debt_conclusion"
+      }
     }
   ],
   "request_digest_contract": {
