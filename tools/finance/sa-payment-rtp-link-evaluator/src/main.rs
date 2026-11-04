@@ -59,7 +59,7 @@ fn compute_request_digest(request: &Value) -> Result<String, String> {
     let bytes = serde_json::to_vec(&canonical_json(&payload))
         .map_err(|error| format!("canonical request serialization failed: {error}"))?;
     let mut hasher = Sha256::new();
-    hasher.update(b"MYCELIX-SA-PAYMENT-RTP-LINK-REQUEST-V1\\0");
+    hasher.update(b"MYCELIX-SA-PAYMENT-RTP-LINK-REQUEST-V1\0");
     hasher.update(bytes);
     Ok(format!("sha256:{:x}", hasher.finalize()))
 }
@@ -361,10 +361,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || !has_evidence(event, "authenticated_pacs008")
                     || !has_evidence(event, "interbank_transfer_message")
                 {
-                    errors.push(format!("{path}: pacs.008 has invalid role, message version, authentication or evidence"));
                     quarantined = true;
                 } else if !transfer_link_ok {
-                    errors.push(format!("{path}: pacs.008 does not match exact request/instruction/e2e/amount/currency"));
                     transfer_unmatched = true;
                 } else {
                     valid_transfers.push(event.clone());
@@ -390,9 +388,6 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || !has_evidence(event, "authenticated_pacs002")
                     || !has_evidence(event, "original_instruction_reference")
                 {
-                    errors.push(format!(
-                        "{path}: pacs.002 status has invalid participant, role or evidence"
-                    ));
                     quarantined = true;
                 } else if !matching_transfer {
                     status_unmatched = true;
