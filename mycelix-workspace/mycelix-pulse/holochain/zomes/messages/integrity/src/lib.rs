@@ -526,7 +526,7 @@ fn validate_update_entry(
         )),
         // Drafts can be updated by owner
         EntryTypes::EmailDraft(draft) => {
-            if draft.owner != action.author() {
+            if draft.owner != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only draft owner can update".to_string(),
                 ));
@@ -535,7 +535,7 @@ fn validate_update_entry(
         }
         // State can be updated by owner
         EntryTypes::EmailState(state) => {
-            if state.owner != action.author() {
+            if state.owner != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only state owner can update".to_string(),
                 ));
@@ -544,7 +544,7 @@ fn validate_update_entry(
         }
         // Folders can be updated by owner
         EntryTypes::EmailFolder(folder) => {
-            if folder.owner != action.author() {
+            if folder.owner != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only folder owner can update".to_string(),
                 ));
@@ -591,7 +591,7 @@ fn validate_encrypted_email_v2(
     email: &EncryptedEmailV2,
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
-    if email.sender != action.author() {
+    if email.sender != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "V2 sender must match action author".into(),
         ));
@@ -756,7 +756,7 @@ fn validate_encrypted_email(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Sender must be the author
-    if email.sender != action.author() {
+    if email.sender != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Email sender must match action author".to_string(),
         ));
@@ -942,7 +942,7 @@ fn validate_attachment(
             "EncryptedAttachment.email_hash does not reference an EncryptedEmail or EncryptedEmailV2".into(),
         ));
     };
-    if sender != action.author() {
+    if sender != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Attachment's email_hash is not owned by the attachment's committer".to_string(),
         ));
@@ -994,7 +994,7 @@ fn validate_folder(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if folder.owner != action.author() {
+    if folder.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Folder owner must match author".to_string(),
         ));
@@ -1008,7 +1008,7 @@ fn validate_email_state(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if state.owner != action.author() {
+    if state.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "State owner must match author".to_string(),
         ));
@@ -1022,7 +1022,7 @@ fn validate_draft(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if draft.owner != action.author() {
+    if draft.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Draft owner must match author".to_string(),
         ));
@@ -1043,7 +1043,7 @@ fn validate_read_receipt(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Reader must be author
-    if receipt.reader != action.author() {
+    if receipt.reader != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Read receipt reader must match author".to_string(),
         ));
@@ -1077,7 +1077,7 @@ fn validate_delivery_receipt(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Recipient must be author
-    if receipt.recipient != action.author() {
+    if receipt.recipient != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Delivery receipt recipient must match author".to_string(),
         ));
@@ -1201,7 +1201,7 @@ fn validate_inbox_link_v2(
             "AgentToInboxV2 base does not match envelope recipient".into(),
         ));
     }
-    if email.sender != action.author() {
+    if email.sender != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "AgentToInboxV2 author does not match envelope sender".into(),
         ));
@@ -1279,7 +1279,7 @@ fn validate_inbox_link(
         ));
     }
 
-    if email.sender != action.author() {
+    if email.sender != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "AgentToInbox link author does not match envelope sender".to_string(),
         ));
