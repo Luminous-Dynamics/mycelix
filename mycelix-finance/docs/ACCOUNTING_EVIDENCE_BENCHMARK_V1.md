@@ -255,3 +255,16 @@ The success criterion is not “AI processed more transactions.” It is fewer m
 5. SARS, Budget 2026 VAT/Turnover Tax thresholds: https://www.sars.gov.za/about-sars-tax-and-customs-system/budget/budget-2026-frequently-asked-questions/
 6. IFRS Foundation, IFRS for SMEs third edition and effective date: https://www.ifrs.org/issued-standards/ifrs-for-smes/
 7. IFRS Foundation, IFRS 18: https://www.ifrs.org/issued-standards/list-of-standards/ifrs-18-presentation-and-disclosure-in-financial-statements/
+
+
+## 11. Cross-system implementation owners discovered during repository audit
+
+The benchmark protocol is coordinated with these existing and newly scoped owners; none of them is a replacement for the core Mycelix general ledger:
+
+- Symthaea [#5398](https://github.com/Luminous-Dynamics/symthaea/issues/5398) and [#5399](https://github.com/Luminous-Dynamics/symthaea/issues/5399) own evidence-grounded financial intelligence and trajectory evaluation. New accounting specialization: [SYM-ACCT-001 / #10422](https://github.com/Luminous-Dynamics/symthaea/issues/10422). It produces source-bound candidate workpapers, exception explanations, and close-readiness findings only; it does not post journals or acquire ledger authority.
+- Symthaea [#5611](https://github.com/Luminous-Dynamics/symthaea/issues/5611) and [#5613](https://github.com/Luminous-Dynamics/symthaea/issues/5613) own stock-flow consistency and counterparty-bound closure for financial-system scenarios. These protect macro/sector simulation identities; they are not substitutes for a business entity's general ledger.
+- Symthaea [#7036](https://github.com/Luminous-Dynamics/symthaea/issues/7036) and [#5612](https://github.com/Luminous-Dynamics/symthaea/issues/5612) own financial-function comparison and neutral capital-allocation scenario work.
+- Symtropy [PR #3091](https://github.com/Luminous-Dynamics/symtropy/pull/3091) contains a separate exact-integer mutual-credit prototype with pooled demurrage and explicit reserve-funded debt relief. Treat it as a research/reference model, not the production Mycelix ledger and not a direct repair to the legacy Bevy economy path.
+- Symtropy [#3043](https://github.com/Luminous-Dynamics/symtropy/issues/3043) tracks a concrete legacy TEND demurrage rounding defect. The default Symtropy source currently applies an independent one-unit minimum adjustment to each positive/negative balance. The case [+100, -50, -50] can become [+99, -49, -49], changing the zero-sum total by +1. Do not use that simulation path as financial authority; correct and qualify its explicit economic semantics first.
+
+The existing Symthaea benchmark infrastructure (#10370 and #9735) remains the preferred run-evidence and reproducibility substrate. Do not create a second benchmark receipt schema or duplicate the task universe.
