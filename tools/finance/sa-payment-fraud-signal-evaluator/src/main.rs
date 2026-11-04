@@ -1145,6 +1145,19 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         v["scenarios"][38]["correction_propagations"][0]["reason"] = json!("unknown jurisdiction");
     })?;
     count += 1;
+    mutate_and_reject("complete inventory omits a recipient", corpus, schema, |v| {
+        v["scenarios"][33]["historical_disclosure_inventory"]["recipient_count"] = json!(0);
+    })?;
+    count += 1;
+    mutate_and_reject("correction inventory is unknown but expected complete", corpus, schema, |v| {
+        v["scenarios"][33]["historical_disclosure_inventory"]["status"] = json!("unknown");
+    })?;
+    count += 1;
+    mutate_and_reject("not-applicable inventory on a corrected signal", corpus, schema, |v| {
+        v["scenarios"][33]["historical_disclosure_inventory"]["status"] = json!("not_applicable");
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -1231,6 +1244,6 @@ mod tests {
     fn negative_mutation_campaign_rejects_privacy_and_status_laundering() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self-tests"), 22);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self-tests"), 25);
     }
 }
