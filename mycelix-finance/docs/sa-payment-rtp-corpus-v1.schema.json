@@ -311,7 +311,15 @@
         "expiry_at",
         "issued_at",
         "channel",
-        "request_digest"
+        "request_digest",
+        "requester_authentication_state",
+        "requester_beneficiary_authority_state",
+        "invoice_evidence_state",
+        "presentation_risk_state",
+        "requester_reputation_state",
+        "presentation_fields",
+        "presentation_fields_complete",
+        "presentation_mode"
       ],
       "properties": {
         "request_id": {
@@ -376,6 +384,69 @@
         "request_digest": {
           "type": "string",
           "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "requester_authentication_state": {
+          "enum": [
+            "verified_credential",
+            "authenticated_only",
+            "unverified",
+            "compromised",
+            "unknown"
+          ]
+        },
+        "requester_beneficiary_authority_state": {
+          "enum": [
+            "verified",
+            "not_verified",
+            "revoked",
+            "unknown"
+          ]
+        },
+        "invoice_evidence_state": {
+          "enum": [
+            "verified",
+            "stale",
+            "absent",
+            "conflicting",
+            "not_applicable"
+          ]
+        },
+        "presentation_risk_state": {
+          "enum": [
+            "none",
+            "lookalike_identity",
+            "coercive_urgency",
+            "unsupported_legal_threat",
+            "missing_material_fields",
+            "invoice_mismatch"
+          ]
+        },
+        "requester_reputation_state": {
+          "enum": [
+            "unknown",
+            "fresh_independently_verified",
+            "stale_unverified",
+            "adverse_unverified"
+          ]
+        },
+        "presentation_fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "presentation_fields_complete": {
+          "type": "boolean"
+        },
+        "presentation_mode": {
+          "enum": [
+            "standard",
+            "screen_reader",
+            "large_text",
+            "feature_phone_assisted",
+            "ai_summary"
+          ]
         }
       }
     },
@@ -469,7 +540,9 @@
         "expected_outcome",
         "expected_financial_effect",
         "required_evidence",
-        "negative_controls"
+        "negative_controls",
+        "expected_abuse_disposition",
+        "request_count_in_window_before"
       ],
       "properties": {
         "scenario_id": {
@@ -524,6 +597,30 @@
           "items": {
             "type": "string"
           }
+        },
+        "expected_abuse_disposition": {
+          "enum": [
+            "normal_flow",
+            "warn_unverified_requester",
+            "warn_stale_invoice",
+            "reject_compromised_requester",
+            "reject_revoked_beneficiary_authority",
+            "warn_lookalike_identity",
+            "block_coercive_request",
+            "block_unsupported_legal_claim",
+            "suppress_repeat_after_decline",
+            "rate_limit_request_flood",
+            "preserve_abuse_report",
+            "block_secondary_data_use",
+            "accessible_presentation_parity",
+            "appeal_and_correct_false_positive",
+            "block_bulk_flood",
+            "block_incomplete_presentation"
+          ]
+        },
+        "request_count_in_window_before": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
