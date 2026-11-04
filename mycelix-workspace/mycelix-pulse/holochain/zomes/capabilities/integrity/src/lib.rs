@@ -354,7 +354,7 @@ fn validate_update_entry(
     match entry {
         // Capabilities can only be updated by grantor (to revoke)
         EntryTypes::MailboxCapability(cap) => {
-            if cap.grantor != **action.author() {
+            if cap.grantor != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only grantor can update capability".to_string(),
                 ));
@@ -373,7 +373,7 @@ fn validate_update_entry(
                     "Original capability update points to another entry type".to_string()
                 )))?;
 
-            if original.grantor != **action.author() {
+            if original.grantor != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Original capability must belong to the updating grantor".to_string(),
                 ));
@@ -415,13 +415,13 @@ fn validate_update_entry(
                     "Original mailbox update points to another entry type".to_string()
                 )))?;
 
-            if original.owner != *action.author() {
+            if original.owner != action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Direct mailbox member transitions require the original owner; delegated Admin changes require an execution lease".to_string(),
                 ));
             }
 
-            if !is_valid_owner_member_append(&original, &mailbox, action.author()) {
+            if !is_valid_owner_member_append(&original, &mailbox, &action.author()) {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Mailbox update must be exactly one owner-authored member append with all existing state unchanged".to_string(),
                 ));
@@ -515,7 +515,7 @@ fn validate_shared_mailbox(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if mailbox.owner != **action.author() {
+    if mailbox.owner != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must match author".to_string(),
         ));
