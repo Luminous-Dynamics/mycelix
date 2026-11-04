@@ -152,7 +152,12 @@
         "fee_state",
         "fee_note",
         "source_refs",
-        "admission"
+        "admission",
+        "request_count_scope",
+        "requester_fee_minor_units",
+        "payer_fee_bands",
+        "payer_fee_schedule_state",
+        "fee_source_refs"
       ],
       "properties": {
         "profile_id": {
@@ -244,6 +249,43 @@
         "admission": {
           "type": "string",
           "minLength": 1
+        },
+        "request_count_scope": {
+          "enum": [
+            "requester_account",
+            "payer_account",
+            "recipient_account",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "requester_fee_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "payer_fee_bands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fee_band"
+          }
+        },
+        "payer_fee_schedule_state": {
+          "enum": [
+            "observed_current_snapshot",
+            "historical_snapshot",
+            "unknown",
+            "internal_source_conflict",
+            "not_applicable"
+          ]
+        },
+        "fee_source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -478,6 +520,36 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "fee_band": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_amount_minor_units",
+        "maximum_amount_minor_units",
+        "payer_fee_minor_units",
+        "currency"
+      ],
+      "properties": {
+        "minimum_amount_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_amount_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "payer_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "const": "ZAR"
         }
       }
     }
