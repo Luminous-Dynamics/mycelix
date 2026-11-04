@@ -1,0 +1,76 @@
+name: Pulse Lifecycle Evidence Audit
+
+on:
+  push:
+    branches:
+      - "research/pulse-authority-lifecycle-v1-20261104"
+    paths:
+      - ".github/workflows/pulse-lifecycle-audit.yml"
+      - "tools/pulse-lifecycle-audit/**"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trace-v1.schema.json"
+  pull_request:
+    paths:
+      - ".github/workflows/pulse-lifecycle-audit.yml"
+      - "tools/pulse-lifecycle-audit/**"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trace-v1.schema.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-lifecycle-audit-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Test independent Rust lifecycle verifier
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+
+      - name: Generate the pinned dependency lock
+        run: cargo generate-lockfile --manifest-path tools/pulse-lifecycle-audit/Cargo.toml
+
+      - name: Test safe fixture and adversarial mutations
+        run: cargo test --manifest-path tools/pulse-lifecycle-audit/Cargo.toml --locked
+
+      - name: Audit the checked-in safe fixture
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path tools/pulse-lifecycle-audit/Cargo.toml --locked -- \
+            --input tools/pulse-lifecycle-audit/examples/safe-trace.json \
+            --output "$RUNNER_TEMP/pulse-lifecycle-report.json"
+          jq -e '.status == "PASS" and .evidence_class == "synthetic" and (.claim_ceiling | contains("STRUCTURAL_ONLY"))' \
+            "$RUNNER_TEMP/pulse-lifecycle-report.json"
+
+      - name: Record exact evidence-auditor receipt
+        run: |
+          set -euo pipefail
+          {
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "workflow_run=$GITHUB_RUN_ID"
+            echo "workflow_attempt=$GITHUB_RUN_ATTEMPT"
+            rustc --version
+            cargo --version
+            sha256sum tools/pulse-lifecycle-audit/Cargo.lock
+            sha256sum tools/pulse-lifecycle-audit/examples/safe-trace.json
+            sha256sum mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trace-v1.schema.json
+            sha256sum "$RUNNER_TEMP/pulse-lifecycle-report.json"
+          } > "$RUNNER_TEMP/pulse-lifecycle-receipt.txt"
+
+      - name: Upload verifier report, lock and receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-lifecycle-audit-${{ github.sha }}
+          path: |
+            tools/pulse-lifecycle-audit/Cargo.lock
+            ${{ runner.temp }}/pulse-lifecycle-report.json
+            ${{ runner.temp }}/pulse-lifecycle-receipt.txt
+          if-no-files-found: error
+          retention-days: 30
