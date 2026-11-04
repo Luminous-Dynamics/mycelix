@@ -34,6 +34,7 @@ VARIABLES
     minimumEpoch,
     caller,
     hostProbe,
+    lastHostActiveAtProbe,
     readState,
     lastReadEpoch,
     lastRequiredEpoch,
@@ -43,7 +44,7 @@ VARIABLES
 vars ==
     << hostActive, authorityEpoch, canonicalRevoked,
        projectionEpoch, projectionState, minimumEpoch,
-       caller, hostProbe, readState, lastReadEpoch,
+       caller, hostProbe, lastHostActiveAtProbe, readState, lastReadEpoch,
        lastRequiredEpoch, lastCanonicalRevoked,
        lastReadUsedCheckpoint >>
 
@@ -56,6 +57,7 @@ Init ==
     /\ minimumEpoch = 0
     /\ caller = NoAgent
     /\ hostProbe = "none"
+    /\ lastHostActiveAtProbe = FALSE
     /\ readState = "none"
     /\ lastReadEpoch = 0
     /\ lastRequiredEpoch = 0
@@ -70,7 +72,7 @@ CommitHostRevocation ==
     /\ minimumEpoch' = authorityEpoch + 1
     /\ UNCHANGED
         << projectionEpoch, projectionState, caller, hostProbe,
-           readState, lastReadEpoch, lastRequiredEpoch,
+           lastHostActiveAtProbe, readState, lastReadEpoch, lastRequiredEpoch,
            lastCanonicalRevoked, lastReadUsedCheckpoint >>
 
 ConvergeProjection ==
@@ -89,6 +91,7 @@ ProbeHostAsGrantee ==
     /\ caller' = grantee
     /\ hostProbe' =
         IF hostActive THEN "AUTHORIZED" ELSE "UNAUTHORIZED"
+    /\ lastHostActiveAtProbe' = hostActive
     /\ UNCHANGED
         << hostActive, authorityEpoch, canonicalRevoked,
            projectionEpoch, projectionState, minimumEpoch,
@@ -134,6 +137,7 @@ TypeOK ==
     /\ minimumEpoch \in Nat
     /\ caller \in Agents \cup {NoAgent}
     /\ hostProbe \in {"none", "AUTHORIZED", "UNAUTHORIZED"}
+    /\ lastHostActiveAtProbe \in BOOLEAN
     /\ readState \in {"none", "UNKNOWN", "TRUSTED_ACTIVE", "TRUSTED_REVOKED"}
     /\ lastReadEpoch \in Nat
     /\ lastRequiredEpoch \in Nat
@@ -153,7 +157,7 @@ NoFalseFreshAuthority ==
           /\ projectionState = "revoked"
 
 HostProbeIsNotProjectionDerived ==
-    hostProbe = "AUTHORIZED" => hostActive
+    hostProbe = "AUTHORIZED" => lastHostActiveAtProbe
 
 CheckpointNeverGrantsHostAuthority ==
     /\ readState = "TRUSTED_ACTIVE"
