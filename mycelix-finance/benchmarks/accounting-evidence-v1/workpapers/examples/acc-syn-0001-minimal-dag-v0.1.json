@@ -1,0 +1,356 @@
+{
+  "schema_id": "fin-acc-workpaper-dag.v0.1",
+  "dag_id": "ACC-SYN-SMOKE-SUITE-CLOSE-WORKPAPER",
+  "dag_version": "0.1.0",
+  "created_at": "2026-11-04T18:00:00+02:00",
+  "reporting_context": {
+    "legal_entity_ref": {
+      "ref_id": "co-001",
+      "version": "synthetic-entity-v1",
+      "source_kind": "synthetic_entity"
+    },
+    "reporting_period_start": "2026-10-01",
+    "reporting_period_end": "2026-10-31",
+    "accounting_framework_profile": {
+      "ref_id": "SYNTHETIC_ACCRUAL_DEMO_V1",
+      "version": "1",
+      "source_kind": "synthetic_policy"
+    },
+    "jurisdiction_profile": {
+      "ref_id": "SYNTH-NO-TAX",
+      "version": "1",
+      "source_kind": "synthetic_jurisdiction"
+    },
+    "currency_profile": {
+      "ref_id": "SYNTH-ZAR-2DP-NOT-A-TAX-PROFILE",
+      "version": "1",
+      "source_kind": "synthetic_currency"
+    }
+  },
+  "frontiers": {
+    "source_scope_manifest": {
+      "ref_id": "SCOPE-ACC-SYN-0001",
+      "version": "0.1",
+      "source_kind": "synthetic_scope",
+      "qualification_status": "unknown"
+    },
+    "evidence_frontier": {
+      "ref_id": "EVIDENCE-ACC-SYN-0001",
+      "version": "0.1",
+      "source_kind": "synthetic_fixture",
+      "qualification_status": "unknown"
+    },
+    "policy_snapshot": {
+      "ref_id": "SYNTHETIC_ACCRUAL_DEMO_V1",
+      "version": "1",
+      "source_kind": "synthetic_policy",
+      "qualification_status": "qualified"
+    },
+    "account_taxonomy": {
+      "ref_id": "SYNTH-COA-001",
+      "version": "1",
+      "source_kind": "synthetic_account_catalog"
+    },
+    "authority_frontier": {
+      "ref_id": "AUTHORITY-NOT-IN-SCOPE",
+      "version": "0",
+      "source_kind": "scope_limitation",
+      "qualification_status": "unknown"
+    },
+    "knowledge_frontier": {
+      "ref_id": "KNOWLEDGE-2026-11-04",
+      "version": "1",
+      "source_kind": "fixture_knowledge_frontier"
+    }
+  },
+  "nodes": [
+    {
+      "node_id": "source-match-001",
+      "node_kind": "assertion_workpaper",
+      "owner_system": "symthaea",
+      "authority_class": "candidate_analysis",
+      "required_in_close": true,
+      "depends_on": [],
+      "inputs": [
+        {
+          "input_ref": {
+            "ref_id": "PO-001",
+            "sha256": "d248d29e0d8b0a84564479d16d0366f9523e4db0a8e0077738a3db88b09dcd86",
+            "source_kind": "purchase_order"
+          },
+          "purpose": "source_support",
+          "assertion_ref": "accuracy"
+        },
+        {
+          "input_ref": {
+            "ref_id": "GRN-001",
+            "sha256": "6182e37fde95549a75df6ecb9f013dd375bc0bf4bd889abce0a792b719ad4889",
+            "source_kind": "goods_received_note"
+          },
+          "purpose": "source_support",
+          "assertion_ref": "occurrence"
+        },
+        {
+          "input_ref": {
+            "ref_id": "INV-778",
+            "sha256": "4583e29a381535dee363f77e613069a1c6bb51d3c4014ae7c3fffc1ac69b7301",
+            "source_kind": "supplier_invoice"
+          },
+          "purpose": "source_support",
+          "assertion_ref": "accuracy"
+        }
+      ],
+      "calculation_recipe": {
+        "recipe_id": "PO-GRN-INV-MATCH",
+        "recipe_version": "0.1",
+        "operation": "reconciliation_match",
+        "input_refs": [
+          {
+            "ref_id": "PO-001",
+            "source_kind": "purchase_order"
+          },
+          {
+            "ref_id": "GRN-001",
+            "source_kind": "goods_received_note"
+          },
+          {
+            "ref_id": "INV-778",
+            "source_kind": "supplier_invoice"
+          }
+        ],
+        "filters": [
+          {
+            "field_path": "entity_id",
+            "operator": "eq",
+            "value": "co-001"
+          },
+          {
+            "field_path": "currency",
+            "operator": "eq",
+            "value": "ZAR"
+          }
+        ],
+        "join_semantics": "one_to_one",
+        "join_keys": [
+          "entity_id",
+          "counterparty_id",
+          "sku"
+        ],
+        "expected_cardinality": "one",
+        "null_semantics": "unknown_not_zero",
+        "unit_profile": {
+          "ref_id": "SYNTH-ZAR-2DP-NOT-A-TAX-PROFILE",
+          "source_kind": "synthetic_currency"
+        },
+        "precision": 0,
+        "rounding": {
+          "mode": "none",
+          "stage": "final_result"
+        }
+      },
+      "review_requirement": {
+        "required": false,
+        "review_class": "none",
+        "rationale": "Synthetic fixture rule only; no professional authorization or delivery-authenticity assertion."
+      },
+      "result": {
+        "state": "in_progress",
+        "terminal_disposition": "not_terminal",
+        "result_type": "SyntheticInvoiceEvidenceMatch",
+        "limitations": [
+          "Supports only declared PO/GRN/invoice field agreement within the synthetic fixture.",
+          "Does not establish supplier authenticity, authorization, physical receipt authenticity, VAT treatment or entity-wide completeness."
+        ]
+      },
+      "frontier_bindings": {
+        "source_scope_manifest": {
+          "ref_id": "SCOPE-ACC-SYN-0001",
+          "version": "0.1",
+          "source_kind": "synthetic_scope",
+          "qualification_status": "unknown"
+        },
+        "evidence_frontier": {
+          "ref_id": "EVIDENCE-ACC-SYN-0001",
+          "version": "0.1",
+          "source_kind": "synthetic_fixture",
+          "qualification_status": "unknown"
+        }
+      }
+    },
+    {
+      "node_id": "bank-observation-001",
+      "node_kind": "reconciliation_workpaper",
+      "owner_system": "symthaea",
+      "authority_class": "candidate_analysis",
+      "required_in_close": true,
+      "depends_on": [
+        "source-match-001"
+      ],
+      "inputs": [
+        {
+          "input_ref": {
+            "ref_id": "BANK-LINE-001",
+            "sha256": "32f1910d32ef8575ec9841fee08ee635a4368bed7e4f21645b70f1938424d5f3",
+            "source_kind": "bank_statement_line"
+          },
+          "purpose": "settlement_observation",
+          "assertion_ref": "settlement"
+        },
+        {
+          "input_ref": {
+            "ref_id": "source-match-001",
+            "version": "0.1.0",
+            "source_kind": "prior_workpaper"
+          },
+          "purpose": "prior_workpaper"
+        }
+      ],
+      "calculation_recipe": {
+        "recipe_id": "BANK-INVOICE-OBSERVATION-MATCH",
+        "recipe_version": "0.1",
+        "operation": "reconciliation_match",
+        "input_refs": [
+          {
+            "ref_id": "BANK-LINE-001",
+            "source_kind": "bank_statement_line"
+          },
+          {
+            "ref_id": "INV-778",
+            "source_kind": "supplier_invoice"
+          }
+        ],
+        "filters": [
+          {
+            "field_path": "reference",
+            "operator": "eq",
+            "value": "INV-778"
+          },
+          {
+            "field_path": "amount_minor",
+            "operator": "eq",
+            "value": "100000"
+          }
+        ],
+        "join_semantics": "one_to_one",
+        "join_keys": [
+          "reference",
+          "entity_id",
+          "counterparty_id",
+          "currency"
+        ],
+        "expected_cardinality": "one",
+        "null_semantics": "unknown_not_zero",
+        "unit_profile": {
+          "ref_id": "SYNTH-ZAR-2DP-NOT-A-TAX-PROFILE",
+          "source_kind": "synthetic_currency"
+        },
+        "precision": 0,
+        "rounding": {
+          "mode": "none",
+          "stage": "final_result"
+        }
+      },
+      "review_requirement": {
+        "required": true,
+        "review_class": "routine_accountant",
+        "rationale": "The synthetic bank line is only an observation; real settlement finality and source authentication are outside this fixture."
+      },
+      "result": {
+        "state": "in_progress",
+        "terminal_disposition": "not_terminal",
+        "result_type": "SyntheticSettlementObservationMatch",
+        "limitations": [
+          "The bank-line observation matches the invoice reference and amount in the fixture.",
+          "Does not prove bank feed authenticity, beneficiary receipt, irrevocability, bank settlement finality or legal discharge."
+        ]
+      },
+      "frontier_bindings": {
+        "source_scope_manifest": {
+          "ref_id": "SCOPE-ACC-SYN-0001",
+          "version": "0.1",
+          "source_kind": "synthetic_scope",
+          "qualification_status": "unknown"
+        },
+        "evidence_frontier": {
+          "ref_id": "EVIDENCE-ACC-SYN-0001",
+          "version": "0.1",
+          "source_kind": "synthetic_fixture",
+          "qualification_status": "unknown"
+        }
+      }
+    },
+    {
+      "node_id": "entity-quarantine-guard",
+      "node_kind": "independent_verification",
+      "owner_system": "mycelix",
+      "authority_class": "deterministic_verification",
+      "required_in_close": true,
+      "depends_on": [
+        "source-match-001"
+      ],
+      "inputs": [
+        {
+          "input_ref": {
+            "ref_id": "ACC-SYN-0003",
+            "version": "0.1.0",
+            "source_kind": "synthetic_negative_control"
+          },
+          "purpose": "source_contradiction",
+          "assertion_ref": "entity_identity"
+        },
+        {
+          "input_ref": {
+            "ref_id": "source-match-001",
+            "version": "0.1.0",
+            "source_kind": "prior_workpaper"
+          },
+          "purpose": "prior_workpaper"
+        }
+      ],
+      "review_requirement": {
+        "required": false,
+        "review_class": "none",
+        "rationale": "This node independently enforces the frozen synthetic wrong-entity negative control."
+      },
+      "result": {
+        "state": "in_progress",
+        "terminal_disposition": "not_terminal",
+        "result_type": "EntityBoundaryNegativeControl",
+        "limitations": [
+          "Negative-control qualification only; no real-world entity-law conclusion."
+        ]
+      },
+      "frontier_bindings": {
+        "source_scope_manifest": {
+          "ref_id": "SCOPE-ACC-SYN-0001",
+          "version": "0.1",
+          "source_kind": "synthetic_scope",
+          "qualification_status": "unknown"
+        },
+        "evidence_frontier": {
+          "ref_id": "EVIDENCE-ACC-SYN-0001",
+          "version": "0.1",
+          "source_kind": "synthetic_fixture",
+          "qualification_status": "unknown"
+        }
+      }
+    }
+  ],
+  "close_disposition": "not_ready",
+  "known_scope_limitations": [
+    "Synthetic fixture only; source authenticity and source-universe completeness are not established.",
+    "No authorized posting or professional close approval is represented.",
+    "The bank record is an observation, not proof of final settlement."
+  ],
+  "required_node_kinds": [
+    "source_inventory",
+    "evidence_population_qualification",
+    "assertion_workpaper",
+    "reconciliation_workpaper",
+    "journal_projection",
+    "trial_balance_reconstruction",
+    "financial_statement_projection",
+    "independent_verification",
+    "close_readiness"
+  ]
+}
