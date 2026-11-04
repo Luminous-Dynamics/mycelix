@@ -85,9 +85,11 @@ Time handling preserves source local timestamp/offset, normalized instant where 
 
 Currency preserves transaction, functional and presentation roles. Use exact decimal/rational arithmetic, explicit precision and rounding, and FX purpose, source, quotation direction, timestamp and policy. Never coerce currency precision from display locale.
 
+Locale and timezone behavior also depends on versioned data. Unicode CLDR 49 (published 21 October 2026) supplies locale, numbering-system, calendar and formatting data; IANA tzdb 2026f (released 27 October 2026) changed Cuba's 1 November 2026 time-zone behavior. A replay must pin those releases and the runtime implementation rather than silently inheriting the host OS/browser defaults. [Unicode UTS #35 / CLDR 49](https://unicode.org/reports/tr35/) · [IANA time zones / 2026f release](https://www.iana.org/time-zones).
+
 ## 6. Public development corpus v1.0.0
 
-The candidate input and evaluator oracle are separate. Eighteen synthetic cases cover multi-axis jurisdiction context, missing context, framework/tax separation, IFRS for SMEs edition/eligibility, currency/FX, timezone/DST, locale parsing, UBL/EN 16931 versus CIUS, transport versus authenticity/delivery/settlement, identity namespaces, XBRL extension loss, bitemporal revisions, partial qualification, framework conversion and missing source bytes.
+The candidate input and evaluator oracle are separate. Twenty-two synthetic cases cover multi-axis jurisdiction context, missing context, framework/tax separation, IFRS for SMEs edition/eligibility, currency/FX, timezone/DST, locale parsing, UBL/EN 16931 versus CIUS, transport versus authenticity/delivery/settlement, identity namespaces, XBRL extension loss, bitemporal revisions, partial qualification, framework conversion, missing source bytes, Arabic-Indic numbering, Unicode-normalized names without shared identifiers, unpinned non-Gregorian calendar data and time-zone database version drift.
 
 All synthetic jurisdiction, currency, tax and framework aliases are non-legal. No tax rate, filing rule, national accounting treatment or legal conclusion is encoded. The IFRS for SMEs date is a sourced reference fact, not an executable accounting rule.
 
@@ -107,7 +109,7 @@ Hard gates:
 
 Quality metrics: context-axis exact match and missing-axis detection; profile selection and correct abstention; cross-border exception recall; exact rational FX/minor-unit accuracy; adapter field preservation and loss accounting; locale/timezone parsing and referral; taxonomy mapping and unmapped-extension recall; bitemporal replay parity; material error and reviewer agreement; reviewer minutes, fully loaded cost, p50/p95/p99 latency and repeatability.
 
-Initial synthetic target: 100% expected behavior on this 18-case public development set. This is conformance, not field readiness.
+Initial synthetic target: 100% expected behavior on this 22-case public development set. This is conformance, not field readiness.
 
 Research target after expansion to 100+ expert-reviewed cases, at least 5 language/locale families, 3 framework families and 3 currency precision classes:
 - at least 95% profile-context axis recall;
