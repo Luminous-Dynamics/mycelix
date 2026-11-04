@@ -426,34 +426,54 @@ export interface SendFederatedInput {
 
 // ==================== SIGNALS ====================
 
-export type MessageSignal =
-  | { type: 'EmailReceived'; email_hash: ActionHash; sender: AgentPubKey; preview: string }
-  | { type: 'DeliveryConfirmed'; email_hash: ActionHash; recipient: AgentPubKey }
-  | { type: 'ReadReceiptReceived'; email_hash: ActionHash; reader: AgentPubKey }
-  | { type: 'EmailStateChanged'; email_hash: ActionHash; new_state: EmailState }
-  | { type: 'ThreadActivity'; thread_id: string; activity_type: string }
-  | { type: 'TypingIndicator'; from: AgentPubKey; thread_id: string };
+/** Exact optional fields emitted by the Rust EmailStateUpdate structure. */
+export interface EmailStateUpdate {
+  is_read: boolean | null;
+  is_starred: boolean | null;
+  is_archived: boolean | null;
+  is_trashed: boolean | null;
+  folders: ActionHash[] | null;
+}
 
+/**
+ * Client-facing normalized view of the Rust { type, data } v1 signal payload.
+ * SignalHub removes the Rust data wrapper after adjacent-tag envelope decoding.
+ */
+export type MessageSignal =
+  | { type: 'EmailReceived'; email_hash: ActionHash; sender: AgentPubKey; encrypted_subject: Uint8Array; timestamp: Timestamp; priority: EmailPriority }
+  | { type: 'DeliveryConfirmed'; email_hash: ActionHash; recipient: AgentPubKey; delivered_at: Timestamp }
+  | { type: 'ReadReceiptReceived'; email_hash: ActionHash; reader: AgentPubKey; read_at: Timestamp }
+  | { type: 'EmailStateChanged'; email_hash: ActionHash; state: EmailStateUpdate }
+  | { type: 'ThreadActivity'; thread_id: string; email_hash: ActionHash; sender: AgentPubKey }
+  | { type: 'DraftSaved'; draft_hash: ActionHash }
+  | { type: 'ScheduledEmailSent'; email_hash: ActionHash; recipients: AgentPubKey[] }
+  | { type: 'TypingIndicator'; sender: AgentPubKey; thread_id: string | null };
+
+/** Remote trust events are advisory wake-up hints; consumers must fetch and validate the referenced record. */
 export type TrustSignal =
-  | { type: 'AttestationCreated'; attestation_id: string; subject: AgentPubKey }
-  | { type: 'AttestationRevoked'; attestation_id: string; reason: string }
-  | { type: 'TrustScoreChanged'; subject: AgentPubKey; category: TrustCategory; new_score: number }
-  | { type: 'ByzantineFlagRaised'; subject: AgentPubKey; flag_type: ByzantineFlagType };
+  | { type: 'AttestationReceived'; attestation_hash: ActionHash; truster: AgentPubKey; trust_level: number; category: TrustCategory }
+  | { type: 'TrustScoreUpdated'; agent: AgentPubKey; new_score: number; confidence: number }
+  | { type: 'IntroductionReceived'; introduction_hash: ActionHash; introducer: AgentPubKey; introduced: AgentPubKey; recommendation: number }
+  | { type: 'DisputeFiled'; dispute_hash: ActionHash; attestation_hash: ActionHash; disputer: AgentPubKey }
+  | { type: 'ByzantineDetected'; agent: AgentPubKey; flag_type: ByzantineFlagType; severity: number };
 
 export type SyncSignal =
   | { type: 'SyncStateChanged'; vector_clock: VectorClock; pending_ops: number }
-  | { type: 'OperationReceived'; op_id: string; from_agent: AgentPubKey }
+  | { type: 'OperationReceived'; op_id: string; op_type: SyncOpType; from_agent: AgentPubKey }
   | { type: 'ConflictDetected'; conflict_id: string; conflict_type: ConflictType }
   | { type: 'ConflictResolved'; conflict_id: string; resolution: ConflictResolution }
   | { type: 'Online' }
   | { type: 'Offline' }
-  | { type: 'SyncProgress'; synced: number; total: number; peer: AgentPubKey };
+  | { type: 'SyncProgress'; synced: number; total: number; peer: AgentPubKey }
+  | { type: 'SyncComplete'; peer: AgentPubKey; ops_synced: number };
 
 export type FederationSignal =
   | { type: 'NetworkDiscovered'; network_id: string; network_type: NetworkType }
   | { type: 'EnvelopeReceived'; envelope_id: string; from_network: string }
   | { type: 'EnvelopeDelivered'; envelope_id: string; to_network: string }
   | { type: 'DeliveryFailed'; envelope_id: string; error: string }
-  | { type: 'BridgeStatusChanged'; bridge_agent: AgentPubKey; is_active: boolean };
+  | { type: 'BridgeStatusChanged'; bridge_agent: AgentPubKey; is_active: boolean }
+  | { type: 'RouteChanged'; route_id: string; is_active: boolean }
+  | { type: 'PeerStatusChanged'; network_id: string; is_reachable: boolean };
 
 export type MycelixSignal = MessageSignal | TrustSignal | SyncSignal | FederationSignal;
