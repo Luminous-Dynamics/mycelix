@@ -189,9 +189,7 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                 || bool_at(input, "pilot_commenced") != Some(false)
                 || bool_at(input, "merchant_implementation_verified") != Some(false))
         {
-            errors.push(
-                "published standard cannot prove pilot or merchant implementation".into(),
-            );
+            errors.push("published standard cannot prove pilot or merchant implementation".into());
         }
         if category == "recipient_mismatch_requires_new_consent"
             && (bool_at(input, "original_consent_invalidated") != Some(true)
@@ -220,9 +218,8 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
         if category == "invalid_provider_signature"
             && bool_at(input, "provider_signature_valid") != Some(false)
         {
-            errors.push(
-                "invalid provider signature test must carry a false verifier result".into(),
-            );
+            errors
+                .push("invalid provider signature test must carry a false verifier result".into());
         }
         if category == "wrong_provider_audience"
             && bool_at(input, "provider_audience_valid") != Some(false)
@@ -236,44 +233,36 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                     "cases[{index}]: VoP scenario lacks typed payee_verification result"
                 ));
             } else {
-                let scheme_profile =
-                    string_at(verification, "scheme_profile").unwrap_or("PROVIDER_SPECIFIC_UNKNOWN");
+                let scheme_profile = string_at(verification, "scheme_profile")
+                    .unwrap_or("PROVIDER_SPECIFIC_UNKNOWN");
                 let result = string_at(verification, "result").unwrap_or("unknown");
-                let signature = string_at(verification, "provider_signature_state")
-                    .unwrap_or("unknown");
+                let signature =
+                    string_at(verification, "provider_signature_state").unwrap_or("unknown");
                 let fraud_inference =
                     string_at(verification, "fraud_inference").unwrap_or("unknown");
                 let participant = string_at(verification, "participant").unwrap_or("");
                 let issuer = string_at(verification, "issuer").unwrap_or("");
                 let audience = string_at(verification, "audience").unwrap_or("");
-                let query_subject =
-                    string_at(verification, "query_subject_ref").unwrap_or("");
+                let query_subject = string_at(verification, "query_subject_ref").unwrap_or("");
                 let response_subject =
                     string_at(verification, "response_subject_ref").unwrap_or("");
-                let intent_subject =
-                    string_at(verification, "intent_subject_ref").unwrap_or("");
+                let intent_subject = string_at(verification, "intent_subject_ref").unwrap_or("");
                 let requested_type =
                     string_at(verification, "requested_account_type").unwrap_or("not_specified");
                 let returned_type =
                     string_at(verification, "returned_account_type").unwrap_or("unknown");
                 let current = bool_at(verification, "is_current") == Some(true);
-                let audience_matches =
-                    bool_at(verification, "audience_matches") == Some(true);
-                let payer_notified =
-                    bool_at(verification, "payer_notified") == Some(true);
-                let payer_decision =
-                    string_at(verification, "payer_decision").unwrap_or("none");
+                let audience_matches = bool_at(verification, "audience_matches") == Some(true);
+                let payer_notified = bool_at(verification, "payer_notified") == Some(true);
+                let payer_decision = string_at(verification, "payer_decision").unwrap_or("none");
                 let collection_authority =
                     string_at(verification, "collection_authority_state").unwrap_or("unknown");
-                let match_engine =
-                    string_at(verification, "match_engine").unwrap_or("unknown");
+                let match_engine = string_at(verification, "match_engine").unwrap_or("unknown");
                 let disclosure =
                     string_at(verification, "disclosure_state").unwrap_or("overdisclosed");
                 let source_refs = verification["source_refs"].as_array();
-                let observed_at =
-                    string_at(verification, "observed_at").unwrap_or("");
-                let valid_until =
-                    string_at(verification, "valid_until").unwrap_or("");
+                let observed_at = string_at(verification, "observed_at").unwrap_or("");
+                let valid_until = string_at(verification, "valid_until").unwrap_or("");
 
                 if participant.is_empty() || issuer.is_empty() || audience.is_empty() {
                     errors.push(format!(
@@ -334,9 +323,7 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                         "cases[{index}]: account-name match was promoted to collection authority"
                     ));
                 }
-                if disclosure == "overdisclosed"
-                    && category != "vop_privacy_overdisclosure"
-                {
+                if disclosure == "overdisclosed" && category != "vop_privacy_overdisclosure" {
                     errors.push(format!(
                         "cases[{index}]: VoP presentation exceeds permitted disclosure profile"
                     ));
@@ -589,16 +576,14 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
                 json!(true);
         }),
         ("account type mismatch hidden", |value| {
-            value["cases"][27]["payee_verification"]["returned_account_type"] =
-                json!("individual");
+            value["cases"][27]["payee_verification"]["returned_account_type"] = json!("individual");
         }),
         ("client fuzzy result promoted to provider result", |value| {
             value["cases"][31]["payee_verification"]["match_engine"] =
                 json!("provider_authoritative");
         }),
         ("privacy over-disclosure concealed", |value| {
-            value["cases"][32]["payee_verification"]["disclosure_state"] =
-                json!("minimal_result");
+            value["cases"][32]["payee_verification"]["disclosure_state"] = json!("minimal_result");
         }),
         ("beneficiary changed without re-query", |value| {
             value["cases"][30]["payee_verification"]["intent_subject_ref"] =
@@ -699,7 +684,10 @@ mod tests {
             exact["collection_authority_inferred_from_name_match"],
             false
         );
-        assert_eq!(cases[29]["payee_verification"]["scheme_profile"], "ZA_NPU_PROPOSAL_ONLY");
+        assert_eq!(
+            cases[29]["payee_verification"]["scheme_profile"],
+            "ZA_NPU_PROPOSAL_ONLY"
+        );
         assert!(validate_semantics(&corpus).is_empty());
     }
 }
