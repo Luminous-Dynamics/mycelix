@@ -55,7 +55,7 @@ jobs:
 
       - name: Lock Nix inputs to the declared Holonix 0.7 graph
         working-directory: mycelix-workspace/mycelix-pulse
-        run: nix flake lock --update-input nixpkgs --update-input holochain-flake
+        run: nix flake lock --update-input nixpkgs
 
       - name: Regenerate active zome workspace lock
         run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
