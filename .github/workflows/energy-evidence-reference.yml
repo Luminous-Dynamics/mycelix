@@ -51,7 +51,7 @@ jobs:
       - name: Install pinned JSON Schema validator
         run: |
           python -m pip install --disable-pip-version-check --requirement mycelix-energy/tools/requirements-energy-evidence-ci.txt
-          python -c "import jsonschema; assert jsonschema.__version__ == '4.26.0'"
+          python -c "from importlib.metadata import version; assert version('jsonschema') == '4.26.0'"
 
       - name: Validate Draft 2020-12 schema and fixture contract
         env:
