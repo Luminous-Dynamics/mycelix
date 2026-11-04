@@ -33,7 +33,14 @@
       "$ref": "#/$defs/claimBinding"
     },
     "issuer_profile": {
-      "$ref": "#/$defs/issuerProfile"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/issuerProfile"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "evidence_class": {
       "enum": [
@@ -50,19 +57,47 @@
       ]
     },
     "canonical_desci_reference": {
-      "$ref": "#/$defs/desciReference"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/desciReference"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "temporal_scope": {
-      "$ref": "#/$defs/temporalScope"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/temporalScope"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "lifecycle": {
       "$ref": "#/$defs/lifecycle"
     },
     "provenance": {
-      "$ref": "#/$defs/provenance"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/provenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "verification_receipt": {
-      "$ref": "#/$defs/verificationReceipt"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/verificationReceipt"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "access_policy": {
       "$ref": "#/$defs/accessPolicy"
@@ -74,6 +109,10 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "legacy_locator_ref": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "$defs": {
@@ -553,7 +592,8 @@
             "public",
             "controlled",
             "embargoed",
-            "unavailable"
+            "unavailable",
+            "unknown"
           ]
         },
         "license_ref": {
@@ -578,5 +618,81 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "unassessed_legacy_locator"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "required": [
+          "legacy_locator_ref"
+        ],
+        "properties": {
+          "issuer_profile": {
+            "type": "null"
+          },
+          "canonical_desci_reference": {
+            "type": "null"
+          },
+          "temporal_scope": {
+            "type": "null"
+          },
+          "provenance": {
+            "type": "null"
+          },
+          "verification_receipt": {
+            "type": "null"
+          },
+          "lifecycle": {
+            "properties": {
+              "state": {
+                "const": "unassessed_legacy_locator"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "issuer_profile": {
+            "$ref": "#/$defs/issuerProfile"
+          },
+          "canonical_desci_reference": {
+            "$ref": "#/$defs/desciReference"
+          },
+          "temporal_scope": {
+            "$ref": "#/$defs/temporalScope"
+          },
+          "provenance": {
+            "$ref": "#/$defs/provenance"
+          },
+          "verification_receipt": {
+            "$ref": "#/$defs/verificationReceipt"
+          },
+          "lifecycle": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "current",
+                  "superseded",
+                  "disputed",
+                  "retracted",
+                  "expired",
+                  "unavailable"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
