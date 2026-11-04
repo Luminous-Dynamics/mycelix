@@ -571,20 +571,26 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             .unwrap_or(u64::MAX);
         let inventory_evidence = str_at(inventory, "evidence_reference").unwrap_or("");
         let inventory_verified_at = optional_utc_seconds(inventory, "verified_at");
-        let current_signal_changed = current_version > 1
-            && matches!(status, "corrected" | "withdrawn" | "expired");
+        let current_signal_changed =
+            current_version > 1 && matches!(status, "corrected" | "withdrawn" | "expired");
         let inventory_complete = inventory_status == "complete";
         if inventory_status.is_empty() || inventory_evidence.is_empty() {
-            errors.push(format!("{case_id}: historical disclosure inventory lacks status or evidence reference"));
+            errors.push(format!(
+                "{case_id}: historical disclosure inventory lacks status or evidence reference"
+            ));
         }
         if inventory_verified_at.is_none() {
-            errors.push(format!("{case_id}: historical disclosure inventory verified_at is malformed"));
+            errors.push(format!(
+                "{case_id}: historical disclosure inventory verified_at is malformed"
+            ));
         }
         if inventory_complete {
             if inventory_count != historical_disclosures.len() as u64
                 || inventory_verified_at.flatten().is_none()
             {
-                errors.push(format!("{case_id}: complete recipient inventory count/timestamp does not reconcile"));
+                errors.push(format!(
+                    "{case_id}: complete recipient inventory count/timestamp does not reconcile"
+                ));
             }
         } else if inventory_status == "not_applicable" {
             if current_signal_changed
@@ -595,7 +601,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!("{case_id}: not_applicable inventory conflicts with a superseded signal or historical disclosure"));
             }
         } else if !matches!(inventory_status, "incomplete" | "unknown") {
-            errors.push(format!("{case_id}: unknown historical disclosure inventory state"));
+            errors.push(format!(
+                "{case_id}: unknown historical disclosure inventory state"
+            ));
         }
 
         let mut historical_keys = BTreeSet::new();
@@ -611,9 +619,13 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!("{case_id}: duplicate historical disclosure {key}"));
             }
             if prior_version == 0 || prior_version >= current_version {
-                errors.push(format!("{case_id}: historical disclosure must reference a superseded signal version"));
+                errors.push(format!(
+                    "{case_id}: historical disclosure must reference a superseded signal version"
+                ));
             }
-            if event_digest_by_version.get(&prior_version).map(String::as_str)
+            if event_digest_by_version
+                .get(&prior_version)
+                .map(String::as_str)
                 != Some(prior_digest)
             {
                 errors.push(format!("{case_id}: historical disclosure digest does not match the source event history"));
@@ -622,10 +634,14 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 || str_at(disclosure, "audience") != Some("participating_psp_fraud_team")
                 || recipient.is_empty()
             {
-                errors.push(format!("{case_id}: historical disclosure has invalid purpose, audience or recipient"));
+                errors.push(format!(
+                    "{case_id}: historical disclosure has invalid purpose, audience or recipient"
+                ));
             }
             if history_index >= historical_disclosures.len() {
-                errors.push(format!("{case_id}: unreachable historical disclosure index"));
+                errors.push(format!(
+                    "{case_id}: unreachable historical disclosure index"
+                ));
             }
         }
 
@@ -654,23 +670,32 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!("{opath}: duplicate propagation obligation {key}"));
             }
             if !historical_keys.contains(&key) {
-                errors.push(format!("{opath}: propagation obligation has no matching historical disclosure"));
+                errors.push(format!(
+                    "{opath}: propagation obligation has no matching historical disclosure"
+                ));
             }
             if new_version != current_version || new_digest != current_digest {
                 errors.push(format!("{opath}: propagation notice is not bound to the current signal version and digest"));
             }
-            if event_digest_by_version.get(&prior_version).map(String::as_str)
+            if event_digest_by_version
+                .get(&prior_version)
+                .map(String::as_str)
                 != Some(prior_digest)
             {
-                errors.push(format!("{opath}: prior digest does not match signal history"));
+                errors.push(format!(
+                    "{opath}: prior digest does not match signal history"
+                ));
             }
             if !historical_disclosures.iter().any(|disclosure| {
                 str_at(disclosure, "recipient_participant") == Some(recipient)
                     && str_at(disclosure, "audience") == Some(audience)
-                    && disclosure.get("signal_version").and_then(Value::as_u64) == Some(prior_version)
+                    && disclosure.get("signal_version").and_then(Value::as_u64)
+                        == Some(prior_version)
                     && str_at(disclosure, "signal_digest") == Some(prior_digest)
             }) {
-                errors.push(format!("{opath}: recipient/audience does not match the historical disclosure"));
+                errors.push(format!(
+                    "{opath}: recipient/audience does not match the historical disclosure"
+                ));
             }
 
             let decision_impact = str_at(obligation, "decision_impact").unwrap_or("");
@@ -691,16 +716,21 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             match prop_status {
                 "pending" => {
                     unresolved_propagation = true;
-                    if sent.is_some() || acknowledged.is_some() || invalidated.is_some()
-                        || notice_receipt.is_some() || invalidation_receipt.is_some()
+                    if sent.is_some()
+                        || acknowledged.is_some()
+                        || invalidated.is_some()
+                        || notice_receipt.is_some()
+                        || invalidation_receipt.is_some()
                     {
                         errors.push(format!("{opath}: pending obligation cannot carry successful delivery/acknowledgement/invalidation evidence"));
                     }
                 }
                 "delivered" => {
                     unresolved_propagation = true;
-                    if sent.is_none() || notice_receipt.is_none()
-                        || acknowledged.is_some() || invalidated.is_some()
+                    if sent.is_none()
+                        || notice_receipt.is_none()
+                        || acknowledged.is_some()
+                        || invalidated.is_some()
                         || invalidation_receipt.is_some()
                     {
                         errors.push(format!("{opath}: delivered requires only a notification receipt and send timestamp; it is not invalidation"));
@@ -709,16 +739,22 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 "acknowledged" => {
                     unresolved_propagation = true;
                     any_ack_without_invalidation = true;
-                    if sent.is_none() || acknowledged.is_none() || notice_receipt.is_none()
-                        || invalidated.is_some() || invalidation_receipt.is_some()
+                    if sent.is_none()
+                        || acknowledged.is_none()
+                        || notice_receipt.is_none()
+                        || invalidated.is_some()
+                        || invalidation_receipt.is_some()
                     {
                         errors.push(format!("{opath}: acknowledgement requires notification and acknowledgement evidence but no cache-invalidation claim"));
                     }
                 }
                 "invalidated" => {
                     all_propagation_not_required = false;
-                    if sent.is_none() || acknowledged.is_none() || invalidated.is_none()
-                        || notice_receipt.is_none() || invalidation_receipt.is_none()
+                    if sent.is_none()
+                        || acknowledged.is_none()
+                        || invalidated.is_none()
+                        || notice_receipt.is_none()
+                        || invalidation_receipt.is_none()
                     {
                         errors.push(format!("{opath}: invalidation requires send, acknowledgement, cache-invalidation timestamps and both receipts"));
                     }
@@ -731,8 +767,11 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 }
                 "not_required_with_basis" => {
                     all_propagation_invalidated = false;
-                    if decision_impact != "no" || reason.is_empty()
-                        || sent.is_some() || acknowledged.is_some() || invalidated.is_some()
+                    if decision_impact != "no"
+                        || reason.is_empty()
+                        || sent.is_some()
+                        || acknowledged.is_some()
+                        || invalidated.is_some()
                     {
                         errors.push(format!("{opath}: not-required disposition requires an explicit no-decision-impact assessment and reason"));
                     }
@@ -745,9 +784,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     all_propagation_not_required = false;
                     any_exception_recorded = true;
                     unresolved_propagation = true;
-                    if decision_impact != "yes" || practicability != "not_practicable"
+                    if decision_impact != "yes"
+                        || practicability != "not_practicable"
                         || reason.is_empty()
-                        || sent.is_some() || acknowledged.is_some() || invalidated.is_some()
+                        || sent.is_some()
+                        || acknowledged.is_some()
+                        || invalidated.is_some()
                     {
                         errors.push(format!("{opath}: exception requires decision impact, not-practicable assessment and a documented reason"));
                     }
@@ -760,19 +802,23 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     all_propagation_not_required = false;
                     unresolved_propagation = true;
                     if reason.is_empty() {
-                        errors.push(format!("{opath}: failed propagation requires a recorded failure reason"));
+                        errors.push(format!(
+                            "{opath}: failed propagation requires a recorded failure reason"
+                        ));
                     }
                 }
                 _ => errors.push(format!("{opath}: unknown propagation disposition")),
             }
 
-            if decision_impact == "unknown"
-                && prop_status == "not_required_with_basis"
-            {
-                errors.push(format!("{opath}: unknown decision impact cannot be treated as not required"));
+            if decision_impact == "unknown" && prop_status == "not_required_with_basis" {
+                errors.push(format!(
+                    "{opath}: unknown decision impact cannot be treated as not required"
+                ));
             }
             if practicability == "unknown" && prop_status == "exception_recorded" {
-                errors.push(format!("{opath}: unknown practicability cannot be recorded as a concluded exception"));
+                errors.push(format!(
+                    "{opath}: unknown practicability cannot be recorded as a concluded exception"
+                ));
             }
             if rule_profile == "UNQUALIFIED_MULTI_JURISDICTION"
                 && prop_status != "pending"
@@ -787,15 +833,20 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
 
         for key in &historical_keys {
             if !obligation_keys.contains(key) {
-                errors.push(format!("{case_id}: prior recipient has no correction propagation obligation: {key}"));
+                errors.push(format!(
+                    "{case_id}: prior recipient has no correction propagation obligation: {key}"
+                ));
             }
         }
         if historical_keys.is_empty() && !propagation_obligations.is_empty() {
-            errors.push(format!("{case_id}: propagation obligations exist without a historical recipient disclosure"));
+            errors.push(format!(
+                "{case_id}: propagation obligations exist without a historical recipient disclosure"
+            ));
         }
         if current_signal_changed && !inventory_complete {
             unresolved_propagation = true;
-            if str_at(scenario, "expected_disposition") != Some("propagation_inventory_incomplete") {
+            if str_at(scenario, "expected_disposition") != Some("propagation_inventory_incomplete")
+            {
                 errors.push(format!("{case_id}: changed signal with incomplete historical recipient inventory must remain quarantined"));
             }
             if !array_at(scenario, "disclosures").is_none_or(Vec::is_empty)
@@ -803,22 +854,32 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             {
                 errors.push(format!("{case_id}: incomplete historical inventory cannot support current redistribution or adverse receiver action"));
             }
-        } else if str_at(scenario, "expected_disposition") == Some("propagation_inventory_incomplete") {
+        } else if str_at(scenario, "expected_disposition")
+            == Some("propagation_inventory_incomplete")
+        {
             errors.push(format!("{case_id}: propagation inventory is marked incomplete despite a complete or not-applicable inventory state"));
         }
         if !propagation_obligations.is_empty() {
             let expected = str_at(scenario, "expected_disposition").unwrap_or("");
             if unresolved_propagation
-                && !matches!(expected, "propagation_pending_quarantine" | "propagation_acknowledged_not_invalidated" | "propagation_exception_recorded" | "quarantine_cross_jurisdiction_propagation")
+                && !matches!(
+                    expected,
+                    "propagation_pending_quarantine"
+                        | "propagation_acknowledged_not_invalidated"
+                        | "propagation_exception_recorded"
+                        | "quarantine_cross_jurisdiction_propagation"
+                )
             {
                 errors.push(format!("{case_id}: unresolved propagation is not represented in the expected disposition"));
             }
-            if !unresolved_propagation && all_propagation_invalidated
+            if !unresolved_propagation
+                && all_propagation_invalidated
                 && expected != "propagation_complete"
             {
                 errors.push(format!("{case_id}: fully invalidated recipients require propagation_complete disposition"));
             }
-            if !unresolved_propagation && all_propagation_not_required
+            if !unresolved_propagation
+                && all_propagation_not_required
                 && expected != "propagation_not_required_reasoned"
             {
                 errors.push(format!("{case_id}: no-impact obligations require propagation_not_required_reasoned disposition"));
@@ -826,7 +887,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             if any_exception_recorded && expected != "propagation_exception_recorded" {
                 errors.push(format!("{case_id}: documented exception requires propagation_exception_recorded disposition"));
             }
-            if any_ack_without_invalidation && expected != "propagation_acknowledged_not_invalidated" {
+            if any_ack_without_invalidation
+                && expected != "propagation_acknowledged_not_invalidated"
+            {
                 errors.push(format!("{case_id}: acknowledgement without invalidation must remain explicitly unresolved"));
             }
             if unresolved_propagation
@@ -835,15 +898,21 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             {
                 errors.push(format!("{case_id}: receiver cannot take a new adverse action while recipient invalidation is unresolved"));
             }
-            if unresolved_propagation && !array_at(scenario, "disclosures").is_none_or(Vec::is_empty) {
-                errors.push(format!("{case_id}: unresolved propagation cannot be redistributed as a current signal"));
+            if unresolved_propagation
+                && !array_at(scenario, "disclosures").is_none_or(Vec::is_empty)
+            {
+                errors.push(format!(
+                    "{case_id}: unresolved propagation cannot be redistributed as a current signal"
+                ));
             }
         }
         if !historical_keys.is_empty()
             && matches!(status, "corrected" | "withdrawn" | "expired")
             && propagation_obligations.is_empty()
         {
-            errors.push(format!("{case_id}: superseded signal with prior recipients has no propagation ledger"));
+            errors.push(format!(
+                "{case_id}: superseded signal with prior recipients has no propagation ledger"
+            ));
         }
 
         if status == "confirmed_by_source" && !seen_confirmation {
@@ -895,7 +964,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let recipient = str_at(disclosure, "recipient_participant").unwrap_or("");
             let disclosure_purpose = str_at(disclosure, "purpose").unwrap_or("");
             let status_at_disclosure = str_at(disclosure, "status_at_disclosure").unwrap_or("");
-            let disclosed_version = disclosure.get("signal_version").and_then(Value::as_u64).unwrap_or(0);
+            let disclosed_version = disclosure
+                .get("signal_version")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
             let disclosed_digest = str_at(disclosure, "signal_digest").unwrap_or("");
             let audience_allowed = profile_audiences
                 .is_some_and(|items| items.iter().any(|v| v.as_str() == Some(audience)));
@@ -916,7 +988,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 ));
             }
             if disclosed_version
-                != signal.get("signal_version").and_then(Value::as_u64).unwrap_or(0)
+                != signal
+                    .get("signal_version")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0)
                 || disclosed_digest != str_at(signal, "evidence_digest").unwrap_or("")
             {
                 errors.push(format!("{dpath}: disclosure is not bound to the exact current signal version and digest"));
@@ -1115,47 +1190,96 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         v["scenarios"][11]["events"][1]["signal_version"] = json!(3);
     })?;
     count += 1;
-    mutate_and_reject("missing recipient propagation obligation", corpus, schema, |v| {
-        v["scenarios"][33]["correction_propagations"] = json!([]);
-    })?;
+    mutate_and_reject(
+        "missing recipient propagation obligation",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][33]["correction_propagations"] = json!([]);
+        },
+    )?;
     count += 1;
-    mutate_and_reject("delivery receipt promoted to cache invalidation", corpus, schema, |v| {
-        v["scenarios"][34]["correction_propagations"][0]["status"] = json!("invalidated");
-    })?;
+    mutate_and_reject(
+        "delivery receipt promoted to cache invalidation",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][34]["correction_propagations"][0]["status"] = json!("invalidated");
+        },
+    )?;
     count += 1;
-    mutate_and_reject("wrong correction digest acknowledged", corpus, schema, |v| {
-        v["scenarios"][33]["correction_propagations"][0]["new_signal_digest"] = json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    })?;
+    mutate_and_reject(
+        "wrong correction digest acknowledged",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][33]["correction_propagations"][0]["new_signal_digest"] =
+                json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        },
+    )?;
     count += 1;
     mutate_and_reject("no-impact claim without reason", corpus, schema, |v| {
         v["scenarios"][35]["correction_propagations"][0]["reason"] = Value::Null;
     })?;
     count += 1;
-    mutate_and_reject("acknowledgement treated as complete invalidation", corpus, schema, |v| {
-        v["scenarios"][37]["expected_disposition"] = json!("propagation_complete");
-    })?;
+    mutate_and_reject(
+        "acknowledgement treated as complete invalidation",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][37]["expected_disposition"] = json!("propagation_complete");
+        },
+    )?;
     count += 1;
-    mutate_and_reject("GDPR rule profile attached to South African participant", corpus, schema, |v| {
-        v["profiles"][0]["notification_rule_profile"] = json!("EU_GDPR_ARTICLE_19_COMPARATOR");
-    })?;
+    mutate_and_reject(
+        "GDPR rule profile attached to South African participant",
+        corpus,
+        schema,
+        |v| {
+            v["profiles"][0]["notification_rule_profile"] = json!("EU_GDPR_ARTICLE_19_COMPARATOR");
+        },
+    )?;
     count += 1;
-    mutate_and_reject("unqualified cross-border rule claims a legal exception", corpus, schema, |v| {
-        v["scenarios"][38]["correction_propagations"][0]["status"] = json!("not_required_with_basis");
-        v["scenarios"][38]["correction_propagations"][0]["decision_impact"] = json!("no");
-        v["scenarios"][38]["correction_propagations"][0]["reason"] = json!("unknown jurisdiction");
-    })?;
+    mutate_and_reject(
+        "unqualified cross-border rule claims a legal exception",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][38]["correction_propagations"][0]["status"] =
+                json!("not_required_with_basis");
+            v["scenarios"][38]["correction_propagations"][0]["decision_impact"] = json!("no");
+            v["scenarios"][38]["correction_propagations"][0]["reason"] =
+                json!("unknown jurisdiction");
+        },
+    )?;
     count += 1;
-    mutate_and_reject("complete inventory omits a recipient", corpus, schema, |v| {
-        v["scenarios"][33]["historical_disclosure_inventory"]["recipient_count"] = json!(0);
-    })?;
+    mutate_and_reject(
+        "complete inventory omits a recipient",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][33]["historical_disclosure_inventory"]["recipient_count"] = json!(0);
+        },
+    )?;
     count += 1;
-    mutate_and_reject("correction inventory is unknown but expected complete", corpus, schema, |v| {
-        v["scenarios"][33]["historical_disclosure_inventory"]["status"] = json!("unknown");
-    })?;
+    mutate_and_reject(
+        "correction inventory is unknown but expected complete",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][33]["historical_disclosure_inventory"]["status"] = json!("unknown");
+        },
+    )?;
     count += 1;
-    mutate_and_reject("not-applicable inventory on a corrected signal", corpus, schema, |v| {
-        v["scenarios"][33]["historical_disclosure_inventory"]["status"] = json!("not_applicable");
-    })?;
+    mutate_and_reject(
+        "not-applicable inventory on a corrected signal",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][33]["historical_disclosure_inventory"]["status"] =
+                json!("not_applicable");
+        },
+    )?;
     count += 1;
 
     Ok(count)
