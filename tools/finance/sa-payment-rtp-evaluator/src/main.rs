@@ -322,7 +322,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
 
             if kind == "payer_accepted" {
                 if actor != "payer" || authority != "valid" || !viewed {
-                    errors.push(format!("{path}: acceptance requires viewed request, payer actor and valid authority"));
+                    errors.push(format!(
+                        "{path}: acceptance requires viewed request, payer actor and valid authority"
+                    ));
                 }
                 if accepted_digest != Some(digest) || event_digest != digest || terms_mutated {
                     errors.push(format!(
@@ -403,7 +405,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     || actor != "beneficiary_psp"
                     || authority != "valid"
                 {
-                    errors.push(format!("{path}: recipient availability requires instruction-bound beneficiary PSP evidence"));
+                    errors.push(format!(
+                        "{path}: recipient availability requires instruction-bound beneficiary PSP evidence"
+                    ));
                 }
                 recipient_available = true;
             }
