@@ -563,9 +563,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("acceptance digest mismatch", corpus, schema, |v| {
-        v["scenarios"][5]["events"][3]["accepted_request_digest"] = json!(
-            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-        );
+        v["scenarios"][5]["events"][3]["accepted_request_digest"] =
+            json!("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
     })?;
     count += 1;
 
@@ -577,9 +576,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     mutate_and_reject("accept after terms mutation", corpus, schema, |v| {
         v["scenarios"][6]["events"][4]["event_type"] = json!("payer_accepted");
         v["scenarios"][6]["events"][4]["authority_state"] = json!("valid");
-        v["scenarios"][6]["events"][4]["accepted_request_digest"] = json!(
-            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        );
+        v["scenarios"][6]["events"][4]["accepted_request_digest"] =
+            json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     })?;
     count += 1;
 
