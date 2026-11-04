@@ -64,3 +64,12 @@ Outcome measurements should include false-positive and confirmed-signal rates on
 ## Claim ceiling
 
 The corpus is synthetic. A passing evaluator establishes only the typed provenance, purpose and lifecycle semantics of the fixture contract. It proves no fraud-detection accuracy, lawful sharing basis, nationwide interoperability, customer outcome, participant adoption or SARB endorsement.
+
+
+## Exact event lineage and lifetime qualification
+
+Every append-only history event now binds the signal version and SHA-256 content commitment it consumed. A status/correction/withdrawal update that changes the signal's content must increment the version and use a new digest. Same-version digest substitution, skipped versions, a final event that does not bind the current signal version, or an event sequence that moves backwards in UTC time is rejected.
+
+Participant profiles declare a maximum signal TTL. The Rust evaluator parses UTC timestamps, requires observation before recording and expiry after observation, and rejects a lifetime beyond the profile maximum. Expired, corrected, withdrawn or unknown signals cannot be disclosed as current. The future-clock-skew case is represented as an untrusted quarantined event, not an accepted future event.
+
+The 33-case corpus includes positive controls for independently corroborated signals and a source's own final case disposition, while keeping the latter explicitly a source assertion rather than a legal finding. The negative-mutation suite now contains 15 controls.
