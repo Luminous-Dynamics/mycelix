@@ -39,6 +39,7 @@ VARIABLES
     lastReadEpoch,
     lastRequiredEpoch,
     lastCanonicalRevoked,
+    lastHostActiveAtRead,
     lastReadUsedCheckpoint
 
 vars ==
@@ -46,7 +47,7 @@ vars ==
        projectionEpoch, projectionState, minimumEpoch,
        caller, hostProbe, lastHostActiveAtProbe, readState, lastReadEpoch,
        lastRequiredEpoch, lastCanonicalRevoked,
-       lastReadUsedCheckpoint >>
+       lastHostActiveAtRead, lastReadUsedCheckpoint >>
 
 Init ==
     /\ hostActive = TRUE
@@ -62,6 +63,7 @@ Init ==
     /\ lastReadEpoch = 0
     /\ lastRequiredEpoch = 0
     /\ lastCanonicalRevoked = FALSE
+    /\ lastHostActiveAtRead = TRUE
     /\ lastReadUsedCheckpoint = FALSE
 
 CommitHostRevocation ==
@@ -73,7 +75,7 @@ CommitHostRevocation ==
     /\ UNCHANGED
         << projectionEpoch, projectionState, caller, hostProbe,
            lastHostActiveAtProbe, readState, lastReadEpoch, lastRequiredEpoch,
-           lastCanonicalRevoked, lastReadUsedCheckpoint >>
+           lastCanonicalRevoked, lastHostActiveAtRead, lastReadUsedCheckpoint >>
 
 ConvergeProjection ==
     /\ projectionEpoch < authorityEpoch
@@ -114,6 +116,7 @@ ReadWithCheckpoint ==
            /\ lastReadEpoch' = projectionEpoch
            /\ lastRequiredEpoch' = minimumEpoch
            /\ lastCanonicalRevoked' = canonicalRevoked
+           /\ lastHostActiveAtRead' = hostActive
            /\ lastReadUsedCheckpoint' = UseCheckpoint
            /\ UNCHANGED
                 << hostActive, authorityEpoch, canonicalRevoked,
@@ -142,26 +145,25 @@ TypeOK ==
     /\ lastReadEpoch \in Nat
     /\ lastRequiredEpoch \in Nat
     /\ lastCanonicalRevoked \in BOOLEAN
+    /\ lastHostActiveAtRead \in BOOLEAN
     /\ lastReadUsedCheckpoint \in BOOLEAN
 
 NoFalseFreshAuthority ==
     /\ readState = "TRUSTED_ACTIVE"
-       => /\ ~canonicalRevoked
-          /\ hostActive
-          /\ projectionEpoch >= minimumEpoch
-          /\ projectionState = "active"
+       => /\ ~lastCanonicalRevoked
+          /\ lastHostActiveAtRead
+          /\ lastReadEpoch >= lastRequiredEpoch
     /\ readState = "TRUSTED_REVOKED"
-       => /\ canonicalRevoked
-          /\ ~hostActive
-          /\ projectionEpoch >= minimumEpoch
-          /\ projectionState = "revoked"
+       => /\ lastCanonicalRevoked
+          /\ ~lastHostActiveAtRead
+          /\ lastReadEpoch >= lastRequiredEpoch
 
 HostProbeIsNotProjectionDerived ==
     hostProbe = "AUTHORIZED" => lastHostActiveAtProbe
 
 CheckpointNeverGrantsHostAuthority ==
     /\ readState = "TRUSTED_ACTIVE"
-       => hostActive
+       => lastHostActiveAtRead
     /\ readState = "UNKNOWN" => TRUE
 
 StaleCheckpointReadIsUnknown ==
