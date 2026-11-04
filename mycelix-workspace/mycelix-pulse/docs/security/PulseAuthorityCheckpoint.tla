@@ -82,7 +82,7 @@ ConvergeProjection ==
         IF canonicalRevoked THEN "revoked" ELSE "active"
     /\ UNCHANGED
         << hostActive, authorityEpoch, canonicalRevoked, minimumEpoch,
-           caller, hostProbe, readState, lastReadEpoch,
+           caller, hostProbe, lastHostActiveAtProbe, readState, lastReadEpoch,
            lastRequiredEpoch, lastCanonicalRevoked,
            lastReadUsedCheckpoint >>
 
@@ -118,7 +118,7 @@ ReadWithCheckpoint ==
            /\ UNCHANGED
                 << hostActive, authorityEpoch, canonicalRevoked,
                    projectionEpoch, projectionState, minimumEpoch,
-                   caller, hostProbe >>
+                   caller, hostProbe, lastHostActiveAtProbe >>
 
 Next ==
     \/ CommitHostRevocation
