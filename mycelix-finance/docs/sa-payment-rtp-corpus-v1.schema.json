@@ -62,7 +62,7 @@
     },
     "scenarios": {
       "type": "array",
-      "minItems": 24,
+      "minItems": 48,
       "items": {
         "$ref": "#/$defs/scenario"
       }
@@ -582,6 +582,113 @@
           "minItems": 1,
           "items": {
             "type": "string"
+          }
+        },
+        "abuse_assessment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sender_authentication_state",
+            "requester_identity_resolution",
+            "claim_evidence_state",
+            "material_presentation_state",
+            "presented_material_digest",
+            "payer_action",
+            "repeat_contact_after_decline_count",
+            "presentation_modality",
+            "secondary_data_use_purpose",
+            "expected_abuse_disposition"
+          ],
+          "properties": {
+            "sender_authentication_state": {
+              "enum": [
+                "verified_provider_credential",
+                "unverified",
+                "compromised",
+                "unknown"
+              ]
+            },
+            "requester_identity_resolution": {
+              "enum": [
+                "exact",
+                "unknown",
+                "confusable",
+                "mismatch"
+              ]
+            },
+            "claim_evidence_state": {
+              "enum": [
+                "verified_external_reference",
+                "sender_assertion_only",
+                "missing",
+                "stale_or_conflicted",
+                "unsupported_legal_claim",
+                "not_applicable"
+              ]
+            },
+            "material_presentation_state": {
+              "enum": [
+                "complete",
+                "incomplete",
+                "mismatched",
+                "inaccessible"
+              ]
+            },
+            "presented_material_digest": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "payer_action": {
+              "enum": [
+                "none",
+                "accepted",
+                "declined",
+                "reported",
+                "blocked",
+                "appealed"
+              ]
+            },
+            "repeat_contact_after_decline_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "presentation_modality": {
+              "enum": [
+                "standard_app",
+                "screen_reader",
+                "feature_phone",
+                "translated_app",
+                "unknown"
+              ]
+            },
+            "secondary_data_use_purpose": {
+              "enum": [
+                "request_fulfilment",
+                "payment_execution",
+                "unrelated_credit_scoring",
+                "unrelated_disclosure",
+                "marketing",
+                "not_applicable"
+              ]
+            },
+            "expected_abuse_disposition": {
+              "enum": [
+                "authenticated_sender_not_legitimacy_proof",
+                "do_not_assert_verified_obligation",
+                "reject_confusable_or_mismatched_identity",
+                "escalate_repeat_contact_review",
+                "reject_secondary_data_use",
+                "require_complete_material_presentation",
+                "preserve_user_decline_or_report",
+                "preserve_appeal_and_requalify",
+                "accessibility_parity_confirmed",
+                "source_artifact_not_legal_decision",
+                "allow_exact_user_instruction_without_debt_conclusion"
+              ]
+            }
           }
         }
       }
