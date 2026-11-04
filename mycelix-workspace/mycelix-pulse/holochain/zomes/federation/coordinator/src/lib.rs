@@ -46,6 +46,7 @@ const MAX_RETRIES: u8 = 5;
 // ==================== SIGNALS ====================
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type", content = "data")]
 pub enum FederationSignal {
     /// New network discovered
     NetworkDiscovered {
