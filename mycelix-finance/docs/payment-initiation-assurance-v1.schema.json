@@ -390,7 +390,6 @@
               "type": "string",
               "enum": [
                 "not_inferred",
-                "separately_evidenced",
                 "unknown"
               ]
             }
