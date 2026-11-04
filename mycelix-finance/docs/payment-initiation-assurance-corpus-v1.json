@@ -521,7 +521,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -544,7 +545,7 @@
         "dispatch_attempted": false
       },
       "payee_verification": {
-        "scheme_profile": "EU_IPR_VOP",
+        "scheme_profile": "UK_FPS_COP",
         "participant": "synthetic_payer_psp_01",
         "issuer": "synthetic_beneficiary_psp_01",
         "audience": "payment-initiation-assurance-v1",
@@ -569,7 +570,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "PAYUK_FPS_PRINCIPLES_V11_COP_2026"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -617,7 +619,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -640,7 +643,7 @@
         "dispatch_attempted": false
       },
       "payee_verification": {
-        "scheme_profile": "EU_IPR_VOP",
+        "scheme_profile": "UK_FPS_COP",
         "participant": "synthetic_payer_psp_01",
         "issuer": "synthetic_beneficiary_psp_01",
         "audience": "payment-initiation-assurance-v1",
@@ -664,8 +667,9 @@
         "disclosure_state": "minimal_result",
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
-          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+          "PAYUK_FPS_PRINCIPLES_V11_COP_2026"
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -713,7 +717,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -761,7 +766,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -809,7 +815,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -857,7 +864,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -880,7 +888,7 @@
         "dispatch_attempted": false
       },
       "payee_verification": {
-        "scheme_profile": "EU_IPR_VOP",
+        "scheme_profile": "UK_FPS_COP",
         "participant": "synthetic_payer_psp_01",
         "issuer": "synthetic_beneficiary_psp_01",
         "audience": "payment-initiation-assurance-v1",
@@ -905,7 +913,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "PAYUK_FPS_PRINCIPLES_V11_COP_2026"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -953,7 +962,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -977,19 +987,19 @@
         "dispatch_attempted": false
       },
       "payee_verification": {
-        "scheme_profile": "EU_IPR_VOP",
-        "participant": "synthetic_payer_psp_01",
-        "issuer": "synthetic_beneficiary_psp_01",
-        "audience": "payment-initiation-assurance-v1",
+        "scheme_profile": "ZA_NPU_PROPOSAL_ONLY",
+        "participant": "South African NPU proposal (not operational)",
+        "issuer": "no-operational-provider-response",
+        "audience": "synthetic-proposal-profile",
         "result": "unavailable",
         "query_subject_ref": "opaque:subject-001",
         "response_subject_ref": "opaque:subject-001",
         "intent_subject_ref": "opaque:subject-001",
         "requested_account_type": "business",
         "returned_account_type": "business",
-        "provider_signature_state": "valid",
-        "audience_matches": true,
-        "is_current": true,
+        "provider_signature_state": "unknown",
+        "audience_matches": false,
+        "is_current": false,
         "observed_at": "2026-11-04T10:00:00Z",
         "valid_until": "2026-11-04T10:05:00Z",
         "payer_notified": true,
@@ -1002,7 +1012,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "SARB_PEM_POSITION_2025"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -1050,7 +1061,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -1099,7 +1111,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
@@ -1147,7 +1160,8 @@
         "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "source_refs": [
           "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
-        ]
+        ],
+        "fraud_inference": "not_inferred"
       },
       "dispatch_allowed": false,
       "required_evidence": [
