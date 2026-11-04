@@ -276,7 +276,7 @@ A November 2026 review found a broader set of public and semi-public finance/acc
 
 ### A. APEX-Accounting — professional month-end close workflows
 
-Mercor and Ramp's APEX-Accounting evaluates simulated-company bookkeeping and month-end-close work across accounting systems, spreadsheets, PDFs and other files. The public board snapshot checked 1 November 2026 reports a leading 71.5% mean score over criteria passed. The benchmark page describes 10 worlds / 100 leaderboard tasks / 1,475 grading criteria; the associated paper describes 160 private tasks across 10 worlds. The open release is only one world / 10 tasks. It excludes tax, audit, consolidation, multi-entity and multi-currency accounting, and clarification-seeking. Its rubric judge is an LLM judge, so we should preserve its native score for comparison while independently checking deterministic numeric and journal invariants.
+Mercor and Ramp's APEX-Accounting evaluates simulated-company bookkeeping and month-end-close work across accounting systems, spreadsheets, PDFs and other files. The public board snapshot checked 1 November 2026 reports a leading 71.5% mean score over criteria passed. The official methodology describes reconciliations, financial-statement preparation, audit workpapers and tax treatment; tasks use text, spreadsheets and filings and are graded against practising-accountant rubrics by an LLM judge. The public board describes 10 worlds / 100 tasks / 1,475 criteria; the paper's private evaluation describes 160 tasks across 10 held-out worlds, while the public development release is one world / 10 tasks. The current official board snapshot checked 1 November 2026 reports 71.5% ± 4.8 Mean Score (criteria passed) and 71.5% Pass@1 for Gemini 4 Argon High. It is a single-turn task harness despite the cross-application work context. The public sample must not be reported as the private leaderboard score. Preserve the native rubric metric and independently check exact numeric, journal, source and close invariants.
 
 References:
 - https://www.mercor.com/blog/introducing-the-ai-productivity-index-for-accounting/
@@ -310,7 +310,7 @@ Artificial Analysis' Finance & Accounting Index currently combines agentic knowl
 
 Reference: https://artificialanalysis.ai/indexes/finance-and-accounting/
 
-The third-party benchmarks.finance directory reported 47 finance benchmarks and 419 sourced scores across 234 models as of 3 November 2026, with separate metrics rather than a universal aggregate. Use it to discover relevant benchmark candidates and provenance, not as an authoritative industry standard or a score to optimize directly.
+The third-party benchmarks.finance directory reported 52 finance benchmarks as of 2 November 2026, and explicitly keeps each benchmark on its own metric rather than providing a universal aggregate. The directory is a discovery aid with source/date/provenance fields, not an authoritative industry standard or a score to optimize directly.
 
 Reference: https://benchmarks.finance/
 
@@ -382,3 +382,93 @@ This is a smoke-corpus structural/arithmetic check only. No Rust evaluator, Carg
 
 
 A further byte-level check recomputed the SHA-256 of each document's nested `content` object using sorted-key canonical JSON, no insignificant whitespace and UTF-8 encoding. All 11 document occurrences across the three cases match their declared fingerprints (5 unique canonical source documents). The duplicate invoice deliberately reuses the same document fingerprint.
+
+
+## 15. Benchmark refresh and new evaluation tracks — checked 4 November 2026
+
+The latest review of the benchmark directory and original benchmark-owner pages revealed additional evaluation tracks and several scope/rights caveats. Treat these as complementary measurements, never as interchangeable scores.
+
+### A. APEX-Accounting — use the primary owner scope, not a secondary summary
+
+Mercor's official methodology describes APEX-Accounting as evaluating reconciliations, financial-statement preparation, audit workpapers and tax treatment, graded against practising-accountant rubrics. Its modality is text + spreadsheets/filings, task format is single-turn open-ended accounting deliverables, and the score is mean criteria plus Pass@1 over repeated runs. The official current board checked 1 November 2026 shows Gemini 4 Argon High at 71.5% ± 4.8.
+
+The benchmark owner describes 10 worlds, 100 tasks and 1,475 criteria on its board; the paper reports 160 private tasks across 10 held-out worlds. Its public development release is one world and ten tasks only. Do not call a run on the ten public tasks an APEX leaderboard score. The full scored set is closed and must be obtained through authorized evaluation.
+
+Primary references:
+- https://www.mercor.com/apex/methodology/
+- https://www.mercor.com/apex/apex-accounting-leaderboard/
+- https://arxiv.org/abs/2607.27189
+- https://huggingface.co/datasets/mercor/apex-accounting
+
+### B. Excel Modeling Benchmark v1.1 — model-building, not ledger correctness
+
+Vals AI's EMB v1.1 board was updated 29 October 2026. Its best reported score is 76.73% (Claude Fable 5.1). The benchmark has 103 tasks: one public, 51 private validation and 51 test. It grades template-mode workbook output by exact cell match and scratch-mode output with an LLM rubric; workbooks are recalculated in Excel, and seven financial-model categories are equally weighted. The dataset is proprietary, and the single public task is insufficient for independent full leaderboard reproduction.
+
+Keep EMB v1.1 separate from EMB v1.0; their scores are explicitly non-comparable. It measures financial modelling in spreadsheets, not source-to-journal accounting correctness, statutory close, live filing research or audit assurance.
+
+References:
+- https://www.vals-ai.com/benchmarks/emb-v1-1
+- https://benchmarks.finance/benchmarks/vals-emb/
+
+### C. Finch — long multi-file finance/accounting cowork workflows
+
+Finch measures long, multi-step enterprise finance and accounting workflows spanning data entry, formatting, cross-file retrieval, calculation, modelling, validation, translation, visualization and reporting. The published v5 corpus contains 172 composite workflows, 384 component tasks, 1,710 spreadsheets (~27 million cells) plus PDFs and other files. All 172 workflows are published in one test split under a CC-BY-3.0/CC-BY-3.0-US license as reported by the benchmark directory and paper. The headline is binary workflow pass/fail with expert human evaluation as gold standard and an LLM rubric as an additional judge. The highest reported human-evaluated workflow pass rate in the checked source is 38.4%, with only two product agents reported.
+
+This is a useful operational/file-workflow baseline, but it is not an independent accounting-ledger correctness benchmark. Preserve its human-evaluation distinction and license notice.
+
+References:
+- https://arxiv.org/abs/2506.12345
+- https://benchmarks.finance/benchmarks/finch/
+
+### D. BlueFin — keep the rights boundary visible
+
+BlueFin v1 reports 131 professional spreadsheet tasks and 3,225 rubric criteria, with 11 public tasks and 120 held out for the main evaluation. The reported leading criteria-weighted score is 49.6% (GPT-5.5, May 2026). It assesses workbook synthesis, manipulation and interrogation, with special attention to formula behavior when inputs change. Its rubric judge is an LM judge validated against expert ratings (reported Krippendorff alpha 0.826). Public data is CC-BY-NC-4.0 and the paper is CC-BY-NC-SA 4.0; commercial reuse or training must not be assumed permitted.
+
+References:
+- https://arxiv.org/abs/2605.30907
+- https://benchmarks.finance/benchmarks/bluefin/
+
+### E. What this changes in our comparison portfolio
+
+Retain the following separate tracks:
+1. FINBALANCE-compatible source-document-to-statement correctness.
+2. APEX-compatible close workflow and accountant deliverables.
+3. DualBench100-compatible common task performance.
+4. BlueFin / EMB-compatible workbook formula and model correctness, subject to rights and public-split limits.
+5. Finch-compatible multi-file enterprise workflow performance.
+6. Mycelix hard invariants: exact-money, journal/source/policy/entity binding, replay, authorization and evidence completeness.
+7. Assertion-specific evidence and audit-workpaper evaluation (new #5798).
+8. Blinded candidate-vs-rules-vs-human experiments (new #5799).
+9. Rights-cleared historical replay and prospective SME/accounting-firm pilots.
+
+Do not create a weighted "accounting intelligence" aggregate. Publish each metric with the exact task version, test split, evaluator, date, permissions, run budget and source. A rubric pass must never substitute for a zero-tolerance arithmetic or authorization gate.
+
+### F. Audit evidence is entering a standards revision cycle
+
+The IAASB published exposure drafts on 5 August 2026 proposing revisions to ISA 330, ISA 500 and ISA 520. The proposals address digital evidence, intended procedure purpose, relevance/reliability of information and professional skepticism. The consultation deadline is 15 December 2026.
+
+These are exposure drafts, not final effective requirements. Use them to guide our assertion-specific evidence model and professional review, not to claim compliance.
+
+Primary reference:
+- https://www.iaasb.org/publications/proposed-revisions-audit-evidence-risk-response-isa-330-isa-500-isa-520
+
+### G. South African structured VAT document interoperability: statutory definitions now exist
+
+Act 4 of 2026, Government Gazette 54447 (1 April 2026), amends the VAT Act to define e-invoices, e-credit notes, e-debit notes and e-reporting and to define an interoperability framework based on a network of service providers and decentralized exchange. It also inserts VAT Act section 74(1B), empowering regulations for vendor participation in a **voluntary e-reporting system**.
+
+This does not by itself identify Peppol as the South African framework or establish that all implementing regulations/technical requirements have been issued. Keep SARS modernization readiness separate from the Peppol profile, and preserve explicit pending/unknown regulatory states.
+
+Primary references:
+- https://www.sars.gov.za/legal-lprim-aa-2026-02-tax-administration-laws-amendment-act-4-of-2026-gg-54447-1-april-2026/
+- https://www.sars.gov.za/businesses-and-employers/my-business-and-tax/vat-connect-issue-21-september-2026/
+
+### H. Reporting taxonomy versions are first-class evidence
+
+The IFRS Foundation states that the 2025 IFRS Accounting Taxonomy remains current for 2026 reporting periods; the next annual taxonomy is expected in Q1 2027. SEC EDGAR 26.3 (14 September 2026) likewise removed support for 2024 taxonomy versions and stated the 2025 IFRS taxonomy remains current for the 2026 reporting period under its guidance.
+
+This reinforces that financial statement tagging/XBRL output must bind to a named jurisdiction, framework, taxonomy release and validation package. A correct statement with stale taxonomy tags is still a reporting deliverable defect.
+
+References:
+- https://www.ifrs.org/news-and-events/news/2026/02/ifrs-accounting-taxonomy-2025-to-remain-current-for-2026/
+- https://www.sec.gov/newsroom/whats-new/260915-edgar-263-release-xbrl-taxonomies-update
+
