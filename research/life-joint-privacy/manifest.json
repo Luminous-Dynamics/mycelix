@@ -1,0 +1,72 @@
+{
+  "benchmark_id": "LIFE-JOINT-PRIVACY-001",
+  "version": "0.1.0",
+  "status": "two_scenario_synthetic_joint_privacy_reference_model",
+  "population": {
+    "subjects_per_scenario": 512,
+    "rounds": 4,
+    "task_answer_schedule": ["predicate_0", "predicate_1", "predicate_2", "predicate_0"],
+    "subjects_per_task_transcript": 64,
+    "protected_attribute": "synthetic_binary_and_balanced_within_each_task_transcript",
+    "statement_count_range_inclusive": [8, 31],
+    "optional_index_universe": 8,
+    "optional_indices_per_subject_per_round": 3,
+    "seed": "0x5EEDC0DE"
+  },
+  "scenarios": [
+    "reference_metadata_independent_synthetic_labels",
+    "shifted_count_bucket_and_index_class_correlated_with_protected_attribute"
+  ],
+  "search": {
+    "round_profiles": 9,
+    "plans": 6561,
+    "minimum_p05_candidate_support": 16,
+    "maximum_absolute_group_posterior_uplift_ppm": 100000,
+    "selection": "minimum_total_cost_then_maximum_worst_p05_then_minimum_worst_attribute_uplift_then_lexical_plan"
+  },
+  "count_modes": {
+    "exact": {"cost_units_per_round": 0},
+    "two_bucket_split_at_20": {"cost_units_per_round": 8},
+    "common_padding": {"cost_units_per_round": 24}
+  },
+  "index_modes": {
+    "exact_pattern": {"cost_units_per_round": 0},
+    "coarse_index_parity": {"cost_units_per_round": 5},
+    "omitted": {"cost_units_per_round": 12}
+  },
+  "observer_boundary": "typed_view_contains_task_answers_and_only_emitted_count_or_index_fields; protected_attribute_is_evaluator_only",
+  "metrics": [
+    "scenario_candidate_support_min_p05_p50_p95_max",
+    "raw_under_k_count_and_ppm",
+    "raw_unique_candidate_count_and_ppm",
+    "maximum_absolute_protected_attribute_posterior_uplift_ppm",
+    "majority_group_attacker_accuracy_ppm",
+    "worst_scenario_p05",
+    "worst_scenario_attribute_uplift",
+    "three_objective_pareto_frontier",
+    "selected_plan"
+  ],
+  "invariants": [
+    "protected_attribute_never_appears_in_observer_view",
+    "task_answers_remain_identical_under_all_plans_and_scenarios",
+    "candidate_support_floor_is_independent_of_attribute_inference_gate",
+    "k_compliant_count_bucket_plan_is_rejected_for_attribute_uplift",
+    "k_compliant_coarse_index_plan_is_rejected_for_attribute_uplift",
+    "compiler_satisfies_candidate_and_attribute_constraints_in_every_scenario",
+    "selected_plan_is_minimum_cost_jointly_feasible_plan",
+    "joint_frontier_matches_independent_three_objective_dominance_oracle",
+    "all_6561_plans_are_reported",
+    "report_is_rectangular_and_deterministic"
+  ],
+  "claim_ceiling": "finite_two_scenario_synthetic_joint_privacy_reference_model",
+  "nonclaims": [
+    "formal_bayesian_privacy_bound",
+    "differential_privacy",
+    "anonymity_or_unlinkability",
+    "real_world_sensitive_attribute_inference_risk",
+    "credential_protocol_implementation",
+    "standards_conformance",
+    "production_cost_estimates",
+    "sota_superiority"
+  ]
+}
