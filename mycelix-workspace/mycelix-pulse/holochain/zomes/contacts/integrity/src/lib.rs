@@ -165,7 +165,7 @@ fn validate_update_contact(
     }
 
     let original_action = must_get_action(original_action_hash)?;
-    if original_action.action().author() != &action.author() {
+    if original_action.action().author() != action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the original owner can update a contact".to_string(),
         ));
