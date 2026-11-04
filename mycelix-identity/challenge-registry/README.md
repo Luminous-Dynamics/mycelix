@@ -75,15 +75,20 @@ presentation bindings before invoking consume_and_commit. The adapter is not
 a signature verifier and does not change the V1 presentation verifier by
 itself.
 
-The exact-head workflow runs against PostgreSQL 18.6. It applies the migration,
+The exact-head workflow runs against PostgreSQL 18.6. It applies the migration
+as an administrator, then provisions a dedicated non-login function owner and
+a separate runtime login. It asserts that the runtime has no direct table
+privileges and runs all SQL/SQLx contract tests through the runtime role. It applies the migration,
 runs the sequential SQL contract, starts the two-process psql race, runs the
 Rust unit suite, runs an additional race across two independent SQLx pools,
 and runs warnings-denied Clippy.
 
 ## Deployment requirements before high-assurance use
 
-- Provision a dedicated runtime role with EXECUTE on the register/consume
-  functions and no direct UPDATE or DELETE privilege on the table.
+- Provision a dedicated non-login function-owner role that owns the schema and
+  table, plus a separate runtime login role with schema USAGE and EXECUTE on
+  the register/consume functions only. The runtime role must have no direct
+  SELECT, INSERT, UPDATE, DELETE or TRUNCATE privilege on the table.
 - Use exactly one writable primary; do not consume from read replicas.
 - Configure failover so an acknowledged consume commit cannot be lost. An
   asynchronously replicated, potentially data-losing promotion is not an
