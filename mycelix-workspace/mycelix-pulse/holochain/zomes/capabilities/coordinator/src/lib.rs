@@ -189,13 +189,15 @@ fn determine_granted_functions(
         || permissions.can_modify_trust
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Requested permission is not backed by a capability-scoped remote entrypoint".to_string(),
+            "Requested permission is not backed by a capability-scoped remote entrypoint"
+                .to_string(),
         )));
     }
 
     if permissions.can_view_attachments != permissions.can_download_attachments {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Attachment access currently requires view and download permissions to agree".to_string(),
+            "Attachment access currently requires view and download permissions to agree"
+                .to_string(),
         )));
     }
     if permissions.can_view_attachments && !permissions.can_read {
@@ -248,7 +250,8 @@ fn determine_granted_functions(
         | MailboxAccessType::OrganizationAdmin
         | MailboxAccessType::Custom(_) => {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "This capability access type is not yet enforced end-to-end; refusing to issue it".to_string(),
+                "This capability access type is not yet enforced end-to-end; refusing to issue it"
+                    .to_string(),
             )));
         }
     };
@@ -420,12 +423,7 @@ mod capability_policy_tests {
     fn assert_exact_scope(grant: GrantedFunctions, expected_names: &[&str]) {
         let expected: HashSet<(ZomeName, FunctionName)> = expected_names
             .iter()
-            .map(|name| {
-                (
-                    ZomeName::from("mail_messages"),
-                    FunctionName::from(*name),
-                )
-            })
+            .map(|name| (ZomeName::from("mail_messages"), FunctionName::from(*name)))
             .collect();
 
         match grant {
@@ -445,12 +443,8 @@ mod capability_policy_tests {
             can_read: true,
             ..MailboxPermissions::default()
         };
-        let grant = determine_granted_functions(
-            &MailboxAccessType::ReadOnly,
-            &permissions,
-            None,
-        )
-        .expect("read-only grant should be supported");
+        let grant = determine_granted_functions(&MailboxAccessType::ReadOnly, &permissions, None)
+            .expect("read-only grant should be supported");
 
         assert_exact_scope(
             grant,
@@ -473,12 +467,8 @@ mod capability_policy_tests {
             can_send: true,
             ..MailboxPermissions::default()
         };
-        let grant = determine_granted_functions(
-            &MailboxAccessType::SendAs,
-            &permissions,
-            None,
-        )
-        .expect("send-only grant should be supported");
+        let grant = determine_granted_functions(&MailboxAccessType::SendAs, &permissions, None)
+            .expect("send-only grant should be supported");
 
         assert_exact_scope(grant, &["send_email_v2", "send_email"]);
     }
@@ -491,12 +481,8 @@ mod capability_policy_tests {
             can_download_attachments: true,
             ..MailboxPermissions::default()
         };
-        let grant = determine_granted_functions(
-            &MailboxAccessType::ReadOnly,
-            &permissions,
-            None,
-        )
-        .expect("attachment read grant should be supported");
+        let grant = determine_granted_functions(&MailboxAccessType::ReadOnly, &permissions, None)
+            .expect("attachment read grant should be supported");
 
         assert_exact_scope(
             grant,
@@ -610,12 +596,8 @@ mod capability_policy_tests {
 
         for (case, permissions) in cases {
             assert!(
-                determine_granted_functions(
-                    &MailboxAccessType::ReadOnly,
-                    &permissions,
-                    None,
-                )
-                .is_err(),
+                determine_granted_functions(&MailboxAccessType::ReadOnly, &permissions, None,)
+                    .is_err(),
                 "unsupported permission profile must fail closed: {case}"
             );
         }
@@ -726,12 +708,9 @@ mod capability_policy_tests {
             can_read: true,
             ..MailboxPermissions::default()
         };
-        let read_grant = determine_granted_functions(
-            &MailboxAccessType::FullAccess,
-            &read_only_flags,
-            None,
-        )
-        .expect("FullAccess profile with only can_read should remain read-only");
+        let read_grant =
+            determine_granted_functions(&MailboxAccessType::FullAccess, &read_only_flags, None)
+                .expect("FullAccess profile with only can_read should remain read-only");
         assert_exact_scope(
             read_grant,
             &[
@@ -750,12 +729,9 @@ mod capability_policy_tests {
             can_send: true,
             ..MailboxPermissions::default()
         };
-        let send_grant = determine_granted_functions(
-            &MailboxAccessType::FullAccess,
-            &send_only_flags,
-            None,
-        )
-        .expect("FullAccess profile with only can_send should remain send-only");
+        let send_grant =
+            determine_granted_functions(&MailboxAccessType::FullAccess, &send_only_flags, None)
+                .expect("FullAccess profile with only can_send should remain send-only");
         assert_exact_scope(send_grant, &["send_email_v2", "send_email"]);
     }
 
@@ -775,7 +751,10 @@ mod capability_policy_tests {
             ),
             ("OutOfOffice", MailboxAccessType::OutOfOffice),
             ("OrganizationAdmin", MailboxAccessType::OrganizationAdmin),
-            ("Custom", MailboxAccessType::Custom("custom-scope".to_string())),
+            (
+                "Custom",
+                MailboxAccessType::Custom("custom-scope".to_string()),
+            ),
         ];
         let permissions = MailboxPermissions {
             can_read: true,
@@ -803,10 +782,16 @@ mod capability_policy_tests {
     fn attachment_access_requires_both_view_and_download() {
         let mut permissions = MailboxPermissions::default();
         permissions.can_view_attachments = true;
-        assert!(!is_action_permitted(&permissions, &AuditAction::AccessAttachment));
+        assert!(!is_action_permitted(
+            &permissions,
+            &AuditAction::AccessAttachment
+        ));
 
         permissions.can_download_attachments = true;
-        assert!(is_action_permitted(&permissions, &AuditAction::AccessAttachment));
+        assert!(is_action_permitted(
+            &permissions,
+            &AuditAction::AccessAttachment
+        ));
     }
 
     #[test]
@@ -815,13 +800,16 @@ mod capability_policy_tests {
             can_read: true,
             ..MailboxPermissions::default()
         };
-        assert!(determine_granted_functions(
-            &MailboxAccessType::FolderAccess {
-                folder_hash: ActionHash::from_raw_36(vec![0; 36]),
-            },
-            &permissions,
-            None,
-        ).is_err());
+        assert!(
+            determine_granted_functions(
+                &MailboxAccessType::FolderAccess {
+                    folder_hash: ActionHash::from_raw_36(vec![0; 36]),
+                },
+                &permissions,
+                None,
+            )
+            .is_err()
+        );
     }
 }
 
@@ -1161,11 +1149,12 @@ pub fn deliver_capability_grant(requested_hash: ActionHash) -> ExternResult<()> 
         )));
     }
 
-    let grant_hash = capability.system_grant_action_hash.clone().ok_or(
-        wasm_error!(WasmErrorInner::Guest(
+    let grant_hash = capability
+        .system_grant_action_hash
+        .clone()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Capability has no bound Holochain grant hash".to_string()
-        )),
-    )?;
+        )))?;
     let grant_record = get(grant_hash, GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Private system grant not found on the grantor chain".to_string())
     ))?;
@@ -1184,8 +1173,9 @@ pub fn deliver_capability_grant(requested_hash: ActionHash) -> ExternResult<()> 
         )));
     }
     let secret = match grant.access {
-        CapAccess::Assigned { secret, assignees }
-            if assignees.contains(&capability.grantee) => secret,
+        CapAccess::Assigned { secret, assignees } if assignees.contains(&capability.grantee) => {
+            secret
+        }
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "System grant is not assigned to the recorded grantee".to_string()
@@ -1249,10 +1239,12 @@ pub fn receive_capability_grant(delivery: CapabilityGrantDelivery) -> ExternResu
         )));
     }
 
-    let record = get(delivery.capability_hash.clone(), GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Capability metadata is not yet available; retry delivery after DHT publication".to_string()
-        )))?;
+    let record = get(delivery.capability_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Capability metadata is not yet available; retry delivery after DHT publication"
+                .to_string()
+        )),
+    )?;
     let capability: MailboxCapability = record
         .entry()
         .to_app_option()
@@ -1356,7 +1348,8 @@ fn resolve_latest_capability(
         };
         let Details::Record(details) = details else {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "Capability state is unknown: update details did not resolve to record details".to_string(),
+                "Capability state is unknown: update details did not resolve to record details"
+                    .to_string(),
             )));
         };
 
@@ -1367,7 +1360,8 @@ fn resolve_latest_capability(
             }
             let Some(update_record) = get(update_hash.clone(), GetOptions::default())? else {
                 return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Capability state is unknown: a referenced update record is unavailable".to_string(),
+                    "Capability state is unknown: a referenced update record is unavailable"
+                        .to_string(),
                 )));
             };
             let Some(updated_capability) = update_record
@@ -1463,11 +1457,8 @@ pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<Capa
         return Ok(CapabilityProbeResult::FunctionNotGranted);
     }
 
-    let Some(claim) = find_cap_claim(
-        &capability.grantor,
-        &capability.id,
-        &capability.secret_hash,
-    )? else {
+    let Some(claim) = find_cap_claim(&capability.grantor, &capability.id, &capability.secret_hash)?
+    else {
         return Ok(CapabilityProbeResult::ClaimMissing);
     };
 
@@ -1481,9 +1472,7 @@ pub fn probe_remote_capability(capability_hash: ActionHash) -> ExternResult<Capa
 
     match response {
         ZomeCallResponse::Ok(_) => Ok(CapabilityProbeResult::Authorized),
-        ZomeCallResponse::Unauthorized(_, _, _, _, _) => {
-            Ok(CapabilityProbeResult::Unauthorized)
-        }
+        ZomeCallResponse::Unauthorized(_, _, _, _, _) => Ok(CapabilityProbeResult::Unauthorized),
         _ => Err(wasm_error!(WasmErrorInner::Guest(
             "Remote capability probe failed for a reason other than authorization".to_string()
         ))),
@@ -1522,11 +1511,8 @@ pub fn probe_remote_inbox_read(capability_hash: ActionHash) -> ExternResult<Capa
         return Ok(CapabilityProbeResult::FunctionNotGranted);
     }
 
-    let Some(claim) = find_cap_claim(
-        &capability.grantor,
-        &capability.id,
-        &capability.secret_hash,
-    )? else {
+    let Some(claim) = find_cap_claim(&capability.grantor, &capability.id, &capability.secret_hash)?
+    else {
         return Ok(CapabilityProbeResult::ClaimMissing);
     };
 
@@ -1539,9 +1525,7 @@ pub fn probe_remote_inbox_read(capability_hash: ActionHash) -> ExternResult<Capa
     )?;
     match response {
         ZomeCallResponse::Ok(_) => Ok(CapabilityProbeResult::Authorized),
-        ZomeCallResponse::Unauthorized(_, _, _, _, _) => {
-            Ok(CapabilityProbeResult::Unauthorized)
-        }
+        ZomeCallResponse::Unauthorized(_, _, _, _, _) => Ok(CapabilityProbeResult::Unauthorized),
         _ => Err(wasm_error!(WasmErrorInner::Guest(
             "Remote inbox-read qualification call failed for a reason other than authorization"
                 .to_string()
@@ -1573,7 +1557,8 @@ pub fn recv_remote_signal(signal: ExternIO) -> ExternResult<()> {
         }
         CapabilitySignal::CapabilityGranted { .. } => {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "CapabilityGranted must arrive through the acknowledged private-claim handoff".to_string(),
+                "CapabilityGranted must arrive through the acknowledged private-claim handoff"
+                    .to_string(),
             )));
         }
         _ => {}
