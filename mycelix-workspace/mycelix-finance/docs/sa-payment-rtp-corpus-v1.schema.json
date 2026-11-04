@@ -461,7 +461,8 @@
         "expected_financial_effect": {
           "enum": [
             "none",
-            "payment_instruction_only"
+            "payment_instruction_only",
+            "recipient_available_observed"
           ]
         },
         "required_evidence": {
