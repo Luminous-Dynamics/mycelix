@@ -1,0 +1,68 @@
+name: LIFE observable disclosure traces benchmark
+
+on:
+  pull_request:
+    paths:
+      - "research/life-disclosure-observable-traces/**"
+      - ".github/workflows/life-disclosure-observable-traces.yml"
+  push:
+    paths:
+      - "research/life-disclosure-observable-traces/**"
+      - ".github/workflows/life-disclosure-observable-traces.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/life-disclosure-observable-traces/Cargo.toml --all -- --check
+
+      - name: Run tests
+        run: cargo test --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo clippy --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml --all-targets -- -D warnings
+
+      - name: Compare repeated benchmark reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml > report-a.csv
+          cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml > report-b.csv
+          cmp report-a.csv report-b.csv
+          sha256sum report-a.csv research/life-disclosure-observable-traces/channel-manifest.json > report.sha256
+          printf 'commit=%s\n' "$QUALIFIED_SHA" > qualification.txt
+          cat report.sha256 >> qualification.txt
+          cat qualification.txt
+
+      - name: Upload qualification receipt
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: life-disclosure-observable-traces-${{ github.sha }}
+          path: |
+            report-a.csv
+            report.sha256
+            qualification.txt
+            research/life-disclosure-observable-traces/channel-manifest.json
+          if-no-files-found: error
