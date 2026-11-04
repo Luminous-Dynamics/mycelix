@@ -308,6 +308,13 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
         if return_total > 0 && !events.iter().any(|event| str_at(event, "event_type") == Some("funds_returned")) {
             out.errors.push(format!("scenarios[{case_index}]: returned amount lacks return event"));
         }
+        out.returned_minor_units = match out.returned_minor_units.checked_add(return_total) {
+            Some(total) => total,
+            None => {
+                out.errors.push(format!("scenarios[{case_index}]: corpus returned-value total overflow"));
+                u64::MAX
+            }
+        };
 
         let computed_effect = if return_total == claim && claim > 0 {
             "full_return"
@@ -319,6 +326,13 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
             "funds_located_not_returned"
         } else if has_recall || events.iter().any(|event| str_at(event, "event_type") == Some("return_instruction_observed")) {
             "request_only"
+        } else if events.iter().any(|event| {
+            matches!(
+                str_at(event, "event_type"),
+                Some("late_success_observed" | "recipient_availability_verified")
+            )
+        }) {
+            "no_recovery"
         } else if has_timeout {
             "unresolved_possible_effect"
         } else {
