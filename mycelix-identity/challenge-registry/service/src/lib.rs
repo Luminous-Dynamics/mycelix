@@ -11,11 +11,11 @@
 //! transport error is always reported as an unknown outcome and must never be
 //! retried with the same challenge.
 
-use rand::rngs::OsRng;
 use rand::RngCore;
+use rand::rngs::OsRng;
 use sha2::{Digest, Sha256};
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 use std::fmt;
 use std::time::Duration;
 use thiserror::Error;
@@ -156,7 +156,9 @@ pub enum RegistryError {
     RegistrationRejected,
     #[error("PostgreSQL challenge registry operation failed")]
     Database(#[from] sqlx::Error),
-    #[error("challenge consume committed or may have committed; outcome is unknown; issue a new challenge")]
+    #[error(
+        "challenge consume committed or may have committed; outcome is unknown; issue a new challenge"
+    )]
     CommitOutcomeUnknown(#[source] sqlx::Error),
     #[error("registry connection pool limit must be between 1 and 64")]
     InvalidPoolLimit,
@@ -205,10 +207,7 @@ impl PostgresChallengeRegistry {
         ttl: Duration,
     ) -> Result<ChallengeSecret, RegistryError> {
         context.validate()?;
-        if ttl.as_secs() == 0
-            || ttl.as_secs() > MAX_TTL_SECONDS
-            || ttl.subsec_nanos() != 0
-        {
+        if ttl.as_secs() == 0 || ttl.as_secs() > MAX_TTL_SECONDS || ttl.subsec_nanos() != 0 {
             return Err(RegistryError::InvalidTtl);
         }
         let ttl_seconds = i32::try_from(ttl.as_secs()).map_err(|_| RegistryError::InvalidTtl)?;
@@ -368,9 +367,7 @@ mod tests {
         ];
         for ttl in invalid {
             assert!(
-                ttl.as_secs() == 0
-                    || ttl.as_secs() > MAX_TTL_SECONDS
-                    || ttl.subsec_nanos() != 0
+                ttl.as_secs() == 0 || ttl.as_secs() > MAX_TTL_SECONDS || ttl.subsec_nanos() != 0
             );
         }
         assert!(context().validate().is_ok());
