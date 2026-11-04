@@ -97,7 +97,8 @@
             "network_governance",
             "standards_body",
             "international_organization",
-            "synthetic_test_fixture"
+            "synthetic_test_fixture",
+            "data_maintainer"
           ]
         },
         "source_url": {
