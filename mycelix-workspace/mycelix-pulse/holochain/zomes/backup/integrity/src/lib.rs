@@ -372,7 +372,9 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action.into()),
+            OpEntry::CreateEntry { app_entry, action } => {
+                validate_create_entry(app_entry, action.into())
+            }
             // No entry type in this zome has a real update_entry call anywhere in the
             // coordinator (confirmed via direct grep) -- reject outright rather than leave
             // the previous unbound dead-code path (P0 wide-open RegisterUpdate gap,
@@ -553,10 +555,10 @@ mod tests {
             },
             data: ActionData::Create(CreateData {
                 entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
+                    EntryDefIndex(0),
+                    ZomeIndex(0),
+                    EntryVisibility::Public,
+                )),
                 entry_hash: EntryHash::from_raw_36(vec![1; 36]),
             }),
         };
