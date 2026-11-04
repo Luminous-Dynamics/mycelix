@@ -81,6 +81,61 @@
         "A universal cross-border fraud data permission",
         "A requirement to share raw account or customer records"
       ]
+    },
+    {
+      "id": "POPIA_ACT_2013_SECTION_24",
+      "authority": "Republic of South Africa",
+      "title": "Protection of Personal Information Act 4 of 2013, section 24",
+      "url": "https://www.justice.gov.za/legislation/acts/2013-004.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_jurisdictional_law",
+      "supports": [
+        "A data subject may request correction or deletion of specified inaccurate, irrelevant, excessive, out-of-date, incomplete, misleading or unlawfully obtained personal information",
+        "Section 24(3) requires a responsible party, if reasonably practicable, to inform each recipient when a correction has an impact on decisions taken or to be taken about the data subject",
+        "Section 24(4) requires notifying the data subject who requested correction of the action taken"
+      ],
+      "does_not_support": [
+        "A universal number of minutes or hours for recipient cache invalidation",
+        "A requirement to disclose raw source evidence to every recipient",
+        "A universal requirement to notify every recipient when there is no decision impact"
+      ]
+    },
+    {
+      "id": "POPIA_REGULATIONS_2025_CORRECTION",
+      "authority": "Republic of South Africa",
+      "title": "Protection of Personal Information Regulations, regulation 3 (amended 2025)",
+      "url": "https://lawlibrary.org.za/akn/za/act/gn/2018/r1383/eng%402025-04-17",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "jurisdictional_regulatory_text_snapshot",
+      "supports": [
+        "Regulation 3 describes a right to request correction or deletion at any time and free of charge in the specified circumstances",
+        "Regulation 3.6 requires written notification to the data subject of the action taken within 30 days"
+      ],
+      "does_not_support": [
+        "A 30-day downstream recipient-notification or cache-invalidation SLA",
+        "A claim that all data-sharing is permitted by POPIA",
+        "A universal deadline for fraud signal recipient propagation"
+      ]
+    },
+    {
+      "id": "GDPR_ARTICLE_19_RECIPIENT_NOTIFICATION",
+      "authority": "European Union",
+      "title": "Regulation (EU) 2016/679, Article 19",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:02016R0679-20160504",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "foreign_jurisdiction_law_comparator",
+      "supports": [
+        "Controller communicates rectification or erasure under Articles 16/17(1), or restriction under Article 18, to each recipient unless impossible or disproportionate effort",
+        "At the data subject's request, the controller informs the data subject about those recipients"
+      ],
+      "does_not_support": [
+        "South African legal requirements",
+        "A fixed universal recipient-propagation SLA",
+        "Authority to share data with a recipient absent a separate lawful basis"
+      ]
     }
   ],
   "profiles": [
@@ -102,9 +157,12 @@
       "max_signal_ttl_seconds": 604800,
       "source_refs": [
         "SARB_PEM_POSITION_2025",
-        "SARB_PEM_PROGRAMME_2026"
+        "SARB_PEM_PROGRAMME_2026",
+        "POPIA_ACT_2013_SECTION_24",
+        "POPIA_REGULATIONS_2025_CORRECTION"
       ],
-      "notes": "Synthetic participant profile only; no South African participant has been admitted."
+      "notes": "Synthetic participant profile only; no South African participant has been admitted.",
+      "notification_rule_profile": "ZA_POPIA_S24_DECISION_IMPACT_REASONABLY_PRACTICABLE"
     },
     {
       "profile_id": "ZA-PEM-FUTURE-NPU-PROPOSAL-V1",
@@ -116,9 +174,12 @@
       "max_signal_ttl_seconds": null,
       "source_refs": [
         "SARB_PEM_POSITION_2025",
-        "SARB_PEM_PROGRAMME_2026"
+        "SARB_PEM_PROGRAMME_2026",
+        "POPIA_ACT_2013_SECTION_24",
+        "POPIA_REGULATIONS_2025_CORRECTION"
       ],
-      "notes": "Policy direction only; must not imply operational NPU fraud signal infrastructure."
+      "notes": "Policy direction only; must not imply operational NPU fraud signal infrastructure.",
+      "notification_rule_profile": "ZA_POPIA_S24_DECISION_IMPACT_REASONABLY_PRACTICABLE"
     },
     {
       "profile_id": "XBRD-FPS-INTERLINK-SYNTHETIC-V1",
@@ -137,9 +198,11 @@
       "max_signal_ttl_seconds": 86400,
       "source_refs": [
         "BIS_FRAUD_CROSS_BORDER_2026",
-        "BIS_FPS_INTERLINK_2026"
+        "BIS_FPS_INTERLINK_2026",
+        "GDPR_ARTICLE_19_RECIPIENT_NOTIFICATION"
       ],
-      "notes": "Synthetic cross-border comparator; each jurisdiction's legal basis and recipient permission remain unqualified."
+      "notes": "Synthetic cross-border comparator; each jurisdiction's legal basis and recipient permission remain unqualified.",
+      "notification_rule_profile": "UNQUALIFIED_MULTI_JURISDICTION"
     }
   ],
   "scenarios": [
@@ -214,7 +277,9 @@
             "correction_route"
           ],
           "existence_oracle": false,
-          "raw_subject_included": false
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
         }
       ],
       "receiver_decision": {
@@ -230,7 +295,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-002",
@@ -312,7 +379,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-003",
@@ -386,7 +455,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-004",
@@ -454,7 +525,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-005",
@@ -536,7 +609,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-006",
@@ -618,7 +693,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-007",
@@ -700,7 +777,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-008",
@@ -782,7 +861,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-009",
@@ -850,7 +931,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-010",
@@ -932,7 +1015,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-011",
@@ -1014,7 +1099,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-012",
@@ -1096,7 +1183,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-013",
@@ -1183,7 +1272,9 @@
             "correction_route"
           ],
           "existence_oracle": false,
-          "raw_subject_included": false
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
         }
       ],
       "receiver_decision": {
@@ -1199,7 +1290,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-014",
@@ -1281,7 +1374,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-015",
@@ -1377,7 +1472,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-016",
@@ -1445,7 +1542,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-017",
@@ -1527,7 +1626,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-018",
@@ -1600,7 +1701,9 @@
             "correction_route"
           ],
           "existence_oracle": false,
-          "raw_subject_included": false
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
         }
       ],
       "receiver_decision": {
@@ -1616,7 +1719,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-019",
@@ -1686,7 +1791,9 @@
             "correction_route"
           ],
           "existence_oracle": false,
-          "raw_subject_included": false
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
         }
       ],
       "receiver_decision": {
@@ -1702,7 +1809,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-020",
@@ -1770,7 +1879,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-021",
@@ -1852,7 +1963,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-022",
@@ -1934,7 +2047,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-023",
@@ -2016,7 +2131,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-024",
@@ -2098,7 +2215,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-025",
@@ -2194,7 +2313,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-026",
@@ -2276,7 +2397,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-027",
@@ -2372,7 +2495,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-028",
@@ -2440,7 +2565,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-029",
@@ -2520,7 +2647,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-030",
@@ -2616,7 +2745,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-031",
@@ -2709,7 +2840,9 @@
             "correction_route"
           ],
           "existence_oracle": false,
-          "raw_subject_included": false
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
         }
       ],
       "receiver_decision": {
@@ -2725,7 +2858,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-032",
@@ -2812,7 +2947,9 @@
             "correction_route"
           ],
           "existence_oracle": false,
-          "raw_subject_included": false
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
         }
       ],
       "receiver_decision": {
@@ -2828,7 +2965,9 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
-      ]
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
     },
     {
       "scenario_id": "SA-FS-033",
@@ -2896,6 +3035,770 @@
         "no_public_pii_hash",
         "no_out_of_purpose_disclosure",
         "no_single_signal_permanent_denial"
+      ],
+      "historical_disclosures": [],
+      "correction_propagations": []
+    },
+    {
+      "scenario_id": "SA-FS-034",
+      "scenario_type": "correction_delivered_acknowledged_and_invalidated",
+      "signal": {
+        "signal_id": "SIG-034",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "investigation_record",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-001",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "root_event_id": "ROOT-034",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-034",
+            "independence": "independent",
+            "evidence_class": "investigation_record"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-341",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "PROP-EVIDENCE-341",
+          "attempted_digest": null,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "event_id": "EV-342",
+          "sequence": 2,
+          "event_type": "signal_corrected",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "PROP-EVIDENCE-342",
+          "attempted_digest": null,
+          "signal_version": 2,
+          "signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "manual_review",
+        "basis": "correction_reached_previous_recipient",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagation_complete",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ],
+      "historical_disclosures": [
+        {
+          "disclosure_id": "HIST-PSP_B-1",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:02:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "correction_propagations": [
+        {
+          "obligation_id": "PROP-034",
+          "recipient_participant": "PSP_B",
+          "recipient_audience": "participating_psp_fraud_team",
+          "prior_signal_version": 1,
+          "prior_signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "new_signal_version": 2,
+          "new_signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "decision_impact": "yes",
+          "practicability": "reasonably_practicable",
+          "status": "invalidated",
+          "notification_sent_at": "2026-11-04T09:06:00Z",
+          "acknowledged_at": "2026-11-04T09:07:00Z",
+          "cache_invalidated_at": "2026-11-04T09:08:00Z",
+          "notification_receipt_id": "NOTICE-034",
+          "invalidation_receipt_id": "INVALIDATE-034",
+          "reason": null,
+          "evidence_reference": "SYNTHETIC-PROPAGATION-EVIDENCE"
+        }
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-035",
+      "scenario_type": "notification_delivered_but_invalidation_pending",
+      "signal": {
+        "signal_id": "SIG-035",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "investigation_record",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-001",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "root_event_id": "ROOT-035",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-035",
+            "independence": "independent",
+            "evidence_class": "investigation_record"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-351",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "PROP-EVIDENCE-351",
+          "attempted_digest": null,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "event_id": "EV-352",
+          "sequence": 2,
+          "event_type": "signal_corrected",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "PROP-EVIDENCE-352",
+          "attempted_digest": null,
+          "signal_version": 2,
+          "signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "recipient_cache_not_yet_invalidated",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagation_pending_quarantine",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ],
+      "historical_disclosures": [
+        {
+          "disclosure_id": "HIST-PSP_B-1",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:02:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "correction_propagations": [
+        {
+          "obligation_id": "PROP-035",
+          "recipient_participant": "PSP_B",
+          "recipient_audience": "participating_psp_fraud_team",
+          "prior_signal_version": 1,
+          "prior_signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "new_signal_version": 2,
+          "new_signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "decision_impact": "yes",
+          "practicability": "reasonably_practicable",
+          "status": "delivered",
+          "notification_sent_at": "2026-11-04T09:06:00Z",
+          "acknowledged_at": null,
+          "cache_invalidated_at": null,
+          "notification_receipt_id": "NOTICE-035",
+          "invalidation_receipt_id": null,
+          "reason": null,
+          "evidence_reference": "SYNTHETIC-PROPAGATION-EVIDENCE"
+        }
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-036",
+      "scenario_type": "no_decision_impact_reasoned_not_required",
+      "signal": {
+        "signal_id": "SIG-036",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "investigation_record",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-001",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "root_event_id": "ROOT-036",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-036",
+            "independence": "independent",
+            "evidence_class": "investigation_record"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-361",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "PROP-EVIDENCE-361",
+          "attempted_digest": null,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "event_id": "EV-362",
+          "sequence": 2,
+          "event_type": "signal_corrected",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "PROP-EVIDENCE-362",
+          "attempted_digest": null,
+          "signal_version": 2,
+          "signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "documented_no_decision_impact",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagation_not_required_reasoned",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ],
+      "historical_disclosures": [
+        {
+          "disclosure_id": "HIST-PSP_B-1",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:02:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "correction_propagations": [
+        {
+          "obligation_id": "PROP-036",
+          "recipient_participant": "PSP_B",
+          "recipient_audience": "participating_psp_fraud_team",
+          "prior_signal_version": 1,
+          "prior_signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "new_signal_version": 2,
+          "new_signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "decision_impact": "no",
+          "practicability": "reasonably_practicable",
+          "status": "not_required_with_basis",
+          "notification_sent_at": null,
+          "acknowledged_at": null,
+          "cache_invalidated_at": null,
+          "notification_receipt_id": null,
+          "invalidation_receipt_id": null,
+          "reason": "Recipient inventory reviewed; no past, current or planned decision about the data subject used this disclosure",
+          "evidence_reference": "IMPACT-ASSESSMENT-036"
+        }
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-037",
+      "scenario_type": "decision_impact_but_notification_not_practicable_exception",
+      "signal": {
+        "signal_id": "SIG-037",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "investigation_record",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-001",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "root_event_id": "ROOT-037",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-037",
+            "independence": "independent",
+            "evidence_class": "investigation_record"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-371",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "PROP-EVIDENCE-371",
+          "attempted_digest": null,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "event_id": "EV-372",
+          "sequence": 2,
+          "event_type": "signal_corrected",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "PROP-EVIDENCE-372",
+          "attempted_digest": null,
+          "signal_version": 2,
+          "signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "recipient_notification_exception_requires_review",
+        "automatic": false,
+        "independent_review": true,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagation_exception_recorded",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ],
+      "historical_disclosures": [
+        {
+          "disclosure_id": "HIST-PSP_B-1",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:02:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "correction_propagations": [
+        {
+          "obligation_id": "PROP-037",
+          "recipient_participant": "PSP_B",
+          "recipient_audience": "participating_psp_fraud_team",
+          "prior_signal_version": 1,
+          "prior_signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "new_signal_version": 2,
+          "new_signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "decision_impact": "yes",
+          "practicability": "not_practicable",
+          "status": "exception_recorded",
+          "notification_sent_at": null,
+          "acknowledged_at": null,
+          "cache_invalidated_at": null,
+          "notification_receipt_id": null,
+          "invalidation_receipt_id": null,
+          "reason": "Synthetic example: recipient endpoint is unavailable; responsible-party review and alternative contact attempts are recorded. This is an exception record, not a legal safe harbour.",
+          "evidence_reference": "PRACTICABILITY-ASSESSMENT-037"
+        }
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-038",
+      "scenario_type": "acknowledged_but_cache_not_invalidated",
+      "signal": {
+        "signal_id": "SIG-038",
+        "signal_version": 2,
+        "profile_id": "ZA-PARTICIPANT-FEDERATED-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "investigation_record",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-001",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "root_event_id": "ROOT-038",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-038",
+            "independence": "independent",
+            "evidence_class": "investigation_record"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-381",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "PROP-EVIDENCE-381",
+          "attempted_digest": null,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "event_id": "EV-382",
+          "sequence": 2,
+          "event_type": "signal_corrected",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "PROP-EVIDENCE-382",
+          "attempted_digest": null,
+          "signal_version": 2,
+          "signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "acknowledgement_is_not_invalidation",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "propagation_acknowledged_not_invalidated",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ],
+      "historical_disclosures": [
+        {
+          "disclosure_id": "HIST-PSP_B-1",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:02:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "correction_propagations": [
+        {
+          "obligation_id": "PROP-038",
+          "recipient_participant": "PSP_B",
+          "recipient_audience": "participating_psp_fraud_team",
+          "prior_signal_version": 1,
+          "prior_signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "new_signal_version": 2,
+          "new_signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "decision_impact": "yes",
+          "practicability": "reasonably_practicable",
+          "status": "acknowledged",
+          "notification_sent_at": "2026-11-04T09:06:00Z",
+          "acknowledged_at": "2026-11-04T09:07:00Z",
+          "cache_invalidated_at": null,
+          "notification_receipt_id": "NOTICE-038",
+          "invalidation_receipt_id": null,
+          "reason": null,
+          "evidence_reference": "SYNTHETIC-PROPAGATION-EVIDENCE"
+        }
+      ]
+    },
+    {
+      "scenario_id": "SA-FS-039",
+      "scenario_type": "cross_border_notification_rule_unqualified",
+      "signal": {
+        "signal_id": "SIG-039",
+        "signal_version": 2,
+        "profile_id": "XBRD-FPS-INTERLINK-SYNTHETIC-V1",
+        "jurisdiction": "MULTI",
+        "source_participant": "PSP_A",
+        "source_authority_state": "authorized",
+        "category": "suspected_scam",
+        "evidence_class": "investigation_record",
+        "status": "corrected",
+        "purpose": "payment_fraud_prevention",
+        "audience": "participating_psp_fraud_team",
+        "subject_reference": {
+          "kind": "provider_opaque_token",
+          "value": "tok:synthetic-001",
+          "scope_id": "SCOPE-PAYMENT-FRAUD-01",
+          "key_id": "KEY-SYNTHETIC-01"
+        },
+        "evidence_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "root_event_id": "ROOT-039",
+        "evidence_refs": [
+          {
+            "participant_id": "PSP_A",
+            "root_event_id": "ROOT-039",
+            "independence": "independent",
+            "evidence_class": "investigation_record"
+          }
+        ],
+        "observed_at": "2026-11-04T09:00:00Z",
+        "recorded_at": "2026-11-04T09:00:01Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "appeal_state": "not_submitted"
+      },
+      "events": [
+        {
+          "event_id": "EV-391",
+          "sequence": 1,
+          "event_type": "signal_created",
+          "from_status": null,
+          "to_status": "suspected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:00:00Z",
+          "evidence_reference": "PROP-EVIDENCE-391",
+          "attempted_digest": null,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "event_id": "EV-392",
+          "sequence": 2,
+          "event_type": "signal_corrected",
+          "from_status": "suspected",
+          "to_status": "corrected",
+          "authority_state": "authorized",
+          "source_participant": "PSP_A",
+          "observed_at": "2026-11-04T09:05:00Z",
+          "evidence_reference": "PROP-EVIDENCE-392",
+          "attempted_digest": null,
+          "signal_version": 2,
+          "signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "disclosures": [],
+      "receiver_decision": {
+        "action": "none",
+        "basis": "cross_border_rule_profile_unqualified",
+        "automatic": false,
+        "independent_review": false,
+        "essential_access_affected": false
+      },
+      "expected_disposition": "quarantine_cross_jurisdiction_propagation",
+      "negative_controls": [
+        "no_status_promotion_without_evidence",
+        "no_public_pii_hash",
+        "no_out_of_purpose_disclosure",
+        "no_single_signal_permanent_denial"
+      ],
+      "historical_disclosures": [
+        {
+          "disclosure_id": "HIST-PSP_B-1",
+          "recipient_participant": "PSP_B",
+          "audience": "participating_psp_fraud_team",
+          "purpose": "payment_fraud_prevention",
+          "status_at_disclosure": "suspected",
+          "observed_at": "2026-11-04T09:02:00Z",
+          "disclosed_fields": [
+            "signal_id",
+            "category",
+            "status",
+            "evidence_class",
+            "source_participant",
+            "observed_at",
+            "expires_at",
+            "correction_route"
+          ],
+          "existence_oracle": false,
+          "raw_subject_included": false,
+          "signal_version": 1,
+          "signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "correction_propagations": [
+        {
+          "obligation_id": "PROP-039",
+          "recipient_participant": "PSP_B",
+          "recipient_audience": "participating_psp_fraud_team",
+          "prior_signal_version": 1,
+          "prior_signal_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "new_signal_version": 2,
+          "new_signal_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "decision_impact": "unknown",
+          "practicability": "unknown",
+          "status": "pending",
+          "notification_sent_at": null,
+          "acknowledged_at": null,
+          "cache_invalidated_at": null,
+          "notification_receipt_id": null,
+          "invalidation_receipt_id": null,
+          "reason": null,
+          "evidence_reference": "SYNTHETIC-PROPAGATION-EVIDENCE"
+        }
       ]
     }
   ]
