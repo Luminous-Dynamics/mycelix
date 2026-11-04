@@ -296,14 +296,26 @@ impl AccountingLedgerProfile {
     }
 }
 
-/// The policy admits only exact settlement-profile revisions and a pinned
-/// ledger-profile commitment. It is a classification rule, not execution authority.
+/// One semantic posting role is bound to one account and one normal side.
+/// Reversal behavior is explicit: if enabled, a reversing entry may use only
+/// the opposite side for the same account/semantic role.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountingPostingRule {
+    pub semantic_role: ReferenceId,
+    pub account_id: ReferenceId,
+    pub normal_side: PostingSide,
+    pub allow_reversal: bool,
+}
+
+/// The policy admits exact settlement-profile revisions and a pinned ledger
+/// taxonomy. It also binds semantic posting roles to account classifications.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccountingProjectionPolicy {
     pub policy_id: ReferenceId,
     pub revision: u64,
     pub ledger_profile_digest: Digest32,
     pub allowed_settlement_profiles: BTreeSet<SettlementProfileBinding>,
+    pub posting_rules: BTreeMap<ReferenceId, AccountingPostingRule>,
     pub minimum_postings: usize,
     pub maximum_postings: usize,
     pub allow_reversals: bool,
@@ -322,6 +334,17 @@ impl AccountingProjectionPolicy {
         }
         for profile in &self.allowed_settlement_profiles {
             profile.validate()?;
+        }
+        if self.posting_rules.len() < 2 || self.posting_rules.len() > MAX_POSTINGS_PER_ENTRY {
+            return Err(AccountingError::InvalidPostingRuleSet);
+        }
+        for (key, rule) in &self.posting_rules {
+            if key != &rule.semantic_role
+                || !valid_id(&rule.semantic_role)
+                || !valid_id(&rule.account_id)
+            {
+                return Err(AccountingError::InvalidPostingRule);
+            }
         }
         if self.minimum_postings < 2
             || self.maximum_postings < self.minimum_postings
@@ -342,6 +365,13 @@ impl AccountingProjectionPolicy {
         writer.u64(self.allowed_settlement_profiles.len() as u64);
         for profile in &self.allowed_settlement_profiles {
             profile.encode(&mut writer);
+        }
+        writer.u64(self.posting_rules.len() as u64);
+        for rule in self.posting_rules.values() {
+            writer.text(rule.semantic_role.as_str());
+            writer.text(rule.account_id.as_str());
+            writer.u8(rule.normal_side.tag());
+            writer.u8(u8::from(rule.allow_reversal));
         }
         writer.u64(self.minimum_postings as u64);
         writer.u64(self.maximum_postings as u64);
@@ -503,6 +533,9 @@ pub enum AccountingError {
     AccountEntityMismatch,
     UnknownUnitProfile,
     EmptySourceProfileAllowlist,
+    InvalidPostingRuleSet,
+    InvalidPostingRule,
+    PostingPolicyMismatch,
     LedgerPolicyMismatch,
     UnsupportedSettlementProfile,
     ZeroSourceAmount,
@@ -587,6 +620,19 @@ pub fn qualify_journal_entry(
     policy.validate()?;
     let ledger_digest = ledger.commitment()?;
     let policy_digest = policy.commitment()?;
+    for rule in policy.posting_rules.values() {
+        let account = ledger
+            .accounts
+            .get(&rule.account_id)
+            .ok_or(AccountingError::PostingPolicyMismatch)?;
+        let expected_normal_side = match account.normal_balance {
+            NormalBalance::Debit => PostingSide::Debit,
+            NormalBalance::Credit => PostingSide::Credit,
+        };
+        if rule.normal_side != expected_normal_side {
+            return Err(AccountingError::PostingPolicyMismatch);
+        }
+    }
     if policy.ledger_profile_digest != ledger_digest {
         return Err(AccountingError::LedgerPolicyMismatch);
     }
@@ -624,6 +670,21 @@ pub fn qualify_journal_entry(
     for posting in &postings {
         if !valid_id(&posting.semantic_role) {
             return Err(AccountingError::InvalidIdentifier);
+        }
+        let rule = policy
+            .posting_rules
+            .get(&posting.semantic_role)
+            .ok_or(AccountingError::PostingPolicyMismatch)?;
+        let expected_side = if draft.reverses.is_some() {
+            if !rule.allow_reversal {
+                return Err(AccountingError::PostingPolicyMismatch);
+            }
+            rule.normal_side.opposite()
+        } else {
+            rule.normal_side
+        };
+        if posting.account.account_id != rule.account_id || posting.side != expected_side {
+            return Err(AccountingError::PostingPolicyMismatch);
         }
         if posting.amount.atomic_units() == 0 {
             return Err(AccountingError::ZeroPostingAmount);
@@ -950,6 +1011,26 @@ mod tests {
                 revision: profile.profile_ref.revision,
                 digest: profile.profile_ref.digest,
             }]),
+            posting_rules: BTreeMap::from([
+                (
+                    reference("role:settlement-cash"),
+                    AccountingPostingRule {
+                        semantic_role: reference("role:settlement-cash"),
+                        account_id: reference("account:cash"),
+                        normal_side: PostingSide::Debit,
+                        allow_reversal: true,
+                    },
+                ),
+                (
+                    reference("role:settlement-clearing"),
+                    AccountingPostingRule {
+                        semantic_role: reference("role:settlement-clearing"),
+                        account_id: reference("account:settlement-clearing"),
+                        normal_side: PostingSide::Credit,
+                        allow_reversal: true,
+                    },
+                ),
+            ]),
             minimum_postings: 2,
             maximum_postings: 16,
             allow_reversals: true,
@@ -1385,6 +1466,67 @@ mod tests {
         assert_eq!(
             qualify_journal_entry(&ledger, &policy, invalid),
             Err(AccountingError::UnsupportedSettlementProfile)
+        );
+    }
+
+
+    #[test]
+    fn posting_account_and_side_are_bound_by_the_projection_policy() {
+        let ledger = ledger_profile();
+        let policy = policy(&ledger);
+
+        let mut wrong_account = draft("wrong-policy-account", 100, None);
+        wrong_account.postings[0].account.account_id = reference("account:settlement-clearing");
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, wrong_account),
+            Err(AccountingError::PostingPolicyMismatch)
+        );
+
+        let mut wrong_side = draft("wrong-policy-side", 100, None);
+        wrong_side.postings[0].side = PostingSide::Credit;
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, wrong_side),
+            Err(AccountingError::PostingPolicyMismatch)
+        );
+
+        let mut altered_semantic = draft("wrong-policy-semantic", 100, None);
+        altered_semantic.postings[0].semantic_role = reference("role:unregistered");
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, altered_semantic),
+            Err(AccountingError::PostingPolicyMismatch)
+        );
+    }
+
+    #[test]
+    fn posting_policy_normal_side_must_match_ledger_account_normal_balance() {
+        let ledger = ledger_profile();
+        let mut policy = policy(&ledger);
+        policy.posting_rules.get_mut(&reference("role:settlement-cash"))
+            .expect("cash rule").normal_side = PostingSide::Credit;
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, draft("wrong-normal-side", 100, None)),
+            Err(AccountingError::PostingPolicyMismatch)
+        );
+    }
+
+    #[test]
+    fn reversal_uses_only_explicit_opposite_side_for_the_same_semantic_rule() {
+        let ledger = ledger_profile();
+        let mut policy = policy(&ledger);
+        policy.posting_rules.get_mut(&reference("role:settlement-cash"))
+            .expect("cash rule").allow_reversal = false;
+        let original = qualify_journal_entry(&ledger, &policy, draft("no-cash-reversal-original", 100, None))
+            .expect("original journal");
+        let original_id = original.journal_id();
+        let mut book = JournalBook::new(&ledger).expect("book");
+        book.append(original).expect("append original");
+        assert_eq!(
+            qualify_journal_entry(
+                &ledger,
+                &policy,
+                draft("cash-reversal-not-allowed", 10, Some(original_id))
+            ),
+            Err(AccountingError::PostingPolicyMismatch)
         );
     }
 }
