@@ -601,7 +601,8 @@
             "repeat_contact_after_decline_count",
             "presentation_modality",
             "secondary_data_use_purpose",
-            "expected_abuse_disposition"
+            "expected_abuse_disposition",
+            "claim_legitimacy_inferred_from_sender_authentication"
           ],
           "properties": {
             "sender_authentication_state": {
@@ -692,6 +693,9 @@
                 "source_artifact_not_legal_decision",
                 "allow_exact_user_instruction_without_debt_conclusion"
               ]
+            },
+            "claim_legitimacy_inferred_from_sender_authentication": {
+              "type": "boolean"
             }
           }
         }
