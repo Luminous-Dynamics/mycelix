@@ -23,12 +23,12 @@ path = "sweettest_mail_security.rs"
 # Holochain 0.7 Sweettest must track the exact conductor/HDK generation.
 # See the official 0.6 -> 0.7 upgrade guide for the new feature names and
 # the action-model / FlatOp compatibility work required by this migration.
-holochain = { version = "=0.7.0", features = ["sweettest"] }
+holochain = { version = "=0.7.1", features = ["sweettest"] }
 holochain_types = { version = "=0.7.0" }
 holo_hash = { version = "=0.7.0" }
 
 # hdi for integrity-zome types imported into tests (Timestamp, AgentPubKey, etc.)
-hdi = "=0.8.0"
+hdi = "=0.8.1"
 
 # Async runtime for #[tokio::test]
 tokio = { version = "1", features = ["full"] }
