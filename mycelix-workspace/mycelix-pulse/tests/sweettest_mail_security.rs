@@ -1209,10 +1209,43 @@ enum AuditActionInput {
     Custom(String),
 }
 
-/// Shared mailbox update requires owner or admin role.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+enum SharedMailboxRoleInput {
+    Owner,
+    Admin,
+    Editor,
+    Contributor,
+    Viewer,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
+struct SharedMailboxSettingsInput {
+    notify_all_on_new_mail: bool,
+    allow_send_as: bool,
+    require_send_approval: bool,
+    auto_assign: bool,
+    assignment_strategy: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+struct SharedMailboxMemberSnapshot {
+    agent: AgentPubKey,
+    role: SharedMailboxRoleInput,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+struct SharedMailboxSnapshot {
+    id: String,
+    owner: AgentPubKey,
+    members: Vec<SharedMailboxMemberSnapshot>,
+}
+
+/// Owner can add a member; a direct Admin add is rejected before writing, and
+/// both owner/member indexes resolve the latest mailbox update rather than the
+/// stale original Create record.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_shared_mailbox_update_requires_owner_or_admin() {
+#[ignore = "requires Holochain 0.7 conductor (nix develop)"]
+async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
     let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
@@ -1222,51 +1255,139 @@ async fn test_shared_mailbox_update_requires_owner_or_admin() {
         .unwrap()
         .into_tuple();
 
-    // Alice creates shared mailbox
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    struct CreateSharedMailboxInput {
-        name: String,
-        members: Vec<AgentPubKey>,
-    }
-
-    let create_input = CreateSharedMailboxInput {
-        name: "team-inbox".to_string(),
-        members: vec![bob.agent_pubkey().clone()],
-    };
-
-    let create_result: Result<ActionHash, _> = conductor
+    let original_mailbox_hash: ActionHash = conductor
         .call_fallible(
             &alice.zome("mail_capabilities"),
             "create_shared_mailbox",
-            create_input,
+            (
+                "team-inbox".to_string(),
+                "team-inbox@example.test".to_string(),
+                SharedMailboxSettingsInput::default(),
+            ),
+        )
+        .await
+        .expect("owner should create a shared mailbox");
+
+    // The owner directly adds Bob as Admin. This establishes a legitimate
+    // delegated role without granting the ordinary direct-add endpoint to him.
+    let first_update_hash: ActionHash = conductor
+        .call_fallible(
+            &alice.zome("mail_capabilities"),
+            "add_shared_mailbox_member",
+            (
+                original_mailbox_hash.clone(),
+                bob.agent_pubkey().clone(),
+                SharedMailboxRoleInput::Admin,
+                MailboxPermissionsInput::default(),
+            ),
+        )
+        .await
+        .expect("original owner should be able to add an Admin member");
+
+    await_consistency([&alice, &bob])
+        .await
+        .expect("owner/member mailbox indexes should integrate");
+
+    let bob_mailboxes: Vec<(ActionHash, SharedMailboxSnapshot)> = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "get_my_shared_mailboxes",
+            (),
+        )
+        .await
+        .expect("new member should resolve the mailbox through its member index");
+    let bob_view = bob_mailboxes
+        .iter()
+        .find(|(_, mailbox)| mailbox.id.starts_with("shared_"))
+        .map(|(_, mailbox)| mailbox)
+        .expect("Bob should see the mailbox after his membership update");
+    assert_eq!(bob_view.members.len(), 2);
+    assert_eq!(bob_view.owner, *alice.agent_pubkey());
+    assert!(bob_view.members.iter().any(|member| {
+        member.agent == *bob.agent_pubkey()
+            && matches!(member.role, SharedMailboxRoleInput::Admin)
+    }));
+
+    // Admin direct-add must fail at the coordinator guard, before the
+    // duplicate/new-member validation path can author an Update or Link.
+    let probe_agent = AgentPubKey::from_raw_32(vec![0x42; 32]);
+    let admin_add: Result<ActionHash, _> = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "add_shared_mailbox_member",
+            (
+                first_update_hash.clone(),
+                probe_agent.clone(),
+                SharedMailboxRoleInput::Viewer,
+                MailboxPermissionsInput::default(),
+            ),
         )
         .await;
+    let admin_error = format!("{:?}", admin_add.expect_err("Admin direct-add must be rejected"));
+    assert!(
+        admin_error.contains("controller-signed delegated execution lease"),
+        "rejection must name the missing lease requirement, got: {admin_error}"
+    );
 
-    if let Ok(mailbox_hash) = create_result {
-        // Bob (member but not owner/admin) tries to update
-        #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-        struct UpdateSharedMailboxInput {
-            mailbox_hash: ActionHash,
-            name: Option<String>,
-        }
+    let after_admin_attempt: Vec<(ActionHash, SharedMailboxSnapshot)> = conductor
+        .call_fallible(
+            &bob.zome("mail_capabilities"),
+            "get_my_shared_mailboxes",
+            (),
+        )
+        .await
+        .expect("member index should remain readable after rejected Admin attempt");
+    let unchanged = after_admin_attempt
+        .iter()
+        .find(|(_, mailbox)| mailbox.id == bob_view.id)
+        .map(|(_, mailbox)| mailbox)
+        .expect("same mailbox must remain visible");
+    assert_eq!(unchanged.members.len(), 2);
+    assert!(!unchanged.members.iter().any(|member| member.agent == probe_agent));
 
-        let update_input = UpdateSharedMailboxInput {
-            mailbox_hash,
-            name: Some("hacked-name".to_string()),
-        };
+    // Reuse the original Create hash deliberately. The coordinator must resolve
+    // the latest Update before appending Charlie, rather than creating a fork
+    // from the stale root and losing Bob's earlier membership.
+    let charlie = AgentPubKey::from_raw_32(vec![0x43; 32]);
+    let second_update_hash: ActionHash = conductor
+        .call_fallible(
+            &alice.zome("mail_capabilities"),
+            "add_shared_mailbox_member",
+            (
+                original_mailbox_hash,
+                charlie.clone(),
+                SharedMailboxRoleInput::Viewer,
+                MailboxPermissionsInput::default(),
+            ),
+        )
+        .await
+        .expect("owner retry from the stable root should append to the latest mailbox head");
+    assert_ne!(second_update_hash, first_update_hash);
 
-        let update_result: Result<ActionHash, _> = conductor
+    await_consistency([&alice, &bob])
+        .await
+        .expect("second mailbox update should converge on owner and member indexes");
+
+    for cell in [&alice, &bob] {
+        let visible: Vec<(ActionHash, SharedMailboxSnapshot)> = conductor
             .call_fallible(
-                &bob.zome("mail_capabilities"),
-                "update_shared_mailbox",
-                update_input,
+                &cell.zome("mail_capabilities"),
+                "get_my_shared_mailboxes",
+                (),
             )
-            .await;
-
-        assert!(
-            update_result.is_err(),
-            "Non-owner/non-admin must not be able to update shared mailbox"
-        );
+            .await
+            .expect("owner and member queries should resolve current mailbox state");
+        let current = visible
+            .iter()
+            .find(|(_, mailbox)| mailbox.id == bob_view.id)
+            .map(|(_, mailbox)| mailbox)
+            .expect("mailbox should remain indexed");
+        assert_eq!(current.members.len(), 3);
+        assert!(current.members.iter().any(|member| {
+            member.agent == *bob.agent_pubkey()
+                && matches!(member.role, SharedMailboxRoleInput::Admin)
+        }));
+        assert!(current.members.iter().any(|member| member.agent == charlie));
     }
 }
 
