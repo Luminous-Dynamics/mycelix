@@ -32,7 +32,7 @@ SELECT identity_security.register_verifier_challenge(
   '$transaction_id'::uuid,
   decode('$request_hex', 'hex'),
   decode('$holder_hex', 'hex'),
-  clock_timestamp() + INTERVAL '5 minutes'
+  300
 );
 "
 registered="$(psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 -c "$registration_sql")"
