@@ -519,7 +519,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -593,7 +595,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -667,7 +671,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -741,7 +747,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -815,7 +823,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -889,7 +899,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "close_match",
@@ -1095,7 +1107,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "no_match",
@@ -1169,7 +1183,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "no_match",
@@ -1243,7 +1259,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "no_match",
@@ -1317,7 +1335,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -1391,7 +1411,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -1465,7 +1487,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "not_requested",
@@ -1539,7 +1563,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1613,7 +1639,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -1687,7 +1715,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -1761,7 +1791,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1835,7 +1867,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1909,7 +1943,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1983,7 +2019,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -2057,7 +2095,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -2131,7 +2171,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -2205,7 +2247,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -2279,7 +2323,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -2353,7 +2399,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -2427,7 +2475,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -2501,7 +2551,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -2575,7 +2627,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -2649,7 +2703,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "close_match",
@@ -3027,7 +3083,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -3101,7 +3159,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -3175,7 +3235,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -3249,7 +3311,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -3323,7 +3387,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -3397,7 +3463,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "no_match",
@@ -3471,7 +3539,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "not_requested",
@@ -3545,7 +3615,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -3619,7 +3691,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
