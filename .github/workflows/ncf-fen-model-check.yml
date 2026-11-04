@@ -1,0 +1,79 @@
+name: NCF-FEN bounded model qualification
+
+on:
+  push:
+    branches:
+      - spec/fed-cur-001-nested-currency-2026-10-23
+    paths:
+      - .github/workflows/ncf-fen-model-check.yml
+      - mycelix-workspace/simulations/nested-currency-reference/formal/**
+      - mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - .github/workflows/ncf-fen-model-check.yml
+      - mycelix-workspace/simulations/nested-currency-reference/formal/**
+      - mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Preserve each commit's evidence; this qualification is tied to an exact SHA.
+concurrency:
+  group: ncf-fen-model-check-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  bounded-tlc:
+    # This PR is maintained in the same repository. Do not silently checkout
+    # fork code with this workflow; fork contributions need a deliberate policy.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TLA2TOOLS_JAR: ${{ runner.temp }}/tla2tools.jar
+      NCF_TLC_OUTPUT_DIR: ${{ runner.temp }}/ncf-fen-tlc
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up pinned Java runtime
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
+
+      - name: Download and verify pinned TLA+ tools release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The upstream v1.8.0 tag is a rolling prerelease channel and its JAR
+          # has changed without a version bump (tlaplus/tlaplus#1399). Use the
+          # immutable mirror release pinned by build tag and SHA-256 instead.
+          curl --fail --location --retry 3 --connect-timeout 15 \
+            https://github.com/zactionsz/tla-tools/releases/download/tla2tools-2026.08.11.125311/tla2tools.jar \
+            --output "$TLA2TOOLS_JAR"
+          echo "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f  $TLA2TOOLS_JAR" | sha256sum --check --strict
+          sha256sum "$TLA2TOOLS_JAR"
+
+      - name: Check runner shell syntax
+        run: bash -n mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh
+
+      - name: Run safe model and expected-failing mutant
+        shell: bash
+        run: bash mycelix-workspace/simulations/nested-currency-reference/run-ncf-fen-tlc.sh
+
+      - name: Retain logs and exact-head receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ncf-fen-tlc-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/ncf-fen-tlc/
+          if-no-files-found: warn
+          retention-days: 30

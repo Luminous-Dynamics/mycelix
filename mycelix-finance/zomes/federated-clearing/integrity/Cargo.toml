@@ -1,0 +1,14 @@
+[package]
+name = "federated_clearing_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Federated clearing manifest and exact-unit obligation-claim integrity for Mycelix Finance"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "federated_clearing_integrity"
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }

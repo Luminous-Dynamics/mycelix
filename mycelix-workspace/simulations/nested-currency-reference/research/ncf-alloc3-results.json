@@ -1,0 +1,169 @@
+{
+  "design_conclusion": "Median capping bounds some minority-claim influence when stable identities are fixed, but is not authenticity, Sybil resistance, or a replacement for verifiable queued demand. Select cap/floor only on the joint honest-demand/adversarial frontier.",
+  "deterministic_attack": {
+    "actual_demand_units_per_shard": 4000,
+    "all_other_reported_demand_units": 4000,
+    "claim_ceiling": "oracle assumes trusted queued-backlog signal; median capping bounds some influence but does not establish authenticity or Sybil resistance",
+    "policies": {
+      "equal_floor50_cap2x": {
+        "attacker_allocation_share_ppm": 173600,
+        "demand_served_ppm": 1000000,
+        "jain_fairness_ppm": 1000000,
+        "requested_units": 64000,
+        "served_units": 64000,
+        "stranded_units": 31000,
+        "unserved_units": 0,
+        "worst_shard_service_ppm": 1000000
+      },
+      "equal_floor50_cap4x": {
+        "attacker_allocation_share_ppm": 244337,
+        "demand_served_ppm": 1000000,
+        "jain_fairness_ppm": 1000000,
+        "requested_units": 64000,
+        "served_units": 64000,
+        "stranded_units": 31000,
+        "unserved_units": 0,
+        "worst_shard_service_ppm": 1000000
+      },
+      "equal_floor50_raw_claims": {
+        "attacker_allocation_share_ppm": 356632,
+        "demand_served_ppm": 1000000,
+        "jain_fairness_ppm": 1000000,
+        "requested_units": 64000,
+        "served_units": 64000,
+        "stranded_units": 31000,
+        "unserved_units": 0,
+        "worst_shard_service_ppm": 1000000
+      },
+      "oracle_equal_floor50_true_backlog": {
+        "attacker_allocation_share_ppm": 125011,
+        "demand_served_ppm": 1000000,
+        "jain_fairness_ppm": 1000000,
+        "requested_units": 64000,
+        "served_units": 64000,
+        "stranded_units": 31000,
+        "unserved_units": 0,
+        "worst_shard_service_ppm": 1000000
+      },
+      "weighted_raw_claims": {
+        "attacker_allocation_share_ppm": 588253,
+        "demand_served_ppm": 736188,
+        "jain_fairness_ppm": 981986,
+        "requested_units": 64000,
+        "served_units": 47116,
+        "stranded_units": 47884,
+        "unserved_units": 16884,
+        "worst_shard_service_ppm": 698500
+      }
+    },
+    "reported_demand_units_for_shards_00_01": 40000
+  },
+  "honest_hotspot": {
+    "claim_ceiling": "same true demand for every policy; assumes fresh rights each epoch and ignores outstanding obligations/partition transfer effects",
+    "policies": {
+      "equal": {
+        "demand_served_ppm": 640625,
+        "jain_fairness_ppm": 905459,
+        "stranded_units": 23250,
+        "unserved_units": 40250,
+        "worst_shard_service_ppm": 371094
+      },
+      "equal_floor50_cap2x_median": {
+        "demand_served_ppm": 704241,
+        "jain_fairness_ppm": 937850,
+        "stranded_units": 16125,
+        "unserved_units": 33125,
+        "worst_shard_service_ppm": 482422
+      },
+      "equal_floor50_cap4x_median": {
+        "demand_served_ppm": 776955,
+        "jain_fairness_ppm": 966110,
+        "stranded_units": 7981,
+        "unserved_units": 24981,
+        "worst_shard_service_ppm": 609672
+      },
+      "equal_floor50_raw_claims": {
+        "demand_served_ppm": 776955,
+        "jain_fairness_ppm": 966110,
+        "stranded_units": 7981,
+        "unserved_units": 24981,
+        "worst_shard_service_ppm": 609672
+      },
+      "weighted_raw_claims": {
+        "demand_served_ppm": 848214,
+        "jain_fairness_ppm": 1000000,
+        "stranded_units": 0,
+        "unserved_units": 17000,
+        "worst_shard_service_ppm": 848188
+      }
+    },
+    "scenario": "honest_rotating_4x_hotspot_new_rights_each_epoch"
+  },
+  "profile": {
+    "adversarial_cases": 20000,
+    "attack_model": "1-4 of 16 shards inflate claims by 2-20x; actual backlog unchanged",
+    "cap_rule": "per-shard cap at 2x or 4x lower median claim",
+    "equal_floor_ppm": 500000,
+    "reserve_ppm": 50000,
+    "seed": 5573559978759378995,
+    "shards": 16,
+    "spendable_capacity_units": 95000,
+    "total_capacity_units": 100000
+  },
+  "randomized_attack_sweep": {
+    "attacker_count_max": 4,
+    "attacker_count_min": 1,
+    "cases": 20000,
+    "inflation_multiplier_max": 20,
+    "inflation_multiplier_min": 2,
+    "median_cap_assumption": "attackers <= 25% of shards, so lower median remains non-attacker-controlled in this benchmark; no Sybil identities are created",
+    "policies": {
+      "equal_floor50_cap2x": {
+        "attacker_allocation_share_ppm": 214070,
+        "demand_served_ppm": 540951,
+        "jain_fairness_ppm": 897415,
+        "stranded_units": 5505,
+        "unserved_units": 78338,
+        "worst_shard_service_ppm": 398666
+      },
+      "equal_floor50_cap4x": {
+        "attacker_allocation_share_ppm": 273087,
+        "demand_served_ppm": 530573,
+        "jain_fairness_ppm": 876029,
+        "stranded_units": 7180,
+        "unserved_units": 80013,
+        "worst_shard_service_ppm": 365843
+      },
+      "equal_floor50_raw_claims": {
+        "attacker_allocation_share_ppm": 364384,
+        "demand_served_ppm": 503146,
+        "jain_fairness_ppm": 827109,
+        "stranded_units": 11591,
+        "unserved_units": 84423,
+        "worst_shard_service_ppm": 301691
+      },
+      "oracle_equal_floor50_true_backlog": {
+        "attacker_allocation_share_ppm": 155714,
+        "demand_served_ppm": 556063,
+        "jain_fairness_ppm": 918177,
+        "stranded_units": 3113,
+        "unserved_units": 75946,
+        "worst_shard_service_ppm": 445911
+      },
+      "weighted_raw_claims": {
+        "attacker_allocation_share_ppm": 573087,
+        "demand_served_ppm": 401346,
+        "jain_fairness_ppm": 682069,
+        "stranded_units": 28440,
+        "unserved_units": 101273,
+        "worst_shard_service_ppm": 283760
+      }
+    },
+    "result_digest_sha256": "c49e762a41d6f6e3fda3fcdab122ba631ff1ccd3149a0a5ce7220235435aea32",
+    "scenario": "randomized_minority_claim_inflation",
+    "seed": 5573559978759378995
+  },
+  "schema": "ncf-alloc3-research-v1",
+  "source_sha256": "e0557bbaae60e57d6dd1ede9748f395bc2fdc930bd20fbcb212df0a02a1b332f",
+  "status": "INDEPENDENT_PYTHON_RESEARCH_MODEL_NOT_RUST_NOT_CI_NOT_PRODUCTION_EVIDENCE"
+}

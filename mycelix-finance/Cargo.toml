@@ -15,6 +15,8 @@ members = [
     "zomes/staking/coordinator",
     "zomes/tend/integrity",
     "zomes/tend/coordinator",
+    "zomes/federated-clearing/integrity",
+    "zomes/federated-clearing/coordinator",
     "zomes/recognition/integrity",
     "zomes/recognition/coordinator",
     "zomes/currency-mint/integrity",

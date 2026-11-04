@@ -1,0 +1,137 @@
+{
+  "campaign": "NCF-ALLOC-10",
+  "cases": {
+    "failed_attempt_preserves_previous_obligation": {
+      "failed_attempt": {
+        "decision": "storage_error",
+        "error": "database or disk is full",
+        "page_count_before": 6,
+        "page_limit": 7,
+        "post_state": {
+          "cap_not_overshot": true,
+          "cap_units": 1000000000000,
+          "counter_matches_ledger": true,
+          "duplicate_work_groups": 0,
+          "foreign_key_violations": 0,
+          "integrity_check": "ok",
+          "obligation_count": 1,
+          "obligation_units": 20,
+          "unique_work_digests": 1,
+          "used_units": 20,
+          "work_digest_unique": true
+        },
+        "sqlite_errorcode": 13,
+        "sqlite_errorname": "SQLITE_FULL"
+      },
+      "final_state": {
+        "cap_not_overshot": true,
+        "cap_units": 1000000000000,
+        "counter_matches_ledger": true,
+        "duplicate_work_groups": 0,
+        "foreign_key_violations": 0,
+        "integrity_check": "ok",
+        "obligation_count": 2,
+        "obligation_units": 60,
+        "unique_work_digests": 2,
+        "used_units": 60,
+        "work_digest_unique": true
+      },
+      "prior_accept": "accepted",
+      "retry_after_restore": "accepted"
+    },
+    "full_rolls_back_counter_before_failed_insert": {
+      "decision": "storage_error",
+      "error": "database or disk is full",
+      "page_count_before": 6,
+      "page_limit": 7,
+      "post_state": {
+        "cap_not_overshot": true,
+        "cap_units": 1000000000000,
+        "counter_matches_ledger": true,
+        "duplicate_work_groups": 0,
+        "foreign_key_violations": 0,
+        "integrity_check": "ok",
+        "obligation_count": 0,
+        "obligation_units": 0,
+        "unique_work_digests": 0,
+        "used_units": 0,
+        "work_digest_unique": true
+      },
+      "sqlite_errorcode": 13,
+      "sqlite_errorname": "SQLITE_FULL"
+    },
+    "policy_cap_is_distinct_from_sqlite_full": {
+      "final_state": {
+        "cap_not_overshot": true,
+        "cap_units": 1000000000000,
+        "counter_matches_ledger": true,
+        "duplicate_work_groups": 0,
+        "foreign_key_violations": 0,
+        "integrity_check": "ok",
+        "obligation_count": 0,
+        "obligation_units": 0,
+        "unique_work_digests": 0,
+        "used_units": 0,
+        "work_digest_unique": true
+      },
+      "policy_decision": "rejected",
+      "reason": "cap_exceeded_or_missing"
+    },
+    "restore_capacity_then_exact_retry_once": {
+      "final_state": {
+        "cap_not_overshot": true,
+        "cap_units": 1000000000000,
+        "counter_matches_ledger": true,
+        "duplicate_work_groups": 0,
+        "foreign_key_violations": 0,
+        "integrity_check": "ok",
+        "obligation_count": 1,
+        "obligation_units": 60,
+        "unique_work_digests": 1,
+        "used_units": 60,
+        "work_digest_unique": true
+      },
+      "first_retry": "accepted",
+      "full_attempt": {
+        "decision": "storage_error",
+        "error": "database or disk is full",
+        "page_count_before": 6,
+        "page_limit": 7,
+        "post_state": {
+          "cap_not_overshot": true,
+          "cap_units": 1000000000000,
+          "counter_matches_ledger": true,
+          "duplicate_work_groups": 0,
+          "foreign_key_violations": 0,
+          "integrity_check": "ok",
+          "obligation_count": 0,
+          "obligation_units": 0,
+          "unique_work_digests": 0,
+          "used_units": 0,
+          "work_digest_unique": true
+        },
+        "sqlite_errorcode": 13,
+        "sqlite_errorname": "SQLITE_FULL"
+      },
+      "restored_max_page_count": 2147483646,
+      "second_retry": "replay"
+    }
+  },
+  "claim_ceiling": "Single-host Python/SQLite application transaction behavior under PRAGMA max_page_count-induced SQLITE_FULL. Not physical disk full, I/O error, kernel crash, power loss, fixed-engine qualification, Rust/Holochain/multi-host, or production evidence.",
+  "invariant_failures": 0,
+  "runtime": {
+    "platform": "linux",
+    "python": "3.13.5",
+    "sqlite": "3.46.1",
+    "sqlite_source_id": "2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1"
+  },
+  "source_sha256": "b472cef5ac7a241c91ab08bc42c8c4a69e9281969970599237a8b6ccf06820ac",
+  "test_count": 4,
+  "test_result": "PASS",
+  "trigger": {
+    "growth_limit": "current page_count + 1 page on the same connection that performs admission",
+    "interpretation": "database-size-capacity failure; not physical disk-full or filesystem-fault simulation",
+    "oversized_receipt_bytes": 10485760,
+    "pragma": "max_page_count"
+  }
+}

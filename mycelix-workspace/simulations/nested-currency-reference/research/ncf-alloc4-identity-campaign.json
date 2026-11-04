@@ -1,0 +1,23 @@
+{
+  "campaign_id": "NCF-ALLOC-4",
+  "title": "Identity splitting and Sybil influence on bounded allocation",
+  "status": "python_research_executed_rust_distributed_not_run",
+  "source": "ncf_alloc4_identity_splitting.py",
+  "tests": "test_ncf_alloc4_identity_splitting.py",
+  "results": "ncf-alloc4-identity-splitting-summary.json",
+  "profile": {
+    "total_capacity_units": 100000,
+    "reserve_ppm": 50000,
+    "spendable_capacity_units": 95000,
+    "honest_identities": 15,
+    "attacker_true_backlog_units_fixed": 4000,
+    "inflation_multiplier": 20,
+    "attacker_identity_counts": [1, 4, 8, 12, 15, 16, 24, 32]
+  },
+  "policies": ["equal", "weighted_raw_claims", "equal_floor50_raw_claims", "equal_floor50_cap2x_median", "equal_floor50_cap4x_median", "oracle_equal_floor50_true_backlog"],
+  "required_metrics": ["actual_backlog_by_principal", "total_shard_ids", "attacker_allocated_units", "attacker_allocation_share_ppm", "attacker_stranded_units", "aggregate_demand_served_ppm", "worst_shard_service_ppm", "jain_fairness_ppm", "unserved_units", "stranded_units", "capacity_conservation"],
+  "hard_invariants": ["attacker_actual_backlog_is_constant_across_identity_counts", "allocation_plus_reserve_is_conserved", "all_slices_nonnegative", "cap_assumption_and_identity_model_are_explicit"],
+  "execution_evidence": {"python_tests": "5 passed", "case_profiles": 8, "rust_tests": "not_run", "distributed_fault_tests": "not_run", "cryptographic_identity_qualification": "not_run"},
+  "claim_ceiling": "The model tests a fixed true backlog split across 1..32 shard IDs while 15 honest IDs remain. It is not a cryptographic identity protocol, Sybil defence, Holochain result or production benchmark.",
+  "decision_rule": "Do not describe lower-median capping as manipulation resistance without a declared and tested identity/admission threat model. Prefer evidence-backed, deduplicated eligible obligations scoped to a canonical principal and epoch."
+}
