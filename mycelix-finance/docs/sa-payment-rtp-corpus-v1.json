@@ -371,7 +371,7 @@
       "fee_source_refs": []
     },
     {
-      "profile_id": "EU-SEPA-VERIFICATION-OF-PAYEE-V1_1-COMPARATOR-V1",
+      "profile_id": "EU-SEPA-VERIFICATION-OF-PAYEE-V1-1-COMPARATOR-V1",
       "jurisdiction": "EU-SEPA",
       "service": "Verification of Payee",
       "participant": "European Payments Council scheme",
