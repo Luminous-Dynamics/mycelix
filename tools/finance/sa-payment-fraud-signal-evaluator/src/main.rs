@@ -274,7 +274,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 ));
             }
         }
-        if subject_kind == "public_hash" && subject_value.starts_with("sha256:") {
+        if subject_kind == "public_hash"
+            && subject_value.starts_with("sha256:")
+            && str_at(scenario, "expected_disposition") != Some("reject_unscoped_public_hash")
+        {
             errors.push(format!(
                 "{case_id}: bare public SHA-256 is not an acceptable subject pseudonym"
             ));
