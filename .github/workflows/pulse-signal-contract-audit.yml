@@ -44,6 +44,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1.96.0
 
+      - name: Resolve and record auditor dependency graph
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path tools/pulse-signal-contract-audit/Cargo.toml
+          sha256sum tools/pulse-signal-contract-audit/Cargo.lock | tee "${RUNNER_TEMP}/pulse-signal-cargo-lock.sha256"
+
       - name: Test auditor parser and mutation fixtures
         run: cargo test --manifest-path tools/pulse-signal-contract-audit/Cargo.toml --locked
 
@@ -61,6 +67,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pulse-signal-contract-${{ github.sha }}
-          path: ${{ runner.temp }}/pulse-signal-contract-report.json
+          path: |
+            ${{ runner.temp }}/pulse-signal-contract-report.json
+            ${{ runner.temp }}/pulse-signal-cargo-lock.sha256
+            tools/pulse-signal-contract-audit/Cargo.lock
           if-no-files-found: error
           retention-days: 30
