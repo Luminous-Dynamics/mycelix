@@ -469,12 +469,10 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                             ));
                         }
                     }
-                    "vop_privacy_overdisclosure" => {
-                        if disclosure != "overdisclosed" {
-                            errors.push(format!(
-                                "cases[{index}]: privacy negative control must contain over-disclosure"
-                            ));
-                        }
+                    "vop_privacy_overdisclosure" if disclosure != "overdisclosed" => {
+                        errors.push(format!(
+                            "cases[{index}]: privacy negative control must contain over-disclosure"
+                        ));
                     }
                     _ => {}
                 }
