@@ -319,9 +319,7 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                 };
                 if let Some(required_ref) = required_profile_source
                     && !source_refs.is_some_and(|items| {
-                        items
-                            .iter()
-                            .any(|item| item.as_str() == Some(required_ref))
+                        items.iter().any(|item| item.as_str() == Some(required_ref))
                     })
                 {
                     errors.push(format!(
