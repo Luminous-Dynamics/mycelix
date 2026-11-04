@@ -13,6 +13,7 @@ From the repository root:
 
 Write a machine-readable report:
 
+    cargo generate-lockfile --manifest-path tools/pulse-lifecycle-audit/Cargo.toml
     cargo run --manifest-path tools/pulse-lifecycle-audit/Cargo.toml --locked -- \
       --input path/to/trace.json --output report.json
 
@@ -20,7 +21,7 @@ Exit codes:
 - 0: PASS — no structural invariant violation or missing evidence detected.
 - 1: FAIL — one or more safety invariants are violated.
 - 1: INCOMPLETE — required evidence is missing or comes from the wrong evidence plane.
-- 2 or higher: malformed input / tool execution error.
+- 1: malformed input / tool execution error (the CLI reports the underlying error on stderr).
 
 The example trace is synthetic. PASS on that fixture means only that the verifier accepts the intended structural contract.
 
