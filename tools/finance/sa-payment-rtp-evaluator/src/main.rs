@@ -626,9 +626,14 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("request amount above limit without rejection", corpus, schema, |v| {
-        v["scenarios"][18]["events"][0]["event_type"] = json!("request_created");
-    })?;
+    mutate_and_reject(
+        "request amount above limit without rejection",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][18]["events"][0]["event_type"] = json!("request_created");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject(
