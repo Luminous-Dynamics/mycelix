@@ -163,6 +163,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     {
         errors.push("external_effects_enabled: must be false".into());
     }
+    let digest_contract = &corpus["request_digest_contract"];
+    if str_at(digest_contract, "algorithm") != Some("SHA-256")
+        || str_at(digest_contract, "domain_separator")
+            != Some("MYCELIX-SA-PAYMENT-RTP-REQUEST-V1")
+        || str_at(digest_contract, "separator_terminator") != Some("NUL")
+        || str_at(digest_contract, "canonicalization") != Some("MYCELIX-CANONICAL-JSON-V1")
+        || str_at(digest_contract, "hashed_payload")
+            != Some("complete request object with request_digest omitted")
+    {
+        errors.push("request_digest_contract: unsupported or missing commitment contract".into());
+    }
 
     let sources = array_at(corpus, "source_register")
         .cloned()
@@ -248,6 +259,18 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
 
         let request_id = str_at(request, "request_id").unwrap_or("");
         let digest = str_at(request, "request_digest").unwrap_or("");
+        let recomputed_digest = match compute_request_digest(request) {
+            Ok(value) => value,
+            Err(error) => {
+                errors.push(format!("scenarios[{case_index}]: {error}"));
+                String::new()
+            }
+        };
+        if digest != recomputed_digest {
+            errors.push(format!(
+                "scenarios[{case_index}]: declared request digest does not commit to request fields"
+            ));
+        }
         let issued_at = str_at(request, "issued_at").unwrap_or("");
         let expires_at = str_at(request, "expiry_at").unwrap_or("");
         let amount = u64_at(request, "amount_minor_units").unwrap_or(0);
@@ -313,7 +336,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             if !valid_timestamp(observed) {
                 errors.push(format!("{path}: invalid observed_at timestamp"));
             }
-            if kind == "request_created" && event_digest != digest {
+            if kind == "request_created" && event_digest != recomputed_digest {
                 errors.push(format!(
                     "{path}: creation digest differs from immutable request digest"
                 ));
@@ -359,7 +382,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                         "{path}: acceptance requires viewed request, payer actor and valid authority"
                     ));
                 }
-                if accepted_digest != Some(digest) || event_digest != digest || terms_mutated {
+                if accepted_digest != Some(recomputed_digest.as_str())
+                    || event_digest != recomputed_digest
+                    || terms_mutated
+                {
                     errors.push(format!(
                         "{path}: acceptance is not bound to the unchanged displayed request"
                     ));
@@ -399,7 +425,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                         "{path}: instruction creation requires authorised payer PSP"
                     ));
                 }
-                if accepted_digest != Some(digest) || event_digest != digest || terms_mutated {
+                if accepted_digest != Some(recomputed_digest.as_str())
+                    || event_digest != recomputed_digest
+                    || terms_mutated
+                {
                     errors.push(format!(
                         "{path}: instruction does not preserve the accepted request digest"
                     ));
