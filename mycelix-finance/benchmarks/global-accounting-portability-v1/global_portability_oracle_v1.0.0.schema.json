@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-accounting-portability-oracle-v1.0.0.json",
+  "title": "Global Accounting Portability Evaluator Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "oracle_version",
+    "claim_scope",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "GLOBAL-ACCOUNTING-PORTABILITY-V1"
+    },
+    "oracle_version": {
+      "const": "1.0.0"
+    },
+    "claim_scope": {
+      "const": "expected_behavior_labels_for_synthetic_nonlegal_public_development_cases"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 18,
+      "items": {
+        "$ref": "#/$defs/oracleCase"
+      }
+    }
+  },
+  "$defs": {
+    "oracleCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_disposition",
+        "required_behaviors",
+        "prohibited_claims",
+        "metric_tags"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^GPA-[0-9]{3}$"
+        },
+        "expected_disposition": {
+          "enum": [
+            "resolved",
+            "partial_or_profile_scoped",
+            "needs_review",
+            "indeterminate",
+            "unsupported_profile",
+            "exact_arithmetic_only"
+          ]
+        },
+        "required_behaviors": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "prohibited_claims": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "metric_tags": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    }
+  }
+}
