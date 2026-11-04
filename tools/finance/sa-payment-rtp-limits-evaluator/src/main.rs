@@ -469,12 +469,16 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
 
         if str_at(profile, "limit_knowledge_state") == Some("unknown") {
             if str_at(case, "expected_disposition") != Some("do_not_reject_unknown_limit") {
-                errors.push(format!("{id}: unknown participant limit must remain unknown"));
+                errors.push(format!(
+                    "{id}: unknown participant limit must remain unknown"
+                ));
             }
             if str_at(case, "applied_count_rule_id").is_some()
                 || str_at(case, "applied_amount_rule_id").is_some()
             {
-                errors.push(format!("{id}: unknown participant cannot apply an unsourced rule"));
+                errors.push(format!(
+                    "{id}: unknown participant cannot apply an unsourced rule"
+                ));
             }
         }
 
@@ -484,15 +488,27 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 continue;
             };
             if let Some(receiver) = profiles_map.get(receiver_id) {
-                if let Some(receiver_rule) = receiver_amount_rule(receiver, str_at(case, "route_scope").unwrap_or("")) {
-                    let receiver_refs = array_at(receiver_rule, "source_refs").cloned().unwrap_or_default();
-                    if receiver_refs.is_empty() || !receiver_refs.iter().all(|reference| {
-                        reference.as_str().is_some_and(|source_id| refs.iter().any(|item| item.as_str() == Some(source_id)))
-                    }) {
-                        errors.push(format!("{id}: receiver-side rule lacks its exact source references"));
+                if let Some(receiver_rule) =
+                    receiver_amount_rule(receiver, str_at(case, "route_scope").unwrap_or(""))
+                {
+                    let receiver_refs = array_at(receiver_rule, "source_refs")
+                        .cloned()
+                        .unwrap_or_default();
+                    if receiver_refs.is_empty()
+                        || !receiver_refs.iter().all(|reference| {
+                            reference.as_str().is_some_and(|source_id| {
+                                refs.iter().any(|item| item.as_str() == Some(source_id))
+                            })
+                        })
+                    {
+                        errors.push(format!(
+                            "{id}: receiver-side rule lacks its exact source references"
+                        ));
                     }
                 } else {
-                    errors.push(format!("{id}: receiver has no qualified amount rule for this route"));
+                    errors.push(format!(
+                        "{id}: receiver has no qualified amount rule for this route"
+                    ));
                 }
             } else {
                 errors.push(format!("{id}: receiver profile is unresolved"));
@@ -549,23 +565,33 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         v["profiles"][0]["request_count_rules"][0]["max_requests_total"] = json!(3);
     })?;
     count += 1;
-    mutate_and_reject("Absa per-recipient cap falsely raised", corpus, schema, |v| {
-        v["profiles"][1]["request_count_rules"][0]["max_requests_per_counterparty"] = json!(6);
-    })?;
+    mutate_and_reject(
+        "Absa per-recipient cap falsely raised",
+        corpus,
+        schema,
+        |v| {
+            v["profiles"][1]["request_count_rules"][0]["max_requests_per_counterparty"] = json!(6);
+        },
+    )?;
     count += 1;
     mutate_and_reject("Nedbank no-cap changed into cap", corpus, schema, |v| {
         v["profiles"][2]["request_count_rules"][0]["max_requests_total"] = json!(10);
     })?;
     count += 1;
-    mutate_and_reject("unknown participant gains invented rule", corpus, schema, |v| {
-        v["profiles"][3]["limit_knowledge_state"] = json!("source_backed");
-        v["profiles"][3]["request_count_rules"] = json!([{
-            "rule_id":"UNSOURCED","direction":"outbound","scope":"all_counterparties",
-            "window_semantics":"day_unspecified","max_requests_total":5,
-            "max_requests_per_counterparty":null,"aggregate_state":"source_backed",
-            "source_refs":[],"qualification":"invented"
-        }]);
-    })?;
+    mutate_and_reject(
+        "unknown participant gains invented rule",
+        corpus,
+        schema,
+        |v| {
+            v["profiles"][3]["limit_knowledge_state"] = json!("source_backed");
+            v["profiles"][3]["request_count_rules"] = json!([{
+                "rule_id":"UNSOURCED","direction":"outbound","scope":"all_counterparties",
+                "window_semantics":"day_unspecified","max_requests_total":5,
+                "max_requests_per_counterparty":null,"aggregate_state":"source_backed",
+                "source_refs":[],"qualification":"invented"
+            }]);
+        },
+    )?;
     count += 1;
     mutate_and_reject("wrong direction rule", corpus, schema, |v| {
         v["scenarios"][27]["applied_count_rule_id"] = json!("ABSA-OUT-SAME-RECIPIENT-DAY");
@@ -575,13 +601,23 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         v["scenarios"][2]["window_semantics"] = json!("calendar_day");
     })?;
     count += 1;
-    mutate_and_reject("route-specific ShapID limit collapsed", corpus, schema, |v| {
-        v["scenarios"][15]["route_scope"] = json!("on_us_account");
-    })?;
+    mutate_and_reject(
+        "route-specific ShapID limit collapsed",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][15]["route_scope"] = json!("on_us_account");
+        },
+    )?;
     count += 1;
-    mutate_and_reject("receiver lower limit evidence removed", corpus, schema, |v| {
-        v["scenarios"][18]["receiver_limit_source_state"] = json!("unknown");
-    })?;
+    mutate_and_reject(
+        "receiver lower limit evidence removed",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][18]["receiver_limit_source_state"] = json!("unknown");
+        },
+    )?;
     count += 1;
     mutate_and_reject("Nedbank expiry cap raised", corpus, schema, |v| {
         v["profiles"][2]["expiry_policy"]["maximum_days"] = json!(46);
@@ -615,13 +651,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             "--self-test" => self_test = true,
             "--help" | "-h" => {
-                println!("sa-payment-rtp-limits-evaluator [--corpus PATH] [--schema PATH] [--self-test]");
+                println!(
+                    "sa-payment-rtp-limits-evaluator [--corpus PATH] [--schema PATH] [--self-test]"
+                );
                 return Ok(());
             }
-            other => return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("unknown argument: {other}"),
-            ).into()),
+            other => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("unknown argument: {other}"),
+                )
+                .into());
+            }
         }
     }
 
@@ -643,7 +684,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "negative_controls":negative_controls,
         "errors":errors
     });
-    println!("{}",serde_json::to_string_pretty(&report)?);
+    println!("{}", serde_json::to_string_pretty(&report)?);
     if status != "PASS" {
         std::process::exit(1);
     }
