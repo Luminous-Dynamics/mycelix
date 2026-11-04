@@ -234,7 +234,7 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
         return Some("reject_score_as_sole_confirmation");
     }
 
-    if status == "corrected"
+    if matches!(status, "disproved" | "withdrawn" | "corrected")
         && str_at(signal, "correction_propagation_state") == Some("pending")
     {
         return Some("retain_correction_pending_state");
@@ -250,6 +250,13 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
         }) {
             return Some("retain_correction_pending_state");
         }
+    }
+    if matches!(
+        str_at(signal, "local_decision"),
+        Some("block_local" | "dispute_opened" | "appeal_opened" | "escalate")
+    ) && str_at(signal, "local_authority_state") != Some("valid")
+    {
+        return Some("reject_unauthorised_local_decision");
     }
 
     match str_at(signal, "evidence_class") {
@@ -501,6 +508,11 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_reject("unauthorised local recipient decision admitted", corpus, schema, |value| {
+        value["scenarios"][31]["signal"]["local_authority_state"] = json!("invalid");
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -590,6 +602,6 @@ mod tests {
     fn negative_mutation_campaign_rejects_signal_laundering_and_privacy_failures() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 14);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 15);
     }
 }
