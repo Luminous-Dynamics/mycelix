@@ -563,6 +563,40 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             .unwrap_or(0);
         let current_digest = str_at(signal, "evidence_digest").unwrap_or("");
         let rule_profile = str_at(profile, "notification_rule_profile").unwrap_or("");
+        let inventory = &scenario["historical_disclosure_inventory"];
+        let inventory_status = str_at(inventory, "status").unwrap_or("");
+        let inventory_count = inventory
+            .get("recipient_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(u64::MAX);
+        let inventory_evidence = str_at(inventory, "evidence_reference").unwrap_or("");
+        let inventory_verified_at = optional_utc_seconds(inventory, "verified_at");
+        let current_signal_changed = current_version > 1
+            && matches!(status, "corrected" | "withdrawn" | "expired");
+        let inventory_complete = inventory_status == "complete";
+        if inventory_status.is_empty() || inventory_evidence.is_empty() {
+            errors.push(format!("{case_id}: historical disclosure inventory lacks status or evidence reference"));
+        }
+        if inventory_verified_at.is_none() {
+            errors.push(format!("{case_id}: historical disclosure inventory verified_at is malformed"));
+        }
+        if inventory_complete {
+            if inventory_count != historical_disclosures.len() as u64
+                || inventory_verified_at.flatten().is_none()
+            {
+                errors.push(format!("{case_id}: complete recipient inventory count/timestamp does not reconcile"));
+            }
+        } else if inventory_status == "not_applicable" {
+            if current_signal_changed
+                || !historical_disclosures.is_empty()
+                || inventory_count != 0
+                || inventory_verified_at.flatten().is_some()
+            {
+                errors.push(format!("{case_id}: not_applicable inventory conflicts with a superseded signal or historical disclosure"));
+            }
+        } else if !matches!(inventory_status, "incomplete" | "unknown") {
+            errors.push(format!("{case_id}: unknown historical disclosure inventory state"));
+        }
 
         let mut historical_keys = BTreeSet::new();
         for (history_index, disclosure) in historical_disclosures.iter().enumerate() {
@@ -758,6 +792,19 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
         if historical_keys.is_empty() && !propagation_obligations.is_empty() {
             errors.push(format!("{case_id}: propagation obligations exist without a historical recipient disclosure"));
+        }
+        if current_signal_changed && !inventory_complete {
+            unresolved_propagation = true;
+            if str_at(scenario, "expected_disposition") != Some("propagation_inventory_incomplete") {
+                errors.push(format!("{case_id}: changed signal with incomplete historical recipient inventory must remain quarantined"));
+            }
+            if !array_at(scenario, "disclosures").is_none_or(Vec::is_empty)
+                || !matches!(decision_action, "none" | "manual_review")
+            {
+                errors.push(format!("{case_id}: incomplete historical inventory cannot support current redistribution or adverse receiver action"));
+            }
+        } else if str_at(scenario, "expected_disposition") == Some("propagation_inventory_incomplete") {
+            errors.push(format!("{case_id}: propagation inventory is marked incomplete despite a complete or not-applicable inventory state"));
         }
         if !propagation_obligations.is_empty() {
             let expected = str_at(scenario, "expected_disposition").unwrap_or("");
