@@ -107,6 +107,29 @@ fn main() -> Result<(), Box<dyn Error>> {
         findings.push("signal JSON Schema $id is missing the v1 wire-contract identifier".to_string());
     }
 
+    // Parse every producer once to construct the global source-of-truth variant
+    // set. Do not suppress parse/read failures: an unknown producer is INCOMPLETE,
+    // never a silently smaller Rust universe.
+    let mut all_rust_names = BTreeSet::new();
+    for producer in ZOMES {
+        let path = root.join(producer.rust_path);
+        let source = fs::read_to_string(&path)?;
+        let file = syn::parse_file(&source)?;
+        let item = file.items.iter().find_map(|item| match item {
+            Item::Enum(item) if item.ident == producer.rust_enum => Some(item),
+            _ => None,
+        }).ok_or_else(|| format!("{} not found in {}", producer.rust_enum, path.display()))?;
+        for variant in rust_variants(item) {
+            if !all_rust_names.insert(variant.name.clone()) {
+                return Err(format!("duplicate signal variant name across zomes: {}", variant.name).into());
+            }
+        }
+    }
+    let extra_schema = schema_names.difference(&all_rust_names).cloned().collect::<Vec<_>>();
+    for name in &extra_schema {
+        findings.push(format!("v1 JSON Schema variant {} is absent from all Rust producers", name));
+    }
+
     for spec in ZOMES {
         let rust_path = root.join(spec.rust_path);
         let source = fs::read_to_string(&rust_path)?;
@@ -130,20 +153,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let missing = rust_names.difference(&ts_names).cloned().collect::<Vec<_>>();
         let extra = ts_names.difference(&rust_names).cloned().collect::<Vec<_>>();
         let missing_schema = rust_names.difference(&schema_names).cloned().collect::<Vec<_>>();
-        let extra_schema = schema_names.difference(
-            &ZOMES.iter()
-                .flat_map(|z| {
-                    let rust = fs::read_to_string(root.join(z.rust_path)).ok()?;
-                    let file = syn::parse_file(&rust).ok()?;
-                    let item = file.items.into_iter().find_map(|item| match item {
-                        Item::Enum(item) if item.ident == z.rust_enum => Some(item),
-                        _ => None,
-                    })?;
-                    Some(rust_variants(&item).into_iter().map(|v| v.name).collect::<Vec<_>>())
-                })
-                .flatten()
-                .collect::<BTreeSet<_>>()
-        ).cloned().collect::<Vec<_>>();
+
 
         for name in &missing {
             findings.push(format!("{}: Rust variant {} is missing from TypeScript {}", spec.category, name, spec.ts_alias));
@@ -153,9 +163,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         for name in &missing_schema {
             findings.push(format!("{}: Rust variant {} is missing from the v1 JSON Schema", spec.category, name));
-        }
-        for name in &extra_schema {
-            findings.push(format!("{}: v1 JSON Schema variant {} is absent from all Rust producers", spec.category, name));
         }
 
         let mut variant_reports = Vec::new();
@@ -222,11 +229,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             rust_enum: spec.rust_enum.to_string(),
             typescript_alias: spec.ts_alias.to_string(),
             rust_representation: representation,
-            rust_enum_variants: variant_reports,
+            rust_variants: variant_reports,
             missing_from_typescript: missing,
             extra_in_typescript: extra,
             missing_from_schema: missing_schema,
-            extra_in_schema: extra_schema,
+            extra_in_schema: Vec::new(),
             signal_hub_filter_array_count: category_filters.len(),
             signal_hub_filters_complete: filters_complete,
             codec_compatible_with_v1_envelope_decoder: codec_compatible,
@@ -241,6 +248,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         signal_schema_variant_count: schema_variants.len(),
         signal_schema_complete: schema_variants.len() == 28
             && schema_names.len() == 28
+            && all_rust_names.len() == 28
+            && schema_names == all_rust_names
             && expected_schema_version,
         zomes,
         findings,
