@@ -1800,6 +1800,8 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
     })?;
 
     Ok(InitCallbackResult::Pass)
+}
+
 #[cfg(test)]
 mod grant_idempotency_tests {
     use super::*;
@@ -1888,4 +1890,3 @@ mod grant_idempotency_tests {
     }
 }
 
-}
