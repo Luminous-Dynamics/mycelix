@@ -328,10 +328,36 @@ No cross-system latency claim is valid without matching semantics, hardware, top
 5. **Compositional verification:** Can the Rust history checker, bounded model and Sweettest trace exporter share a frozen event vocabulary while keeping the reference checker independent?
 6. **Failure-domain calibration:** When does a remote peer's non-observation indicate delay, partition, validator rejection or application-level denial? Preserve these as distinct outcomes.
 
+## Independent Rust lifecycle trace verifier
+
+A standalone structural verifier now exists under `tools/pulse-lifecycle-audit/`:
+
+- `src/main.rs` — strict typed event decoder, six-plane invariant checker and JSON report;
+- `examples/safe-trace.json` — synthetic positive fixture covering issue, claim, host allow, domain effect, revoke, post-revoke denial, stale checkpoint read, unverified signal and unknown caller acknowledgement;
+- `README.md` — event and evidence contract;
+- `docs/security/pulse-lifecycle-trace-v1.schema.json` — strict JSON Schema.
+
+The verifier checks:
+- idempotency-key → single grant identity;
+- exact grant ActionHash binding across issuance, claim, revocation and use;
+- original grantor is the revocation actor and revoke is monotonic;
+- claim recipient and lifecycle position;
+- monotonic conductor authority-order index (not wall-clock timestamp order);
+- host allow cannot occur after revocation, outside assigned scope, before required claim, or from a projection;
+- domain allow and durable effect require their separate host/domain dispositions;
+- at most one durable effect per logical operation ID across retry attempts;
+- checkpoint-constrained stale projection returns `UNKNOWN`;
+- remote signals cannot authorize operations and unverified signals cannot mutate trusted state;
+- an unknown acknowledgement is not treated as evidence of no effect.
+
+The CLI emits PASS / FAIL / INCOMPLETE, an input SHA-256, counts, findings and a fixed `STRUCTURAL_ONLY` claim ceiling. Coordinator assertions or missing host/validator receipts become INCOMPLETE rather than being promoted to proof. The verifier does not cryptographically authenticate receipts or prove conductor honesty; a future runtime exporter and receipt-signature verifier remain required.
+
+CI: [Pulse Lifecycle Evidence Audit](https://github.com/Luminous-Dynamics/mycelix/actions/workflows/pulse-lifecycle-audit.yml). Its synthetic fixture is only a structural self-test; it is not runtime evidence. The real exporter must bind exact source commit, conductor build, DNA hash, host authority-order index, source-chain actions, validator decisions and observer projections.
+
 ## Required next implementation increments
 
 1. Export the six-plane event trace from the real 0.7 canary without recording secrets.
-2. Build an independent trace/schema verifier and deterministic canonical receipt.
+2. Connect the existing Rust lifecycle verifier to a conductor trace exporter and add cryptographic receipt authentication plus deterministic canonical receipts.
 3. Add the malicious-coordinator/remote-validator Sweettest using production integrity WASM.
 4. Instrument host grant revocation and protected call overlap to establish the actual ordering boundary.
 5. Port the exact same scenarios to the accepted 0.7.1 tuple only after the release profile and canonical-source parity gate are accepted.
@@ -344,6 +370,8 @@ No cross-system latency claim is valid without matching semantics, hardware, top
 - Holochain 0.7.1 qualification contract: https://github.com/Luminous-Dynamics/mycelix/issues/5719
 - Holochain workspace closure auditor: https://github.com/Luminous-Dynamics/mycelix/issues/5720
 - Pulse bounded delivery model-checking work: https://github.com/Luminous-Dynamics/mycelix/issues/5091
+- Pulse lifecycle trace schema and Rust verifier: `tools/pulse-lifecycle-audit/` and `docs/security/pulse-lifecycle-trace-v1.schema.json`
+- Pulse lifecycle evidence audit workflow: https://github.com/Luminous-Dynamics/mycelix/actions/workflows/pulse-lifecycle-audit.yml
 
 ### External references for the comparison matrix
 
