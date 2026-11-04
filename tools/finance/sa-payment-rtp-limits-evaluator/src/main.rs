@@ -555,6 +555,117 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     errors
 }
 
+fn disposition_reason_code(disposition: &str) -> &'static str {
+    match disposition {
+        "allow" => "ALLOW_UNDER_SOURCE_BACKED_PROFILE",
+        "reject_count_limit" => "REQUEST_COUNT_LIMIT_EXCEEDED",
+        "reject_amount_limit" => "REQUEST_AMOUNT_LIMIT_EXCEEDED",
+        "reject_aggregate_amount_limit" => "AGGREGATE_AMOUNT_LIMIT_EXCEEDED",
+        "reject_receiver_lower_limit" => "RECEIVER_PARTICIPANT_LIMIT_EXCEEDED",
+        "reject_expiry_limit" => "REQUEST_EXPIRY_OUTSIDE_PROFILE",
+        "do_not_reject_unknown_limit" => "LIMIT_UNKNOWN_NO_INVENTED_REJECTION",
+        "reject_wrong_rule_application" => "RULE_SCOPE_OR_PROVENANCE_MISMATCH",
+        "appeal_review" => "APPEAL_PENDING_REQUIRES_REVIEW",
+        _ => "UNCLASSIFIED",
+    }
+}
+
+fn decision_traces(corpus: &Value) -> Vec<Value> {
+    let profiles = profile_map(corpus);
+    array_at(corpus, "scenarios")
+        .into_iter()
+        .flatten()
+        .map(|case| {
+            let scenario_id = str_at(case, "scenario_id").unwrap_or("unknown");
+            let profile_id = str_at(case, "profile_id").unwrap_or("");
+            let profile = profiles.get(profile_id);
+            let computed = profile
+                .map(|profile| expected_disposition(case, profile, &profiles))
+                .unwrap_or("reject_wrong_rule_application");
+            let count_rule = profile.and_then(|profile| {
+                str_at(case, "applied_count_rule_id")
+                    .and_then(|rule_id| find_count_rule(profile, rule_id))
+            });
+            let amount_rule = profile.and_then(|profile| {
+                str_at(case, "applied_amount_rule_id")
+                    .and_then(|rule_id| find_amount_rule(profile, rule_id))
+            });
+            let receiver_id = str_at(case, "receiver_profile_id").unwrap_or("");
+            let receiver_rule = profiles.get(receiver_id).and_then(|receiver| {
+                receiver_amount_rule(receiver, str_at(case, "route_scope").unwrap_or(""))
+            });
+            let declared = str_at(case, "expected_disposition").unwrap_or("missing");
+            let source_refs = array_at(case, "source_refs").cloned().unwrap_or_default();
+            let count_source_refs = count_rule
+                .and_then(|rule| array_at(rule, "source_refs"))
+                .cloned()
+                .unwrap_or_default();
+            let amount_source_refs = amount_rule
+                .and_then(|rule| array_at(rule, "source_refs"))
+                .cloned()
+                .unwrap_or_default();
+            let receiver_source_refs = receiver_rule
+                .and_then(|rule| array_at(rule, "source_refs"))
+                .cloned()
+                .unwrap_or_default();
+            json!({
+                "trace_type": "SyntheticRtpLimitDecisionTrace",
+                "trace_version": "v1",
+                "evidence_class": "deterministic_unsigned_local_evaluation",
+                "scenario_id": scenario_id,
+                "participant_profile_id": profile_id,
+                "participant": profile.and_then(|p| str_at(p, "participant")),
+                "profile_observed_on": profile.and_then(|p| str_at(p, "observed_on")),
+                "effective_date_state": profile.and_then(|p| str_at(p, "effective_date_state")),
+                "direction": str_at(case, "direction"),
+                "route_scope": str_at(case, "route_scope"),
+                "window_semantics": str_at(case, "window_semantics"),
+                "observed_at": str_at(case, "observed_at"),
+                "window_start_at": str_at(case, "window_start_at"),
+                "prior_requests_total": u64_at(case, "requests_in_window_before"),
+                "prior_requests_same_counterparty": u64_at(case, "counterparty_requests_in_window_before"),
+                "requested_amount_minor_units": u64_at(case, "requested_amount_minor_units"),
+                "prior_aggregate_amount_minor_units": u64_at(case, "aggregate_amount_before_minor_units"),
+                "requested_expiry_days": case.get("requested_expiry_days"),
+                "selected_count_rule": {
+                    "rule_id": str_at(case, "applied_count_rule_id"),
+                    "scope": count_rule.and_then(|rule| str_at(rule, "scope")),
+                    "window_semantics": count_rule.and_then(|rule| str_at(rule, "window_semantics")),
+                    "maximum_total": count_rule.and_then(|rule| rule.get("max_requests_total")),
+                    "maximum_per_counterparty": count_rule.and_then(|rule| rule.get("max_requests_per_counterparty")),
+                    "source_refs": count_source_refs
+                },
+                "selected_amount_rule": {
+                    "rule_id": str_at(case, "applied_amount_rule_id"),
+                    "route_scope": amount_rule.and_then(|rule| str_at(rule, "route_scope")),
+                    "maximum_per_request_minor_units": amount_rule.and_then(|rule| rule.get("max_per_request_minor_units")),
+                    "maximum_aggregate_minor_units": amount_rule.and_then(|rule| rule.get("aggregate_amount_limit_minor_units")),
+                    "source_refs": amount_source_refs
+                },
+                "receiver_rule": {
+                    "receiver_profile_id": str_at(case, "receiver_profile_id"),
+                    "receiver_limit_source_state": str_at(case, "receiver_limit_source_state"),
+                    "rule_id": receiver_rule.and_then(|rule| str_at(rule, "rule_id")),
+                    "route_scope": receiver_rule.and_then(|rule| str_at(rule, "route_scope")),
+                    "maximum_per_request_minor_units": receiver_rule.and_then(|rule| rule.get("max_per_request_minor_units")),
+                    "source_refs": receiver_source_refs
+                },
+                "case_source_refs": source_refs,
+                "computed_disposition": computed,
+                "reason_code": disposition_reason_code(computed),
+                "declared_disposition": declared,
+                "conforms": computed == declared,
+                "external_effects_enabled": false,
+                "non_claims": [
+                    "not a signed or externally authoritative receipt",
+                    "not proof of current account-specific bank enforcement",
+                    "does not create a payment instruction or move funds"
+                ]
+            })
+        })
+        .collect()
+}
+
 fn evaluate(corpus_text: &str, schema_text: &str) -> Result<(Vec<String>, Value, Value), String> {
     let corpus: Value = serde_json::from_str(corpus_text)
         .map_err(|error| format!("corpus JSON parse error: {error}"))?;
@@ -705,6 +816,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         0
     };
     let status = if errors.is_empty() { "PASS" } else { "FAIL" };
+    let traces = decision_traces(&corpus);
     let report = json!({
         "evaluator":"mycelix.sa-payment-rtp-limits-evaluator.v1",
         "status":status,
@@ -713,6 +825,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "profiles":array_at(&corpus,"profiles").map_or(0,Vec::len),
         "scenarios":array_at(&corpus,"scenarios").map_or(0,Vec::len),
         "negative_controls":negative_controls,
+        "decision_traces":traces,
         "errors":errors
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
@@ -732,6 +845,28 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 4);
         assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 30);
+        let traces = decision_traces(&corpus);
+        assert_eq!(traces.len(), 30);
+        let receiver_case = traces
+            .iter()
+            .find(|trace| trace["scenario_id"] == "SA-RTP-LIMIT-019")
+            .expect("receiver lower-limit trace");
+        assert_eq!(
+            receiver_case["computed_disposition"],
+            "reject_receiver_lower_limit"
+        );
+        assert_eq!(
+            receiver_case["receiver_rule"]["receiver_profile_id"],
+            "ZA-CAPITEC-PAYSHAP-REQUEST-LIMITS-V1"
+        );
+        assert_eq!(
+            receiver_case["receiver_rule"]["route_scope"],
+            "generic"
+        );
+        assert_eq!(
+            receiver_case["evidence_class"],
+            "deterministic_unsigned_local_evaluation"
+        );
     }
 
     #[test]
