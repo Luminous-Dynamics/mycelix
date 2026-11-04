@@ -415,7 +415,7 @@
           {
             "participant_id": "PSP_X",
             "root_event_id": "ROOT-4",
-            "independence": "independent",
+            "independence": "derived_copy",
             "evidence_class": "source_report"
           }
         ],
@@ -2855,9 +2855,9 @@
         "root_event_id": "ROOT-1",
         "evidence_refs": [
           {
-            "participant_id": "PSP_A",
-            "root_event_id": "ROOT-1",
-            "independence": "independent",
+            "participant_id": "SARB_POLICY",
+            "root_event_id": "ROOT-33",
+            "independence": "derived_copy",
             "evidence_class": "source_report"
           }
         ],
