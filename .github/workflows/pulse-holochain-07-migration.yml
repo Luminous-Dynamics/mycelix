@@ -66,14 +66,6 @@ jobs:
       - name: Regenerate Holochain JavaScript client lock
         run: npm install --package-lock-only --ignore-scripts --prefix mycelix-workspace/mycelix-pulse/holochain/client
 
-      - name: Prepare Node 24 for Holochain client lock regeneration
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Regenerate Holochain JavaScript client lock
-        run: npm install --package-lock-only --ignore-scripts --prefix mycelix-workspace/mycelix-pulse/holochain/client
-
       - name: Regenerate active zome workspace lock
         run: cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml
 
