@@ -163,7 +163,8 @@ fn compute_state(case: &Value, profile: &Value, as_of: &str) -> (&'static str, b
                     conflict = true;
                 } else if !valid_authority
                     || str_at(event, "freshness") != Some("fresh")
-                    || !str_at(event, "valid_until").is_some_and(|value| date_time_after(value, as_of))
+                    || !str_at(event, "valid_until")
+                        .is_some_and(|value| date_time_after(value, as_of))
                     || !has_evidence(event, "authenticated_directory_response")
                 {
                     stale = true;
@@ -315,11 +316,15 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             && str_at(profile, "admission") == Some("draft_for_public_comment_not_binding_law")
         {
             if profile.get("effective_from").is_some_and(|value| !value.is_null()) {
-                errors.push(format!("profiles[{index}]: draft regulation cannot have asserted effective date"));
+                errors.push(format!(
+                    "profiles[{index}]: draft regulation cannot have asserted effective date"
+                ));
             }
         }
         if profile.get("cooling_off_seconds").is_some_and(|value| !value.is_null()) {
-            errors.push(format!("profiles[{index}]: no unsourced cooling-off interval may be asserted"));
+            errors.push(format!(
+                "profiles[{index}]: no unsourced cooling-off interval may be asserted"
+            ));
         }
     }
 
@@ -338,7 +343,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             || !beneficiary.starts_with("sha256:")
             || beneficiary.len() != 71
         {
-            errors.push(format!("scenarios[{case_index}]: invalid alias identity/generation/beneficiary commitment"));
+            errors.push(format!(
+                "scenarios[{case_index}]: invalid alias identity/generation/beneficiary commitment"
+            ));
         }
 
         let events = array_at(case, "events").cloned().unwrap_or_default();
@@ -348,41 +355,64 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let event_id = str_at(event, "event_id").unwrap_or("");
             let sequence = u64_at(event, "sequence").unwrap_or(0);
             if event_id.is_empty() || !ids.insert(event_id.to_owned()) {
-                errors.push(format!("scenarios[{case_index}].events[{event_index}]: missing or duplicate event id"));
+                errors.push(format!(
+                    "scenarios[{case_index}].events[{event_index}]: missing or duplicate event id"
+                ));
             }
             if sequence <= previous_sequence {
-                errors.push(format!("scenarios[{case_index}].events[{event_index}]: event sequence not strictly increasing"));
+                errors.push(format!(
+                    "scenarios[{case_index}].events[{event_index}]: event sequence not strictly increasing"
+                ));
             }
             previous_sequence = sequence;
             if str_at(event, "event_type") == Some("alias_enumeration_attempt")
-                && (!has_evidence(event, "rate_limit_exceeded") || !has_evidence(event, "no_account_disclosure"))
+                && (!has_evidence(event, "rate_limit_exceeded")
+                    || !has_evidence(event, "no_account_disclosure"))
             {
-                errors.push(format!("scenarios[{case_index}]: alias enumeration event lacks anti-disclosure evidence"));
+                errors.push(format!(
+                    "scenarios[{case_index}]: alias enumeration event lacks anti-disclosure evidence"
+                ));
             }
             if str_at(event, "event_type") == Some("payment_authorisation_recorded")
                 && str_at(event, "authority_state") != Some("valid")
             {
-                errors.push(format!("scenarios[{case_index}]: historical payment authorization lacks authority evidence"));
+                errors.push(format!(
+                    "scenarios[{case_index}]: historical payment authorization lacks authority evidence"
+                ));
             }
         }
 
         let (computed, resolution_allowed, requires_consent) = compute_state(case, profile, as_of);
         if str_at(case, "expected_state") != Some(computed) {
-            errors.push(format!("scenarios[{case_index}]: expected state does not match evidence-derived state {computed}"));
+            errors.push(format!(
+                "scenarios[{case_index}]: expected state does not match evidence-derived state {computed}"
+            ));
         }
         if case.get("resolution_allowed").and_then(Value::as_bool) != Some(resolution_allowed) {
-            errors.push(format!("scenarios[{case_index}]: resolution_allowed does not match evidence-derived state"));
+            errors.push(format!(
+                "scenarios[{case_index}]: resolution_allowed does not match evidence-derived state"
+            ));
         }
-        if case.get("requires_new_payer_consent").and_then(Value::as_bool) != Some(requires_consent) {
-            errors.push(format!("scenarios[{case_index}]: consent invalidation flag does not match evidence"));
+        if case
+            .get("requires_new_payer_consent")
+            .and_then(Value::as_bool)
+            != Some(requires_consent)
+        {
+            errors.push(format!(
+                "scenarios[{case_index}]: consent invalidation flag does not match evidence"
+            ));
         }
         if case.get("dispatch_allowed").and_then(Value::as_bool) != Some(false) {
-            errors.push(format!("scenarios[{case_index}]: dispatch must remain disabled"));
+            errors.push(format!(
+                "scenarios[{case_index}]: dispatch must remain disabled"
+            ));
         }
         if computed == "active_resolved" {
             let alias_namespace = str_at(alias, "namespace").unwrap_or("");
             if alias_namespace.is_empty() {
-                errors.push(format!("scenarios[{case_index}]: active alias lacks namespace"));
+                errors.push(format!(
+                    "scenarios[{case_index}]: active alias lacks namespace"
+                ));
             }
         }
     }
@@ -405,39 +435,52 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
             value["scenarios"][1]["expected_state"] = json!("active_resolved");
             value["scenarios"][1]["resolution_allowed"] = json!(true);
         }),
-        ("reassignment quarantine removed but still expected", |value| {
-            value["scenarios"][5]["events"].as_array_mut().unwrap().retain(|event| {
-                str_at(event, "event_type") != Some("number_reassigned")
-            });
-        }),
+        (
+            "reassignment quarantine removed but still expected",
+            |value| {
+                value["scenarios"][5]["events"]
+                    .as_array_mut()
+                    .unwrap()
+                    .retain(|event| str_at(event, "event_type") != Some("number_reassigned"));
+            },
+        ),
         ("SIM swap signal erased but quarantine retained", |value| {
-            value["scenarios"][14]["events"].as_array_mut().unwrap().retain(|event| {
-                str_at(event, "event_type") != Some("sim_swap_signal")
-            });
+            value["scenarios"][14]["events"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|event| str_at(event, "event_type") != Some("sim_swap_signal"));
         }),
         ("stale resolver promoted to fresh", |value| {
             value["scenarios"][17]["events"][4]["freshness"] = json!("fresh");
             value["scenarios"][17]["events"][4]["valid_until"] = json!("2026-11-05T00:00:00Z");
         }),
         ("directory epoch advance erased", |value| {
-            value["scenarios"][18]["events"].as_array_mut().unwrap().retain(|event| {
-                str_at(event, "event_type") != Some("directory_epoch_advanced")
-            });
+            value["scenarios"][18]["events"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|event| str_at(event, "event_type") != Some("directory_epoch_advanced"));
         }),
         ("bank account closure erased", |value| {
-            value["scenarios"][13]["events"].as_array_mut().unwrap().retain(|event| {
-                str_at(event, "event_type") != Some("account_closed")
-            });
+            value["scenarios"][13]["events"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|event| str_at(event, "event_type") != Some("account_closed"));
         }),
         ("cross-bank default collision erased", |value| {
-            value["scenarios"][11]["events"].as_array_mut().unwrap().retain(|event| {
-                str_at(event, "event_type") != Some("cross_participant_binding_conflict")
-            });
+            value["scenarios"][11]["events"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|event| {
+                    str_at(event, "event_type") != Some("cross_participant_binding_conflict")
+                });
         }),
-        ("new beneficiary under same binding fingerprint accepted", |value| {
-            value["scenarios"][29]["expected_state"] = json!("active_resolved");
-            value["scenarios"][29]["resolution_allowed"] = json!(true);
-        }),
+        (
+            "new beneficiary under same binding fingerprint accepted",
+            |value| {
+                value["scenarios"][29]["expected_state"] = json!("active_resolved");
+                value["scenarios"][29]["resolution_allowed"] = json!(true);
+            },
+        ),
         ("display mismatch retains old consent", |value| {
             value["scenarios"][26]["expected_state"] = json!("active_resolved");
             value["scenarios"][26]["resolution_allowed"] = json!(true);
@@ -479,14 +522,23 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             "--self-test" => self_test = true,
             "--help" | "-h" => {
-                println!("sa-shapid-alias-lifecycle-evaluator [--corpus PATH] [--schema PATH] [--self-test]");
+                println!(
+                    "sa-shapid-alias-lifecycle-evaluator [--corpus PATH] [--schema PATH] [--self-test]"
+                );
                 return Ok(());
             }
-            other => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("unknown argument: {other}")).into()),
+            other => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("unknown argument: {other}"),
+                )
+                .into());
+            }
         }
     }
-    let (schema, corpus) = schema_errors(&schema_text, &corpus_text)
-        .map_err(|errors| std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; ")))?;
+    let (schema, corpus) = schema_errors(&schema_text, &corpus_text).map_err(|errors| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; "))
+    })?;
     let errors = semantic_errors(&corpus);
     let mutation_count = if self_test {
         mutation_campaign(&corpus)?
@@ -504,9 +556,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         "dispatch_enabled":false,
         "claim_ceiling":"synthetic alias lifecycle and currentness only"
     });
-    println!("{}",serde_json::to_string_pretty(&report)?);
+    println!("{}", serde_json::to_string_pretty(&report)?);
     if !errors.is_empty() {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,errors.join("; ")).into());
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; ")).into());
     }
     Ok(())
 }
@@ -519,14 +571,14 @@ mod tests {
     fn corpus_and_schema_validate() {
         let (_, corpus) = schema_errors(DEFAULT_SCHEMA, DEFAULT_CORPUS).expect("schema");
         assert!(semantic_errors(&corpus).is_empty());
-        assert_eq!(array_at(&corpus,"source_register").unwrap().len(),5);
-        assert_eq!(array_at(&corpus,"profiles").unwrap().len(),5);
-        assert_eq!(array_at(&corpus,"scenarios").unwrap().len(),30);
+        assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 5);
+        assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 5);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 30);
     }
 
     #[test]
     fn mutation_campaign_rejects_all_12_controls() {
         let (_, corpus) = schema_errors(DEFAULT_SCHEMA, DEFAULT_CORPUS).expect("schema");
-        assert_eq!(mutation_campaign(&corpus).expect("mutations"),12);
+        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 12);
     }
 }
