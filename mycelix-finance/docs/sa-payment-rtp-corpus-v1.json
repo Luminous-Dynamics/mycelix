@@ -5,7 +5,7 @@
   "created_on": "2026-11-04",
   "as_of": "2026-11-04",
   "jurisdiction": "ZA",
-  "purpose": "Qualify Request-to-Pay as a request/messaging lifecycle distinct from payment initiation, execution and settlement.",
+  "purpose": "Qualify Request-to-Pay as a distinct request/consent lifecycle, including requester authenticity, payer-visible material intent, abuse handling and purpose-limited privacy, with SARB PEM fraud-intelligence programme context recorded as proposed/current programme status rather than an operational service.",
   "external_effects_enabled": false,
   "source_register": [
     {
@@ -237,6 +237,60 @@
         "A fee schedule specific to the Request flow.",
         "Partial-payment availability.",
         "A legal conclusion about the underlying debt or the legitimacy of a request."
+      ]
+    },
+    {
+      "id": "SARB_PEM_POSITION_2025",
+      "authority": "South African Reserve Bank",
+      "title": "Positioning the SARB's Payments Ecosystem Modernisation Programme: A Strategic Shift to a Higher Equilibrium",
+      "url": "https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_policy_position_paper",
+      "supports": [
+        "The paper proposes an NPU baseline fraud-protection capability",
+        "The proposed minimum includes participant reports of suspected and actual fraudulent transactions",
+        "The paper proposes transactional fraud scoring across each payment channel and participant",
+        "The paper links financial identity and proxy resolution/Confirmation of Payee to fraud mitigation"
+      ],
+      "does_not_support": [
+        "That the proposed NPU fraud scoring service is currently operational",
+        "That a sender credential proves a payment request is legitimate",
+        "A universal private-sector blacklist or adverse action policy"
+      ]
+    },
+    {
+      "id": "SARB_PEM_DIALOGUE_2026_04",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Industry Dialogue, 9 April 2026",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/pem/dialogues/2026/april-day-one.pdf",
+      "published_on": "2026-04-09",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_programme_status_presentation",
+      "supports": [
+        "SARB reported a fraud framework developed, with scoping of priority items underway",
+        "SARB reported insights-platform stakeholder alignment in progress",
+        "PEM positioned QR+ as a pre-payment initiation enabler"
+      ],
+      "does_not_support": [
+        "Operational launch or participant availability of a national fraud framework",
+        "A live fraud-score API or production service-level agreement"
+      ]
+    },
+    {
+      "id": "SARB_PEM_WORKING_GROUPS_2026",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Working Groups",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/pem/working-groups.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_programme_governance_snapshot",
+      "supports": [
+        "A Fraud and Intelligence Information Sharing Forum exists to exchange knowledge among private-sector PEM participants"
+      ],
+      "does_not_support": [
+        "That the forum itself is a production transaction-risk exchange",
+        "That Mycelix is a participant or endorsed provider"
       ]
     }
   ],
