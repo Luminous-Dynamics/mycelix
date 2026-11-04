@@ -76,9 +76,8 @@ fn same_link(event: &Value, request: &Value, instruction_id: Option<&str>) -> bo
     let event_end_to_end_id = str_at(event, "end_to_end_id");
     str_at(event, "original_request_id") == str_at(request, "request_id")
         && str_at(event, "request_digest") == str_at(request, "request_digest")
-        && event_end_to_end_id.is_none()
-            .then_some(true)
-            .unwrap_or(event_end_to_end_id == str_at(request, "end_to_end_id"))
+        && (event_end_to_end_id.is_none()
+            || event_end_to_end_id == str_at(request, "end_to_end_id"))
         && (instruction_id.is_none()
             || str_at(event, "payment_instruction_id") == instruction_id)
 }
