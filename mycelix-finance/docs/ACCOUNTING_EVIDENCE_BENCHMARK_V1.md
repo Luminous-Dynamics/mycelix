@@ -287,7 +287,7 @@ References:
 BlueFin evaluates professional spreadsheet tasks for workbook synthesis, manipulation and interrogation, emphasizing whether formulas continue working when inputs change. Its 2026 v1 reports 131 tasks / 3,225 rubric criteria, 11 public tasks and 120 held-out evaluation tasks. The highest reported result in the checked May 2026 results was 49.6% criteria-weighted score. Its grader is an LM judge validated against expert ratings (reported Krippendorff alpha 0.826). It does not cover accounting close or live data.
 
 References:
-- https://arxiv.org/abs/2605.XXXXX
+- https://arxiv.org/abs/2605.30907
 - https://benchmarks.finance/benchmarks/bluefin/
 
 The arXiv identifier must be resolved from the linked primary benchmark paper before any benchmark reproduction or paper citation is frozen. The benchmark directory is a discovery aid, not a substitute for checking original rights and methods.
