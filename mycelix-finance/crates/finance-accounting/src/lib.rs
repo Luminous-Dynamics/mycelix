@@ -427,6 +427,13 @@ impl QualifiedEconomicSource {
     pub fn source_event_id(&self) -> &ReferenceId { &self.source_event_id }
     pub fn amount(&self) -> &AssetAmount { &self.amount }
     pub fn source_commitment(&self) -> Digest32 { self.source_commitment }
+    pub fn settlement_subject(&self) -> &ReferenceId { &self.settlement_subject }
+    pub fn attempt_id(&self) -> &ReferenceId { &self.attempt_id }
+    pub fn rail(&self) -> &ReferenceId { &self.rail }
+    pub fn network(&self) -> &ReferenceId { &self.network }
+    pub fn settlement_profile(&self) -> &SettlementProfileBinding { &self.settlement_profile }
+    pub fn evidence_frontier(&self) -> Digest32 { self.evidence_frontier }
+    pub fn qualified_at_unix_ms(&self) -> u64 { self.qualified_at_unix_ms }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -476,6 +483,11 @@ impl QualifiedJournalEntry {
     pub fn reverses(&self) -> Option<Digest32> { self.reverses }
     pub fn canonical_bytes(&self) -> &[u8] { &self.canonical_bytes }
     pub fn source_commitment(&self) -> Digest32 { self.source.source_commitment() }
+    pub fn ledger_profile_digest(&self) -> Digest32 { self.ledger_profile_digest }
+    pub fn projection_policy_digest(&self) -> Digest32 { self.projection_policy_digest }
+    pub fn reporting_entity(&self) -> &ReferenceId { &self.reporting_entity }
+    pub fn reporting_period(&self) -> &ReferenceId { &self.reporting_period }
+    pub fn effective_at_unix_ms(&self) -> u64 { self.effective_at_unix_ms }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1190,6 +1202,7 @@ mod tests {
         let policy = policy(&ledger);
         let mut duplicate = draft("duplicate", 100, None);
         duplicate.postings[1].account.account_id = reference("account:cash");
+        duplicate.postings[1].side = PostingSide::Debit;
         duplicate.postings[1].semantic_role = reference("role:settlement-cash");
         assert_eq!(
             qualify_journal_entry(&ledger, &policy, duplicate),
