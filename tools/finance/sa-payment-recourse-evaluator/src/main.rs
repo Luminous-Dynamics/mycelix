@@ -5,7 +5,7 @@
 //! Only independently evidenced and reconciled return events increase recovered value.
 
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fs;
@@ -30,7 +30,11 @@ struct Evaluation {
 
 impl Evaluation {
     fn status(&self) -> &'static str {
-        if self.errors.is_empty() { "PASS" } else { "FAIL" }
+        if self.errors.is_empty() {
+            "PASS"
+        } else {
+            "FAIL"
+        }
     }
 }
 
@@ -48,10 +52,18 @@ fn array_at<'a>(value: &'a Value, key: &str) -> Option<&'a Vec<Value>> {
 
 fn valid_date(value: &str) -> bool {
     let mut parts = value.split('-');
-    let Some(year) = parts.next().and_then(|v| v.parse::<i32>().ok()) else { return false; };
-    let Some(month) = parts.next().and_then(|v| v.parse::<u32>().ok()) else { return false; };
-    let Some(day) = parts.next().and_then(|v| v.parse::<u32>().ok()) else { return false; };
-    if parts.next().is_some() || year < 1970 || !(1..=12).contains(&month) { return false; }
+    let Some(year) = parts.next().and_then(|v| v.parse::<i32>().ok()) else {
+        return false;
+    };
+    let Some(month) = parts.next().and_then(|v| v.parse::<u32>().ok()) else {
+        return false;
+    };
+    let Some(day) = parts.next().and_then(|v| v.parse::<u32>().ok()) else {
+        return false;
+    };
+    if parts.next().is_some() || year < 1970 || !(1..=12).contains(&month) {
+        return false;
+    }
     let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
     let max_day = match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
@@ -84,7 +96,10 @@ fn schema_errors(schema: &Value, corpus: &Value) -> Vec<String> {
         }
     };
     for error in validator.iter_errors(corpus) {
-        errors.push(format!("schema error at {}: {error}", error.instance_path()));
+        errors.push(format!(
+            "schema error at {}: {error}",
+            error.instance_path()
+        ));
     }
     errors
 }
@@ -119,19 +134,28 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
         out.errors.push("schema: unexpected schema identity".into());
     }
     if str_at(corpus, "corpus_id") != Some(EXPECTED_CORPUS) {
-        out.errors.push("corpus_id: unexpected corpus identity".into());
+        out.errors
+            .push("corpus_id: unexpected corpus identity".into());
     }
     if str_at(corpus, "status") != Some("synthetic_reference_only") {
-        out.errors.push("status: corpus must remain synthetic_reference_only".into());
+        out.errors
+            .push("status: corpus must remain synthetic_reference_only".into());
     }
     if str_at(corpus, "jurisdiction") != Some("ZA") {
         out.errors.push("jurisdiction: expected ZA".into());
     }
-    if corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false) {
-        out.errors.push("external_effects_enabled: must be false".into());
+    if corpus
+        .get("external_effects_enabled")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
+        out.errors
+            .push("external_effects_enabled: must be false".into());
     }
 
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     out.source_count = sources.len();
@@ -142,24 +166,30 @@ fn semantic_evaluation(corpus: &Value) -> Evaluation {
     check_unique(&profiles, "profile_id", "profiles", &mut out.errors);
     check_unique(&scenarios, "scenario_id", "scenarios", &mut out.errors);
 
-    let source_ids: BTreeSet<String> = sources.iter()
+    let source_ids: BTreeSet<String> = sources
+        .iter()
         .filter_map(|item| str_at(item, "id").map(str::to_owned))
         .collect();
-    let profile_ids: BTreeSet<String> = profiles.iter()
+    let profile_ids: BTreeSet<String> = profiles
+        .iter()
         .filter_map(|item| str_at(item, "profile_id").map(str::to_owned))
         .collect();
 
     if sources.is_empty() || profiles.is_empty() || scenarios.is_empty() {
-        out.errors.push("source_register, profiles and scenarios must be non-empty".into());
+        out.errors
+            .push("source_register, profiles and scenarios must be non-empty".into());
     }
 
     for (index, source) in sources.iter().enumerate() {
         let Some(observed) = str_at(source, "observed_on") else {
-            out.errors.push(format!("source_register[{index}].observed_on: missing"));
+            out.errors
+                .push(format!("source_register[{index}].observed_on: missing"));
             continue;
         };
         if !date_le(observed, as_of) {
-            out.errors.push(format!("source_register[{index}].observed_on: invalid or after as_of"));
+            out.errors.push(format!(
+                "source_register[{index}].observed_on: invalid or after as_of"
+            ));
         }
     }
 
