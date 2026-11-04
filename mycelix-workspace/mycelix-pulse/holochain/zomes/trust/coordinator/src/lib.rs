@@ -1005,11 +1005,11 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
         "recv_remote_signal".into(),
     )]));
 
-    create_cap_grant(CapGrantEntry {
-        tag: "recv_trust_signals".to_string(),
-        access: CapAccess::Unrestricted,
+    create_cap_grant(CapGrant::new_zome_call_grant(
+        "recv_trust_signals".to_string(),
+        GrantConstraint::Unrestricted,
         functions,
-    })?;
+    ))?;
 
     Ok(InitCallbackResult::Pass)
 }
