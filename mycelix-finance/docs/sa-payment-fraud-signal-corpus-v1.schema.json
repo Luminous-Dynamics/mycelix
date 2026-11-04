@@ -1,0 +1,752 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-fraud-signal-corpus-v1.schema.json",
+  "title": "Mycelix South African Federated Payment Fraud Signal Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "created_on",
+    "as_of",
+    "evaluation_at",
+    "jurisdiction",
+    "purpose",
+    "external_effects_enabled",
+    "source_register",
+    "profiles",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-fraud-signal/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-SA-PAYMENT-FRAUD-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "evaluation_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 32,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "framework",
+        "participant",
+        "role",
+        "profile_version",
+        "observed_on",
+        "effective_from",
+        "effective_to",
+        "operational_state",
+        "source_refs",
+        "admission"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+-V1$"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "framework": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "operational_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "admission": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "event_type",
+        "actor_role",
+        "source_status_effect",
+        "authority_state",
+        "observed_at",
+        "record_time",
+        "evidence_commitment",
+        "superseding_signal_id",
+        "recipient_id"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_role": {
+          "enum": [
+            "originating_psp",
+            "relay_participant",
+            "recipient_participant",
+            "risk_model",
+            "system",
+            "subject",
+            "unknown"
+          ]
+        },
+        "source_status_effect": {
+          "enum": [
+            "suspected",
+            "confirmed",
+            "disproved",
+            "withdrawn",
+            "corrected",
+            "unchanged"
+          ]
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "record_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_commitment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "superseding_signal_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recipient_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contribution_id",
+        "source_participant",
+        "origin_case_commitment",
+        "independent_claim",
+        "evidence_commitment"
+      ],
+      "properties": {
+        "contribution_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_case_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independent_claim": {
+          "type": "boolean"
+        },
+        "evidence_commitment": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "correction_recipient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recipient_id",
+        "acknowledgement_state",
+        "acknowledged_at"
+      ],
+      "properties": {
+        "recipient_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acknowledgement_state": {
+          "enum": [
+            "pending",
+            "acknowledged",
+            "not_required"
+          ]
+        },
+        "acknowledged_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score_value",
+        "score_kind",
+        "model_id",
+        "model_version",
+        "calibration_id",
+        "cohort_id",
+        "evaluation_window_start",
+        "evaluation_window_end",
+        "uncertainty",
+        "calibration_state"
+      ],
+      "properties": {
+        "score_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "score_kind": {
+          "enum": [
+            "risk_estimate",
+            "risk_rank",
+            "unqualified_signal_strength"
+          ]
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cohort_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluation_window_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "evaluation_window_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "uncertainty": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "calibration_state": {
+          "enum": [
+            "qualified_synthetic_only",
+            "stale",
+            "unknown",
+            "not_calibrated"
+          ]
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_id",
+        "profile_id",
+        "jurisdiction",
+        "framework",
+        "source_participant",
+        "source_role",
+        "source_authority_state",
+        "signature_state",
+        "key_state",
+        "key_id",
+        "source_case_commitment",
+        "origin_case_commitment",
+        "deduplication_group_id",
+        "subject_reference",
+        "transaction_commitment",
+        "instrument",
+        "rail",
+        "channel",
+        "reason_code",
+        "reason_taxonomy_version",
+        "evidence_class",
+        "evidence_commitment",
+        "source_status",
+        "observed_at",
+        "recorded_at",
+        "expires_at",
+        "purpose",
+        "requested_purpose",
+        "permitted_audiences",
+        "actual_recipient",
+        "dissemination_state",
+        "availability_state",
+        "model_score",
+        "events",
+        "local_decision",
+        "local_authority_state",
+        "independent_evidence_count",
+        "evidence_contributions",
+        "correction_propagation_state",
+        "correction_recipients"
+      ],
+      "properties": {
+        "signal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "framework": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_role": {
+          "enum": [
+            "originating_psp",
+            "relay_participant",
+            "recipient_participant",
+            "risk_model",
+            "unknown"
+          ]
+        },
+        "source_authority_state": {
+          "enum": [
+            "authorised",
+            "unauthorised",
+            "unknown"
+          ]
+        },
+        "signature_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "key_state": {
+          "enum": [
+            "active",
+            "revoked",
+            "unknown"
+          ]
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_case_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_case_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deduplication_group_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_reference": {
+          "type": "string",
+          "pattern": "^pairwise:[a-z0-9_-]+$"
+        },
+        "transaction_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason_taxonomy_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_commitment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_status": {
+          "enum": [
+            "suspected",
+            "confirmed",
+            "disproved",
+            "withdrawn",
+            "corrected",
+            "unknown",
+            "quarantined_untrusted"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "purpose": {
+          "enum": [
+            "fraud_prevention_specific_payment",
+            "fraud_investigation",
+            "cross_participant_recovery",
+            "unknown"
+          ]
+        },
+        "requested_purpose": {
+          "enum": [
+            "fraud_prevention_specific_payment",
+            "fraud_investigation",
+            "cross_participant_recovery",
+            "unrelated_credit_scoring",
+            "unrelated_disclosure",
+            "marketing",
+            "unknown"
+          ]
+        },
+        "permitted_audiences": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "actual_recipient": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dissemination_state": {
+          "enum": [
+            "shared",
+            "not_shared",
+            "quarantined"
+          ]
+        },
+        "availability_state": {
+          "enum": [
+            "signal_present",
+            "provider_unavailable",
+            "no_coverage",
+            "no_signal_returned"
+          ]
+        },
+        "model_score": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "local_decision": {
+          "enum": [
+            "none",
+            "review",
+            "block_local",
+            "dispute_opened",
+            "appeal_opened",
+            "escalate"
+          ]
+        },
+        "local_authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "independent_evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_contributions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contribution"
+          }
+        },
+        "correction_propagation_state": {
+          "enum": [
+            "not_applicable",
+            "pending",
+            "complete"
+          ]
+        },
+        "correction_recipients": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/correction_recipient"
+          }
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "signal",
+        "expected_disposition",
+        "required_evidence",
+        "negative_controls"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^SA-FRAUD-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signal": {
+          "$ref": "#/$defs/signal"
+        },
+        "expected_disposition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_currentness": {
+          "type": "string"
+        },
+        "required_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "negative_controls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
