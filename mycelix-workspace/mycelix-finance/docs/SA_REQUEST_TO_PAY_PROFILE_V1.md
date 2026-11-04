@@ -105,3 +105,25 @@ Thus keep five independent claims: sender account/session authenticated; display
 ## Capitec amount/fee inconsistency
 
 The current FAQ has a R100 per-request cap but also lists payer fee bands for R100.01–R3,000. Requests above R100 must therefore be rejected/quarantined according to the stated per-request cap; the fee bands above R100 are preserved as contradictory tariff text, not evidence that those request amounts are admissible. The FAQ says two requests per 24 hours but does not state a combined daily value ceiling; that separate monetary field remains unknown.
+
+
+## South African participant capability comparison (observed 4 November 2026)
+
+Do not model a universal PayShap Request limit. Limits are participant-, route-, direction- and counterparty-specific in the public product material.
+
+| Provider profile | Amount limits | Request-count / counterpart limits | Expiry | Partial payment |
+|---|---|---|---|---|
+| Capitec current FAQ/product snapshot | R100 per request | 2 outbound requests per 24 hours to any SA bank | 1-day default; sender can select expiry; maximum unknown | FAQ says only the requested amount can be paid |
+| Absa current page/FAQ snapshot | On-us account-number R5m; on-us ShapID R3,000; off-us R50,000 subject to receiving-bank lower limit | Unlimited aggregate sent/received; at most 5 per same recipient per day outbound and 5 from same sender per day inbound | Absa-sent requests expire after 45 days | Partial/reduced amount when sender enables AMI |
+| Nedbank current FAQ snapshot | Up to R50,000 per transaction per day; other banks may have lower limits | No daily limit on number sent or paid | 14-day default, selectable from today through day 45 | Not established by this FAQ snapshot |
+
+Sources: [Capitec FAQ](https://www.capitecbank.co.za/were-here-to-help/faqs/), [Absa PayShap Request](https://www.absa.co.za/self-service/digital-banking-services/digital-ways-to-pay/payshap-request/), [Nedbank PayShap Request FAQs](https://personal.nedbank.co.za/bank/digital-banking/needs/payments/payshap/payshap-request-faqs.html). These are current public-source observations, not effective-date guarantees or a universal scheme rule. Off-us limits can be constrained by the other participant. Fees remain participant/product-specific and must be qualified separately.
+
+### Evaluator obligations
+
+- Resolve the route scope before applying a maximum (on-us account, on-us ShapID, off-us, or generic).
+- Never infer a daily count cap from a per-transaction amount limit.
+- A rate-limit rejection is only admissible when the participant profile publishes a finite counter.
+- A partial-payment option is only admissible under the participant's qualified policy and an immutable AMI field in the request commitment.
+- Expiry duration is checked against the selected participant profile; a request's chosen expiry does not modify the profile.
+- Decline and cancellation terminality is participant-specific; do not inherit Nedbank's no-reopen rule to other participants without source evidence.
