@@ -1209,4 +1209,182 @@ mod tests {
             Err(AccountingError::DuplicatePostingSemantic)
         );
     }
+
+
+    #[test]
+    fn ledger_and_policy_commitments_bind_semantic_revisions() {
+        let ledger = ledger_profile();
+        let original_digest = ledger.commitment().expect("ledger digest");
+        let mut changed_ledger = ledger.clone();
+        changed_ledger.units.get_mut(&reference("unit:USD.micro:v1")).unwrap().decimal_scale = 5;
+        assert_ne!(original_digest, changed_ledger.commitment().expect("changed profile digest"));
+
+        let original_policy = policy(&ledger);
+        let original_policy_digest = original_policy.commitment().expect("policy digest");
+        let mut changed_policy = original_policy.clone();
+        changed_policy.revision += 1;
+        assert_ne!(
+            original_policy_digest,
+            changed_policy.commitment().expect("changed policy digest")
+        );
+    }
+
+    #[test]
+    fn ledger_policy_digest_substitution_rejects() {
+        let ledger = ledger_profile();
+        let mut policy = policy(&ledger);
+        policy.ledger_profile_digest = Digest32::repeat(88);
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, draft("profile-substitution", 100, None)),
+            Err(AccountingError::LedgerPolicyMismatch)
+        );
+    }
+
+    #[test]
+    fn ledger_rejects_invalid_scale_and_unknown_account_unit_binding() {
+        let mut ledger = ledger_profile();
+        ledger.units.get_mut(&reference("unit:USD.micro:v1")).unwrap().decimal_scale = 19;
+        assert_eq!(ledger.validate(), Err(AccountingError::InvalidDecimalScale));
+
+        let mut ledger = ledger_profile();
+        ledger.accounts.get_mut(&reference("account:cash")).unwrap()
+            .allowed_unit_profiles.insert(reference("unit:missing"));
+        assert_eq!(ledger.validate(), Err(AccountingError::UnknownUnitProfile));
+    }
+
+    #[test]
+    fn one_entry_cannot_mix_two_unit_profiles_even_for_the_same_asset_code() {
+        let mut ledger = ledger_profile();
+        let alternate = AssetUnitProfile {
+            id: reference("unit:USD.cents:v1"),
+            revision: 1,
+            asset_id: asset(),
+            decimal_scale: 2,
+            issuer: Some(reference("issuer:bank-a")),
+            network: Some(reference("network:bank-rail")),
+            fungibility_domain: reference("fungibility:bank-a-usd"),
+        };
+        ledger.units.insert(alternate.id.clone(), alternate);
+        for account in ledger.accounts.values_mut() {
+            account.allowed_unit_profiles.insert(reference("unit:USD.cents:v1"));
+        }
+        let policy = policy(&ledger);
+        let mut mixed = draft("mixed-units", 100, None);
+        mixed.postings[1].unit_profile_id = reference("unit:USD.cents:v1");
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, mixed),
+            Err(AccountingError::MultipleUnitProfilesInOneEntry)
+        );
+    }
+
+    #[test]
+    fn posting_count_and_effective_time_bounds_are_explicit() {
+        let ledger = ledger_profile();
+        let policy = policy(&ledger);
+        let mut too_few = draft("one-posting", 100, None);
+        too_few.postings.pop();
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, too_few),
+            Err(AccountingError::PostingCountOutOfBounds)
+        );
+
+        let mut no_effective_time = draft("zero-time", 100, None);
+        no_effective_time.effective_at_unix_ms = 0;
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, no_effective_time),
+            Err(AccountingError::InvalidEffectiveTime)
+        );
+    }
+
+    #[test]
+    fn duplicate_economic_source_with_changed_amount_conflicts() {
+        let ledger = ledger_profile();
+        let policy = policy(&ledger);
+        let mut book = JournalBook::new(&ledger).expect("book");
+        let first = qualify_journal_entry(&ledger, &policy, draft("same-source", 100, None))
+            .expect("first");
+        book.append(first).expect("append");
+
+        let changed = qualify_journal_entry(&ledger, &policy, draft("same-source", 101, None))
+            .expect("second source commitment differs");
+        assert_eq!(
+            book.append(changed),
+            Err(AccountingError::SourceProjectionConflict)
+        );
+        assert_eq!(book.entries().len(), 1);
+    }
+
+    #[test]
+    fn reversal_policy_and_exact_original_semantics_are_enforced() {
+        let ledger = ledger_profile();
+        let mut no_reversals = policy(&ledger);
+        no_reversals.allow_reversals = false;
+        assert_eq!(
+            qualify_journal_entry(
+                &ledger,
+                &no_reversals,
+                draft("reversal-disallowed", 10, Some(Digest32::repeat(2)))
+            ),
+            Err(AccountingError::ReversalNotAllowed)
+        );
+
+        let policy = policy(&ledger);
+        let original = qualify_journal_entry(&ledger, &policy, draft("original-semantic", 100, None))
+            .expect("original");
+        let original_id = original.journal_id();
+        let mut book = JournalBook::new(&ledger).expect("book");
+        book.append(original).expect("append original");
+
+        let mut wrong_semantic = draft("wrong-semantic-reversal", 10, Some(original_id));
+        wrong_semantic.postings[0].semantic_role = reference("role:unrelated");
+        let wrong_semantic = qualify_journal_entry(&ledger, &policy, wrong_semantic)
+            .expect("balanced but semantically unrelated reversal");
+        assert_eq!(
+            book.append(wrong_semantic),
+            Err(AccountingError::ReversalPostingMismatch)
+        );
+    }
+
+    #[test]
+    fn reversal_cannot_target_a_different_ledger_entity() {
+        let ledger = ledger_profile();
+        let policy = policy(&ledger);
+        let original = qualify_journal_entry(&ledger, &policy, draft("entity-original", 100, None))
+            .expect("original");
+        let original_id = original.journal_id();
+        let mut book = JournalBook::new(&ledger).expect("book");
+        book.append(original).expect("append original");
+
+        let mut changed_entity = draft("entity-reversal", 10, Some(original_id));
+        changed_entity.reporting_entity = reference("entity:other");
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, changed_entity),
+            Err(AccountingError::InvalidReportingEntity)
+        );
+    }
+
+    #[test]
+    fn unsupported_source_profile_revision_is_not_accepted() {
+        let ledger = ledger_profile();
+        let policy = policy(&ledger);
+        let mut source = QualifiedEconomicSource::from_qualified_settlement(
+            reference("economic-event:profile-revision"),
+            &qualified_settlement("profile-revision", 100),
+        ).expect("source");
+        source.settlement_profile.revision += 1;
+        let invalid = JournalEntryDraft {
+            reporting_period: reference("period:2026-11"),
+            effective_at_unix_ms: 10_001,
+            source,
+            postings: vec![
+                posting("account:cash", PostingSide::Debit, 100),
+                posting("account:settlement-clearing", PostingSide::Credit, 100),
+            ],
+            reverses: None,
+        };
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, invalid),
+            Err(AccountingError::UnsupportedSettlementProfile)
+        );
+    }
 }
