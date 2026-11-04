@@ -78,11 +78,11 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
         (zome_name, "verify_signature".into()),
     ]);
 
-    create_cap_grant(CapGrantEntry {
-        tag: "public_key_access".into(),
-        access: CapAccess::Unrestricted,
-        functions: GrantedFunctions::Listed(functions),
-    })?;
+    create_cap_grant(CapGrant::new_zome_call_grant(
+        "public_key_access".into(),
+        GrantConstraint::Unrestricted,
+        GrantedFunctions::Listed(functions),
+    ))?;
 
     Ok(InitCallbackResult::Pass)
 }
