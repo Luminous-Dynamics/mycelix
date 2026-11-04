@@ -288,6 +288,71 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                         "cases[{index}]: VoP result lacks source/profile evidence"
                     ));
                 }
+                let profile_result_compatible = match scheme_profile {
+                    "EU_IPR_VOP" => {
+                        matches!(result, "match" | "close_match" | "no_match" | "other")
+                    }
+                    "UK_FPS_COP" => {
+                        matches!(result, "match" | "close_match" | "no_match" | "unavailable")
+                    }
+                    "ZA_NPU_PROPOSAL_ONLY" => {
+                        result == "unavailable"
+                            && signature == "unknown"
+                            && !audience_matches
+                            && !current
+                    }
+                    "PROVIDER_SPECIFIC_UNKNOWN" => {
+                        matches!(result, "unknown" | "unavailable" | "other") && !current
+                    }
+                    _ => false,
+                };
+                if !profile_result_compatible {
+                    errors.push(format!(
+                        "cases[{index}]: result class is incompatible with its source scheme profile"
+                    ));
+                }
+                let required_profile_source = match scheme_profile {
+                    "EU_IPR_VOP" => Some("ECB_INSTANT_PAYMENTS_REGULATION_2024_886"),
+                    "UK_FPS_COP" => Some("PAYUK_FPS_PRINCIPLES_V11_COP_2026"),
+                    "ZA_NPU_PROPOSAL_ONLY" => Some("SARB_PEM_POSITION_2025"),
+                    _ => None,
+                };
+                if let Some(required_ref) = required_profile_source
+                    && !source_refs.is_some_and(|items| {
+                        items
+                            .iter()
+                            .any(|item| item.as_str() == Some(required_ref))
+                    })
+                {
+                    errors.push(format!(
+                        "cases[{index}]: scheme profile is missing its authoritative source reference"
+                    ));
+                }
+                let account_type_consistent = match scheme_profile {
+                    "EU_IPR_VOP" | "ZA_NPU_PROPOSAL_ONLY" => {
+                        requested_type == "not_specified" && returned_type == "unknown"
+                    }
+                    "UK_FPS_COP" if result == "unavailable" => {
+                        requested_type == "not_specified" && returned_type == "unknown"
+                    }
+                    "UK_FPS_COP" if result == "no_match" => {
+                        requested_type == returned_type
+                            || (requested_type != returned_type
+                                && requested_type != "not_specified"
+                                && returned_type != "unknown")
+                    }
+                    "UK_FPS_COP" => {
+                        requested_type == returned_type
+                            && requested_type != "not_specified"
+                            && returned_type != "unknown"
+                    }
+                    _ => requested_type == "not_specified" && returned_type == "unknown",
+                };
+                if !account_type_consistent {
+                    errors.push(format!(
+                        "cases[{index}]: account-type semantics are not qualified by this scheme profile"
+                    ));
+                }
                 if let Some(items) = source_refs {
                     let known_refs: BTreeSet<&str> = corpus["rulebook_references"]
                         .as_array()
@@ -342,7 +407,7 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                             || !current
                             || query_subject != response_subject
                             || response_subject != intent_subject
-                            || requested_type != returned_type
+                            || !account_type_consistent
                             || match_engine != "provider_authoritative"
                             || !payer_notified
                         {
@@ -507,7 +572,7 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
             "baseline corpus must pass before mutation campaign: {baseline_errors:?}"
         ));
     }
-    let mutations: [Mutation; 28] = [
+    let mutations: [Mutation; 33] = [
         ("payee substitution marked parsed-only", |value| {
             value["cases"][2]["expected"] = json!("parsed_unverified");
         }),
@@ -597,6 +662,23 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
         ("unavailable and other result classes collapsed", |value| {
             value["cases"][23]["payee_verification"]["result"] = json!("unavailable");
         }),
+        ("UK unavailable outcome assigned EU profile", |value| {
+            value["cases"][22]["payee_verification"]["scheme_profile"] = json!("EU_IPR_VOP");
+        }),
+        ("EU other outcome assigned UK profile", |value| {
+            value["cases"][23]["payee_verification"]["scheme_profile"] = json!("UK_FPS_COP");
+        }),
+        ("proposal-only South African profile claims a match", |value| {
+            value["cases"][29]["payee_verification"]["result"] = json!("match");
+        }),
+        ("UK profile loses its source binding", |value| {
+            value["cases"][20]["payee_verification"]["source_refs"] =
+                json!(["ECB_INSTANT_PAYMENTS_REGULATION_2024_886"]);
+        }),
+        ("EU profile invents personal/business account type", |value| {
+            value["cases"][19]["payee_verification"]["requested_account_type"] =
+                json!("business");
+        }),
     ];
     for (name, mutate) in mutations {
         let mut changed = corpus.clone();
@@ -664,9 +746,9 @@ mod tests {
     }
 
     #[test]
-    fn mutation_campaign_rejects_all_28_controls() {
+    fn mutation_campaign_rejects_all_33_controls() {
         let corpus: Value = serde_json::from_str(CORPUS).expect("corpus JSON");
-        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 28);
+        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 33);
     }
 
     #[test]
@@ -678,7 +760,11 @@ mod tests {
         let unavailable = &cases[22]["payee_verification"];
         let no_match = &cases[21]["payee_verification"];
         assert_eq!(exact["result"], "match");
+        assert_eq!(exact["requested_account_type"], "not_specified");
+        assert_eq!(exact["returned_account_type"], "unknown");
         assert_eq!(close["result"], "close_match");
+        assert_eq!(close["requested_account_type"], "business");
+        assert_eq!(close["returned_account_type"], "business");
         assert_eq!(unavailable["result"], "unavailable");
         assert_eq!(no_match["fraud_inference"], "not_inferred");
         assert_eq!(
@@ -688,6 +774,10 @@ mod tests {
         assert_eq!(
             cases[29]["payee_verification"]["scheme_profile"],
             "ZA_NPU_PROPOSAL_ONLY"
+        );
+        assert_eq!(
+            cases[29]["payee_verification"]["provider_signature_state"],
+            "unknown"
         );
         assert!(validate_semantics(&corpus).is_empty());
     }
