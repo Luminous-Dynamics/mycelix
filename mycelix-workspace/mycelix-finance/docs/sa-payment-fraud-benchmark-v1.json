@@ -1,0 +1,889 @@
+{
+  "schema": "mycelix.sa-payment-fraud-benchmark/v1",
+  "manifest_id": "ZA-SA-PAYMENT-FRAUD-BENCHMARK-V1",
+  "status": "benchmark_protocol_and_public_comparators",
+  "as_of": "2026-11-04",
+  "jurisdiction": "ZA",
+  "external_effects_enabled": false,
+  "purpose": "Define a denominator-safe, privacy-preserving evaluation protocol for South African instant-payment/RTP risk controls and their downstream customer outcomes.",
+  "sources": [
+    {
+      "id": "OPEN_BANKING_FRAUD_MONITOR_2026",
+      "authority": "Open Banking Ltd (UK)",
+      "title": "Open Banking Payments Fraud Monitor – June 2026 Edition",
+      "url": "https://www.openbanking.org.uk/insights/open-banking-payments-fraud-monitor-june-2026-edition/",
+      "published_on": "2026-07-08",
+      "observed_on": "2026-11-04",
+      "evidence_class": "industry_aggregate_fraud_monitor",
+      "supports": [
+        "For 2025, the monitor reports around one fraudulent Open Banking payment per 6,000 Open Banking payments, compared with about one per 2,500 across the wider UK payments industry.",
+        "APP fraud accounted for more than two-thirds of reported Open Banking-related fraud cases.",
+        "The monitor includes account providers representing more than 60% of Open Banking payment volume.",
+        "The report says app-authenticated journeys and variable recurring payments show lower fraud rates than browser-authenticated journeys and single immediate payments."
+      ],
+      "does_not_support": [
+        "A South African PayShap/PayShap Request fraud rate.",
+        "A request-level spam rate or merchant-level false-positive rate.",
+        "A direct comparison with synthetic data or a different payment-product mix."
+      ]
+    },
+    {
+      "id": "PSR_APP_REIMBURSEMENT_DASHBOARD_Q1_2026",
+      "authority": "UK Payment Systems Regulator",
+      "title": "APP scams reimbursement dashboard for Q1 2026",
+      "url": "https://www.psr.org.uk/information-for-consumers/app-scams-reimbursement-dashboard/",
+      "published_on": "2026-07-30",
+      "observed_on": "2026-11-04",
+      "evidence_class": "regulator_reimbursement_and_case_outcome_aggregate",
+      "supports": [
+        "For 7 October 2024 to 31 March 2026, the PSR reports 88% (£316m) of APP scam losses within the in-scope population reimbursed.",
+        "The PSR reports 438,300 claims reported and 301,500 in scope during that 18-month period.",
+        "It reports 82% of claims closed within five business days and 98% within 35 business days.",
+        "The closure-time metric includes claims reimbursed and claims rejected as outside policy definitions."
+      ],
+      "does_not_support": [
+        "An 88% reimbursement rate across all reported claims or all payment types.",
+        "A South African statutory or scheme reimbursement obligation.",
+        "A claim that all cases must be resolved within five days."
+      ]
+    },
+    {
+      "id": "PAYUK_APP_REIMBURSEMENT_POLICY",
+      "authority": "Pay.UK",
+      "title": "APP Authorised Push Payment Reimbursement Policy",
+      "url": "https://www.wearepay.uk/app-authorised-push-payment-reimbursement-policy/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_scheme_operator_reimbursement_policy",
+      "supports": [
+        "In-scope Faster Payments PSPs are required to reimburse eligible APP fraud victims within five working days.",
+        "Receiving PSPs are required to share the cost of fraud losses with sending PSPs."
+      ],
+      "does_not_support": [
+        "South African participant, statutory or contractual rules.",
+        "A 50:50 split unless a separate source in the applicable rules confirms the exact allocation.",
+        "A guarantee that all payment disputes or civil disputes qualify."
+      ]
+    },
+    {
+      "id": "SYNSEPA_PUBLIC_SYNTHETIC_DATASET",
+      "authority": "EpiphanyTech / SEPAGen project",
+      "title": "SynSEPA: A Synthetic SEPA Instant Payment Dataset for APP Fraud Detection Research",
+      "url": "https://huggingface.co/datasets/EpiphanyTech/SynSEPA",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "public_synthetic_research_dataset",
+      "supports": [
+        "Dataset card reports approximately 1.84 million synthetic SEPA transactions, 10,000 synthetic accounts, 7,112 fraud-labelled transactions, and four APP fraud typologies.",
+        "Dataset card reports a 0.39% fraud-labelled share, calibrated against EBA-ECB 2025 statistics.",
+        "The dataset card documents limitations: all data synthetic, no device/session signals, simplified IBANs that do not pass Mod-97, and a single 2024 simulation year."
+      ],
+      "does_not_support": [
+        "Real-world fraud prevalence or production model performance.",
+        "Ground-truth realism beyond its disclosed synthetic generation and calibration.",
+        "A fully realistic device, session, authentication or issuer-trust signal set."
+      ]
+    },
+    {
+      "id": "HARBI_EDGE_FEDERATED_GRAPH_FRAUD_SURVEY_2026",
+      "authority": "Ahmed Harbi, Discover Computing / Springer Nature",
+      "title": "Edge-deployed graph learning for real-time telecom and financial fraud detection: a systematic survey and reference architecture",
+      "url": "https://doi.org/10.1007/s10791-026-10570-7",
+      "published_on": "2026-11-03",
+      "observed_on": "2026-11-04",
+      "evidence_class": "peer_reviewed_systematic_survey_and_telecom_cdr_pilot",
+      "supports": [
+        "The survey organises 22 studies around graph representation, temporal handling, edge/federated deployment, class imbalance and auditability.",
+        "It reports a three-silo federated pilot on telecom call-detail records, with F1 0.8622, AUC 0.9263 and precision 0.9364.",
+        "It argues that combined graph, temporal, edge/federated, class-imbalance and auditability requirements remain under-integrated in the surveyed literature."
+      ],
+      "does_not_support": [
+        "The reported telecom CDR F1/AUC/precision as payment-fraud SOTA.",
+        "A measured Mycelix advantage over payment fraud systems.",
+        "A 100 ms RTP decision SLA or South African regulatory requirement."
+      ]
+    },
+    {
+      "id": "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026",
+      "authority": "Republic of South Africa",
+      "title": "Constitution of the Republic of South Africa, 1996, Section 6 (current text)",
+      "url": "https://www.saflii.org/content/Constitution-of-the-Republic-of-South-Africa_1996.html",
+      "published_on": "2026-06-26",
+      "observed_on": "2026-11-04",
+      "evidence_class": "current_jurisdictional_constitutional_text",
+      "supports": [
+        "The current Section 6(1) list contains 12 official languages, including South African Sign Language.",
+        "The current text records the amendment as effective from 26 June 2026.",
+        "Section 6(2) recognises historically diminished use of indigenous languages and directs practical and positive measures to elevate status and advance use.",
+        "Section 6(4) states that all official languages must enjoy parity of esteem and be treated equitably."
+      ],
+      "does_not_support": [
+        "Any bank's or payment scheme's actual language availability or quality.",
+        "A measured fraud-model performance level in any language or modality.",
+        "That South African Sign Language can be evaluated as a written language or replaced by captions."
+      ]
+    }
+  ],
+  "reference_cohorts": [
+    {
+      "cohort_id": "UK-OPEN-BANKING-2025-FRAUD-VOLUME",
+      "geography": "UK",
+      "instrument_scope": "Open Banking payments; aggregate provider data",
+      "period_start": "2025-01-01",
+      "period_end": "2025-12-31",
+      "data_class": "observed_industry_aggregate",
+      "metric_id": "FRAUD_TRANSACTIONS_PER_PAYMENT",
+      "reported_value": "approximately 1 in 6,000",
+      "ratio_numerator": 1,
+      "ratio_denominator": 6000,
+      "source_refs": [
+        "OPEN_BANKING_FRAUD_MONITOR_2026"
+      ],
+      "comparison_role": "external_observed_baseline",
+      "limitations": [
+        "Account providers contributing represent more than 60% of Open Banking payment volume.",
+        "Product mix and denominator differ from PayShap Request and the South African rail stack.",
+        "Not a request spam or false-positive metric."
+      ]
+    },
+    {
+      "cohort_id": "UK-WIDER-PAYMENTS-2025-FRAUD-VOLUME",
+      "geography": "UK",
+      "instrument_scope": "Wider UK payments industry aggregate",
+      "period_start": "2025-01-01",
+      "period_end": "2025-12-31",
+      "data_class": "observed_industry_aggregate",
+      "metric_id": "FRAUD_TRANSACTIONS_PER_PAYMENT",
+      "reported_value": "approximately 1 in 2,500",
+      "ratio_numerator": 1,
+      "ratio_denominator": 2500,
+      "source_refs": [
+        "OPEN_BANKING_FRAUD_MONITOR_2026"
+      ],
+      "comparison_role": "external_context_baseline",
+      "limitations": [
+        "Wider-industry scope and instrument mix differ from Open Banking and South African PayShap.",
+        "Do not treat as a causal comparison."
+      ]
+    },
+    {
+      "cohort_id": "UK-APP-REIMBURSEMENT-2024-10_TO_2026-03",
+      "geography": "UK",
+      "instrument_scope": "In-scope APP scam claims from Faster Payments",
+      "period_start": "2024-10-07",
+      "period_end": "2026-03-31",
+      "data_class": "regulator_reimbursement_aggregate",
+      "reported_claims": 438300,
+      "in_scope_claims": 301500,
+      "reimbursed_value_percent": 88,
+      "reimbursed_value_minor_units_gbp": 31600000000,
+      "claims_closed_within_5_business_days_percent": 82,
+      "claims_closed_within_35_business_days_percent": 98,
+      "source_refs": [
+        "PSR_APP_REIMBURSEMENT_DASHBOARD_Q1_2026",
+        "PAYUK_APP_REIMBURSEMENT_POLICY"
+      ],
+      "comparison_role": "external_outcome_baseline",
+      "limitations": [
+        "88% is value reimbursed within the in-scope loss population, not all reported claims.",
+        "Closure-time percentages include reimbursed and rejected claims.",
+        "UK FPS rules and scope are not South African rules."
+      ]
+    },
+    {
+      "cohort_id": "SYNSEPA-2024-SYNTHETIC-APP",
+      "geography": "EU-SEPA-synthetic",
+      "instrument_scope": "Synthetic SEPA instant credit-transfer transactions",
+      "period_start": "2024-01-01",
+      "period_end": "2024-12-31",
+      "data_class": "synthetic_research_dataset",
+      "reported_row_counts": [
+        1839560,
+        1849560
+      ],
+      "row_count_discrepancy_state": "unresolved_conflicting_counts_in_dataset_card",
+      "fraud_label_count": 7112,
+      "reported_fraud_share_basis_points": 39,
+      "synthetic_account_count": 10000,
+      "source_refs": [
+        "SYNSEPA_PUBLIC_SYNTHETIC_DATASET"
+      ],
+      "comparison_role": "synthetic_stress_corpus_only",
+      "limitations": [
+        "The dataset page reports two different total row counts: 1,839,560 in its statistics section and 1,849,560 in its page footer; the discrepancy is intentionally not resolved by guessing.",
+        "All rows are synthetic.",
+        "No device/session signals; simplified IBANs fail Mod-97; one-year simulation.",
+        "Do not use its 0.39% prevalence as a real-world base rate."
+      ]
+    },
+    {
+      "cohort_id": "HARBI-TELECOM-CDR-FEDERATED-PILOT-2026",
+      "geography": "Saudi telecom CDR benchmark",
+      "instrument_scope": "Telecom call-detail records; not payment transactions",
+      "period_start": null,
+      "period_end": null,
+      "data_class": "peer_reviewed_research_pilot",
+      "federated_silo_count": 3,
+      "reported_f1_basis_points": 8622,
+      "reported_auc_basis_points": 9263,
+      "reported_precision_basis_points": 9364,
+      "source_refs": [
+        "HARBI_EDGE_FEDERATED_GRAPH_FRAUD_SURVEY_2026"
+      ],
+      "comparison_role": "architecture_comparator_not_payment_sota",
+      "limitations": [
+        "Telecom CDR pilot, not payment fraud.",
+        "Single benchmark and pilot metrics are not a like-for-like Mycelix payment benchmark.",
+        "Use the survey's five-axis taxonomy as an architecture checklist, not a performance claim."
+      ]
+    }
+  ],
+  "metric_definitions": [
+    {
+      "metric_id": "FRAUD_TRANSACTIONS_PER_PAYMENT",
+      "numerator": "independently_confirmed_fraud_payment_count",
+      "denominator": "recipient_available_payment_count",
+      "unit": "ratio",
+      "must_report_by": [
+        "count",
+        "value",
+        "instrument",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "FRAUD_LOSS_BASIS_POINTS",
+      "numerator": "confirmed_fraud_loss_minor_units",
+      "denominator": "total_recipient_available_value_minor_units",
+      "unit": "basis_points",
+      "must_report_by": [
+        "count",
+        "value",
+        "instrument",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "PRECISION_AT_REVIEW_CAPACITY",
+      "numerator": "confirmed_fraud_cases_within_review_queue",
+      "denominator": "all_reviewed_alerts_within_fixed_capacity",
+      "unit": "ratio",
+      "must_report_by": [
+        "review_capacity",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "RECALL_AT_FIXED_FALSE_POSITIVE_RATE",
+      "numerator": "confirmed_fraud_cases_detected",
+      "denominator": "all_confirmed_fraud_cases",
+      "unit": "ratio",
+      "must_report_by": [
+        "fixed_fpr",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "VALUE_WEIGHTED_RECALL",
+      "numerator": "confirmed_fraud_value_flagged_before_effect",
+      "denominator": "total_confirmed_fraud_value",
+      "unit": "ratio",
+      "must_report_by": [
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "VALUE_REIMBURSEMENT_RATE",
+      "numerator": "actually_reimbursed_or_recovered_minor_units",
+      "denominator": "eligible_claim_value_minor_units",
+      "unit": "ratio",
+      "must_report_by": [
+        "eligibility_policy_version",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "RESIDUAL_CUSTOMER_LOSS",
+      "numerator": "eligible_confirmed_loss_minor_units_minus_recovered_minor_units",
+      "denominator": "eligible_confirmed_loss_minor_units",
+      "unit": "ratio",
+      "must_report_by": [
+        "eligibility_policy_version",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "FALSE_POSITIVE_APPEAL_REVERSAL_RATE",
+      "numerator": "appeals_upheld_or_blocks_reversed",
+      "denominator": "appeals_concluded",
+      "unit": "ratio",
+      "must_report_by": [
+        "merchant_size",
+        "formality",
+        "accessibility_modality",
+        "cohort"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "DECISION_LATENCY_P95",
+      "numerator": "95th_percentile_decision_latency",
+      "denominator": "not_applicable",
+      "unit": "milliseconds",
+      "must_report_by": [
+        "decision_stage",
+        "hardware_profile",
+        "cohort"
+      ],
+      "label_window_required": false
+    },
+    {
+      "metric_id": "CASE_DISPOSITION_TIME_P95",
+      "numerator": "95th_percentile_report_to_disposition_time",
+      "denominator": "not_applicable",
+      "unit": "hours",
+      "must_report_by": [
+        "eligible_case_type",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": false
+    },
+    {
+      "metric_id": "AUTOMATED_DECISION_COVERAGE",
+      "numerator": "eligible_decision_opportunities_resolved_automatically_without_abstention",
+      "denominator": "all_eligible_automated_decision_opportunities",
+      "unit": "ratio",
+      "must_report_by": [
+        "coverage_threshold",
+        "language_id",
+        "accessibility_modality",
+        "merchant_size",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "SELECTIVE_RISK_AT_FIXED_COVERAGE",
+      "numerator": "incorrect_or_unsupported_automated_decisions_at_fixed_coverage",
+      "denominator": "all_non_abstained_automated_decisions_at_fixed_coverage",
+      "unit": "ratio",
+      "must_report_by": [
+        "fixed_coverage",
+        "language_id",
+        "accessibility_modality",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    },
+    {
+      "metric_id": "COUNTERFACTUAL_EQUIVALENCE_CONSISTENCY",
+      "numerator": "adjudicated_equivalent_pairs_with_consistent_safe_dispositions",
+      "denominator": "all_adjudicated_equivalent_counterfactual_pairs",
+      "unit": "ratio",
+      "must_report_by": [
+        "pair_class",
+        "language_id",
+        "accessibility_modality",
+        "cohort"
+      ],
+      "label_window_required": false
+    },
+    {
+      "metric_id": "MATERIAL_CHANGE_RECONFIRMATION_SENSITIVITY",
+      "numerator": "material_change_pairs_that_invalidate_prior_acceptance_or_require_new_confirmation",
+      "denominator": "all_adjudicated_material_change_pairs",
+      "unit": "ratio",
+      "must_report_by": [
+        "material_field",
+        "language_id",
+        "accessibility_modality",
+        "cohort"
+      ],
+      "label_window_required": false
+    },
+    {
+      "metric_id": "SUBGROUP_CALIBRATION_ERROR",
+      "numerator": "expected_calibration_error_for_the_named_subgroup",
+      "denominator": "not_applicable",
+      "unit": "basis_points",
+      "must_report_by": [
+        "language_id",
+        "accessibility_modality",
+        "merchant_size",
+        "cohort",
+        "time_window"
+      ],
+      "label_window_required": true
+    }
+  ],
+  "evaluation_contract": {
+    "temporal_cutoff_required": true,
+    "time_split_required": true,
+    "entity_grouped_holdout_required": true,
+    "random_row_split_only_prohibited": true,
+    "feature_leakage_after_outcome_prohibited": true,
+    "freeze_policy_and_label_versions": true,
+    "unresolved_and_unlabelled_cases_retained": true,
+    "cross_jurisdiction_transfer_claims_prohibited": true,
+    "single_composite_score_prohibited": true,
+    "default_raw_cross_participant_pii_exchange": false,
+    "model_baselines": [
+      "rules_only",
+      "calibrated_tabular",
+      "temporal_sequence",
+      "temporal_graph",
+      "privacy_preserving_federated_graph",
+      "human_review_workflow"
+    ],
+    "group_keys": [
+      "account",
+      "requester",
+      "merchant",
+      "credential_or_device",
+      "campaign"
+    ],
+    "prevalence_stress_basis_points": [
+      0.5,
+      1,
+      2,
+      5,
+      10,
+      39,
+      100
+    ],
+    "provisional_hot_path_p99_target_ms": 100,
+    "provisional_latency_target_claim_ceiling": "engineering target only; not a South African scheme SLA or a legal requirement",
+    "required_subgroup_dimensions": [
+      "merchant_size",
+      "merchant_formality",
+      "payer_channel",
+      "accessibility_modality",
+      "new_vs_known_payee",
+      "participant",
+      "payment_amount_band",
+      "language_id"
+    ],
+    "no_live_provider_data": true,
+    "no_production_deployment_claim": true,
+    "selective_prediction_required": true,
+    "selective_prediction_stress_coverage_basis_points": [
+      5000,
+      7500,
+      9000,
+      9500
+    ],
+    "abstention_actions": [
+      "human_review",
+      "request_additional_evidence",
+      "warning_with_payer_choice_preserved"
+    ],
+    "counterfactual_equivalence_tests_required": true,
+    "material_change_reconfirmation_tests_required": true,
+    "language_and_modality_stratification_required": true,
+    "native_language_adjudication_required": true,
+    "distinct_sign_language_presentation_required": true,
+    "no_language_performance_claim_without_adjudicated_holdout": true,
+    "official_language_ids": [
+      "sepedi",
+      "sesotho",
+      "setswana",
+      "siswati",
+      "tshivenda",
+      "itsonga",
+      "afrikaans",
+      "english",
+      "isindebele",
+      "isixhosa",
+      "isizulu",
+      "south_african_sign_language"
+    ],
+    "counterfactual_pair_types": [
+      "adjudicated_equivalent_identity_rendering",
+      "adjudicated_approved_name_variant",
+      "same_name_different_account",
+      "similar_name_different_person",
+      "beneficiary_mutation",
+      "amount_or_currency_mutation",
+      "fee_purpose_expiry_mutation",
+      "sign_language_presentation_not_caption_substitution",
+      "verification_unavailable_not_mismatch"
+    ]
+  },
+  "official_language_modalities": [
+    {
+      "language_id": "sepedi",
+      "display_name": "Sepedi",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "sesotho",
+      "display_name": "Sesotho",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "setswana",
+      "display_name": "Setswana",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "siswati",
+      "display_name": "siSwati",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "tshivenda",
+      "display_name": "Tshivenda",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "itsonga",
+      "display_name": "Xitsonga",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "afrikaans",
+      "display_name": "Afrikaans",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "english",
+      "display_name": "English",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "isindebele",
+      "display_name": "isiNdebele",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "isixhosa",
+      "display_name": "isiXhosa",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "isizulu",
+      "display_name": "isiZulu",
+      "official_status_as_of": "2026-11-04",
+      "modality": "written_spoken",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native-speaker adjudication",
+        "written-name variant challenge set",
+        "payer-visible material-field comprehension task",
+        "spelling/transliteration distinction labels",
+        "accessibility task parity"
+      ]
+    },
+    {
+      "language_id": "south_african_sign_language",
+      "display_name": "South African Sign Language",
+      "official_status_as_of": "2026-11-04",
+      "modality": "signed_visual",
+      "evaluation_state": "not_yet_evaluated",
+      "native_reviewer_state": "not_yet_recruited",
+      "performance_claim": "none",
+      "source_refs": [
+        "SOUTH_AFRICA_CONSTITUTION_SECTION_6_2026"
+      ],
+      "required_evidence": [
+        "native SASL reviewer panel",
+        "signed-video or qualified signer presentation",
+        "material-field comprehension task",
+        "independent interpretation quality review",
+        "accessibility task parity"
+      ]
+    }
+  ],
+  "counterfactual_pair_definitions": [
+    {
+      "pair_id": "CF-EQUIV-001",
+      "pair_class": "adjudicated_equivalent_identity_rendering",
+      "transformation": "case_whitespace_punctuation_or_locale_display_only",
+      "expected_relation": "same_account_identity_and_same_material_request",
+      "required_decision": "same_qualified_result_or_review_not_automatic_no_match",
+      "material_consent_change": false,
+      "ground_truth_rule": "Pair is equivalent only after native-speaker/account-owner adjudication and an unchanged independently verified account identifier.",
+      "language_scope": [
+        "english",
+        "afrikaans",
+        "isizulu",
+        "isixhosa"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    },
+    {
+      "pair_id": "CF-EQUIV-002",
+      "pair_class": "adjudicated_approved_name_variant",
+      "transformation": "initials_spelling_or_phonetic_variant_with_same_verified_account_id",
+      "expected_relation": "same_account_identity_but_match_strength_may_differ",
+      "required_decision": "match_or_close_match_or_abstain_per_frozen_matching_profile",
+      "material_consent_change": false,
+      "ground_truth_rule": "Never infer equivalence from phonetic similarity alone; retain account identifier, responding-PSP evidence and human adjudication.",
+      "language_scope": [
+        "sepedi",
+        "sesotho",
+        "setswana",
+        "siswati",
+        "tshivenda",
+        "itsonga",
+        "isindebele",
+        "isizulu",
+        "isixhosa"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    },
+    {
+      "pair_id": "CF-NEG-001",
+      "pair_class": "same_name_different_account",
+      "transformation": "display_name_held_constant_account_identifier_changed",
+      "expected_relation": "different_payee_account",
+      "required_decision": "no_match_or_verification_unavailable_never_auto_match",
+      "material_consent_change": true,
+      "ground_truth_rule": "A same-name string cannot override a different account identifier.",
+      "language_scope": [
+        "all_written_spoken_official_languages"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    },
+    {
+      "pair_id": "CF-NEG-002",
+      "pair_class": "similar_name_different_person",
+      "transformation": "confusable_or_phonetically_similar_name_with_distinct_subject_binding",
+      "expected_relation": "distinct_subjects_unless_independently_resolved",
+      "required_decision": "close_match_or_manual_review_never_legal_identity_equivalence",
+      "material_consent_change": true,
+      "ground_truth_rule": "A name matcher must not collapse distinct subjects using a single similarity score.",
+      "language_scope": [
+        "all_written_spoken_official_languages"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    },
+    {
+      "pair_id": "CF-MATERIAL-001",
+      "pair_class": "beneficiary_mutation",
+      "transformation": "beneficiary_account_or_subject_changes_after_display",
+      "expected_relation": "material_request_change",
+      "required_decision": "invalidate_prior_acceptance_and_require_new_consent",
+      "material_consent_change": true,
+      "ground_truth_rule": "Digest and payer-confirmation transcript must bind exact beneficiary.",
+      "language_scope": [
+        "all_official_language_modalities"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    },
+    {
+      "pair_id": "CF-MATERIAL-002",
+      "pair_class": "amount_or_currency_mutation",
+      "transformation": "amount_or_currency_changes_after_display",
+      "expected_relation": "material_request_change",
+      "required_decision": "invalidate_prior_acceptance_and_require_new_consent",
+      "material_consent_change": true,
+      "ground_truth_rule": "Equivalent numerical formatting is allowed only when canonical amount/currency is unchanged; any actual value/currency change invalidates consent.",
+      "language_scope": [
+        "all_official_language_modalities"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    },
+    {
+      "pair_id": "CF-MATERIAL-003",
+      "pair_class": "fee_purpose_expiry_mutation",
+      "transformation": "fee_purpose_or_expiry_changes_after_display",
+      "expected_relation": "material_request_change",
+      "required_decision": "invalidate_prior_acceptance_and_require_new_consent",
+      "material_consent_change": true,
+      "ground_truth_rule": "A change in any payer-material term requires a fresh acceptance transcript.",
+      "language_scope": [
+        "all_official_language_modalities"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    },
+    {
+      "pair_id": "CF-MODALITY-001",
+      "pair_class": "sign_language_presentation_not_caption_substitution",
+      "transformation": "text_caption_or_audio_only_fallback_substituted_for_SASL_presentation",
+      "expected_relation": "presentation_modality_not_equivalent_without_qualified_review",
+      "required_decision": "abstain_or_offer_accessible_qualified_SASL_path",
+      "material_consent_change": false,
+      "ground_truth_rule": "Captions, written text and audio are not assumed equivalent to South African Sign Language; require native SASL user review.",
+      "language_scope": [
+        "south_african_sign_language"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    },
+    {
+      "pair_id": "CF-UNAVAILABLE-001",
+      "pair_class": "verification_unavailable_not_mismatch",
+      "transformation": "payee_verification_service_unavailable_or_timeout",
+      "expected_relation": "indeterminate_not_negative_identity_finding",
+      "required_decision": "warn_and_preserve_choice_or_route_to_review_under_the_applicable_scheme",
+      "material_consent_change": false,
+      "ground_truth_rule": "Availability failure is not evidence of fraud, identity mismatch or collection authority.",
+      "language_scope": [
+        "all_official_language_modalities"
+      ],
+      "evidence_state": "synthetic_template_not_measured"
+    }
+  ]
+}
