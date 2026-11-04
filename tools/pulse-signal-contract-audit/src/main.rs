@@ -262,34 +262,25 @@ fn extract_filter_arrays(source: &str) -> Result<Vec<FilterArray>, Box<dyn Error
     let string_re = Regex::new(r#"['"]([A-Za-z][A-Za-z0-9_]*)['"]"#)?;
     let mut arrays = Vec::new();
     let phases = [
-        ("parseSignal", [
-            ("message", "// Message signals", "// Trust signals"),
-            ("trust", "// Trust signals", "// Sync signals"),
-            ("sync", "// Sync signals", "// Federation signals"),
-            ("federation", "// Federation signals", "private dispatch("),
-        ]),
-        ("dispatchToCategory", [
-            ("message", "// Message signals", "// Trust signals"),
-            ("trust", "// Trust signals", "// Sync signals"),
-            ("sync", "// Sync signals", "// Federation signals"),
-            ("federation", "// Federation signals", "private matchesSubscription"),
-        ]),
+        ("message", "// Message signals", "// Trust signals"),
+        ("trust", "// Trust signals", "// Sync signals"),
+        ("sync", "// Sync signals", "// Federation signals"),
+        ("federation", "// Federation signals", ""),
     ];
-    for (phase, sections) in phases {
-        let phase_start = match phase {
-            "parseSignal" => source.find("private parseSignal"),
-            _ => source.find("private dispatchToCategory"),
-        }.unwrap_or(source.len());
-        let phase_end = if phase == "parseSignal" {
-            source.find("private dispatch(").unwrap_or(source.len())
-        } else {
-            source.find("private matchesSubscription").unwrap_or(source.len())
-        };
-        let phase_body = &source[phase_start..phase_end];
-        for (category, start_marker, end_marker) in sections {
-            let Some(start) = phase_body.find(start_marker) else { continue; };
-            let rest = &phase_body[start + start_marker.len()..];
-            let end = rest.find(end_marker).unwrap_or(rest.len());
+
+    // Parse only the requested method body. Substring slicing between method
+    // names is unsafe when one method is absent in a test fixture or renamed:
+    // it can accidentally count another method's filters multiple times.
+    for signature in ["private parseSignal(", "private dispatchToCategory("] {
+        let Some(method) = extract_method_body(source, signature) else { continue; };
+        for (category, start_marker, end_marker) in phases {
+            let Some(start) = method.find(start_marker) else { continue; };
+            let rest = &method[start + start_marker.len()..];
+            let end = if end_marker.is_empty() {
+                rest.len()
+            } else {
+                rest.find(end_marker).unwrap_or(rest.len())
+            };
             let section = &rest[..end];
             for capture in array_re.captures_iter(section) {
                 let variants = string_re.captures_iter(&capture[1])
@@ -299,6 +290,13 @@ fn extract_filter_arrays(source: &str) -> Result<Vec<FilterArray>, Box<dyn Error
         }
     }
     Ok(arrays)
+}
+
+fn extract_method_body<'a>(source: &'a str, signature: &str) -> Option<&'a str> {
+    let signature_start = source.find(signature)?;
+    let open = source[signature_start..].find('{')? + signature_start;
+    let close = matching_brace(source, open)?;
+    Some(&source[open + 1..close])
 }
 
 fn extract_type_alias<'a>(source: &'a str, alias: &str) -> Option<&'a str> {
