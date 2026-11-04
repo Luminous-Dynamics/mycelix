@@ -236,9 +236,13 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                     "cases[{index}]: VoP scenario lacks typed payee_verification result"
                 ));
             } else {
+                let scheme_profile =
+                    string_at(verification, "scheme_profile").unwrap_or("PROVIDER_SPECIFIC_UNKNOWN");
                 let result = string_at(verification, "result").unwrap_or("unknown");
                 let signature = string_at(verification, "provider_signature_state")
                     .unwrap_or("unknown");
+                let fraud_inference =
+                    string_at(verification, "fraud_inference").unwrap_or("unknown");
                 let participant = string_at(verification, "participant").unwrap_or("");
                 let issuer = string_at(verification, "issuer").unwrap_or("");
                 let audience = string_at(verification, "audience").unwrap_or("");
@@ -276,9 +280,21 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                         "cases[{index}]: VoP result lacks participant, issuer or audience binding"
                     ));
                 }
-                if signature != "valid" {
+                let proposal_only_unavailable = scheme_profile == "ZA_NPU_PROPOSAL_ONLY"
+                    && result == "unavailable"
+                    && signature == "unknown"
+                    && !audience_matches;
+                if signature != "valid" && !proposal_only_unavailable {
                     errors.push(format!(
                         "cases[{index}]: VoP provider response is not authenticated under its declared profile"
+                    ));
+                }
+                if !matches!(
+                    fraud_inference,
+                    "not_inferred" | "separately_evidenced" | "unknown"
+                ) {
+                    errors.push(format!(
+                        "cases[{index}]: fraud cannot be inferred from a name-verification result"
                     ));
                 }
                 if source_refs.is_none_or(|items| items.is_empty()) {
@@ -304,7 +320,10 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                         }
                     }
                 }
-                if observed_at.is_empty() || valid_until.is_empty() || valid_until <= observed_at {
+                if !observed_at.ends_with('Z')
+                    || !valid_until.ends_with('Z')
+                    || valid_until <= observed_at
+                {
                     errors.push(format!(
                         "cases[{index}]: VoP validity interval is missing or non-positive"
                     ));
@@ -334,6 +353,7 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                 match category {
                     "vop_exact_match" => {
                         if result != "match"
+                            || scheme_profile == "ZA_NPU_PROPOSAL_ONLY"
                             || !audience_matches
                             || !current
                             || query_subject != response_subject
@@ -390,7 +410,12 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                         }
                     }
                     "vop_stale_result" => {
-                        if result != "match" || current || payer_decision != "review" {
+                        if result != "match"
+                            || current
+                            || query_subject != response_subject
+                            || response_subject != intent_subject
+                            || payer_decision != "review"
+                        {
                             errors.push(format!(
                                 "cases[{index}]: stale positive result must remain indeterminate"
                             ));
@@ -488,7 +513,7 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
     if !validate_semantics(corpus).is_empty() {
         return Err("baseline corpus must pass before mutation campaign".into());
     }
-    let mutations: [Mutation; 26] = [
+    let mutations: [Mutation; 27] = [
         ("payee substitution marked parsed-only", |value| {
             value["cases"][2]["expected"] = json!("parsed_unverified");
         }),
@@ -573,6 +598,10 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
             value["cases"][30]["payee_verification"]["intent_subject_ref"] =
                 json!("opaque:subject-001");
         }),
+        ("name mismatch promoted to fraud verdict", |value| {
+            value["cases"][21]["payee_verification"]["fraud_inference"] =
+                json!("fraud_inferred_from_name_mismatch");
+        }),
     ];
     for (name, mutate) in mutations {
         let mut changed = corpus.clone();
@@ -640,8 +669,28 @@ mod tests {
     }
 
     #[test]
-    fn mutation_campaign_rejects_all_16_controls() {
+    fn mutation_campaign_rejects_all_27_controls() {
         let corpus: Value = serde_json::from_str(CORPUS).expect("corpus JSON");
-        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 26);
+        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 27);
+    }
+
+    #[test]
+    fn provider_vop_outcomes_remain_distinct_and_non_authoritative() {
+        let corpus = validate_schema(SCHEMA, CORPUS).expect("schema and corpus");
+        let cases = corpus["cases"].as_array().expect("cases array");
+        let exact = &cases[19]["payee_verification"];
+        let close = &cases[20]["payee_verification"];
+        let unavailable = &cases[22]["payee_verification"];
+        let no_match = &cases[21]["payee_verification"];
+        assert_eq!(exact["result"], "match");
+        assert_eq!(close["result"], "close_match");
+        assert_eq!(unavailable["result"], "unavailable");
+        assert_eq!(no_match["fraud_inference"], "not_inferred");
+        assert_eq!(
+            exact["collection_authority_inferred_from_name_match"],
+            false
+        );
+        assert_eq!(cases[29]["payee_verification"]["scheme_profile"], "ZA_NPU_PROPOSAL_ONLY");
+        assert!(validate_semantics(&corpus).is_empty());
     }
 }
