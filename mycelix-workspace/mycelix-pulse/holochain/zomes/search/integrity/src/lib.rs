@@ -255,7 +255,7 @@ fn validate_create_entry(
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::SearchIndex(index) => {
-            if index.agent != action.author() {
+            if index.agent != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Index owner must match author".to_string(),
                 ));
@@ -263,7 +263,7 @@ fn validate_create_entry(
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::SavedSearch(search) => {
-            if search.owner != action.author() {
+            if search.owner != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Search owner must match author".to_string(),
                 ));
