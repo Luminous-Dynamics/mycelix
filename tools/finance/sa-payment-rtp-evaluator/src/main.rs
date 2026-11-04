@@ -123,19 +123,19 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     if str_at(corpus, "status") != Some("synthetic_reference_only") {
         errors.push("status: corpus must remain synthetic_reference_only".into());
     }
-    if corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false) {
+    if corpus
+        .get("external_effects_enabled")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
         errors.push("external_effects_enabled: must be false".into());
     }
 
     let sources = array_at(corpus, "source_register")
         .cloned()
         .unwrap_or_default();
-    let profiles = array_at(corpus, "profiles")
-        .cloned()
-        .unwrap_or_default();
-    let scenarios = array_at(corpus, "scenarios")
-        .cloned()
-        .unwrap_or_default();
+    let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
+    let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     check_unique(&sources, "id", "source_register", &mut errors);
     check_unique(&profiles, "profile_id", "profiles", &mut errors);
     check_unique(&scenarios, "scenario_id", "scenarios", &mut errors);
@@ -146,9 +146,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         .collect();
     let profile_map: std::collections::BTreeMap<String, Value> = profiles
         .iter()
-        .filter_map(|item| {
-            str_at(item, "profile_id").map(|id| (id.to_owned(), item.clone()))
-        })
+        .filter_map(|item| str_at(item, "profile_id").map(|id| (id.to_owned(), item.clone())))
         .collect();
 
     if sources.is_empty() || profiles.is_empty() || scenarios.is_empty() {
@@ -181,7 +179,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 "profiles[{index}].observed_on: invalid or after as_of"
             ));
         }
-        let refs = array_at(profile, "source_refs").cloned().unwrap_or_default();
+        let refs = array_at(profile, "source_refs")
+            .cloned()
+            .unwrap_or_default();
         if refs.is_empty() {
             errors.push(format!("profiles[{index}].source_refs: empty"));
         }
@@ -219,10 +219,14 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let expires_at = str_at(request, "expiry_at").unwrap_or("");
         let amount = u64_at(request, "amount_minor_units").unwrap_or(0);
         if request_id.is_empty() || amount == 0 || digest.len() != 71 {
-            errors.push(format!("scenarios[{case_index}]: invalid request identity, amount or digest"));
+            errors.push(format!(
+                "scenarios[{case_index}]: invalid request identity, amount or digest"
+            ));
         }
         if !valid_timestamp(issued_at) || !valid_timestamp(expires_at) || issued_at >= expires_at {
-            errors.push(format!("scenarios[{case_index}]: invalid request issue/expiry interval"));
+            errors.push(format!(
+                "scenarios[{case_index}]: invalid request issue/expiry interval"
+            ));
         }
 
         if let Some(maximum) = u64_at(profile, "max_request_minor_units")
@@ -277,7 +281,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!("{path}: invalid observed_at timestamp"));
             }
             if kind == "request_created" && event_digest != digest {
-                errors.push(format!("{path}: creation digest differs from immutable request digest"));
+                errors.push(format!(
+                    "{path}: creation digest differs from immutable request digest"
+                ));
             }
             if kind == "request_delivered" {
                 delivered = true;
@@ -290,20 +296,27 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             }
             if matches!(
                 kind,
-                "request_terms_mutated" | "requester_identity_changed" | "request_fingerprint_conflict"
+                "request_terms_mutated"
+                    | "requester_identity_changed"
+                    | "request_fingerprint_conflict"
             ) {
                 terms_mutated = true;
             }
             if kind == "request_cancelled" {
                 cancelled = true;
             }
-            if kind == "request_expired" || (kind == "payer_acceptance_rejected" && observed >= expires_at) {
+            if kind == "request_expired"
+                || (kind == "payer_acceptance_rejected" && observed >= expires_at)
+            {
                 expired = true;
             }
             if kind == "payer_declined" {
                 declined = true;
             }
-            if matches!(kind, "terms_version_conflict_detected" | "request_not_admitted_for_live_profile") {
+            if matches!(
+                kind,
+                "terms_version_conflict_detected" | "request_not_admitted_for_live_profile"
+            ) {
                 conflict = true;
             }
 
