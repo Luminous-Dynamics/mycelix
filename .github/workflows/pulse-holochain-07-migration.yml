@@ -55,9 +55,16 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1.96.0
 
-      - name: Lock Nix inputs to the declared Holonix 0.7 graph
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Lock Nix inputs to the exact 0.7.1 Holonix graph
         working-directory: mycelix-workspace/mycelix-pulse
         run: nix flake lock --update-input nixpkgs
+
+      - name: Regenerate Holochain JavaScript client lock
+        run: npm install --package-lock-only --ignore-scripts --prefix mycelix-workspace/mycelix-pulse/holochain/client
 
       - name: Prepare Node 24 for Holochain client lock regeneration
         uses: actions/setup-node@v4
