@@ -1,0 +1,2206 @@
+{
+  "schema": "mycelix.sa-payment-recourse/v1",
+  "corpus_id": "ZA-SA-PAYMENT-RECOURSE-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "as_of": "2026-11-04",
+  "created_on": "2026-11-04",
+  "jurisdiction": "ZA",
+  "purpose": "Qualify participant-specific payment remedy claims and distinguish assistance, traces, holds, and actual reconciled returns.",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "BIS_FPS_INTERLINK_2026",
+      "authority": "BIS CPMI PIE Task Team 2",
+      "title": "Enhancing Cross-border Payments: Fast Payment System Interlinking",
+      "url": "https://www.bis.org/cpmi/pietf/fps_feb_2026.pdf",
+      "published_on": "2026-02-01",
+      "observed_on": "2026-11-04",
+      "evidence_class": "international_policy_and_industry_report",
+      "supports": [
+        "Recovery paths between PSPs are important for fraud/scam unhappy paths",
+        "Dispute resolution, refunds and chargeback processes are important design considerations",
+        "Roles and escalation paths should be clear"
+      ],
+      "does_not_support": [
+        "South African PayShap-specific remedy rights",
+        "A universal guarantee that a payment can be recalled"
+      ]
+    },
+    {
+      "id": "SARB_PSMB_TRANSITION_2026",
+      "authority": "South African Reserve Bank",
+      "title": "PSMB Transition",
+      "url": "https://www.resbank.co.za/en/home/what-we-do/payments-and-settlements/psmb",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_jurisdictional_governance_source",
+      "supports": [
+        "SARB and PayInc functions after PSMB transition",
+        "SARB authorisation, regulation and standards responsibilities"
+      ],
+      "does_not_support": [
+        "A specific participant's customer remedy capability",
+        "A consumer's outcome in an individual dispute"
+      ]
+    },
+    {
+      "id": "FNB_PAYSHAP_FAQ_2026",
+      "authority": "First National Bank",
+      "title": "FNB Pay / PayShap FAQ",
+      "url": "https://www.fnb.co.za/ways-to-bank/digital/fnb-pay.html",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_product_faq",
+      "supports": [
+        "FNB states completed PayShap payments cannot be reversed",
+        "FNB describes possible best-efforts assistance without guaranteed recovery"
+      ],
+      "does_not_support": [
+        "A universal rule for all PayShap participants",
+        "A legal conclusion for every fact pattern"
+      ]
+    },
+    {
+      "id": "NEDBANK_PAYSHAP_FAQ_2026",
+      "authority": "Nedbank",
+      "title": "PayShap FAQs",
+      "url": "https://personal.nedbank.co.za/bank/digital-banking/needs/payments/payshap/payshap-faqs.html",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_product_faq",
+      "supports": [
+        "Nedbank describes a best-efforts mistaken-payment retrieval process",
+        "Nedbank describes recipient voluntary return as necessary in its FAQ scenario"
+      ],
+      "does_not_support": [
+        "A universal PayShap rule",
+        "A complete statement of every legal remedy or fraud process"
+      ]
+    },
+    {
+      "id": "SARB_GOVERNOR_SPEECH_2026",
+      "authority": "South African Reserve Bank",
+      "title": "Rewiring Payments: Open. Connected. Inclusive.",
+      "url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/speeches/speeches-by-governors/2026/kganyago-payments-conference",
+      "published_on": "2026-10-20",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_policy_speech",
+      "supports": [
+        "Participant parity, affordability, awareness and merchant acceptance are PayShap adoption priorities",
+        "User-controlled credentials and transaction histories require safeguards"
+      ],
+      "does_not_support": [
+        "Specific rights or deadlines in a real payment dispute"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "ZA-FNB-PAYSHAP-CONSUMER-PUSH-V1",
+      "jurisdiction": "ZA",
+      "instrument": "domestic_credit_transfer",
+      "rail": "PayShap",
+      "participant": "FNB",
+      "product_scope": "consumer",
+      "channel_scope": "provider-supported consumer digital channels; exact account limits remain profile-specific",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_qualification": "current_public_terms_observed_effective_date_not_stated",
+      "source_refs": [
+        "FNB_PAYSHAP_FAQ_2026"
+      ],
+      "remedy_capabilities": [
+        {
+          "remedy_type": "completed_push_payment_reversal",
+          "availability": "not_supported_per_source",
+          "authority_owner": "originating_provider_and_scheme_rules",
+          "time_window_state": "not_applicable",
+          "window_seconds": null,
+          "source_refs": [
+            "FNB_PAYSHAP_FAQ_2026"
+          ],
+          "notes": "FNB FAQ states a completed PayShap payment cannot be reversed; do not generalise this provider statement to every participant or legal circumstance."
+        },
+        {
+          "remedy_type": "post_completion_recovery_assistance",
+          "availability": "best_efforts",
+          "authority_owner": "originating_provider_with_beneficiary_provider_cooperation",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "FNB_PAYSHAP_FAQ_2026"
+          ],
+          "notes": "Best-efforts assistance is not a promise of recovery."
+        },
+        {
+          "remedy_type": "voluntary_recipient_return",
+          "availability": "unknown",
+          "authority_owner": "recipient_and_beneficiary_provider",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "FNB_PAYSHAP_FAQ_2026"
+          ],
+          "notes": "No generalised recipient consent or return obligation inferred."
+        }
+      ]
+    },
+    {
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "jurisdiction": "ZA",
+      "instrument": "domestic_credit_transfer",
+      "rail": "PayShap",
+      "participant": "Nedbank",
+      "product_scope": "consumer",
+      "channel_scope": "provider-supported consumer digital channels; exact account limits remain profile-specific",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_qualification": "current_public_terms_observed_effective_date_not_stated",
+      "source_refs": [
+        "NEDBANK_PAYSHAP_FAQ_2026"
+      ],
+      "remedy_capabilities": [
+        {
+          "remedy_type": "completed_push_payment_reversal",
+          "availability": "not_supported_per_source",
+          "authority_owner": "originating_provider_and_scheme_rules",
+          "time_window_state": "not_applicable",
+          "window_seconds": null,
+          "source_refs": [
+            "NEDBANK_PAYSHAP_FAQ_2026"
+          ],
+          "notes": "Nedbank FAQ says PayShap transactions cannot be reversed in the described mistaken-payment scenario."
+        },
+        {
+          "remedy_type": "post_completion_recovery_assistance",
+          "availability": "best_efforts",
+          "authority_owner": "originating_provider_with_beneficiary_provider_cooperation",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "NEDBANK_PAYSHAP_FAQ_2026"
+          ],
+          "notes": "The described interbank effort is best-efforts; no guaranteed result inferred."
+        },
+        {
+          "remedy_type": "voluntary_recipient_return",
+          "availability": "voluntary_only",
+          "authority_owner": "recipient",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "NEDBANK_PAYSHAP_FAQ_2026"
+          ],
+          "notes": "FAQ describes recipient voluntary return as necessary for the described recovery path."
+        }
+      ]
+    },
+    {
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "jurisdiction": "ZA",
+      "instrument": "domestic_credit_transfer",
+      "rail": "PayShap",
+      "participant": "unqualified_participant",
+      "product_scope": "unknown",
+      "channel_scope": "unknown",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_qualification": "unknown_until_participant_product_terms_are_sourced",
+      "source_refs": [
+        "SARB_PSMB_TRANSITION_2026"
+      ],
+      "remedy_capabilities": [
+        {
+          "remedy_type": "completed_push_payment_reversal",
+          "availability": "unknown",
+          "authority_owner": "unknown",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "SARB_PSMB_TRANSITION_2026"
+          ],
+          "notes": "Rail-level profile does not supply participant-specific remedy rules."
+        },
+        {
+          "remedy_type": "post_completion_recovery_assistance",
+          "availability": "unknown",
+          "authority_owner": "unknown",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "SARB_PSMB_TRANSITION_2026"
+          ],
+          "notes": "Must be qualified from the exact participant and product."
+        }
+      ]
+    },
+    {
+      "profile_id": "ZA-EFT-DEBIT-ORDER-UNQUALIFIED-V1",
+      "jurisdiction": "ZA",
+      "instrument": "authorised_debit_collection",
+      "rail": "EFT debit order / registered mandate",
+      "participant": "unqualified_participant",
+      "product_scope": "unknown",
+      "channel_scope": "unknown",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_qualification": "distinct_instrument_rules_not_qualified_here",
+      "source_refs": [
+        "SARB_PSMB_TRANSITION_2026"
+      ],
+      "remedy_capabilities": [
+        {
+          "remedy_type": "debit_order_dispute_or_reversal",
+          "availability": "unknown",
+          "authority_owner": "unknown",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "SARB_PSMB_TRANSITION_2026"
+          ],
+          "notes": "Do not inherit PayShap push-payment semantics or assume debit-order timelines."
+        }
+      ]
+    },
+    {
+      "profile_id": "ZA-CARD-PURCHASE-UNQUALIFIED-V1",
+      "jurisdiction": "ZA",
+      "instrument": "card_purchase",
+      "rail": "card scheme",
+      "participant": "unqualified_participant",
+      "product_scope": "unknown",
+      "channel_scope": "unknown",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_qualification": "distinct_instrument_rules_not_qualified_here",
+      "source_refs": [
+        "SARB_PSMB_TRANSITION_2026"
+      ],
+      "remedy_capabilities": [
+        {
+          "remedy_type": "card_chargeback",
+          "availability": "unknown",
+          "authority_owner": "issuer_acquirer_and_card_scheme",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "SARB_PSMB_TRANSITION_2026"
+          ],
+          "notes": "Card chargeback processes are distinct and must be sourced separately."
+        }
+      ]
+    },
+    {
+      "profile_id": "ZA-CROSS-BORDER-CREDIT-TRANSFER-UNQUALIFIED-V1",
+      "jurisdiction": "ZA",
+      "instrument": "cross_border_credit_transfer",
+      "rail": "TCIB or other cross-border route",
+      "participant": "unqualified_participant",
+      "product_scope": "unknown",
+      "channel_scope": "unknown",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_qualification": "participant_jurisdiction_and_scheme_specific_rules_missing",
+      "source_refs": [
+        "BIS_FPS_INTERLINK_2026",
+        "SARB_GOVERNOR_SPEECH_2026"
+      ],
+      "remedy_capabilities": [
+        {
+          "remedy_type": "cross_border_trace_and_recovery",
+          "availability": "unknown",
+          "authority_owner": "originating_and_beneficiary_psps_under_applicable_arrangement",
+          "time_window_state": "unknown",
+          "window_seconds": null,
+          "source_refs": [
+            "BIS_FPS_INTERLINK_2026"
+          ],
+          "notes": "Do not assume regional interoperability provides a common cross-border remedy or liability rule."
+        }
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SA-REC-001",
+      "scenario_type": "mistaken_payee_completed_push",
+      "profile_id": "ZA-FNB-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 10000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "request_only",
+      "expected_disposition": "preserve_unresolved_no_promise",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-002",
+      "scenario_type": "mistaken_payee_completed_push",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 25000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "beneficiary_psp_acknowledged",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "acknowledgement_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "request_only",
+      "expected_disposition": "do_not_promote_to_recovery",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-003",
+      "scenario_type": "recovery_acknowledged_no_funds_located",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 18000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "beneficiary_psp_acknowledged",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "acknowledgement_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "request_only",
+      "expected_disposition": "do_not_promote_to_recovery",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-004",
+      "scenario_type": "funds_located_not_returned",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 7000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "beneficiary_psp_acknowledged",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "acknowledgement_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "funds_located",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "location_confirmation",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "funds_located_not_returned",
+      "expected_disposition": "do_not_promote_to_recovery",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-005",
+      "scenario_type": "funds_held_not_returned",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 50000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "beneficiary_psp_acknowledged",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "acknowledgement_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "funds_located",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "location_confirmation",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "funds_held",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "hold_confirmation",
+            "authority_basis",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "funds_held_not_returned",
+      "expected_disposition": "do_not_promote_to_recovery",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-006",
+      "scenario_type": "partial_voluntary_return",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 10000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "beneficiary_psp_acknowledged",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "acknowledgement_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "funds_returned",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "independent_return_receipt",
+            "independent_ledger_reconciliation",
+            "case_id"
+          ],
+          "amount_minor_units": 3000,
+          "reconciled": true,
+          "return_reference": "RET-006"
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "case_closed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "case_disposition_notice",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false,
+          "closure_disposition": "closed_with_return"
+        }
+      ],
+      "expected_effect": "partial_return",
+      "expected_disposition": "retain_residual_loss",
+      "actual_returned_minor_units": 3000,
+      "case_disposition": "closed_with_return",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-007",
+      "scenario_type": "full_reconciled_return",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 10000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "beneficiary_psp_acknowledged",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "acknowledgement_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "funds_returned",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "independent_return_receipt",
+            "independent_ledger_reconciliation",
+            "case_id"
+          ],
+          "amount_minor_units": 10000,
+          "reconciled": true,
+          "return_reference": "RET-007"
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "case_closed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "case_disposition_notice",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false,
+          "closure_disposition": "closed_with_return"
+        }
+      ],
+      "expected_effect": "full_return",
+      "expected_disposition": "record_successor_return",
+      "actual_returned_minor_units": 10000,
+      "case_disposition": "closed_with_return",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-008",
+      "scenario_type": "recipient_refuses_voluntary_return",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 30000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "beneficiary_psp_acknowledged",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "acknowledgement_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "funds_located",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "location_confirmation",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-6",
+          "sequence": 6,
+          "event_type": "case_closed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "case_disposition_notice",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false,
+          "closure_disposition": "closed_unresolved"
+        }
+      ],
+      "expected_effect": "funds_located_not_returned",
+      "expected_disposition": "retain_residual_loss",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "closed_unresolved",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-009",
+      "scenario_type": "unauthorised_push_payment_account_takeover",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 45000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "fraud_investigation_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "fraud_case_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "preserve_unresolved_no_promise",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-010",
+      "scenario_type": "authorised_push_payment_social_engineering",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 12000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "request_only",
+      "expected_disposition": "preserve_unresolved_no_promise",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-011",
+      "scenario_type": "duplicate_economic_effect",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 9000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "duplicate_effect_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "two_debit_receipts",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "investigation_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "investigation_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "preserve_unresolved_no_promise",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-012",
+      "scenario_type": "incorrect_amount_authorised_push",
+      "profile_id": "ZA-FNB-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 13000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "request_only",
+      "expected_disposition": "do_not_promote_to_recovery",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-013",
+      "scenario_type": "provider_timeout_possible_debit",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 22000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "provider_timeout",
+          "actor_role": "payer_psp",
+          "authority_state": "unknown",
+          "evidence_types": [
+            "timeout_record",
+            "operation_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "payment_effect_census_opened",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "operation_id",
+            "source_snapshot"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "unresolved_possible_effect",
+      "expected_disposition": "preserve_unresolved_no_promise",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-014",
+      "scenario_type": "late_success_after_timeout",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 22000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "provider_timeout",
+          "actor_role": "payer_psp",
+          "authority_state": "unknown",
+          "evidence_types": [
+            "timeout_record",
+            "operation_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "late_success_observed",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "provider_receipt",
+            "operation_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recipient_availability_verified",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "recipient_availability_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "do_not_promote_to_recovery",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-015",
+      "scenario_type": "merchant_non_delivery_commercial_dispute",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 56000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "merchant_dispute_opened",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "purchase_evidence",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "route_to_correct_remedy",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-016",
+      "scenario_type": "unauthorised_debit_order_mandate_dispute",
+      "profile_id": "ZA-EFT-DEBIT-ORDER-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 24000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "instrument_classification_reviewed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "debit_mandate_reference",
+            "instrument_identity"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "route_to_correct_remedy",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-017",
+      "scenario_type": "card_purchase_chargeback",
+      "profile_id": "ZA-CARD-PURCHASE-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 75000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "instrument_classification_reviewed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "card_transaction_reference",
+            "instrument_identity"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "route_to_correct_remedy",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-018",
+      "scenario_type": "unknown_remedy_deadline",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 15000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "deadline_check_performed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "terms_snapshot",
+            "observed_on"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "quarantine_policy_uncertainty",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-019",
+      "scenario_type": "profile_effective_date_unknown",
+      "profile_id": "ZA-FNB-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 5000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "profile_temporal_check_failed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "observed_on"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "quarantine_policy_uncertainty",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-020",
+      "scenario_type": "unauthorised_third_party_case_submission_blocked",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 8000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "unauthorised_submission_blocked",
+          "actor_role": "case_manager",
+          "authority_state": "invalid",
+          "evidence_types": [
+            "authority_check_failure",
+            "rejection_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "reject_unauthorised_action",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-021",
+      "scenario_type": "unauthorised_personal_data_disclosure_blocked",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 1000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "data_disclosure_blocked",
+          "actor_role": "case_manager",
+          "authority_state": "invalid",
+          "evidence_types": [
+            "purpose_check_failure",
+            "rejection_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "reject_unauthorised_action",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-022",
+      "scenario_type": "case_close_attempt_without_disposition",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 34000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "case_closure_attempt_rejected",
+          "actor_role": "case_manager",
+          "authority_state": "invalid",
+          "evidence_types": [
+            "missing_disposition",
+            "rejection_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "preserve_unresolved_no_promise",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-023",
+      "scenario_type": "cross_border_participant_remedy_mismatch",
+      "profile_id": "ZA-CROSS-BORDER-CREDIT-TRANSFER-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 99000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "scheme_and_jurisdiction_reviewed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "participant_register_snapshot",
+            "jurisdictional_rule_register"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "quarantine_policy_uncertainty",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-024",
+      "scenario_type": "incorrect_remedy_classification_attempt",
+      "profile_id": "ZA-EFT-DEBIT-ORDER-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 12000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_misclassification_blocked",
+          "actor_role": "case_manager",
+          "authority_state": "invalid",
+          "evidence_types": [
+            "instrument_identity",
+            "classification_rejection"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "route_to_correct_remedy",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-025",
+      "scenario_type": "return_receipt_without_independent_reconciliation",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 10000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "unverified_return_claim_recorded",
+          "actor_role": "case_manager",
+          "authority_state": "unknown",
+          "evidence_types": [
+            "provider_claim_only",
+            "reconciliation_missing"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "no_recovery",
+      "expected_disposition": "do_not_promote_to_recovery",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-026",
+      "scenario_type": "closed_case_without_customer_made_whole",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 40000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "recall_requested",
+          "actor_role": "payer_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "request_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "beneficiary_psp_acknowledged",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "acknowledgement_receipt",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "case_closed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "case_disposition_notice",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false,
+          "closure_disposition": "closed_unresolved"
+        }
+      ],
+      "expected_effect": "request_only",
+      "expected_disposition": "retain_residual_loss",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "closed_unresolved",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-027",
+      "scenario_type": "duplicate_return_callback_deduplicated",
+      "profile_id": "ZA-NEDBANK-PAYSHAP-CONSUMER-PUSH-V1",
+      "claim_amount_minor_units": 10000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "funds_returned",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "independent_return_receipt",
+            "independent_ledger_reconciliation",
+            "case_id"
+          ],
+          "amount_minor_units": 4000,
+          "reconciled": true,
+          "return_reference": "RET-027"
+        },
+        {
+          "event_id": "EV-4",
+          "sequence": 4,
+          "event_type": "duplicate_return_callback_ignored",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "duplicate_callback_id",
+            "idempotency_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-5",
+          "sequence": 5,
+          "event_type": "case_closed",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "case_disposition_notice",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false,
+          "closure_disposition": "closed_with_return"
+        }
+      ],
+      "expected_effect": "partial_return",
+      "expected_disposition": "retain_residual_loss",
+      "actual_returned_minor_units": 4000,
+      "case_disposition": "closed_with_return",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    },
+    {
+      "scenario_id": "SA-REC-028",
+      "scenario_type": "full_return_claim_without_payee_available_evidence",
+      "profile_id": "ZA-PAYSHAP-PARTICIPANT-UNQUALIFIED-V1",
+      "claim_amount_minor_units": 10000,
+      "currency": "ZAR",
+      "events": [
+        {
+          "event_id": "EV-1",
+          "sequence": 1,
+          "event_type": "case_reported",
+          "actor_role": "payer",
+          "authority_state": "valid",
+          "evidence_types": [
+            "customer_report",
+            "original_payment_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-2",
+          "sequence": 2,
+          "event_type": "remedy_classified",
+          "actor_role": "case_manager",
+          "authority_state": "valid",
+          "evidence_types": [
+            "profile_snapshot",
+            "case_id"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        },
+        {
+          "event_id": "EV-3",
+          "sequence": 3,
+          "event_type": "return_instruction_observed",
+          "actor_role": "beneficiary_psp",
+          "authority_state": "valid",
+          "evidence_types": [
+            "instruction_receipt"
+          ],
+          "amount_minor_units": 0,
+          "reconciled": false
+        }
+      ],
+      "expected_effect": "request_only",
+      "expected_disposition": "do_not_promote_to_recovery",
+      "actual_returned_minor_units": 0,
+      "case_disposition": "open",
+      "required_evidence": [
+        "original_payment_receipt",
+        "source_profile_snapshot"
+      ],
+      "negative_controls": [
+        "request_is_not_return",
+        "hold_is_not_return",
+        "no_unknown_deadline_promoted"
+      ]
+    }
+  ]
+}
