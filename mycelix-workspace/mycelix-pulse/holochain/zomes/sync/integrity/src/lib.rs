@@ -511,7 +511,7 @@ fn validate_sync_checkpoint(
     checkpoint: &SyncCheckpoint,
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
-    if checkpoint.agent != action.author() {
+    if checkpoint.agent != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Sync checkpoint agent must match author".to_string(),
         ));
@@ -524,7 +524,7 @@ fn validate_sync_state(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Agent must be author
-    if state.agent != action.author() {
+    if state.agent != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Sync state agent must match author".to_string(),
         ));
@@ -537,7 +537,7 @@ fn validate_sync_operation(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Agent must be author
-    if op.agent != action.author() {
+    if op.agent != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Operation agent must match author".to_string(),
         ));
