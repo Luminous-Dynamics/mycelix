@@ -429,6 +429,12 @@
         },
         "amount_modification_indicator": {
           "type": "boolean"
+        },
+        "expiry_selection": {
+          "enum": [
+            "default",
+            "custom"
+          ]
         }
       }
     },
