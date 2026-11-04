@@ -51,7 +51,7 @@
       "NOT_APPLICABLE"
     ]
   },
-  "scenario_count": 27,
+  "scenario_count": 28,
   "scenarios": [
     {
       "id": "AUTH-01",
@@ -1366,6 +1366,85 @@
         }
       ],
       "notes": "A successful hash check proves content integrity only; issuer authentication and source truth require their own evidence."
+    },
+    {
+      "id": "GRANT-01",
+      "family": "grant-retry",
+      "title": "Lost grant acknowledgement and retry produce one logical host grant",
+      "threat": "The grantor commits a new CapGrant and application record but the response is lost; the caller retries the same logical grant request.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "create_assigned_capability",
+          "request_id": "grant-27",
+          "grant_ref": "logical-grant-27",
+          "attempt": 1,
+          "note": "First attempt commits one host CapGrant and its application metadata; response is lost before caller observes the result."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "transport",
+          "action": "drop_grant_acknowledgement",
+          "request_id": "grant-27",
+          "grant_ref": "logical-grant-27",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Caller sees no acknowledgement and cannot know whether the host grant committed."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "grantor",
+          "action": "retry_same_logical_grant_request",
+          "request_id": "grant-27",
+          "grant_ref": "logical-grant-27",
+          "attempt": 2,
+          "happens_before": [
+            "e2"
+          ],
+          "note": "Retry with the same idempotency key; return/reconcile the original grant identity rather than minting a second grant or secret."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "EXECUTED",
+            "source_chain": "ACTION_AUTHORED",
+            "validator": "NOT_OBSERVED",
+            "projection": "CURRENT",
+            "observer": "UNKNOWN"
+          },
+          "assertions": [
+            "grant_effect_may_have_committed",
+            "lost_ack_is_unknown_to_caller"
+          ]
+        },
+        {
+          "after": "e3",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "EXECUTED",
+            "source_chain": "ACTION_AUTHORED",
+            "validator": "NOT_OBSERVED",
+            "projection": "CURRENT",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "one_host_cap_grant_per_logical_request",
+            "one_application_grant_record_per_logical_request",
+            "retry_returns_same_grant_action_identity",
+            "no_orphan_grant_from_lost_ack"
+          ]
+        }
+      ],
+      "notes": "Current 0.7 branch GrantCapabilityInput has no explicit logical idempotency key and grant_capability generates a new secret/ID per invocation; this is a qualification target, not a claim that current code already deduplicates."
     }
   ]
 }
