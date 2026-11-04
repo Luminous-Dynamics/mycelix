@@ -105,7 +105,7 @@
     },
     "cases": {
       "type": "array",
-      "minItems": 19,
+      "minItems": 33,
       "maxItems": 19,
       "items": {
         "$ref": "#/$defs/case"
@@ -248,7 +248,8 @@
             "client_asserted_result",
             "disclosure_state",
             "response_digest",
-            "source_refs"
+            "source_refs",
+            "fraud_inference"
           ],
           "properties": {
             "scheme_profile": {
@@ -384,6 +385,14 @@
               "items": {
                 "type": "string"
               }
+            },
+            "fraud_inference": {
+              "type": "string",
+              "enum": [
+                "not_inferred",
+                "separately_evidenced",
+                "unknown"
+              ]
             }
           }
         }
