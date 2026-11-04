@@ -131,6 +131,28 @@
         "Current P2P collect permission after discontinuation circular",
         "South African product rules"
       ]
+    },
+    {
+      "id": "CAPITEC_RTP_FAQ_2026",
+      "authority": "Capitec Bank",
+      "title": "PayShap Request FAQ",
+      "url": "https://www.capitecbank.co.za/were-here-to-help/faqs/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_faq_snapshot",
+      "supports": [
+        "The FAQ says sending a PayShap Request is free and a fee is charged when the request is received/approved, based on amount.",
+        "The FAQ lists payer fee bands of R0-R100 free, R100.01-R1000 R1, and R1000.01-R3000 R3.50.",
+        "The same FAQ says the maximum requested amount is R100 per transaction and a customer can make two requests per day or within 24 hours to any South African bank.",
+        "The FAQ describes a pending request as cancellable by the sender, a default one-day expiry, and decline without money being taken.",
+        "The FAQ says the request carries the sender name and reference, and acceptance triggers an immediate, irrevocable payment."
+      ],
+      "does_not_support": [
+        "An effective date for the displayed limits or fee schedule.",
+        "A universal rule or fee schedule for every PayShap Request participant.",
+        "A reconciled interpretation of fee bands above R100 when the same FAQ caps request amounts at R100.",
+        "A guarantee that sender authentication establishes that the underlying request or asserted debt is legitimate."
+      ]
     }
   ],
   "profiles": [
@@ -149,12 +171,39 @@
       "max_request_minor_units": 10000,
       "max_requests_per_24h": 2,
       "max_combined_request_minor_units_per_24h": 20000,
-      "fee_state": "not_qualified_from_current_page_snapshot",
-      "fee_note": "Do not inherit 2025 blog fee schedule as current.",
+      "fee_state": "same_faq_request_cap_and_payer_fee_bands_conflict",
+      "fee_note": "FAQ says requester fee is zero and the payer/approver pays amount-based fees; the same FAQ caps requests at R100 but lists additional payer-fee bands above R100. Preserve the mismatch; do not infer an applicable fee above the stated cap.",
       "source_refs": [
-        "CAPITEC_RTP_PRODUCT_2026"
+        "CAPITEC_RTP_PRODUCT_2026",
+        "CAPITEC_RTP_FAQ_2026"
       ],
-      "admission": "participant_and_account_terms_must_be_verified"
+      "admission": "participant_and_account_terms_must_be_verified",
+      "request_count_scope": "requester_account",
+      "requester_fee_minor_units": 0,
+      "payer_fee_bands": [
+        {
+          "minimum_amount_minor_units": 0,
+          "maximum_amount_minor_units": 10000,
+          "payer_fee_minor_units": 0,
+          "currency": "ZAR"
+        },
+        {
+          "minimum_amount_minor_units": 10001,
+          "maximum_amount_minor_units": 100000,
+          "payer_fee_minor_units": 100,
+          "currency": "ZAR"
+        },
+        {
+          "minimum_amount_minor_units": 100001,
+          "maximum_amount_minor_units": 300000,
+          "payer_fee_minor_units": 350,
+          "currency": "ZAR"
+        }
+      ],
+      "payer_fee_schedule_state": "internal_source_conflict",
+      "fee_source_refs": [
+        "CAPITEC_RTP_FAQ_2026"
+      ]
     },
     {
       "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-BLOG-2025-V1",
@@ -176,7 +225,27 @@
       "source_refs": [
         "CAPITEC_RTP_BLOG_2025"
       ],
-      "admission": "not_admissible_as_current_limit_without_newer_provider_confirmation"
+      "admission": "not_admissible_as_current_limit_without_newer_provider_confirmation",
+      "request_count_scope": "requester_account",
+      "requester_fee_minor_units": 0,
+      "payer_fee_bands": [
+        {
+          "minimum_amount_minor_units": 0,
+          "maximum_amount_minor_units": 10000,
+          "payer_fee_minor_units": 0,
+          "currency": "ZAR"
+        },
+        {
+          "minimum_amount_minor_units": 10001,
+          "maximum_amount_minor_units": 100000,
+          "payer_fee_minor_units": 100,
+          "currency": "ZAR"
+        }
+      ],
+      "payer_fee_schedule_state": "historical_snapshot",
+      "fee_source_refs": [
+        "CAPITEC_RTP_BLOG_2025"
+      ]
     },
     {
       "profile_id": "SEPA-SRTP-SCHEME-V4-COMPARATOR-V1",
@@ -199,7 +268,12 @@
         "EPC_SRTP_RULEBOOK_V4",
         "EPC_SRTP_IG_V4"
       ],
-      "admission": "architecture_comparator_only"
+      "admission": "architecture_comparator_only",
+      "request_count_scope": "unknown",
+      "requester_fee_minor_units": null,
+      "payer_fee_bands": [],
+      "payer_fee_schedule_state": "unknown",
+      "fee_source_refs": []
     },
     {
       "profile_id": "UK-REQUEST-TO-PAY-FRAMEWORK-COMPARATOR-V1",
@@ -221,7 +295,12 @@
       "source_refs": [
         "PAYUK_RTP_FRAMEWORK"
       ],
-      "admission": "architecture_comparator_only"
+      "admission": "architecture_comparator_only",
+      "request_count_scope": "unknown",
+      "requester_fee_minor_units": null,
+      "payer_fee_bands": [],
+      "payer_fee_schedule_state": "unknown",
+      "fee_source_refs": []
     },
     {
       "profile_id": "IN-UPI-P2P-COLLECT-RETIRED-V1",
@@ -243,7 +322,12 @@
       "source_refs": [
         "NPCI_P2P_COLLECT_DISCONTINUATION"
       ],
-      "admission": "historical_comparator_only"
+      "admission": "historical_comparator_only",
+      "request_count_scope": "unknown",
+      "requester_fee_minor_units": null,
+      "payer_fee_bands": [],
+      "payer_fee_schedule_state": "unknown",
+      "fee_source_refs": []
     }
   ],
   "scenarios": [
