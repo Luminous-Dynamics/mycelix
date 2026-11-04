@@ -353,3 +353,29 @@ The defensible differentiation hypothesis is narrower and harder:
 - business-operational digital twins that are reconciled to observed accounting facts rather than mixed into the ledger.
 
 The product strategy should initially be **an intelligence, evidence and independent-verification layer that works with incumbent systems**, not a costly rip-and-replace accounting suite.
+
+
+## 14. Initial synthetic smoke corpus committed
+
+The branch now includes a tiny, explicitly non-benchmark seed corpus:
+
+- `mycelix-finance/benchmarks/accounting-evidence-v1/smoke_corpus_v0.1.0.json`
+- `mycelix-finance/benchmarks/accounting-evidence-v1/smoke_corpus_v0.1.0.schema.json`
+- `mycelix-finance/benchmarks/accounting-evidence-v1/README.md`
+
+It contains three synthetic cases:
+1. supported purchase order + goods receipt + invoice + bank settlement, with exact journal and close oracle;
+2. exact duplicate invoice ingestion, which must be an idempotent no-op;
+3. a supplier invoice addressed to the wrong legal entity, which must be quarantined even though supplier, amount, PO and delivery otherwise align.
+
+The sample uses canonical non-negative integer strings in minor units, an explicit synthetic two-decimal ZAR representation, a synthetic accrual policy identifier, and zero tax solely to keep tax outside the smoke-test scope. The fixture is not a South African tax rule or an IFRS profile.
+
+**Source-level checks completed for this seed:**
+- both JSON artifacts parse;
+- the included schema's used structural constraints were checked by a small local validator (types, required/prohibited properties, enums/constants, patterns, dates, bounds and local definitions);
+- all opening trial balances balance;
+- every expected journal entry balances;
+- all closing trial balances balance;
+- each expected statement equation satisfies assets = liabilities + equity.
+
+This is a smoke-corpus structural/arithmetic check only. No Rust evaluator, Cargo test, model baseline, expert adjudication, external benchmark reproduction or production accounting workflow has been executed. The corpus status string explicitly says it is not a benchmark result.
