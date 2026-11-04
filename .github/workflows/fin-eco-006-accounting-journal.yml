@@ -44,6 +44,11 @@ jobs:
           components: rustfmt, clippy
       - name: Format accounting crate
         run: cargo fmt --manifest-path mycelix-finance/crates/finance-accounting/Cargo.toml --check
+      - name: Print Cargo's canonical offline lockfile delta
+        run: |
+          cargo metadata --offline --manifest-path mycelix-finance/Cargo.toml --format-version 1 > /dev/null
+          git --no-pager diff -- mycelix-finance/Cargo.lock
+          git checkout -- mycelix-finance/Cargo.lock
       - name: Check locked accounting targets
         run: cargo check --locked --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-accounting --all-targets
       - name: Run exact accounting and settlement projection tests
