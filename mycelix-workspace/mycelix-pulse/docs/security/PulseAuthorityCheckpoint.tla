@@ -86,7 +86,7 @@ ConvergeProjection ==
         << hostActive, authorityEpoch, canonicalRevoked, minimumEpoch,
            caller, hostProbe, lastHostActiveAtProbe, readState, lastReadEpoch,
            lastRequiredEpoch, lastCanonicalRevoked,
-           lastReadUsedCheckpoint >>
+           lastHostActiveAtRead, lastReadUsedCheckpoint >>
 
 ProbeHostAsGrantee ==
     /\ caller = NoAgent
@@ -98,7 +98,7 @@ ProbeHostAsGrantee ==
         << hostActive, authorityEpoch, canonicalRevoked,
            projectionEpoch, projectionState, minimumEpoch,
            readState, lastReadEpoch, lastRequiredEpoch,
-           lastCanonicalRevoked, lastReadUsedCheckpoint >>
+           lastCanonicalRevoked, lastHostActiveAtRead, lastReadUsedCheckpoint >>
 
 ReadWithCheckpoint ==
     /\ caller = grantee
