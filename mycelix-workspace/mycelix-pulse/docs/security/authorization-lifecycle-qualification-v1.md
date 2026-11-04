@@ -136,6 +136,23 @@ This is a finite abstract model only: two grant identities, two logical requests
 
 Next expand the model with two-conductor validator acceptance, concurrent call/revoke orderings, crash points, conflicting roots and partition schedules, while retaining negative controls.
 
+## Malicious mailbox coordinator model
+
+The branch now also includes `PulseMailboxValidation.tla` plus three TLC configurations:
+
+- `PulseMailboxValidation.cfg` — safe original-state validation;
+- `PulseMailboxValidation-proposed-state-mutant.cfg` — proposed-membership self-authorization mutant;
+- `PulseMailboxValidation-field-mutation-mutant.cfg` — protected-field smuggling mutant.
+
+The abstract test coordinator can author any proposal. The receiving validator is separate and checks original committed state. It models the two relevant source-level threats:
+
+1. **Proposed-state self-promotion:** an attacker appends itself as Admin and the mutant validator derives authority from the proposed member list rather than the original owner.
+2. **Field smuggling:** an otherwise legitimate owner member append also changes an immutable mailbox field such as name/settings; the mutant ignores that mutation.
+
+The safe model requires the original owner for the direct transition, one append only, the correct author provenance, and no protected-field mutation. A remote observer's projection is a subset of validator-integrated state; authoring an action does not make it accepted or visible. A valid delegated Admin transition is intentionally not modeled as available until the controller-signed lease protocol is implemented and qualified.
+
+The TLC workflow now runs all three mailbox configurations in addition to the authorization lifecycle configurations. TLC has not yet executed these new mailbox models; do not report a pass until run logs show the safe model exhausts its state queue and each mutant fails on its intended invariant. The corresponding runtime experiment is tracked in [#5781](https://github.com/Luminous-Dynamics/mycelix/issues/5781).
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
