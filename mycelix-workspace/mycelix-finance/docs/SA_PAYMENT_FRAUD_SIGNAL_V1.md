@@ -73,3 +73,39 @@ Every append-only history event now binds the signal version and SHA-256 content
 Participant profiles declare a maximum signal TTL. The Rust evaluator parses UTC timestamps, requires observation before recording and expiry after observation, and rejects a lifetime beyond the profile maximum. Expired, corrected, withdrawn or unknown signals cannot be disclosed as current. The future-clock-skew case is represented as an untrusted quarantined event, not an accepted future event.
 
 The 33-case corpus includes positive controls for independently corroborated signals and a source's own final case disposition, while keeping the latter explicitly a source assertion rather than a legal finding. The negative-mutation suite now contains 15 controls.
+
+
+## 2026-11-04 recipient-side correction propagation extension
+
+A source-side correction is not proof that a receiving institution has invalidated its cached copy. The corpus now separately records historical disclosures and one correction-propagation obligation per previous recipient.
+
+### Legal profile distinctions
+
+- South African POPIA section 24(3) links recipient notification to a correction that affects decisions already taken or to be taken and to what is reasonably practicable. Section 24(4) concerns notification to the data subject who requested correction.
+- The 2025 POPIA Regulations' 30-day provision concerns written notification to the data subject of action taken on a correction/deletion request. It is **not** treated as a 30-day inter-participant cache-invalidation deadline.
+- GDPR Article 19 is a separate EU comparator with its own impossibility/disproportionate-effort exception. It is not applied to a South African profile.
+- A cross-border profile without a qualified jurisdictional rule remains unknown and cannot claim an operational legal notification outcome.
+
+### Technical proof separation
+
+`delivered != acknowledged != cached version invalidated != prior decision reassessed`
+
+Each propagation obligation binds the recipient, historical version/digest, current version/digest, decision-impact assessment, practicability assessment, status, timestamps and receipt evidence. Pending, delivered or acknowledged-but-not-invalidated cases remain unresolved for operational purposes. A documented exception or reasoned "no decision impact" disposition is explicit; neither is silently treated as a successful invalidation.
+
+The synthetic recipient-propagation profile does not establish a universal propagation SLA. Any measured p50/p95/p99 target must be set by the actual participant agreement and applicable law/profile.
+
+
+## Historical recipient inventory completeness
+
+A propagation report is not complete merely because every currently listed recipient has acknowledged. Before a corrected, withdrawn or expired signal can be reported as fully propagated, the source must qualify the historical disclosure inventory itself.
+
+Each case now declares whether its prior-recipient inventory is `complete`, `incomplete`, `unknown` or `not_applicable`, together with a count, evidence reference and verification timestamp. A changed signal with an unknown or incomplete recipient inventory remains quarantined: the system cannot claim that every prior recipient was notified or invalidated. A complete zero-recipient inventory is different from a missing inventory and must be supported by its own evidence.
+
+
+## Stacked recipient-propagation qualification (#5817)
+
+The stacked extension expands this fixture from 33 to **39 scenarios**, with **71 append-only signal events** and **25 deterministic mutation controls**. It adds three jurisdiction-specific notification profiles: South African POPIA section 24, an EU GDPR Article 19 comparator, and an unqualified multi-jurisdiction state.
+
+Every scenario now includes a historical recipient inventory and correction-propagation ledger. A correction/withdrawal cannot be reported as propagated unless the historical disclosure inventory is explicitly complete and every prior recipient/version/digest has a corresponding obligation. Incomplete or unknown inventories remain quarantined. A delivery receipt is not an acknowledgement; an acknowledgement is not proof of local cache invalidation. A no-notification decision requires a reasoned no-decision-impact assessment; a not-practicable exception remains an explicit exception, not a legal safe harbour.
+
+The South African rule profile records POPIA section 24(3)'s conditional recipient notification obligation (decision impact and reasonable practicability) and section 24(4)'s data-subject outcome notification. The 2025 Regulations' 30-day rule is not misrepresented as a recipient cache-invalidation SLA. GDPR Article 19 stays a separate EU comparator. No universal notification or invalidation timer is invented.
