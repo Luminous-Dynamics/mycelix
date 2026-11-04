@@ -1,0 +1,552 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-rtp-limits-corpus-v1.schema.json",
+  "title": "Mycelix South African Request-to-Pay Limit Fairness Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "created_on",
+    "as_of",
+    "jurisdiction",
+    "purpose",
+    "external_effects_enabled",
+    "source_register",
+    "profiles",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-rtp-limits/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-SA-PAYMENT-RTP-LIMIT-FAIRNESS-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 24,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "countRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "direction",
+        "scope",
+        "window_semantics",
+        "max_requests_total",
+        "max_requests_per_counterparty",
+        "aggregate_state",
+        "source_refs",
+        "qualification"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "enum": [
+            "inbound",
+            "outbound"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "requester_account_any_counterparty",
+            "same_recipient",
+            "same_sender",
+            "all_counterparties"
+          ]
+        },
+        "window_semantics": {
+          "enum": [
+            "rolling_24h",
+            "calendar_day",
+            "day_unspecified"
+          ]
+        },
+        "max_requests_total": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "max_requests_per_counterparty": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "aggregate_state": {
+          "enum": [
+            "source_backed",
+            "source_backed_unlimited_total",
+            "source_backed_unlimited_count"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "amountRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "route_scope",
+        "max_per_request_minor_units",
+        "aggregate_amount_limit_minor_units",
+        "aggregate_window_semantics",
+        "source_refs",
+        "qualification"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "route_scope": {
+          "enum": [
+            "generic",
+            "on_us_account",
+            "on_us_shapid",
+            "off_us"
+          ]
+        },
+        "max_per_request_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "aggregate_amount_limit_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "aggregate_window_semantics": {
+          "enum": [
+            "rolling_24h",
+            "calendar_day",
+            "unknown"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "expiry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default_days",
+        "minimum_days",
+        "maximum_days",
+        "maximum_state",
+        "source_refs",
+        "qualification"
+      ],
+      "properties": {
+        "default_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "minimum_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maximum_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maximum_state": {
+          "enum": [
+            "source_backed",
+            "unknown"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "participant",
+        "product",
+        "observed_on",
+        "effective_date_state",
+        "source_refs",
+        "limit_knowledge_state",
+        "request_count_rules",
+        "amount_limit_rules",
+        "expiry_policy"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "product": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_date_state": {
+          "enum": [
+            "known",
+            "unknown"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limit_knowledge_state": {
+          "enum": [
+            "source_backed",
+            "unknown"
+          ]
+        },
+        "request_count_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/countRule"
+          }
+        },
+        "amount_limit_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/amountRule"
+          }
+        },
+        "expiry_policy": {
+          "$ref": "#/$defs/expiry"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "profile_id",
+        "direction",
+        "route_scope",
+        "window_semantics",
+        "observed_at",
+        "window_start_at",
+        "requests_in_window_before",
+        "counterparty_requests_in_window_before",
+        "aggregate_amount_before_minor_units",
+        "requested_amount_minor_units",
+        "requester_subject_ref",
+        "counterparty_subject_ref",
+        "applied_count_rule_id",
+        "applied_amount_rule_id",
+        "receiver_profile_id",
+        "receiver_limit_source_state",
+        "requested_expiry_days",
+        "appeal_state",
+        "expected_disposition",
+        "instruction_created",
+        "source_refs",
+        "notes"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^SA-RTP-LIMIT-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "enum": [
+            "inbound",
+            "outbound"
+          ]
+        },
+        "route_scope": {
+          "enum": [
+            "generic",
+            "on_us_account",
+            "on_us_shapid",
+            "off_us"
+          ]
+        },
+        "window_semantics": {
+          "enum": [
+            "rolling_24h",
+            "calendar_day",
+            "day_unspecified"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_start_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requests_in_window_before": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "counterparty_requests_in_window_before": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "aggregate_amount_before_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requested_amount_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requester_subject_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "counterparty_subject_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applied_count_rule_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "applied_amount_rule_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "receiver_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "receiver_limit_source_state": {
+          "enum": [
+            "source_backed",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "requested_expiry_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "appeal_state": {
+          "enum": [
+            "none",
+            "pending",
+            "upheld",
+            "reversed"
+          ]
+        },
+        "expected_disposition": {
+          "enum": [
+            "allow",
+            "reject_count_limit",
+            "reject_amount_limit",
+            "reject_aggregate_amount_limit",
+            "reject_receiver_lower_limit",
+            "reject_expiry_limit",
+            "do_not_reject_unknown_limit",
+            "reject_wrong_rule_application",
+            "appeal_review"
+          ]
+        },
+        "instruction_created": {
+          "const": false
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
