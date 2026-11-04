@@ -631,16 +631,27 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("declined request promoted to instruction", corpus, schema, |v| {
-        let mut accepted = v["scenarios"][5]["events"][3].clone();
-        accepted["event_id"] = json!("EV-5");
-        accepted["sequence"] = json!(5);
-        let mut instruction = v["scenarios"][5]["events"][4].clone();
-        instruction["event_id"] = json!("EV-6");
-        instruction["sequence"] = json!(6);
-        v["scenarios"][2]["events"].as_array_mut().unwrap().push(accepted);
-        v["scenarios"][2]["events"].as_array_mut().unwrap().push(instruction);
-    })?;
+    mutate_and_reject(
+        "declined request promoted to instruction",
+        corpus,
+        schema,
+        |v| {
+            let mut accepted = v["scenarios"][5]["events"][3].clone();
+            accepted["event_id"] = json!("EV-5");
+            accepted["sequence"] = json!(5);
+            let mut instruction = v["scenarios"][5]["events"][4].clone();
+            instruction["event_id"] = json!("EV-6");
+            instruction["sequence"] = json!(6);
+            v["scenarios"][2]["events"]
+                .as_array_mut()
+                .unwrap()
+                .push(accepted);
+            v["scenarios"][2]["events"]
+                .as_array_mut()
+                .unwrap()
+                .push(instruction);
+        },
+    )?;
     count += 1;
 
     Ok(count)
