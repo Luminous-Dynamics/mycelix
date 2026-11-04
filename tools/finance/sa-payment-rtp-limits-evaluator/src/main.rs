@@ -486,8 +486,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let amount_id = str_at(case, "applied_amount_rule_id").unwrap_or("");
             match find_count_rule(profile, count_id) {
                 Some(rule)
-                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) =>
-                {
+                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) => {
                 }
                 _ => errors.push(format!(
                     "{id}: selected count rule is absent, unqualified or not source-cited"
@@ -495,8 +494,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             }
             match find_amount_rule(profile, amount_id) {
                 Some(rule)
-                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) =>
-                {
+                    if rule_sources_resolve(rule, &sources_set) && case_cites_rule(&refs, rule) => {
                 }
                 _ => errors.push(format!(
                     "{id}: selected amount rule is absent, unqualified or not source-cited"
