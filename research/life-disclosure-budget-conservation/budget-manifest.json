@@ -1,0 +1,29 @@
+{
+  "schema_version": "life-disclosure-budget-manifest/v1",
+  "experiment": "LIFE-DISCLOSURE-BUDGET-001",
+  "budget_semantics": "abstract integer disclosure-risk units; not epsilon, delta, or differential-privacy accounting",
+  "policy_epoch": 1,
+  "global_budget_units": 10,
+  "verifier_count": 4,
+  "profiles": [
+    {"id": "independent_stale_replicas", "role": "negative_control"},
+    {"id": "serialized_shared_ledger", "role": "safety_baseline"},
+    {"id": "bounded_escrow", "role": "partition-tolerant bounded authorization"},
+    {"id": "cloned_escrow_replicas", "role": "negative_control for duplicated or rolled-back local quota state"},
+    {"id": "invalid_overallocated_escrow", "role": "negative_control"},
+    {"id": "stale_policy_epoch", "role": "negative_control"},
+    {"id": "policy_epoch_rollover_shared_ledger", "role": "no-implicit-budget-reset regression"},
+    {"id": "policy_epoch_rollover_escrow", "role": "no-implicit-budget-reset regression"}
+  ],
+  "required_invariants": [
+    "accepted unique optional-disclosure cost never exceeds global budget in qualified profiles",
+    "identical request replay does not spend twice",
+    "reusing request identity for different content is rejected",
+    "offline escrow allocations sum to no more than the global budget",
+    "stale policy epoch is rejected",
+    "advancing policy epoch does not reset already-consumed budget within the same budget scope",
+    "independent post-hoc audit reconstructs accepted spend from request records, separately from reducer counters",
+    "optional disclosure denial never changes the separately required task decision"
+  ],
+  "claim_boundary": "Synthetic state-machine evaluation only; not a distributed consensus protocol, differential-privacy guarantee, credential conformance result, or production safety proof."
+}
