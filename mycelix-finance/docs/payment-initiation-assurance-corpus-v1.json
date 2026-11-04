@@ -1037,7 +1037,7 @@
         "returned_account_type": "business",
         "provider_signature_state": "valid",
         "audience_matches": true,
-        "is_current": true,
+        "is_current": false,
         "observed_at": "2026-11-04T10:00:00Z",
         "valid_until": "2026-11-04T10:05:00Z",
         "payer_notified": true,
