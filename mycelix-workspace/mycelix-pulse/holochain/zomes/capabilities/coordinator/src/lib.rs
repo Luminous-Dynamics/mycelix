@@ -884,18 +884,10 @@ pub fn add_shared_mailbox_member(
     let my_agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    // Get mailbox
-    let record = get(mailbox_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Shared mailbox not found".to_string())
-    ))?;
-
-    let mut mailbox: SharedMailbox = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid mailbox".to_string()
-        )))?;
+    // Resolve the latest source-chain update before applying a new member
+    // transition. A caller-supplied original Create hash is only a stable
+    // mailbox identity; it is not necessarily the current mailbox state.
+    let (latest_mailbox_hash, mut mailbox) = resolve_latest_shared_mailbox(mailbox_hash)?;
 
     // Verify caller has permission to add members
     let caller_member = mailbox
@@ -932,14 +924,14 @@ pub fn add_shared_mailbox_member(
     mailbox.members.push(member);
 
     let new_hash = update_entry(
-        mailbox_hash.clone(),
+        latest_mailbox_hash,
         EntryTypes::SharedMailbox(mailbox.clone()),
     )?;
 
     // Link to new member
     create_link(
         new_member.clone(),
-        mailbox_hash,
+        new_hash.clone(),
         LinkTypes::AgentToMemberSharedMailboxes,
         LinkTag::new(mailbox.name.to_string()),
     )?;
@@ -976,22 +968,100 @@ pub fn get_my_shared_mailboxes(_: ()) -> ExternResult<Vec<(ActionHash, SharedMai
         GetStrategy::default(),
     )?;
 
+    let mut seen_mailbox_ids = HashSet::new();
+
     for link in owned_links.into_iter().chain(member_links.into_iter()) {
         let hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid target".to_string())))?;
 
-        if let Some(record) = get(hash.clone(), GetOptions::default())? {
-            if let Some(mailbox) = record
-                .entry()
-                .to_app_option::<SharedMailbox>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            {
-                mailboxes.push((hash, mailbox));
-            }
+        let (latest_hash, mailbox) = resolve_latest_shared_mailbox(hash)?;
+        if seen_mailbox_ids.insert(mailbox.id.clone()) {
+            mailboxes.push((latest_hash, mailbox));
         }
     }
 
     Ok(mailboxes)
+}
+
+/// Resolve the current SharedMailbox value from its Create/Update action chain.
+///
+/// Links may still point to the stable original Create action, so reading that
+/// action directly can return stale membership. Walk every referenced update,
+/// fail closed on unavailable evidence, and refuse competing update heads rather
+/// than choosing one based on DHT arrival order or hash ordering.
+fn resolve_latest_shared_mailbox(
+    mailbox_hash: ActionHash,
+) -> ExternResult<(ActionHash, SharedMailbox)> {
+    let record = get(mailbox_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Shared mailbox state is unknown: root record is unavailable".to_string())
+    ))?;
+    let mailbox: SharedMailbox = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Shared mailbox state is unknown: root entry has another type".to_string()
+        )))?;
+
+    let mut latest = (
+        record.action().action_seq(),
+        mailbox_hash.clone(),
+        mailbox,
+    );
+    let mut frontier = vec![mailbox_hash];
+    let mut visited = HashSet::new();
+
+    while let Some(parent_hash) = frontier.pop() {
+        let Some(details) = get_details(parent_hash, GetOptions::default())? else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Shared mailbox state is unknown: update details are unavailable".to_string()
+            )));
+        };
+        let Details::Record(details) = details else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Shared mailbox state is unknown: hash did not resolve to record details".to_string()
+            )));
+        };
+
+        if details.updates.len() > 1 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Shared mailbox state is conflicting: multiple updates descend from the same head".to_string()
+            )));
+        }
+
+        for update in details.updates {
+            let update_hash = update.hashed.hash.clone();
+            if !visited.insert(update_hash.clone()) {
+                continue;
+            }
+            let Some(update_record) = get(update_hash.clone(), GetOptions::default())? else {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Shared mailbox state is unknown: a referenced update record is unavailable".to_string()
+                )));
+            };
+            let Some(updated_mailbox) = update_record
+                .entry()
+                .to_app_option::<SharedMailbox>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            else {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Shared mailbox state is unknown: referenced update has an unexpected entry type".to_string()
+                )));
+            };
+
+            let action_seq = update_record.action().action_seq();
+            if action_seq > latest.0 {
+                latest = (action_seq, update_hash.clone(), updated_mailbox);
+            } else if action_seq == latest.0 && update_hash != latest.1 {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Shared mailbox state is conflicting: update sequence cannot identify a unique head".to_string()
+                )));
+            }
+            frontier.push(update_hash);
+        }
+    }
+
+    Ok((latest.1, latest.2))
 }
 
 // ==================== AUDIT LOGGING ====================
