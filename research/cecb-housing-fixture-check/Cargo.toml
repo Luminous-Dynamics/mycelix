@@ -1,0 +1,11 @@
+[package]
+name = "cecb-housing-fixture-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Independent known-truth validator for the synthetic Capability-Economy Comparative Benchmark fixtures"
+
+[workspace]
+
+[dependencies]
+serde_json = "1.0"

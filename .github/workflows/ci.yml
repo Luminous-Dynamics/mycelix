@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      cecb: ${{ steps.filter.outputs.cecb }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,11 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            cecb:
+              - '.github/workflows/ci.yml'
+              - 'research/cecb-housing-fixture-check/**'
+              - 'docs/research/fixtures/CECB_HOUSING_KNOWN_TRUTH_V0_1.json'
+              - 'docs/research/CAPABILITY_ECONOMY_COMPARATIVE_BENCHMARK_V0_1.md'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -132,6 +138,168 @@ jobs:
         run: cd mycelix-manufacturing && cargo run -q -p cos_conformance --bin cos-report > cos-conformance-report.json
       - name: Validate report
         run: test -s mycelix-manufacturing/cos-conformance-report.json && grep -q 'COS-CONF-001' mycelix-manufacturing/cos-conformance-report.json
+
+  # Standalone research validator: keep synthetic fixture qualification separate
+  # from all production clusters and never label it evidence of real-world impact.
+  test-cecb-fixture:
+    needs: changes
+    if: needs.changes.outputs.cecb == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: research/cecb-housing-fixture-check
+      - id: rustfmt
+        name: Check standalone Rust formatting
+        run: |
+          set -o pipefail
+          cargo fmt --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --check 2>&1 | tee /tmp/cecb-rustfmt.log
+      - id: test
+        name: Run validator mutation tests
+        run: |
+          set -o pipefail
+          cargo test --manifest-path research/cecb-housing-fixture-check/Cargo.toml 2>&1 | tee /tmp/cecb-cargo-test.log
+      - id: canonical
+        name: Validate canonical fixture report
+        run: |
+          cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- > /tmp/cecb-validation.json
+          jq -e '.status == "PASS" and .case_count == 10 and .case_fail_count == 0' /tmp/cecb-validation.json
+      - id: policy_view
+        name: Verify candidate view is semantically blinded and truth-free
+        run: |
+          cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --policy-view-out /tmp/cecb-policy-view.json > /dev/null
+          jq -e '
+            .schema_version == "cecb.housing.policy_view.v0.2" and
+            (.cases | length == 10) and
+            ([.cases[].case_token] | unique | length == 10) and
+            all(.cases[];
+              (.case_token | type == "string") and
+              has("observation") and
+              (has("case_id") | not) and
+              (has("purpose") | not)
+            )
+          ' /tmp/cecb-policy-view.json > /dev/null
+          ! grep -q 'oracle_facts' /tmp/cecb-policy-view.json
+          ! grep -q 'true_safe_suitable_capacity' /tmp/cecb-policy-view.json
+          ! grep -q 'H001_FIXED_CAPACITY_CEILING' /tmp/cecb-policy-view.json
+      - id: paired_plan
+        name: Materialize matched allocation-only experiment design
+        run: |
+          cargo run --quiet --manifest-path research/cecb-housing-fixture-check/Cargo.toml -- --paired-plan-out /tmp/cecb-paired-plan.json > /dev/null
+          jq -e '
+            .schema_version == "cecb.housing.paired_design.v0.1" and
+            .status == "design_only_no_policy_execution" and
+            .scenario_config_count == 216 and
+            .paired_seed_count == 30 and
+            .arm_count == 5 and
+            ([.policy_arms[].arm_id] | unique | length == 5) and
+            all(.policy_arms[]; .implementation_status == "adapter_pending") and
+            .scheduled_run_count == 32400 and
+            .design.model_binding.execution_authorized == false and
+            .design.model_binding.numeric_scenario_value_mapping == "unresolved_labels_only" and
+            .run_result_contract.schema_version == "cecb.housing.policy_result.v0.1" and
+            .run_result_contract.canonicalization_profile == "RFC 8785 JSON Canonicalization Scheme" and
+            .design.scenario_config_digest_profile == "RFC 8785 JCS followed by SHA-256" and
+            (.run_result_contract.required_fields | length == 16) and
+            .run_result_contract.forbidden_aggregate_field == "universal_welfare_scalar" and
+            (.outcome_contract | length == 12) and
+            (.runs | length == 32400) and
+            ([.runs[].run_id] | unique | length == 32400) and
+            all(.runs[]; .status == "not_executed" and .disposition == "not_started")
+          ' /tmp/cecb-paired-plan.json > /dev/null
+          jq -e '
+            .runs | group_by(.pair_block_id) |
+            all(.[]; (length == 5) and
+              ([.[].seed_hex] | unique | length == 1) and
+              ([.[].arm_id] | unique | length == 5))
+          ' /tmp/cecb-paired-plan.json > /dev/null
+      # Preserve a machine-checkable run receipt, dependency lock and logs even
+      # on test failure. A skipped job has no receipt and is not a PASS.
+      - name: Build exact-run evidence receipt
+        if: always()
+        run: |
+          set -eu
+          mkdir -p artifacts/cecb
+          cp /tmp/cecb-rustfmt.log artifacts/cecb/ 2>/dev/null || true
+          cp /tmp/cecb-cargo-test.log artifacts/cecb/ 2>/dev/null || true
+          cp /tmp/cecb-validation.json artifacts/cecb/ 2>/dev/null || true
+          cp /tmp/cecb-policy-view.json artifacts/cecb/ 2>/dev/null || true
+          cp /tmp/cecb-paired-plan.json artifacts/cecb/ 2>/dev/null || true
+          cp research/cecb-housing-fixture-check/Cargo.lock artifacts/cecb/ 2>/dev/null || true
+          sha_or_missing() {
+            if [ -f "$1" ]; then sha256sum "$1" | cut -d ' ' -f 1; else printf ''; fi
+          }
+          rustc_version="$(rustc --version 2>/dev/null || echo unavailable)"
+          cargo_version="$(cargo --version 2>/dev/null || echo unavailable)"
+          jq -n \
+            --arg schema_version "cecb.ci_run_receipt.v0.2" \
+            --arg evidence_class "E0 fixture contract and design-manifest validation only" \
+            --arg source_commit "$GITHUB_SHA" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg rustc_version "$rustc_version" \
+            --arg cargo_version "$cargo_version" \
+            --arg fixture_sha256 "$(sha_or_missing docs/research/fixtures/CECB_HOUSING_KNOWN_TRUTH_V0_1.json)" \
+            --arg validator_sha256 "$(sha_or_missing research/cecb-housing-fixture-check/src/main.rs)" \
+            --arg manifest_sha256 "$(sha_or_missing research/cecb-housing-fixture-check/Cargo.toml)" \
+            --arg lock_sha256 "$(sha_or_missing research/cecb-housing-fixture-check/Cargo.lock)" \
+            --arg report_sha256 "$(sha_or_missing /tmp/cecb-validation.json)" \
+            --arg policy_view_sha256 "$(sha_or_missing /tmp/cecb-policy-view.json)" \
+            --arg paired_plan_sha256 "$(sha_or_missing /tmp/cecb-paired-plan.json)" \
+            --arg rustfmt_outcome "${{ steps.rustfmt.outcome }}" \
+            --arg tests_outcome "${{ steps.test.outcome }}" \
+            --arg canonical_outcome "${{ steps.canonical.outcome }}" \
+            --arg policy_view_outcome "${{ steps.policy_view.outcome }}" \
+            --arg paired_plan_outcome "${{ steps.paired_plan.outcome }}" \
+            '{
+              schema_version: $schema_version,
+              evidence_class: $evidence_class,
+              source_commit: $source_commit,
+              workflow_run_id: $run_id,
+              workflow_run_attempt: $run_attempt,
+              toolchain: { rustc: $rustc_version, cargo: $cargo_version },
+              input_sha256: {
+                fixture: $fixture_sha256,
+                validator: $validator_sha256,
+                cargo_manifest: $manifest_sha256,
+                cargo_lock: $lock_sha256
+              },
+              output_sha256: {
+                validation_report: $report_sha256,
+                candidate_policy_view: $policy_view_sha256,
+                paired_plan: $paired_plan_sha256
+              },
+              step_outcomes: {
+                rustfmt: $rustfmt_outcome,
+                tests: $tests_outcome,
+                canonical_report: $canonical_outcome,
+                policy_view_isolation: $policy_view_outcome,
+                paired_plan: $paired_plan_outcome
+              },
+              claim_ceiling: "Synthetic fixture and experiment-plan conformance only; not policy-performance evidence or real-world impact."
+            }' > artifacts/cecb/run-receipt.json
+          jq -e '
+            .schema_version == "cecb.ci_run_receipt.v0.2" and
+            (.source_commit | length == 40) and
+            (.input_sha256.fixture | length == 64) and
+            (.input_sha256.validator | length == 64) and
+            (.step_outcomes.tests != "") and
+            (.step_outcomes.paired_plan != "") and
+            (if .step_outcomes.paired_plan == "success" then (.output_sha256.paired_plan | length == 64) else true end)
+          ' artifacts/cecb/run-receipt.json > /dev/null
+      - uses: actions/upload-artifact@v4
+        name: Upload CECB exact-run evidence
+        if: always()
+        with:
+          name: cecb-fixture-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/cecb/
+          if-no-files-found: error
+          retention-days: 90
 
   test-commons:
     needs: changes
@@ -440,6 +608,7 @@ jobs:
     needs:
       - format
       - test-cos-conformance
+      - test-cecb-fixture
       - test-commons
       - test-civic
       - test-hearth
@@ -458,6 +627,7 @@ jobs:
         run: |
           echo "Format: ${{ needs.format.result }}"
           echo "COS conformance: ${{ needs.test-cos-conformance.result }}"
+          echo "CECB fixture checker: ${{ needs.test-cecb-fixture.result }}"
           echo "Commons: ${{ needs.test-commons.result }}"
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
@@ -474,7 +644,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-cecb-fixture.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
