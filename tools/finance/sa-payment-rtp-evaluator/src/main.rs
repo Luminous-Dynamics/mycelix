@@ -819,6 +819,35 @@ mod tests {
     }
 
     #[test]
+    fn new_request_version_passes_only_with_fresh_digest_and_acceptance_transcript() {
+        let mut corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
+        let scenario = &mut corpus["scenarios"][5];
+        let old_digest = str_at(&scenario["request"], "request_digest")
+            .expect("old digest")
+            .to_owned();
+        {
+            let request = &mut scenario["request"];
+            request["request_version"] = json!(2);
+            request["amount_minor_units"] = json!(6000);
+            let new_digest = compute_request_digest(request).expect("recomputed digest");
+            request["request_digest"] = json!(new_digest);
+        }
+        let new_digest = str_at(&scenario["request"], "request_digest")
+            .expect("new digest")
+            .to_owned();
+        for event in scenario["events"].as_array_mut().unwrap() {
+            if str_at(event, "request_digest") == Some(old_digest.as_str()) {
+                event["request_digest"] = json!(new_digest.clone());
+            }
+            if str_at(event, "accepted_request_digest") == Some(old_digest.as_str()) {
+                event["accepted_request_digest"] = json!(new_digest.clone());
+            }
+        }
+        let errors = semantic_errors(&corpus);
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
     fn negative_mutation_campaign_rejects_consent_and_status_attacks() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
