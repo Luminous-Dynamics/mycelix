@@ -2102,7 +2102,7 @@ mod tests {
             &[],
         );
         invalid_id.node_id = "x".repeat(MAX_IDENTIFIER_BYTES + 1);
-        let graph = graph(
+        let invalid_id_graph = graph(
             vec![
                 role("formal", &["source"], &[FaultDomainDimension::ExecutionProvider]),
                 role("independent", &["target"], &[FaultDomainDimension::ExecutionProvider]),
@@ -2119,7 +2119,7 @@ mod tests {
             ],
         );
         assert_eq!(
-            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), &expected_bindings()),
+            audit_multi_dependency_graph(&invalid_id_graph, &policy(&["formal", "independent"], vec![]), &expected_bindings()),
             Err(AuditError::EmptyNodeId)
         );
 
@@ -2133,7 +2133,7 @@ mod tests {
         invalid_evidence.evidence_refs = BTreeSet::from([
             "receipt:".to_owned() + &"x".repeat(MAX_EVIDENCE_REFERENCE_BYTES)
         ]);
-        let graph = graph(
+        let invalid_evidence_graph = graph(
             vec![
                 role("formal", &["source"], &[FaultDomainDimension::ExecutionProvider]),
                 role("independent", &["target"], &[FaultDomainDimension::ExecutionProvider]),
@@ -2150,7 +2150,7 @@ mod tests {
             ],
         );
         assert_eq!(
-            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), &expected_bindings()),
+            audit_multi_dependency_graph(&invalid_evidence_graph, &policy(&["formal", "independent"], vec![]), &expected_bindings()),
             Err(AuditError::InvalidEvidenceReference)
         );
     }
