@@ -79,7 +79,7 @@ Every reference names an upstream source_family_id and source release. Ten consu
 
 DeSci distinguishes public, controlled, embargoed and unavailable artifacts. Energy's project reference records the access decision and license/redaction profile. A public reference must not leak controlled EPC, land/title, household meter, security or commercially sensitive site data. A denied or unavailable artifact may remain visible as historical reference but cannot satisfy a required evidence gate.
 
-The schema intentionally uses an artifact locator reference, not a free-form public download URL. The authorized resolver decides how to retrieve content under its access policy.
+The schema intentionally uses an artifact locator reference, not a free-form public download URL. The authorized resolver decides how to retrieve content under its access policy. The schema supports an explicit legacy branch: raw locators retain their original string but canonical DeSci, issuer, provenance, temporal and verification fields must be null; they can never satisfy a required gate.
 
 ## 8. Compatibility and migration
 
@@ -115,7 +115,7 @@ Therefore this schema does not assume an in-process DeSci API or direct Energy-z
 
 ## 10. Hostile conformance corpus
 
-project-evidence-reference-v1.fixtures.json provides synthetic fixtures:
+project-evidence-reference-v1.fixtures.json provides synthetic fixtures, including one schema-shaped valid example, one legacy-locator example and mutation descriptions:
 1. Valid reference to a signed artifact, receipt, authorized issuer and exact project boundary.
 2. Legacy raw URL with no content digest or authority receipt.
 3. Same artifact but wrong site/point-of-connection boundary.
