@@ -18,7 +18,7 @@ BEGIN
     IF NOT identity_security.register_verifier_challenge(
         v_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
-        clock_timestamp() + INTERVAL '5 minutes'
+        300
     ) THEN
         RAISE EXCEPTION 'valid challenge registration failed';
     END IF;
@@ -26,7 +26,7 @@ BEGIN
     IF identity_security.register_verifier_challenge(
         v_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
-        clock_timestamp() + INTERVAL '5 minutes'
+        300
     ) THEN
         RAISE EXCEPTION 'duplicate challenge digest was accepted';
     END IF;
@@ -91,7 +91,7 @@ BEGIN
     IF identity_security.register_verifier_challenge(
         v_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
-        clock_timestamp() + INTERVAL '5 minutes'
+        300
     ) THEN
         RAISE EXCEPTION 'consumed challenge digest was registered again';
     END IF;
@@ -99,7 +99,7 @@ BEGIN
     IF NOT identity_security.register_verifier_challenge(
         v_consume_expiry_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
-        clock_timestamp() + INTERVAL '2 seconds'
+        2
     ) THEN
         RAISE EXCEPTION 'short-lived consume-expiry challenge registration failed';
     END IF;
@@ -116,7 +116,7 @@ BEGIN
     IF identity_security.register_verifier_challenge(
         v_consume_expiry_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
-        clock_timestamp() + INTERVAL '5 minutes'
+        300
     ) THEN
         RAISE EXCEPTION 'expired challenge digest was re-registered instead of retained as a tombstone';
     END IF;
@@ -124,15 +124,15 @@ BEGIN
     IF identity_security.register_verifier_challenge(
         v_expired_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
-        clock_timestamp() - INTERVAL '1 second'
+        0
     ) THEN
-        RAISE EXCEPTION 'expired challenge registration was accepted';
+        RAISE EXCEPTION 'zero-second challenge TTL was accepted';
     END IF;
 
     IF identity_security.register_verifier_challenge(
         v_long_ttl_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
-        clock_timestamp() + INTERVAL '11 minutes'
+        601
     ) THEN
         RAISE EXCEPTION 'challenge lifetime greater than ten minutes was accepted';
     END IF;
@@ -140,7 +140,7 @@ BEGIN
     IF identity_security.register_verifier_challenge(
         v_short_digest, 'test-verifier', 'urn:mycelix:test-audience',
         v_transaction_id, v_request_digest, v_holder_digest,
-        clock_timestamp() + INTERVAL '5 minutes'
+        300
     ) THEN
         RAISE EXCEPTION 'malformed challenge digest length was accepted';
     END IF;
