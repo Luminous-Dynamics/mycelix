@@ -1,0 +1,638 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-rtp-abuse-corpus-v1.schema.json",
+  "title": "Mycelix South African Request-to-Pay Abuse and Requester Authenticity Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "as_of",
+    "jurisdiction",
+    "external_effects_enabled",
+    "source_register",
+    "scenarios",
+    "profiles"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-rtp-abuse/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-SA-PAYMENT-RTP-ABUSE-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 32,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_material_fields",
+        "displayed_material_fields",
+        "accessibility_state",
+        "ai_summary_used",
+        "ai_summary_fields"
+      ],
+      "properties": {
+        "required_material_fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "requester",
+              "beneficiary",
+              "amount",
+              "currency",
+              "reference",
+              "fees",
+              "expiry",
+              "purpose"
+            ]
+          }
+        },
+        "displayed_material_fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "requester",
+              "beneficiary",
+              "amount",
+              "currency",
+              "reference",
+              "fees",
+              "expiry",
+              "purpose"
+            ]
+          }
+        },
+        "accessibility_state": {
+          "enum": [
+            "qualified",
+            "incomplete",
+            "unknown"
+          ]
+        },
+        "ai_summary_used": {
+          "type": "boolean"
+        },
+        "ai_summary_fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "requester",
+              "beneficiary",
+              "amount",
+              "currency",
+              "reference",
+              "fees",
+              "expiry",
+              "purpose"
+            ]
+          }
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "profile_id",
+        "requester_authentication",
+        "credential_compromise_state",
+        "requester_identity_evidence",
+        "collection_authority",
+        "commercial_claim_evidence",
+        "payee_binding",
+        "payer_action",
+        "prior_declined",
+        "request_count_24h",
+        "published_request_limit_24h",
+        "limit_source_state",
+        "abuse_signals",
+        "presentation",
+        "secondary_data_use",
+        "appeal_state",
+        "expected_disposition",
+        "expected_claim_ceiling",
+        "instruction_created",
+        "source_refs",
+        "notes",
+        "requester_subject_ref",
+        "risk_observations",
+        "payee_verification_scheme",
+        "payee_verification_result",
+        "payee_verification_guidance",
+        "payer_warning_state",
+        "payer_choice_state"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^SA-RTP-ABUSE-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requester_authentication": {
+          "enum": [
+            "authenticated_session",
+            "unverified",
+            "stale_session",
+            "unknown"
+          ]
+        },
+        "credential_compromise_state": {
+          "enum": [
+            "clean",
+            "suspected",
+            "confirmed",
+            "unknown"
+          ]
+        },
+        "requester_identity_evidence": {
+          "enum": [
+            "display_name_only",
+            "account_name_match",
+            "verified_merchant_identity",
+            "mismatch",
+            "confusable",
+            "unknown"
+          ]
+        },
+        "collection_authority": {
+          "enum": [
+            "verified_for_beneficiary",
+            "not_provided",
+            "conflicting",
+            "unknown"
+          ]
+        },
+        "commercial_claim_evidence": {
+          "enum": [
+            "invoice_evidence_bound",
+            "merchant_record_only",
+            "missing",
+            "stale",
+            "conflicting",
+            "unsupported_legal_assertion"
+          ]
+        },
+        "payee_binding": {
+          "enum": [
+            "exact",
+            "mismatch",
+            "ambiguous",
+            "confusable",
+            "unknown"
+          ]
+        },
+        "payer_action": {
+          "enum": [
+            "pending",
+            "declined",
+            "queried",
+            "reported",
+            "blocked",
+            "accepted"
+          ]
+        },
+        "prior_declined": {
+          "type": "boolean"
+        },
+        "request_count_24h": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "published_request_limit_24h": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "limit_source_state": {
+          "enum": [
+            "source_backed",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "abuse_signals": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "coercive_language",
+              "unsupported_legal_claim",
+              "repeat_after_decline",
+              "request_flood",
+              "suspected_account_compromise",
+              "identity_confusable",
+              "payer_report",
+              "unrelated_secondary_use",
+              "false_positive_block_appeal",
+              "unauthorised_intermediary",
+              "authority_conflict",
+              "payer_query"
+            ]
+          }
+        },
+        "presentation": {
+          "$ref": "#/$defs/presentation"
+        },
+        "secondary_data_use": {
+          "enum": [
+            "none",
+            "credit_scoring",
+            "marketing_disclosure",
+            "other_unrelated",
+            "unknown"
+          ]
+        },
+        "appeal_state": {
+          "enum": [
+            "none",
+            "pending",
+            "upheld",
+            "reversed"
+          ]
+        },
+        "expected_disposition": {
+          "enum": [
+            "identity_or_authority_unqualified",
+            "reject_payee_mismatch",
+            "commercial_claim_unsubstantiated",
+            "flag_unsupported_claim",
+            "repeat_after_decline_review",
+            "blocked_by_published_limit",
+            "credential_compromise_review",
+            "manual_identity_review",
+            "report_no_payment_effect",
+            "decline_no_payment_effect",
+            "reject_secondary_data_use",
+            "presentation_incomplete",
+            "appeal_review_not_automatic_exclusion",
+            "query_no_payment_effect",
+            "limit_unknown_do_not_invent_rejection"
+          ]
+        },
+        "expected_claim_ceiling": {
+          "enum": [
+            "sender_session_only",
+            "account_name_match_only",
+            "requester_identity_only",
+            "requester_authority_supported",
+            "commercial_evidence_present_nonlegal",
+            "unproven"
+          ]
+        },
+        "instruction_created": {
+          "const": false
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requester_subject_ref": {
+          "type": "string",
+          "pattern": "^urn:synthetic:requester:[0-9]{3,4}$"
+        },
+        "risk_observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/risk_observation"
+          }
+        },
+        "payee_verification_scheme": {
+          "enum": [
+            "not_performed",
+            "EPC_VOP_V1_1_COMPARATOR"
+          ]
+        },
+        "payee_verification_result": {
+          "enum": [
+            "not_performed",
+            "match",
+            "close_match",
+            "no_match",
+            "verification_not_possible"
+          ]
+        },
+        "payee_verification_guidance": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "payer_warning_state": {
+          "enum": [
+            "not_applicable",
+            "not_required",
+            "warning_displayed"
+          ]
+        },
+        "payer_choice_state": {
+          "enum": [
+            "not_applicable",
+            "not_presented",
+            "preserved"
+          ]
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "participant",
+        "product",
+        "observed_on",
+        "effective_from",
+        "request_limit_24h",
+        "request_limit_scope",
+        "source_refs",
+        "qualification"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "product": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "request_limit_24h": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "request_limit_scope": {
+          "enum": [
+            "requester_account",
+            "payer_account",
+            "recipient_account",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "risk_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "signal_code",
+        "issuer_class",
+        "evidence_state",
+        "freshness_state",
+        "appeal_state",
+        "subject_scope",
+        "subject_binding_state",
+        "subject_ref",
+        "observed_on",
+        "expires_on",
+        "purpose_scope",
+        "evidence_commitment"
+      ],
+      "properties": {
+        "observation_id": {
+          "type": "string",
+          "pattern": "^OBS-[0-9]{3}-[0-9]{2}$"
+        },
+        "signal_code": {
+          "enum": [
+            "coercive_language",
+            "repeat_after_decline",
+            "credential_compromise",
+            "identity_confusable",
+            "payer_report",
+            "secondary_data_use",
+            "false_positive_block",
+            "authority_conflict",
+            "past_request_complaint",
+            "past_impersonation_claim"
+          ]
+        },
+        "issuer_class": {
+          "enum": [
+            "payer_report",
+            "provider_security_notice",
+            "independent_adjudication",
+            "third_party_complaint",
+            "automated_heuristic",
+            "system_audit"
+          ]
+        },
+        "evidence_state": {
+          "enum": [
+            "unverified",
+            "corroborated",
+            "independently_confirmed",
+            "refuted"
+          ]
+        },
+        "freshness_state": {
+          "enum": [
+            "current",
+            "stale",
+            "unknown"
+          ]
+        },
+        "appeal_state": {
+          "enum": [
+            "none",
+            "pending",
+            "upheld",
+            "overturned"
+          ]
+        },
+        "subject_scope": {
+          "enum": [
+            "requester_account",
+            "requester_credential",
+            "merchant_identity"
+          ]
+        },
+        "subject_binding_state": {
+          "enum": [
+            "bound",
+            "unbound",
+            "unknown"
+          ]
+        },
+        "subject_ref": {
+          "type": "string",
+          "pattern": "^urn:synthetic:requester:[0-9]{3,4}$"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "expires_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "purpose_scope": {
+          "const": "payment_request_abuse_only"
+        },
+        "evidence_commitment": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}
