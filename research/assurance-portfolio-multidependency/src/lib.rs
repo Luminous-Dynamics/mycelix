@@ -360,7 +360,7 @@ fn minimal_hitting_sets(
     role_sets: &[(String, BTreeSet<FaultDomainKey>)],
     max_candidate_extensions: usize,
 ) -> Result<MinimalCutSetReport, AuditError> {
-    if bindings.max_candidate_extensions == 0 {
+    if max_candidate_extensions == 0 {
         return Err(AuditError::ZeroCandidateBudget);
     }
     let mut ordered_roles = role_sets.to_vec();
@@ -435,7 +435,7 @@ pub fn audit_multi_dependency_graph(
     if graph.claim_id.trim().is_empty() {
         return Err(AuditError::EmptyClaimId);
     }
-    if max_candidate_extensions == 0 {
+    if bindings.max_candidate_extensions == 0 {
         return Err(AuditError::ZeroCandidateBudget);
     }
     if graph.nodes.len() > MAX_DEPENDENCY_NODES {
