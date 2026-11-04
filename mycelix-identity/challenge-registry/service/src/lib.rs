@@ -373,7 +373,6 @@ mod tests {
         assert!(context().validate().is_ok());
     }
 
-
     #[test]
     fn context_rejects_nil_transaction_and_zero_digest_sentinels() {
         assert!(matches!(
