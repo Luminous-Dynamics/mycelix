@@ -100,3 +100,12 @@ The synthetic recipient-propagation profile does not establish a universal propa
 A propagation report is not complete merely because every currently listed recipient has acknowledged. Before a corrected, withdrawn or expired signal can be reported as fully propagated, the source must qualify the historical disclosure inventory itself.
 
 Each case now declares whether its prior-recipient inventory is `complete`, `incomplete`, `unknown` or `not_applicable`, together with a count, evidence reference and verification timestamp. A changed signal with an unknown or incomplete recipient inventory remains quarantined: the system cannot claim that every prior recipient was notified or invalidated. A complete zero-recipient inventory is different from a missing inventory and must be supported by its own evidence.
+
+
+## Stacked recipient-propagation qualification (#5817)
+
+The stacked extension expands this fixture from 33 to **39 scenarios**, with **71 append-only signal events** and **25 deterministic mutation controls**. It adds three jurisdiction-specific notification profiles: South African POPIA section 24, an EU GDPR Article 19 comparator, and an unqualified multi-jurisdiction state.
+
+Every scenario now includes a historical recipient inventory and correction-propagation ledger. A correction/withdrawal cannot be reported as propagated unless the historical disclosure inventory is explicitly complete and every prior recipient/version/digest has a corresponding obligation. Incomplete or unknown inventories remain quarantined. A delivery receipt is not an acknowledgement; an acknowledgement is not proof of local cache invalidation. A no-notification decision requires a reasoned no-decision-impact assessment; a not-practicable exception remains an explicit exception, not a legal safe harbour.
+
+The South African rule profile records POPIA section 24(3)'s conditional recipient notification obligation (decision impact and reasonable practicability) and section 24(4)'s data-subject outcome notification. The 2025 Regulations' 30-day rule is not misrepresented as a recipient cache-invalidation SLA. GDPR Article 19 stays a separate EU comparator. No universal notification or invalidation timer is invented.
