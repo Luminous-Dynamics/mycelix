@@ -497,7 +497,14 @@ References:
 - https://www.sec.gov/newsroom/whats-new/260915-edgar-263-release-xbrl-taxonomies-update
 - https://www.sec.gov/submit-filings/technical-specifications
 
-Do not infer South African CIPC or SARS filing requirements from SEC EDGAR acceptance. Any South African filing profile requires the competent regulator's primary taxonomy, format, filing manual and effective-date instrument before it can be marked supported.
+South African CIPC iXBRL is a distinct, already-established digital reporting profile: the CIPC XBRL Programme page states that iXBRL digital reporting was mandated for qualifying entities from 1 July 2018. The live CIPC page labels the 2024 taxonomy package as final and separately lists the 2025 IFRS/Co-op/GRAP data models and IFRS gap analysis under public consultation. Therefore, build a CIPC-specific iXBRL profile using the applicable final CIPC 2024 taxonomy/technical artefacts for the relevant reporting period and entity type; treat the CIPC 2025 models as draft until final publication/effective-date instructions. Pin the exact CIPC ZIP, mandatory elements, release notes, architecture, filer guidance and validator by digest. Do not infer the CIPC 2025 draft is production-ready from its consultation page.
+
+Primary CIPC sources:
+- https://www.cipc.co.za/?page_id=4400 (XBRL Programme, current taxonomy/consultation status)
+- https://www.cipc.co.za/wp-content/uploads/2024/10/25082017_Guidelines_for_Filing_-AFSs_in_XBRL_by_Client_Companies_Technical_Aspects-v1-25-OM.pdf (technical filer guidance v1.25)
+- https://www.cipc.co.za/wp-content/uploads/2024/10/cipc_2024-09-30.zip (CIPC final 2024 taxonomy package; obtain and pin its digest before implementation)
+
+Keep CIPC annual-statement iXBRL output separate from SARS's statutory e-invoice/e-reporting framework under Act 4 of 2026. CIPC's iXBRL mandate does not itself establish SARS e-invoicing participation or vice versa. SEC EDGAR acceptance likewise does not establish South African filing compliance.
 
 ### Reporting-output test dimensions
 
@@ -551,3 +558,10 @@ The current external snapshots are useful for directional comparison but are not
 
 The commercial metric remains **fully loaded cost per independently verified, complete and approvable entity-period**, with connector, extraction, model, verifier, reviewer, rework and exception cost included. A period with unresolved material completeness/authority gates does not enter the denominator.
 
+
+
+### South African CIPC taxonomy and filing status — checked 4 November 2026
+
+CIPC's official XBRL Programme page says digital iXBRL reporting for qualifying entities has been mandated since 1 July 2018. It currently presents the **Final 2024 Taxonomy** and links the 2024 IFRS, Co-op and GRAP taxonomy package, architecture, mandatory elements and release notes. It separately presents the CIPC 2025 IFRS/Co-op/GRAP data models and IFRS gap analysis under **Public Consultation**. The 2025 consultation artifacts must not be treated as final filing rules. Pin the actual CIPC package bytes and the reporting-period/entity applicability before claiming CIPC profile support. CIPC iXBRL annual financial-statement reporting and SARS structured invoice/e-reporting are different regulatory/document processes.
+
+Primary source: https://www.cipc.co.za/?page_id=4400
