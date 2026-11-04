@@ -1056,6 +1056,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "mycelix-business-core"
+version = "0.1.0"
+
+[[package]]
+name = "mycelix-finance-accounting"
+version = "0.1.0"
+dependencies = [
+ "mycelix-business-core",
+ "mycelix-finance-exact",
+ "mycelix-finance-settlement",
+ "sha2",
+]
+
+[[package]]
+name = "mycelix-finance-exact"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "mycelix-finance-settlement"
+version = "0.1.0"
+dependencies = [
+ "mycelix-business-core",
+ "mycelix-finance-exact",
+]
+
+[[package]]
 name = "mycelix_finance_shared"
 version = "0.1.0"
 dependencies = [
