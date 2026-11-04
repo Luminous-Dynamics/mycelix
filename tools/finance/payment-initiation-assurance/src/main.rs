@@ -3,12 +3,14 @@
 //! real payees, authenticate users, or call any payment rail.
 
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::error::Error;
 
-const CORPUS: &str = include_str!("../../../../mycelix-finance/docs/payment-initiation-assurance-corpus-v1.json");
-const SCHEMA: &str = include_str!("../../../../mycelix-finance/docs/payment-initiation-assurance-v1.schema.json");
+const CORPUS: &str =
+    include_str!("../../../../mycelix-finance/docs/payment-initiation-assurance-corpus-v1.json");
+const SCHEMA: &str =
+    include_str!("../../../../mycelix-finance/docs/payment-initiation-assurance-v1.schema.json");
 
 fn string_at<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key).and_then(Value::as_str)
@@ -48,10 +50,10 @@ fn expected_for(category: &str) -> Option<&'static str> {
 }
 
 fn validate_schema(schema_text: &str, corpus_text: &str) -> Result<Value, Vec<String>> {
-    let schema: Value =
-        serde_json::from_str(schema_text).map_err(|error| vec![format!("schema parse: {error}")])?;
-    let corpus: Value =
-        serde_json::from_str(corpus_text).map_err(|error| vec![format!("corpus parse: {error}")])?;
+    let schema: Value = serde_json::from_str(schema_text)
+        .map_err(|error| vec![format!("schema parse: {error}")])?;
+    let corpus: Value = serde_json::from_str(corpus_text)
+        .map_err(|error| vec![format!("corpus parse: {error}")])?;
     if !jsonschema::meta::is_valid(&schema) {
         return Err(vec!["schema fails Draft 2020-12 meta-schema".into()]);
     }
@@ -84,7 +86,10 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
         || corpus["qr_plus_profile"]["execution_rail"] != "selected_provider_rail"
         || corpus["qr_plus_profile"]["pilot_state"] != "unverified_future_milestone"
     {
-        errors.push("QR+ publication, underlying rail execution and pilot status must remain distinct".into());
+        errors.push(
+            "QR+ publication, underlying rail execution and pilot status must remain distinct"
+                .into(),
+        );
     }
 
     let cases = match corpus["cases"].as_array() {
@@ -109,10 +114,14 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
             errors.push(format!("cases[{index}]: missing or duplicate category"));
         }
         if string_at(case, "expected") != expected_for(category) {
-            errors.push(format!("cases[{index}]: category-to-disposition mapping mismatch"));
+            errors.push(format!(
+                "cases[{index}]: category-to-disposition mapping mismatch"
+            ));
         }
         if bool_at(case, "dispatch_allowed") != Some(false) {
-            errors.push(format!("cases[{index}]: synthetic evaluator must not authorize dispatch"));
+            errors.push(format!(
+                "cases[{index}]: synthetic evaluator must not authorize dispatch"
+            ));
         }
 
         let input = &case["input"];
@@ -120,48 +129,63 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
             && bool_at(input, "payer_authorised") != Some(true)
             && category != "payment_timeout_unknown"
         {
-            errors.push(format!("cases[{index}]: dispatch attempted without payer authorization"));
+            errors.push(format!(
+                "cases[{index}]: dispatch attempted without payer authorization"
+            ));
         }
         if category == "exact_scan_replay"
             && (bool_at(input, "same_operation_id") != Some(true)
                 || bool_at(input, "same_fingerprint") != Some(true)
                 || u64_at(input, "second_effect_count") != Some(0))
         {
-            errors.push("exact replay must preserve identity/fingerprint and zero second effects".into());
+            errors.push(
+                "exact replay must preserve identity/fingerprint and zero second effects".into(),
+            );
         }
         if category == "same_nonce_changed_fingerprint"
             && (bool_at(input, "same_operation_id") != Some(true)
                 || bool_at(input, "same_fingerprint") != Some(false))
         {
-            errors.push("changed-fingerprint replay must conflict under the same operation identity".into());
+            errors.push(
+                "changed-fingerprint replay must conflict under the same operation identity".into(),
+            );
         }
         if category == "payment_timeout_unknown"
             && (bool_at(input, "external_effect_possible") != Some(true)
                 || bool_at(input, "original_operation_id_retained") != Some(true)
                 || string_at(input, "retry_policy") != Some("query_original_only"))
         {
-            errors.push("ambiguous provider result must retain original operation identity and query only".into());
+            errors.push(
+                "ambiguous provider result must retain original operation identity and query only"
+                    .into(),
+            );
         }
         if category == "provider_accepted_without_settlement"
             && (bool_at(input, "provider_accepted") != Some(true)
                 || bool_at(input, "settlement_evidence_present") != Some(false)
                 || bool_at(input, "recipient_available_evidence_present") != Some(false))
         {
-            errors.push("provider acceptance must not be promoted to settlement or recipient availability".into());
+            errors.push(
+                "provider acceptance must not be promoted to settlement or recipient availability"
+                    .into(),
+            );
         }
         if category == "standard_published_pilot_unverified"
             && (bool_at(input, "standard_published") != Some(true)
                 || bool_at(input, "pilot_commenced") != Some(false)
                 || bool_at(input, "merchant_implementation_verified") != Some(false))
         {
-            errors.push("published standard cannot prove pilot or merchant implementation".into());
+            errors.push(
+                "published standard cannot prove pilot or merchant implementation".into(),
+            );
         }
         if category == "recipient_mismatch_requires_new_consent"
             && (bool_at(input, "original_consent_invalidated") != Some(true)
                 || bool_at(input, "new_consent_obtained") != Some(false)
                 || bool_at(input, "dispatch_attempted") != Some(false))
         {
-            errors.push("recipient change must invalidate prior consent and prevent dispatch".into());
+            errors
+                .push("recipient change must invalidate prior consent and prevent dispatch".into());
         }
         if category == "resolution_rate_limit"
             && (u64_at(input, "resolution_requests_in_window")
@@ -169,7 +193,9 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
                 .is_none_or(|(requests, limit)| requests <= limit)
                 || bool_at(input, "disclosure_over_limit") != Some(false))
         {
-            errors.push("proxy resolution rate-limit negative control is not actually over limit".into());
+            errors.push(
+                "proxy resolution rate-limit negative control is not actually over limit".into(),
+            );
         }
         if category == "static_qr_no_amount"
             && (bool_at(input, "amount_present") != Some(false)
@@ -180,17 +206,25 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
         if category == "invalid_provider_signature"
             && bool_at(input, "provider_signature_valid") != Some(false)
         {
-            errors.push("invalid provider signature test must carry a false verifier result".into());
+            errors.push(
+                "invalid provider signature test must carry a false verifier result".into(),
+            );
         }
         if category == "wrong_provider_audience"
             && bool_at(input, "provider_audience_valid") != Some(false)
         {
             errors.push("wrong provider audience must fail".into());
         }
-        if case["required_evidence"].as_array().is_none_or(|items| items.is_empty())
-            || case["negative_controls"].as_array().is_none_or(|items| items.is_empty())
+        if case["required_evidence"]
+            .as_array()
+            .is_none_or(|items| items.is_empty())
+            || case["negative_controls"]
+                .as_array()
+                .is_none_or(|items| items.is_empty())
         {
-            errors.push(format!("cases[{index}]: evidence and negative controls cannot be empty"));
+            errors.push(format!(
+                "cases[{index}]: evidence and negative controls cannot be empty"
+            ));
         }
     }
 
@@ -267,8 +301,9 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let corpus = validate_schema(SCHEMA, CORPUS)
-        .map_err(|errors| std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; ")))?;
+    let corpus = validate_schema(SCHEMA, CORPUS).map_err(|errors| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; "))
+    })?;
     let errors = validate_semantics(&corpus);
     let mutations = mutation_campaign(&corpus)
         .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
