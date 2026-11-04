@@ -234,7 +234,84 @@
               # Zomes run under Holochain/Wasmer, not browser JS or WASI.
               # Disable transitive OS getrandom in the wasm target; zome code
               # needing entropy must call the conductor host API (hdk::random_bytes).
-              export CARGO_ENCODED_RUSTFLAGS="$(printf "%s\\037" "--cfg" "getrandom_backend=\\\"unsupported\\\"")"
+              export CARGO_ENCODED_RUSTFLAGS=
+              cd integrity && cargo build --release --target wasm32-unknown-unknown
+              cd ../zomes/mail_messages && cargo build --release --target wasm32-unknown-unknown
+              cd ../trust_filter && cargo build --release --target wasm32-unknown-unknown
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              # DNA packaging would go here
+            '';
+          };
+        };
+
+        # Development scripts
+        apps = {
+          dev = flake-utils.lib.mkApp {
+            drv = pkgs.writeShellScriptBin "mycelix-dev" ''
+              echo "Starting Mycelix Pulse development environment..."
+
+              # Start IPFS daemon if not running
+              if ! pgrep -x "ipfs" > /dev/null; then
+                echo "Starting IPFS daemon..."
+                ipfs daemon &
+                sleep 2
+              fi
+
+              # Start Holochain conductor if not running
+              if ! pgrep -x "holochain" > /dev/null; then
+                echo "Starting Holochain conductor..."
+                ${holochainPkg}/bin/holochain -c ~/.config/holochain/conductor-config.yaml &
+                sleep 3
+              fi
+
+              # Start backend
+              echo "Starting Rust backend..."
+              cd ${toString ./happ/backend-rs}
+              cargo run &
+
+              # Start frontend
+              echo "Starting Leptos frontend dev server..."
+              cd ${toString ./apps/leptos}
+              env -u NO_COLOR RUSTC_WRAPPER= SCCACHE_DISABLE=1 ~/.cargo/bin/trunk serve --address 127.0.0.1 --port 8117 &
+
+              echo ""
+              echo "Services running:"
+              echo "  - IPFS API: http://localhost:5001"
+              echo "  - Holochain Admin: ws://localhost:4444"
+              echo "  - Backend API: http://localhost:3001"
+              echo "  - Frontend: http://127.0.0.1:8117"
+              echo ""
+              echo "Press Ctrl+C to stop all services"
+
+              wait
+            '';
+          };
+        };
+
+        # Phase 5A.3.a smoke test — single VM, module activated, real
+        # systemd service, real TCP listener on :2525, smtplib client
+        # round-trip through StubZomeBridge. Run via:
+        #   nix build .#checks.x86_64-linux.gateway-smoke -L
+        # First run takes ~10 min cold (NixOS image + crate build);
+        # cached after.
+        checks = {
+          gateway-smoke = import ./tests/pulse-gateway-smoke.nix {
+            inherit pkgs;
+            pulseModule = ./_infrastructure/nixos/pulse-gateway-host.nix;
+          };
+        };
+      }
+    ) // {
+      # System-independent outputs go outside eachDefaultSystem.
+      # NixOS modules are per-NixOS-version, not per-host-arch.
+      nixosModules.pulse-smtp-gateway = ./_infrastructure/nixos/pulse-gateway-host.nix;
+      nixosModules.default = self.nixosModules.pulse-smtp-gateway;
+    };
+}
+--cfg\\037getrandom_backend="unsupported"'
               cd integrity && cargo build --release --target wasm32-unknown-unknown
               cd ../zomes/mail_messages && cargo build --release --target wasm32-unknown-unknown
               cd ../trust_filter && cargo build --release --target wasm32-unknown-unknown
