@@ -9,11 +9,14 @@
 
     # Holochain development tools
     holochain-flake = {
-      # Holonix 0.7 exports the conductor and hc packages and pins the
-      # released Holochain 0.7.0 / Kitsune2 Iroh / Lair 0.7.1 toolchain.
-      # Keep its nixpkgs graph independent from the app's legacy package set.
+      # Holonix's main-0.7 branch advances as releases land. Keep the app
+      # on the 0.7.0 canary tuple while #5719 resolves the 0.7.0/0.7.1
+      # target discrepancy; never let a moving branch silently upgrade the
+      # conductor underneath HDK/HDI-pinned zomes.
       url = "github:holochain/holonix?ref=main-0.7";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.holochain.url = "github:holochain/holochain?ref=holochain-0.7.0";
+      inputs.kitsune2.url = "github:holochain/kitsune2?ref=v0.5.0";
     };
 
     # Rust toolchain
