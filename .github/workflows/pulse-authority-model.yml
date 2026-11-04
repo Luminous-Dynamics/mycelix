@@ -8,6 +8,7 @@ on:
       - ".github/workflows/pulse-authority-model.yml"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
       - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   pull_request:
     paths:
@@ -156,6 +157,38 @@ jobs:
           grep -q "ProtectedFieldsRemainImmutable" \
             "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant/tlc.log"
 
+      - name: Check safe causal AuthorityCheckpoint model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-safe/states" \
+            -config PulseAuthorityCheckpoint.cfg \
+            PulseAuthorityCheckpoint.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-safe/tlc.log"
+
+      - name: Require checkpoint-bypass mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-bypass-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-bypass-mutant/states" \
+            -config PulseAuthorityCheckpoint-bypass-mutant.cfg \
+            PulseAuthorityCheckpoint.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-bypass-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoFalseFreshAuthority" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-bypass-mutant/tlc.log"
+
       - name: Record exact model receipt
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
@@ -184,6 +217,9 @@ jobs:
             echo "mailbox_safe_config_sha256=$(sha256sum PulseMailboxValidation.cfg | cut -d' ' -f1)"
             echo "mailbox_proposed_state_mutant_sha256=$(sha256sum PulseMailboxValidation-proposed-state-mutant.cfg | cut -d' ' -f1)"
             echo "mailbox_field_mutation_mutant_sha256=$(sha256sum PulseMailboxValidation-field-mutation-mutant.cfg | cut -d' ' -f1)"
+            echo "checkpoint_spec_sha256=$(sha256sum PulseAuthorityCheckpoint.tla | cut -d' ' -f1)"
+            echo "checkpoint_safe_config_sha256=$(sha256sum PulseAuthorityCheckpoint.cfg | cut -d' ' -f1)"
+            echo "checkpoint_bypass_mutant_sha256=$(sha256sum PulseAuthorityCheckpoint-bypass-mutant.cfg | cut -d' ' -f1)"
             java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
             sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
           } > "${RUNNER_TEMP}/pulse-tlc-artifacts/receipt.txt"
