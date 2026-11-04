@@ -685,9 +685,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             "--self-test" => self_test = true,
             "--help" | "-h" => {
-                println!(
-                    "sa-payment-rtp-evaluator [--corpus PATH] [--schema PATH] [--self-test]"
-                );
+                println!("sa-payment-rtp-evaluator [--corpus PATH] [--schema PATH] [--self-test]");
                 return Ok(());
             }
             other => {
