@@ -85,10 +85,13 @@ The new 14-case synthetic extension tests:
 - client-side fuzzy-match promotion;
 - excessive payer-visible disclosure.
 
-The evaluator accepts only provider-authoritative result classifications. It does not calculate approximate name matches. A positive name match does not establish requester authority, debt legitimacy or the payer's consent. Unavailable/other/stale remain indeterminate, not verified. All new fixtures keep dispatch disabled.
+The evaluator qualifies declared provider-result classes, source/profile references, issuer/participant/audience and exact opaque subject bindings. `provider_signature_state` is a fixture input; this evaluator does not cryptographically verify a provider response signature or establish live issuer key trust. A real adapter must consume a separately qualified signature/JWS verifier and freshness/key-status profile. The evaluator does not calculate approximate name matches. A positive name match does not establish requester authority, debt legitimacy or payer consent. Unavailable, other and stale remain distinct non-match dispositions. A proposed South African NPU capability is recorded as proposal-only, not a live provider result. All new fixtures keep dispatch disabled.
 
 ## 2026-11-04 SRTP technical-documentation comparator update
 
 The EPC published SRTP Trust & Security Model v1.1.0 (authentication, message integrity and JWS electronic sealing) and SRTP OpenAPI v4.0.1 on 27 October 2026. They align with SRTP Rulebook v4.0; they may be used voluntarily from publication and formally take effect 1 May 2027, when EPC Directory Service use becomes mandatory for all scheme participants. These are European scheme comparators, not South African PayShap Request requirements.
 
 Sources: [EPC publication](https://www.europeanpaymentscouncil.eu/news-insights/news/epc-publishes-updated-technical-documentation-for-the-srtp-scheme), [Trust and Security Model](https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/sepa-request-pay-srtp-trust-and-security-model-0), [OpenAPI v4.0.1](https://www.europeanpaymentscouncil.eu/document-library/implementation-guidelines/sepa-request-pay-srtp-openapi-specifications).
+
+
+The complete synthetic corpus now contains 33 unique QR+/payee verification cases. The focused negative-mutation campaign targets 28 independent semantic failure modes.
