@@ -158,6 +158,12 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
         if event_type == "recipient_local_decision" && effect != "unchanged" {
             return Some("keep_local_decision_separate");
         }
+        if event_type == "recipient_local_decision" {
+            if effect != "unchanged" {
+                return Some("keep_local_decision_separate");
+            }
+            continue;
+        }
         if effect != "unchanged"
             && (actor != "originating_psp"
                 || str_at(event, "authority_state") != Some("valid"))
@@ -222,9 +228,7 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
     if let Some(score_disposition) = score_disposition(signal, evaluation_at) {
         return Some(score_disposition);
     }
-    if str_at(signal, "channel_coverage_state") != Some("qualified_synthetic")
-        && !signal["model_score"].is_null()
-    {
+    if str_at(signal, "channel_coverage_state") != Some("qualified_synthetic") {
         return Some("declare_channel_coverage_unknown");
     }
 
