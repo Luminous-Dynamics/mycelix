@@ -106,7 +106,7 @@
     "cases": {
       "type": "array",
       "minItems": 33,
-      "maxItems": 19,
+      "maxItems": 33,
       "items": {
         "$ref": "#/$defs/case"
       }
