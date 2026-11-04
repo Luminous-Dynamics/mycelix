@@ -795,14 +795,27 @@ mod tests {
     }
 
     #[test]
-    fn request_digest_is_bound_to_amount() {
+    fn request_digest_is_bound_to_all_payer_material_fields() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
-        let mut changed = corpus.clone();
-        changed["scenarios"][5]["request"]["amount_minor_units"] = json!(6000);
-        assert!(
-            !semantic_errors(&changed).is_empty(),
-            "an altered amount must fail the recomputed request commitment"
-        );
+        for (field, replacement) in [
+            ("amount_minor_units", json!(6000)),
+            ("beneficiary_identity", json!("beneficiary:second-merchant")),
+            ("currency", json!("USD")),
+            ("fee_minor_units", json!(100)),
+            ("reference", json!("INV-002")),
+            ("purpose", json!("updated-purpose")),
+            ("expiry_at", json!("2026-11-04T11:00:00Z")),
+            ("requester_identity", json!("requester:second-merchant")),
+            ("channel", json!("alternate-channel")),
+            ("request_version", json!(2)),
+        ] {
+            let mut changed = corpus.clone();
+            changed["scenarios"][5]["request"][field] = replacement;
+            assert!(
+                !semantic_errors(&changed).is_empty(),
+                "request field {field} must be bound by the recomputed digest"
+            );
+        }
     }
 
     #[test]
