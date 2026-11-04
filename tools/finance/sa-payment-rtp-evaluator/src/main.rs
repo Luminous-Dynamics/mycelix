@@ -175,6 +175,24 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         errors.push("request_digest_contract: unsupported or missing commitment contract".into());
     }
 
+    if let Some(vectors) = array_at(digest_contract, "vectors") {
+        for (index, vector) in vectors.iter().enumerate() {
+            let scenario_id = str_at(vector, "scenario_id").unwrap_or("");
+            let expected = str_at(vector, "expected_digest").unwrap_or("");
+            let scenario = array_at(corpus, "scenarios").and_then(|items| {
+                items.iter().find(|item| str_at(item, "scenario_id") == Some(scenario_id))
+            });
+            match scenario.and_then(|item| compute_request_digest(&item["request"]).ok()) {
+                Some(actual) if actual == expected => {}
+                _ => errors.push(format!(
+                    "request_digest_contract.vectors[{index}]: reference digest mismatch"
+                )),
+            }
+        }
+    } else {
+        errors.push("request_digest_contract.vectors: missing reference vectors".into());
+    }
+
     let sources = array_at(corpus, "source_register")
         .cloned()
         .unwrap_or_default();
