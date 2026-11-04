@@ -11,6 +11,13 @@ Usage:
       --root mycelix-workspace/mycelix-pulse \
       --output target/pulse-signal-contract-report.json
 
+    # Preserve the FAIL status and findings in JSON while returning exit code 0
+    # for an initial baseline inventory:
+    cargo run --manifest-path tools/pulse-signal-contract-audit/Cargo.toml -- \
+      --root mycelix-workspace/mycelix-pulse \
+      --output target/pulse-signal-contract-report.json \
+      --report-only
+
 Run from the repository root. A non-zero result is expected on the current migration source: this is a fail-closed inventory, not a parser that silently normalizes incompatible encodings.
 
 Scope limitations:
