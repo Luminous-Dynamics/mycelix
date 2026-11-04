@@ -4013,10 +4013,10 @@
       ]
     },
     {
-      "scenario_id": "SA-RTP-033",
+      "scenario_id": "SA-RTP-047",
       "scenario_type": "authenticated_requester_without_invoice_evidence",
       "request": {
-        "request_id": "REQ-ABUSE-033",
+        "request_id": "REQ-ABUSE-047",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4030,7 +4030,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "request_digest": "sha256:b06a34a59aa78d0f179babc51921b2cacf7f592d2de0909a606001171ee10553"
       },
       "events": [
         {
@@ -4039,7 +4039,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "request_digest": "sha256:b06a34a59aa78d0f179babc51921b2cacf7f592d2de0909a606001171ee10553",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4051,7 +4051,7 @@
           "event_type": "request_delivered",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "request_digest": "sha256:b06a34a59aa78d0f179babc51921b2cacf7f592d2de0909a606001171ee10553",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4084,10 +4084,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-034",
+      "scenario_id": "SA-RTP-048",
       "scenario_type": "confusable_shapid_or_merchant_identity",
       "request": {
-        "request_id": "REQ-ABUSE-034",
+        "request_id": "REQ-ABUSE-048",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4101,7 +4101,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "request_digest": "sha256:3468ffe41b5530149825c780c2dda819fb5fb6168f6c1b004200dce5917f545a"
       },
       "events": [
         {
@@ -4110,7 +4110,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "request_digest": "sha256:3468ffe41b5530149825c780c2dda819fb5fb6168f6c1b004200dce5917f545a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4122,7 +4122,7 @@
           "event_type": "requester_identity_confusable",
           "actor_role": "system",
           "authority_state": "invalid",
-          "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "request_digest": "sha256:3468ffe41b5530149825c780c2dda819fb5fb6168f6c1b004200dce5917f545a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4134,7 +4134,7 @@
           "event_type": "request_rejected_by_channel_profile",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "request_digest": "sha256:3468ffe41b5530149825c780c2dda819fb5fb6168f6c1b004200dce5917f545a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4167,10 +4167,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-035",
+      "scenario_id": "SA-RTP-049",
       "scenario_type": "compromised_verified_merchant_credential",
       "request": {
-        "request_id": "REQ-ABUSE-035",
+        "request_id": "REQ-ABUSE-049",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4184,7 +4184,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        "request_digest": "sha256:13f7231e3f9e4cbcceb6b8a5750355347c70a42fd043597c4c7a7055ddd311df"
       },
       "events": [
         {
@@ -4193,7 +4193,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "request_digest": "sha256:13f7231e3f9e4cbcceb6b8a5750355347c70a42fd043597c4c7a7055ddd311df",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4205,7 +4205,7 @@
           "event_type": "requester_compromise_alert",
           "actor_role": "risk_system",
           "authority_state": "unknown",
-          "request_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "request_digest": "sha256:13f7231e3f9e4cbcceb6b8a5750355347c70a42fd043597c4c7a7055ddd311df",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4238,10 +4238,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-036",
+      "scenario_id": "SA-RTP-050",
       "scenario_type": "repeat_request_after_explicit_decline",
       "request": {
-        "request_id": "REQ-ABUSE-036",
+        "request_id": "REQ-ABUSE-050",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4255,7 +4255,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        "request_digest": "sha256:1186b67a43131201462f16df206bc0f87e68c64093e5a68eada2484496ed8a3a"
       },
       "events": [
         {
@@ -4264,7 +4264,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "request_digest": "sha256:1186b67a43131201462f16df206bc0f87e68c64093e5a68eada2484496ed8a3a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4276,7 +4276,7 @@
           "event_type": "request_delivered",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "request_digest": "sha256:1186b67a43131201462f16df206bc0f87e68c64093e5a68eada2484496ed8a3a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4288,7 +4288,7 @@
           "event_type": "request_viewed",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "request_digest": "sha256:1186b67a43131201462f16df206bc0f87e68c64093e5a68eada2484496ed8a3a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4300,7 +4300,7 @@
           "event_type": "payer_declined",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "request_digest": "sha256:1186b67a43131201462f16df206bc0f87e68c64093e5a68eada2484496ed8a3a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4312,7 +4312,7 @@
           "event_type": "repeat_contact_after_decline_detected",
           "actor_role": "risk_system",
           "authority_state": "unknown",
-          "request_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "request_digest": "sha256:1186b67a43131201462f16df206bc0f87e68c64093e5a68eada2484496ed8a3a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4345,10 +4345,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-037",
+      "scenario_id": "SA-RTP-051",
       "scenario_type": "unsupported_debt_collection_or_legal_threat",
       "request": {
-        "request_id": "REQ-ABUSE-037",
+        "request_id": "REQ-ABUSE-051",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4362,7 +4362,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        "request_digest": "sha256:152f0183c282cfb1fea7815660069d8a9846e4481fdcdf34616b503603afa0a4"
       },
       "events": [
         {
@@ -4371,7 +4371,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "request_digest": "sha256:152f0183c282cfb1fea7815660069d8a9846e4481fdcdf34616b503603afa0a4",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4383,7 +4383,7 @@
           "event_type": "unsupported_legal_claim_detected",
           "actor_role": "risk_system",
           "authority_state": "unknown",
-          "request_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "request_digest": "sha256:152f0183c282cfb1fea7815660069d8a9846e4481fdcdf34616b503603afa0a4",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4416,10 +4416,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-038",
+      "scenario_id": "SA-RTP-052",
       "scenario_type": "request_flood_blocked_by_participant_abuse_control",
       "request": {
-        "request_id": "REQ-ABUSE-038",
+        "request_id": "REQ-ABUSE-052",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4433,7 +4433,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        "request_digest": "sha256:15239fbebe9d0e5c38fbfb45ded4a72cfa4fe8f155e615d64054737a4a56071c"
       },
       "events": [
         {
@@ -4442,7 +4442,7 @@
           "event_type": "request_rejected_by_abuse_rate_limit",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "request_digest": "sha256:15239fbebe9d0e5c38fbfb45ded4a72cfa4fe8f155e615d64054737a4a56071c",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4475,10 +4475,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-039",
+      "scenario_id": "SA-RTP-053",
       "scenario_type": "authenticated_sender_compromised_session_sends_request",
       "request": {
-        "request_id": "REQ-ABUSE-039",
+        "request_id": "REQ-ABUSE-053",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4492,7 +4492,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        "request_digest": "sha256:1f67e7dae5e7ca96cd004c4940c848cafb5fcecdb8edfbcb15bf58de698cc06a"
       },
       "events": [
         {
@@ -4501,7 +4501,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "request_digest": "sha256:1f67e7dae5e7ca96cd004c4940c848cafb5fcecdb8edfbcb15bf58de698cc06a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4513,7 +4513,7 @@
           "event_type": "compromised_session_detected",
           "actor_role": "risk_system",
           "authority_state": "unknown",
-          "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "request_digest": "sha256:1f67e7dae5e7ca96cd004c4940c848cafb5fcecdb8edfbcb15bf58de698cc06a",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4546,10 +4546,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-040",
+      "scenario_id": "SA-RTP-054",
       "scenario_type": "beneficiary_identity_mismatch",
       "request": {
-        "request_id": "REQ-ABUSE-040",
+        "request_id": "REQ-ABUSE-054",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4563,7 +4563,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        "request_digest": "sha256:f7e6521288527ff5636d19073c95e057e96fa13057d00924d40e4a41d33beb90"
       },
       "events": [
         {
@@ -4572,7 +4572,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "request_digest": "sha256:f7e6521288527ff5636d19073c95e057e96fa13057d00924d40e4a41d33beb90",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4584,7 +4584,7 @@
           "event_type": "beneficiary_mismatch_detected",
           "actor_role": "system",
           "authority_state": "invalid",
-          "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "request_digest": "sha256:f7e6521288527ff5636d19073c95e057e96fa13057d00924d40e4a41d33beb90",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4596,7 +4596,7 @@
           "event_type": "request_rejected_by_channel_profile",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "request_digest": "sha256:f7e6521288527ff5636d19073c95e057e96fa13057d00924d40e4a41d33beb90",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4629,10 +4629,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-041",
+      "scenario_id": "SA-RTP-055",
       "scenario_type": "unknown_request_reported_and_declined",
       "request": {
-        "request_id": "REQ-ABUSE-041",
+        "request_id": "REQ-ABUSE-055",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4646,7 +4646,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        "request_digest": "sha256:2426debe212fd56607603e53c952f6ffe86f983df760386e4db1305faf1c95bc"
       },
       "events": [
         {
@@ -4655,7 +4655,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "request_digest": "sha256:2426debe212fd56607603e53c952f6ffe86f983df760386e4db1305faf1c95bc",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4667,7 +4667,7 @@
           "event_type": "request_delivered",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "request_digest": "sha256:2426debe212fd56607603e53c952f6ffe86f983df760386e4db1305faf1c95bc",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4679,7 +4679,7 @@
           "event_type": "payer_declined",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "request_digest": "sha256:2426debe212fd56607603e53c952f6ffe86f983df760386e4db1305faf1c95bc",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4691,7 +4691,7 @@
           "event_type": "abuse_report_submitted",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "request_digest": "sha256:2426debe212fd56607603e53c952f6ffe86f983df760386e4db1305faf1c95bc",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4724,10 +4724,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-042",
+      "scenario_id": "SA-RTP-056",
       "scenario_type": "request_reported_without_acceptance",
       "request": {
-        "request_id": "REQ-ABUSE-042",
+        "request_id": "REQ-ABUSE-056",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4741,7 +4741,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        "request_digest": "sha256:7ba1a7004da5abc3d7b9ab0ff6d8359bb8135ea1d087567a98f05394bb7999a7"
       },
       "events": [
         {
@@ -4750,7 +4750,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "request_digest": "sha256:7ba1a7004da5abc3d7b9ab0ff6d8359bb8135ea1d087567a98f05394bb7999a7",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4762,7 +4762,7 @@
           "event_type": "request_delivered",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "request_digest": "sha256:7ba1a7004da5abc3d7b9ab0ff6d8359bb8135ea1d087567a98f05394bb7999a7",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4774,7 +4774,7 @@
           "event_type": "abuse_report_submitted",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "request_digest": "sha256:7ba1a7004da5abc3d7b9ab0ff6d8359bb8135ea1d087567a98f05394bb7999a7",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4807,10 +4807,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-043",
+      "scenario_id": "SA-RTP-057",
       "scenario_type": "stale_requester_reputation_not_promoted_to_proof",
       "request": {
-        "request_id": "REQ-ABUSE-043",
+        "request_id": "REQ-ABUSE-057",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4824,7 +4824,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        "request_digest": "sha256:cd4fc1e6352cae6e07ec248d0e40273bcf270c5e06945312482783d6e9d4436d"
       },
       "events": [
         {
@@ -4833,7 +4833,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "request_digest": "sha256:cd4fc1e6352cae6e07ec248d0e40273bcf270c5e06945312482783d6e9d4436d",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4845,7 +4845,7 @@
           "event_type": "stale_reputation_evidence_detected",
           "actor_role": "risk_system",
           "authority_state": "unknown",
-          "request_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "request_digest": "sha256:cd4fc1e6352cae6e07ec248d0e40273bcf270c5e06945312482783d6e9d4436d",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4878,10 +4878,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-044",
+      "scenario_id": "SA-RTP-058",
       "scenario_type": "unrelated_credit_scoring_data_use_blocked",
       "request": {
-        "request_id": "REQ-ABUSE-044",
+        "request_id": "REQ-ABUSE-058",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4895,7 +4895,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+        "request_digest": "sha256:bf90c019365967558f648611cd6dfed698d792b4032dd1a3dfe720eee4f8fd93"
       },
       "events": [
         {
@@ -4904,7 +4904,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "request_digest": "sha256:bf90c019365967558f648611cd6dfed698d792b4032dd1a3dfe720eee4f8fd93",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4916,7 +4916,7 @@
           "event_type": "secondary_data_use_blocked",
           "actor_role": "privacy_guard",
           "authority_state": "valid",
-          "request_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "request_digest": "sha256:bf90c019365967558f648611cd6dfed698d792b4032dd1a3dfe720eee4f8fd93",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4928,7 +4928,7 @@
           "event_type": "payer_declined",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "request_digest": "sha256:bf90c019365967558f648611cd6dfed698d792b4032dd1a3dfe720eee4f8fd93",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4961,10 +4961,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-045",
+      "scenario_id": "SA-RTP-059",
       "scenario_type": "screen_reader_material_presentation_parity",
       "request": {
-        "request_id": "REQ-ABUSE-045",
+        "request_id": "REQ-ABUSE-059",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -4978,7 +4978,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+        "request_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be"
       },
       "events": [
         {
@@ -4987,7 +4987,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "request_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -4999,7 +4999,7 @@
           "event_type": "request_delivered",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "request_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5011,7 +5011,7 @@
           "event_type": "request_viewed",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "request_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5023,8 +5023,8 @@
           "event_type": "payer_accepted",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
-          "accepted_request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "request_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be",
+          "accepted_request_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be",
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
           "receipt_id": "ACCEPT-INS-045"
@@ -5035,8 +5035,8 @@
           "event_type": "payment_instruction_created",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
-          "accepted_request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "request_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be",
+          "accepted_request_digest": "sha256:96c27a4fd93f68d8636df6ff6aa7c0ce87b6ae6925f9ce2e300192c1ef3b81be",
           "instruction_id": "INS-045",
           "observed_at": "2026-11-04T09:30:00Z",
           "receipt_id": null
@@ -5068,10 +5068,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-046",
+      "scenario_id": "SA-RTP-060",
       "scenario_type": "false_positive_requester_block_appeal",
       "request": {
-        "request_id": "REQ-ABUSE-046",
+        "request_id": "REQ-ABUSE-060",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -5085,7 +5085,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+        "request_digest": "sha256:263f75624df675ff2aee1080179a67d5c03ec2a83daa3a9368005ca6cf9fda30"
       },
       "events": [
         {
@@ -5094,7 +5094,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "request_digest": "sha256:263f75624df675ff2aee1080179a67d5c03ec2a83daa3a9368005ca6cf9fda30",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5106,7 +5106,7 @@
           "event_type": "abuse_control_blocked",
           "actor_role": "risk_system",
           "authority_state": "valid",
-          "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "request_digest": "sha256:263f75624df675ff2aee1080179a67d5c03ec2a83daa3a9368005ca6cf9fda30",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5118,7 +5118,7 @@
           "event_type": "appeal_submitted",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "request_digest": "sha256:263f75624df675ff2aee1080179a67d5c03ec2a83daa3a9368005ca6cf9fda30",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5130,7 +5130,7 @@
           "event_type": "appeal_resolved_false_positive",
           "actor_role": "reviewer",
           "authority_state": "valid",
-          "request_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "request_digest": "sha256:263f75624df675ff2aee1080179a67d5c03ec2a83daa3a9368005ca6cf9fda30",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5163,10 +5163,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-047",
+      "scenario_id": "SA-RTP-061",
       "scenario_type": "ai_summary_omits_material_fee_or_payee",
       "request": {
-        "request_id": "REQ-ABUSE-047",
+        "request_id": "REQ-ABUSE-061",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -5180,7 +5180,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+        "request_digest": "sha256:774e2865e89139e1a216ff5fc2d0702555884723e629a7ff8e020fb205ef9e66"
       },
       "events": [
         {
@@ -5189,7 +5189,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "request_digest": "sha256:774e2865e89139e1a216ff5fc2d0702555884723e629a7ff8e020fb205ef9e66",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5201,7 +5201,7 @@
           "event_type": "material_presentation_incomplete",
           "actor_role": "presentation_guard",
           "authority_state": "invalid",
-          "request_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "request_digest": "sha256:774e2865e89139e1a216ff5fc2d0702555884723e629a7ff8e020fb205ef9e66",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5225,7 +5225,7 @@
         "requester_identity_resolution": "exact",
         "claim_evidence_state": "sender_assertion_only",
         "material_presentation_state": "incomplete",
-        "presented_material_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "presented_material_digest": "sha256:774e2865e89139e1a216ff5fc2d0702555884723e629a7ff8e020fb205ef9e66",
         "payer_action": "none",
         "repeat_contact_after_decline_count": 0,
         "presentation_modality": "standard_app",
@@ -5234,10 +5234,10 @@
       }
     },
     {
-      "scenario_id": "SA-RTP-048",
+      "scenario_id": "SA-RTP-062",
       "scenario_type": "payer_accepts_exact_request_without_verified_debt_conclusion",
       "request": {
-        "request_id": "REQ-ABUSE-048",
+        "request_id": "REQ-ABUSE-062",
         "request_version": 1,
         "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-CURRENT-PAGE-V1",
         "requester_identity": "requester:synthetic-merchant-01",
@@ -5251,7 +5251,7 @@
         "expiry_at": "2026-11-04T10:00:00Z",
         "issued_at": "2026-11-04T08:00:00Z",
         "channel": "capitec_app",
-        "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "request_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354"
       },
       "events": [
         {
@@ -5260,7 +5260,7 @@
           "event_type": "request_created",
           "actor_role": "requester",
           "authority_state": "valid",
-          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "request_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5272,7 +5272,7 @@
           "event_type": "request_delivered",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "request_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5284,7 +5284,7 @@
           "event_type": "request_viewed",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "request_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354",
           "accepted_request_digest": null,
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
@@ -5296,8 +5296,8 @@
           "event_type": "payer_accepted",
           "actor_role": "payer",
           "authority_state": "valid",
-          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "accepted_request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "request_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354",
+          "accepted_request_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354",
           "instruction_id": null,
           "observed_at": "2026-11-04T09:30:00Z",
           "receipt_id": "ACCEPT-INS-048"
@@ -5308,8 +5308,8 @@
           "event_type": "payment_instruction_created",
           "actor_role": "payer_psp",
           "authority_state": "valid",
-          "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "accepted_request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "request_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354",
+          "accepted_request_digest": "sha256:0e0b029980da90f1fc2c1012a26de3631153b9f5617dff1c2edee73af7d2b354",
           "instruction_id": "INS-048",
           "observed_at": "2026-11-04T09:30:00Z",
           "receipt_id": null
