@@ -353,7 +353,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -495,8 +495,14 @@
             "evidence_commitment": "evidence-E-4-1"
           }
         ],
-        "correction_propagation_state": "not_applicable",
-        "correction_recipients": [],
+        "correction_propagation_state": "complete",
+        "correction_recipients": [
+          {
+            "recipient_id": "synthetic-psp-b",
+            "acknowledgement_state": "acknowledged",
+            "acknowledged_at": "2026-11-04T09:03:00Z"
+          }
+        ],
         "privacy_findings": [
           "none"
         ],
@@ -594,8 +600,14 @@
             "evidence_commitment": "evidence-E-5-1"
           }
         ],
-        "correction_propagation_state": "not_applicable",
-        "correction_recipients": [],
+        "correction_propagation_state": "complete",
+        "correction_recipients": [
+          {
+            "recipient_id": "synthetic-psp-b",
+            "acknowledgement_state": "acknowledged",
+            "acknowledged_at": "2026-11-04T09:03:00Z"
+          }
+        ],
         "privacy_findings": [
           "none"
         ],
@@ -1139,7 +1151,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -1311,7 +1323,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -2475,8 +2487,14 @@
             "evidence_commitment": "evidence-E-25-1"
           }
         ],
-        "correction_propagation_state": "not_applicable",
-        "correction_recipients": [],
+        "correction_propagation_state": "complete",
+        "correction_recipients": [
+          {
+            "recipient_id": "synthetic-psp-b",
+            "acknowledgement_state": "acknowledged",
+            "acknowledged_at": "2026-11-04T09:03:00Z"
+          }
+        ],
         "privacy_findings": [
           "none"
         ],
@@ -2779,7 +2797,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
@@ -3037,7 +3055,7 @@
           "synthetic-psp-b"
         ],
         "actual_recipient": "synthetic-psp-b",
-        "dissemination_state": "shared",
+        "dissemination_state": "quarantined",
         "availability_state": "signal_present",
         "model_score": null,
         "events": [
