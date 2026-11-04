@@ -34,6 +34,22 @@ All six model phases reproduced the earlier outcomes: safe authority model 83,94
 
 This is a repeated run of the same model/configuration logic, not an expansion of the bounds. It increases confidence in workflow reproducibility but does not increase the scope of the model's claims.
 
+## Repeat run after documentation update
+
+The same six model phases were rerun in [workflow run #60](https://github.com/Luminous-Dynamics/mycelix/actions/runs/41857220290) against PR head `34b1d695b8ce7d5bc878ee9d3025fa738514f1d2` (merge checkout `8e4943ff`).
+
+All six outcomes reproduced:
+- authority safe: 83,941 generated / 10,249 distinct, no invariant error;
+- projection mutant: `NoProjectionAuthority`;
+- grant retry mutant: `GrantIdentityInjective`;
+- mailbox safe: 37 / 20, no invariant error;
+- proposed-state mutant: `OnlyOriginalOwnerMayUpdate`;
+- field-smuggling mutant: `ProtectedFieldsRemainImmutable`;
+- checkpoint safe: 27 / 17, no invariant error;
+- checkpoint bypass mutant: `NoFalseFreshAuthority`.
+
+The workflow artifact is ID `13337303730`, ZIP SHA-256 `17da4b4450375fd6c262aa59f80d680954f297a2a8cd4a55b8a2b542995ca36a`. This is reproducibility evidence for the same finite models and bounds, not new model coverage.
+
 ## Counterexample interpretations
 
 ### Projection-as-authority mutant
