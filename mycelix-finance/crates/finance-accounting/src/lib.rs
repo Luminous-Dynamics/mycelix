@@ -44,19 +44,36 @@ struct CanonicalWriter {
 
 impl CanonicalWriter {
     fn new(domain: &[u8]) -> Self {
-        Self { bytes: domain.to_vec() }
+        Self {
+            bytes: domain.to_vec(),
+        }
     }
     fn field(&mut self, value: &[u8]) {
-        self.bytes.extend_from_slice(&(value.len() as u64).to_be_bytes());
+        self.bytes
+            .extend_from_slice(&(value.len() as u64).to_be_bytes());
         self.bytes.extend_from_slice(value);
     }
-    fn text(&mut self, value: &str) { self.field(value.as_bytes()); }
-    fn u8(&mut self, value: u8) { self.bytes.push(value); }
-    fn u16(&mut self, value: u16) { self.bytes.extend_from_slice(&value.to_be_bytes()); }
-    fn u64(&mut self, value: u64) { self.bytes.extend_from_slice(&value.to_be_bytes()); }
-    fn digest(&mut self, value: Digest32) { self.bytes.extend_from_slice(&value.0); }
-    fn finish(self) -> Vec<u8> { self.bytes }
-    fn hash(self) -> Digest32 { Digest32(Sha256::digest(self.bytes).into()) }
+    fn text(&mut self, value: &str) {
+        self.field(value.as_bytes());
+    }
+    fn u8(&mut self, value: u8) {
+        self.bytes.push(value);
+    }
+    fn u16(&mut self, value: u16) {
+        self.bytes.extend_from_slice(&value.to_be_bytes());
+    }
+    fn u64(&mut self, value: u64) {
+        self.bytes.extend_from_slice(&value.to_be_bytes());
+    }
+    fn digest(&mut self, value: Digest32) {
+        self.bytes.extend_from_slice(&value.0);
+    }
+    fn finish(self) -> Vec<u8> {
+        self.bytes
+    }
+    fn hash(self) -> Digest32 {
+        Digest32(Sha256::digest(self.bytes).into())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -167,11 +184,17 @@ impl AssetUnitProfile {
         writer.text(self.asset_id.as_str());
         writer.u8(self.decimal_scale);
         match &self.issuer {
-            Some(value) => { writer.u8(1); writer.text(value.as_str()); }
+            Some(value) => {
+                writer.u8(1);
+                writer.text(value.as_str());
+            }
             None => writer.u8(0),
         }
         match &self.network {
-            Some(value) => { writer.u8(1); writer.text(value.as_str()); }
+            Some(value) => {
+                writer.u8(1);
+                writer.text(value.as_str());
+            }
             None => writer.u8(0),
         }
         writer.text(self.fungibility_domain.as_str());
@@ -251,16 +274,24 @@ impl AccountingLedgerProfile {
             return Err(AccountingError::InvalidAccountCount);
         }
         for (key, unit) in &self.units {
-            if key != &unit.id { return Err(AccountingError::ProfileMapKeyMismatch); }
+            if key != &unit.id {
+                return Err(AccountingError::ProfileMapKeyMismatch);
+            }
             unit.validate()?;
         }
         for (key, account) in &self.accounts {
-            if key != &account.account_id { return Err(AccountingError::ProfileMapKeyMismatch); }
+            if key != &account.account_id {
+                return Err(AccountingError::ProfileMapKeyMismatch);
+            }
             account.validate()?;
             if account.reporting_entity != self.reporting_entity {
                 return Err(AccountingError::AccountEntityMismatch);
             }
-            if account.allowed_unit_profiles.iter().any(|id| !self.units.contains_key(id)) {
+            if account
+                .allowed_unit_profiles
+                .iter()
+                .any(|id| !self.units.contains_key(id))
+            {
                 return Err(AccountingError::UnknownUnitProfile);
             }
         }
@@ -456,17 +487,39 @@ impl QualifiedEconomicSource {
         })
     }
 
-    pub fn source_event_id(&self) -> &ReferenceId { &self.source_event_id }
-    pub fn amount(&self) -> &AssetAmount { &self.amount }
-    pub fn source_commitment(&self) -> Digest32 { self.source_commitment }
-    pub fn settlement_subject(&self) -> &ReferenceId { &self.settlement_subject }
-    pub fn attempt_id(&self) -> &ReferenceId { &self.attempt_id }
-    pub fn rail(&self) -> &ReferenceId { &self.rail }
-    pub fn network(&self) -> &ReferenceId { &self.network }
-    pub fn settlement_profile(&self) -> &SettlementProfileBinding { &self.settlement_profile }
-    pub fn evidence_frontier(&self) -> Digest32 { self.evidence_frontier }
-    pub fn qualified_at_unix_ms(&self) -> u64 { self.qualified_at_unix_ms }
-    pub fn reversal_model(&self) -> ReversalModel { self.reversal_model }
+    pub fn source_event_id(&self) -> &ReferenceId {
+        &self.source_event_id
+    }
+    pub fn amount(&self) -> &AssetAmount {
+        &self.amount
+    }
+    pub fn source_commitment(&self) -> Digest32 {
+        self.source_commitment
+    }
+    pub fn settlement_subject(&self) -> &ReferenceId {
+        &self.settlement_subject
+    }
+    pub fn attempt_id(&self) -> &ReferenceId {
+        &self.attempt_id
+    }
+    pub fn rail(&self) -> &ReferenceId {
+        &self.rail
+    }
+    pub fn network(&self) -> &ReferenceId {
+        &self.network
+    }
+    pub fn settlement_profile(&self) -> &SettlementProfileBinding {
+        &self.settlement_profile
+    }
+    pub fn evidence_frontier(&self) -> Digest32 {
+        self.evidence_frontier
+    }
+    pub fn qualified_at_unix_ms(&self) -> u64 {
+        self.qualified_at_unix_ms
+    }
+    pub fn reversal_model(&self) -> ReversalModel {
+        self.reversal_model
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -510,17 +563,39 @@ pub struct QualifiedJournalEntry {
 }
 
 impl QualifiedJournalEntry {
-    pub fn journal_id(&self) -> Digest32 { self.journal_id }
-    pub fn source_event_id(&self) -> &ReferenceId { self.source.source_event_id() }
-    pub fn postings(&self) -> &[JournalPosting] { &self.postings }
-    pub fn reverses(&self) -> Option<Digest32> { self.reverses }
-    pub fn canonical_bytes(&self) -> &[u8] { &self.canonical_bytes }
-    pub fn source_commitment(&self) -> Digest32 { self.source.source_commitment() }
-    pub fn ledger_profile_digest(&self) -> Digest32 { self.ledger_profile_digest }
-    pub fn projection_policy_digest(&self) -> Digest32 { self.projection_policy_digest }
-    pub fn reporting_entity(&self) -> &ReferenceId { &self.reporting_entity }
-    pub fn reporting_period(&self) -> &ReferenceId { &self.reporting_period }
-    pub fn effective_at_unix_ms(&self) -> u64 { self.effective_at_unix_ms }
+    pub fn journal_id(&self) -> Digest32 {
+        self.journal_id
+    }
+    pub fn source_event_id(&self) -> &ReferenceId {
+        self.source.source_event_id()
+    }
+    pub fn postings(&self) -> &[JournalPosting] {
+        &self.postings
+    }
+    pub fn reverses(&self) -> Option<Digest32> {
+        self.reverses
+    }
+    pub fn canonical_bytes(&self) -> &[u8] {
+        &self.canonical_bytes
+    }
+    pub fn source_commitment(&self) -> Digest32 {
+        self.source.source_commitment()
+    }
+    pub fn ledger_profile_digest(&self) -> Digest32 {
+        self.ledger_profile_digest
+    }
+    pub fn projection_policy_digest(&self) -> Digest32 {
+        self.projection_policy_digest
+    }
+    pub fn reporting_entity(&self) -> &ReferenceId {
+        &self.reporting_entity
+    }
+    pub fn reporting_period(&self) -> &ReferenceId {
+        &self.reporting_period
+    }
+    pub fn effective_at_unix_ms(&self) -> u64 {
+        self.effective_at_unix_ms
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -595,7 +670,9 @@ impl PostingIdentity {
 
 fn sort_postings(postings: &mut [JournalPosting]) {
     postings.sort_by(|a, b| {
-        a.account.account_id.cmp(&b.account.account_id)
+        a.account
+            .account_id
+            .cmp(&b.account.account_id)
             .then_with(|| a.unit_profile_id.cmp(&b.unit_profile_id))
             .then_with(|| a.side.cmp(&b.side))
             .then_with(|| a.semantic_role.cmp(&b.semantic_role))
@@ -641,7 +718,10 @@ pub fn qualify_journal_entry(
     if policy.ledger_profile_digest != ledger_digest {
         return Err(AccountingError::LedgerPolicyMismatch);
     }
-    if !policy.allowed_settlement_profiles.contains(&draft.source.settlement_profile) {
+    if !policy
+        .allowed_settlement_profiles
+        .contains(&draft.source.settlement_profile)
+    {
         return Err(AccountingError::UnsupportedSettlementProfile);
     }
     if draft.source.amount.atomic_units() == 0 {
@@ -700,17 +780,24 @@ pub fn qualify_journal_entry(
         if posting.account.reporting_entity != draft.reporting_entity {
             return Err(AccountingError::InvalidReportingEntity);
         }
-        let account = ledger.accounts.get(&posting.account.account_id)
+        let account = ledger
+            .accounts
+            .get(&posting.account.account_id)
             .ok_or(AccountingError::PostingAccountMismatch)?;
         if account.schema_revision != posting.account.schema_revision
             || account.reporting_entity != posting.account.reporting_entity
         {
             return Err(AccountingError::PostingAccountMismatch);
         }
-        if !account.allowed_unit_profiles.contains(&posting.unit_profile_id) {
+        if !account
+            .allowed_unit_profiles
+            .contains(&posting.unit_profile_id)
+        {
             return Err(AccountingError::PostingUnitNotAllowed);
         }
-        let unit = ledger.units.get(&posting.unit_profile_id)
+        let unit = ledger
+            .units
+            .get(&posting.unit_profile_id)
             .ok_or(AccountingError::UnknownUnitProfile)?;
         if unit.asset_id != *source_asset || unit.asset_id != *posting.amount.asset() {
             return Err(AccountingError::PostingAssetMismatch);
@@ -729,7 +816,8 @@ pub fn qualify_journal_entry(
             PostingSide::Debit => &mut debits,
             PostingSide::Credit => &mut credits,
         };
-        *total = total.checked_add(u128::from(posting.amount.atomic_units()))
+        *total = total
+            .checked_add(u128::from(posting.amount.atomic_units()))
             .ok_or(AccountingError::CounterOverflow)?;
     }
     if debits != credits {
@@ -757,9 +845,13 @@ pub fn qualify_journal_entry(
     writer.u64(draft.effective_at_unix_ms);
     writer.digest(draft.source.evidence_frontier);
     writer.u8(u8::from(draft.reverses.is_some()));
-    if let Some(original) = draft.reverses { writer.digest(original); }
+    if let Some(original) = draft.reverses {
+        writer.digest(original);
+    }
     writer.u64(postings.len() as u64);
-    for posting in &postings { encode_posting(&mut writer, posting); }
+    for posting in &postings {
+        encode_posting(&mut writer, posting);
+    }
     let canonical_bytes = writer.finish();
     let journal_id = Digest32(Sha256::digest(&canonical_bytes).into());
 
@@ -851,7 +943,9 @@ impl JournalBook {
 
         let mut reversal_updates = Vec::new();
         if let Some(original_id) = entry.reverses {
-            let original = self.entries.get(&original_id)
+            let original = self
+                .entries
+                .get(&original_id)
                 .ok_or(AccountingError::ReversalTargetMissing)?;
             if original.reverses.is_some() {
                 return Err(AccountingError::ReversalOfReversal);
@@ -869,15 +963,23 @@ impl JournalBook {
             }
             for reversal_posting in &entry.postings {
                 let key = ReversalPostingKey::from_reversal(reversal_posting);
-                let original_posting = original.postings.iter().find(|posting| {
-                    posting.account.account_id == key.account_id
-                        && posting.unit_profile_id == key.unit_profile_id
-                        && posting.side == key.original_side
-                        && posting.semantic_role == key.semantic_role
-                }).ok_or(AccountingError::ReversalPostingMismatch)?;
-                let previous = self.reversed_amounts
-                    .get(&(original_id, key.clone())).copied().unwrap_or(0);
-                let updated = previous.checked_add(reversal_posting.amount.atomic_units())
+                let original_posting = original
+                    .postings
+                    .iter()
+                    .find(|posting| {
+                        posting.account.account_id == key.account_id
+                            && posting.unit_profile_id == key.unit_profile_id
+                            && posting.side == key.original_side
+                            && posting.semantic_role == key.semantic_role
+                    })
+                    .ok_or(AccountingError::ReversalPostingMismatch)?;
+                let previous = self
+                    .reversed_amounts
+                    .get(&(original_id, key.clone()))
+                    .copied()
+                    .unwrap_or(0);
+                let updated = previous
+                    .checked_add(reversal_posting.amount.atomic_units())
                     .ok_or(AccountingError::CounterOverflow)?;
                 if updated > original_posting.amount.atomic_units() {
                     return Err(AccountingError::ReversalExceedsOriginal);
@@ -903,8 +1005,8 @@ mod tests {
     use super::*;
     use mycelix_business_core::ExecutionAttemptRef;
     use mycelix_finance_settlement::{
-        qualify_settlement, FinalityEvidence, FinalityProfile, FinalityProfileRef,
-        ObservedSettlementState, SettlementObservation, SettlementSubject,
+        FinalityEvidence, FinalityProfile, FinalityProfileRef, ObservedSettlementState,
+        SettlementObservation, SettlementSubject, qualify_settlement,
     };
 
     fn reference(value: &str) -> ReferenceId {
@@ -1007,8 +1109,13 @@ mod tests {
             evidence: vec![evidence],
         };
         qualify_settlement(
-            &subject, &profile, &[observation], 10_000, Digest32::repeat(8),
-        ).expect("valid qualified settlement fixture")
+            &subject,
+            &profile,
+            &[observation],
+            10_000,
+            Digest32::repeat(8),
+        )
+        .expect("valid qualified settlement fixture")
     }
 
     fn policy(ledger: &AccountingLedgerProfile) -> AccountingProjectionPolicy {
@@ -1074,7 +1181,8 @@ mod tests {
         let source = QualifiedEconomicSource::from_qualified_settlement(
             reference(&format!("economic-event:{source_suffix}")),
             &qualified_settlement(source_suffix, amount_units),
-        ).expect("qualified source binding");
+        )
+        .expect("qualified source binding");
         let reversing = reverses.is_some();
         JournalEntryDraft {
             reporting_period: reference("period:2026-11"),
@@ -1083,12 +1191,20 @@ mod tests {
             postings: vec![
                 posting(
                     "account:cash",
-                    if reversing { PostingSide::Credit } else { PostingSide::Debit },
+                    if reversing {
+                        PostingSide::Credit
+                    } else {
+                        PostingSide::Debit
+                    },
                     amount_units,
                 ),
                 posting(
                     "account:settlement-clearing",
-                    if reversing { PostingSide::Debit } else { PostingSide::Credit },
+                    if reversing {
+                        PostingSide::Debit
+                    } else {
+                        PostingSide::Credit
+                    },
                     amount_units,
                 ),
             ],
@@ -1104,7 +1220,10 @@ mod tests {
             .expect("balanced settlement journal");
         assert_eq!(entry.postings.len(), 2);
         assert_eq!(entry.source_event_id().as_str(), "economic-event:one");
-        assert_eq!(entry.journal_id(), Digest32(Sha256::digest(entry.canonical_bytes()).into()));
+        assert_eq!(
+            entry.journal_id(),
+            Digest32(Sha256::digest(entry.canonical_bytes()).into())
+        );
     }
 
     #[test]
@@ -1134,8 +1253,8 @@ mod tests {
             .expect("first journal");
         let mut permuted_draft = draft("permutation", 100, None);
         permuted_draft.postings.reverse();
-        let permuted = qualify_journal_entry(&ledger, &policy, permuted_draft)
-            .expect("permuted journal");
+        let permuted =
+            qualify_journal_entry(&ledger, &policy, permuted_draft).expect("permuted journal");
         assert_eq!(first.journal_id(), permuted.journal_id());
         let mut changed = draft("permutation", 100, None);
         changed.postings[0].semantic_role = reference("role:different-economic-meaning");
@@ -1190,7 +1309,8 @@ mod tests {
         let mut source = QualifiedEconomicSource::from_qualified_settlement(
             reference("economic-event:unsupported"),
             &qualified_settlement("unsupported", 100),
-        ).expect("source");
+        )
+        .expect("source");
         source.settlement_profile.profile_id = reference("finality:unapproved");
         let draft = JournalEntryDraft {
             reporting_period: reference("period:2026-11"),
@@ -1212,8 +1332,8 @@ mod tests {
     fn journal_book_is_idempotent_and_conflicting_reprojection_rejects() {
         let ledger = ledger_profile();
         let policy = policy(&ledger);
-        let entry = qualify_journal_entry(&ledger, &policy, draft("idempotent", 100, None))
-            .expect("entry");
+        let entry =
+            qualify_journal_entry(&ledger, &policy, draft("idempotent", 100, None)).expect("entry");
         let mut book = JournalBook::new(&ledger).expect("book");
         assert_eq!(book.append(entry.clone()), Ok(AppendDisposition::Appended));
         assert_eq!(book.append(entry), Ok(AppendDisposition::IdempotentReplay));
@@ -1240,16 +1360,31 @@ mod tests {
         let mut book = JournalBook::new(&ledger).expect("book");
         book.append(original).expect("append original");
 
-        let sixty = qualify_journal_entry(&ledger, &policy, draft("reversal-60", 60, Some(original_id)))
-            .expect("qualified partial reversal");
+        let sixty = qualify_journal_entry(
+            &ledger,
+            &policy,
+            draft("reversal-60", 60, Some(original_id)),
+        )
+        .expect("qualified partial reversal");
         book.append(sixty).expect("partial reversal");
-        let forty = qualify_journal_entry(&ledger, &policy, draft("reversal-40", 40, Some(original_id)))
-            .expect("qualified final reversal");
+        let forty = qualify_journal_entry(
+            &ledger,
+            &policy,
+            draft("reversal-40", 40, Some(original_id)),
+        )
+        .expect("qualified final reversal");
         book.append(forty).expect("remaining original amount");
 
-        let over = qualify_journal_entry(&ledger, &policy, draft("reversal-over", 1, Some(original_id)))
-            .expect("balanced but over-reversing source");
-        assert_eq!(book.append(over), Err(AccountingError::ReversalExceedsOriginal));
+        let over = qualify_journal_entry(
+            &ledger,
+            &policy,
+            draft("reversal-over", 1, Some(original_id)),
+        )
+        .expect("balanced but over-reversing source");
+        assert_eq!(
+            book.append(over),
+            Err(AccountingError::ReversalExceedsOriginal)
+        );
         assert_eq!(book.entries().len(), 3);
     }
 
@@ -1261,9 +1396,13 @@ mod tests {
             &ledger,
             &policy,
             draft("missing-original", 50, Some(Digest32::repeat(33))),
-        ).expect("balanced draft");
+        )
+        .expect("balanced draft");
         let mut book = JournalBook::new(&ledger).expect("book");
-        assert_eq!(book.append(unknown), Err(AccountingError::ReversalTargetMissing));
+        assert_eq!(
+            book.append(unknown),
+            Err(AccountingError::ReversalTargetMissing)
+        );
     }
 
     #[test]
@@ -1271,10 +1410,8 @@ mod tests {
         let ledger = ledger_profile();
         let policy = policy(&ledger);
         let mut cross_asset = draft("cross-asset", 100, None);
-        cross_asset.postings[1].amount = AssetAmount::new(
-            100,
-            AssetId::new("EUR.micro").expect("static asset"),
-        );
+        cross_asset.postings[1].amount =
+            AssetAmount::new(100, AssetId::new("EUR.micro").expect("static asset"));
         assert_eq!(
             qualify_journal_entry(&ledger, &policy, cross_asset),
             Err(AccountingError::PostingAssetMismatch)
@@ -1302,14 +1439,20 @@ mod tests {
         );
     }
 
-
     #[test]
     fn ledger_and_policy_commitments_bind_semantic_revisions() {
         let ledger = ledger_profile();
         let original_digest = ledger.commitment().expect("ledger digest");
         let mut changed_ledger = ledger.clone();
-        changed_ledger.units.get_mut(&reference("unit:USD.micro:v1")).unwrap().decimal_scale = 5;
-        assert_ne!(original_digest, changed_ledger.commitment().expect("changed profile digest"));
+        changed_ledger
+            .units
+            .get_mut(&reference("unit:USD.micro:v1"))
+            .unwrap()
+            .decimal_scale = 5;
+        assert_ne!(
+            original_digest,
+            changed_ledger.commitment().expect("changed profile digest")
+        );
 
         let original_policy = policy(&ledger);
         let original_policy_digest = original_policy.commitment().expect("policy digest");
@@ -1335,12 +1478,20 @@ mod tests {
     #[test]
     fn ledger_rejects_invalid_scale_and_unknown_account_unit_binding() {
         let mut ledger = ledger_profile();
-        ledger.units.get_mut(&reference("unit:USD.micro:v1")).unwrap().decimal_scale = 19;
+        ledger
+            .units
+            .get_mut(&reference("unit:USD.micro:v1"))
+            .unwrap()
+            .decimal_scale = 19;
         assert_eq!(ledger.validate(), Err(AccountingError::InvalidDecimalScale));
 
         let mut ledger = ledger_profile();
-        ledger.accounts.get_mut(&reference("account:cash")).unwrap()
-            .allowed_unit_profiles.insert(reference("unit:missing"));
+        ledger
+            .accounts
+            .get_mut(&reference("account:cash"))
+            .unwrap()
+            .allowed_unit_profiles
+            .insert(reference("unit:missing"));
         assert_eq!(ledger.validate(), Err(AccountingError::UnknownUnitProfile));
     }
 
@@ -1358,7 +1509,9 @@ mod tests {
         };
         ledger.units.insert(alternate.id.clone(), alternate);
         for account in ledger.accounts.values_mut() {
-            account.allowed_unit_profiles.insert(reference("unit:USD.cents:v1"));
+            account
+                .allowed_unit_profiles
+                .insert(reference("unit:USD.cents:v1"));
         }
         let policy = policy(&ledger);
         let mut mixed = draft("mixed-units", 100, None);
@@ -1421,8 +1574,9 @@ mod tests {
         );
 
         let policy = policy(&ledger);
-        let original = qualify_journal_entry(&ledger, &policy, draft("original-semantic", 100, None))
-            .expect("original");
+        let original =
+            qualify_journal_entry(&ledger, &policy, draft("original-semantic", 100, None))
+                .expect("original");
         let original_id = original.journal_id();
         let mut book = JournalBook::new(&ledger).expect("book");
         book.append(original).expect("append original");
@@ -1462,7 +1616,8 @@ mod tests {
         let mut source = QualifiedEconomicSource::from_qualified_settlement(
             reference("economic-event:profile-revision"),
             &qualified_settlement("profile-revision", 100),
-        ).expect("source");
+        )
+        .expect("source");
         source.settlement_profile.revision += 1;
         let invalid = JournalEntryDraft {
             reporting_period: reference("period:2026-11"),
@@ -1479,7 +1634,6 @@ mod tests {
             Err(AccountingError::UnsupportedSettlementProfile)
         );
     }
-
 
     #[test]
     fn posting_account_and_side_are_bound_by_the_projection_policy() {
@@ -1512,8 +1666,11 @@ mod tests {
     fn posting_policy_normal_side_must_match_ledger_account_normal_balance() {
         let ledger = ledger_profile();
         let mut policy = policy(&ledger);
-        policy.posting_rules.get_mut(&reference("role:settlement-cash"))
-            .expect("cash rule").normal_side = PostingSide::Credit;
+        policy
+            .posting_rules
+            .get_mut(&reference("role:settlement-cash"))
+            .expect("cash rule")
+            .normal_side = PostingSide::Credit;
         assert_eq!(
             qualify_journal_entry(&ledger, &policy, draft("wrong-normal-side", 100, None)),
             Err(AccountingError::PostingPolicyMismatch)
@@ -1524,10 +1681,17 @@ mod tests {
     fn reversal_uses_only_explicit_opposite_side_for_the_same_semantic_rule() {
         let ledger = ledger_profile();
         let mut policy = policy(&ledger);
-        policy.posting_rules.get_mut(&reference("role:settlement-cash"))
-            .expect("cash rule").allow_reversal = false;
-        let original = qualify_journal_entry(&ledger, &policy, draft("no-cash-reversal-original", 100, None))
-            .expect("original journal");
+        policy
+            .posting_rules
+            .get_mut(&reference("role:settlement-cash"))
+            .expect("cash rule")
+            .allow_reversal = false;
+        let original = qualify_journal_entry(
+            &ledger,
+            &policy,
+            draft("no-cash-reversal-original", 100, None),
+        )
+        .expect("original journal");
         let original_id = original.journal_id();
         let mut book = JournalBook::new(&ledger).expect("book");
         book.append(original).expect("append original");
@@ -1541,7 +1705,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn terminal_settlement_profile_does_not_authorize_later_accounting_reversal() {
         let ledger = ledger_profile();
@@ -1552,11 +1715,13 @@ mod tests {
         terminal_profile.profile_ref.digest = Digest32::repeat(10);
         terminal_profile.reversal_model = ReversalModel::DeclaredTerminalByProfile;
         let mut policy = policy(&ledger);
-        policy.allowed_settlement_profiles.insert(SettlementProfileBinding {
-            profile_id: terminal_profile.profile_ref.id.clone(),
-            revision: terminal_profile.profile_ref.revision,
-            digest: terminal_profile.profile_ref.digest,
-        });
+        policy
+            .allowed_settlement_profiles
+            .insert(SettlementProfileBinding {
+                profile_id: terminal_profile.profile_ref.id.clone(),
+                revision: terminal_profile.profile_ref.revision,
+                digest: terminal_profile.profile_ref.digest,
+            });
         let subject = SettlementSubject {
             id: reference("settlement:terminal-subject"),
             attempt: ExecutionAttemptRef::new("attempt:terminal-subject").expect("attempt"),
@@ -1598,7 +1763,8 @@ mod tests {
         let source = QualifiedEconomicSource::from_qualified_settlement(
             reference("economic-event:terminal-original"),
             &settlement,
-        ).expect("source binding");
+        )
+        .expect("source binding");
         let original = qualify_journal_entry(
             &ledger,
             &policy,
@@ -1612,15 +1778,23 @@ mod tests {
                 ],
                 reverses: None,
             },
-        ).expect("original journal");
-        assert_eq!(original.source.reversal_model(), ReversalModel::DeclaredTerminalByProfile);
+        )
+        .expect("original journal");
+        assert_eq!(
+            original.source.reversal_model(),
+            ReversalModel::DeclaredTerminalByProfile
+        );
         let original_id = original.journal_id();
         let mut book = JournalBook::new(&ledger).expect("book");
         book.append(original).expect("append original");
 
         assert_eq!(
-            qualify_journal_entry(&ledger, &policy, draft("terminal-reversal", 10, Some(original_id)))
-                .and_then(|entry| book.append(entry).map(|_| ())),
+            qualify_journal_entry(
+                &ledger,
+                &policy,
+                draft("terminal-reversal", 10, Some(original_id))
+            )
+            .and_then(|entry| book.append(entry).map(|_| ())),
             Err(AccountingError::ReversalNotPermittedBySource)
         );
     }
