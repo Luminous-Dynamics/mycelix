@@ -14,7 +14,7 @@ This directory contains a synthetic, public-development corpus for the completen
 
 Fourteen cases cover bank, AP, AR, consolidation, payroll, inventory, related-party, late-arriving evidence, duplicate mirrors, missing-feed-versus-zero, valid non-applicability, affirmative zero activity, supported scope exclusion, and disagreement between internal and independently sourced control inventories.
 
-All cases have balanced debit/credit totals by construction. Seven material omissions plus the source-independence and missing-feed controls ensure that ledger balance alone cannot earn a complete disposition.
+All 14 cases have balanced debit/credit totals by construction. Seven source-class omissions, the cross-inventory omission, the mirror-independence failure and the missing-feed control ensure that ledger balance alone cannot earn a complete disposition.
 
 ## Important limits
 
