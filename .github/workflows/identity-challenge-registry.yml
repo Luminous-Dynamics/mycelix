@@ -37,7 +37,8 @@ jobs:
           --health-retries 20
     env:
       CARGO_TERM_COLOR: always
-      DATABASE_URL: postgres://challenge_test:challenge_test@localhost:5432/challenge_registry_test
+      DATABASE_URL_ADMIN: postgres://challenge_test:challenge_test@localhost:5432/challenge_registry_test
+      DATABASE_URL: postgres://verifier_challenge_runtime:ci-only-verifier-challenge-runtime@localhost:5432/challenge_registry_test
       EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -52,8 +53,10 @@ jobs:
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-identity/challenge-registry/service/Cargo.toml --check
       - name: Apply authoritative PostgreSQL migration
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f mycelix-identity/challenge-registry/migrations/0001_verifier_challenges.sql
-      - name: Run sequential SQL contract
+        run: psql "$DATABASE_URL_ADMIN" -X -v ON_ERROR_STOP=1 -f mycelix-identity/challenge-registry/migrations/0001_verifier_challenges.sql
+      - name: Provision and assert least-privilege runtime role
+        run: psql "$DATABASE_URL_ADMIN" -X -v ON_ERROR_STOP=1 -f mycelix-identity/challenge-registry/tests/provision_ci_roles.sql
+      - name: Run sequential SQL contract through runtime role
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f mycelix-identity/challenge-registry/tests/consume_once.sql
       - name: Run two-process consume race
         run: sh mycelix-identity/challenge-registry/tests/concurrent_consume.sh
