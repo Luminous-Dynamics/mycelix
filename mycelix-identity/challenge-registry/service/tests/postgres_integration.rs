@@ -32,14 +32,18 @@ async fn sqlx_adapter_registers_consumes_once_and_rejects_replay() {
         .await
         .expect("register fresh challenge");
 
-    assert!(registry
-        .consume_and_commit(&secret, &context)
-        .await
-        .expect("commit consume"));
-    assert!(!registry
-        .consume_and_commit(&secret, &context)
-        .await
-        .expect("replay must be a clean rejection"));
+    assert!(
+        registry
+            .consume_and_commit(&secret, &context)
+            .await
+            .expect("commit consume")
+    );
+    assert!(
+        !registry
+            .consume_and_commit(&secret, &context)
+            .await
+            .expect("replay must be a clean rejection")
+    );
     registry.close().await;
 }
 
@@ -92,7 +96,10 @@ async fn independent_pools_racing_to_consume_have_exactly_one_winner() {
         .filter(|result| result.as_ref().is_ok_and(|accepted| !*accepted))
         .count();
     assert_eq!(accepted, 1, "exactly one pool must commit the consume");
-    assert_eq!(rejected, 1, "the losing pool must observe a replay rejection");
+    assert_eq!(
+        rejected, 1,
+        "the losing pool must observe a replay rejection"
+    );
 
     first.close().await;
     second.close().await;
