@@ -217,4 +217,19 @@ No cross-system latency claim is valid without matching semantics, hardware, top
 - Holochain workspace closure auditor: https://github.com/Luminous-Dynamics/mycelix/issues/5720
 - Pulse bounded delivery model-checking work: https://github.com/Luminous-Dynamics/mycelix/issues/5091
 
+### External references for the comparison matrix
+
+- Holochain capability model and host enforcement: https://developer.holochain.org/build/capabilities/ and https://developer.holochain.org/concepts/8_calls_capabilities/
+- Holochain 0.7.0 → 0.7.1 breaking changes, including grant shape, re-issuance and DirectSignal grants: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
+- Holochain roadmap snapshot (3 November 2026): https://www.holochain.org/roadmap/
+- Zanzibar paper (USENIX ATC 2019): https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/
+- SpiceDB consistency modes and ZedTokens: https://authzed.com/docs/spicedb/concepts/consistency and https://authzed.com/docs/spicedb/concepts/read-after-write
+- OpenFGA query consistency modes: https://openfga.dev/blog/query-consistency-options-announcement
+- UCAN v1.0.0 and delegation: https://github.com/ucan-wg/spec and https://github.com/ucan-wg/delegation
+- Biscuit revocation identifiers and verifier-side revocation lists: https://www.biscuitsec.org/docs/guides/revocation/
+
+The Zanzibar paper reports trillions of ACLs, millions of authorization requests per second, p95 latency below 10 ms and availability above 99.999% over three years of production use. These are Google's published 2019 production figures, not a directly comparable Pulse baseline. SpiceDB and OpenFGA expose explicit consistency preferences, illustrating the latency/freshness trade-off that the Pulse benchmark must report rather than hide. UCAN and Biscuit provide useful portable delegation, attenuation and revocation comparators, but use different verifier and revocation-distribution architectures.
+
+The Holochain roadmap snapshot dated 3 November 2026 reports the 0.7 Wind Tunnel work at 77%, while Wind Tunnel Analysis and Wind Tunnel Core Scenarios are both shown at 0%. Treat the upstream Wind Tunnel work as an evolving substrate reference, not a complete matched Pulse 0.7.1 analytical benchmark.
+
 This profile is a research specification and synthetic corpus. It does not claim conductor runtime correctness, malicious-validator resistance, cryptographic truth, linearizability, crash consistency, liveness, privacy, production readiness or benchmark superiority. Those claims require the corresponding later qualification stages.
