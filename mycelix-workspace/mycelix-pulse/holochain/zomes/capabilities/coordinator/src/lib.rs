@@ -1655,11 +1655,11 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
         (zome, FunctionName::from("receive_capability_grant")),
     ]));
 
-    create_cap_grant(CapGrantEntry {
-        tag: "recv_cap_signals".to_string(),
-        access: CapAccess::Unrestricted,
+    create_cap_grant(CapGrant::new_zome_call_grant(
+        "recv_cap_signals".to_string(),
+        GrantConstraint::Unrestricted,
         functions,
-    })?;
+    ))?;
 
     Ok(InitCallbackResult::Pass)
 }
