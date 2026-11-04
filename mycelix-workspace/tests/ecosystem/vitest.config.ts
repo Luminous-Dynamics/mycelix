@@ -18,3 +18,5 @@ export default defineConfig({
     reporters: ['verbose'],
   },
 });
+
+# Automated fix for issue #5774: [PULSE-SIGNAL-AUTH-001] Audit unrestricted remote signal ingress for notification spoofing
