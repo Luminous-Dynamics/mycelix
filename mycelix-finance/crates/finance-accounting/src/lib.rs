@@ -397,6 +397,7 @@ pub struct QualifiedEconomicSource {
     amount: AssetAmount,
     evidence_frontier: Digest32,
     qualified_at_unix_ms: u64,
+    reversal_model: ReversalModel,
     source_commitment: Digest32,
 }
 
@@ -450,6 +451,7 @@ impl QualifiedEconomicSource {
             amount: settlement.amount().clone(),
             evidence_frontier: settlement.evidence_frontier(),
             qualified_at_unix_ms: settlement.qualified_at_unix_ms(),
+            reversal_model: settlement.reversal_model(),
             source_commitment,
         })
     }
@@ -464,6 +466,7 @@ impl QualifiedEconomicSource {
     pub fn settlement_profile(&self) -> &SettlementProfileBinding { &self.settlement_profile }
     pub fn evidence_frontier(&self) -> Digest32 { self.evidence_frontier }
     pub fn qualified_at_unix_ms(&self) -> u64 { self.qualified_at_unix_ms }
+    pub fn reversal_model(&self) -> ReversalModel { self.reversal_model }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -557,6 +560,8 @@ pub enum AccountingError {
     SourceProjectionConflict,
     ReversalTargetMissing,
     ReversalOfReversal,
+    ReversalNotPermittedBySource,
+    ReversalEffectiveTimeBeforeOriginal,
     ReversalPostingMismatch,
     ReversalExceedsOriginal,
     CounterOverflow,
@@ -850,6 +855,12 @@ impl JournalBook {
                 .ok_or(AccountingError::ReversalTargetMissing)?;
             if original.reverses.is_some() {
                 return Err(AccountingError::ReversalOfReversal);
+            }
+            if original.source.reversal_model != ReversalModel::MayReverse {
+                return Err(AccountingError::ReversalNotPermittedBySource);
+            }
+            if entry.effective_at_unix_ms < original.effective_at_unix_ms {
+                return Err(AccountingError::ReversalEffectiveTimeBeforeOriginal);
             }
             if original.ledger_profile_digest != entry.ledger_profile_digest
                 || original.reporting_entity != entry.reporting_entity
@@ -1527,6 +1538,101 @@ mod tests {
                 draft("cash-reversal-not-allowed", 10, Some(original_id))
             ),
             Err(AccountingError::PostingPolicyMismatch)
+        );
+    }
+
+
+    #[test]
+    fn terminal_settlement_profile_does_not_authorize_later_accounting_reversal() {
+        let ledger = ledger_profile();
+        let policy = policy(&ledger);
+        let profile = settlement_profile();
+        let mut terminal_profile = profile.clone();
+        terminal_profile.reversal_model = ReversalModel::DeclaredTerminalByProfile;
+        let subject = SettlementSubject {
+            id: reference("settlement:terminal-subject"),
+            attempt: ExecutionAttemptRef::new("attempt:terminal-subject").expect("attempt"),
+            rail: terminal_profile.rail.clone(),
+            network: terminal_profile.network.clone(),
+            amount: AssetAmount::new(100, asset()),
+            required_profile: terminal_profile.profile_ref.clone(),
+        };
+        let operation_id = reference("operation:terminal-subject");
+        let evidence = FinalityEvidence {
+            evidence_id: reference("evidence:terminal-subject"),
+            subject: subject.id.clone(),
+            operation_id: operation_id.clone(),
+            kind: reference("evidence:provider-settlement"),
+            source: reference("source:provider-a"),
+            digest: Digest32::repeat(7),
+        };
+        let observation = SettlementObservation {
+            observation_id: reference("observation:terminal-subject"),
+            subject: subject.id.clone(),
+            attempt: subject.attempt.clone(),
+            rail: subject.rail.clone(),
+            network: subject.network.clone(),
+            operation_id,
+            revision: 1,
+            amount: AssetAmount::new(100, asset()),
+            state: ObservedSettlementState::Applied,
+            observed_at_unix_ms: 9_000,
+            evidence: vec![evidence],
+        };
+        let settlement = qualify_settlement(
+            &subject,
+            &terminal_profile,
+            &[observation],
+            10_000,
+            Digest32::repeat(8),
+        )
+        .expect("terminal qualified settlement");
+        let source = QualifiedEconomicSource::from_qualified_settlement(
+            reference("economic-event:terminal-original"),
+            &settlement,
+        ).expect("source binding");
+        let original = qualify_journal_entry(
+            &ledger,
+            &policy,
+            JournalEntryDraft {
+                reporting_period: reference("period:2026-11"),
+                effective_at_unix_ms: 10_001,
+                source,
+                postings: vec![
+                    posting("account:cash", PostingSide::Debit, 100),
+                    posting("account:settlement-clearing", PostingSide::Credit, 100),
+                ],
+                reverses: None,
+            },
+        ).expect("original journal");
+        assert_eq!(original.source.reversal_model(), ReversalModel::DeclaredTerminalByProfile);
+        let original_id = original.journal_id();
+        let mut book = JournalBook::new(&ledger).expect("book");
+        book.append(original).expect("append original");
+
+        assert_eq!(
+            qualify_journal_entry(&ledger, &policy, draft("terminal-reversal", 10, Some(original_id)))
+                .and_then(|entry| book.append(entry).map(|_| ())),
+            Err(AccountingError::ReversalNotPermittedBySource)
+        );
+    }
+
+    #[test]
+    fn reversal_cannot_predate_the_original_journal_effective_time() {
+        let ledger = ledger_profile();
+        let policy = policy(&ledger);
+        let original = qualify_journal_entry(&ledger, &policy, draft("time-original", 100, None))
+            .expect("original");
+        let original_id = original.journal_id();
+        let mut book = JournalBook::new(&ledger).expect("book");
+        book.append(original).expect("append original");
+
+        let mut draft = draft("time-reversal", 10, Some(original_id));
+        draft.effective_at_unix_ms = 10_000;
+        let reversal = qualify_journal_entry(&ledger, &policy, draft).expect("qualified draft");
+        assert_eq!(
+            book.append(reversal),
+            Err(AccountingError::ReversalEffectiveTimeBeforeOriginal)
         );
     }
 }
