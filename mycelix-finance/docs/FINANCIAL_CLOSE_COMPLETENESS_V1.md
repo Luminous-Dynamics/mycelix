@@ -56,7 +56,7 @@ The versioned close-scope manifest binds:
 - accountable owner and disposition;
 - explicit not-applicable / out-of-scope rationale, evidence reference, reviewer role and approval time.
 
-Authoritative inventories are independent controls such as a bank-account register, supplier/customer master, entity consolidation perimeter, payroll roster, inventory-location register, or related-party register. A model-generated list is not an authoritative inventory. Each inventory's authority and scope must be explicit.
+Authoritative inventories are control sources such as a bank-account register, supplier/customer master, entity consolidation perimeter, payroll roster, inventory-location register, related-party register, or independently obtained bank confirmation. A model-generated list is not an authoritative inventory. Each inventory's authority, period, capture time, identity and independence group must be explicit. Do not assume an inventory is exhaustive merely because it is labelled authoritative: where an independently sourced control is available, reconcile the inventories and preserve disagreements as population gaps. If the evidence universe rests on a single control source, the close receipt must disclose that limitation rather than imply independently verified exhaustiveness.
 
 The candidate input schema is deliberately closed. Unknown fields are rejected rather than silently ignored. Public development fixtures are metadata-only synthetic examples: they are not byte-backed source snapshots and do not qualify cryptographic source integrity. A later runner must bind real fixture bytes to content digests and source capture receipts before making integrity claims.
 
@@ -84,7 +84,11 @@ A mirror, cache, export, or downstream copy of the same root source belongs to t
 
 A source captured after close but valid for the closed period must be surfaced against the prior close receipt. The system may not silently rewrite the old journal or close. The disposition is `reopen_required` or an explicitly authorized adjustment/reopening workflow with preserved history.
 
-### 4.6 Balanced books can still be incomplete
+### 4.6 The control inventory can itself be incomplete
+
+A register is evidence about the expected population, not proof of its own completeness. The benchmark includes a case where an internal treasury bank-account register omits an account that appears in an independent bank confirmation. The candidate must use the union of independently supported in-scope populations, surface the conflict and refuse an unqualified close. When independent inventories disagree, the system may not silently pick the smaller universe or treat the internal register as the unquestioned denominator.
+
+### 4.7 Balanced books can still be incomplete
 
 Every public seed case deliberately reports a balanced trial balance. This prevents a candidate from using debit/credit balance as a proxy for evidence completeness.
 
@@ -107,6 +111,7 @@ The v1.0.0 public development corpus contains 13 synthetic cases:
 | FCC-011 | No employees, affirmatively evidenced | complete |
 | FCC-012 | Zero-activity bank statement, affirmatively evidenced | complete |
 | FCC-013 | Subsidiary supported as outside reporting boundary | complete |
+| FCC-014 | Independent bank confirmation reveals an account omitted from the internal control register | incomplete |
 
 Candidate-visible inputs and evaluator-only labels are stored separately. The labels are included for reproducibility in this public development split; future hidden evaluation must use separately permissioned oracle artifacts. Do not train or prompt-tune on hidden labels.
 
@@ -120,6 +125,7 @@ Report each metric with its numerator, denominator, population, split, and missi
 - **Unknown-to-zero conversion rate = 0.** Numerator: absent/unavailable feed cases classified as zero activity without affirmative evidence. Denominator: cases with a required population and no qualifying observation/zero-activity evidence.
 - **Independence inflation errors = 0.** Numerator: cases declared independently corroborated using only one independence group. Denominator: cases requiring multiple independent sources.
 - **Late-evidence history violations = 0.** Numerator: cases where in-period late evidence is silently absorbed without reopening/authorized adjustment. Denominator: late-in-period evidence cases.
+- **Control-inventory omission rate = 0** on seeded cross-inventory mismatch cases. Numerator: independently evidenced in-scope populations omitted from the candidate's expected universe. Denominator: all such populations in scored cases.
 - **Unauthorized exclusion acceptance = 0.** Numerator: not-applicable/out-of-scope cases accepted without evidence and authorized approval. Denominator: exclusion cases.
 
 A single critical hard-gate failure blocks a qualified completeness claim.
@@ -140,15 +146,15 @@ A single critical hard-gate failure blocks a qualified completeness claim.
 
 ### Initial gates
 
-- 100% correct disposition on this 13-case public development corpus.
+- 100% correct disposition on this 14-case public development corpus.
 - Zero material false assurances, zero unknown-to-zero conversions, zero independence inflation, zero unauthorized exclusions, and zero silent late-evidence history violations.
-- 100% exact population-ID recall on this finite seed corpus.
+- 100% exact population-ID recall on this finite seed corpus, including the cross-inventory control.
 
 These are corpus conformance targets, not field-performance claims.
 
 ### Research targets for a blinded expert-reviewed set
 
-After expanding to at least 50 cases across multiple entity types and sectors:
+After expanding to at least 50 cases across multiple entity types and sectors, including source-inventory drift and disagreement:
 
 - at least 95% expected-population recall, with confidence intervals reported;
 - zero false-complete dispositions on seeded material-omission cases;
