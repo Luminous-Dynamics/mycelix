@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
@@ -37,14 +37,51 @@ enum EvidenceSource {
     Synthetic,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone)]
 struct TraceEvent {
     seq: u64,
     event_id: String,
     evidence_ref: String,
     source: EvidenceSource,
     kind: EventKind,
+}
+
+// Keep the v1 wire shape flat and strict:
+// { seq, event_id, evidence_ref, source, kind: "grant_issued", data: {...} }.
+// A nested EventKind field would incorrectly require kind: {kind, data} and
+// drift from the checked-in JSON Schema. Decode the tagged enum from the two
+// top-level fields while a deny_unknown_fields raw struct enforces closure.
+impl<'de> Deserialize<'de> for TraceEvent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawTraceEvent {
+            seq: u64,
+            event_id: String,
+            evidence_ref: String,
+            source: EvidenceSource,
+            kind: String,
+            data: serde_json::Value,
+        }
+
+        let raw = RawTraceEvent::deserialize(deserializer)?;
+        let tagged = serde_json::json!({
+            "kind": raw.kind,
+            "data": raw.data,
+        });
+        let kind = serde_json::from_value(tagged).map_err(D::Error::custom)?;
+
+        Ok(Self {
+            seq: raw.seq,
+            event_id: raw.event_id,
+            evidence_ref: raw.evidence_ref,
+            source: raw.source,
+            kind,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
