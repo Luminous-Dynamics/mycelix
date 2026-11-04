@@ -1,0 +1,652 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-vop-corpus-v1.schema.json",
+  "title": "Mycelix Verification of Payee / Confirmation of Payee Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "created_on",
+    "as_of",
+    "evaluation_at",
+    "jurisdiction",
+    "purpose",
+    "external_effects_enabled",
+    "source_register",
+    "profiles",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-vop/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-SA-PAYMENT-VOP-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "evaluation_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 34,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "scheme",
+        "participant",
+        "service_scope",
+        "profile_version",
+        "observed_on",
+        "effective_from",
+        "effective_to",
+        "coverage",
+        "response_taxonomy_state",
+        "matching_criteria_state",
+        "security_profile_state",
+        "fallback_policy",
+        "source_refs",
+        "admission"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+-V1$"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "scheme": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "service_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "coverage": {
+          "enum": [
+            "unknown",
+            "published_scheme_comparator",
+            "published_regulatory_comparator"
+          ]
+        },
+        "response_taxonomy_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "matching_criteria_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "security_profile_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallback_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "admission": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request",
+        "response"
+      ],
+      "properties": {
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "check_id",
+            "profile_id",
+            "participant",
+            "beneficiary_account_commitment",
+            "alias_state",
+            "alias_binding_generation",
+            "submitted_name_commitment",
+            "matching_profile_version",
+            "character_set_profile",
+            "payer_audience",
+            "request_commitment",
+            "requested_at"
+          ],
+          "properties": {
+            "check_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "profile_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "participant": {
+              "type": "string",
+              "minLength": 1
+            },
+            "beneficiary_account_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "alias_state": {
+              "enum": [
+                "current",
+                "stale",
+                "unknown",
+                "not_applicable"
+              ]
+            },
+            "alias_binding_generation": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "submitted_name_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "matching_profile_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "character_set_profile": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payer_audience": {
+              "type": "string",
+              "minLength": 1
+            },
+            "request_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "requested_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "check_id",
+            "profile_id",
+            "participant",
+            "beneficiary_account_commitment",
+            "alias_state",
+            "alias_binding_generation",
+            "submitted_name_commitment",
+            "matching_profile_version",
+            "character_set_profile",
+            "audience",
+            "request_commitment",
+            "outcome",
+            "signature_state",
+            "key_state",
+            "provider_authority_state",
+            "observed_at",
+            "valid_until",
+            "reason_code",
+            "suggested_name_commitment"
+          ],
+          "properties": {
+            "check_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "profile_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "participant": {
+              "type": "string",
+              "minLength": 1
+            },
+            "beneficiary_account_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "alias_state": {
+              "enum": [
+                "current",
+                "stale",
+                "unknown",
+                "not_applicable"
+              ]
+            },
+            "alias_binding_generation": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "submitted_name_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "matching_profile_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "character_set_profile": {
+              "type": "string",
+              "minLength": 1
+            },
+            "audience": {
+              "type": "string",
+              "minLength": 1
+            },
+            "request_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "outcome": {
+              "enum": [
+                "match",
+                "close_match",
+                "no_match",
+                "verification_not_possible",
+                "not_requested",
+                "unknown",
+                "stale"
+              ]
+            },
+            "signature_state": {
+              "enum": [
+                "valid",
+                "invalid",
+                "unknown"
+              ]
+            },
+            "key_state": {
+              "enum": [
+                "active",
+                "revoked",
+                "unknown"
+              ]
+            },
+            "provider_authority_state": {
+              "enum": [
+                "authorised",
+                "not_authorised",
+                "unknown"
+              ]
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "reason_code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "suggested_name_commitment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "check_id",
+        "confirmed_request_commitment",
+        "confirmed_beneficiary_account_commitment",
+        "confirmed_name_commitment",
+        "payer_authority_state",
+        "confirmed_at"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "none",
+            "accepted_exact",
+            "cancel",
+            "reenter_and_recheck",
+            "bypass_unverified"
+          ]
+        },
+        "check_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confirmed_request_commitment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confirmed_beneficiary_account_commitment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confirmed_name_commitment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payer_authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "confirmed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "instruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instruction_id",
+        "source_check_id",
+        "request_commitment",
+        "beneficiary_account_commitment",
+        "confirmed_name_commitment",
+        "amount_minor_units",
+        "currency",
+        "authorization_state"
+      ],
+      "properties": {
+        "instruction_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_check_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "beneficiary_account_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confirmed_name_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "authorization_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "checks",
+        "payer_decision",
+        "payment_instruction",
+        "expected_outcome",
+        "expected_effect",
+        "expected_disposition",
+        "required_evidence",
+        "negative_controls"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^SA-VOP-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/check"
+          }
+        },
+        "payer_decision": {
+          "$ref": "#/$defs/decision"
+        },
+        "payment_instruction": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/instruction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_outcome": {
+          "enum": [
+            "match",
+            "close_match",
+            "no_match",
+            "verification_not_possible",
+            "not_requested",
+            "unknown",
+            "stale",
+            "cancelled",
+            "recheck_required"
+          ]
+        },
+        "expected_effect": {
+          "enum": [
+            "none",
+            "recheck_required",
+            "payment_instruction_only"
+          ]
+        },
+        "expected_disposition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "negative_controls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
