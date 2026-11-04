@@ -95,46 +95,45 @@ fn validate_schedule_update(
     action: TypedAction<UpdateData>,
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
-                EntryTypes::ScheduledEmail(scheduled) => {
-                    // Validate status transitions
-                    match scheduled.status {
-                        ScheduleStatus::Sent => {
-                            // Cannot modify sent schedules
-                            if scheduled.recurrence.is_none() {
-                                return Ok(ValidateCallbackResult::Invalid(
-                                    "Cannot modify sent non-recurring schedule".to_string(),
-                                ));
-                            }
-                        }
-                        _ => {}
-                    }
-                    // ScheduledEmail has no self-reported owner field -- update_schedule/
-                    // cancel_schedule currently locate the target by scanning a global
-                    // anchor and matching on `.id`, with zero author check anywhere
-                    // coordinator-side (P0 author-binding gap). Re-derive ownership via
-                    // must_get_action against the original action's real author.
-                    let original_action = must_get_action(action.original_action_address.clone())?;
-                    if original_action.action().author() != action.author() {
+        EntryTypes::ScheduledEmail(scheduled) => {
+            // Validate status transitions
+            match scheduled.status {
+                ScheduleStatus::Sent => {
+                    // Cannot modify sent schedules
+                    if scheduled.recurrence.is_none() {
                         return Ok(ValidateCallbackResult::Invalid(
-                            "Only the original owner can update a scheduled email".to_string(),
+                            "Cannot modify sent non-recurring schedule".to_string(),
                         ));
                     }
-                    Ok(ValidateCallbackResult::Valid)
                 }
-                EntryTypes::SnoozeReminder(_) => {
-                    // Same gap as ScheduledEmail -- dismiss_reminder accepts an arbitrary
-                    // caller-supplied hash with zero ownership check.
-                    let original_action = must_get_action(action.original_action_address.clone())?;
-                    if original_action.action().author() != action.author() {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Only the original owner can update a snooze reminder".to_string(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
+                _ => {}
+            }
+            // ScheduledEmail has no self-reported owner field -- update_schedule/
+            // cancel_schedule currently locate the target by scanning a global
+            // anchor and matching on `.id`, with zero author check anywhere
+            // coordinator-side (P0 author-binding gap). Re-derive ownership via
+            // must_get_action against the original action's real author.
+            let original_action = must_get_action(action.original_action_address.clone())?;
+            if original_action.action().author() != action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original owner can update a scheduled email".to_string(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        EntryTypes::SnoozeReminder(_) => {
+            // Same gap as ScheduledEmail -- dismiss_reminder accepts an arbitrary
+            // caller-supplied hash with zero ownership check.
+            let original_action = must_get_action(action.original_action_address.clone())?;
+            if original_action.action().author() != action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original owner can update a snooze reminder".to_string(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
 }
-
 
 fn validate_create_scheduled_email(
     _action: TypedAction<EntryCreationData>,
@@ -197,7 +196,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_create_snooze_reminder(action.into(), reminder)
                 }
             },
-            OpEntry::UpdateEntry { app_entry, action } => validate_schedule_update(app_entry, action),
+            OpEntry::UpdateEntry { app_entry, action } => {
+                validate_schedule_update(app_entry, action)
+            }
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::Link(OpLink::CreateLink { .. }) => Ok(ValidateCallbackResult::Valid),
