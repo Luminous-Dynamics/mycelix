@@ -177,6 +177,9 @@
         "not_requested",
         "unknown",
         "stale"
+      ],
+      "allowed_character_set_profiles": [
+        "unknown"
       ]
     },
     {
@@ -210,6 +213,10 @@
         "not_requested",
         "unknown",
         "stale"
+      ],
+      "allowed_character_set_profiles": [
+        "UTF-8",
+        "UTF-8-NFC"
       ]
     },
     {
@@ -231,7 +238,7 @@
         "UK_PSR_SD17_2026"
       ],
       "admission": "regulatory/scale comparator only",
-      "matching_profile_version": "participant_specific_matching_profile_unknown",
+      "matching_profile_version": "provider_specific_unknown_synthetic_fixture",
       "allowed_outcomes": [
         "match",
         "close_match",
@@ -240,6 +247,9 @@
         "not_requested",
         "unknown",
         "stale"
+      ],
+      "allowed_character_set_profiles": [
+        "provider_specific_charset_unknown"
       ]
     },
     {
@@ -261,7 +271,7 @@
         "ECB_IPR_2025"
       ],
       "admission": "regulatory comparator only",
-      "matching_profile_version": "responding_psp_matching_profile",
+      "matching_profile_version": "responding_psp_matching_profile_unknown",
       "allowed_outcomes": [
         "match",
         "close_match",
@@ -270,6 +280,9 @@
         "not_requested",
         "unknown",
         "stale"
+      ],
+      "allowed_character_set_profiles": [
+        "provider_specific_charset_unknown"
       ]
     }
   ],
@@ -287,11 +300,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-001",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-001-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-001",
+            "transaction_intent_commitment": "intent-VOP-001",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-001"
           },
           "response": {
             "check_id": "VOP-001",
@@ -301,7 +319,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-001",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-001-synthetic",
@@ -312,7 +330,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-001",
+            "transaction_intent_commitment": "intent-VOP-001"
           }
         }
       ],
@@ -323,7 +343,9 @@
         "confirmed_beneficiary_account_commitment": "acct-commit-001",
         "confirmed_name_commitment": "name-commit-001",
         "payer_authority_state": "valid",
-        "confirmed_at": "2026-11-04T09:01:00Z"
+        "confirmed_at": "2026-11-04T09:01:00Z",
+        "confirmed_payer_subject_commitment": "payer-subject-VOP-001",
+        "confirmed_payment_intent_commitment": "intent-VOP-001"
       },
       "payment_instruction": {
         "instruction_id": "INS-VOP-001",
@@ -333,7 +355,10 @@
         "confirmed_name_commitment": "name-commit-001",
         "amount_minor_units": 10000,
         "currency": "EUR",
-        "authorization_state": "valid"
+        "authorization_state": "valid",
+        "payer_subject_commitment": "payer-subject-VOP-001",
+        "payment_intent_commitment": "intent-VOP-001",
+        "reference_commitment": "reference-VOP-001"
       },
       "expected_outcome": "match",
       "expected_effect": "payment_instruction_only",
@@ -363,11 +388,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-002",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-002-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-002",
+            "transaction_intent_commitment": "intent-VOP-002",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-002"
           },
           "response": {
             "check_id": "VOP-002",
@@ -377,7 +407,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-002",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-002-synthetic",
@@ -388,7 +418,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-002",
+            "transaction_intent_commitment": "intent-VOP-002"
           }
         }
       ],
@@ -399,7 +431,9 @@
         "confirmed_beneficiary_account_commitment": "acct-commit-002",
         "confirmed_name_commitment": "name-commit-002",
         "payer_authority_state": "valid",
-        "confirmed_at": "2026-11-04T09:01:00Z"
+        "confirmed_at": "2026-11-04T09:01:00Z",
+        "confirmed_payer_subject_commitment": "payer-subject-VOP-002",
+        "confirmed_payment_intent_commitment": "intent-VOP-002"
       },
       "payment_instruction": {
         "instruction_id": "INS-VOP-002",
@@ -409,7 +443,10 @@
         "confirmed_name_commitment": "name-commit-002",
         "amount_minor_units": 10000,
         "currency": "EUR",
-        "authorization_state": "valid"
+        "authorization_state": "valid",
+        "payer_subject_commitment": "payer-subject-VOP-002",
+        "payment_intent_commitment": "intent-VOP-002",
+        "reference_commitment": "reference-VOP-002"
       },
       "expected_outcome": "match",
       "expected_effect": "payment_instruction_only",
@@ -439,11 +476,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-003",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8-NFC",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-003-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-003",
+            "transaction_intent_commitment": "intent-VOP-003",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-003"
           },
           "response": {
             "check_id": "VOP-003",
@@ -453,7 +495,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-003",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8-NFC",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-003-synthetic",
@@ -464,7 +506,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-003",
+            "transaction_intent_commitment": "intent-VOP-003"
           }
         }
       ],
@@ -475,7 +519,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -506,11 +552,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-004",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8-NFC",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-004-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-004",
+            "transaction_intent_commitment": "intent-VOP-004",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-004"
           },
           "response": {
             "check_id": "VOP-004",
@@ -520,7 +571,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-004",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8-NFC",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-004-synthetic",
@@ -531,7 +582,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-004",
+            "transaction_intent_commitment": "intent-VOP-004"
           }
         }
       ],
@@ -542,7 +595,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -573,11 +628,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-005",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8-NFC",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-005-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-005",
+            "transaction_intent_commitment": "intent-VOP-005",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-005"
           },
           "response": {
             "check_id": "VOP-005",
@@ -587,7 +647,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-005",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8-NFC",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-005-synthetic",
@@ -598,7 +658,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-005",
+            "transaction_intent_commitment": "intent-VOP-005"
           }
         }
       ],
@@ -609,7 +671,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -640,11 +704,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-006",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-006-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-006",
+            "transaction_intent_commitment": "intent-VOP-006",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-006"
           },
           "response": {
             "check_id": "VOP-006",
@@ -654,7 +723,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-006",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-006-synthetic",
@@ -665,7 +734,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-006",
+            "transaction_intent_commitment": "intent-VOP-006"
           }
         }
       ],
@@ -676,7 +747,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -707,11 +780,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-007",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-007-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-007",
+            "transaction_intent_commitment": "intent-VOP-007",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-007"
           },
           "response": {
             "check_id": "VOP-007",
@@ -721,7 +799,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-007",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-007-synthetic",
@@ -732,7 +810,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-007",
+            "transaction_intent_commitment": "intent-VOP-007"
           }
         }
       ],
@@ -743,7 +823,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -774,11 +856,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-008",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-008-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-008",
+            "transaction_intent_commitment": "intent-VOP-008",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-008"
           },
           "response": {
             "check_id": "VOP-008",
@@ -788,7 +875,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-008",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-008-synthetic",
@@ -799,7 +886,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": "vop-commitment-108-synthetic"
+            "suggested_name_commitment": "vop-commitment-108-synthetic",
+            "payer_subject_commitment": "payer-subject-VOP-008",
+            "transaction_intent_commitment": "intent-VOP-008"
           }
         }
       ],
@@ -810,7 +899,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "close_match",
@@ -841,11 +932,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-009",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-009-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-009",
+            "transaction_intent_commitment": "intent-VOP-009",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-009"
           },
           "response": {
             "check_id": "VOP-009",
@@ -855,7 +951,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-009",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-009-synthetic",
@@ -866,7 +962,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": "name-corrected-commit-009"
+            "suggested_name_commitment": "name-corrected-commit-009",
+            "payer_subject_commitment": "payer-subject-VOP-009",
+            "transaction_intent_commitment": "intent-VOP-009"
           }
         },
         {
@@ -878,11 +976,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-corrected-commit-009",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commit-109-corrected",
-            "requested_at": "2026-11-04T09:02:00Z"
+            "requested_at": "2026-11-04T09:02:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-109",
+            "transaction_intent_commitment": "intent-VOP-109",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-109"
           },
           "response": {
             "check_id": "VOP-109",
@@ -892,7 +995,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-corrected-commit-009",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commit-109-corrected",
@@ -903,7 +1006,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-109",
+            "transaction_intent_commitment": "intent-VOP-109"
           }
         }
       ],
@@ -914,7 +1019,9 @@
         "confirmed_beneficiary_account_commitment": "acct-commit-109",
         "confirmed_name_commitment": "name-corrected-commit-009",
         "payer_authority_state": "valid",
-        "confirmed_at": "2026-11-04T09:03:00Z"
+        "confirmed_at": "2026-11-04T09:03:00Z",
+        "confirmed_payer_subject_commitment": "payer-subject-VOP-109",
+        "confirmed_payment_intent_commitment": "intent-VOP-109"
       },
       "payment_instruction": {
         "instruction_id": "INS-VOP-009",
@@ -924,7 +1031,10 @@
         "confirmed_name_commitment": "name-corrected-commit-009",
         "amount_minor_units": 10000,
         "currency": "EUR",
-        "authorization_state": "valid"
+        "authorization_state": "valid",
+        "payer_subject_commitment": "payer-subject-VOP-109",
+        "payment_intent_commitment": "intent-VOP-109",
+        "reference_commitment": "reference-VOP-109"
       },
       "expected_outcome": "match",
       "expected_effect": "payment_instruction_only",
@@ -954,11 +1064,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-010",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-010-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-010",
+            "transaction_intent_commitment": "intent-VOP-010",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-010"
           },
           "response": {
             "check_id": "VOP-010",
@@ -968,7 +1083,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-010",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-010-synthetic",
@@ -979,7 +1094,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-010",
+            "transaction_intent_commitment": "intent-VOP-010"
           }
         }
       ],
@@ -990,7 +1107,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "no_match",
@@ -1021,11 +1140,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-011",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-011-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-011",
+            "transaction_intent_commitment": "intent-VOP-011",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-011"
           },
           "response": {
             "check_id": "VOP-011",
@@ -1035,7 +1159,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-011",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-011-synthetic",
@@ -1046,7 +1170,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-011",
+            "transaction_intent_commitment": "intent-VOP-011"
           }
         }
       ],
@@ -1057,7 +1183,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "no_match",
@@ -1088,11 +1216,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-012",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-012-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-012",
+            "transaction_intent_commitment": "intent-VOP-012",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-012"
           },
           "response": {
             "check_id": "VOP-012",
@@ -1102,7 +1235,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-012",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-012-synthetic",
@@ -1113,7 +1246,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-012",
+            "transaction_intent_commitment": "intent-VOP-012"
           }
         }
       ],
@@ -1124,7 +1259,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "no_match",
@@ -1155,11 +1292,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-013",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-013-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-013",
+            "transaction_intent_commitment": "intent-VOP-013",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-013"
           },
           "response": {
             "check_id": "VOP-013",
@@ -1169,7 +1311,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-013",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-013-synthetic",
@@ -1180,7 +1322,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": "provider_unavailable",
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-013",
+            "transaction_intent_commitment": "intent-VOP-013"
           }
         }
       ],
@@ -1191,7 +1335,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -1222,11 +1368,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-014",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-014-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-014",
+            "transaction_intent_commitment": "intent-VOP-014",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-014"
           },
           "response": {
             "check_id": "VOP-014",
@@ -1236,7 +1387,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-014",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-014-synthetic",
@@ -1247,7 +1398,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": "provider_unavailable",
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-014",
+            "transaction_intent_commitment": "intent-VOP-014"
           }
         }
       ],
@@ -1258,7 +1411,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -1289,11 +1444,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-015",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-015-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-015",
+            "transaction_intent_commitment": "intent-VOP-015",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-015"
           },
           "response": {
             "check_id": "VOP-015",
@@ -1303,7 +1463,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-015",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-015-synthetic",
@@ -1314,7 +1474,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-015",
+            "transaction_intent_commitment": "intent-VOP-015"
           }
         }
       ],
@@ -1325,7 +1487,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "not_requested",
@@ -1356,11 +1520,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-016",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-016-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-016",
+            "transaction_intent_commitment": "intent-VOP-016",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-016"
           },
           "response": {
             "check_id": "VOP-016",
@@ -1370,7 +1539,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-016",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-016-synthetic",
@@ -1381,7 +1550,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-016",
+            "transaction_intent_commitment": "intent-VOP-016"
           }
         }
       ],
@@ -1392,7 +1563,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1423,11 +1596,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-017",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-017-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-017",
+            "transaction_intent_commitment": "intent-VOP-017",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-017"
           },
           "response": {
             "check_id": "VOP-017",
@@ -1437,7 +1615,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-017",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-017-synthetic",
@@ -1448,7 +1626,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T08:59:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-017",
+            "transaction_intent_commitment": "intent-VOP-017"
           }
         }
       ],
@@ -1459,7 +1639,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -1490,11 +1672,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-018",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-018-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-018",
+            "transaction_intent_commitment": "intent-VOP-018",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-018"
           },
           "response": {
             "check_id": "VOP-018",
@@ -1504,7 +1691,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-018",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-018-synthetic",
@@ -1515,7 +1702,9 @@
             "observed_at": "2026-11-04T08:59:00Z",
             "valid_until": "2026-11-04T08:59:30Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-018",
+            "transaction_intent_commitment": "intent-VOP-018"
           }
         }
       ],
@@ -1526,7 +1715,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -1557,11 +1748,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-019",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-019-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-019",
+            "transaction_intent_commitment": "intent-VOP-019",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-019"
           },
           "response": {
             "check_id": "VOP-019",
@@ -1571,7 +1767,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-019",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-019-synthetic",
@@ -1582,7 +1778,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-019",
+            "transaction_intent_commitment": "intent-VOP-019"
           }
         }
       ],
@@ -1593,7 +1791,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1624,11 +1824,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-020",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-020-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-020",
+            "transaction_intent_commitment": "intent-VOP-020",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-020"
           },
           "response": {
             "check_id": "VOP-020",
@@ -1638,7 +1843,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-020",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-020-synthetic",
@@ -1649,7 +1854,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-020",
+            "transaction_intent_commitment": "intent-VOP-020"
           }
         }
       ],
@@ -1660,7 +1867,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1691,11 +1900,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-021",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-021-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-021",
+            "transaction_intent_commitment": "intent-VOP-021",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-021"
           },
           "response": {
             "check_id": "VOP-021",
@@ -1705,7 +1919,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-021",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-021-synthetic",
@@ -1716,7 +1930,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-021",
+            "transaction_intent_commitment": "intent-VOP-021"
           }
         }
       ],
@@ -1727,7 +1943,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1758,11 +1976,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-022",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-022-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-022",
+            "transaction_intent_commitment": "intent-VOP-022",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-022"
           },
           "response": {
             "check_id": "VOP-022",
@@ -1772,7 +1995,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-022",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:other",
             "request_commitment": "vop-commitment-022-synthetic",
@@ -1783,7 +2006,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-022",
+            "transaction_intent_commitment": "intent-VOP-022"
           }
         }
       ],
@@ -1794,7 +2019,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1825,11 +2052,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-023",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-023-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-023",
+            "transaction_intent_commitment": "intent-VOP-023",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-023"
           },
           "response": {
             "check_id": "VOP-023",
@@ -1839,7 +2071,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-023",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-023-synthetic",
@@ -1850,7 +2082,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-023",
+            "transaction_intent_commitment": "intent-VOP-023"
           }
         }
       ],
@@ -1861,7 +2095,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1892,11 +2128,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-024",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-024-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-024",
+            "transaction_intent_commitment": "intent-VOP-024",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-024"
           },
           "response": {
             "check_id": "VOP-024",
@@ -1906,7 +2147,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-024",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-024-synthetic",
@@ -1917,7 +2158,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-024",
+            "transaction_intent_commitment": "intent-VOP-024"
           }
         }
       ],
@@ -1928,7 +2171,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -1959,11 +2204,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-025",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-025-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-025",
+            "transaction_intent_commitment": "intent-VOP-025",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-025"
           },
           "response": {
             "check_id": "VOP-025",
@@ -1973,7 +2223,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-other",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-025-synthetic",
@@ -1984,7 +2234,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-025",
+            "transaction_intent_commitment": "intent-VOP-025"
           }
         }
       ],
@@ -1995,7 +2247,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -2026,11 +2280,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-026",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-026-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-026",
+            "transaction_intent_commitment": "intent-VOP-026",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-026"
           },
           "response": {
             "check_id": "VOP-026",
@@ -2040,7 +2299,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-026",
-            "matching_profile_version": "match-profile-old",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-026-synthetic",
@@ -2051,7 +2310,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-026",
+            "transaction_intent_commitment": "intent-VOP-026"
           }
         }
       ],
@@ -2062,7 +2323,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -2093,11 +2356,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-027",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-027-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-027",
+            "transaction_intent_commitment": "intent-VOP-027",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-027"
           },
           "response": {
             "check_id": "VOP-027",
@@ -2107,7 +2375,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-027",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "ASCII-lossy",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-027-synthetic",
@@ -2118,7 +2386,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-027",
+            "transaction_intent_commitment": "intent-VOP-027"
           }
         }
       ],
@@ -2129,7 +2399,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "unknown",
@@ -2160,11 +2432,16 @@
             "alias_state": "stale",
             "alias_binding_generation": 4,
             "submitted_name_commitment": "name-commit-028",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-028-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-028",
+            "transaction_intent_commitment": "intent-VOP-028",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-028"
           },
           "response": {
             "check_id": "VOP-028",
@@ -2174,7 +2451,7 @@
             "alias_state": "stale",
             "alias_binding_generation": 4,
             "submitted_name_commitment": "name-commit-028",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-028-synthetic",
@@ -2185,7 +2462,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-028",
+            "transaction_intent_commitment": "intent-VOP-028"
           }
         }
       ],
@@ -2196,7 +2475,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -2227,11 +2508,16 @@
             "alias_state": "unknown",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-029",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-029-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-029",
+            "transaction_intent_commitment": "intent-VOP-029",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-029"
           },
           "response": {
             "check_id": "VOP-029",
@@ -2241,7 +2527,7 @@
             "alias_state": "unknown",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-029",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-029-synthetic",
@@ -2252,7 +2538,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-029",
+            "transaction_intent_commitment": "intent-VOP-029"
           }
         }
       ],
@@ -2263,7 +2551,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -2294,11 +2584,16 @@
             "alias_state": "current",
             "alias_binding_generation": 6,
             "submitted_name_commitment": "name-commit-030",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-030-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-030",
+            "transaction_intent_commitment": "intent-VOP-030",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-030"
           },
           "response": {
             "check_id": "VOP-030",
@@ -2308,7 +2603,7 @@
             "alias_state": "unknown",
             "alias_binding_generation": 5,
             "submitted_name_commitment": "name-commit-030",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-030-synthetic",
@@ -2319,7 +2614,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-030",
+            "transaction_intent_commitment": "intent-VOP-030"
           }
         }
       ],
@@ -2330,7 +2627,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "stale",
@@ -2361,11 +2660,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-031",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-031-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-031",
+            "transaction_intent_commitment": "intent-VOP-031",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-031"
           },
           "response": {
             "check_id": "VOP-031",
@@ -2375,7 +2679,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-031",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-031-synthetic",
@@ -2386,7 +2690,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": "vop-commitment-131-synthetic"
+            "suggested_name_commitment": "vop-commitment-131-synthetic",
+            "payer_subject_commitment": "payer-subject-VOP-031",
+            "transaction_intent_commitment": "intent-VOP-031"
           }
         }
       ],
@@ -2397,7 +2703,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "close_match",
@@ -2428,11 +2736,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-032",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-032-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-032",
+            "transaction_intent_commitment": "intent-VOP-032",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-032"
           },
           "response": {
             "check_id": "VOP-032",
@@ -2442,7 +2755,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-032",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-032-synthetic",
@@ -2453,7 +2766,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-032",
+            "transaction_intent_commitment": "intent-VOP-032"
           }
         }
       ],
@@ -2464,7 +2779,9 @@
         "confirmed_beneficiary_account_commitment": "acct-commit-032",
         "confirmed_name_commitment": "name-commit-032",
         "payer_authority_state": "invalid",
-        "confirmed_at": "2026-11-04T09:01:00Z"
+        "confirmed_at": "2026-11-04T09:01:00Z",
+        "confirmed_payer_subject_commitment": "payer-subject-VOP-032",
+        "confirmed_payment_intent_commitment": "intent-VOP-032"
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -2495,11 +2812,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-033",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-033-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-033",
+            "transaction_intent_commitment": "intent-VOP-033",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-033"
           },
           "response": {
             "check_id": "VOP-033",
@@ -2509,7 +2831,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-033",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-033-synthetic",
@@ -2520,7 +2842,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-033",
+            "transaction_intent_commitment": "intent-VOP-033"
           }
         }
       ],
@@ -2531,7 +2855,9 @@
         "confirmed_beneficiary_account_commitment": "acct-commit-033",
         "confirmed_name_commitment": "name-commit-033",
         "payer_authority_state": "valid",
-        "confirmed_at": "2026-11-04T09:01:00Z"
+        "confirmed_at": "2026-11-04T09:01:00Z",
+        "confirmed_payer_subject_commitment": "payer-subject-VOP-033",
+        "confirmed_payment_intent_commitment": "intent-VOP-033"
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -2562,11 +2888,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-034",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-034-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-034",
+            "transaction_intent_commitment": "intent-VOP-034",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-034"
           },
           "response": {
             "check_id": "VOP-034",
@@ -2576,7 +2907,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-034",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-034-synthetic",
@@ -2587,7 +2918,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-034",
+            "transaction_intent_commitment": "intent-VOP-034"
           }
         }
       ],
@@ -2598,7 +2931,9 @@
         "confirmed_beneficiary_account_commitment": "acct-other",
         "confirmed_name_commitment": "name-commit-034",
         "payer_authority_state": "valid",
-        "confirmed_at": "2026-11-04T09:01:00Z"
+        "confirmed_at": "2026-11-04T09:01:00Z",
+        "confirmed_payer_subject_commitment": "payer-subject-VOP-034",
+        "confirmed_payment_intent_commitment": "intent-VOP-034"
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -2629,11 +2964,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-035",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-035-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-035",
+            "transaction_intent_commitment": "intent-VOP-035",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-035"
           },
           "response": {
             "check_id": "VOP-035",
@@ -2643,7 +2983,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-035",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-035-synthetic",
@@ -2654,7 +2994,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-035",
+            "transaction_intent_commitment": "intent-VOP-035"
           }
         }
       ],
@@ -2665,7 +3007,9 @@
         "confirmed_beneficiary_account_commitment": "acct-commit-035",
         "confirmed_name_commitment": "name-other",
         "payer_authority_state": "valid",
-        "confirmed_at": "2026-11-04T09:01:00Z"
+        "confirmed_at": "2026-11-04T09:01:00Z",
+        "confirmed_payer_subject_commitment": "payer-subject-VOP-035",
+        "confirmed_payment_intent_commitment": "intent-VOP-035"
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -2696,11 +3040,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-036",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-036-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-036",
+            "transaction_intent_commitment": "intent-VOP-036",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-036"
           },
           "response": {
             "check_id": "VOP-036",
@@ -2710,7 +3059,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-036",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-036-synthetic",
@@ -2721,7 +3070,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-036",
+            "transaction_intent_commitment": "intent-VOP-036"
           }
         }
       ],
@@ -2732,7 +3083,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -2763,11 +3116,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-037",
-            "matching_profile_version": "match-profile-v2.0",
-            "character_set_profile": "UTF-8",
+            "matching_profile_version": "unknown",
+            "character_set_profile": "ASCII-lossy",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-037-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-037",
+            "transaction_intent_commitment": "intent-VOP-037",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "ZAR",
+            "payment_reference_commitment": "reference-VOP-037"
           },
           "response": {
             "check_id": "VOP-037",
@@ -2777,7 +3135,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-037",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "unknown",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-037-synthetic",
@@ -2788,7 +3146,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": "scheme_coverage_unknown",
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-037",
+            "transaction_intent_commitment": "intent-VOP-037"
           }
         }
       ],
@@ -2799,7 +3159,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -2830,11 +3192,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-038",
-            "matching_profile_version": "match-profile-v2.0",
-            "character_set_profile": "UTF-8",
+            "matching_profile_version": "provider_specific_unknown_synthetic_fixture",
+            "character_set_profile": "provider_specific_charset_unknown",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-038-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-038",
+            "transaction_intent_commitment": "intent-VOP-038",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "GBP",
+            "payment_reference_commitment": "reference-VOP-038"
           },
           "response": {
             "check_id": "VOP-038",
@@ -2844,7 +3211,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-038",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "provider_specific_unknown_synthetic_fixture",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-038-synthetic",
@@ -2855,7 +3222,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-038",
+            "transaction_intent_commitment": "intent-VOP-038"
           }
         }
       ],
@@ -2866,7 +3235,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -2897,11 +3268,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-039",
-            "matching_profile_version": "match-profile-v2.0",
-            "character_set_profile": "UTF-8",
+            "matching_profile_version": "responding_psp_matching_profile_unknown",
+            "character_set_profile": "provider_specific_charset_unknown",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-039-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-039",
+            "transaction_intent_commitment": "intent-VOP-039",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-039"
           },
           "response": {
             "check_id": "VOP-039",
@@ -2911,7 +3287,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-039",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "responding_psp_matching_profile_unknown",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-039-synthetic",
@@ -2922,7 +3298,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-039",
+            "transaction_intent_commitment": "intent-VOP-039"
           }
         }
       ],
@@ -2933,7 +3311,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "match",
@@ -2964,11 +3344,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-040",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "ASCII-lossy",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-040-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-040",
+            "transaction_intent_commitment": "intent-VOP-040",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-040"
           },
           "response": {
             "check_id": "VOP-040",
@@ -2978,7 +3363,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-040",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "ASCII-lossy",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-040-synthetic",
@@ -2989,7 +3374,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": "unsupported_character_set",
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-040",
+            "transaction_intent_commitment": "intent-VOP-040"
           }
         }
       ],
@@ -3000,7 +3387,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -3031,11 +3420,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-041",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-041-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-041",
+            "transaction_intent_commitment": "intent-VOP-041",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-041"
           },
           "response": {
             "check_id": "VOP-041",
@@ -3045,7 +3439,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-041",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-041-synthetic",
@@ -3056,7 +3450,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": "confusable_input",
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-041",
+            "transaction_intent_commitment": "intent-VOP-041"
           }
         }
       ],
@@ -3067,7 +3463,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "no_match",
@@ -3098,11 +3496,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "commitment-to-empty-input-synthetic",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-042-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-042",
+            "transaction_intent_commitment": "intent-VOP-042",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-042"
           },
           "response": {
             "check_id": "VOP-042",
@@ -3112,7 +3515,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "commitment-to-empty-input-synthetic",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-042-synthetic",
@@ -3123,7 +3526,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": null,
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-042",
+            "transaction_intent_commitment": "intent-VOP-042"
           }
         }
       ],
@@ -3134,7 +3539,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "not_requested",
@@ -3165,11 +3572,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-043",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-043-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-043",
+            "transaction_intent_commitment": "intent-VOP-043",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-043"
           },
           "response": {
             "check_id": "VOP-043",
@@ -3179,7 +3591,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-043",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-043-synthetic",
@@ -3190,7 +3602,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": "rate_limited",
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-043",
+            "transaction_intent_commitment": "intent-VOP-043"
           }
         }
       ],
@@ -3201,7 +3615,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
@@ -3232,11 +3648,16 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-044",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "payer_audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-044-synthetic",
-            "requested_at": "2026-11-04T09:00:00Z"
+            "requested_at": "2026-11-04T09:00:00Z",
+            "payer_subject_commitment": "payer-subject-VOP-044",
+            "transaction_intent_commitment": "intent-VOP-044",
+            "payment_amount_minor_units": 10000,
+            "payment_currency": "EUR",
+            "payment_reference_commitment": "reference-VOP-044"
           },
           "response": {
             "check_id": "VOP-044",
@@ -3246,7 +3667,7 @@
             "alias_state": "not_applicable",
             "alias_binding_generation": null,
             "submitted_name_commitment": "name-commit-044",
-            "matching_profile_version": "match-profile-v2.0",
+            "matching_profile_version": "EPC-Matching-Recommendations-v2.0",
             "character_set_profile": "UTF-8",
             "audience": "payer-psp:synthetic-a",
             "request_commitment": "vop-commitment-044-synthetic",
@@ -3257,7 +3678,9 @@
             "observed_at": "2026-11-04T09:00:01Z",
             "valid_until": "2026-11-04T09:05:00Z",
             "reason_code": "unauthorised_enumeration_blocked",
-            "suggested_name_commitment": null
+            "suggested_name_commitment": null,
+            "payer_subject_commitment": "payer-subject-VOP-044",
+            "transaction_intent_commitment": "intent-VOP-044"
           }
         }
       ],
@@ -3268,7 +3691,9 @@
         "confirmed_beneficiary_account_commitment": null,
         "confirmed_name_commitment": null,
         "payer_authority_state": "not_applicable",
-        "confirmed_at": null
+        "confirmed_at": null,
+        "confirmed_payer_subject_commitment": null,
+        "confirmed_payment_intent_commitment": null
       },
       "payment_instruction": null,
       "expected_outcome": "verification_not_possible",
