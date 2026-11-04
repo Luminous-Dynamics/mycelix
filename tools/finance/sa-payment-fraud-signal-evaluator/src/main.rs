@@ -782,7 +782,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             if any_ack_without_invalidation && expected != "propagation_acknowledged_not_invalidated" {
                 errors.push(format!("{case_id}: acknowledgement without invalidation must remain explicitly unresolved"));
             }
-            if unresolved_propagation && action != "none" && action != "manual_review" {
+            if unresolved_propagation
+                && decision_action != "none"
+                && decision_action != "manual_review"
+            {
                 errors.push(format!("{case_id}: receiver cannot take a new adverse action while recipient invalidation is unresolved"));
             }
             if unresolved_propagation && !array_at(scenario, "disclosures").is_none_or(Vec::is_empty) {
@@ -845,6 +848,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let recipient = str_at(disclosure, "recipient_participant").unwrap_or("");
             let disclosure_purpose = str_at(disclosure, "purpose").unwrap_or("");
             let status_at_disclosure = str_at(disclosure, "status_at_disclosure").unwrap_or("");
+            let disclosed_version = disclosure.get("signal_version").and_then(Value::as_u64).unwrap_or(0);
+            let disclosed_digest = str_at(disclosure, "signal_digest").unwrap_or("");
             let audience_allowed = profile_audiences
                 .is_some_and(|items| items.iter().any(|v| v.as_str() == Some(audience)));
             if !audience_allowed || audience != str_at(signal, "audience").unwrap_or("") {
@@ -862,6 +867,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!(
                     "{dpath}: disclosure is not bound to current signal status"
                 ));
+            }
+            if disclosed_version
+                != signal.get("signal_version").and_then(Value::as_u64).unwrap_or(0)
+                || disclosed_digest != str_at(signal, "evidence_digest").unwrap_or("")
+            {
+                errors.push(format!("{dpath}: disclosure is not bound to the exact current signal version and digest"));
             }
             if disclosure.get("existence_oracle").and_then(Value::as_bool) != Some(false) {
                 errors.push(format!(
