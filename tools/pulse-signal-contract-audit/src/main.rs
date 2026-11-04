@@ -49,7 +49,7 @@ struct ZomeReport {
     rust_enum: String,
     typescript_alias: String,
     rust_representation: RustRepresentation,
-    rust_variants: Vec<VariantReport>,
+    rust_enum_variants: Vec<VariantReport>,
     missing_from_typescript: Vec<String>,
     extra_in_typescript: Vec<String>,
     missing_from_schema: Vec<String>,
@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .filter(|array| array.category == spec.category)
             .collect::<Vec<_>>();
 
-        let rust_names = rust_variants.iter().map(|v| v.name.clone()).collect::<BTreeSet<_>>();
+        let rust_names = rust_enum_variants.iter().map(|v| v.name.clone()).collect::<BTreeSet<_>>();
         let ts_names = ts_variants.keys().cloned().collect::<BTreeSet<_>>();
         let missing = rust_names.difference(&ts_names).cloned().collect::<Vec<_>>();
         let extra = ts_names.difference(&rust_names).cloned().collect::<Vec<_>>();
@@ -159,7 +159,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         let mut variant_reports = Vec::new();
-        for rust_variant in &rust_variants {
+        for rust_variant in &rust_enum_variants {
             let ts_fields = ts_variants.get(&rust_variant.name).cloned();
             let schema_fields = schema_variants.get(&rust_variant.name).cloned();
             let rust_field_set = rust_variant.fields.iter().cloned().collect::<BTreeSet<_>>();
@@ -222,7 +222,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             rust_enum: spec.rust_enum.to_string(),
             typescript_alias: spec.ts_alias.to_string(),
             rust_representation: representation,
-            rust_variants: variant_reports,
+            rust_enum_variants: variant_reports,
             missing_from_typescript: missing,
             extra_in_typescript: extra,
             missing_from_schema: missing_schema,
