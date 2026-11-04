@@ -707,22 +707,22 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             let sender_auth = str_at(abuse, "sender_authentication_state").unwrap_or("unknown");
             let identity = str_at(abuse, "requester_identity_resolution").unwrap_or("unknown");
             let claim = str_at(abuse, "claim_evidence_state").unwrap_or("unknown");
-            let presentation =
-                str_at(abuse, "material_presentation_state").unwrap_or("unknown");
+            let presentation = str_at(abuse, "material_presentation_state").unwrap_or("unknown");
             let presented_digest = str_at(abuse, "presented_material_digest");
             let payer_action = str_at(abuse, "payer_action").unwrap_or("none");
-            let repeat_count =
-                u64_at(abuse, "repeat_contact_after_decline_count").unwrap_or(0);
+            let repeat_count = u64_at(abuse, "repeat_contact_after_decline_count").unwrap_or(0);
             let data_purpose =
                 str_at(abuse, "secondary_data_use_purpose").unwrap_or("not_applicable");
-            let disposition =
-                str_at(abuse, "expected_abuse_disposition").unwrap_or("unknown");
+            let disposition = str_at(abuse, "expected_abuse_disposition").unwrap_or("unknown");
             let has_event = |kind: &str| events.iter().any(|event| event_type(event) == kind);
 
             if sender_auth == "verified_provider_credential"
                 && matches!(
                     claim,
-                    "sender_assertion_only" | "missing" | "stale_or_conflicted" | "unsupported_legal_claim"
+                    "sender_assertion_only"
+                        | "missing"
+                        | "stale_or_conflicted"
+                        | "unsupported_legal_claim"
                 )
                 && !matches!(
                     disposition,
@@ -754,7 +754,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     "scenarios[{case_index}]: confusable or mismatched identity created payment instruction"
                 ));
             }
-            if presentation != "complete" && (acceptance_sequence.is_some() || instruction_count > 0) {
+            if presentation != "complete"
+                && (acceptance_sequence.is_some() || instruction_count > 0)
+            {
                 errors.push(format!(
                     "scenarios[{case_index}]: incomplete, inaccessible or mismatched material presentation was accepted"
                 ));
@@ -794,8 +796,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     "scenarios[{case_index}]: appeal action lacks appeal-submitted event"
                 ));
             }
-            if matches!(payer_action, "declined" | "reported" | "blocked" | "appealed")
-                && instruction_count > 0
+            if matches!(
+                payer_action,
+                "declined" | "reported" | "blocked" | "appealed"
+            ) && instruction_count > 0
             {
                 errors.push(format!(
                     "scenarios[{case_index}]: decline/report/block/appeal was promoted to payment instruction"
@@ -824,8 +828,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             if disposition == "allow_exact_user_instruction_without_debt_conclusion"
                 && (payer_action != "accepted"
                     || instruction_count != 1
-                    || claim == "verified_external_reference"
-                )
+                    || claim == "verified_external_reference")
             {
                 errors.push(format!(
                     "scenarios[{case_index}]: user instruction without debt conclusion has inconsistent evidence"
