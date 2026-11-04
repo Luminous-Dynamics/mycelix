@@ -1096,8 +1096,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |v| {
-            v["scenarios"][57]["events"][1]["event_type"] =
-                json!("secondary_data_use_attempted");
+            v["scenarios"][57]["events"][1]["event_type"] = json!("secondary_data_use_attempted");
         },
     )?;
     count += 1;
