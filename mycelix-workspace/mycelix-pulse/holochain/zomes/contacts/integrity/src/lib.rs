@@ -234,7 +234,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpRecord::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Contact(contact) => validate_create_contact(action.into(), contact),
                 EntryTypes::ContactGroup(group) => validate_create_contact_group(group),
-                EntryTypes::GroupMembership(membership) => validate_create_group_membership(membership),
+                EntryTypes::GroupMembership(membership) => {
+                    validate_create_group_membership(membership)
+                }
                 EntryTypes::BlockedContact(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpRecord::UpdateEntry { app_entry, action } => match app_entry {
