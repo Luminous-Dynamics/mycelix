@@ -194,6 +194,50 @@
         "That a close/match response proves the underlying request is legitimate or the account operator is acting voluntarily.",
         "South African ShapID matching rules or participant-specific limits."
       ]
+    },
+    {
+      "id": "ABSA_PAYSHAP_REQUEST_2026",
+      "authority": "Absa Bank",
+      "title": "PayShap Request product and FAQ",
+      "url": "https://www.absa.co.za/self-service/digital-banking-services/digital-ways-to-pay/payshap-request/",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_product_and_faq_snapshot",
+      "supports": [
+        "Absa page says sent requests to other banks are limited to R50,000 per transaction; Absa-to-Absa ShapID requests up to R3,000; on-us account-number requests up to R5 million.",
+        "Absa says senders may send unlimited requests per day but at most five to the same recipient per day; recipients may receive unlimited total requests but at most five from the same sender per day.",
+        "Absa states requests sent by Absa expire after 45 days.",
+        "Absa permits payers to accept or decline; partial/reduced payment is available when the sender enabled the Amount Modification Indicator.",
+        "Absa limits PayShap to domestic South African transactions and describes app-based request flow."
+      ],
+      "does_not_support": [
+        "A guarantee that a request is legitimate merely because it is delivered in the Absa app.",
+        "A fee schedule for the PayShap Request flow.",
+        "A default expiry shorter than the stated 45-day period.",
+        "The same limits for requests sent from other participants or every off-us recipient bank."
+      ]
+    },
+    {
+      "id": "NEDBANK_PAYSHAP_REQUEST_2026",
+      "authority": "Nedbank",
+      "title": "PayShap Request FAQs",
+      "url": "https://personal.nedbank.co.za/bank/digital-banking/needs/payments/payshap/payshap-request-faqs.html",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_provider_faq_snapshot",
+      "supports": [
+        "Nedbank says PayShap Requests can be up to R50,000 per transaction per day, subject to potentially lower limits at other banks.",
+        "Nedbank states no daily limit on the number of PayShap Requests that can be sent or paid.",
+        "Nedbank sets a 14-day default request expiry, configurable to a date between the current day and 45 days from creation.",
+        "Nedbank says a payer may decline, a decline closes the request and it cannot later be accepted; the requester is notified of the decline reason.",
+        "Nedbank says a cancelled request is closed and cannot be resent."
+      ],
+      "does_not_support": [
+        "A universal PayShap request limit across other participants.",
+        "A fee schedule specific to the Request flow.",
+        "Partial-payment availability.",
+        "A legal conclusion about the underlying debt or the legitimacy of a request."
+      ]
     }
   ],
   "profiles": [
@@ -244,7 +288,43 @@
       "payer_fee_schedule_state": "internal_source_conflict",
       "fee_source_refs": [
         "CAPITEC_RTP_FAQ_2026"
-      ]
+      ],
+      "amount_limit_rules": [
+        {
+          "route_scope": "generic",
+          "maximum_minor_units": 10000,
+          "qualification": "Current Capitec product page and FAQ snapshot; request amount cap stated as R100.",
+          "source_refs": [
+            "CAPITEC_RTP_PRODUCT_2026",
+            "CAPITEC_RTP_FAQ_2026"
+          ]
+        }
+      ],
+      "request_count_rules": [
+        {
+          "direction": "outbound",
+          "max_requests_per_24h": 2,
+          "max_per_counterparty_per_24h": null,
+          "aggregate_unlimited": false,
+          "counterparty_scope": "any recipient at any South African bank; requester account",
+          "source_refs": [
+            "CAPITEC_RTP_FAQ_2026"
+          ],
+          "qualification": "FAQ says two requests in 24 hours to anyone at any SA bank."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": 1,
+        "minimum_days": null,
+        "maximum_days": null,
+        "requester_can_set": true,
+        "source_refs": [
+          "CAPITEC_RTP_FAQ_2026"
+        ],
+        "qualification": "One-day default when sender does not choose an expiry; FAQ also says sender can set an expiry date, but publishes no maximum."
+      },
+      "partial_payment_policy": "full_amount_only",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "ZA-CAPITEC-PAYSHAP-REQUEST-BLOG-2025-V1",
@@ -286,7 +366,33 @@
       "payer_fee_schedule_state": "historical_snapshot",
       "fee_source_refs": [
         "CAPITEC_RTP_BLOG_2025"
-      ]
+      ],
+      "amount_limit_rules": [
+        {
+          "route_scope": "generic",
+          "maximum_minor_units": 50000,
+          "qualification": "Historical 2025 Capitec explainer; not current authority.",
+          "source_refs": [
+            "CAPITEC_RTP_BLOG_2025"
+          ]
+        }
+      ],
+      "request_count_rules": [
+        {
+          "direction": "outbound",
+          "max_requests_per_24h": 2,
+          "max_per_counterparty_per_24h": null,
+          "aggregate_unlimited": false,
+          "counterparty_scope": "any recipient; historical explainer",
+          "source_refs": [
+            "CAPITEC_RTP_BLOG_2025"
+          ],
+          "qualification": "Historical 2025 source says two daily requests."
+        }
+      ],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "SEPA-SRTP-SCHEME-V4-COMPARATOR-V1",
@@ -314,7 +420,12 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "unknown",
-      "fee_source_refs": []
+      "fee_source_refs": [],
+      "amount_limit_rules": [],
+      "request_count_rules": [],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "UK-REQUEST-TO-PAY-FRAMEWORK-COMPARATOR-V1",
@@ -341,7 +452,12 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "unknown",
-      "fee_source_refs": []
+      "fee_source_refs": [],
+      "amount_limit_rules": [],
+      "request_count_rules": [],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "IN-UPI-P2P-COLLECT-RETIRED-V1",
@@ -368,7 +484,12 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "unknown",
-      "fee_source_refs": []
+      "fee_source_refs": [],
+      "amount_limit_rules": [],
+      "request_count_rules": [],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
     },
     {
       "profile_id": "EU-SEPA-VERIFICATION-OF-PAYEE-V1-1-COMPARATOR-V1",
@@ -396,7 +517,174 @@
       "requester_fee_minor_units": null,
       "payer_fee_bands": [],
       "payer_fee_schedule_state": "not_applicable",
-      "fee_source_refs": []
+      "fee_source_refs": [],
+      "amount_limit_rules": [],
+      "request_count_rules": [],
+      "expiry_policy": null,
+      "partial_payment_policy": "unknown",
+      "decline_policy": "unknown"
+    },
+    {
+      "profile_id": "ZA-ABSA-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+      "jurisdiction": "ZA",
+      "service": "PayShap Request",
+      "participant": "Absa Bank",
+      "product_scope": "consumer",
+      "channel_scope": "Absa Banking App",
+      "profile_version": "current_public_product_faq_snapshot_2026-11-04",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_state": "observed_current_public_faq_effective_date_not_stated",
+      "max_request_minor_units": null,
+      "max_requests_per_24h": null,
+      "max_combined_request_minor_units_per_24h": null,
+      "fee_state": "unknown",
+      "fee_note": "No PayShap Request fee schedule established from the product page snapshot.",
+      "source_refs": [
+        "ABSA_PAYSHAP_REQUEST_2026"
+      ],
+      "admission": "participant_and_account_terms_must_be_verified",
+      "request_count_scope": "unknown",
+      "requester_fee_minor_units": null,
+      "payer_fee_bands": [],
+      "payer_fee_schedule_state": "unknown",
+      "fee_source_refs": [],
+      "amount_limit_rules": [
+        {
+          "route_scope": "on_us_account",
+          "maximum_minor_units": 500000000,
+          "qualification": "Absa-to-Absa request using account number; R5 million per request.",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ]
+        },
+        {
+          "route_scope": "on_us_shapid",
+          "maximum_minor_units": 300000,
+          "qualification": "Absa-to-Absa request using ShapID; R3,000 per request.",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ]
+        },
+        {
+          "route_scope": "off_us",
+          "maximum_minor_units": 5000000,
+          "qualification": "Requests to other banks up to R50,000 per transaction, subject to the receiving participant's lower PayShap Request limit.",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ]
+        }
+      ],
+      "request_count_rules": [
+        {
+          "direction": "outbound",
+          "max_requests_per_24h": null,
+          "max_per_counterparty_per_24h": 5,
+          "aggregate_unlimited": true,
+          "counterparty_scope": "same recipient",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Unlimited daily total, at most five requests to the same recipient per day."
+        },
+        {
+          "direction": "inbound",
+          "max_requests_per_24h": null,
+          "max_per_counterparty_per_24h": 5,
+          "aggregate_unlimited": true,
+          "counterparty_scope": "same sender",
+          "source_refs": [
+            "ABSA_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Unlimited daily total, at most five requests from the same sender per day."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": null,
+        "minimum_days": null,
+        "maximum_days": 45,
+        "requester_can_set": null,
+        "source_refs": [
+          "ABSA_PAYSHAP_REQUEST_2026"
+        ],
+        "qualification": "Absa-sent requests expire after 45 days; no default-selection control was established from the published page."
+      },
+      "partial_payment_policy": "supported_if_ami",
+      "decline_policy": "unknown"
+    },
+    {
+      "profile_id": "ZA-NEDBANK-PAYSHAP-REQUEST-CURRENT-FAQ-V1",
+      "jurisdiction": "ZA",
+      "service": "PayShap Request",
+      "participant": "Nedbank",
+      "product_scope": "consumer",
+      "channel_scope": "Nedbank Money app and Online Banking",
+      "profile_version": "current_public_faq_snapshot_2026-11-04",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "temporal_state": "observed_current_public_faq_effective_date_not_stated",
+      "max_request_minor_units": 5000000,
+      "max_requests_per_24h": null,
+      "max_combined_request_minor_units_per_24h": null,
+      "fee_state": "unknown",
+      "fee_note": "Nedbank publishes generic PayShap transfer pricing elsewhere; this snapshot does not quantify a separate Request flow fee.",
+      "source_refs": [
+        "NEDBANK_PAYSHAP_REQUEST_2026"
+      ],
+      "admission": "participant_and_account_terms_must_be_verified",
+      "request_count_scope": "not_applicable",
+      "requester_fee_minor_units": null,
+      "payer_fee_bands": [],
+      "payer_fee_schedule_state": "unknown",
+      "fee_source_refs": [],
+      "amount_limit_rules": [
+        {
+          "route_scope": "generic",
+          "maximum_minor_units": 5000000,
+          "qualification": "Nedbank FAQ says requests up to R50,000 per transaction per day; other banks may impose lower limits.",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ]
+        }
+      ],
+      "request_count_rules": [
+        {
+          "direction": "outbound",
+          "max_requests_per_24h": null,
+          "max_per_counterparty_per_24h": null,
+          "aggregate_unlimited": true,
+          "counterparty_scope": "all payers",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Nedbank FAQ explicitly says there is no daily limit on the number of requests sent."
+        },
+        {
+          "direction": "inbound",
+          "max_requests_per_24h": null,
+          "max_per_counterparty_per_24h": null,
+          "aggregate_unlimited": true,
+          "counterparty_scope": "all senders",
+          "source_refs": [
+            "NEDBANK_PAYSHAP_REQUEST_2026"
+          ],
+          "qualification": "Nedbank FAQ explicitly says there is no daily limit on the number of requests paid."
+        }
+      ],
+      "expiry_policy": {
+        "default_days": 14,
+        "minimum_days": 0,
+        "maximum_days": 45,
+        "requester_can_set": true,
+        "source_refs": [
+          "NEDBANK_PAYSHAP_REQUEST_2026"
+        ],
+        "qualification": "Default is 14 days; the sender can choose an expiry from the current day to 45 days after creation."
+      },
+      "partial_payment_policy": "unknown",
+      "decline_policy": "decline_closes_no_reopen"
     }
   ],
   "scenarios": [
