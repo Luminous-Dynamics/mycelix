@@ -93,6 +93,7 @@
         "operation_id": "send-operation-002",
         "attempt_id": 1,
         "grant_ref": "grant-A",
+        "grant_action_hash": "uhCkk-grant-A",
         "caller": "agent-recipient",
         "function": "messages.send",
         "authority_index": 4,
