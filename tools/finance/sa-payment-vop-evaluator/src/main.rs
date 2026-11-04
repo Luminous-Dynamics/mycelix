@@ -114,6 +114,8 @@ fn qualified_response(
         ("character_set_profile", "character_set_profile"),
         ("payer_audience", "audience"),
         ("request_commitment", "request_commitment"),
+        ("payer_subject_commitment", "payer_subject_commitment"),
+        ("transaction_intent_commitment", "transaction_intent_commitment"),
     ] {
         if !eq_field(request, request_key, response, response_key) {
             errors.push(format!(
@@ -175,6 +177,26 @@ fn qualified_response(
     if !allowed_outcome(profile, outcome) {
         errors.push(format!(
             "{path}: outcome {outcome} is not admitted by source-bound profile"
+        ));
+        bound = false;
+    }
+    if str_at(request, "matching_profile_version")
+        != str_at(profile, "matching_profile_version")
+    {
+        errors.push(format!(
+            "{path}: request matching-profile version differs from the source-bound participant profile"
+        ));
+        bound = false;
+    }
+    let charset_allowed = array_at(profile, "allowed_character_set_profiles")
+        .is_some_and(|values| {
+            values.iter().any(|value| {
+                value.as_str() == str_at(request, "character_set_profile")
+            })
+        });
+    if !charset_allowed && is_definitive(outcome) {
+        errors.push(format!(
+            "{path}: definitive matching outcome uses a character-set profile not admitted by the participant profile"
         ));
         bound = false;
     }
@@ -391,7 +413,11 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 && str_at(decision, "confirmed_beneficiary_account_commitment")
                     == str_at(last_request, "beneficiary_account_commitment")
                 && str_at(decision, "confirmed_name_commitment")
-                    == str_at(last_request, "submitted_name_commitment");
+                    == str_at(last_request, "submitted_name_commitment")
+                && str_at(decision, "confirmed_payer_subject_commitment")
+                    == str_at(last_request, "payer_subject_commitment")
+                && str_at(decision, "confirmed_payment_intent_commitment")
+                    == str_at(last_request, "transaction_intent_commitment");
             let authority = str_at(decision, "payer_authority_state") == Some("valid");
             let confirmed_at = str_at(decision, "confirmed_at").unwrap_or("");
             let response_observed = str_at(last_response, "observed_at").unwrap_or("");
@@ -438,6 +464,16 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                     == str_at(last_request, "beneficiary_account_commitment")
                 && str_at(instruction, "confirmed_name_commitment")
                     == str_at(last_request, "submitted_name_commitment")
+                && str_at(instruction, "payer_subject_commitment")
+                    == str_at(last_request, "payer_subject_commitment")
+                && str_at(instruction, "payment_intent_commitment")
+                    == str_at(last_request, "transaction_intent_commitment")
+                && str_at(instruction, "reference_commitment")
+                    == str_at(last_request, "payment_reference_commitment")
+                && u64_at(instruction, "amount_minor_units")
+                    == u64_at(last_request, "payment_amount_minor_units")
+                && str_at(instruction, "currency")
+                    == str_at(last_request, "payment_currency")
                 && str_at(instruction, "authorization_state") == Some("valid")
                 && u64_at(instruction, "amount_minor_units").is_some_and(|amount| amount > 0);
             if !instruction_matches {
@@ -605,6 +641,41 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_reject("payer subject replayed across checks", corpus, schema, |value| {
+        value["scenarios"][0]["checks"][0]["response"]["payer_subject_commitment"] =
+            json!("payer-subject-other");
+    })?;
+    count += 1;
+
+    mutate_and_reject("transaction intent replayed across checks", corpus, schema, |value| {
+        value["scenarios"][0]["checks"][0]["response"]["transaction_intent_commitment"] =
+            json!("intent-other");
+    })?;
+    count += 1;
+
+    mutate_and_reject("request uses unqualified matching profile version", corpus, schema, |value| {
+        value["scenarios"][0]["checks"][0]["request"]["matching_profile_version"] =
+            json!("old-matching-profile");
+    })?;
+    count += 1;
+
+    mutate_and_reject("lossy character conversion promoted to Match", corpus, schema, |value| {
+        value["scenarios"][39]["checks"][0]["response"]["outcome"] = json!("match");
+        value["scenarios"][39]["expected_outcome"] = json!("match");
+    })?;
+    count += 1;
+
+    mutate_and_reject("payer confirms wrong payment intent", corpus, schema, |value| {
+        value["scenarios"][0]["payer_decision"]["confirmed_payment_intent_commitment"] =
+            json!("intent-other");
+    })?;
+    count += 1;
+
+    mutate_and_reject("instruction amount differs from confirmed intent", corpus, schema, |value| {
+        value["scenarios"][0]["payment_instruction"]["amount_minor_units"] = json!(9999);
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -681,6 +752,6 @@ mod tests {
     fn negative_mutation_campaign_rejects_vop_status_and_consent_laundering() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 11);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 17);
     }
 }
