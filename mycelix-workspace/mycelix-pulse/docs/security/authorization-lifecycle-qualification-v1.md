@@ -130,7 +130,11 @@ IssueGrant -> DeliverClaim -> RevokeGrant
 
 The safe model must deny that post-revoke call based on host grant state. The projection-authority mutant config should violate `StaleProjectionDoesNotAllow` and `NoProjectionAuthority`. The grant-idempotency mutant config should independently violate `GrantIdentityInjective` after creating two host grants for one logical request. The timeout action changes only caller-observed outcome to `unknown`; it does not create or undo host grants or domain effects.
 
-**Execution status:** the TLA+ files and bounded configurations have been authored and structurally reviewed, but TLC has not yet been executed. Do not report a model-check PASS. The first model-check task is to run all three configurations with a pinned TLC version, retain the safe run's invariant results and the mutant's counterexample trace, and add both outputs as exact-source receipts. Then expand with two-conductor validator acceptance, concurrent call/revoke orderings, crash points, conflicting roots and partition schedules.
+**Executed bounded result:** TLC 1.8.0 build `2026.08.11.125311` (JAR SHA-256 `ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f`) completed the safe configuration with 83,941 generated states, 10,249 distinct states and an empty state queue. The projection-authority mutant produced a counterexample violating `NoProjectionAuthority`; the duplicate-grant retry mutant produced a counterexample violating `GrantIdentityInjective`. Exact workflow run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41834410638. The uploaded artifact contains the logs and counterexample traces.
+
+This is a finite abstract model only: two grant identities, two logical requests, three actors and two attempts. It is not a conductor test or a general proof of distributed-system correctness. The constant-level configuration checks emit TLC informational warnings; they evaluated true. The exact human-readable receipt is `docs/security/pulse-authority-model-check-2026-11-04.md`.
+
+Next expand the model with two-conductor validator acceptance, concurrent call/revoke orderings, crash points, conflicting roots and partition schedules, while retaining negative controls.
 
 ## Qualification stages
 
