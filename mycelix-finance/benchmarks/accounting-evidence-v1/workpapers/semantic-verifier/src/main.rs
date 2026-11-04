@@ -248,10 +248,11 @@ fn verify_graph(dag: &Value, out: &mut VerifyOutput) {
                 *indegree.entry(id.clone()).or_default() += 1;
             }
         }
-        let prior = prior_workpaper_refs(node);
+        let prior_values = prior_workpaper_ref_vec(node);
+        let prior: BTreeSet<String> = prior_values.iter().cloned().collect();
         let dep_set: BTreeSet<String> = dependencies;
-        if prior != dep_set {
-            prior_errors.push(format!("{id}: depends_on={dep_set:?} prior_workpaper_inputs={prior:?}"));
+        if prior_values.len() != prior.len() || prior != dep_set {
+            prior_errors.push(format!("{id}: depends_on={dep_set:?} prior_workpaper_inputs={prior_values:?}"));
         }
     }
     add(
@@ -289,14 +290,15 @@ fn verify_graph(dag: &Value, out: &mut VerifyOutput) {
         }
     }
 
-    verify_parent_commitments(&map, out);
+    verify_parent_commitments(dag, &map, out);
     verify_node_states_and_authority(&map, out);
     verify_recipes_and_numeric_values(&map, out);
     verify_frontier_staleness(dag, &map, &adjacency, out);
     verify_required_kinds_and_close_readiness(dag, &map, out);
 }
 
-fn verify_parent_commitments(map: &BTreeMap<String, &Value>, out: &mut VerifyOutput) {
+fn verify_parent_commitments(dag: &Value, map: &BTreeMap<String, &Value>, out: &mut VerifyOutput) {
+    let dag_version = string_field(dag, "dag_version").unwrap_or("");
     let mut errors = Vec::new();
     for (child_id, child) in map {
         for input in inputs_with_purpose(child, "prior_workpaper") {
@@ -317,7 +319,6 @@ fn verify_parent_commitments(map: &BTreeMap<String, &Value>, out: &mut VerifyOut
                 let expected_digest = string_field(parent_result, "workpaper_commitment_sha256");
                 let supplied_digest = string_field(reference, "sha256");
                 let version = string_field(reference, "version");
-                let dag_version = string_field_from_root_for_node(map, "dag_version").unwrap_or("");
                 if expected_digest.is_none() || supplied_digest != expected_digest {
                     errors.push(format!("{child_id}: parent {parent_id} commitment digest mismatch/missing"));
                 }
@@ -339,10 +340,6 @@ fn verify_parent_commitments(map: &BTreeMap<String, &Value>, out: &mut VerifyOut
     if !errors.is_empty() {
         out.invalid = true;
     }
-}
-
-fn string_field_from_root_for_node(_map: &BTreeMap<String, &Value>, _field: &str) -> Option<&'static str> {
-    None
 }
 
 fn verify_node_states_and_authority(map: &BTreeMap<String, &Value>, out: &mut VerifyOutput) {
@@ -473,18 +470,20 @@ fn verify_numeric_value(value: &Value) -> AppResult<()> {
         }
         "fixed_decimal" => {
             let raw=string_field(value,"value").ok_or_else(||"fixed decimal missing value".to_owned())?;
-            if raw=="-0" || raw.starts_with("-0.") && raw[1..].bytes().all(|b|b==b'0'||b==b'.') {
-                return Err("non-canonical negative zero decimal".to_owned());
-            }
-            let (_,fraction)=raw.split_once('.').ok_or_else(||"fixed decimal requires decimal point".to_owned())?;
+            let unsigned=raw.strip_prefix('-').unwrap_or(raw);
+            let (whole,fraction)=unsigned.split_once('.').ok_or_else(||"fixed decimal requires decimal point".to_owned())?;
             let scale=value.get("scale").and_then(Value::as_u64).ok_or_else(||"fixed decimal missing integer scale".to_owned())?;
+            if whole.is_empty() || !whole.bytes().all(|b|b.is_ascii_digit()) || (whole.len()>1 && whole.starts_with('0')) {
+                return Err("fixed decimal whole part is not canonical".to_owned());
+            }
+            if fraction.is_empty() || !fraction.bytes().all(|b|b.is_ascii_digit()) {
+                return Err("fixed decimal fraction is not canonical".to_owned());
+            }
             if fraction.len() as u64 != scale {
                 return Err(format!("fixed decimal textual scale {} differs from declared {scale}",fraction.len()));
             }
-            let unsigned=raw.strip_prefix('-').unwrap_or(raw);
-            let compact=unsigned.replace('.',"");
-            if compact.is_empty() || !compact.bytes().all(|b|b.is_ascii_digit()) || (compact.len()>1 && compact.starts_with('0') && !compact.starts_with("0")) {
-                return Err("invalid fixed decimal digits".to_owned());
+            if raw.starts_with('-') && whole=="0" && fraction.bytes().all(|b|b==b'0') {
+                return Err("non-canonical negative zero decimal".to_owned());
             }
         }
         "exact_rational" => {
@@ -634,7 +633,7 @@ fn workpaper_commitment_digest(node:&Value)->String{
     sha256_hex(&canonical_json(&copy).unwrap_or_default())
 }
 
-fn prior_workpaper_refs(node:&Value)->BTreeSet<String>{
+fn prior_workpaper_ref_vec(node:&Value)->Vec<String>{
     inputs_with_purpose(node,"prior_workpaper").into_iter()
         .filter_map(|input|string_field(input.get("input_ref").unwrap_or(&Value::Null),"ref_id").map(str::to_owned))
         .collect()
@@ -752,6 +751,33 @@ mod tests{
     #[test] fn ready_with_scope_limitations_requires_named_limitations(){let(mut d,s)=fixture();d["close_disposition"]=json!("ready_with_scope_limitations");d["known_scope_limitations"]=json!([]);assert_eq!(verified(&d,&s)["status"],"INVALID");}
 
     #[test] fn wrong_state_disposition_pair_is_invalid(){let(mut d,s)=fixture();d["nodes"][0]["result"]["state"]=json!("completed");d["nodes"][0]["result"]["terminal_disposition"]=json!("not_terminal");assert_eq!(verified(&d,&s)["status"],"INVALID");}
+
+    #[test] fn completed_parent_requires_exact_commitment_digest(){
+        let(mut d,s)=fixture();
+        let parent=&mut d["nodes"][0];
+        parent["result"]["state"]=json!("completed");
+        parent["result"]["terminal_disposition"]=json!("completed_and_verified");
+        parent["result"]["payload_sha256"]=json!("a".repeat(64));
+        parent["result"]["result_type"]=json!("SyntheticInvoiceEvidenceMatch");
+        parent["result"]["produced_at"]=json!("2026-11-04T18:00:01+02:00");
+        parent["result"]["workpaper_commitment_sha256"]=json!("b".repeat(64));
+        let r=verified(&d,&s);
+        assert_eq!(r["status"],"INVALID");
+        assert!(r["checks"].as_array().unwrap().iter().any(|c|c["invariant"]=="parent_workpaper_commitments"&&c["passed"]==false));
+    }
+
+    #[test] fn duplicate_prior_workpaper_input_is_rejected(){
+        let(mut d,s)=fixture();
+        let input=d["nodes"][1]["inputs"][1].clone();
+        d["nodes"][1]["inputs"].as_array_mut().unwrap().push(input);
+        assert_eq!(verified(&d,&s)["status"],"INVALID");
+    }
+
+    #[test] fn fixed_decimal_negative_zero_is_rejected(){
+        let(mut d,s)=fixture();
+        d["nodes"][0]["result"]["numeric_value"]=json!({"encoding":"fixed_decimal","value":"-0.00","scale":2,"unit_profile":{"ref_id":"rate"}});
+        assert_eq!(verified(&d,&s)["status"],"INVALID");
+    }
 
     #[test] fn rational_zero_denominator_is_rejected(){let(mut d,s)=fixture();d["nodes"][0]["result"]["numeric_value"]=json!({"encoding":"exact_rational","numerator":"3","denominator":"0","unit_profile":{"ref_id":"rate"}});assert_eq!(verified(&d,&s)["status"],"INVALID");}
 
