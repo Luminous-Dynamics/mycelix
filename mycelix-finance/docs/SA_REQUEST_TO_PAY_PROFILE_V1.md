@@ -77,3 +77,18 @@ Source: [Capitec PayShap Request FAQ](https://www.capitecbank.co.za/were-here-to
 **Qualification rule:** retain the two-request limit as scoped to the requester account because the FAQ says "you can make two requests in 24 hours to anyone". Preserve the payer-fee bands but mark the schedule internally conflicting because two of the three fee bands exceed the same FAQ's R100 request cap. Do not generalise the Capitec fee/limit to other participants. The 2025 blog remains a separate historical profile with R500 maximum and its own fee snapshot.
 
 This confirms why the outcomes benchmark must track requester and payer fees separately: a free request sent by a merchant need not mean a free payment for the payer. The fee schedule is a public product-term observation, not a matched realised-cost result.
+
+
+## 2026-11-04 canonical request commitment contract
+
+Every request is bound by a recomputed digest, not by equality of unverified digest strings.
+
+`SHA-256("MYCELIX-SA-PAYMENT-RTP-REQUEST-V1" || NUL || canonical_request_bytes)`
+
+The canonical payload is the complete request object with only `request_digest` removed. It includes request ID/version, requester, payer and beneficiary identities, amount/currency, reference, purpose, fee, expiry, issue time, channel and profile.
+
+`MYCELIX-CANONICAL-JSON-V1` uses compact UTF-8 JSON, recursively lexicographically sorted object keys, preserved array order, standard JSON string escaping and integer-only numeric values. Floating-point values are prohibited in this v1 payload. The domain separator is ASCII followed by a single NUL byte. Digest comparison is byte-exact.
+
+The Rust evaluator recomputes the digest for each request and rejects any request whose declared digest differs. Acceptance and payment-instruction events must bind that recomputed value. A field change without a new version/digest and new payer acceptance is invalid.
+
+A reference vector is stored in `request_digest_contract.vectors` and checked by unit tests. This is a protocol-specific canonicalization profile; it must not be silently replaced by a different JSON serializer or digest scope.
