@@ -1180,7 +1180,7 @@ fn validate_create_entry(
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::MailBridgeQuery(query) => {
-            if query.requester != action.author() {
+            if query.requester != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Requester must match author".to_string(),
                 ));
@@ -1438,7 +1438,7 @@ fn validate_sender_proof_verifier_compatibility_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier compatibility record provenance must match its action".to_string(),
         ));
@@ -1486,7 +1486,7 @@ fn validate_sender_proof_verifier_rollout_plan_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout plan provenance must match its action".to_string(),
         ));
@@ -1530,7 +1530,7 @@ fn validate_sender_proof_verifier_rollout_state_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.authenticated_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.authenticated_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout state provenance must match its action".to_string(),
         ));
@@ -1561,7 +1561,7 @@ fn validate_sender_proof_verifier_rollout_checkpoint_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.pinned_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.pinned_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout checkpoint provenance must match its action".to_string(),
         ));
@@ -1624,7 +1624,7 @@ fn validate_sender_proof_verifier_rollout_health_record(
             "rollout health action contradicts mismatch evidence".to_string(),
         ));
     }
-    if record.authenticated_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.authenticated_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout health provenance must match its action".to_string(),
         ));
@@ -1659,7 +1659,7 @@ fn validate_sender_proof_verifier_rollout_safety_action_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.applied_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.applied_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier rollout safety action provenance must match its action".to_string(),
         ));
@@ -1702,7 +1702,7 @@ fn validate_sender_proof_verifier_telemetry_retention_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "telemetry retention provenance must match its action".to_string(),
         ));
@@ -1749,7 +1749,7 @@ fn validate_sender_proof_verifier_rollback_drill_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "rollback drill provenance must match its action".to_string(),
         ));
@@ -1823,7 +1823,7 @@ fn validate_sender_proof_verifier_release_attestation_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier release provenance must match its action".to_string(),
         ));
@@ -1889,7 +1889,7 @@ fn validate_sender_proof_verifier_custody_ceremony_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "custody ceremony provenance must match its action".to_string(),
         ));
@@ -1929,7 +1929,7 @@ fn validate_sender_proof_verifier_custody_compromise_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "custody compromise provenance must match its action".to_string(),
         ));
@@ -1975,7 +1975,7 @@ fn validate_sender_proof_verifier_custody_recovery_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "custody recovery provenance must match its action".to_string(),
         ));
@@ -2044,7 +2044,7 @@ fn validate_sender_proof_verifier_custody_rotation_record(
     }
     if record.retiring_quorum_hash == Some([0u8; 32])
         || record.recovery_quorum_hash == Some([0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2086,7 +2086,7 @@ fn validate_sender_proof_verifier_custody_rotation_checkpoint_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "rotation checkpoint provenance must match its action".to_string(),
         ));
@@ -2122,7 +2122,7 @@ fn validate_sender_proof_verifier_device_loss_notice_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2189,7 +2189,7 @@ fn validate_sender_proof_verifier_device_succession_record(
         || record.retiring_device_approval_hash == Some([0u8; 32])
         || record.recovery_quorum_hash == Some([0u8; 32])
         || record.loss_notice_hash == Some([0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2226,7 +2226,7 @@ fn validate_sender_proof_verifier_device_succession_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2279,7 +2279,7 @@ fn validate_sender_proof_verifier_device_attestation_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2308,7 +2308,7 @@ fn validate_sender_proof_verifier_device_clone_evidence_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2341,7 +2341,7 @@ fn validate_sender_proof_verifier_device_decommission_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2375,7 +2375,7 @@ fn validate_sender_proof_verifier_device_attestation_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2401,7 +2401,7 @@ fn validate_sender_proof_verifier_device_trust_policy_record(
         || !record.require_external_checkpoint
         || record.maximum_root_handoff_micros <= 0
         || record.maximum_root_handoff_micros > MAX_HANDOFF_MICROS
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2435,7 +2435,7 @@ fn validate_sender_proof_verifier_device_measurement_policy_record(
         || record.approved_measurement_set_hash == [0u8; 32]
         || record.issued_at_micros <= 0
         || lifetime.map_or(true, |value| value <= 0 || value > MAX_POLICY_MICROS)
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2476,7 +2476,7 @@ fn validate_sender_proof_verifier_device_attestation_root_rotation_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2508,7 +2508,7 @@ fn validate_sender_proof_verifier_device_trust_binding_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2545,7 +2545,7 @@ fn validate_sender_proof_verifier_device_trust_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2576,7 +2576,7 @@ fn validate_sender_proof_verifier_measured_boot_policy_record(
         || !record.require_complete_log
         || !record.require_revocation_check
         || !record.require_external_checkpoint
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2617,7 +2617,7 @@ fn validate_sender_proof_verifier_measured_boot_evidence_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2647,7 +2647,7 @@ fn validate_sender_proof_verifier_device_trust_revocation_set_record(
         || record.revocation_set_hash == [0u8; 32]
         || record.revocation_entry_set_hash == [0u8; 32]
         || record.issued_at_micros <= 0
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2679,7 +2679,7 @@ fn validate_sender_proof_verifier_measurement_recovery_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2716,7 +2716,7 @@ fn validate_sender_proof_verifier_measured_boot_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2746,7 +2746,7 @@ fn validate_sender_proof_verifier_endorsement_policy_record(
         || !record.require_revocation_check
         || !record.require_firmware_anti_rollback
         || !record.require_external_checkpoint
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2777,7 +2777,7 @@ fn validate_sender_proof_verifier_manufacturer_root_set_record(
         || [record.root_set_hash, record.active_root_set_hash]
             .iter()
             .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2820,7 +2820,7 @@ fn validate_sender_proof_verifier_endorsement_chain_evidence_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2856,7 +2856,7 @@ fn validate_sender_proof_verifier_endorsement_revocation_set_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2897,7 +2897,7 @@ fn validate_sender_proof_verifier_endorsement_checkpoint_record(
         ]
         .iter()
         .any(|value| *value == [0u8; 32])
-        || record.recorded_by != action.author()
+        || record.recorded_by != *action.author()
         || record.recorded_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2949,7 +2949,7 @@ fn validate_sender_proof_verifier_artifact_record(
             return Ok(ValidateCallbackResult::Invalid(format!("zero {name}")));
         }
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier artifact record author and timestamp must match action provenance"
                 .to_string(),
@@ -2998,7 +2998,7 @@ fn validate_sender_proof_verifier_transparency_record(
             "invalid verifier transparency lifecycle fields".to_string(),
         ));
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier transparency record author and timestamp must match action provenance"
                 .to_string(),
@@ -3085,7 +3085,7 @@ fn validate_sender_proof_activation_policy_record(
             "invalid activation mode or transition semantics".to_string(),
         ));
     }
-    if record.recorded_by != action.author() || record.recorded_at != action.timestamp() {
+    if record.recorded_by != *action.author() || record.recorded_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "activation policy record author and timestamp must match action provenance"
                 .to_string(),
@@ -3153,7 +3153,7 @@ fn validate_sender_proof_activation_audit_event(
             "activation audit blocker codes must be nonempty, unique, and canonical".to_string(),
         ));
     }
-    if event.observed_by != action.author() || event.observed_at != action.timestamp() {
+    if event.observed_by != *action.author() || event.observed_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "activation audit author and timestamp must match action provenance".to_string(),
         ));
@@ -3218,7 +3218,7 @@ fn validate_sender_proof_conflict_evidence(
             "conflict evidence authority epochs must be nonzero".to_string(),
         ));
     }
-    if evidence.detected_by != action.author() {
+    if evidence.detected_by != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "conflict detector must match action author".to_string(),
         ));
@@ -3274,7 +3274,7 @@ fn validate_sender_proof_authority_fork_evidence(
             "authority-fork effective time must be positive".to_string(),
         ));
     }
-    if evidence.detected_by != action.author() || evidence.detected_at != action.timestamp() {
+    if evidence.detected_by != *action.author() || evidence.detected_at != action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
             "authority-fork detector must match action provenance".to_string(),
         ));
@@ -3306,7 +3306,7 @@ fn validate_sender_proof_conflict_quarantine(
             "unsupported sender-proof conflict disposition".to_string(),
         ));
     }
-    if quarantine.quarantined_by != action.author()
+    if quarantine.quarantined_by != *action.author()
         || quarantine.quarantined_at != action.timestamp()
     {
         return Ok(ValidateCallbackResult::Invalid(
@@ -3353,7 +3353,7 @@ fn validate_sender_proof_consumption(
     if consumption.epoch == 0 {
         return Ok(ValidateCallbackResult::Invalid("zero epoch".to_string()));
     }
-    if consumption.verifier != action.author() {
+    if consumption.verifier != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "verifier must match action author".to_string(),
         ));
