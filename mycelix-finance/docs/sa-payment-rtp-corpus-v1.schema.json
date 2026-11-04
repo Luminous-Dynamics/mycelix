@@ -161,7 +161,12 @@
         "requester_fee_minor_units",
         "payer_fee_bands",
         "payer_fee_schedule_state",
-        "fee_source_refs"
+        "fee_source_refs",
+        "amount_limit_rules",
+        "request_count_rules",
+        "expiry_policy",
+        "partial_payment_policy",
+        "decline_policy"
       ],
       "properties": {
         "profile_id": {
@@ -290,6 +295,43 @@
           "items": {
             "type": "string"
           }
+        },
+        "amount_limit_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/amount_limit_rule"
+          }
+        },
+        "request_count_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/request_count_rule"
+          }
+        },
+        "expiry_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/expiry_policy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "partial_payment_policy": {
+          "enum": [
+            "supported_if_ami",
+            "unsupported",
+            "full_amount_only",
+            "unknown"
+          ]
+        },
+        "decline_policy": {
+          "enum": [
+            "decline_closes_request",
+            "decline_closes_no_reopen",
+            "unknown"
+          ]
         }
       }
     },
@@ -376,6 +418,17 @@
         "request_digest": {
           "type": "string",
           "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "limit_route_scope": {
+          "enum": [
+            "generic",
+            "on_us_account",
+            "on_us_shapid",
+            "off_us"
+          ]
+        },
+        "amount_modification_indicator": {
+          "type": "boolean"
         }
       }
     },
@@ -628,6 +681,148 @@
               }
             }
           }
+        }
+      }
+    },
+    "amount_limit_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_scope",
+        "maximum_minor_units",
+        "qualification",
+        "source_refs"
+      ],
+      "properties": {
+        "route_scope": {
+          "enum": [
+            "generic",
+            "on_us_account",
+            "on_us_shapid",
+            "off_us"
+          ]
+        },
+        "maximum_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "request_count_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "direction",
+        "max_requests_per_24h",
+        "max_per_counterparty_per_24h",
+        "aggregate_unlimited",
+        "counterparty_scope",
+        "source_refs",
+        "qualification"
+      ],
+      "properties": {
+        "direction": {
+          "enum": [
+            "outbound",
+            "inbound"
+          ]
+        },
+        "max_requests_per_24h": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "max_per_counterparty_per_24h": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "aggregate_unlimited": {
+          "type": "boolean"
+        },
+        "counterparty_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "expiry_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default_days",
+        "minimum_days",
+        "maximum_days",
+        "requester_can_set",
+        "source_refs",
+        "qualification"
+      ],
+      "properties": {
+        "default_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "minimum_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maximum_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "requester_can_set": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualification": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }
