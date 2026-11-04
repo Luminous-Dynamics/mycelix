@@ -138,3 +138,12 @@ A verified provider credential is not proof that an invoice or asserted debt is 
 The corpus measures report/decline rates, repeat contact after decline, accessibility parity, confirmed fraud and appeal reversals. It does not optimise raw acceptance rate or treat repeat contact as universally prohibited where participant rules are unknown.
 
 See `SA-PAY-RTP-ABUSE-001` (#5768) for the detailed threat model, evidence dimensions and claim ceiling.
+
+
+## 2026-11-04 SARB fraud-intelligence architecture context
+
+The SARB's PEM position paper proposes that a future National Payments Utility provide baseline fraud protection, with participants reporting suspected and actual fraudulent transactions and transactional risk scoring across payment channels and participants. It also links financial identity and proxy resolution / Confirmation of Payee with fraud mitigation. The 9 April 2026 PEM industry dialogue later reported that the fraud framework had been developed and that priority items were being scoped, while the insights-platform stakeholder alignment remained in progress. SARB also lists a Fraud and Intelligence Information Sharing Forum for private-sector PEM participants.
+
+Sources are registered separately as `SARB_PEM_POSITION_2025`, `SARB_PEM_DIALOGUE_2026_04`, and `SARB_PEM_WORKING_GROUPS_2026`. These are **programme design and progress evidence**, not proof of a currently operational national fraud-scoring service or a live API.
+
+Mycelix's role should be compatible with a future federated framework: preserve source, status, confidence, freshness, purpose, correction and appeal evidence; never convert sender authentication into claim legitimacy or a source's suspicion into an adjudicated fact. This profile does not establish SARB endorsement, participation in the PEM forum, or eligibility to submit national fraud reports.
