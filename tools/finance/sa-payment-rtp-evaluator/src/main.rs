@@ -457,9 +457,14 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             if kind == "request_cancelled" {
                 cancelled = true;
             }
-            if kind == "request_expired"
-                || (kind == "payer_acceptance_rejected" && observed >= expires_at)
-            {
+            if kind == "request_expired" {
+                if observed < expires_at {
+                    errors.push(format!(
+                        "{path}: request_expired event predates the request expiry timestamp"
+                    ));
+                }
+                expired = true;
+            } else if kind == "payer_acceptance_rejected" && observed >= expires_at {
                 expired = true;
             }
             if kind == "payer_declined" {
@@ -875,6 +880,11 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
+    mutate_and_reject("expiry event cannot precede request expiry", corpus, schema, |v| {
+        v["scenarios"][3]["events"][2]["observed_at"] = json!("2026-11-04T09:59:59Z");
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -1015,6 +1025,6 @@ mod tests {
     fn negative_mutation_campaign_rejects_consent_and_status_attacks() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 15);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 16);
     }
 }
