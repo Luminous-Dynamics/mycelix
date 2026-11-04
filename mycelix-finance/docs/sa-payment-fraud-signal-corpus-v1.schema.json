@@ -608,7 +608,8 @@
         "expected_disposition",
         "negative_controls",
         "historical_disclosures",
-        "correction_propagations"
+        "correction_propagations",
+        "historical_disclosure_inventory"
       ],
       "properties": {
         "scenario_id": {
@@ -676,7 +677,8 @@
             "propagation_not_required_reasoned",
             "propagation_exception_recorded",
             "propagation_acknowledged_not_invalidated",
-            "quarantine_cross_jurisdiction_propagation"
+            "quarantine_cross_jurisdiction_propagation",
+            "propagation_inventory_incomplete"
           ]
         },
         "negative_controls": {
@@ -698,6 +700,9 @@
           "items": {
             "$ref": "#/$defs/correction_propagation"
           }
+        },
+        "historical_disclosure_inventory": {
+          "$ref": "#/$defs/historical_disclosure_inventory"
         }
       }
     },
@@ -821,6 +826,41 @@
         "evidence_reference": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "historical_disclosure_inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "recipient_count",
+        "evidence_reference",
+        "verified_at"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "complete",
+            "incomplete",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "recipient_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verified_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
         }
       }
     }
