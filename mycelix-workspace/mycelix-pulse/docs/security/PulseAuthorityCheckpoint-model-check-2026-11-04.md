@@ -23,6 +23,12 @@ The parent workflow also reran the authority lifecycle and mailbox models:
 
 All eight model phases in this run behaved as expected. A mutant phase is counted as successful only when TLC exits non-zero and the named invariant appears in the log.
 
+## Repeat run
+
+The checkpoint safe and bypass configurations reproduced their prior outcomes in [model workflow run #60](https://github.com/Luminous-Dynamics/mycelix/actions/runs/41857220290), on PR head `34b1d695b8ce7d5bc878ee9d3025fa738514f1d2` (merge checkout `8e4943ff`). Safe: 27 generated / 17 distinct states, empty queue; bypass mutant: `NoFalseFreshAuthority`.
+
+Artifact ID `13337303730`, ZIP SHA-256 `17da4b4450375fd6c262aa59f80d680954f297a2a8cd4a55b8a2b542995ca36a`. Same bounds, no production-runtime freshness proof.
+
 ## Modeled contract
 
 The model keeps distinct:
