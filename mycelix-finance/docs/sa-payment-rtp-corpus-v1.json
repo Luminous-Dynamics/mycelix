@@ -5010,7 +5010,7 @@
         {
           "event_id": "EV-5",
           "sequence": 5,
-          "event_type": "history_access_denied",
+          "event_type": "secondary_data_use_blocked",
           "actor_role": "system",
           "authority_state": "invalid",
           "request_digest": "sha256:a247a15547fdc99e85ef859a31abf6e44382cf7384d83861edcd9a1a07fc3bbf",
