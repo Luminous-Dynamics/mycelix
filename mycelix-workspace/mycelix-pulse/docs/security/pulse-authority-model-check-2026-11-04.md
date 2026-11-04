@@ -20,6 +20,20 @@
 
 The negative-control workflow steps pass only when TLC exits non-zero and reports the invariant that the mutant is intended to violate. The workflow does not accept a generic parser failure as a valid mutant detection.
 
+## Repeat run on updated PR head
+
+The model workflow was rerun as **run #36** after the PR documentation and issue cross-links were updated:
+
+- Run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41853504791
+- PR head: `d31079d4606e05268e33d4ea2bb310bc6bb99a93`
+- Merge checkout: `dec4aeef` (merge of that head into the same base)
+- Artifact ID: `13336008629`
+- Artifact ZIP SHA-256: `421090d8fee0115e78b3ce436ebfa5399bd0c6f6a6d24071dd899381af09de41`
+
+All six model phases reproduced the earlier outcomes: safe authority model 83,941 generated / 10,249 distinct states with no invariant error; projection mutant caught by `NoProjectionAuthority`; grant-idempotency mutant caught by `GrantIdentityInjective`; safe mailbox model 37 generated / 20 distinct states with no invariant error; proposed-state mutant caught by `OnlyOriginalOwnerMayUpdate`; field-smuggling mutant caught by `ProtectedFieldsRemainImmutable`.
+
+This is a repeated run of the same model/configuration logic, not an expansion of the bounds. It increases confidence in workflow reproducibility but does not increase the scope of the model's claims.
+
 ## Counterexample interpretations
 
 ### Projection-as-authority mutant
