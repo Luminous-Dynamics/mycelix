@@ -164,6 +164,32 @@ This validates only the bounded abstract contract; it does not establish that Ho
 
 The TLC workflow now runs all three mailbox configurations in addition to the authorization lifecycle configurations. **The first exact run (#32) passed the safe mailbox model** with 37 generated / 20 distinct states and no invariant error. The proposed-state mutant was caught by `OnlyOriginalOwnerMayUpdate`; the protected-field mutant was caught by `ProtectedFieldsRemainImmutable`. Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41852865450. Full tool/source/state receipt: `docs/security/PulseMailboxValidation-model-check-2026-11-04.md`. The corresponding real two-conductor experiment remains open in [#5781](https://github.com/Luminous-Dynamics/mycelix/issues/5781).
 
+## Remote signal trust-boundary model
+
+A fourth finite model now captures notification authenticity and replay safety:
+
+- `PulseSignalTrust.tla`
+- `PulseSignalTrust.cfg` — safe evidence-backed consumer;
+- `PulseSignalTrust-forged-payload-mutant.cfg` — sender-controlled payload directly applied as trusted UI state;
+- `PulseSignalTrust-replay-mutant.cfg` — duplicate logical event applied more than once.
+
+The model separates transport caller, payload-claimed source, claimed ActionHash, exact canonical record author/value, record availability/validity, evidence verification, event ID, deduplication state and trusted UI effect. A remote signal may wake a client, but only a matching transport identity and exact backing record can update trusted state. A replay of the same logical event must not produce a second effect.
+
+The safe configuration must exhaust its bounded state space. The forged-payload mutant must violate `NoUnverifiedSignalMutatesTrustedState`; the replay mutant must violate `AtMostOneEffectPerLogicalEvent`. The same pinned TLC workflow now includes these three configurations. No model-check result is claimed until an exact run completes.
+
+## Signal protocol source auditor
+
+The new standalone Rust source tool at `tools/pulse-signal-contract-audit/` uses `syn` to parse the four active Rust enums and extracts Serde representation + variant field sets. It compares those results to the matching TypeScript unions and both sets of category filters in `SignalHub.ts`. Its JSON report lists missing/stale variants, field drift, filter drift and codec incompatibility. Default execution is fail-closed; CI initially uses explicit report-only mode to preserve the baseline report without treating current source drift as a pass.
+
+This is source inventory, not a notification-authentication fix. The expected initial findings are:
+- Mail and Trust are adjacent-tagged as `{type, data}`, not flat payloads;
+- Sync and Federation use externally tagged enum encoding;
+- the current SignalHub decoder expects a flat `payload.type` object;
+- TypeScript unions and SignalHub filters are incomplete/stale relative to Rust variants;
+- individual event fields differ between Rust and TypeScript.
+
+The next repair phase should establish one versioned event envelope, generate Rust/TypeScript fixtures from a single schema, and classify remote payloads as unverified hints until exact record retrieval and validation succeed. Keep that client-protocol work separate from authorization enforcement.
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
