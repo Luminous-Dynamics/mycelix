@@ -354,7 +354,7 @@ fn validate_update_entry(
     match entry {
         // Capabilities can only be updated by grantor (to revoke)
         EntryTypes::MailboxCapability(cap) => {
-            if cap.grantor != action.author() {
+            if cap.grantor != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only grantor can update capability".to_string(),
                 ));
@@ -373,7 +373,7 @@ fn validate_update_entry(
                     "Original capability update points to another entry type".to_string()
                 )))?;
 
-            if original.grantor != action.author() {
+            if original.grantor != *action.author() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Original capability must belong to the updating grantor".to_string(),
                 ));
@@ -443,7 +443,7 @@ fn validate_capability(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Grantor must be author
-    if cap.grantor != action.author() {
+    if cap.grantor != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Grantor must match author".to_string(),
         ));
@@ -515,7 +515,7 @@ fn validate_shared_mailbox(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if mailbox.owner != action.author() {
+    if mailbox.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must match author".to_string(),
         ));
