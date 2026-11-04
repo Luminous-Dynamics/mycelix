@@ -113,6 +113,26 @@
       "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
       "valid_from": null,
       "notes": "Not real jurisdictions, not legal rules and prohibited from production use."
+    },
+    {
+      "profile_id": "UNICODE-CLDR-49",
+      "dimension": "locale_data",
+      "version": "49 (2026-10-21)",
+      "status": "reference_only",
+      "authority_class": "standards_body",
+      "source_url": "https://unicode.org/reports/tr35/",
+      "valid_from": null,
+      "notes": "Locale, numbering-system, calendar, timezone and currency formatting data; pin the exact release and implementation data."
+    },
+    {
+      "profile_id": "IANA-TZDB-2026F",
+      "dimension": "timezone_database",
+      "version": "2026f (2026-10-27)",
+      "status": "reference_only",
+      "authority_class": "standards_body",
+      "source_url": "https://www.iana.org/time-zones",
+      "valid_from": null,
+      "notes": "Time-zone history and rules change with political decisions; pin release to reproduce event-time conversion."
     }
   ],
   "coverage_matrix": [
@@ -226,6 +246,26 @@
       "evidence_refs": [],
       "limitations": [
         "no_real_jurisdiction_framework_tax_or_reporting_intersection_is_claimed_qualified"
+      ]
+    },
+    {
+      "coverage_id": "LOCALISATION-AND-TIME-REFERENCE",
+      "jurisdiction_scope": "global_locale_and_timezone_reference_only",
+      "framework_scope": "CLDR-and-IANA-tzdb",
+      "dimensions": [
+        "locale_data",
+        "timezone_database"
+      ],
+      "status": "research_only",
+      "evidence_refs": [
+        "UNICODE-CLDR-49",
+        "IANA-TZDB-2026F"
+      ],
+      "limitations": [
+        "no_locale_parser_qualified",
+        "no_timezone_evaluator_qualified",
+        "release_and_runtime_data_must_be_pinned",
+        "data_updates_do_not_authorize_source_rewriting"
       ]
     }
   ]
