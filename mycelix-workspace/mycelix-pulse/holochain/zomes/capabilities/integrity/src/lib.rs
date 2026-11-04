@@ -40,6 +40,13 @@ pub struct MailboxCapability {
     /// SHA-256 fingerprint of the grant secret. The secret itself must never be stored
     /// in this public application entry; it belongs in the recipient's private CapClaim.
     pub secret_hash: Vec<u8>,
+    /// Grantor-scoped, domain-separated hash of the client logical operation ID.
+    /// None is reserved for pre-idempotency legacy records.
+    #[serde(default)]
+    pub idempotency_key_hash: Option<Vec<u8>>,
+    /// Digest of the canonical v1 request tuple; immutable for the grant lifetime.
+    #[serde(default)]
+    pub request_digest: Option<Vec<u8>>,
 }
 
 /// Type of mailbox access
@@ -270,6 +277,8 @@ pub enum LinkTypes {
     AgentToGrantedCapabilities,
     /// Agent -> capabilities they've received
     AgentToReceivedCapabilities,
+    /// Grantor -> capabilities indexed by a grantor-scoped idempotency key
+    AgentToCapabilityIdempotencyKey,
     /// Capability -> audit logs
     CapabilityToAuditLogs,
     /// Shared mailbox -> members
@@ -331,6 +340,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Capability entries cannot be deleted".to_string(),
         )),
+        FlatOp::RegisterCreateLink {
+            link_type,
+            base_address,
+            target_address,
+            tag,
+            action,
+        } => match link_type {
+            LinkTypes::AgentToCapabilityIdempotencyKey => {
+                validate_capability_idempotency_link(base_address, target_address, tag, action)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -389,6 +410,8 @@ fn validate_update_entry(
                 || cap.expires_at != original.expires_at
                 || cap.system_grant_action_hash != original.system_grant_action_hash
                 || cap.secret_hash != original.secret_hash
+                || cap.idempotency_key_hash != original.idempotency_key_hash
+                || cap.request_digest != original.request_digest
             {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Capability authority fields are immutable".to_string(),
@@ -463,6 +486,13 @@ fn validate_capability(
             "Capability secret fingerprint must be exactly 32 bytes (SHA-256)".to_string(),
         ));
     }
+    if !cap.idempotency_key_hash.as_deref().is_some_and(is_sha256_fingerprint)
+        || !cap.request_digest.as_deref().is_some_and(is_sha256_fingerprint)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New capabilities require 32-byte idempotency-key and request digests".to_string(),
+        ));
+    }
 
     // If has expiration, must be in future
     if let Some(expires) = cap.expires_at {
@@ -508,6 +538,53 @@ fn is_valid_owner_member_append(
             .members
             .iter()
             .any(|member| member.agent == added_member.agent)
+}
+
+fn validate_capability_idempotency_link(
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    tag: LinkTag,
+    action: CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    if base_address != AnyLinkableHash::from(action.author.clone()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index base must be the grantor author".to_string(),
+        ));
+    }
+    if tag.0.len() != 32 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index tag must be a 32-byte SHA-256 digest".to_string(),
+        ));
+    }
+    let Some(target_hash) = target_address.into_action_hash() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index must target an action hash".to_string(),
+        ));
+    };
+    let record = must_get_valid_record(target_hash)?;
+    if record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency link and target must have the same author".to_string(),
+        ));
+    }
+    let Some(capability) = record
+        .entry()
+        .to_app_option::<MailboxCapability>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index target must be a MailboxCapability".to_string(),
+        ));
+    };
+    if capability.grantor != action.author
+        || capability.idempotency_key_hash.as_deref() != Some(tag.0.as_slice())
+        || !capability.request_digest.as_deref().is_some_and(is_sha256_fingerprint)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Capability idempotency index does not match its target record".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_shared_mailbox(
