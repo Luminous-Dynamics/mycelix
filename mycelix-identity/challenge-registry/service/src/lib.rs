@@ -111,18 +111,26 @@ impl ChallengeContext {
 
     fn validate(&self) -> Result<(), RegistryError> {
         let verifier_chars = self.verifier_id.chars().count();
-        if verifier_chars == 0
+        if self.verifier_id.trim().is_empty()
             || verifier_chars > MAX_VERIFIER_ID_CHARS
             || self.verifier_id.chars().any(char::is_control)
         {
             return Err(RegistryError::InvalidVerifierId);
         }
         let audience_chars = self.audience.chars().count();
-        if audience_chars == 0
+        if self.audience.trim().is_empty()
             || audience_chars > MAX_AUDIENCE_CHARS
             || self.audience.chars().any(char::is_control)
         {
             return Err(RegistryError::InvalidAudience);
+        }
+        if self.transaction_id.is_nil() {
+            return Err(RegistryError::InvalidTransactionId);
+        }
+        if self.request_digest.iter().all(|byte| *byte == 0)
+            || self.holder_binding_digest.iter().all(|byte| *byte == 0)
+        {
+            return Err(RegistryError::InvalidDigestBinding);
         }
         Ok(())
     }
@@ -134,6 +142,10 @@ pub enum RegistryError {
     InvalidVerifierId,
     #[error("audience is empty, too long, or contains control characters")]
     InvalidAudience,
+    #[error("transaction ID must not be the nil UUID")]
+    InvalidTransactionId,
+    #[error("request and holder-binding digests must be non-zero SHA-256 values")]
+    InvalidDigestBinding,
     #[error("challenge wire value must contain exactly 32 bytes")]
     InvalidChallengeLength,
     #[error("challenge TTL must be a whole number of seconds from 1 through 600")]
@@ -362,5 +374,30 @@ mod tests {
             );
         }
         assert!(context().validate().is_ok());
+    }
+
+
+    #[test]
+    fn context_rejects_nil_transaction_and_zero_digest_sentinels() {
+        assert!(matches!(
+            ChallengeContext::new(
+                "did:mycelix:v",
+                "urn:audience",
+                Uuid::nil(),
+                [1; 32],
+                [2; 32]
+            ),
+            Err(RegistryError::InvalidTransactionId)
+        ));
+        assert!(matches!(
+            ChallengeContext::new(
+                "did:mycelix:v",
+                "urn:audience",
+                Uuid::new_v4(),
+                [0; 32],
+                [2; 32]
+            ),
+            Err(RegistryError::InvalidDigestBinding)
+        ));
     }
 }
