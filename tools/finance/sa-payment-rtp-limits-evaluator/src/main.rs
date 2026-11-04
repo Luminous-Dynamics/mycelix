@@ -128,13 +128,23 @@ fn find_amount_rule<'a>(profile: &'a Value, rule_id: &str) -> Option<&'a Value> 
         .find(|rule| str_at(rule, "rule_id") == Some(rule_id))
 }
 
-fn receiver_limit(
-    receiver: &Value,
+fn receiver_amount_rule<'a>(
+    receiver: &'a Value,
     route_scope: &str,
-) -> Option<u64> {
-    array_at(receiver, "amount_limit_rules")?
+) -> Option<&'a Value> {
+    let rules = array_at(receiver, "amount_limit_rules")?;
+    rules
         .iter()
         .find(|rule| str_at(rule, "route_scope") == Some(route_scope))
+        .or_else(|| {
+            rules
+                .iter()
+                .find(|rule| str_at(rule, "route_scope") == Some("generic"))
+        })
+}
+
+fn receiver_limit(receiver: &Value, route_scope: &str) -> Option<u64> {
+    receiver_amount_rule(receiver, route_scope)
         .and_then(|rule| u64_at(rule, "max_per_request_minor_units"))
 }
 
@@ -210,15 +220,8 @@ fn expected_disposition(case: &Value, profile: &Value, profiles: &BTreeMap<Strin
     };
     if str_at(count_rule, "direction") != Some(direction)
         || str_at(count_rule, "window_semantics") != Some(window)
-        || !rule_sources_resolve(count_rule, &source_ids_from_profile(profile, profiles))
     {
-        // Source references are checked globally by semantic_errors; this branch
-        // intentionally checks scope, direction and time semantics only.
-        if str_at(count_rule, "direction") != Some(direction)
-            || str_at(count_rule, "window_semantics") != Some(window)
-        {
-            return "reject_wrong_rule_application";
-        }
+        return "reject_wrong_rule_application";
     }
     let scope = str_at(count_rule, "scope").unwrap_or("");
     let mut count_exceeded = false;
@@ -296,15 +299,6 @@ fn expected_disposition(case: &Value, profile: &Value, profiles: &BTreeMap<Strin
         return "appeal_review";
     }
     "allow"
-}
-
-// A rule's source identity is checked against the corpus-level source register.
-// The profile carries the source set; this helper supplies that same set.
-fn source_ids_from_profile(
-    _profile: &Value,
-    _profiles: &BTreeMap<String, Value>,
-) -> BTreeSet<String> {
-    BTreeSet::new()
 }
 
 fn semantic_errors(corpus: &Value) -> Vec<String> {
@@ -414,20 +408,19 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!("{id}: receiver lower limit lacks receiver profile"));
                 continue;
             };
-            if !profiles_map.contains_key(receiver_id) {
-                errors.push(format!("{id}: receiver profile is unresolved"));
-            }
-            if !case.get("source_refs").and_then(Value::as_array).is_some_and(|refs| {
-                refs.iter().any(|v| v.as_str().is_some_and(|s| {
-                    str_at(&profiles_map[receiver_id], "profile_id") == Some(s)
-                }))
-            }) {
-                // Profile ID is not a source reference; receiver sources must be explicitly listed below.
-                let receiver = profiles_map.get(receiver_id).expect("checked receiver exists");
-                let receiver_sources = array_at(receiver, "source_refs").cloned().unwrap_or_default();
-                if !receiver_sources.iter().all(|v| refs.contains(v)) {
-                    errors.push(format!("{id}: receiver-side rule lacks receiver profile source references"));
+            if let Some(receiver) = profiles_map.get(receiver_id) {
+                if let Some(receiver_rule) = receiver_amount_rule(receiver, str_at(case, "route_scope").unwrap_or("")) {
+                    let receiver_refs = array_at(receiver_rule, "source_refs").cloned().unwrap_or_default();
+                    if receiver_refs.is_empty() || !receiver_refs.iter().all(|reference| {
+                        reference.as_str().is_some_and(|source_id| refs.iter().any(|item| item.as_str() == Some(source_id)))
+                    }) {
+                        errors.push(format!("{id}: receiver-side rule lacks its exact source references"));
+                    }
+                } else {
+                    errors.push(format!("{id}: receiver has no qualified amount rule for this route"));
                 }
+            } else {
+                errors.push(format!("{id}: receiver profile is unresolved"));
             }
         }
         let computed = expected_disposition(case, profile, &profiles_map);
