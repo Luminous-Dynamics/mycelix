@@ -96,10 +96,6 @@ fn timestamp_epoch_seconds(value: &str) -> Option<i64> {
     Some(days * 86_400 + hour * 3_600 + minute * 60 + second - offset_seconds)
 }
 
-fn valid_timestamp(value: &str) -> bool {
-    timestamp_epoch_seconds(value).is_some()
-}
-
 fn schema_errors(schema: &Value, corpus: &Value) -> Vec<String> {
     let mut errors = Vec::new();
     if !jsonschema::meta::is_valid(schema) {
@@ -458,7 +454,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
     }
 
-    for (index, case) in scenarios.iter().enumerate() {
+    for case in &scenarios {
         let id = str_at(case, "scenario_id").unwrap_or("<missing>");
         let profile_id = str_at(case, "profile_id").unwrap_or("");
         let Some(profile) = profiles_map.get(profile_id) else {
@@ -629,7 +625,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
     mutate_and_reject("wrong direction rule", corpus, schema, |v| {
-        v["scenarios"][27]["applied_count_rule_id"] = json!("ABSA-OUT-SAME-RECIPIENT-DAY");
+        v["scenarios"][10]["applied_count_rule_id"] = json!("ABSA-OUT-SAME-RECIPIENT-DAY");
     })?;
     count += 1;
     mutate_and_reject("rolling window becomes calendar day", corpus, schema, |v| {
