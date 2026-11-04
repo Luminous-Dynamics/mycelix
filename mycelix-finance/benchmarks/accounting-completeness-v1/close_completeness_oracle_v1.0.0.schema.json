@@ -22,7 +22,7 @@
     },
     "cases": {
       "type": "array",
-      "minItems": 13,
+      "minItems": 14,
       "items": {
         "$ref": "#/$defs/case"
       }
