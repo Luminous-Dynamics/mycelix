@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -198,8 +199,13 @@ def main() -> None:
         }
         fail(f"mutation census/disposition drift; missing={missing}, unexpected={unexpected}, changed={changed}")
 
+    source_commit = os.environ.get("ENERGY_EVIDENCE_SOURCE_COMMIT")
+    if not source_commit:
+        fail("ENERGY_EVIDENCE_SOURCE_COMMIT is required for a reproducible CI receipt")
+
     receipt_out = {
         "receipt_version": "1",
+        "source_commit": source_commit,
         "scope": "schema_and_fixture_structure_only",
         "semantic_evaluator": "not_run",
         "schema_draft": "2020-12",
