@@ -1,0 +1,182 @@
+{
+  "benchmark_id": "FIN-CLOSE-COMPLETENESS-V1",
+  "oracle_version": "1.0.0",
+  "claim_scope": "expected_disposition_and_missing_population_labels_for_public_development_cases",
+  "cases": [
+    {
+      "case_id": "FCC-001",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "BANK-RESERVE-002"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "bank_population_omission",
+        "balanced_but_incomplete"
+      ]
+    },
+    {
+      "case_id": "FCC-002",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "AP-CAPEX-002"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "supplier_population_omission",
+        "balanced_but_incomplete"
+      ]
+    },
+    {
+      "case_id": "FCC-003",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "AR-CARD-002"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "receivable_population_omission",
+        "balanced_but_incomplete"
+      ]
+    },
+    {
+      "case_id": "FCC-004",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "SUB-CO-002-GL"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "subsidiary_omission",
+        "consolidation_boundary",
+        "balanced_but_incomplete"
+      ]
+    },
+    {
+      "case_id": "FCC-005",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "PAYROLL-CO-001"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "payroll_liability_omission",
+        "balanced_but_incomplete"
+      ]
+    },
+    {
+      "case_id": "FCC-006",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "INV-WH-B-002"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "inventory_location_omission",
+        "balanced_but_incomplete"
+      ]
+    },
+    {
+      "case_id": "FCC-007",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "RP-TRANSACTIONS-001"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "related_party_omission",
+        "balanced_but_incomplete"
+      ]
+    },
+    {
+      "case_id": "FCC-008",
+      "expected_disposition": "reopen_required",
+      "seeded_material_omission": false,
+      "required_missing_population_ids": [],
+      "required_independent_source_gaps": [],
+      "requires_reopen": true,
+      "metric_tags": [
+        "late_arriving_in_period_evidence",
+        "temporal_close_integrity"
+      ]
+    },
+    {
+      "case_id": "FCC-009",
+      "expected_disposition": "incomplete",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [],
+      "required_independent_source_gaps": [
+        "BANK-OPERATING-009"
+      ],
+      "requires_reopen": false,
+      "metric_tags": [
+        "mirrored_feed_not_independent",
+        "evidence_independence"
+      ]
+    },
+    {
+      "case_id": "FCC-010",
+      "expected_disposition": "indeterminate",
+      "seeded_material_omission": true,
+      "required_missing_population_ids": [
+        "BANK-MERCHANT-010"
+      ],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "missing_feed_not_zero",
+        "unknown_to_zero_control"
+      ]
+    },
+    {
+      "case_id": "FCC-011",
+      "expected_disposition": "complete",
+      "seeded_material_omission": false,
+      "required_missing_population_ids": [],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "positive_control",
+        "not_applicable_with_authority"
+      ]
+    },
+    {
+      "case_id": "FCC-012",
+      "expected_disposition": "complete",
+      "seeded_material_omission": false,
+      "required_missing_population_ids": [],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "positive_control",
+        "explicit_zero_activity"
+      ]
+    },
+    {
+      "case_id": "FCC-013",
+      "expected_disposition": "complete",
+      "seeded_material_omission": false,
+      "required_missing_population_ids": [],
+      "required_independent_source_gaps": [],
+      "requires_reopen": false,
+      "metric_tags": [
+        "positive_control",
+        "approved_scope_exclusion"
+      ]
+    }
+  ]
+}
