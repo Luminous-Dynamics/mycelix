@@ -90,7 +90,7 @@ fn parse_utc_seconds(value: &str) -> Option<i64> {
     if !(1..=max_day).contains(&day) {
         return None;
     }
-    let adjusted_year = year - i64::from(month <= 2);
+    let adjusted_year = year - if month <= 2 { 1 } else { 0 };
     let era = adjusted_year.div_euclid(400);
     let year_of_era = adjusted_year - era * 400;
     let adjusted_month = month + if month > 2 { -3 } else { 9 };
@@ -156,7 +156,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
     }
 
-    for (case_index, scenario) in scenarios.iter().enumerate() {
+    for scenario in scenarios.iter() {
         let case_id = str_at(scenario, "scenario_id").unwrap_or("<missing>");
         let signal = &scenario["signal"];
         let profile_id = str_at(signal, "profile_id").unwrap_or("");
