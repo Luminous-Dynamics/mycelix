@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-accounting-profile-reference-v1.0.0.json",
+  "title": "Mycelix Global Accounting Profile Reference v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "registry_id",
+    "registry_version",
+    "generated_on",
+    "claim_scope",
+    "profile_references",
+    "coverage_matrix"
+  ],
+  "properties": {
+    "registry_id": {
+      "const": "MYCELIX-GLOBAL-ACCOUNTING-PROFILE-REFERENCE"
+    },
+    "registry_version": {
+      "const": "1.0.0"
+    },
+    "generated_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "claim_scope": {
+      "const": "reference_inventory_and_maturity_matrix_only_not_global_compliance_or_qualified_country_coverage"
+    },
+    "profile_references": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/profileReference"
+      }
+    },
+    "coverage_matrix": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/coverage"
+      }
+    }
+  },
+  "$defs": {
+    "profileReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "dimension",
+        "version",
+        "status",
+        "authority_class",
+        "source_url",
+        "valid_from",
+        "notes"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "dimension": {
+          "enum": [
+            "portable_core",
+            "jurisdiction_adoption_reference",
+            "accounting_framework",
+            "e_invoice_interoperability",
+            "e_invoice_semantics",
+            "digital_reporting_taxonomy",
+            "digital_tax_reporting_reference",
+            "jurisdiction_profile"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "candidate",
+            "research_only",
+            "reference_only",
+            "review_required",
+            "qualified_for_declared_scope",
+            "suspended",
+            "retired",
+            "synthetic_only"
+          ]
+        },
+        "authority_class": {
+          "enum": [
+            "project_design",
+            "standard_setter",
+            "network_governance",
+            "standards_body",
+            "international_organization",
+            "synthetic_test_fixture"
+          ]
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "valid_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage_id",
+        "jurisdiction_scope",
+        "framework_scope",
+        "dimensions",
+        "status",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "coverage_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "jurisdiction_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "framework_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "status": {
+          "enum": [
+            "not_in_scope",
+            "candidate",
+            "research_only",
+            "review_required",
+            "qualified_for_declared_scope",
+            "suspended",
+            "retired"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    }
+  }
+}
