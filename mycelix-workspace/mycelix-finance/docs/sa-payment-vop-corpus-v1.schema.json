@@ -157,7 +157,8 @@
         "source_refs",
         "admission",
         "matching_profile_version",
-        "allowed_outcomes"
+        "allowed_outcomes",
+        "allowed_character_set_profiles"
       ],
       "properties": {
         "profile_id": {
@@ -255,6 +256,14 @@
               "stale"
             ]
           }
+        },
+        "allowed_character_set_profiles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -281,7 +290,12 @@
             "character_set_profile",
             "payer_audience",
             "request_commitment",
-            "requested_at"
+            "requested_at",
+            "payer_subject_commitment",
+            "transaction_intent_commitment",
+            "payment_amount_minor_units",
+            "payment_currency",
+            "payment_reference_commitment"
           ],
           "properties": {
             "check_id": {
@@ -338,6 +352,26 @@
             "requested_at": {
               "type": "string",
               "format": "date-time"
+            },
+            "payer_subject_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "transaction_intent_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payment_amount_minor_units": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "payment_currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "payment_reference_commitment": {
+              "type": "string",
+              "minLength": 1
             }
           }
         },
@@ -363,7 +397,9 @@
             "observed_at",
             "valid_until",
             "reason_code",
-            "suggested_name_commitment"
+            "suggested_name_commitment",
+            "payer_subject_commitment",
+            "transaction_intent_commitment"
           ],
           "properties": {
             "check_id": {
@@ -468,6 +504,14 @@
                 "string",
                 "null"
               ]
+            },
+            "payer_subject_commitment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "transaction_intent_commitment": {
+              "type": "string",
+              "minLength": 1
             }
           }
         }
@@ -483,7 +527,9 @@
         "confirmed_beneficiary_account_commitment",
         "confirmed_name_commitment",
         "payer_authority_state",
-        "confirmed_at"
+        "confirmed_at",
+        "confirmed_payer_subject_commitment",
+        "confirmed_payment_intent_commitment"
       ],
       "properties": {
         "action": {
@@ -531,6 +577,18 @@
             "null"
           ],
           "format": "date-time"
+        },
+        "confirmed_payer_subject_commitment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confirmed_payment_intent_commitment": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
@@ -545,7 +603,10 @@
         "confirmed_name_commitment",
         "amount_minor_units",
         "currency",
-        "authorization_state"
+        "authorization_state",
+        "payer_subject_commitment",
+        "payment_intent_commitment",
+        "reference_commitment"
       ],
       "properties": {
         "instruction_id": {
@@ -582,6 +643,18 @@
             "invalid",
             "unknown"
           ]
+        },
+        "payer_subject_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payment_intent_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference_commitment": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
