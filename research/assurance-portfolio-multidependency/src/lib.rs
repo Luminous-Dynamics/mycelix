@@ -16,6 +16,34 @@ use std::collections::{BTreeMap, BTreeSet};
 /// This prevents attacker-controlled graph size from exhausting memory or
 /// relying on recursive call-stack depth.
 pub const MAX_DEPENDENCY_NODES: usize = 100_000;
+/// Maximum total directed edges across the complete dependency graph.
+pub const MAX_DEPENDENCY_EDGES: usize = 100_000;
+/// Maximum number of independent roles in one claim portfolio.
+pub const MAX_REQUIRED_ROLES: usize = 128;
+/// Maximum evidence references retained by one dependency node.
+pub const MAX_EVIDENCE_REFS_PER_NODE: usize = 64;
+/// Maximum total evidence references retained by one graph.
+pub const MAX_TOTAL_EVIDENCE_REFERENCES: usize = 500_000;
+/// Maximum byte length for claim, role, node and edge identifiers.
+pub const MAX_IDENTIFIER_BYTES: usize = 512;
+/// Maximum byte length of one opaque evidence reference.
+pub const MAX_EVIDENCE_REFERENCE_BYTES: usize = 1_024;
+/// Maximum byte length of one dimension-coverage rationale.
+pub const MAX_COVERAGE_RATIONALE_BYTES: usize = 2_048;
+/// Maximum pairwise separation requirements in a policy.
+pub const MAX_SEPARATION_REQUIREMENTS: usize = 125_000;
+
+fn valid_identifier(value: &str) -> bool {
+    !value.trim().is_empty()
+        && value.len() <= MAX_IDENTIFIER_BYTES
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_rationale(value: &str) -> bool {
+    !value.trim().is_empty()
+        && value.len() <= MAX_COVERAGE_RATIONALE_BYTES
+        && !value.chars().any(char::is_control)
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Digest(pub [u8; 32]);
@@ -213,6 +241,13 @@ pub enum AuditError {
     DanglingDependency,
     DependencyCycle,
     DependencyGraphTooLarge,
+    DependencyGraphTooManyEdges,
+    TooManyRequiredRoles,
+    TooManySeparationRequirements,
+    TooManyEvidenceReferences,
+    InvalidIdentifier,
+    InvalidEvidenceReference,
+    InvalidRationale,
     OrphanNode,
     MissingDimensionClassification,
     CompleteDimensionHasNoDependency,
@@ -432,7 +467,7 @@ pub fn audit_multi_dependency_graph(
     policy: &AssurancePolicy,
     bindings: &AuditBindings,
 ) -> Result<MultiDependencyAuditReport, AuditError> {
-    if graph.claim_id.trim().is_empty() {
+    if !valid_identifier(&graph.claim_id) {
         return Err(AuditError::EmptyClaimId);
     }
     if bindings.max_candidate_extensions == 0 {
@@ -443,6 +478,19 @@ pub fn audit_multi_dependency_graph(
     }
     if policy.required_roles.is_empty() {
         return Err(AuditError::EmptyRequiredRoles);
+    }
+    if policy.required_roles.len() > MAX_REQUIRED_ROLES {
+        return Err(AuditError::TooManyRequiredRoles);
+    }
+    if policy.mandatory_separations.len() > MAX_SEPARATION_REQUIREMENTS {
+        return Err(AuditError::TooManySeparationRequirements);
+    }
+    if policy
+        .required_roles
+        .iter()
+        .any(|role| !valid_identifier(role))
+    {
+        return Err(AuditError::InvalidIdentifier);
     }
     if policy.digest != bindings.pinned_policy_digest
         || graph.policy_digest != bindings.pinned_policy_digest
@@ -463,12 +511,39 @@ pub fn audit_multi_dependency_graph(
     }
 
     let mut nodes = BTreeMap::<String, &DependencyNode>::new();
+    let mut total_edges = 0usize;
+    let mut total_evidence_references = 0usize;
     for node in &graph.nodes {
-        if node.node_id.trim().is_empty() {
+        if !valid_identifier(&node.node_id) {
             return Err(AuditError::EmptyNodeId);
+        }
+        total_edges = total_edges
+            .checked_add(node.depends_on.len())
+            .ok_or(AuditError::CounterOverflow)?;
+        if total_edges > MAX_DEPENDENCY_EDGES {
+            return Err(AuditError::DependencyGraphTooManyEdges);
+        }
+        if node.depends_on.iter().any(|dependency_id| !valid_identifier(dependency_id)) {
+            return Err(AuditError::InvalidIdentifier);
         }
         if node.evidence_refs.is_empty() {
             return Err(AuditError::EmptyEvidenceReferenceSet);
+        }
+        if node.evidence_refs.len() > MAX_EVIDENCE_REFS_PER_NODE {
+            return Err(AuditError::TooManyEvidenceReferences);
+        }
+        total_evidence_references = total_evidence_references
+            .checked_add(node.evidence_refs.len())
+            .ok_or(AuditError::CounterOverflow)?;
+        if total_evidence_references > MAX_TOTAL_EVIDENCE_REFERENCES {
+            return Err(AuditError::TooManyEvidenceReferences);
+        }
+        if node.evidence_refs.iter().any(|reference| {
+            reference.trim().is_empty()
+                || reference.len() > MAX_EVIDENCE_REFERENCE_BYTES
+                || reference.chars().any(char::is_control)
+        }) {
+            return Err(AuditError::InvalidEvidenceReference);
         }
         match node.currentness {
             EvidenceCurrentness::Current => {}
@@ -484,7 +559,7 @@ pub fn audit_multi_dependency_graph(
 
     let mut roles = BTreeMap::<String, &RoleInventory>::new();
     for role in &graph.roles {
-        if role.role.trim().is_empty() {
+        if !valid_identifier(&role.role) {
             return Err(AuditError::EmptyRoleId);
         }
         if role.roots.is_empty() {
@@ -546,8 +621,8 @@ pub fn audit_multi_dependency_graph(
                     }
                 }
                 DimensionCoverage::Partial { rationale } => {
-                    if rationale.trim().is_empty() {
-                        return Err(AuditError::EmptyRationale);
+                    if !valid_rationale(rationale) {
+                        return Err(AuditError::InvalidRationale);
                     }
                     if keys.is_empty() {
                         return Err(AuditError::PartialCoverageHasNoKnownDependency);
@@ -1963,5 +2038,144 @@ mod tests {
         let report = audit(&graph, &policy(&["formal", "independent"], vec![]), 10_000);
         assert_eq!(report.transitive_node_count_by_role["formal"], count);
         assert_eq!(report.disposition, AuditDisposition::Complete);
+    }
+
+
+    #[test]
+    fn dependency_edge_count_is_bounded_before_dag_walk() {
+        let mut source = node(
+            "source",
+            FaultDomainDimension::ExecutionProvider,
+            1,
+            DependencyEffect::ClaimCritical,
+            &[],
+        );
+        source.depends_on = vec!["target".to_owned(); MAX_DEPENDENCY_EDGES + 1];
+        let graph = graph(
+            vec![
+                role("formal", &["source"], &[FaultDomainDimension::ExecutionProvider]),
+                role("independent", &["target"], &[FaultDomainDimension::ExecutionProvider]),
+            ],
+            vec![
+                source,
+                node(
+                    "target",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+            ],
+        );
+        assert_eq!(
+            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), &expected_bindings()),
+            Err(AuditError::DependencyGraphTooManyEdges)
+        );
+    }
+
+    #[test]
+    fn role_and_policy_cardinality_limits_fail_before_projection() {
+        let role_names: Vec<String> =
+            (0..=MAX_REQUIRED_ROLES).map(|index| format!("role-{index}")).collect();
+        let policy = AssurancePolicy {
+            digest: Digest::from_byte(3),
+            required_roles: role_names.into_iter().collect(),
+            mandatory_separations: BTreeSet::new(),
+        };
+        assert_eq!(
+            audit_multi_dependency_graph(
+                &graph(Vec::new(), Vec::new()),
+                &policy,
+                &expected_bindings()
+            ),
+            Err(AuditError::TooManyRequiredRoles)
+        );
+    }
+
+    #[test]
+    fn identifiers_and_evidence_references_have_explicit_size_bounds() {
+        let mut invalid_id = node(
+            "source",
+            FaultDomainDimension::ExecutionProvider,
+            1,
+            DependencyEffect::ClaimCritical,
+            &[],
+        );
+        invalid_id.node_id = "x".repeat(MAX_IDENTIFIER_BYTES + 1);
+        let graph = graph(
+            vec![
+                role("formal", &["source"], &[FaultDomainDimension::ExecutionProvider]),
+                role("independent", &["target"], &[FaultDomainDimension::ExecutionProvider]),
+            ],
+            vec![
+                invalid_id,
+                node(
+                    "target",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+            ],
+        );
+        assert_eq!(
+            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), &expected_bindings()),
+            Err(AuditError::EmptyNodeId)
+        );
+
+        let mut invalid_evidence = node(
+            "source",
+            FaultDomainDimension::ExecutionProvider,
+            1,
+            DependencyEffect::ClaimCritical,
+            &[],
+        );
+        invalid_evidence.evidence_refs = BTreeSet::from([
+            "receipt:".to_owned() + &"x".repeat(MAX_EVIDENCE_REFERENCE_BYTES)
+        ]);
+        let graph = graph(
+            vec![
+                role("formal", &["source"], &[FaultDomainDimension::ExecutionProvider]),
+                role("independent", &["target"], &[FaultDomainDimension::ExecutionProvider]),
+            ],
+            vec![
+                invalid_evidence,
+                node(
+                    "target",
+                    FaultDomainDimension::ExecutionProvider,
+                    2,
+                    DependencyEffect::ClaimCritical,
+                    &[],
+                ),
+            ],
+        );
+        assert_eq!(
+            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), &expected_bindings()),
+            Err(AuditError::InvalidEvidenceReference)
+        );
+    }
+
+    #[test]
+    fn coverage_rationale_is_bounded_and_must_not_contain_control_characters() {
+        let mut graph = graph(
+            vec![
+                role("formal", &["a"], &[FaultDomainDimension::ExecutionProvider]),
+                role("independent", &["b"], &[FaultDomainDimension::ExecutionProvider]),
+            ],
+            vec![
+                node("a", FaultDomainDimension::ExecutionProvider, 1, DependencyEffect::ClaimCritical, &[]),
+                node("b", FaultDomainDimension::ExecutionProvider, 2, DependencyEffect::ClaimCritical, &[]),
+            ],
+        );
+        graph.roles[0].coverage.insert(
+            FaultDomainDimension::Runtime,
+            DimensionCoverage::NotApplicable {
+                rationale: "x".repeat(MAX_COVERAGE_RATIONALE_BYTES + 1),
+            },
+        );
+        assert_eq!(
+            audit_multi_dependency_graph(&graph, &policy(&["formal", "independent"], vec![]), &expected_bindings()),
+            Err(AuditError::InvalidRationale)
+        );
     }
 }
