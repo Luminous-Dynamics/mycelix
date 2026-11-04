@@ -7,16 +7,14 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
-    # Holochain development tools
+    # Holochain 0.7.1 evaluation candidate. These are the exact nested
+    # source tags selected by upstream Holonix main-0.7; do not allow its
+    # moving branch to silently change the runtime beneath the locked zomes.
     holochain-flake = {
-      # Holonix's main-0.7 branch advances as releases land. Keep the app
-      # on the 0.7.0 canary tuple while #5719 resolves the 0.7.0/0.7.1
-      # target discrepancy; never let a moving branch silently upgrade the
-      # conductor underneath HDK/HDI-pinned zomes.
       url = "github:holochain/holonix?ref=main-0.7";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.holochain.url = "github:holochain/holochain?ref=holochain-0.7.0";
-      inputs.kitsune2.url = "github:holochain/kitsune2?ref=v0.5.0";
+      inputs.holochain.url = "github:holochain/holochain?ref=holochain-0.7.1";
+      inputs.kitsune2.url = "github:holochain/kitsune2?ref=v0.5.2";
     };
 
     # Rust toolchain
