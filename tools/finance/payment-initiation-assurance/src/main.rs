@@ -45,6 +45,20 @@ fn expected_for(category: &str) -> Option<&'static str> {
         "provider_accepted_without_settlement" => Some("provider_accepted_not_settled"),
         "standard_published_pilot_unverified" => Some("standard_published_pilot_unverified"),
         "recipient_mismatch_requires_new_consent" => Some("reauthorisation_required"),
+        "vop_exact_match" => Some("vop_match_result_bound"),
+        "vop_close_match" => Some("vop_close_match_requires_payer_decision"),
+        "vop_no_match" => Some("vop_no_match_requires_payer_decision"),
+        "vop_unavailable" => Some("vop_unavailable_indeterminate"),
+        "vop_other" => Some("vop_other_indeterminate"),
+        "vop_stale_result" => Some("vop_stale_result_indeterminate"),
+        "vop_wrong_audience" => Some("vop_wrong_audience_rejected"),
+        "vop_cross_subject_replay" => Some("vop_cross_subject_replay_rejected"),
+        "vop_account_type_mismatch" => Some("vop_account_type_mismatch_disclosed"),
+        "vop_match_without_collection_authority" => Some("vop_match_not_collection_authority"),
+        "vop_alias_resolved_vop_unavailable" => Some("vop_alias_resolved_vop_unavailable"),
+        "vop_subject_changed_after_query" => Some("vop_subject_change_requires_requery"),
+        "vop_local_fuzzy_promotion" => Some("vop_local_match_promotion_rejected"),
+        "vop_privacy_overdisclosure" => Some("vop_privacy_overdisclosure_rejected"),
         _ => None,
     }
 }
@@ -99,8 +113,8 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
             return errors;
         }
     };
-    if cases.len() != 19 {
-        errors.push(format!("expected 19 frozen cases, found {}", cases.len()));
+    if cases.len() != 33 {
+        errors.push(format!("expected 33 frozen cases, found {}", cases.len()));
     }
     let mut ids = BTreeSet::new();
     let mut categories = BTreeSet::new();
@@ -215,6 +229,240 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
         {
             errors.push("wrong provider audience must fail".into());
         }
+        if category.starts_with("vop_") {
+            let verification = &case["payee_verification"];
+            if !verification.is_object() {
+                errors.push(format!(
+                    "cases[{index}]: VoP scenario lacks typed payee_verification result"
+                ));
+            } else {
+                let result = string_at(verification, "result").unwrap_or("unknown");
+                let signature = string_at(verification, "provider_signature_state")
+                    .unwrap_or("unknown");
+                let participant = string_at(verification, "participant").unwrap_or("");
+                let issuer = string_at(verification, "issuer").unwrap_or("");
+                let audience = string_at(verification, "audience").unwrap_or("");
+                let query_subject =
+                    string_at(verification, "query_subject_ref").unwrap_or("");
+                let response_subject =
+                    string_at(verification, "response_subject_ref").unwrap_or("");
+                let intent_subject =
+                    string_at(verification, "intent_subject_ref").unwrap_or("");
+                let requested_type =
+                    string_at(verification, "requested_account_type").unwrap_or("not_specified");
+                let returned_type =
+                    string_at(verification, "returned_account_type").unwrap_or("unknown");
+                let current = bool_at(verification, "is_current") == Some(true);
+                let audience_matches =
+                    bool_at(verification, "audience_matches") == Some(true);
+                let payer_notified =
+                    bool_at(verification, "payer_notified") == Some(true);
+                let payer_decision =
+                    string_at(verification, "payer_decision").unwrap_or("none");
+                let collection_authority =
+                    string_at(verification, "collection_authority_state").unwrap_or("unknown");
+                let match_engine =
+                    string_at(verification, "match_engine").unwrap_or("unknown");
+                let disclosure =
+                    string_at(verification, "disclosure_state").unwrap_or("overdisclosed");
+                let source_refs = verification["source_refs"].as_array();
+                let observed_at =
+                    string_at(verification, "observed_at").unwrap_or("");
+                let valid_until =
+                    string_at(verification, "valid_until").unwrap_or("");
+
+                if participant.is_empty() || issuer.is_empty() || audience.is_empty() {
+                    errors.push(format!(
+                        "cases[{index}]: VoP result lacks participant, issuer or audience binding"
+                    ));
+                }
+                if signature != "valid" {
+                    errors.push(format!(
+                        "cases[{index}]: VoP provider response is not authenticated under its declared profile"
+                    ));
+                }
+                if source_refs.is_none_or(|items| items.is_empty()) {
+                    errors.push(format!(
+                        "cases[{index}]: VoP result lacks source/profile evidence"
+                    ));
+                }
+                if let Some(items) = source_refs {
+                    let known_refs: BTreeSet<&str> = corpus["rulebook_references"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|item| string_at(item, "id"))
+                        .collect();
+                    for item in items {
+                        if item
+                            .as_str()
+                            .is_none_or(|reference| !known_refs.contains(reference))
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: VoP result contains unresolved source reference"
+                            ));
+                        }
+                    }
+                }
+                if observed_at.is_empty() || valid_until.is_empty() || valid_until <= observed_at {
+                    errors.push(format!(
+                        "cases[{index}]: VoP validity interval is missing or non-positive"
+                    ));
+                }
+                if bool_at(
+                    verification,
+                    "collection_authority_inferred_from_name_match",
+                ) != Some(false)
+                {
+                    errors.push(format!(
+                        "cases[{index}]: account-name match was promoted to collection authority"
+                    ));
+                }
+                if disclosure == "overdisclosed"
+                    && category != "vop_privacy_overdisclosure"
+                {
+                    errors.push(format!(
+                        "cases[{index}]: VoP presentation exceeds permitted disclosure profile"
+                    ));
+                }
+                if bool_at(input, "dispatch_attempted") == Some(true) {
+                    errors.push(format!(
+                        "cases[{index}]: synthetic VoP qualification cannot authorise payment dispatch"
+                    ));
+                }
+
+                match category {
+                    "vop_exact_match" => {
+                        if result != "match"
+                            || !audience_matches
+                            || !current
+                            || query_subject != response_subject
+                            || response_subject != intent_subject
+                            || requested_type != returned_type
+                            || match_engine != "provider_authoritative"
+                            || !payer_notified
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: exact match must be provider-authoritative, fresh, audience/subject/account-type bound and payer-visible"
+                            ));
+                        }
+                    }
+                    "vop_close_match" => {
+                        if result != "close_match"
+                            || !audience_matches
+                            || !current
+                            || query_subject != response_subject
+                            || !payer_notified
+                            || payer_decision == "none"
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: close match requires a current subject-bound result and explicit payer decision"
+                            ));
+                        }
+                    }
+                    "vop_no_match" => {
+                        if result != "no_match"
+                            || !audience_matches
+                            || !current
+                            || !payer_notified
+                            || payer_decision == "none"
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: no match must be surfaced and receive explicit payer decision"
+                            ));
+                        }
+                    }
+                    "vop_unavailable" | "vop_other" | "vop_alias_resolved_vop_unavailable" => {
+                        if !matches!(result, "unavailable" | "other")
+                            || !payer_notified
+                            || !matches!(payer_decision, "review" | "cancel")
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: unavailable/other must remain indeterminate and visible, never a match"
+                            ));
+                        }
+                        if category == "vop_alias_resolved_vop_unavailable"
+                            && string_at(input, "proxy_resolution_state") != Some("resolved")
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: proxy resolution is not separately established"
+                            ));
+                        }
+                    }
+                    "vop_stale_result" => {
+                        if result != "match" || current || payer_decision != "review" {
+                            errors.push(format!(
+                                "cases[{index}]: stale positive result must remain indeterminate"
+                            ));
+                        }
+                    }
+                    "vop_wrong_audience" => {
+                        if audience_matches {
+                            errors.push(format!(
+                                "cases[{index}]: wrong-audience response cannot be accepted"
+                            ));
+                        }
+                    }
+                    "vop_cross_subject_replay" => {
+                        if query_subject == response_subject {
+                            errors.push(format!(
+                                "cases[{index}]: replay control must bind response to a different account subject"
+                            ));
+                        }
+                    }
+                    "vop_account_type_mismatch" => {
+                        if requested_type == returned_type
+                            || result != "no_match"
+                            || !payer_notified
+                            || payer_decision == "none"
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: account-type mismatch must remain distinct and visible"
+                            ));
+                        }
+                    }
+                    "vop_match_without_collection_authority" => {
+                        if result != "match"
+                            || collection_authority == "verified"
+                            || bool_at(
+                                verification,
+                                "collection_authority_inferred_from_name_match",
+                            ) != Some(false)
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: name match cannot establish requester collection authority"
+                            ));
+                        }
+                    }
+                    "vop_subject_changed_after_query" => {
+                        if query_subject == intent_subject || current || payer_decision != "review" {
+                            errors.push(format!(
+                                "cases[{index}]: changed beneficiary must invalidate the previous VoP result and require re-query"
+                            ));
+                        }
+                    }
+                    "vop_local_fuzzy_promotion" => {
+                        if result != "close_match"
+                            || match_engine != "client_fuzzy"
+                            || string_at(verification, "client_asserted_result") != Some("match")
+                        {
+                            errors.push(format!(
+                                "cases[{index}]: client-side fuzzy result must not be promoted to provider-authoritative match"
+                            ));
+                        }
+                    }
+                    "vop_privacy_overdisclosure" => {
+                        if disclosure != "overdisclosed" {
+                            errors.push(format!(
+                                "cases[{index}]: privacy negative control must contain over-disclosure"
+                            ));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         if case["required_evidence"]
             .as_array()
             .is_none_or(|items| items.is_empty())
@@ -228,8 +476,8 @@ fn validate_semantics(corpus: &Value) -> Vec<String> {
         }
     }
 
-    if ids.len() != 19 || categories.len() != 19 {
-        errors.push("v1 corpus must contain 19 unique IDs and categories".into());
+    if ids.len() != 33 || categories.len() != 33 {
+        errors.push("v1 corpus must contain 33 unique IDs and categories".into());
     }
     errors
 }
@@ -240,7 +488,7 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
     if !validate_semantics(corpus).is_empty() {
         return Err("baseline corpus must pass before mutation campaign".into());
     }
-    let mutations: [Mutation; 16] = [
+    let mutations: [Mutation; 26] = [
         ("payee substitution marked parsed-only", |value| {
             value["cases"][2]["expected"] = json!("parsed_unverified");
         }),
@@ -288,6 +536,42 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
         }),
         ("recipient changed with old consent", |value| {
             value["cases"][18]["input"]["new_consent_obtained"] = json!(true);
+        }),
+        ("stale VoP result promoted to current match", |value| {
+            value["cases"][24]["payee_verification"]["is_current"] = json!(true);
+        }),
+        ("unavailable result promoted to match", |value| {
+            value["cases"][22]["payee_verification"]["result"] = json!("match");
+        }),
+        ("close match relabelled as exact match", |value| {
+            value["cases"][20]["payee_verification"]["result"] = json!("match");
+        }),
+        ("cross-subject response replay accepted", |value| {
+            value["cases"][26]["payee_verification"]["response_subject_ref"] =
+                json!("opaque:subject-001");
+        }),
+        ("wrong audience accepted", |value| {
+            value["cases"][25]["payee_verification"]["audience_matches"] = json!(true);
+        }),
+        ("name match promoted to collection authority", |value| {
+            value["cases"][28]["payee_verification"]["collection_authority_inferred_from_name_match"] =
+                json!(true);
+        }),
+        ("account type mismatch hidden", |value| {
+            value["cases"][27]["payee_verification"]["returned_account_type"] =
+                json!("individual");
+        }),
+        ("client fuzzy result promoted to provider result", |value| {
+            value["cases"][31]["payee_verification"]["match_engine"] =
+                json!("provider_authoritative");
+        }),
+        ("privacy over-disclosure concealed", |value| {
+            value["cases"][32]["payee_verification"]["disclosure_state"] =
+                json!("minimal_result");
+        }),
+        ("beneficiary changed without re-query", |value| {
+            value["cases"][30]["payee_verification"]["intent_subject_ref"] =
+                json!("opaque:subject-001");
         }),
     ];
     for (name, mutate) in mutations {
@@ -358,6 +642,6 @@ mod tests {
     #[test]
     fn mutation_campaign_rejects_all_16_controls() {
         let corpus: Value = serde_json::from_str(CORPUS).expect("corpus JSON");
-        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 16);
+        assert_eq!(mutation_campaign(&corpus).expect("mutations"), 26);
     }
 }
