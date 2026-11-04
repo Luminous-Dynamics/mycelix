@@ -258,7 +258,7 @@ struct FilterArray {
 }
 
 fn extract_filter_arrays(source: &str) -> Result<Vec<FilterArray>, Box<dyn Error>> {
-    let array_re = Regex::new(r"(?s)\\[([^\\[\\]]*)\\]\\.includes\\(type\\)")?;
+    let array_re = Regex::new(r"(?s)\[([^\[\]]*)\]\.includes\(type\)")?;
     let string_re = Regex::new(r#"['"]([A-Za-z][A-Za-z0-9_]*)['"]"#)?;
     let mut arrays = Vec::new();
     let phases = [
@@ -318,8 +318,8 @@ fn extract_type_alias<'a>(source: &'a str, alias: &str) -> Option<&'a str> {
 }
 
 fn extract_typescript_variants(body: &str) -> Result<BTreeMap<String, Vec<String>>, Box<dyn Error>> {
-    let variant_re = Regex::new(r#"\\{\\s*type\\s*:\\s*['"]([A-Za-z][A-Za-z0-9_]*)['"]"#)?;
-    let field_re = Regex::new(r"([A-Za-z_][A-Za-z0-9_]*)\\s*:")?;
+    let variant_re = Regex::new(r#"\{\s*type\s*:\s*['"]([A-Za-z][A-Za-z0-9_]*)['"]"#)?;
+    let field_re = Regex::new(r"([A-Za-z_][A-Za-z0-9_]*)\s*:")?;
     let mut variants = BTreeMap::new();
     for capture in variant_re.captures_iter(body) {
         let name = capture[1].to_string();
