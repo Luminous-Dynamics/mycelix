@@ -61,7 +61,7 @@ fn date_le(left: &str, right: &str) -> bool {
 
 fn valid_timestamp(value: &str) -> bool {
     value.len() >= 20
-        && valid_date(&value[..10])
+        && value.get(..10).is_some_and(valid_date)
         && value.as_bytes().get(10) == Some(&b'T')
         && (value.ends_with('Z') || value.contains('+') || value.rfind('-').is_some_and(|i| i > 10))
 }
