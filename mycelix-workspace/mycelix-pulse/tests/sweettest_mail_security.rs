@@ -1301,6 +1301,7 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
         .find(|(_, mailbox)| mailbox.id.starts_with("shared_"))
         .map(|(_, mailbox)| mailbox)
         .expect("Bob should see the mailbox after his membership update");
+    let mailbox_id = bob_view.id.clone();
     assert_eq!(bob_view.members.len(), 2);
     assert_eq!(bob_view.owner, *alice.agent_pubkey());
     assert!(bob_view.members.iter().any(|member| {
@@ -1339,7 +1340,7 @@ async fn test_shared_mailbox_owner_only_add_and_latest_index_reads() {
         .expect("member index should remain readable after rejected Admin attempt");
     let unchanged = after_admin_attempt
         .iter()
-        .find(|(_, mailbox)| mailbox.id == bob_view.id)
+        .find(|(_, mailbox)| mailbox.id == mailbox_id)
         .map(|(_, mailbox)| mailbox)
         .expect("same mailbox must remain visible");
     assert_eq!(unchanged.members.len(), 2);
