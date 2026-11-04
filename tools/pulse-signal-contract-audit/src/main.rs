@@ -323,8 +323,8 @@ fn extract_typescript_variants(body: &str) -> Result<BTreeMap<String, Vec<String
     let mut variants = BTreeMap::new();
     for capture in variant_re.captures_iter(body) {
         let name = capture[1].to_string();
-        let match_start = capture.get(0).unwrap().start();
-        let open = body[..match_start].rfind('{').ok_or("variant opening brace not found")?;
+        // The regex begins at the discriminated object's opening brace.
+        let open = capture.get(0).unwrap().start();
         let close = matching_brace(body, open).ok_or("variant closing brace not found")?;
         let object = &body[open..=close];
         let fields = field_re.captures_iter(object)
