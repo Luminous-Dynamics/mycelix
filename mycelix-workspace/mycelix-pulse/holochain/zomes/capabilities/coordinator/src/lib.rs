@@ -84,14 +84,7 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
         )));
     }
 
-    if input.operation_id.trim().is_empty()
-        || input.operation_id.as_bytes().len() > 128
-        || input.operation_id.contains('\0')
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "operation_id must contain 1-128 non-whitespace UTF-8 bytes and no NUL".to_string(),
-        )));
-    }
+    validate_operation_id(&input.operation_id)?;
 
     // Hash the client ID with a domain separator and grantor identity. The raw
     // operation ID is never written to the public DHT or ordinary telemetry.
@@ -193,6 +186,22 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
     Ok(cap_hash)
 }
 
+fn validate_operation_id(operation_id: &str) -> ExternResult<()> {
+    if operation_id.trim().is_empty()
+        || operation_id.as_bytes().len() > 128
+        || operation_id.contains('\0')
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "operation_id must contain 1-128 non-whitespace UTF-8 bytes and no NUL".to_string(),
+        )));
+    }
+    Ok(())
+}
+
+fn idempotency_request_matches(existing: Option<&[u8]>, requested: &[u8]) -> bool {
+    existing == Some(requested)
+}
+
 fn capability_idempotency_key_hash(
     grantor: &AgentPubKey,
     operation_id: &str,
@@ -265,7 +274,7 @@ fn find_existing_capability_for_request(
                 "IDEMPOTENCY_INDEX_CORRUPT: indexed capability does not match grantor/key".to_string(),
             )));
         }
-        if capability.request_digest.as_deref() != Some(request_digest) {
+        if !idempotency_request_matches(capability.request_digest.as_deref(), request_digest) {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "IDEMPOTENCY_CONFLICT: operation_id was already committed with a different request".to_string(),
             )));
@@ -1791,4 +1800,92 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
     })?;
 
     Ok(InitCallbackResult::Pass)
+#[cfg(test)]
+mod grant_idempotency_tests {
+    use super::*;
+
+    fn agent(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_32(vec![byte; 32])
+    }
+
+    fn request(
+        operation_id: &str,
+        grantee: AgentPubKey,
+        permissions: MailboxPermissions,
+    ) -> GrantCapabilityInput {
+        GrantCapabilityInput {
+            operation_id: operation_id.to_string(),
+            grantee,
+            access_type: MailboxAccessType::ReadOnly,
+            permissions,
+            restrictions: None,
+            expires_at: None,
+        }
+    }
+
+    #[test]
+    fn operation_id_validation_rejects_empty_whitespace_nul_and_oversize() {
+        assert!(validate_operation_id("op-1").is_ok());
+        assert!(validate_operation_id("").is_err());
+        assert!(validate_operation_id("   ").is_err());
+        assert!(validate_operation_id("bad\0id").is_err());
+        assert!(validate_operation_id(&"x".repeat(129)).is_err());
+        assert!(validate_operation_id(&"x".repeat(128)).is_ok());
+    }
+
+    #[test]
+    fn idempotency_key_is_stable_and_grantor_scoped() {
+        let first = capability_idempotency_key_hash(&agent(1), "operation-1").unwrap();
+        let retry = capability_idempotency_key_hash(&agent(1), "operation-1").unwrap();
+        let another_operation = capability_idempotency_key_hash(&agent(1), "operation-2").unwrap();
+        let another_grantor = capability_idempotency_key_hash(&agent(2), "operation-1").unwrap();
+
+        assert_eq!(first, retry);
+        assert_ne!(first, another_operation);
+        assert_ne!(first, another_grantor);
+        assert_eq!(first.len(), 32);
+    }
+
+    #[test]
+    fn canonical_request_digest_is_stable_and_covers_grantee_and_permissions() {
+        let base = request(
+            "logical-id-a",
+            agent(2),
+            MailboxPermissions { can_read: true, ..MailboxPermissions::default() },
+        );
+        let same_request_new_attempt = request(
+            "logical-id-b",
+            agent(2),
+            MailboxPermissions { can_read: true, ..MailboxPermissions::default() },
+        );
+        let different_grantee = request(
+            "logical-id-a",
+            agent(3),
+            MailboxPermissions { can_read: true, ..MailboxPermissions::default() },
+        );
+        let different_permissions = request(
+            "logical-id-a",
+            agent(2),
+            MailboxPermissions { can_read: true, can_send: true, ..MailboxPermissions::default() },
+        );
+
+        let base_digest = capability_request_digest(&base).unwrap();
+        assert_eq!(base_digest, capability_request_digest(&base).unwrap());
+        assert_eq!(base_digest, capability_request_digest(&same_request_new_attempt).unwrap());
+        assert_ne!(base_digest, capability_request_digest(&different_grantee).unwrap());
+        assert_ne!(base_digest, capability_request_digest(&different_permissions).unwrap());
+        assert_eq!(base_digest.len(), 32);
+    }
+
+    #[test]
+    fn same_key_same_request_is_idempotent_but_different_request_conflicts() {
+        let digest = vec![7u8; 32];
+        let same = vec![7u8; 32];
+        let different = vec![9u8; 32];
+        assert!(idempotency_request_matches(Some(&digest), &same));
+        assert!(!idempotency_request_matches(Some(&digest), &different));
+        assert!(!idempotency_request_matches(None, &same));
+    }
+}
+
 }
