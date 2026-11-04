@@ -4,7 +4,8 @@
 //! A request response, an interbank status and a beneficiary credit are different facts.
 
 use jsonschema::draft202012;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;
@@ -29,6 +30,38 @@ fn array_at<'a>(value: &'a Value, key: &str) -> Option<&'a Vec<Value>> {
 
 fn stage(event: &Value) -> &str {
     str_at(event, "stage").unwrap_or("")
+}
+
+fn canonical_json(value: &Value) -> Value {
+    match value {
+        Value::Object(object) => {
+            let mut keys: Vec<&String> = object.keys().collect();
+            keys.sort();
+            let mut sorted = Map::new();
+            for key in keys {
+                sorted.insert(key.clone(), canonical_json(&object[key]));
+            }
+            Value::Object(sorted)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonical_json).collect()),
+        other => other.clone(),
+    }
+}
+
+fn compute_request_digest(request: &Value) -> Result<String, String> {
+    let mut payload = request.clone();
+    let object = payload
+        .as_object_mut()
+        .ok_or_else(|| "request payload must be a JSON object".to_string())?;
+    if object.remove("request_digest").is_none() {
+        return Err("request_digest field is required before hashing".into());
+    }
+    let bytes = serde_json::to_vec(&canonical_json(&payload))
+        .map_err(|error| format!("canonical request serialization failed: {error}"))?;
+    let mut hasher = Sha256::new();
+    hasher.update(b"MYCELIX-SA-PAYMENT-RTP-LINK-REQUEST-V1\\0");
+    hasher.update(bytes);
+    Ok(format!("sha256:{:x}", hasher.finalize()))
 }
 
 fn schema_errors(schema: &Value, corpus: &Value) -> Vec<String> {
@@ -161,6 +194,15 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!(
                 "scenarios[{case_index}]: invalid request identity or money fields"
             ));
+        }
+        match compute_request_digest(request) {
+            Ok(expected) if expected == request_digest => {}
+            Ok(_) => errors.push(format!(
+                "scenarios[{case_index}]: request digest does not match canonical request fields"
+            )),
+            Err(error) => errors.push(format!(
+                "scenarios[{case_index}]: cannot recompute request digest: {error}"
+            )),
         }
 
         let events = array_at(case, "events").cloned().unwrap_or_default();
@@ -517,6 +559,12 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_reject("request digest no longer matches canonical fields", corpus, schema, |value| {
+        value["scenarios"][12]["request"]["request_digest"] =
+            json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    })?;
+    count += 1;
+
     mutate_and_reject(
         "transfer without payer instruction",
         corpus,
@@ -693,6 +741,6 @@ mod tests {
     fn negative_mutations_reject_false_correlation_and_status_promotion() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 9);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 10);
     }
 }
