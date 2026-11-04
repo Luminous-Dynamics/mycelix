@@ -66,6 +66,24 @@ fn valid_timestamp(value: &str) -> bool {
         && (value.ends_with('Z') || value.contains('+') || value.rfind('-').is_some_and(|i| i > 10))
 }
 
+fn civil_day(timestamp: &str) -> Option<i64> {
+    let date = timestamp.get(..10)?;
+    if !valid_date(date) {
+        return None;
+    }
+    let mut parts = date.split('-');
+    let mut year = parts.next()?.parse::<i64>().ok()?;
+    let month = parts.next()?.parse::<i64>().ok()?;
+    let day = parts.next()?.parse::<i64>().ok()?;
+    year -= i64::from(month <= 2);
+    let era = year.div_euclid(400);
+    let year_of_era = year - era * 400;
+    let adjusted_month = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * adjusted_month + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    Some(era * 146_097 + day_of_era)
+}
+
 fn event_type(event: &Value) -> &str {
     str_at(event, "event_type").unwrap_or("")
 }
@@ -304,22 +322,71 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             ));
         }
 
-        if let Some(maximum) = u64_at(profile, "max_request_minor_units")
+        let request_events = array_at(case, "events").cloned().unwrap_or_default();
+        let explicit_limit_rejection = request_events.iter().any(|event| {
+            matches!(
+                event_type(event),
+                "request_rejected_by_participant_limit"
+                    | "request_rejected_by_request_rate_limit"
+                    | "terms_version_conflict_detected"
+                    | "request_not_admitted_for_live_profile"
+            )
+        });
+        let amount_rules = array_at(profile, "amount_limit_rules").cloned().unwrap_or_default();
+        if !amount_rules.is_empty() {
+            let route = str_at(request, "limit_route_scope").unwrap_or("generic");
+            match amount_rules.iter().find(|rule| str_at(rule, "route_scope") == Some(route)) {
+                Some(rule) => {
+                    if let Some(maximum) = u64_at(rule, "maximum_minor_units")
+                        && amount > maximum
+                        && !explicit_limit_rejection
+                    {
+                        errors.push(format!(
+                            "scenarios[{case_index}]: amount exceeds {route} participant limit without explicit rejection"
+                        ));
+                    }
+                }
+                None => errors.push(format!(
+                    "scenarios[{case_index}]: request route {route} has no qualified participant limit rule"
+                )),
+            }
+        } else if let Some(maximum) = u64_at(profile, "max_request_minor_units")
             && amount > maximum
-            && !array_at(case, "events").is_some_and(|events| {
-                events.iter().any(|event| {
-                    matches!(
-                        event_type(event),
-                        "request_rejected_by_participant_limit"
-                            | "terms_version_conflict_detected"
-                            | "request_not_admitted_for_live_profile"
-                    )
-                })
-            })
+            && !explicit_limit_rejection
         {
             errors.push(format!(
                 "scenarios[{case_index}]: amount exceeds profile limit without explicit rejection"
             ));
+        }
+
+        if let Some(policy) = profile.get("expiry_policy").filter(|value| !value.is_null()) {
+            let elapsed_days = civil_day(expires_at)
+                .zip(civil_day(issued_at))
+                .map(|(expires, issued)| expires - issued);
+            if let Some(elapsed) = elapsed_days {
+                if let Some(minimum) = u64_at(policy, "minimum_days")
+                    && elapsed < minimum as i64
+                {
+                    errors.push(format!(
+                        "scenarios[{case_index}]: request expiry is before participant minimum"
+                    ));
+                }
+                if let Some(maximum) = u64_at(policy, "maximum_days")
+                    && elapsed > maximum as i64
+                {
+                    errors.push(format!(
+                        "scenarios[{case_index}]: request expiry exceeds participant maximum"
+                    ));
+                }
+                if str_at(request, "expiry_selection") == Some("default")
+                    && let Some(default_days) = u64_at(policy, "default_days")
+                    && elapsed != default_days as i64
+                {
+                    errors.push(format!(
+                        "scenarios[{case_index}]: request does not match published default expiry"
+                    ));
+                }
+            }
         }
 
         let events = array_at(case, "events").cloned().unwrap_or_default();
@@ -509,6 +576,51 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 "{case_id}: instruction exists without a valid acceptance"
             ));
         }
+
+        let rate_limit_rejected = events
+            .iter()
+            .any(|event| event_type(event) == "request_rejected_by_request_rate_limit");
+        if rate_limit_rejected {
+            let has_published_counter = array_at(profile, "request_count_rules").is_some_and(|rules| {
+                rules.iter().any(|rule| {
+                    u64_at(rule, "max_requests_per_24h").is_some()
+                        || u64_at(rule, "max_per_counterparty_per_24h").is_some()
+                })
+            });
+            if !has_published_counter {
+                errors.push(format!(
+                    "{case_id}: a request rate-limit rejection is unsupported by the participant profile"
+                ));
+            }
+        }
+
+        let partial_attempted = events
+            .iter()
+            .any(|event| event_type(event) == "partial_payment_attempted");
+        if partial_attempted {
+            let ami_enabled = request
+                .get("amount_modification_indicator")
+                .and_then(Value::as_bool)
+                == Some(true);
+            let partial_supported = str_at(profile, "partial_payment_policy")
+                == Some("supported_if_ami");
+            let offered = events
+                .iter()
+                .any(|event| event_type(event) == "partial_payment_option_offered");
+            let rejected = events
+                .iter()
+                .any(|event| event_type(event) == "partial_payment_rejected");
+            if partial_supported && ami_enabled && !offered {
+                errors.push(format!(
+                    "{case_id}: AMI-enabled partial payment must be explicitly offered"
+                ));
+            }
+            if (!partial_supported || !ami_enabled) && !rejected {
+                errors.push(format!(
+                    "{case_id}: partial payment must be rejected without a qualified AMI capability"
+                ));
+            }
+        }
         if cancelled && instruction_count > 0 {
             errors.push(format!(
                 "{case_id}: pre-acceptance cancellation created an instruction"
@@ -542,10 +654,12 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             "declined"
         } else if expired {
             "expired"
-        } else if events
-            .iter()
-            .any(|event| event_type(event) == "request_rejected_by_participant_limit")
-        {
+        } else if events.iter().any(|event| {
+            matches!(
+                event_type(event),
+                "request_rejected_by_participant_limit" | "request_rejected_by_request_rate_limit"
+            )
+        }) {
             "rejected_by_limit"
         } else if events.iter().any(|event| {
             matches!(
