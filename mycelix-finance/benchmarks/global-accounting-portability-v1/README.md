@@ -17,13 +17,13 @@ Public synthetic development package for [Mycelix #5811](https://github.com/Lumi
 The 22 fixtures test global context resolution and safe interoperability. They use synthetic jurisdictions, currencies, tax profiles and framework aliases. They encode no tax rate, legal conclusion or statutory rule. Locale/time cases pin Unicode CLDR 49 and IANA tzdb 2026f as reference releases only. The IFRS for SMEs 2025 effective-date fact is a sourced reference, not an executable accounting rule.
 
 ## Honest coverage status
-The profile catalog lists real standards and infrastructure only as research/reference inputs. No real jurisdiction + accounting framework + tax + invoice + reporting combination is marked qualified. One exact synthetic-only intersection exists solely to exercise the resolver's positive path; it is not a real-world qualification. South African initial research remains review-required; see Mycelix #5785 and #5792.
+The profile catalog lists 22 profile references. Real standards and infrastructure are research/reference inputs only. One synthetic-only positive-control intersection exercises the resolver; zero real jurisdiction + framework + tax + invoice + reporting combinations are qualified. One exact synthetic-only intersection exists solely to exercise the resolver's positive path; it is not a real-world qualification. South African initial research remains review-required; see Mycelix #5785 and #5792.
 
 ## Candidate/evaluator separation
 Candidates receive the input JSON only. The oracle is public because this is a public development split, not a hidden benchmark. Future hidden splits require access controls and independent expert labels. Do not tune against hidden labels.
 
 ## Validation
-A future standalone Rust evaluator must:
+A the standalone Rust resolver/evaluator must:
 1. run full Draft 2020-12 validation over input, oracle and profile catalog;
 2. reject duplicate case/profile IDs and unknown fields;
 3. score required and prohibited behaviors deterministically;
