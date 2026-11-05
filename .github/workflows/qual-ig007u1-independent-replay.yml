@@ -1,0 +1,274 @@
+name: QUAL IG-007U1 Independent Replay
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/qual-ig007u1-independent-replay.yml'
+      - 'scripts/qualification/qual_ig007u1_independent_oracle.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qual-ig007u1-independent-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  VERIFIER_PARENT: '20452d0cde9448c424d708d6307aa33a3d1901e3'
+  WORKFLOW: '.github/workflows/qual-ig007u1-independent-replay.yml'
+  ORACLE: 'scripts/qualification/qual_ig007u1_independent_oracle.py'
+  EXPECTED_ORACLE_BLOB: '732b5b14ddc28645f79ab564f122323471e5d626'
+  TARGET_SHA: '26482b470ce97928654a9f669d1de16757f9b65b'
+  TARGET_PARENT: 'fd801d9b46515d333eccd3f42a1664042a1b06d5'
+  TARGET_WORKFLOW: '.github/workflows/ig-007u1-treasury-asset-unit-source-contract.yml'
+  TARGET_DOC: 'mycelix-finance/docs/IG_007U1_TREASURY_ASSET_UNIT_SOURCE_CONTRACT.md'
+  TARGET_CORPUS: 'mycelix-finance/profiles/observed/treasury-asset-unit-source-contract-fca2c107-v1.json'
+  TARGET_VALIDATOR: 'mycelix-finance/scripts/validate_ig007u1_treasury_asset_unit_corpus.py'
+  U0_PROFILE: 'mycelix-finance/profiles/observed/treasury-asset-unit-fca2c107-v1.json'
+  COORDINATOR: 'mycelix-finance/zomes/treasury/coordinator/src/lib.rs'
+  INTEGRITY: 'mycelix-finance/zomes/treasury/integrity/src/lib.rs'
+  FINANCE_TYPES: 'mycelix-finance/types/src/lib.rs'
+  EXPECTED_TARGET_WORKFLOW_BLOB: '2788ed245d6e4eee92b22720201537eb9aa23ef1'
+  EXPECTED_DOC_BLOB: '6ff277ab32d10e23ee2691a0579472bed72e3c87'
+  EXPECTED_CORPUS_BLOB: '63ea48a6fd3dfb65660ed79fa0a2b45f7c67e305'
+  EXPECTED_VALIDATOR_BLOB: '189a33a19cd92b59b2334a751f14a8a31370561f'
+  EXPECTED_U0_PROFILE_BLOB: '933aec6c2c99bc6b49c3c8ba42af594e00fc52fc'
+  EXPECTED_U0_PROFILE_CONTENT_SHA256: '58280f735acecd84071b71876c5b38d12d6776b8505016b22a020a05cca2ffb5'
+  EXPECTED_CORPUS_SHA256: 'b9212ce3da3cfed4b69335b59cf3c4a15e76d1c95819f3628bcc2a239d732190'
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact independent verifier subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: verifier
+
+      - name: Prove verifier-only review shape and oracle closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C verifier rev-parse HEAD^)" = "$VERIFIER_PARENT"
+          test "$(git -C verifier rev-list --count "$VERIFIER_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git -C verifier diff --name-only "$VERIFIER_PARENT" HEAD | sort)
+          expected=("$WORKFLOW" "$ORACLE")
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 2
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          test "$(git -C verifier rev-parse "HEAD:$ORACLE")" = "$EXPECTED_ORACLE_BLOB"
+          python3 - <<'PY'
+          import ast, os
+          from pathlib import Path
+
+          path = Path('verifier') / os.environ['ORACLE']
+          tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          if any(isinstance(node, ast.Assert) for node in ast.walk(tree)):
+              raise SystemExit('independent oracle contains optimization-removable ast.Assert')
+          allowed = {'argparse', 'hashlib', 'json', 're', 'pathlib'}
+          imported = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imported.update(alias.name.split('.', 1)[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imported.add(node.module.split('.', 1)[0])
+          unexpected = imported - allowed
+          if unexpected:
+              raise SystemExit(f'independent oracle imports outside frozen stdlib allowlist: {sorted(unexpected)}')
+          print('independent_oracle_ast_assert_free=PASS')
+          print('independent_oracle_import_closure=PASS')
+          PY
+          git -C verifier diff --exit-code
+          test -z "$(git -C verifier status --porcelain=v1)"
+
+      - name: Checkout exact U1 target beside verifier
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: target
+
+      - name: Capture Closure-Recorded environment facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'assurance_profile=QUAL-Closure-Recorded\n'
+          printf 'runner_os=%s\nrunner_arch=%s\n' "$RUNNER_OS" "$RUNNER_ARCH"
+          python3 --version
+          git --version
+          uname -a
+          if test -r /etc/os-release; then cat /etc/os-release; fi
+          printf 'network_execution_policy=not_enforced_offline\n'
+          printf 'nonclaim=hermetic/offline closure\n'
+
+      - name: Prove exact target ancestry and evidence surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C target rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git -C target rev-parse HEAD^)" = "$TARGET_PARENT"
+          test "$(git -C target rev-list --count "$TARGET_PARENT..HEAD")" -eq 1
+          mapfile -t changed < <(git -C target diff --name-only "$TARGET_PARENT" HEAD | sort)
+          expected=("$TARGET_WORKFLOW" "$TARGET_DOC" "$TARGET_CORPUS" "$TARGET_VALIDATOR")
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 4
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          test "$(git -C target rev-parse "HEAD:$TARGET_WORKFLOW")" = "$EXPECTED_TARGET_WORKFLOW_BLOB"
+          test "$(git -C target rev-parse "HEAD:$TARGET_DOC")" = "$EXPECTED_DOC_BLOB"
+          test "$(git -C target rev-parse "HEAD:$TARGET_CORPUS")" = "$EXPECTED_CORPUS_BLOB"
+          test "$(git -C target rev-parse "HEAD:$TARGET_VALIDATOR")" = "$EXPECTED_VALIDATOR_BLOB"
+          test "$(git -C target ls-tree HEAD -- "$TARGET_VALIDATOR" | awk '{print $1}')" = '100755'
+          python3 - <<'PY'
+          import ast, os
+          from pathlib import Path
+
+          path = Path('target') / os.environ['TARGET_VALIDATOR']
+          tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          if any(isinstance(node, ast.Assert) for node in ast.walk(tree)):
+              raise SystemExit('target validator contains optimization-removable ast.Assert')
+          print('target_validator_ast_assert_free=PASS')
+          PY
+
+      - name: Independently bind frozen source and profile identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C target rev-parse "HEAD:$COORDINATOR")" = '840e66bcb6fdedb27fe2451752511d1317eb50b8'
+          test "$(git -C target rev-parse "HEAD:$INTEGRITY")" = '5ee9b72f7c138a5283818b873ceae36dff3305d4'
+          test "$(git -C target rev-parse "HEAD:$FINANCE_TYPES")" = '354a377c88a57e8a5612a518d8c8b8b519fb67e2'
+          test "$(git -C target rev-parse "HEAD:$U0_PROFILE")" = "$EXPECTED_U0_PROFILE_BLOB"
+          test "$(sha256sum "target/$TARGET_CORPUS" | awk '{print $1}')" = "$EXPECTED_CORPUS_SHA256"
+
+      - name: Run independent source-contract oracle across optimization modes
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONDONTWRITEBYTECODE=1 python3 "verifier/$ORACLE" \
+            --corpus "target/$TARGET_CORPUS" \
+            --profile "target/$U0_PROFILE" \
+            --coordinator "target/$COORDINATOR" \
+            --integrity "target/$INTEGRITY" \
+            --finance-types "target/$FINANCE_TYPES" > /tmp/oracle-normal.json
+          PYTHONDONTWRITEBYTECODE=1 python3 -O "verifier/$ORACLE" \
+            --corpus "target/$TARGET_CORPUS" \
+            --profile "target/$U0_PROFILE" \
+            --coordinator "target/$COORDINATOR" \
+            --integrity "target/$INTEGRITY" \
+            --finance-types "target/$FINANCE_TYPES" > /tmp/oracle-optimized.json
+          cmp /tmp/oracle-normal.json /tmp/oracle-optimized.json
+          python3 - <<'PY'
+          import json, os
+
+          result = json.load(open('/tmp/oracle-normal.json', encoding='utf-8'))
+          expected_ids = [
+              'CanonicalFinanceCurrencyEnumExists',
+              'TreasuryDoesNotConsumeCanonicalFinanceCurrencyType',
+              'CanonicalFinanceQuantityTypeNotEstablished',
+              'TreasuryAssetIdentityImmutabilityNotEstablished',
+              'ContributionToTreasuryAssetEqualityNotEstablished',
+              'AllocationToTreasuryAssetEqualityNotEstablished',
+              'DkgThresholdAssetBindingNotEstablished',
+              'DkgSignedSubjectAssetUnitPolicyBindingNotEstablished',
+          ]
+          negative_ids = [
+              'receipt_predicate_drift',
+              'sap_transferability_flip',
+              'sap_amount_type_appears',
+              'treasury_integrity_currency_guard',
+              'contribution_currency_equality_guard',
+              'allocation_currency_equality_guard',
+              'dkg_signed_subject_asset_binding',
+          ]
+          expected = {
+              'valid': True,
+              'receipt_count': 8,
+              'corpus_sha256': os.environ['EXPECTED_CORPUS_SHA256'],
+              'u0_profile_content_sha256': os.environ['EXPECTED_U0_PROFILE_CONTENT_SHA256'],
+              'source_blob_binding_count': 3,
+              'authority_class': 'HistoricalSourceContractEvidence',
+              'semantic_production_subject_sha': 'fca2c107a1ea5108823ce617ba4111b6f7f77230',
+              'independent_semantic_check_count': 8,
+              'independent_semantic_check_ids': expected_ids,
+              'negative_control_count': 7,
+              'negative_control_ids': negative_ids,
+              'oracle_kind': 'IndependentFrozenSourceContractOracleV1',
+          }
+          for field, value in expected.items():
+              if result.get(field) != value:
+                  raise SystemExit(
+                      f'independent oracle output mismatch for {field}: actual={result.get(field)!r} expected={value!r}'
+                  )
+          print('independent_source_semantics=PASS')
+          print('independent_receipt_contract=PASS')
+          print('independent_negative_controls=7/7 PASS')
+          print('independent_oracle_optimization_equivalence=PASS')
+          PY
+
+      - name: Replay target validator only after independent oracle passes
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONDONTWRITEBYTECODE=1 python3 "target/$TARGET_VALIDATOR" \
+            --corpus "target/$TARGET_CORPUS" \
+            --profile "target/$U0_PROFILE" \
+            --coordinator "target/$COORDINATOR" \
+            --integrity "target/$INTEGRITY" \
+            --finance-types "target/$FINANCE_TYPES" > /tmp/target-normal.json
+          PYTHONDONTWRITEBYTECODE=1 python3 -O "target/$TARGET_VALIDATOR" \
+            --corpus "target/$TARGET_CORPUS" \
+            --profile "target/$U0_PROFILE" \
+            --coordinator "target/$COORDINATOR" \
+            --integrity "target/$INTEGRITY" \
+            --finance-types "target/$FINANCE_TYPES" > /tmp/target-optimized.json
+          cmp /tmp/target-normal.json /tmp/target-optimized.json
+          python3 - <<'PY'
+          import json, os
+
+          result = json.load(open('/tmp/target-normal.json', encoding='utf-8'))
+          expected = {
+              'valid': True,
+              'receipt_count': 8,
+              'corpus_sha256': os.environ['EXPECTED_CORPUS_SHA256'],
+              'u0_profile_content_sha256': os.environ['EXPECTED_U0_PROFILE_CONTENT_SHA256'],
+              'source_blob_binding_count': 3,
+              'authority_class': 'HistoricalSourceContractEvidence',
+              'semantic_production_subject_sha': 'fca2c107a1ea5108823ce617ba4111b6f7f77230',
+          }
+          for field, value in expected.items():
+              if result.get(field) != value:
+                  raise SystemExit(f'target validator replay output mismatch: {field}')
+          print('target_validator_replay=PASS')
+          print('target_validator_optimization_equivalence=PASS')
+          PY
+
+      - name: Prove both read-only checkouts remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C verifier diff --exit-code
+          git -C target diff --exit-code
+          test -z "$(git -C verifier status --porcelain=v1)"
+          test -z "$(git -C target status --porcelain=v1)"
+
+      - name: Emit independent replay facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'status=PASS\n'
+          printf 'assurance_profile=QUAL-Closure-Recorded\n'
+          printf 'target_sha=%s\n' "$TARGET_SHA"
+          printf 'target_parent=%s\n' "$TARGET_PARENT"
+          printf 'independent_oracle_blob=%s\n' "$EXPECTED_ORACLE_BLOB"
+          printf 'corpus_sha256=%s\n' "$EXPECTED_CORPUS_SHA256"
+          printf 'independent_semantic_check_count=8\n'
+          printf 'negative_control_count=7\n'
+          printf 'claim=independent read-only source oracle corroborates exact IG-007U1 historical evidence subject under recorded hosted environment\n'
+          printf 'nonclaim=canonical U1 qualification PASS, hermetic/offline closure, successor SapAmount correctness, deployment truth\n'
