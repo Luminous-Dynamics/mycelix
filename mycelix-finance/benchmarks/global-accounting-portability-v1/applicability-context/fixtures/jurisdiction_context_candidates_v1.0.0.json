@@ -83,8 +83,6 @@
       "jurisdiction_facts": [
         {
           "fact_id": "CTX-ROLE-A-SELLER-DOMICILE",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "legal_domicile",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -94,12 +92,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-ROLE-A-SELLER-ESTABLISHMENT",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "establishment_location",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -109,12 +108,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-ROLE-A-SELLER-ESTABLISHMENT-01",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ]
         },
         {
           "fact_id": "CTX-ROLE-A-SELLER-REGISTRATION",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -124,12 +129,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-ROLE-A-BUYER-LOCATION",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "buyer",
           "jurisdiction_role": "buyer_location",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -139,12 +145,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer"
         },
         {
           "fact_id": "CTX-ROLE-A-BUYER-REGISTRATION",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "buyer",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -154,12 +161,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer"
         },
         {
           "fact_id": "CTX-ROLE-A-SHIP-FROM",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "ship_from_operator",
           "jurisdiction_role": "ship_from",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -169,12 +177,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-ROLE-A-SHIPMENT-001",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "ship_from_operator"
+            }
+          ]
         },
         {
           "fact_id": "CTX-ROLE-A-SHIP-TO",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "ship_to_recipient",
           "jurisdiction_role": "ship_to",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -184,12 +198,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-ROLE-A-SHIPMENT-001",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-BUYER",
+              "transaction_role": "ship_to_recipient"
+            }
+          ]
         },
         {
           "fact_id": "CTX-ROLE-A-PLACE-OF-SUPPLY",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "place_of_supply",
           "assertion_state": "evidence_supported",
           "origin": "approved_rule_derived",
@@ -201,7 +221,30 @@
           "valid_from": "2026-01-01",
           "valid_to": null,
           "recorded_at": "2026-11-05T09:00:00Z",
-          "derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001"
+          "derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001",
+          "subject_kind": "transaction",
+          "subject_ref": "SYN-TRANSACTION-001"
+        },
+        {
+          "fact_id": "CTX-ROLE-A-SELLER-ESTABLISHMENT-02",
+          "jurisdiction_role": "establishment_location",
+          "assertion_state": "evidence_supported",
+          "origin": "source_asserted",
+          "scope_ref": "SYN-SCOPE-A-REGION-1",
+          "source_evidence_refs": [
+            "SYN-EVIDENCE-BASE-001"
+          ],
+          "valid_from": "2026-06-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T09:05:00Z",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-ROLE-A-SELLER-ESTABLISHMENT-02",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ]
         }
       ]
     },
@@ -285,8 +328,6 @@
       "jurisdiction_facts": [
         {
           "fact_id": "CTX-ROLE-B-SELLER-DOMICILE",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "legal_domicile",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -296,12 +337,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-ROLE-B-SELLER-ESTABLISHMENT",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "establishment_location",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -311,12 +353,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-ROLE-B-SELLER-ESTABLISHMENT-01",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ]
         },
         {
           "fact_id": "CTX-ROLE-B-SELLER-REGISTRATION",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -326,12 +374,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-ROLE-B-BUYER-LOCATION",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "buyer",
           "jurisdiction_role": "buyer_location",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -341,12 +390,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer"
         },
         {
           "fact_id": "CTX-ROLE-B-BUYER-REGISTRATION",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "buyer",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -356,12 +406,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer"
         },
         {
           "fact_id": "CTX-ROLE-B-SHIP-FROM",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "ship_from_operator",
           "jurisdiction_role": "ship_from",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -371,12 +422,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-ROLE-B-SHIPMENT-001",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "ship_from_operator"
+            }
+          ]
         },
         {
           "fact_id": "CTX-ROLE-B-SHIP-TO",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "ship_to_recipient",
           "jurisdiction_role": "ship_to",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -386,12 +443,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-ROLE-B-SHIPMENT-001",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-BUYER",
+              "transaction_role": "ship_to_recipient"
+            }
+          ]
         },
         {
           "fact_id": "CTX-ROLE-B-PLACE-OF-SUPPLY",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "place_of_supply",
           "assertion_state": "evidence_supported",
           "origin": "approved_rule_derived",
@@ -403,7 +466,30 @@
           "valid_from": "2026-01-01",
           "valid_to": null,
           "recorded_at": "2026-11-05T09:00:00Z",
-          "derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001"
+          "derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001",
+          "subject_kind": "transaction",
+          "subject_ref": "SYN-TRANSACTION-001"
+        },
+        {
+          "fact_id": "CTX-ROLE-B-SELLER-ESTABLISHMENT-02",
+          "jurisdiction_role": "establishment_location",
+          "assertion_state": "evidence_supported",
+          "origin": "source_asserted",
+          "scope_ref": "SYN-SCOPE-A-REGION-1",
+          "source_evidence_refs": [
+            "SYN-EVIDENCE-BASE-001"
+          ],
+          "valid_from": "2026-06-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T09:05:00Z",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-ROLE-B-SELLER-ESTABLISHMENT-02",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ]
         }
       ]
     },
@@ -487,8 +573,6 @@
       "jurisdiction_facts": [
         {
           "fact_id": "CTX-PLACE-UNKNOWN-SELLER-DOMICILE",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "legal_domicile",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -498,12 +582,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-PLACE-UNKNOWN-SELLER-ESTABLISHMENT",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "establishment_location",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -513,12 +598,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-PLACE-UNKNOWN-SELLER-ESTABLISHMENT-01",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ]
         },
         {
           "fact_id": "CTX-PLACE-UNKNOWN-SELLER-REGISTRATION",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -528,12 +619,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-PLACE-UNKNOWN-BUYER-LOCATION",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "buyer",
           "jurisdiction_role": "buyer_location",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -543,12 +635,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer"
         },
         {
           "fact_id": "CTX-PLACE-UNKNOWN-BUYER-REGISTRATION",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "buyer",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -558,12 +651,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer"
         },
         {
           "fact_id": "CTX-PLACE-UNKNOWN-SHIP-FROM",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "ship_from_operator",
           "jurisdiction_role": "ship_from",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -573,12 +667,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-PLACE-UNKNOWN-SHIPMENT-001",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "ship_from_operator"
+            }
+          ]
         },
         {
           "fact_id": "CTX-PLACE-UNKNOWN-SHIP-TO",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "ship_to_recipient",
           "jurisdiction_role": "ship_to",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -588,12 +688,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-PLACE-UNKNOWN-SHIPMENT-001",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-BUYER",
+              "transaction_role": "ship_to_recipient"
+            }
+          ]
         },
         {
           "fact_id": "CTX-PLACE-UNKNOWN-PLACE-OF-SUPPLY",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "place_of_supply",
           "assertion_state": "unknown",
           "origin": "unresolved",
@@ -601,7 +707,30 @@
           "source_evidence_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "transaction",
+          "subject_ref": "SYN-TRANSACTION-001"
+        },
+        {
+          "fact_id": "CTX-PLACE-UNKNOWN-SELLER-ESTABLISHMENT-02",
+          "jurisdiction_role": "establishment_location",
+          "assertion_state": "evidence_supported",
+          "origin": "source_asserted",
+          "scope_ref": "SYN-SCOPE-A-REGION-1",
+          "source_evidence_refs": [
+            "SYN-EVIDENCE-BASE-001"
+          ],
+          "valid_from": "2026-06-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T09:05:00Z",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-PLACE-UNKNOWN-SELLER-ESTABLISHMENT-02",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ]
         }
       ]
     },
@@ -685,8 +814,6 @@
       "jurisdiction_facts": [
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-SELLER-DOMICILE",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "legal_domicile",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -696,12 +823,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-SELLER-ESTABLISHMENT",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "establishment_location",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -711,12 +839,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-REGISTRATION-DISPUTED-SELLER-ESTABLISHMENT-01",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ]
         },
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-SELLER-REGISTRATION",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "disputed",
           "origin": "source_asserted",
@@ -729,12 +863,13 @@
           "recorded_at": "2026-11-05T09:00:00Z",
           "conflicts_with_fact_refs": [
             "CTX-REGISTRATION-DISPUTED-SELLER-REGISTRATION-ALT"
-          ]
+          ],
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-BUYER-LOCATION",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "buyer",
           "jurisdiction_role": "buyer_location",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -744,12 +879,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer"
         },
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-BUYER-REGISTRATION",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "buyer",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -759,12 +895,13 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer"
         },
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-SHIP-FROM",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "ship_from_operator",
           "jurisdiction_role": "ship_from",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -774,12 +911,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-REGISTRATION-DISPUTED-SHIPMENT-001",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "ship_from_operator"
+            }
+          ]
         },
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-SHIP-TO",
-          "subject_party_ref": "SYN-PARTY-BUYER",
-          "subject_role": "ship_to_recipient",
           "jurisdiction_role": "ship_to",
           "assertion_state": "evidence_supported",
           "origin": "source_asserted",
@@ -789,12 +932,18 @@
           ],
           "valid_from": "2026-01-01",
           "valid_to": null,
-          "recorded_at": "2026-11-05T09:00:00Z"
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-REGISTRATION-DISPUTED-SHIPMENT-001",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-BUYER",
+              "transaction_role": "ship_to_recipient"
+            }
+          ]
         },
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-SELLER-REGISTRATION-ALT",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "tax_registration",
           "assertion_state": "disputed",
           "origin": "source_asserted",
@@ -807,12 +956,13 @@
           "recorded_at": "2026-11-05T09:00:00Z",
           "conflicts_with_fact_refs": [
             "CTX-REGISTRATION-DISPUTED-SELLER-REGISTRATION"
-          ]
+          ],
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller"
         },
         {
           "fact_id": "CTX-REGISTRATION-DISPUTED-PLACE-OF-SUPPLY",
-          "subject_party_ref": "SYN-PARTY-SELLER",
-          "subject_role": "seller",
           "jurisdiction_role": "place_of_supply",
           "assertion_state": "evidence_supported",
           "origin": "approved_rule_derived",
@@ -824,7 +974,30 @@
           "valid_from": "2026-01-01",
           "valid_to": null,
           "recorded_at": "2026-11-05T09:00:00Z",
-          "derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001"
+          "derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001",
+          "subject_kind": "transaction",
+          "subject_ref": "SYN-TRANSACTION-001"
+        },
+        {
+          "fact_id": "CTX-REGISTRATION-DISPUTED-SELLER-ESTABLISHMENT-02",
+          "jurisdiction_role": "establishment_location",
+          "assertion_state": "evidence_supported",
+          "origin": "source_asserted",
+          "scope_ref": "SYN-SCOPE-A-REGION-1",
+          "source_evidence_refs": [
+            "SYN-EVIDENCE-BASE-001"
+          ],
+          "valid_from": "2026-06-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T09:05:00Z",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-REGISTRATION-DISPUTED-SELLER-ESTABLISHMENT-02",
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ]
         }
       ]
     }
