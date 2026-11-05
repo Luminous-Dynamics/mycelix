@@ -1,0 +1,1107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-multiconductor-history-v1.schema.json",
+  "title": "Pulse multi-conductor causal evidence history v1",
+  "description": "Strict partial-order history. Per-conductor local and host authority indices are never compared across conductors. Cross-conductor order exists only through evidence-backed causal edges.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trace_id",
+    "evidence_class",
+    "source_commit",
+    "conductors",
+    "events",
+    "causal_edges"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "evidence_class": {
+      "enum": [
+        "synthetic",
+        "runtime_capture"
+      ]
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "conductors": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conductor_id",
+          "agent_key_ref",
+          "conductor_build",
+          "dna_hash",
+          "cell_id",
+          "role"
+        ],
+        "properties": {
+          "conductor_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "agent_key_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "conductor_build": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "dna_hash": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "cell_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "role": {
+            "enum": [
+              "grant_owner",
+              "caller",
+              "validator",
+              "observer",
+              "peer"
+            ]
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "host_grant_issued"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "grant_ref",
+                  "grant_action_hash",
+                  "grantor",
+                  "grantee",
+                  "assigned",
+                  "functions",
+                  "idempotency_key",
+                  "host_authority_index"
+                ],
+                "properties": {
+                  "grant_ref": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "grant_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "grantor": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "grantee": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "assigned": {
+                    "type": "boolean"
+                  },
+                  "functions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "host_authority_index": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "host_grant_revoked"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "grant_ref",
+                  "target_grant_action_hash",
+                  "actor",
+                  "revocation_action_hash",
+                  "host_authority_index"
+                ],
+                "properties": {
+                  "grant_ref": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target_grant_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "actor": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revocation_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "host_authority_index": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "capability_claim_accepted"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "grant_ref",
+                  "grant_action_hash",
+                  "recipient",
+                  "claim_action_hash"
+                ],
+                "properties": {
+                  "grant_ref": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "grant_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "recipient": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "claim_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "host_call"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation_id",
+                  "attempt_id",
+                  "grant_ref",
+                  "grant_action_hash",
+                  "caller",
+                  "function",
+                  "host_authority_index",
+                  "host_decision",
+                  "host_state_at_decision",
+                  "domain_decision",
+                  "projection_used_for_authorization"
+                ],
+                "properties": {
+                  "operation_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attempt_id": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "grant_ref": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "grant_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "caller": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "function": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "host_authority_index": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "host_decision": {
+                    "enum": [
+                      "authorized",
+                      "unauthorized",
+                      "unknown"
+                    ]
+                  },
+                  "host_state_at_decision": {
+                    "enum": [
+                      "active",
+                      "revoked",
+                      "absent",
+                      "unknown"
+                    ]
+                  },
+                  "domain_decision": {
+                    "enum": [
+                      "allow",
+                      "deny",
+                      "not_run",
+                      "unknown"
+                    ]
+                  },
+                  "projection_used_for_authorization": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "domain_effect"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation_id",
+                  "attempt_id",
+                  "effect_id",
+                  "action_hash"
+                ],
+                "properties": {
+                  "operation_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attempt_id": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "effect_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "action_authored"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action_hash",
+                  "author",
+                  "entry_type"
+                ],
+                "properties": {
+                  "action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "author": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "entry_type": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "validation_disposition"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action_hash",
+                  "author_conductor_id",
+                  "receiving_conductor_id",
+                  "disposition",
+                  "validator_build",
+                  "reason_code"
+                ],
+                "properties": {
+                  "action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "author_conductor_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "receiving_conductor_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "disposition": {
+                    "enum": [
+                      "accepted",
+                      "rejected"
+                    ]
+                  },
+                  "validator_build": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reason_code": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 256
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "projection_observed"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action_hash",
+                  "projection_state",
+                  "decision",
+                  "required_dna_hash",
+                  "observed_dna_hash",
+                  "required_cell_id",
+                  "observed_cell_id",
+                  "required_author",
+                  "observed_author",
+                  "required_action_hash",
+                  "observed_action_hash",
+                  "required_epoch",
+                  "observed_epoch",
+                  "descends_from_required"
+                ],
+                "properties": {
+                  "action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "projection_state": {
+                    "enum": [
+                      "integrated",
+                      "not_integrated",
+                      "pending",
+                      "conflicting",
+                      "unknown"
+                    ]
+                  },
+                  "decision": {
+                    "enum": [
+                      "trusted",
+                      "stale_advisory",
+                      "unknown",
+                      "conflicting"
+                    ]
+                  },
+                  "required_dna_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "observed_dna_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "required_cell_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "observed_cell_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "required_author": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "observed_author": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "required_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "observed_action_hash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "required_epoch": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "observed_epoch": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "descends_from_required": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "remote_signal"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "event_type",
+                  "trust_class",
+                  "transport_sender",
+                  "claimed_sender",
+                  "backing_action_hash",
+                  "record_author",
+                  "verified_payload_sha256",
+                  "verifier_build",
+                  "trusted_state_mutation",
+                  "authorizes_operation"
+                ],
+                "properties": {
+                  "event_type": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 128
+                  },
+                  "trust_class": {
+                    "enum": [
+                      "verified_record",
+                      "authenticated_peer_hint",
+                      "unverified_hint",
+                      "local_only",
+                      "unknown",
+                      "rejected"
+                    ]
+                  },
+                  "transport_sender": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 128
+                  },
+                  "claimed_sender": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 128
+                  },
+                  "backing_action_hash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 128
+                  },
+                  "record_author": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 128
+                  },
+                  "verified_payload_sha256": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "verifier_build": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 256
+                  },
+                  "trusted_state_mutation": {
+                    "type": "boolean"
+                  },
+                  "authorizes_operation": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "conductor_id",
+              "local_sequence",
+              "source",
+              "evidence_ref",
+              "event_type",
+              "data"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "local_sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source": {
+                "enum": [
+                  "conductor_host",
+                  "source_chain",
+                  "validator",
+                  "observer",
+                  "remote_peer",
+                  "client",
+                  "coordinator",
+                  "synthetic"
+                ]
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "event_type": {
+                "const": "caller_outcome"
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation_id",
+                  "attempt_id",
+                  "outcome"
+                ],
+                "properties": {
+                  "operation_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attempt_id": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "outcome": {
+                    "enum": [
+                      "acknowledged",
+                      "unknown",
+                      "committed",
+                      "not_committed",
+                      "rejected"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "causal_edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_event",
+          "to_event",
+          "relation",
+          "evidence_ref"
+        ],
+        "properties": {
+          "from_event": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to_event": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relation": {
+            "enum": [
+              "program_order",
+              "request_response",
+              "source_action_dependency",
+              "validator_receipt",
+              "observer_confirmation",
+              "test_harness_barrier"
+            ]
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "semantics": {
+      "description": "No wall-clock timestamp or numeric index from another conductor may establish cross-conductor happens-before. The local_sequence is capture order only. host_authority_index is scoped to its exact conductor.",
+      "type": "object"
+    }
+  }
+}
