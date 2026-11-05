@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 const SUBJECT_DOMAIN: &[u8] = b"mycelix:fin-acc-review:subject:v1\0";
 const POLICY_DOMAIN: &[u8] = b"mycelix:fin-acc-review:policy:v1\0";
+const EVENT_DOMAIN: &[u8] = b"mycelix:fin-acc-review:event:v1\0";
 
 pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
     let input: Value = match serde_json::from_slice(input_bytes) {
@@ -44,6 +45,9 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
             "subject_digest": Value::Null,
             "review_policy_digest": Value::Null,
             "role_counts": [],
+            "accepted_event_ids": [],
+            "limited_approval_principal_refs": [],
+            "non_human_role_principal_refs": [],
             "missing_roles": [],
             "blocking_reasons": validation_errors,
             "limitations": claim_limitations(),
@@ -100,8 +104,9 @@ pub fn verify_value(input: &Value) -> Value {
     let mut blockers = BTreeSet::<String>::new();
     let mut counts = BTreeMap::<String, BTreeSet<String>>::new();
     let mut accepted_events = BTreeSet::<String>::new();
-    let mut seen_event_ids = BTreeSet::<String>::new();
+    let mut seen_event_ids = BTreeMap::<String, String>::new();
     let mut limited_approvals = BTreeSet::<String>::new();
+    let mut non_human_principals = BTreeSet::<String>::new();
 
     let prepared_by = subject["prepared_by"]["principal_ref"]
         .as_str()
@@ -140,10 +145,16 @@ pub fn verify_value(input: &Value) -> Value {
         .unwrap_or_default()
     {
         let event_id = event["event_id"].as_str().unwrap_or_default().to_owned();
-        if !seen_event_ids.insert(event_id.clone()) {
-            blockers.insert(format!("duplicate_event_id:{event_id}"));
+        let event_digest = digest_value(EVENT_DOMAIN, &event);
+        if let Some(previous_digest) = seen_event_ids.get(&event_id) {
+            if previous_digest == &event_digest {
+                // Exact semantic replay is idempotent: count the event once.
+                continue;
+            }
+            blockers.insert(format!("conflicting_event_id_reuse:{event_id}"));
             continue;
         }
+        seen_event_ids.insert(event_id.clone(), event_digest);
         let principal = event["principal_ref"]
             .as_str()
             .unwrap_or_default()
@@ -195,6 +206,19 @@ pub fn verify_value(input: &Value) -> Value {
                 "role_decision_mismatch:{role}:{decision}:{principal}"
             ));
             continue;
+        }
+        let actor_kind = event["actor_kind"].as_str().unwrap_or_default();
+        if actor_kind != "human" {
+            non_human_principals.insert(principal.clone());
+            let policy_allows_non_human = policy["non_human_eligible_roles"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|allowed_role| allowed_role.as_str() == Some(role.as_str()));
+            if !policy_allows_non_human {
+                blockers.insert(format!("non_human_actor_for_role:{role}:{principal}"));
+                continue;
+            }
         }
         if decision == "approved_with_limitation" {
             limited_approvals.insert(principal.clone());
@@ -254,8 +278,12 @@ pub fn verify_value(input: &Value) -> Value {
     let role_mismatch = blockers
         .iter()
         .any(|reason| reason.starts_with("role_decision_mismatch"));
+    let non_human_role = blockers
+        .iter()
+        .any(|reason| reason.starts_with("non_human_actor_for_role"));
     let event_integrity_failure = blockers.iter().any(|reason| {
-        reason.starts_with("duplicate_event_id") || reason.starts_with("review_predates_workpaper")
+        reason.starts_with("conflicting_event_id_reuse")
+            || reason.starts_with("review_predates_workpaper")
     });
 
     let disposition = if stale || policy_mismatch {
@@ -266,6 +294,8 @@ pub fn verify_value(input: &Value) -> Value {
         "blocked_by_role_separation"
     } else if adverse {
         "blocked_by_adverse_review"
+    } else if non_human_role {
+        "blocked_by_non_human_role"
     } else if role_mismatch || event_integrity_failure {
         "blocked_by_review_contract"
     } else if !missing_roles.is_empty() {
@@ -286,6 +316,7 @@ pub fn verify_value(input: &Value) -> Value {
         })).collect::<Vec<_>>(),
         "accepted_event_ids": accepted_events.iter().collect::<Vec<_>>(),
         "limited_approval_principal_refs": limited_approvals.iter().collect::<Vec<_>>(),
+        "non_human_role_principal_refs": non_human_principals.iter().collect::<Vec<_>>(),
         "missing_roles": missing_roles,
         "blocking_reasons": blockers.into_iter().collect::<Vec<_>>(),
         "limitations": claim_limitations(),
@@ -364,6 +395,7 @@ fn claim_limitations() -> Vec<&'static str> {
         "principal_ref equality is structural only; identity alias resolution is external",
         "identity_evidence_ref and authority_evidence_ref are opaque references and are not authenticated or checked for current authority",
         "delegation, revocation and approval withdrawal are not interpreted by v1",
+        "non-human principals are rejected for every role unless the exact policy explicitly lists that role in non_human_eligible_roles",
         "a reviewed or approved decision does not prove human comprehension or professional sufficiency",
         "this verifier never grants journal posting, close release, tax filing or external execution authority",
     ]
@@ -378,6 +410,7 @@ fn report_error(disposition: &str, error: String) -> Value {
         "role_counts": [],
         "accepted_event_ids": [],
         "limited_approval_principal_refs": [],
+        "non_human_role_principal_refs": [],
         "missing_roles": [],
         "blocking_reasons": [error],
         "limitations": claim_limitations(),
@@ -435,6 +468,7 @@ mod tests {
         });
         let subject_digest = sha(&subject, SUBJECT_DOMAIN);
         let common = json!({
+            "actor_kind": "human",
             "subject_digest": subject_digest,
             "policy_digest": policy_digest,
             "reporting_entity_ref": "entity:synthetic-za-001",
@@ -607,5 +641,51 @@ mod tests {
             report["disposition"],
             "structurally_ready_pending_external_authority"
         );
+    }
+
+    #[test]
+    fn exact_replay_of_the_same_review_event_is_idempotent() {
+        let mut record = base_record();
+        let duplicate = record["review_events"][0].clone();
+        record["review_events"].as_array_mut().unwrap().push(duplicate);
+        let report = verify_value(&record);
+        assert_eq!(report["disposition"], "structurally_ready_pending_external_authority");
+        assert_eq!(report["accepted_event_ids"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn reused_event_id_with_changed_payload_is_a_conflict() {
+        let mut record = base_record();
+        let mut conflicting = record["review_events"][0].clone();
+        conflicting["principal_ref"] = json!("principal:substituted");
+        record["review_events"].as_array_mut().unwrap().push(conflicting);
+        let report = verify_value(&record);
+        assert_eq!(report["disposition"], "blocked_by_review_contract");
+        assert!(report["blocking_reasons"].to_string().contains("conflicting_event_id_reuse"));
+    }
+
+    #[test]
+    fn agent_cannot_satisfy_a_human_required_reviewer_role_by_default() {
+        let mut record = base_record();
+        record["review_events"][0]["actor_kind"] = json!("agent");
+        record["review_events"][0]["agent_build_digest"] = json!("a".repeat(64));
+        let report = verify_value(&record);
+        assert_eq!(report["disposition"], "blocked_by_non_human_role");
+        assert_eq!(report["non_human_role_principal_refs"][0], "principal:reviewer");
+        assert_eq!(report["human_review_sufficiency_verified"], false);
+        assert_eq!(report["can_approve_close"], false);
+    }
+
+    #[test]
+    fn non_human_role_requires_an_explicit_policy_allowlist() {
+        let mut record = base_record();
+        record["review_events"][0]["actor_kind"] = json!("agent");
+        record["review_events"][0]["agent_build_digest"] = json!("b".repeat(64));
+        record["review_policy"]["non_human_eligible_roles"] = json!(["reviewer"]);
+        rebind_subject_and_policy(&mut record);
+        let report = verify_value(&record);
+        assert_eq!(report["disposition"], "structurally_ready_pending_external_authority");
+        assert_eq!(report["non_human_role_principal_refs"][0], "principal:reviewer");
+        assert_eq!(report["external_authority_verified"], false);
     }
 }
