@@ -6,7 +6,7 @@ A Rust-first independent structural verifier for the Pulse multi-conductor causa
 
 The auditor consumes redacted multi-conductor histories without inventing a global clock. Each conductor has its own local_sequence and host_authority_index; those counters are compared only within that conductor. Cross-conductor ordering exists only when an explicit, evidence-referenced causal edge connects two events.
 
-The v1 contract distinguishes:
+The v2 contract distinguishes:
 - host grant issuance/revocation and host call decisions;
 - private capability claim acceptance;
 - source-chain action authoring;
@@ -20,7 +20,7 @@ The v1 contract distinguishes:
     cargo test --manifest-path tools/pulse-multiconductor-audit/Cargo.toml
     cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml -- --input tools/pulse-multiconductor-audit/examples/safe-history.json
 
-The report binds the input bytes by SHA-256 and returns PASS, FAIL or INCOMPLETE. A missing causal edge or missing authority evidence is INCOMPLETE; a contradictory decision, cycle, false-fresh projection or unauthorized effect is FAIL.
+The v2 report binds input bytes by SHA-256 and returns PASS, FAIL or INCOMPLETE. A verified-record signal must resolve an exact source-chain action, payload digest, accepted validator event, validator WASM digest, observer lineage and both causal edges. A missing causal edge or missing authority evidence is INCOMPLETE; a contradictory decision, cycle, false-fresh projection or unauthorized effect is FAIL.
 
 ## Synthetic performance benchmark
 
