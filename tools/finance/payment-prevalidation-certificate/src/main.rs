@@ -64,6 +64,58 @@ fn digest_domain(domain: &str, value: &Value) -> Result<String, String> {
     Ok(format!("sha256:{}", as_hex(&hasher.finalize())))
 }
 
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let adjusted_year = year - i64::from(month <= 2);
+    let era = adjusted_year.div_euclid(400);
+    let year_of_era = adjusted_year - era * 400;
+    let adjusted_month = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * adjusted_month + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
+fn parse_utc_seconds(value: &str) -> Option<i64> {
+    if value.len() != 20 || !value.ends_with('Z') || value.as_bytes().get(10) != Some(&b'T') {
+        return None;
+    }
+    let year = value.get(0..4)?.parse::<i64>().ok()?;
+    let month = value.get(5..7)?.parse::<i64>().ok()?;
+    let day = value.get(8..10)?.parse::<i64>().ok()?;
+    let hour = value.get(11..13)?.parse::<i64>().ok()?;
+    let minute = value.get(14..16)?.parse::<i64>().ok()?;
+    let second = value.get(17..19)?.parse::<i64>().ok()?;
+    if year < 1970
+        || !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=59).contains(&second)
+    {
+        return None;
+    }
+    Some(days_from_civil(year, month, day) * 86_400 + hour * 3_600 + minute * 60 + second)
+}
+
+fn evidence_fresh_at(
+    observed_at: &Value,
+    expires_at: &Value,
+    evaluation_time: &str,
+    maximum_age_seconds: u64,
+) -> bool {
+    let Some(observed) = observed_at.as_str().and_then(parse_utc_seconds) else {
+        return false;
+    };
+    let Some(expires) = expires_at.as_str().and_then(parse_utc_seconds) else {
+        return false;
+    };
+    let Some(evaluation) = parse_utc_seconds(evaluation_time) else {
+        return false;
+    };
+    observed <= evaluation
+        && evaluation < expires
+        && evaluation - observed <= maximum_age_seconds as i64
+}
+
 fn digest_is_well_formed(value: &str) -> bool {
     value.strip_prefix("sha256:").is_some_and(|hex| {
         hex.len() == 64
