@@ -27,6 +27,7 @@
       "enum": [
         "invalid_input",
         "invalid_schema",
+        "invalid_report",
         "stale_subject_or_policy",
         "review_scope_mismatch",
         "blocked_by_role_separation",
