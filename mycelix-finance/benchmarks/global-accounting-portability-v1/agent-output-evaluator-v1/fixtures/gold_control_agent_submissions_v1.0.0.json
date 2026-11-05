@@ -179,7 +179,9 @@
           "source_document_refs": [
             "DOC-002-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-002-START"
+          ],
           "journal_line_refs": []
         },
         {
@@ -192,7 +194,9 @@
           "source_document_refs": [
             "DOC-002-SOW"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-002-START"
+          ],
           "journal_line_refs": []
         },
         {
@@ -493,7 +497,9 @@
           "source_document_refs": [
             "DOC-005-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-005-FX"
+          ],
           "journal_line_refs": []
         },
         {
@@ -506,7 +512,9 @@
           "source_document_refs": [
             "DOC-005-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-005-FX"
+          ],
           "journal_line_refs": []
         },
         {
@@ -519,7 +527,9 @@
           "source_document_refs": [
             "DOC-005-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-005-FX"
+          ],
           "journal_line_refs": []
         },
         {
@@ -532,7 +542,9 @@
           "source_document_refs": [
             "DOC-005-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-005-FX"
+          ],
           "journal_line_refs": []
         },
         {
@@ -974,7 +986,9 @@
           "source_document_refs": [
             "DOC-011-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
           "journal_line_refs": []
         },
         {
@@ -987,7 +1001,9 @@
           "source_document_refs": [
             "DOC-011-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1000,7 +1016,9 @@
           "source_document_refs": [
             "DOC-011-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1013,7 +1031,9 @@
           "source_document_refs": [
             "DOC-011-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1177,7 +1197,9 @@
           "source_document_refs": [
             "DOC-013-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1190,7 +1212,9 @@
           "source_document_refs": [
             "DOC-013-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1203,7 +1227,9 @@
           "source_document_refs": [
             "DOC-013-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1216,7 +1242,9 @@
           "source_document_refs": [
             "DOC-013-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1285,7 +1313,9 @@
           "source_document_refs": [
             "DOC-014-INV"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-014-END"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1298,7 +1328,9 @@
           "source_document_refs": [
             "DOC-014-CTR"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-014-END"
+          ],
           "journal_line_refs": []
         },
         {
@@ -1311,7 +1343,9 @@
           "source_document_refs": [
             "DOC-014-CTR"
           ],
-          "question_refs": [],
+          "question_refs": [
+            "Q-014-END"
+          ],
           "journal_line_refs": []
         },
         {
