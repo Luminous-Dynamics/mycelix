@@ -150,7 +150,9 @@
         "payer_override_no_match",
         "payer_override_unavailable",
         "source_refs",
-        "limit_fee_source_ref"
+        "limit_fee_source_ref",
+        "payee_resolution_freshness_seconds",
+        "limit_fee_freshness_seconds"
       ],
       "properties": {
         "profile_id": {
@@ -243,6 +245,14 @@
         },
         "limit_fee_source_ref": {
           "type": "string"
+        },
+        "payee_resolution_freshness_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "limit_fee_freshness_seconds": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },
@@ -497,7 +507,9 @@
         "intent_digest",
         "profile_id",
         "source_ref",
-        "evidence_ref"
+        "evidence_ref",
+        "issued_at",
+        "expires_at"
       ],
       "properties": {
         "verification_state": {
@@ -572,6 +584,14 @@
         },
         "evidence_ref": {
           "type": "string"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -588,7 +608,9 @@
         "fee_payer",
         "fee_disclosed",
         "source_ref",
-        "evidence_ref"
+        "evidence_ref",
+        "observed_at",
+        "expires_at"
       ],
       "properties": {
         "status": {
@@ -628,6 +650,14 @@
         },
         "evidence_ref": {
           "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -820,7 +850,8 @@
         "consent",
         "expected_admission",
         "expected_disposition",
-        "dispatch_allowed"
+        "dispatch_allowed",
+        "evaluation_time"
       ],
       "properties": {
         "scenario_id": {
@@ -895,6 +926,10 @@
         },
         "risk_signal": {
           "type": "object"
+        },
+        "evaluation_time": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     }
