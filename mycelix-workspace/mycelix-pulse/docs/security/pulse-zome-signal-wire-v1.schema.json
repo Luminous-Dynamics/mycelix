@@ -26,11 +26,21 @@
             "priority"
           ],
           "properties": {
-            "email_hash": {},
-            "sender": {},
-            "encrypted_subject": {},
-            "timestamp": {},
-            "priority": {}
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "sender": {
+              "$ref": "#/$defs/hash"
+            },
+            "encrypted_subject": {
+              "$ref": "#/$defs/bytes"
+            },
+            "timestamp": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "priority": {
+              "$ref": "#/$defs/emailPriority"
+            }
           }
         }
       }
@@ -55,9 +65,15 @@
             "delivered_at"
           ],
           "properties": {
-            "email_hash": {},
-            "recipient": {},
-            "delivered_at": {}
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "recipient": {
+              "$ref": "#/$defs/hash"
+            },
+            "delivered_at": {
+              "$ref": "#/$defs/timestamp"
+            }
           }
         }
       }
@@ -82,9 +98,15 @@
             "read_at"
           ],
           "properties": {
-            "email_hash": {},
-            "reader": {},
-            "read_at": {}
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "reader": {
+              "$ref": "#/$defs/hash"
+            },
+            "read_at": {
+              "$ref": "#/$defs/timestamp"
+            }
           }
         }
       }
@@ -108,50 +130,11 @@
             "state"
           ],
           "properties": {
-            "email_hash": {},
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
             "state": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "is_read",
-                "is_starred",
-                "is_archived",
-                "is_trashed",
-                "folders"
-              ],
-              "properties": {
-                "is_read": {
-                  "type": [
-                    "boolean",
-                    "null"
-                  ]
-                },
-                "is_starred": {
-                  "type": [
-                    "boolean",
-                    "null"
-                  ]
-                },
-                "is_archived": {
-                  "type": [
-                    "boolean",
-                    "null"
-                  ]
-                },
-                "is_trashed": {
-                  "type": [
-                    "boolean",
-                    "null"
-                  ]
-                },
-                "folders": {
-                  "type": [
-                    "array",
-                    "null"
-                  ],
-                  "items": {}
-                }
-              }
+              "$ref": "#/$defs/emailStateUpdate"
             }
           }
         }
@@ -177,9 +160,15 @@
             "sender"
           ],
           "properties": {
-            "thread_id": {},
-            "email_hash": {},
-            "sender": {}
+            "thread_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "sender": {
+              "$ref": "#/$defs/hash"
+            }
           }
         }
       }
@@ -202,7 +191,9 @@
             "draft_hash"
           ],
           "properties": {
-            "draft_hash": {}
+            "draft_hash": {
+              "$ref": "#/$defs/hash"
+            }
           }
         }
       }
@@ -226,8 +217,17 @@
             "recipients"
           ],
           "properties": {
-            "email_hash": {},
-            "recipients": {}
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "recipients": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/hash"
+              }
+            }
           }
         }
       }
@@ -251,8 +251,16 @@
             "thread_id"
           ],
           "properties": {
-            "sender": {},
-            "thread_id": {}
+            "sender": {
+              "$ref": "#/$defs/hash"
+            },
+            "thread_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 256
+            }
           }
         }
       }
@@ -278,10 +286,18 @@
             "category"
           ],
           "properties": {
-            "attestation_hash": {},
-            "truster": {},
-            "trust_level": {},
-            "category": {}
+            "attestation_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "truster": {
+              "$ref": "#/$defs/hash"
+            },
+            "trust_level": {
+              "$ref": "#/$defs/trustLevel"
+            },
+            "category": {
+              "$ref": "#/$defs/trustCategory"
+            }
           }
         }
       }
@@ -306,9 +322,15 @@
             "confidence"
           ],
           "properties": {
-            "agent": {},
-            "new_score": {},
-            "confidence": {}
+            "agent": {
+              "$ref": "#/$defs/hash"
+            },
+            "new_score": {
+              "$ref": "#/$defs/score"
+            },
+            "confidence": {
+              "$ref": "#/$defs/score"
+            }
           }
         }
       }
@@ -334,10 +356,18 @@
             "recommendation"
           ],
           "properties": {
-            "introduction_hash": {},
-            "introducer": {},
-            "introduced": {},
-            "recommendation": {}
+            "introduction_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "introducer": {
+              "$ref": "#/$defs/hash"
+            },
+            "introduced": {
+              "$ref": "#/$defs/hash"
+            },
+            "recommendation": {
+              "$ref": "#/$defs/recommendation"
+            }
           }
         }
       }
@@ -362,9 +392,15 @@
             "disputer"
           ],
           "properties": {
-            "dispute_hash": {},
-            "attestation_hash": {},
-            "disputer": {}
+            "dispute_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "attestation_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "disputer": {
+              "$ref": "#/$defs/hash"
+            }
           }
         }
       }
@@ -389,9 +425,15 @@
             "severity"
           ],
           "properties": {
-            "agent": {},
-            "flag_type": {},
-            "severity": {}
+            "agent": {
+              "$ref": "#/$defs/hash"
+            },
+            "flag_type": {
+              "$ref": "#/$defs/byzantineFlagType"
+            },
+            "severity": {
+              "$ref": "#/$defs/score"
+            }
           }
         }
       }
@@ -415,8 +457,12 @@
             "pending_ops"
           ],
           "properties": {
-            "vector_clock": {},
-            "pending_ops": {}
+            "vector_clock": {
+              "$ref": "#/$defs/vectorClock"
+            },
+            "pending_ops": {
+              "$ref": "#/$defs/count"
+            }
           }
         }
       }
@@ -441,9 +487,15 @@
             "from_agent"
           ],
           "properties": {
-            "op_id": {},
-            "op_type": {},
-            "from_agent": {}
+            "op_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "op_type": {
+              "$ref": "#/$defs/syncOpType"
+            },
+            "from_agent": {
+              "$ref": "#/$defs/hash"
+            }
           }
         }
       }
@@ -467,8 +519,12 @@
             "conflict_type"
           ],
           "properties": {
-            "conflict_id": {},
-            "conflict_type": {}
+            "conflict_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "conflict_type": {
+              "$ref": "#/$defs/conflictType"
+            }
           }
         }
       }
@@ -492,8 +548,12 @@
             "resolution"
           ],
           "properties": {
-            "conflict_id": {},
-            "resolution": {}
+            "conflict_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "resolution": {
+              "$ref": "#/$defs/conflictResolution"
+            }
           }
         }
       }
@@ -542,9 +602,15 @@
             "peer"
           ],
           "properties": {
-            "synced": {},
-            "total": {},
-            "peer": {}
+            "synced": {
+              "$ref": "#/$defs/count"
+            },
+            "total": {
+              "$ref": "#/$defs/count"
+            },
+            "peer": {
+              "$ref": "#/$defs/hash"
+            }
           }
         }
       }
@@ -568,8 +634,12 @@
             "ops_synced"
           ],
           "properties": {
-            "peer": {},
-            "ops_synced": {}
+            "peer": {
+              "$ref": "#/$defs/hash"
+            },
+            "ops_synced": {
+              "$ref": "#/$defs/count"
+            }
           }
         }
       }
@@ -593,8 +663,12 @@
             "network_type"
           ],
           "properties": {
-            "network_id": {},
-            "network_type": {}
+            "network_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "network_type": {
+              "$ref": "#/$defs/networkType"
+            }
           }
         }
       }
@@ -618,8 +692,12 @@
             "from_network"
           ],
           "properties": {
-            "envelope_id": {},
-            "from_network": {}
+            "envelope_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "from_network": {
+              "$ref": "#/$defs/identifier"
+            }
           }
         }
       }
@@ -643,8 +721,12 @@
             "to_network"
           ],
           "properties": {
-            "envelope_id": {},
-            "to_network": {}
+            "envelope_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "to_network": {
+              "$ref": "#/$defs/identifier"
+            }
           }
         }
       }
@@ -668,8 +750,12 @@
             "error"
           ],
           "properties": {
-            "envelope_id": {},
-            "error": {}
+            "envelope_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "error": {
+              "$ref": "#/$defs/errorText"
+            }
           }
         }
       }
@@ -693,8 +779,12 @@
             "is_active"
           ],
           "properties": {
-            "bridge_agent": {},
-            "is_active": {}
+            "bridge_agent": {
+              "$ref": "#/$defs/hash"
+            },
+            "is_active": {
+              "type": "boolean"
+            }
           }
         }
       }
@@ -718,8 +808,12 @@
             "is_active"
           ],
           "properties": {
-            "route_id": {},
-            "is_active": {}
+            "route_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "is_active": {
+              "type": "boolean"
+            }
           }
         }
       }
@@ -743,11 +837,366 @@
             "is_reachable"
           ],
           "properties": {
-            "network_id": {},
-            "is_reachable": {}
+            "network_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "is_reachable": {
+              "type": "boolean"
+            }
           }
         }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "format": "holochain-hash-base64url",
+      "contentEncoding": "base64url",
+      "minLength": 50,
+      "maxLength": 60,
+      "description": "Portable JSON representation of a Holochain ActionHash or AgentPubKey. In the decoded JavaScript signal object this is a 39-byte Uint8Array."
+    },
+    "bytes": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "minLength": 1,
+      "maxLength": 87384,
+      "description": "Portable JSON representation of a bounded Rust Vec<u8>; decoded JavaScript value is Uint8Array."
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991,
+      "description": "Holochain Timestamp in microseconds, represented as a safe JS integer."
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "shortText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "errorText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "trustLevel": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "recommendation": {
+      "type": "number"
+    },
+    "emailPriority": {
+      "type": "string",
+      "enum": [
+        "Low",
+        "Normal",
+        "High",
+        "Urgent"
+      ]
+    },
+    "trustCategory": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "Identity",
+            "Communication",
+            "FileSharing",
+            "Scheduling",
+            "Financial",
+            "CredentialIssuer",
+            "Organization",
+            "Personal",
+            "Professional"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "Custom"
+          ],
+          "properties": {
+            "Custom": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      ]
+    },
+    "byzantineFlagType": {
+      "type": "string",
+      "enum": [
+        "SybilSuspicion",
+        "CollusionPattern",
+        "TrustVolatility",
+        "InconsistentAttestations",
+        "SelfDealing",
+        "AttestationFarming"
+      ]
+    },
+    "conflictType": {
+      "type": "string",
+      "enum": [
+        "ConcurrentEdit",
+        "DeleteUpdate",
+        "ConcurrentMove",
+        "CausalityViolation",
+        "VersionMismatch"
+      ]
+    },
+    "syncOpType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "EmailReceived",
+            "EmailRead",
+            "EmailDeleted",
+            "EmailMoved",
+            "EmailFlagged",
+            "EmailLabeled",
+            "FolderCreated",
+            "FolderRenamed",
+            "FolderDeleted",
+            "FolderMoved",
+            "DraftCreated",
+            "DraftUpdated",
+            "DraftDeleted",
+            "DraftSent",
+            "SettingChanged",
+            "FilterCreated",
+            "FilterUpdated",
+            "FilterDeleted",
+            "TrustAttestationCreated",
+            "TrustAttestationRevoked",
+            "ContactCreated",
+            "ContactUpdated",
+            "ContactDeleted"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "Custom"
+          ],
+          "properties": {
+            "Custom": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      ]
+    },
+    "conflictResolution": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "Pending",
+            "Merged",
+            "BothKept"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "AutoResolved"
+          ],
+          "properties": {
+            "AutoResolved": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "strategy"
+              ],
+              "properties": {
+                "strategy": {
+                  "$ref": "#/$defs/shortText"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "LastWriterWins"
+          ],
+          "properties": {
+            "LastWriterWins": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "winner"
+              ],
+              "properties": {
+                "winner": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ManualResolution"
+          ],
+          "properties": {
+            "ManualResolution": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "resolver"
+              ],
+              "properties": {
+                "resolver": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "networkType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "HolochainNative",
+            "SmtpBridge",
+            "MatrixBridge",
+            "ActivityPubBridge",
+            "XmppBridge",
+            "OrganizationPrivate",
+            "PublicOpen"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "CustomBridge"
+          ],
+          "properties": {
+            "CustomBridge": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "protocol"
+              ],
+              "properties": {
+                "protocol": {
+                  "$ref": "#/$defs/shortText"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "emailStateUpdate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is_read",
+        "is_starred",
+        "is_archived",
+        "is_trashed",
+        "folders"
+      ],
+      "properties": {
+        "is_read": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "is_starred": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "is_archived": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "is_trashed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "folders": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    },
+    "vectorClock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clocks"
+      ],
+      "properties": {
+        "clocks": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    }
+  }
 }
