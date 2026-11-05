@@ -738,7 +738,7 @@ fn audit(history:&History,input_sha256:String)->Report {
     let incomplete=findings.iter().any(|f|f.severity=="incomplete");
     let status=if violation{Status::Fail}else if incomplete{Status::Incomplete}else{Status::Pass};
     Report{
-        schema_version:1,status,trace_id:history.trace_id.clone(),evidence_class:history.evidence_class.clone(),
+        schema_version:2,status,trace_id:history.trace_id.clone(),evidence_class:history.evidence_class.clone(),
         input_sha256,counts,findings,
         claim_ceiling:"STRUCTURAL_PARTIAL_ORDER_ONLY: this verifier checks a redacted multi-conductor event DAG and conductor-local order; it does not authenticate receipts, prove conductor honesty, establish DHT consensus, or prove unbounded linearizability".to_string()
     }
