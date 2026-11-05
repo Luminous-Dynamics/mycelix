@@ -133,6 +133,86 @@
       "source_url": "https://www.iana.org/time-zones",
       "valid_from": null,
       "notes": "Time-zone history and rules change with political decisions; pin release to reproduce event-time conversion."
+    },
+    {
+      "profile_id": "SYN-JUR-A",
+      "dimension": "jurisdiction_profile",
+      "version": "synthetic-jurisdiction-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-FRAMEWORK-A",
+      "dimension": "accounting_framework",
+      "version": "synthetic-framework-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-TAX-A",
+      "dimension": "tax_profile",
+      "version": "synthetic-tax-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-REPORTING-A",
+      "dimension": "digital_reporting_taxonomy",
+      "version": "synthetic-reporting-taxonomy-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-EINVOICE-A",
+      "dimension": "e_invoice_interoperability",
+      "version": "synthetic-einvoice-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-CURRENCY-A",
+      "dimension": "currency_profile",
+      "version": "synthetic-currency-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-LOCALE-A",
+      "dimension": "locale_data",
+      "version": "synthetic-locale-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-TZ-A",
+      "dimension": "timezone_database",
+      "version": "synthetic-timezone-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
     }
   ],
   "coverage_matrix": [
@@ -266,6 +346,97 @@
         "no_timezone_evaluator_qualified",
         "release_and_runtime_data_must_be_pinned",
         "data_updates_do_not_authorize_source_rewriting"
+      ]
+    },
+    {
+      "coverage_id": "SYNTHETIC-RESOLVER-POSITIVE-CONTROL",
+      "jurisdiction_scope": "synthetic_only",
+      "framework_scope": "synthetic_framework_only",
+      "dimensions": [
+        "jurisdiction_profile",
+        "accounting_framework",
+        "tax_profile",
+        "digital_reporting_taxonomy",
+        "e_invoice_interoperability",
+        "currency_profile",
+        "locale_data",
+        "timezone_database"
+      ],
+      "status": "qualified_for_declared_scope",
+      "evidence_refs": [
+        "SYN-JUR-A",
+        "SYN-FRAMEWORK-A",
+        "SYN-TAX-A",
+        "SYN-REPORTING-A",
+        "SYN-EINVOICE-A",
+        "SYN-CURRENCY-A",
+        "SYN-LOCALE-A",
+        "SYN-TZ-A"
+      ],
+      "limitations": [
+        "synthetic_fixture_only",
+        "not_a_real_jurisdiction_qualification",
+        "not_a_tax_or_accounting_rule",
+        "resolver_test_only"
+      ]
+    }
+  ],
+  "qualification_intersections": [
+    {
+      "intersection_id": "SYNTH-PORTABILITY-INTERSECTION-001",
+      "scope_kind": "synthetic_fixture_only",
+      "jurisdiction_scopes": [
+        "SYNTH-JUR-A"
+      ],
+      "entity_scope": "synthetic_entity_only",
+      "profile_refs": [
+        "SYN-JUR-A",
+        "SYN-FRAMEWORK-A",
+        "SYN-TAX-A",
+        "SYN-REPORTING-A",
+        "SYN-EINVOICE-A",
+        "SYN-CURRENCY-A",
+        "SYN-LOCALE-A",
+        "SYN-TZ-A"
+      ],
+      "supported_dimensions": [
+        "jurisdiction_profile",
+        "accounting_framework",
+        "tax_profile",
+        "digital_reporting_taxonomy",
+        "e_invoice_interoperability",
+        "currency_profile",
+        "locale_data",
+        "timezone_database"
+      ],
+      "allowed_intended_uses": [
+        "research",
+        "accounting_analysis"
+      ],
+      "status": "qualified_for_declared_scope",
+      "valid_from": "2026-01-01",
+      "valid_to": null,
+      "recorded_at": "2026-11-05T01:25:00Z",
+      "approved_at": "2026-11-05T01:25:00Z",
+      "reviewer_refs": [
+        "SYNTHETIC-FIXTURE-MAINTAINER"
+      ],
+      "evidence_refs": [
+        "SYN-JUR-A",
+        "SYN-FRAMEWORK-A",
+        "SYN-TAX-A",
+        "SYN-REPORTING-A",
+        "SYN-EINVOICE-A",
+        "SYN-CURRENCY-A",
+        "SYN-LOCALE-A",
+        "SYN-TZ-A"
+      ],
+      "claim_ceiling": "synthetic_fixture_only",
+      "limitations": [
+        "synthetic_test_fixture_only",
+        "no_real_jurisdiction_or_entity",
+        "no_tax_or_accounting_rule",
+        "no_production_or_compliance_claim"
       ]
     }
   ]
