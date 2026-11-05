@@ -24,9 +24,14 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
     if let Err(error) = jsonschema::draft202012::meta::validate(&schema) {
         return report_error("invalid_schema", format!("Draft 2020-12 schema: {error}"));
     }
-    let validator = match draft202012::options().should_validate_formats(true).build(&schema) {
+    let validator = match draft202012::options()
+        .should_validate_formats(true)
+        .build(&schema)
+    {
         Ok(value) => value,
-        Err(error) => return report_error("invalid_schema", format!("schema compilation: {error}")),
+        Err(error) => {
+            return report_error("invalid_schema", format!("schema compilation: {error}"));
+        }
     };
     let validation_errors = validator
         .iter_errors(&input)
@@ -54,14 +59,27 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
 fn validate_report_schema(report: &Value) -> Value {
     let schema: Value = match serde_json::from_str(include_str!("../report.schema.json")) {
         Ok(schema) => schema,
-        Err(error) => return report_error("invalid_report", format!("embedded report schema: {error}")),
+        Err(error) => {
+            return report_error("invalid_report", format!("embedded report schema: {error}"));
+        }
     };
     if let Err(error) = jsonschema::draft202012::meta::validate(&schema) {
-        return report_error("invalid_report", format!("embedded report schema meta-validation: {error}"));
+        return report_error(
+            "invalid_report",
+            format!("embedded report schema meta-validation: {error}"),
+        );
     }
-    let validator = match draft202012::options().should_validate_formats(true).build(&schema) {
+    let validator = match draft202012::options()
+        .should_validate_formats(true)
+        .build(&schema)
+    {
         Ok(validator) => validator,
-        Err(error) => return report_error("invalid_report", format!("embedded report schema compilation: {error}")),
+        Err(error) => {
+            return report_error(
+                "invalid_report",
+                format!("embedded report schema compilation: {error}"),
+            );
+        }
     };
     let errors = validator
         .iter_errors(report)
@@ -85,10 +103,20 @@ pub fn verify_value(input: &Value) -> Value {
     let mut seen_event_ids = BTreeSet::<String>::new();
     let mut limited_approvals = BTreeSet::<String>::new();
 
-    let prepared_by = subject["prepared_by"]["principal_ref"].as_str().unwrap_or_default();
-    let policy_owner = policy["policy_owner_principal_ref"].as_str().unwrap_or_default();
-    counts.entry("preparer".to_owned()).or_default().insert(prepared_by.to_owned());
-    counts.entry("policy_owner".to_owned()).or_default().insert(policy_owner.to_owned());
+    let prepared_by = subject["prepared_by"]["principal_ref"]
+        .as_str()
+        .unwrap_or_default();
+    let policy_owner = policy["policy_owner_principal_ref"]
+        .as_str()
+        .unwrap_or_default();
+    counts
+        .entry("preparer".to_owned())
+        .or_default()
+        .insert(prepared_by.to_owned());
+    counts
+        .entry("policy_owner".to_owned())
+        .or_default()
+        .insert(policy_owner.to_owned());
 
     if subject["review_policy_ref"] != policy["policy_ref"] {
         blockers.insert("review_policy_reference_mismatch".to_owned());
