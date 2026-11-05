@@ -74,6 +74,20 @@ A successful response contains the append receipt, the signed authority receipt,
 
 Returns the current deterministic projection and its versioned evidence assessment.
 
+### `GET /api/v1/scientific/claims/{claim_id}/as-known-at?known_at={RFC3339}`
+
+Returns a read-only reconstruction of the maximal contiguous claim-event prefix whose committed, verified authority receipts have `received_at <= known_at`.
+
+The required `known_at` query value is an RFC3339 timestamp. The response includes:
+- the reconstructed projection and its assessment, or `null` when no event prefix is receipt-attested by the cutoff;
+- the number of included events and whether the full stream is covered;
+- the last included event hash and authority-receipt hash;
+- the first event that blocks further reconstruction, including whether it was committed after the cutoff or has no committed receipt.
+
+The endpoint fails closed if a receipt references a missing/different event, if the receipt chain is inconsistent, or if receipt times move backward relative to stream sequence. It does not sort events by timestamps to repair a broken ordering.
+
+**Temporal claim boundary:** this is a canonical-record transaction-time query. It answers which events had a committed server authority receipt by time K. It does not establish source acquisition/first-availability time, source valid time or proposition truth time, nor when search indexes, embeddings, caches or model instances incorporated the event. Those require their respective source/import and derived-materialization records. Unreceipted legacy events remain explicit blockers; the endpoint never substitutes signer-claimed `occurred_at` for server `received_at`.
+
 ### `GET /api/v1/scientific/claims/{claim_id}/events`
 
 Query parameters:
