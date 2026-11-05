@@ -747,7 +747,13 @@ mod tests {
     fn system_actor_requires_an_exact_system_build_digest() {
         let mut record = base_record();
         record["review_events"][0]["actor_kind"] = json!("system");
-        assert!(verify_schema(&record).is_err());
+        assert_eq!(
+            verify(
+                &serde_json::to_vec(&record).unwrap(),
+                include_bytes!("../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
+            )["disposition"],
+            "invalid_input"
+        );
         record["review_events"][0]["system_build_digest"] = json!("c".repeat(64));
         assert_ne!(
             verify(
