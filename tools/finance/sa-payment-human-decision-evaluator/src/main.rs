@@ -14,8 +14,9 @@ const DEFAULT_CORPUS: &str =
     include_str!("../../../../mycelix-finance/docs/sa-payment-human-decision-development-v1.json");
 const DEFAULT_SCHEMA: &str =
     include_str!("../../../../mycelix-finance/docs/sa-payment-human-decision-v1.schema.json");
-const DEFAULT_RESPONSE_SCHEMA: &str =
-    include_str!("../../../../mycelix-finance/docs/sa-payment-human-decision-response-v1.schema.json");
+const DEFAULT_RESPONSE_SCHEMA: &str = include_str!(
+    "../../../../mycelix-finance/docs/sa-payment-human-decision-response-v1.schema.json"
+);
 
 const EXPECTED_CLASSES: [(&str, usize, &str); 3] = [
     ("legitimate_supported", 8, "accept"),
@@ -87,15 +88,25 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     if str_at(corpus, "holdout_status") != Some("not_a_blinded_holdout") {
         errors.push("public development corpus must not claim blinded-holdout status".into());
     }
-    if corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false) {
+    if corpus
+        .get("external_effects_enabled")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
         errors.push("external_effects_enabled must be false".into());
     }
-    if corpus.get("participant_data_included").and_then(Value::as_bool) != Some(false) {
+    if corpus
+        .get("participant_data_included")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
         errors.push("participant_data_included must be false".into());
     }
 
     let design = &corpus["design"];
-    if design.get("single_composite_score_prohibited").and_then(Value::as_bool)
+    if design
+        .get("single_composite_score_prohibited")
+        .and_then(Value::as_bool)
         != Some(true)
     {
         errors.push("design must prohibit a single composite score".into());
@@ -143,20 +154,28 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         if str_at(task, "locale") != Some("en-ZA")
             || str_at(task, "translation_status") != Some("development_english_only")
         {
-            errors.push(format!("{path}: untranslated development locale was misrepresented"));
+            errors.push(format!(
+                "{path}: untranslated development locale was misrepresented"
+            ));
         }
 
         let request = &task["request"];
         let request_id = str_at(request, "request_id").unwrap_or("");
         if !request_id.starts_with("SIM-HD-") || !request_ids.insert(request_id.to_owned()) {
-            errors.push(format!("{path}: request identity is missing, non-synthetic or duplicated"));
+            errors.push(format!(
+                "{path}: request identity is missing, non-synthetic or duplicated"
+            ));
         }
         if !str_at(request, "reference")
             .is_some_and(|reference| reference.starts_with("SYNTHETIC-REF-"))
         {
             errors.push(format!("{path}: non-synthetic reference identifier"));
         }
-        if request.get("amount_minor_units").and_then(Value::as_u64).is_none_or(|n| n == 0) {
+        if request
+            .get("amount_minor_units")
+            .and_then(Value::as_u64)
+            .is_none_or(|n| n == 0)
+        {
             errors.push(format!("{path}: amount must be a positive integer"));
         }
         if str_at(request, "currency") != Some("ZAR") {
@@ -170,31 +189,48 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let critical_fields = string_set(task, "critical_material_fields");
 
         if baseline_fields.is_empty() || treatment_fields.is_empty() {
-            errors.push(format!("{path}: both presentation arms require visible fields"));
+            errors.push(format!(
+                "{path}: both presentation arms require visible fields"
+            ));
         }
         if !baseline_fields.is_subset(&treatment_fields) {
-            errors.push(format!("{path}: baseline fields must be represented in the treatment"));
+            errors.push(format!(
+                "{path}: baseline fields must be represented in the treatment"
+            ));
         }
         if !critical_fields.is_subset(&treatment_fields) {
-            let missing: Vec<_> = critical_fields.difference(&treatment_fields).cloned().collect();
-            errors.push(format!("{path}: treatment omits critical material fields {missing:?}"));
+            let missing: Vec<_> = critical_fields
+                .difference(&treatment_fields)
+                .cloned()
+                .collect();
+            errors.push(format!(
+                "{path}: treatment omits critical material fields {missing:?}"
+            ));
         }
         if str_at(baseline, "warning_style") != Some("generic_confirmation") {
-            errors.push(format!("{path}: baseline is not the declared comparison presentation"));
+            errors.push(format!(
+                "{path}: baseline is not the declared comparison presentation"
+            ));
         }
         if str_at(treatment, "warning_style") != Some("evidence_and_uncertainty_explicit") {
-            errors.push(format!("{path}: treatment must explicitly surface evidence and uncertainty"));
+            errors.push(format!(
+                "{path}: treatment must explicitly surface evidence and uncertainty"
+            ));
         }
         if !str_at(task, "reference_rationale")
             .is_some_and(|rationale| rationale.contains("not a legal finding"))
         {
-            errors.push(format!("{path}: rationale must not assert a legal debt determination"));
+            errors.push(format!(
+                "{path}: rationale must not assert a legal debt determination"
+            ));
         }
         if !array_at(task, "presentation_modes").is_some_and(|modes| {
             modes.iter().any(|mode| mode == "mobile_simulation")
                 && modes.iter().any(|mode| mode == "screen_reader_simulation")
         }) {
-            errors.push(format!("{path}: mobile and screen-reader simulation modes are required"));
+            errors.push(format!(
+                "{path}: mobile and screen-reader simulation modes are required"
+            ));
         }
     }
 
@@ -255,7 +291,9 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     let mut baseline_errors = semantic_errors(corpus);
     baseline_errors.extend(schema_errors(schema, Some(corpus)));
     if !baseline_errors.is_empty() {
-        return Err(format!("baseline must pass before mutations: {baseline_errors:?}"));
+        return Err(format!(
+            "baseline must pass before mutations: {baseline_errors:?}"
+        ));
     }
 
     let mut count = 0usize;
@@ -275,10 +313,15 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("duplicate synthetic request identity", corpus, schema, |value| {
-        value["scenarios"][1]["request"]["request_id"] =
-            value["scenarios"][0]["request"]["request_id"].clone();
-    })?;
+    mutate_and_reject(
+        "duplicate synthetic request identity",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][1]["request"]["request_id"] =
+                value["scenarios"][0]["request"]["request_id"].clone();
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("unbalanced truth classes", corpus, schema, |value| {
@@ -313,29 +356,46 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("development corpus claims blinded holdout", corpus, schema, |value| {
-        value["holdout_status"] = json!("blinded_holdout");
-    })?;
+    mutate_and_reject(
+        "development corpus claims blinded holdout",
+        corpus,
+        schema,
+        |value| {
+            value["holdout_status"] = json!("blinded_holdout");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("legal debt asserted from synthetic evidence", corpus, schema, |value| {
-        value["scenarios"][0]["reference_rationale"] =
-            json!("The payer legally owes this debt.");
-    })?;
+    mutate_and_reject(
+        "legal debt asserted from synthetic evidence",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["reference_rationale"] =
+                json!("The payer legally owes this debt.");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("baseline and treatment no longer matched", corpus, schema, |value| {
-        value["scenarios"][0]["treatment_presentation"]["visible_fields"] = json!([
-            "amount",
-            "currency",
-            "fee"
-        ]);
-    })?;
+    mutate_and_reject(
+        "baseline and treatment no longer matched",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["treatment_presentation"]["visible_fields"] =
+                json!(["amount", "currency", "fee"]);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("translation claimed without review", corpus, schema, |value| {
-        value["scenarios"][0]["translation_status"] = json!("human_reviewed_isiZulu");
-    })?;
+    mutate_and_reject(
+        "translation claimed without review",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["translation_status"] = json!("human_reviewed_isiZulu");
+        },
+    )?;
     count += 1;
 
     Ok(count)
@@ -444,7 +504,11 @@ mod tests {
                 .filter(|task| str_at(task, "truth_class") == Some(class))
                 .collect();
             assert_eq!(tasks.len(), expected);
-            assert!(tasks.iter().all(|task| str_at(task, "expected_action") == Some(action)));
+            assert!(
+                tasks
+                    .iter()
+                    .all(|task| str_at(task, "expected_action") == Some(action))
+            );
         }
     }
 
