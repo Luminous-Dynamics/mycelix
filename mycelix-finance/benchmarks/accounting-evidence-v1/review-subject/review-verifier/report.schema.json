@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-accounting-review-report-v1.0.0.json",
+  "title": "FIN-ACC-REVIEW structural verifier report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "disposition",
+    "subject_digest",
+    "review_policy_digest",
+    "role_counts",
+    "accepted_event_ids",
+    "limited_approval_principal_refs",
+    "missing_roles",
+    "blocking_reasons",
+    "limitations",
+    "external_authority_verified",
+    "human_review_sufficiency_verified",
+    "can_approve_close"
+  ],
+  "properties": {
+    "report_schema": {
+      "const": "mycelix.fin.accounting-review.report.v1"
+    },
+    "disposition": {
+      "enum": [
+        "invalid_input",
+        "invalid_schema",
+        "stale_subject_or_policy",
+        "review_scope_mismatch",
+        "blocked_by_role_separation",
+        "blocked_by_adverse_review",
+        "blocked_by_review_contract",
+        "awaiting_required_roles",
+        "structurally_ready_pending_external_authority"
+      ]
+    },
+    "subject_digest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "review_policy_digest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "role_counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "unique_principal_count",
+          "principal_refs"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "unique_principal_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "principal_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "accepted_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limited_approval_principal_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "required_unique_principals",
+          "observed_unique_principals"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "required_unique_principals": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "observed_unique_principals": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "external_authority_verified": {
+      "const": false
+    },
+    "human_review_sufficiency_verified": {
+      "const": false
+    },
+    "can_approve_close": {
+      "const": false
+    }
+  }
+}
