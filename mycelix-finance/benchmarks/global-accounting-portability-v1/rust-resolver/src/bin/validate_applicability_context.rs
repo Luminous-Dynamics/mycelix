@@ -108,8 +108,6 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
     for context in array(bundle, "contexts")? {
         let context_id = string(context, "context_id")?;
         insert_unique(&mut context_ids, context_id, "context_id")?;
-        let knowledge_at = string(context, "knowledge_at")?;
-
         let mut party_roles = BTreeMap::<String, BTreeSet<String>>::new();
         for party in array(context, "parties")? {
             let party_ref = string(party, "party_ref")?.to_owned();
@@ -220,7 +218,6 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
                 }
             }
         }
-        let _ = knowledge_at; // Future-dated facts remain in history; eligibility filters use this frontier.
     }
     Ok(())
 }
@@ -423,6 +420,21 @@ mod tests {
             "valid_to":"2026-11-05"
         });
         assert!(fact_eligible_at(&candidate, "2026-01-01", "2026-11-05T09:30:00Z"));
+        assert!(!fact_eligible_at(&candidate, "2026-11-05", "2026-11-05T09:30:00Z"));
+    }
+
+    #[test]
+    fn a_conflicted_supported_fact_is_not_eligible() {
+        let candidate = json!({
+            "assertion_state":"evidence_supported",
+            "origin":"source_asserted",
+            "scope_ref":"SYN-SCOPE-A",
+            "source_evidence_refs":["SYN-EVIDENCE-UNIT-TEST"],
+            "conflicts_with_fact_refs":["OTHER-FACT"],
+            "recorded_at":"2026-11-05T09:00:00Z",
+            "valid_from":"2026-01-01",
+            "valid_to":null
+        });
         assert!(!fact_eligible_at(&candidate, "2026-11-05", "2026-11-05T09:30:00Z"));
     }
 
