@@ -1601,13 +1601,14 @@ mod tests {
         clearing_role.normal_side = PostingSide::Debit;
 
         let mut wrong_semantic = draft("wrong-semantic-reversal", 10, Some(original_id));
-        wrong_semantic.postings[0] =
-            posting("account:settlement-clearing", PostingSide::Debit, 10);
+        wrong_semantic.postings[0] = posting("account:settlement-clearing", PostingSide::Debit, 10);
         wrong_semantic.postings[0].semantic_role = reference("role:settlement-cash");
         wrong_semantic.postings[1] = posting("account:cash", PostingSide::Credit, 10);
         wrong_semantic.postings[1].semantic_role = reference("role:settlement-clearing");
         let wrong_semantic = qualify_journal_entry(&ledger, &alternate_policy, wrong_semantic)
-            .expect("valid under alternate policy but incompatible with original posting identities");
+            .expect(
+                "valid under alternate policy but incompatible with original posting identities",
+            );
         assert_eq!(
             book.append(wrong_semantic),
             Err(AccountingError::ReversalPostingMismatch)
