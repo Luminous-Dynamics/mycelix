@@ -213,6 +213,16 @@
       "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
       "valid_from": null,
       "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-EXTRA-PROFILE-A",
+      "dimension": "currency_profile",
+      "version": "synthetic-extra-currency-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5826",
+      "valid_from": null,
+      "notes": "Additional synthetic profile used only to test exact-set mismatch; not a denomination, financial instrument or production currency."
     }
   ],
   "coverage_matrix": [
