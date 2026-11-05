@@ -467,6 +467,99 @@ describe('DKG Adversarial Tests', () => {
       ).rejects.toThrow();
     }, true, scenarioOptions);
   });
+  test('negative-control baseline: coordinated endorsements raise the legacy score without adding independent evidence', async () => {
+    await runScenario(async (scenario: Scenario) => {
+      const [
+        claimAuthor,
+        colluder1,
+        colluder2,
+        colluder3,
+        colluder4,
+        colluder5,
+        observer,
+      ] = await scenario.addPlayersWithApps([
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+      ]);
+
+      const allAgents = [
+        claimAuthor,
+        colluder1,
+        colluder2,
+        colluder3,
+        colluder4,
+        colluder5,
+        observer,
+      ];
+      await scenario.shareAllAgents();
+      const dnaHash = claimAuthor.cells[0].cell_id[0];
+
+      const claimHash: ActionHash = await claimAuthor.cells[0].callZome({
+        zome_name: 'dkg',
+        fn_name: 'submit_claim',
+        payload: {
+          subject: 'CoordinatedEndorsementFixture',
+          predicate: 'unsupported_proposition',
+          object: 'synthetic-claim',
+          object_type: 'text',
+          epistemic_type: 'empirical',
+        } as SubmitClaimInput,
+      });
+
+      await dhtSync(allAgents, dnaHash);
+      const before: WeightedClaim[] = await observer.cells[0].callZome({
+        zome_name: 'dkg',
+        fn_name: 'get_claims',
+        payload: 'CoordinatedEndorsementFixture',
+      });
+      expect(before).toHaveLength(1);
+
+      // Five simulated identities submit the same endorsement text.
+      // No source artifact, independent observation or new evidence is supplied.
+      const colluders = [
+        colluder1,
+        colluder2,
+        colluder3,
+        colluder4,
+        colluder5,
+      ];
+      for (const colluder of colluders) {
+        await colluder.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'attest_claim',
+          payload: {
+            claim_hash: claimHash,
+            attestation_type: 'endorse',
+            evidence: 'Repeated coordinated endorsement; no independent source artifact.',
+          } as AttestClaimInput,
+        });
+      }
+
+      await dhtSync(allAgents, dnaHash);
+      const after: WeightedClaim[] = await observer.cells[0].callZome({
+        zome_name: 'dkg',
+        fn_name: 'get_claims',
+        payload: 'CoordinatedEndorsementFixture',
+      });
+      expect(after).toHaveLength(1);
+      expect(after[0].endorsements).toBe(5);
+
+      console.log(
+        `Coordinated-endorsement baseline: before=${before[0].confidence.toFixed(4)}, after=${after[0].confidence.toFixed(4)}, endorsements=${after[0].endorsements}`,
+      );
+
+      // This deliberately records the current legacy heuristic's weakness:
+      // social endorsements raise the score even though no independent evidence was added.
+      // It is not a security pass or a claim that the proposition is true.
+      expect(after[0].confidence).toBeGreaterThan(before[0].confidence);
+    }, true, scenarioOptions);
+  });
+
   describe('Missing epistemic-integrity controls (explicitly not implemented yet)', () => {
     test.todo('Correlated endorsement storm: multiple coordinated attestations do not become independent evidential support');
     test.todo('Mirror storm: multiple locators sharing one upstream artifact are treated as one provenance family');

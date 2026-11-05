@@ -270,9 +270,9 @@ pub fn get_agent_reputation(agent: AgentPubKey) -> ExternResult<AgentReputationI
         if let Some(claim_hash) = link.target.clone().into_action_hash() {
             let attestations = get_claim_attestations(&claim_hash)?;
             for att in attestations {
-                if att.is_endorsement() {
+                if att.entry.is_endorsement() {
                     endorsements_received += 1;
-                } else if att.is_challenge() {
+                } else if att.entry.is_challenge() {
                     challenges_received += 1;
                 }
             }
@@ -361,7 +361,7 @@ pub fn evaluate_consensus(claim_hash: ActionHash) -> ExternResult<EvaluateConsen
     let _claim_record = get(claim_hash.clone(), GetOptions::default())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Claim not found".to_string())))?;
 
-    // Get attestations
+    // Resolve each attestation together with the author of its attestation action.
     let attestations = get_claim_attestations(&claim_hash)?;
 
     let mut endorsement_count: u32 = 0;
@@ -369,63 +369,13 @@ pub fn evaluate_consensus(claim_hash: ActionHash) -> ExternResult<EvaluateConsen
     let mut aggregate_reputation: f64 = 0.0;
 
     for att in &attestations {
-        // Get the attestation's action record to find the attester
-        let att_links = get_links(
-            LinkQuery::try_new(claim_hash.clone(), LinkTypes::ClaimToAttestation)?,
-            GetStrategy::default(),
-        )?;
-
-        // We already have the attestation entry; compute trust from the claim author pattern
-        if att.is_endorsement() {
+        if att.entry.is_endorsement() {
             endorsement_count += 1;
-            // Approximate: use a default trust contribution per endorser
-            // In production, we'd look up each attester's K-vector
-            aggregate_reputation += 0.5; // Conservative default per endorser
-        } else if att.is_challenge() {
+            aggregate_reputation += calculate_agent_reputation(&att.author)?;
+        } else if att.entry.is_challenge() {
             challenge_count += 1;
         }
     }
-
-    // Refine aggregate_reputation by looking up actual attesters
-    // Walk attestation links to find attester agents
-    let att_links = get_links(
-        LinkQuery::try_new(claim_hash.clone(), LinkTypes::ClaimToAttestation)?,
-        GetStrategy::default(),
-    )?;
-    let mut real_aggregate: f64 = 0.0;
-    let mut real_endorsements: u32 = 0;
-    let mut real_challenges: u32 = 0;
-
-    for link in &att_links {
-        let att_hash = link.target.clone().into_action_hash().ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Invalid attestation link".to_string()
-            ))
-        })?;
-        if let Some(record) = get(att_hash, GetOptions::default())? {
-            let att: AttestationEntry = record
-                .entry()
-                .to_app_option()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or_else(|| {
-                    wasm_error!(WasmErrorInner::Guest("Invalid attestation".to_string()))
-                })?;
-            let attester = record.action().author();
-            let rep = calculate_agent_reputation(attester)?;
-
-            if att.is_endorsement() {
-                real_endorsements += 1;
-                real_aggregate += rep;
-            } else if att.is_challenge() {
-                real_challenges += 1;
-            }
-        }
-    }
-
-    // Use the real computed values
-    endorsement_count = real_endorsements;
-    challenge_count = real_challenges;
-    aggregate_reputation = real_aggregate;
 
     // Check for active disputes
     let dispute_links = get_links(
@@ -537,9 +487,9 @@ pub fn file_dispute(input: FileDisputeInput) -> ExternResult<ActionHash> {
         if let Some(ch) = link.target.clone().into_action_hash() {
             let atts = get_claim_attestations(&ch)?;
             for att in atts {
-                if att.is_endorsement() {
+                if att.entry.is_endorsement() {
                     total_endorsements += 1;
-                } else if att.is_challenge() {
+                } else if att.entry.is_challenge() {
                     total_challenges += 1;
                 }
             }
@@ -633,9 +583,9 @@ pub fn resolve_dispute(input: ResolveDisputeInput) -> ExternResult<ActionHash> {
         if let Some(ch) = link.target.clone().into_action_hash() {
             let atts = get_claim_attestations(&ch)?;
             for att in atts {
-                if att.is_endorsement() {
+                if att.entry.is_endorsement() {
                     total_endorsements += 1;
-                } else if att.is_challenge() {
+                } else if att.entry.is_challenge() {
                     total_challenges += 1;
                 }
             }
@@ -951,6 +901,32 @@ fn create_anchor(anchor: &str) -> ExternResult<EntryHash> {
 }
 
 /// Get a weighted claim with confidence calculation
+/// Build the SDK input triple from the fields that are actually declared on a DKG claim.
+///
+/// Source URIs are intentionally not inferred from free-text attestations. Until a claim
+/// carries versioned source-artifact references, the SDK source list remains empty.
+fn build_confidence_triple(claim: &ClaimEntry, object: TripleValue) -> VerifiableTriple {
+    let epistemic_type = match claim.epistemic_type.as_str() {
+        "normative" => EpistemicType::Normative,
+        "metaphysical" => EpistemicType::Metaphysical,
+        _ => EpistemicType::Empirical,
+    };
+
+    let mut triple = VerifiableTriple::new(
+        claim.subject.clone(),
+        claim.predicate.as_str(),
+        object,
+    )
+    .with_epistemic_type(epistemic_type)
+    .with_timestamp(claim.created_at);
+
+    if let Some(domain) = claim.domain.clone() {
+        triple = triple.with_domain(domain);
+    }
+
+    triple
+}
+
 fn get_weighted_claim(
     claim_hash: &ActionHash,
     current_time: u64,
@@ -977,19 +953,15 @@ fn get_weighted_claim(
     let mut contradiction_weight = 0.0;
 
     for att in &attestations {
-        // Get attester's reputation
-        let att_record = get(att.claim_hash.clone(), GetOptions::default())?;
-        if let Some(rec) = att_record {
-            let attester = rec.action().author();
-            let rep = calculate_agent_reputation(attester)?;
+        // Use the author of the attestation action, not the author of the claim.
+        let rep = calculate_agent_reputation(&att.author)?;
 
-            if att.is_endorsement() {
-                endorsements += 1;
-                attester_reputations.push(rep);
-            } else if att.is_challenge() {
-                challenges += 1;
-                contradiction_weight += rep;
-            }
+        if att.entry.is_endorsement() {
+            endorsements += 1;
+            attester_reputations.push(rep);
+        } else if att.entry.is_challenge() {
+            challenges += 1;
+            contradiction_weight += rep;
         }
     }
 
@@ -1013,15 +985,7 @@ fn get_weighted_claim(
         _ => TripleValue::String(claim.object.clone()),
     };
 
-    let epistemic_type = match claim.epistemic_type.as_str() {
-        "normative" => EpistemicType::Normative,
-        "metaphysical" => EpistemicType::Metaphysical,
-        _ => EpistemicType::Empirical,
-    };
-
-    let triple = VerifiableTriple::new(claim.subject.clone(), claim.predicate.as_str(), object)
-        .with_epistemic_type(epistemic_type)
-        .with_timestamp(claim.created_at);
+    let triple = build_confidence_triple(&claim, object);
 
     let input = ConfidenceInput {
         triple: &triple,
@@ -1049,8 +1013,16 @@ fn get_weighted_claim(
     }))
 }
 
-/// Get all attestations for a claim
-fn get_claim_attestations(claim_hash: &ActionHash) -> ExternResult<Vec<AttestationEntry>> {
+/// An attestation entry paired with the author of the attestation's DHT action.
+struct AttestationWithAuthor {
+    entry: AttestationEntry,
+    author: AgentPubKey,
+}
+
+/// Get all attestations for a claim, preserving the author of each attestation action.
+fn get_claim_attestations(
+    claim_hash: &ActionHash,
+) -> ExternResult<Vec<AttestationWithAuthor>> {
     let links = get_links(
         LinkQuery::try_new(claim_hash.clone(), LinkTypes::ClaimToAttestation)?,
         GetStrategy::default(),
@@ -1066,7 +1038,8 @@ fn get_claim_attestations(claim_hash: &ActionHash) -> ExternResult<Vec<Attestati
         })?;
 
         if let Some(record) = get(att_hash, GetOptions::default())? {
-            let att: AttestationEntry = record
+            let author = record.action().author().clone();
+            let entry: AttestationEntry = record
                 .entry()
                 .to_app_option()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
@@ -1074,7 +1047,7 @@ fn get_claim_attestations(claim_hash: &ActionHash) -> ExternResult<Vec<Attestati
                     wasm_error!(WasmErrorInner::Guest("Invalid attestation".to_string()))
                 })?;
 
-            attestations.push(att);
+            attestations.push(AttestationWithAuthor { entry, author });
         }
     }
 
@@ -1100,9 +1073,9 @@ fn calculate_agent_reputation(agent: &AgentPubKey) -> ExternResult<f64> {
         if let Some(claim_hash) = link.target.clone().into_action_hash() {
             let attestations = get_claim_attestations(&claim_hash)?;
             for att in attestations {
-                if att.is_endorsement() {
+                if att.entry.is_endorsement() {
                     total_endorsements += 1;
-                } else if att.is_challenge() {
+                } else if att.entry.is_challenge() {
                     total_challenges += 1;
                 }
             }
@@ -1207,9 +1180,9 @@ pub fn get_agent_governance_tier(agent: AgentPubKey) -> ExternResult<String> {
         if let Some(claim_hash) = link.target.clone().into_action_hash() {
             let attestations = get_claim_attestations(&claim_hash)?;
             for att in attestations {
-                if att.is_endorsement() {
+                if att.entry.is_endorsement() {
                     total_endorsements += 1;
-                } else if att.is_challenge() {
+                } else if att.entry.is_challenge() {
                     total_challenges += 1;
                 }
             }
@@ -1230,6 +1203,43 @@ pub fn get_agent_governance_tier(agent: AgentPubKey) -> ExternResult<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_confidence_triple_propagates_declared_domain_without_inventing_sources() {
+        let claim = ClaimEntry {
+            subject: "Water".to_string(),
+            predicate: "boiling_point".to_string(),
+            object: "100".to_string(),
+            object_type: "number".to_string(),
+            epistemic_type: "empirical".to_string(),
+            domain: Some("history".to_string()),
+            created_at: 1_700_000_000,
+        };
+
+        let triple = build_confidence_triple(&claim, TripleValue::Float(100.0));
+
+        assert_eq!(triple.domain.as_deref(), Some("history"));
+        assert_eq!(triple.created_at, 1_700_000_000);
+        assert!(triple.sources.is_empty());
+    }
+
+    #[test]
+    fn test_confidence_triple_preserves_unknown_domain() {
+        let claim = ClaimEntry {
+            subject: "Water".to_string(),
+            predicate: "boiling_point".to_string(),
+            object: "100".to_string(),
+            object_type: "number".to_string(),
+            epistemic_type: "empirical".to_string(),
+            domain: None,
+            created_at: 1_700_000_000,
+        };
+
+        let triple = build_confidence_triple(&claim, TripleValue::Float(100.0));
+
+        assert_eq!(triple.domain, None);
+        assert!(triple.sources.is_empty());
+    }
 
     // -----------------------------------------------------------------------
     // build_kvector_from_activity tests
