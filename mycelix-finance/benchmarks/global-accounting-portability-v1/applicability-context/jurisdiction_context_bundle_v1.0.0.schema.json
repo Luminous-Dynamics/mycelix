@@ -364,6 +364,47 @@
         {
           "if": {
             "properties": {
+              "jurisdiction_role": {
+                "const": "establishment_location"
+              }
+            },
+            "required": [
+              "jurisdiction_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_kind": {
+                "const": "establishment"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "jurisdiction_role": {
+                "enum": [
+                  "ship_from",
+                  "ship_to"
+                ]
+              }
+            },
+            "required": [
+              "jurisdiction_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_kind": {
+                "const": "shipment"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "subject_kind": {
                 "const": "party"
               }
