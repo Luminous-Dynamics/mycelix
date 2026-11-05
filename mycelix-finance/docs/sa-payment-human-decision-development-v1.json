@@ -65,7 +65,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -156,7 +156,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -247,7 +247,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -338,7 +338,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -429,7 +429,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -520,7 +520,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -611,7 +611,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -702,7 +702,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -793,7 +793,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -884,7 +884,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -975,7 +975,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1066,7 +1066,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1157,7 +1157,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1248,7 +1248,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1339,7 +1339,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1430,7 +1430,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1521,7 +1521,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1612,7 +1612,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1703,7 +1703,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1794,7 +1794,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1885,7 +1885,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -1976,7 +1976,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -2067,7 +2067,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
@@ -2158,7 +2158,7 @@
       },
       "baseline_presentation": {
         "visible_fields": [
-          "counterparty_label",
+          "requester_identity",
           "amount",
           "currency",
           "reference",
