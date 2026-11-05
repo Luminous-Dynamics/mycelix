@@ -1,0 +1,444 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-bank-statement-chain-input-v1.0.4.json",
+  "title": "FIN-BANK-CHAIN candidate-visible input corpus v1.0.4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "dataset_version",
+    "status",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "FIN-BANK-CHAIN"
+    },
+    "dataset_version": {
+      "const": "1.0.4"
+    },
+    "status": {
+      "const": "synthetic_semantic_fixtures_not_live_camt_xml"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 33,
+      "maxItems": 33,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "balance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "balance_type",
+        "amount_minor",
+        "as_of"
+      ],
+      "properties": {
+        "balance_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "as_of": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_ref",
+        "economic_event_ref",
+        "amount_minor",
+        "direction",
+        "booking_at",
+        "value_date",
+        "denomination_profile_ref"
+      ],
+      "properties": {
+        "entry_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "economic_event_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "direction": {
+          "enum": [
+            "CREDIT",
+            "DEBIT"
+          ]
+        },
+        "booking_at": {
+          "$ref": "#/$defs/time"
+        },
+        "value_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "denomination_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entry_type": {
+          "type": "string"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "receipt_id",
+        "fixture_digest_token",
+        "digest_kind",
+        "message_id",
+        "message_definition",
+        "account_token",
+        "created_at",
+        "captured_at",
+        "profile_ref",
+        "sender_authenticated"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "receipt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest_kind": {
+          "const": "synthetic_fixture_commitment_not_raw_xml_hash"
+        },
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_definition": {
+          "enum": [
+            "camt.052.001.14",
+            "camt.053.001.14",
+            "camt.054.001.14"
+          ]
+        },
+        "account_token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "$ref": "#/$defs/time"
+        },
+        "captured_at": {
+          "$ref": "#/$defs/time"
+        },
+        "profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sender_authenticated": {
+          "type": "boolean"
+        },
+        "fixture_digest_token": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement_id",
+        "artifact_id",
+        "period_id",
+        "account_token",
+        "entity_token",
+        "denomination_profile_ref",
+        "cutoff_profile_ref",
+        "start_at",
+        "end_at",
+        "sequence",
+        "expected_page_count",
+        "received_pages",
+        "opening_balance",
+        "closing_balance",
+        "entries"
+      ],
+      "properties": {
+        "statement_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "account_token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "denomination_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cutoff_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_at": {
+          "$ref": "#/$defs/time"
+        },
+        "end_at": {
+          "$ref": "#/$defs/time"
+        },
+        "sequence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_page_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "received_pages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "opening_balance": {
+          "$ref": "#/$defs/balance"
+        },
+        "closing_balance": {
+          "$ref": "#/$defs/balance"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation_type",
+        "from_artifact_id",
+        "to_artifact_id",
+        "reason_ref"
+      ],
+      "properties": {
+        "relation_type": {
+          "enum": [
+            "exact_replay",
+            "same_economic_observation",
+            "notification_for",
+            "replaces",
+            "corrects",
+            "cancels",
+            "reverses"
+          ]
+        },
+        "from_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "task",
+        "manifest"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^BSC-[0-9]{3}$"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manifest": {
+          "$ref": "#/$defs/manifest"
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "chain_id",
+        "chain_version",
+        "denomination_profile_ref",
+        "account",
+        "expected_scope",
+        "expected_population_tokens",
+        "observed_population_tokens",
+        "artifacts",
+        "statements",
+        "relations"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "fin-bank-statement-chain.v1"
+        },
+        "chain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "chain_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "denomination_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "account": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "account_token",
+            "entity_token",
+            "identity_state"
+          ],
+          "properties": {
+            "account_token": {
+              "type": "string",
+              "minLength": 1
+            },
+            "entity_token": {
+              "type": "string",
+              "minLength": 1
+            },
+            "identity_state": {
+              "const": "synthetic_fixture_only"
+            }
+          }
+        },
+        "expected_scope": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "period_id",
+              "start_at",
+              "end_at",
+              "cutoff_profile_ref",
+              "required",
+              "expected_page_count",
+              "expected_sequence"
+            ],
+            "properties": {
+              "period_id": {
+                "type": "string"
+              },
+              "start_at": {
+                "$ref": "#/$defs/time"
+              },
+              "end_at": {
+                "$ref": "#/$defs/time"
+              },
+              "cutoff_profile_ref": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "expected_page_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "expected_sequence": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "expected_population_tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "observed_population_tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "statements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          }
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relation"
+          }
+        }
+      }
+    }
+  }
+}
