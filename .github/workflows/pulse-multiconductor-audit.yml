@@ -37,8 +37,16 @@ jobs:
       - name: Generate pinned dependency lock
         run: cargo generate-lockfile --manifest-path tools/pulse-multiconductor-audit/Cargo.toml
 
-      - name: Test safe multi-conductor fixture and mutations
+      - name: Test safe multi-conductor fixture, adversarial mutations and benchmark generator
         run: cargo test --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked
+
+      - name: Smoke-test deterministic benchmark mode
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked -- \
+            --benchmark-events 1000 --output "$RUNNER_TEMP/pulse-multiconductor-benchmark-smoke.json"
+          jq -e '.status == "PASS" and .evidence_class == "synthetic" and .events == 1000 and (.audit_ns > 0)' \
+            "$RUNNER_TEMP/pulse-multiconductor-benchmark-smoke.json"
 
       - name: Audit checked-in safe history
         run: |
