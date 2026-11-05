@@ -1,22 +1,41 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! DKG Confidence Score Calculation
+//! Legacy DKG composite ranking heuristic
 //!
-//! Computes confidence scores for verifiable triples based on 5 factors:
+//! This module calculates a legacy score for ranking verifiable triples. The
+//! score is not a calibrated probability, truth test, evidence adjudication,
+//! source-independence assessment, or safety threshold. It must not be treated
+//! as a stand-alone determination that a claim is true.
 //!
-//! 1. **Attestation count** (25%): More attesters = higher confidence, with diminishing returns
-//! 2. **Reputation weighting** (30%): High-reputation attesters contribute more (reputation² voting)
-//! 3. **Source quality** (20%): Peer-reviewed > institutional > commercial > social
-//! 4. **Time decay** (10%): Older claims decay exponentially
-//! 5. **Consistency** (15%): Contradicting claims reduce confidence
+//! Its five configured factors are:
 //!
-//! # Genesis Simulation Results
+//! 1. **Attestation count** (25%): a diminishing-returns count of attestations;
+//!    correlated or Sybil attestations can still inflate this input.
+//! 2. **Reputation weighting** (30%): contributor reputation affects the
+//!    ranking; reputation is not evidence that the proposition is correct.
+//! 3. **Source-quality heuristic** (20%): uses the source metadata understood
+//!    by this legacy model; a source category is not a universal reliability
+//!    hierarchy and does not establish authenticity or independence.
+//! 4. **Time-decay heuristic** (10%): applies configured domain half-lives;
+//!    age alone does not invalidate historical evidence or determine the
+//!    valid-time interval of a claim.
+//! 5. **Consistency heuristic** (15%): represents contradiction inputs; it
+//!    does not resolve competing evidence or prove which claim is correct.
 //!
-//! In the "Sky Color" scenario:
-//! - Alice's "blue" claim with Bob's endorsement achieved confidence 0.6175
-//! - This elevated it above the 0.5 baseline, defeating Mallory's "green" lie
-//! - Social consensus (endorsement) elevated truth above unattested claims
+//! Attestation independence and evidence-source independence are distinct.
+//! Repeated endorsements do not become independent corroboration unless the
+//! underlying evidence lineage and provenance families have been assessed.
+//! The optional Phi factor is a separate multiplier/diagnostic input, not
+//! evidence about the truth of a proposition.
+//!
+//! # Historical Sky-Color Demonstration (not validation)
+//!
+//! The legacy simulation reported a score of 0.6175 for Alice's "blue" claim
+//! after Bob endorsed it. This demonstrates only that the configured ranking
+//! responds to endorsement input. It does not establish that "blue" is true,
+//! that "green" is false, that the endorsement is independent evidence, or
+//! that the score is calibrated against expert-adjudicated outcomes.
 
 use super::phi_integration::{ConsciousnessMetrics, PhiConfidenceFactors};
 use super::{EpistemicType, VerifiableTriple, URI};
@@ -104,7 +123,7 @@ impl ConfidenceFactors {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export, export_to = "bindings/dkg/"))]
 pub struct ConfidenceScore {
-    /// Overall confidence (0-1)
+    /// Legacy composite ranking score (0-1); not a calibrated probability or truth determination.
     pub score: f64,
     /// Individual factor scores
     pub factors: ConfidenceFactors,
@@ -114,7 +133,7 @@ pub struct ConfidenceScore {
     pub degraded: bool,
 }
 
-/// Thresholds for confidence classification
+/// Legacy score cutoffs; crossing a cutoff is not evidence verification or application-safety qualification.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export, export_to = "bindings/dkg/"))]
@@ -140,7 +159,7 @@ impl Default for ConfidenceThresholds {
     }
 }
 
-/// Check if confidence meets a threshold level
+/// Check whether the legacy ranking score crosses a named numeric cutoff.
 pub fn meets_threshold(confidence: f64, level: &str) -> bool {
     let thresholds = ConfidenceThresholds::default();
     match level {
