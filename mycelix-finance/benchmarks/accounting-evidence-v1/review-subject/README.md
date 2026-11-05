@@ -34,7 +34,7 @@ The strongest output is `structurally_ready_pending_external_authority`. The rep
 
 The verifier compares opaque principal references for exact equality. It does not resolve aliases, authenticate principals, verify signatures, determine current role membership, validate delegation, prove reviewers read/understood the material, or authorize journal posting / close release / tax filing. Identity and authority references are only required to exist structurally. Those checks remain in the Business Fabric identity/authority/revalidation stack (#566/#570/#571) and qualified adapters.
 
-v1.0.0 supports preparer/performer/reviewer/approver/policy-owner role references, policy-declared role disjointness, minimum unique-principal counts, and an explicit `non_human_eligible_roles` allowlist. Review events identify `human`, `agent` or `system` actor kind; non-human events cannot satisfy a role unless that exact role is explicitly allowlisted by the exact review policy. Exact duplicate event replay is idempotent; reusing an event ID with changed event content is a conflict. Delegation, revocation, withdrawal/supersession lifecycle and dynamic authority checks are intentionally unsupported; do not infer them.
+v1.0.0 supports preparer/performer/reviewer/approver/policy-owner role references, policy-declared role disjointness, minimum unique-principal counts, and an explicit performer-only `non_human_eligible_roles` opt-in. Review events identify `human`, `agent` or `system` actor kind; agents/systems may satisfy only the performer role when the exact policy opts in. Reviewer and approver roles remain human-only. Agent and system events bind their exact build digest. Exact duplicate event replay is idempotent; reusing an event ID with changed event content is a conflict. Delegation, revocation, withdrawal/supersession lifecycle and dynamic authority checks are intentionally unsupported; do not infer them.
 
 ## Run
 
@@ -54,7 +54,7 @@ Candidate records are validated against `FIN_ACCOUNTING_REVIEW_V1.0.0.schema.jso
 Passing synthetic tests proves only the exact input/schema/verifier behaviors. It does not prove real-world role authority, professional review sufficiency, completeness of the workpaper, audit/ISA/IFRS/tax compliance, or authority to post/close/file. The result must never be interpreted as a permission to approve a close.
 
 
-The v1.0.0 synthetic negative control `agent-review-blocked.example.json` proves that an agent cannot satisfy the reviewer role by default. A separate unit test demonstrates that a policy can explicitly allow a non-human principal for a narrowly scoped role; that remains only structural policy interpretation, not authority verification.
+The v1.0.0 synthetic negative control `agent-review-blocked.example.json` proves that an agent cannot satisfy the reviewer role by default. A separate unit test demonstrates that a policy can explicitly allow an agent as performer while still requiring a human reviewer and approver; this remains only structural policy interpretation, not authority verification.
 
 
 Non-human safety invariant: policy may allow an agent/system to produce or perform work, but cannot promote it into the human reviewer or approver role. Agent and system events must bind their exact actor build digest. External authority remains unverified for every disposition.
