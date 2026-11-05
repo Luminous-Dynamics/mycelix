@@ -501,28 +501,30 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
                 && let Some(profile_valid_from) = profile.get("valid_from").and_then(Value::as_str)
                 && period_start.as_str() < profile_valid_from
             {
-                        let permits_early = profile
-                            .get("early_application_allowed")
-                            .and_then(Value::as_bool)
-                            == Some(true);
-                        let qualification = early_qualifications.iter().find(|item| {
-                            item.get("profile_id").and_then(Value::as_str)
-                                == Some(profile_id.as_str())
-                        });
-                        match (permits_early, qualification) {
-                            (true, Some(item)) => {
-                                let approved_at = string_field(item, "approved_at")?;
-                                if knowledge_at.as_str() < approved_at {
-                                    early_application_unknown = true;
-                                    blockers.insert(format!("early_application_not_approved_at_knowledge_frontier:{profile_id}"));
-                                }
-                            }
-                            _ => {
-                                profile_effective = false;
-                                blockers.insert(format!(
-                                    "profile_not_effective_for_reporting_period:{profile_id}"
-                                ));
-                            }
+                let permits_early = profile
+                    .get("early_application_allowed")
+                    .and_then(Value::as_bool)
+                    == Some(true);
+                let qualification = early_qualifications.iter().find(|item| {
+                    item.get("profile_id").and_then(Value::as_str) == Some(profile_id.as_str())
+                });
+                match (permits_early, qualification) {
+                    (true, Some(item)) => {
+                        let approved_at = string_field(item, "approved_at")?;
+                        if knowledge_at.as_str() < approved_at {
+                            early_application_unknown = true;
+                            blockers.insert(format!(
+                                "early_application_not_approved_at_knowledge_frontier:{profile_id}"
+                            ));
+                        }
+                    }
+                    _ => {
+                        profile_effective = false;
+                        blockers.insert(format!(
+                            "profile_not_effective_for_reporting_period:{profile_id}"
+                        ));
+                    }
+                }
             }
         }
 
