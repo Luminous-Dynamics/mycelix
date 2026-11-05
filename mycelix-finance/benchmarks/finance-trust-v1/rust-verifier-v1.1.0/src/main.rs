@@ -286,7 +286,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
         &mut checks,
         &mut reasons,
         "no_forbidden_or_redundant_questions",
-        forbidden_questions.iter().all(|id| !actual_question_ids.contains(id)),
+        forbidden_questions
+            .iter()
+            .all(|id| !actual_question_ids.contains(id)),
         format!("forbidden question IDs={forbidden_questions:?}"),
     );
 
@@ -298,7 +300,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
         if !seen_question_ids.insert(qid.to_owned()) {
             question_specs_match = false;
         }
-        let spec = required_specs.iter().find(|row| text(row, "question_id") == Some(qid));
+        let spec = required_specs
+            .iter()
+            .find(|row| text(row, "question_id") == Some(qid));
         match spec {
             Some(spec) => {
                 question_specs_match &= text(question, "target") == text(spec, "target");
@@ -358,7 +362,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
     let requirement_rows = array(task, "requirements");
     let mut requirement_map = BTreeMap::<String, &Value>::new();
     for requirement in requirement_rows {
-        let id = text(requirement, "requirement_id").unwrap_or("<missing>").to_owned();
+        let id = text(requirement, "requirement_id")
+            .unwrap_or("<missing>")
+            .to_owned();
         if requirement_map.insert(id.clone(), requirement).is_some() {
             reasons.push(format!("duplicate_requirement_id:{id}"));
         }
@@ -377,12 +383,16 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             reasons.push(format!("duplicate_or_incomplete_evidence_binding:{key}"));
         }
         let source_id = text(binding, "source_id").unwrap_or("<missing>").to_owned();
-        let requirement_id = text(binding, "requirement_id").unwrap_or("<missing>").to_owned();
+        let requirement_id = text(binding, "requirement_id")
+            .unwrap_or("<missing>")
+            .to_owned();
         bound_source_ids.insert(source_id.clone());
         bound_requirement_ids.insert(requirement_id.clone());
         if !source_map.contains_key(&source_id) || !requirement_map.contains_key(&requirement_id) {
             binding_contract_valid = false;
-            reasons.push(format!("evidence_binding_unknown_source_or_requirement:{key}"));
+            reasons.push(format!(
+                "evidence_binding_unknown_source_or_requirement:{key}"
+            ));
             continue;
         }
         let source = source_map.get(&source_id).expect("source checked above");
@@ -407,7 +417,10 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
     let required_sources = strings(array(expected, "required_source_ids"))
         .into_iter()
         .collect::<BTreeSet<_>>();
-    let missing_sources = required_sources.difference(&bound_source_ids).cloned().collect::<Vec<_>>();
+    let missing_sources = required_sources
+        .difference(&bound_source_ids)
+        .cloned()
+        .collect::<Vec<_>>();
     check(
         &mut checks,
         &mut reasons,
@@ -450,8 +463,10 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
 
     let actual_requirement_assessments = array(response, "requirement_assessments");
     let expected_requirement_assessments = array(expected, "expected_requirement_assessments");
-    let requirement_assessments_match =
-        requirement_assessments_equal(actual_requirement_assessments, expected_requirement_assessments);
+    let requirement_assessments_match = requirement_assessments_equal(
+        actual_requirement_assessments,
+        expected_requirement_assessments,
+    );
     check(
         &mut checks,
         &mut reasons,
@@ -486,7 +501,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
                 Some(binding) => selected.push(*binding),
                 None => {
                     positive_disposition_guard = false;
-                    reasons.push(format!("assessment_references_unknown_evidence:{requirement_id}:{evidence_id}"));
+                    reasons.push(format!(
+                        "assessment_references_unknown_evidence:{requirement_id}:{evidence_id}"
+                    ));
                 }
             }
         }
@@ -494,19 +511,34 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             let context = task.get("context").unwrap_or(&Value::Null);
             let obligations = strings(array(requirement, "required_obligations"));
             let mut obligation_ok = true;
-            let has_purpose = selected.iter().any(|row| bool_value(row, "purpose_fit") == Some(true));
-            let has_auth = selected.iter().any(|row| text(row, "source_authentication") == Some("qualified"));
-            let has_authority = selected.iter().any(|row| text(row, "source_authority") == Some("qualified"));
-            let has_temporal = selected.iter().any(|row| text(row, "temporal_fit") == Some("within_reporting_period"));
-            let lineage_ok = !selected.is_empty() && selected.iter().all(|row| {
-                matches!(text(row, "transformation_state"), Some("original_preserved" | "derived_with_lineage"))
-            });
+            let has_purpose = selected
+                .iter()
+                .any(|row| bool_value(row, "purpose_fit") == Some(true));
+            let has_auth = selected
+                .iter()
+                .any(|row| text(row, "source_authentication") == Some("qualified"));
+            let has_authority = selected
+                .iter()
+                .any(|row| text(row, "source_authority") == Some("qualified"));
+            let has_temporal = selected
+                .iter()
+                .any(|row| text(row, "temporal_fit") == Some("within_reporting_period"));
+            let lineage_ok = !selected.is_empty()
+                && selected.iter().all(|row| {
+                    matches!(
+                        text(row, "transformation_state"),
+                        Some("original_preserved" | "derived_with_lineage")
+                    )
+                });
             for binding in &selected {
                 let source_id = text(binding, "source_id").unwrap_or_default();
                 let source = source_map.get(source_id).copied();
                 let source = match source {
                     Some(source) => source,
-                    None => { obligation_ok = false; continue; }
+                    None => {
+                        obligation_ok = false;
+                        continue;
+                    }
                 };
                 let context_entity = text(context, "entity_id");
                 let context_currency = text(context, "currency");
@@ -516,7 +548,8 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
                 let valid_to = text(source, "valid_to");
                 let period_start = text(context, "period_start").unwrap_or_default();
                 let period_end = text(context, "period_end").unwrap_or_default();
-                let temporal_known = recorded_at.zip(knowledge_at)
+                let temporal_known = recorded_at
+                    .zip(knowledge_at)
                     .is_some_and(|(recorded, frontier)| recorded <= frontier);
                 let valid_period = valid_from.map(|date| date <= period_end).unwrap_or(true)
                     && valid_to.map(|date| date >= period_start).unwrap_or(true);
@@ -525,7 +558,10 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
                     && text(binding, "source_authentication") == Some("qualified")
                     && text(binding, "source_authority") == Some("qualified")
                     && text(binding, "temporal_fit") == Some("within_reporting_period")
-                    && matches!(text(binding, "transformation_state"), Some("original_preserved" | "derived_with_lineage"))
+                    && matches!(
+                        text(binding, "transformation_state"),
+                        Some("original_preserved" | "derived_with_lineage")
+                    )
                     && temporal_known
                     && valid_period
                     && text(source, "entity_id") == context_entity
@@ -552,14 +588,21 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
                             && bool_value(row, "purpose_fit") == Some(true)
                     }),
                     "independent_corroboration" => {
-                        let origins = selected.iter().filter(|row| {
-                            text(row, "polarity") == Some("supports")
-                                && text(row, "source_authentication") == Some("qualified")
-                                && text(row, "source_authority") == Some("qualified")
-                                && bool_value(row, "purpose_fit") == Some(true)
-                        }).filter_map(|row| text(row, "origin_group_ref")).collect::<BTreeSet<_>>();
-                        origins.len() >= requirement.get("min_independent_origins")
-                            .and_then(Value::as_u64).unwrap_or(1) as usize
+                        let origins = selected
+                            .iter()
+                            .filter(|row| {
+                                text(row, "polarity") == Some("supports")
+                                    && text(row, "source_authentication") == Some("qualified")
+                                    && text(row, "source_authority") == Some("qualified")
+                                    && bool_value(row, "purpose_fit") == Some(true)
+                            })
+                            .filter_map(|row| text(row, "origin_group_ref"))
+                            .collect::<BTreeSet<_>>();
+                        origins.len()
+                            >= requirement
+                                .get("min_independent_origins")
+                                .and_then(Value::as_u64)
+                                .unwrap_or(1) as usize
                     }
                     "population_completeness" => actual_population.iter().any(|row| {
                         text(row, "requirement_id") == Some(requirement_id)
@@ -571,7 +614,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
                 };
                 obligation_ok &= met;
                 if !met {
-                    reasons.push(format!("required_evidence_obligation_unmet:{requirement_id}:{obligation}"));
+                    reasons.push(format!(
+                        "required_evidence_obligation_unmet:{requirement_id}:{obligation}"
+                    ));
                 }
             }
             if selected.is_empty() || !obligation_ok {
@@ -597,7 +642,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
     let mut journal_valid = expected_journals.len() == actual_journals.len();
     for expected_journal in expected_journals {
         let id = text(expected_journal, "entry_id").unwrap_or("<missing>");
-        let actual = actual_journals.iter().find(|row| text(row, "entry_id") == Some(id));
+        let actual = actual_journals
+            .iter()
+            .find(|row| text(row, "entry_id") == Some(id));
         let Some(actual) = actual else {
             journal_valid = false;
             reasons.push(format!("journal_entry_missing:{id}"));
@@ -607,10 +654,16 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             && text(actual, "period") == text(expected_journal, "period")
             && text(actual, "currency") == text(expected_journal, "currency")
             && text(actual, "policy_id") == text(expected_journal, "policy_id");
-        let actual_sources = strings(array(actual, "source_ids")).into_iter().collect::<BTreeSet<_>>();
-        let expected_sources = strings(array(expected_journal, "source_ids")).into_iter().collect::<BTreeSet<_>>();
+        let actual_sources = strings(array(actual, "source_ids"))
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let expected_sources = strings(array(expected_journal, "source_ids"))
+            .into_iter()
+            .collect::<BTreeSet<_>>();
         journal_valid &= actual_sources == expected_sources
-            && actual_sources.iter().all(|source_id| decision_grade_source_ids.contains(source_id));
+            && actual_sources
+                .iter()
+                .all(|source_id| decision_grade_source_ids.contains(source_id));
         let (debits, credits, lines_valid) = journal_totals(actual);
         let expected_debit = amount(expected_journal, "debit_minor");
         let expected_credit = amount(expected_journal, "credit_minor");
@@ -618,7 +671,11 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             && expected_debit == Some(debits)
             && expected_credit == Some(credits)
             && debits == credits;
-        if !lines_valid || expected_debit != Some(debits) || expected_credit != Some(credits) || debits != credits {
+        if !lines_valid
+            || expected_debit != Some(debits)
+            || expected_credit != Some(credits)
+            || debits != credits
+        {
             reasons.push(format!("journal_amount_or_balance_invalid:{id}"));
         }
         let context = task.get("context").unwrap_or(&Value::Null);
@@ -643,11 +700,13 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             .collect::<Vec<_>>(),
     );
     let context = task.get("context").unwrap_or(&Value::Null);
-    let statement_context_valid = array(response, "statement_reconstruction").iter().all(|row| {
-        text(row, "entity_id") == text(context, "entity_id")
-            && text(row, "period") == text(context, "period_end")
-            && text(row, "currency") == text(context, "currency")
-    });
+    let statement_context_valid = array(response, "statement_reconstruction")
+        .iter()
+        .all(|row| {
+            text(row, "entity_id") == text(context, "entity_id")
+                && text(row, "period") == text(context, "period_end")
+                && text(row, "currency") == text(context, "currency")
+        });
     check(
         &mut checks,
         &mut reasons,
@@ -697,12 +756,16 @@ fn evidence_profile_equal(actual: &Value, expected: &Value) -> bool {
         "temporal_fit",
         "transformation_state",
     ];
-    fields.iter().all(|field| text(actual, field) == text(expected, field))
+    fields
+        .iter()
+        .all(|field| text(actual, field) == text(expected, field))
         && bool_value(actual, "purpose_fit") == bool_value(expected, "purpose_fit")
 }
 
 fn requirement_assessment_key(value: &Value) -> String {
-    text(value, "requirement_id").unwrap_or("<missing>").to_owned()
+    text(value, "requirement_id")
+        .unwrap_or("<missing>")
+        .to_owned()
 }
 
 fn requirement_assessments_equal(actual: &[Value], expected: &[Value]) -> bool {
@@ -711,16 +774,23 @@ fn requirement_assessments_equal(actual: &[Value], expected: &[Value]) -> bool {
     }
     let mut actual_map = BTreeMap::<String, &Value>::new();
     for row in actual {
-        if actual_map.insert(requirement_assessment_key(row), row).is_some() {
+        if actual_map
+            .insert(requirement_assessment_key(row), row)
+            .is_some()
+        {
             return false;
         }
     }
     expected.iter().all(|row| {
-        actual_map.get(&requirement_assessment_key(row)).is_some_and(|found| {
-            text(found, "disposition") == text(row, "disposition")
-                && sorted_strings(array(found, "reason_codes")) == sorted_strings(array(row, "reason_codes"))
-                && sorted_strings(array(found, "evidence_refs")) == sorted_strings(array(row, "evidence_refs"))
-        })
+        actual_map
+            .get(&requirement_assessment_key(row))
+            .is_some_and(|found| {
+                text(found, "disposition") == text(row, "disposition")
+                    && sorted_strings(array(found, "reason_codes"))
+                        == sorted_strings(array(row, "reason_codes"))
+                    && sorted_strings(array(found, "evidence_refs"))
+                        == sorted_strings(array(row, "evidence_refs"))
+            })
     })
 }
 
@@ -730,7 +800,9 @@ fn population_assessments_equal(actual: &[Value], expected: &[Value]) -> bool {
     }
     let mut actual_map = BTreeMap::<String, &Value>::new();
     for row in actual {
-        let id = text(row, "requirement_id").unwrap_or("<missing>").to_owned();
+        let id = text(row, "requirement_id")
+            .unwrap_or("<missing>")
+            .to_owned();
         if actual_map.insert(id, row).is_some() {
             return false;
         }
@@ -883,11 +955,15 @@ mod tests {
     fn fixture() -> (Value, Value, Value, Value, Value, Value) {
         (
             serde_json::from_str(include_str!("../../tasks_v1.1.0.json")).expect("tasks"),
-            serde_json::from_str(include_str!("../../task.schema.v1.1.0.json")).expect("task schema"),
+            serde_json::from_str(include_str!("../../task.schema.v1.1.0.json"))
+                .expect("task schema"),
             serde_json::from_str(include_str!("../../oracle_v1.1.0.json")).expect("oracle"),
-            serde_json::from_str(include_str!("../../oracle.schema.v1.1.0.json")).expect("oracle schema"),
-            serde_json::from_str(include_str!("../../reference_responses_v1.1.0.json")).expect("responses"),
-            serde_json::from_str(include_str!("../../response.schema.v1.1.0.json")).expect("response schema"),
+            serde_json::from_str(include_str!("../../oracle.schema.v1.1.0.json"))
+                .expect("oracle schema"),
+            serde_json::from_str(include_str!("../../reference_responses_v1.1.0.json"))
+                .expect("responses"),
+            serde_json::from_str(include_str!("../../response.schema.v1.1.0.json"))
+                .expect("response schema"),
         )
     }
 
@@ -898,7 +974,14 @@ mod tests {
         let d = data.3.to_string();
         let e = data.4.to_string();
         let f = data.5.to_string();
-        verify(a.as_bytes(), b.as_bytes(), c.as_bytes(), d.as_bytes(), e.as_bytes(), f.as_bytes())
+        verify(
+            a.as_bytes(),
+            b.as_bytes(),
+            c.as_bytes(),
+            d.as_bytes(),
+            e.as_bytes(),
+            f.as_bytes(),
+        )
     }
 
     #[test]
@@ -938,7 +1021,8 @@ mod tests {
         let mut data = fixture();
         data.4["responses"][2]["requirement_assessments"][1]["disposition"] =
             Value::String("supported_within_declared_scope".to_owned());
-        data.4["responses"][2]["requirement_assessments"][1]["reason_codes"] = json!(["independent_corroboration_met"]);
+        data.4["responses"][2]["requirement_assessments"][1]["reason_codes"] =
+            json!(["independent_corroboration_met"]);
         assert_eq!(report(&data)["status"], "FAIL");
     }
 
@@ -948,7 +1032,8 @@ mod tests {
         data.4["responses"][5]["requirement_assessments"][0]["disposition"] =
             Value::String("supported_within_declared_scope".to_owned());
         data.4["responses"][5]["requirement_assessments"][0]["reason_codes"] = json!([]);
-        data.4["responses"][5]["requirement_assessments"][0]["evidence_refs"] = json!(["EV-INV-006"]);
+        data.4["responses"][5]["requirement_assessments"][0]["evidence_refs"] =
+            json!(["EV-INV-006"]);
         assert_eq!(report(&data)["status"], "FAIL");
     }
 
@@ -958,7 +1043,8 @@ mod tests {
         data.4["responses"][7]["requirement_assessments"][0]["disposition"] =
             Value::String("supported_within_declared_scope".to_owned());
         data.4["responses"][7]["requirement_assessments"][0]["reason_codes"] = json!([]);
-        data.4["responses"][7]["requirement_assessments"][0]["evidence_refs"] = json!(["EV-CN-008"]);
+        data.4["responses"][7]["requirement_assessments"][0]["evidence_refs"] =
+            json!(["EV-CN-008"]);
         assert_eq!(report(&data)["status"], "FAIL");
     }
 
