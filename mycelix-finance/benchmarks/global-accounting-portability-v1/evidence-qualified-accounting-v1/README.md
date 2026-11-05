@@ -87,7 +87,7 @@ The validator:
 - models document revision supersession explicitly: a revision supersedes an earlier revision only after the newer document is received, so historical replay before receipt retains the earlier revision;
 - rejects multiple revisions of one source identity when their supersession chain is missing or ambiguous;
 - resolves every fact to a source document;
-- enforces valid-time overlap with the accounting period and excludes facts/documents recorded or received after `knowledge_at`;
+- enforces valid-time overlap with the accounting period and excludes facts/documents recorded or received after `knowledge_at`; date-time fields are canonical whole-second UTC strings only, with offsets and fractional seconds rejected;
 - excludes facts from earlier document revisions once a superseding revision is known at the requested frontier, while preserving earlier facts for historical replay before that frontier;
 - derives deterministic disposition/reason and compares every oracle row;
 - refuses to use a future-received parent invoice to resolve a credit note;
@@ -98,7 +98,7 @@ The validator:
 - fingerprints the exact candidate and oracle bytes with SHA-256;
 - guarantees that the benchmark never posts to a live ledger or performs another external side effect.
 
-Twenty-six unit tests are authored, including future-received invoices, future FX facts, future parent invoices, same-ID cross-namespace parent rejection, disputed supplier identity, invalidated service dates, namespace collisions, impossible service-period intervals, superseding-revision selection, historical replay before revision receipt, unlinked-revision escalation, duplicate-copy versus revision distinction, per-entry balance mutation and period allocation. They are **not yet executed**.
+Twenty-eight unit tests are authored, including offset/fractional timestamp rejection,  future-received invoices, future FX facts, future parent invoices, same-ID cross-namespace parent rejection, disputed supplier identity, invalidated service dates, namespace collisions, impossible service-period intervals, superseding-revision selection, historical replay before revision receipt, unlinked-revision escalation, duplicate-copy versus revision distinction, per-entry balance mutation and period allocation. They are **not yet executed**.
 
 ## Benchmark plan and target gates
 
