@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -21,7 +21,12 @@ struct Assessment {
     pair_results: Vec<PairAssessment>,
 }
 
-pub fn verify(input_bytes: &[u8], schema_bytes: &[u8], oracle_bytes: &[u8], oracle_schema_bytes: &[u8]) -> Value {
+pub fn verify(
+    input_bytes: &[u8],
+    schema_bytes: &[u8],
+    oracle_bytes: &[u8],
+    oracle_schema_bytes: &[u8],
+) -> Value {
     let mut errors = Vec::<String>::new();
     let input: Value = parse_json("candidate input", input_bytes, &mut errors);
     let schema: Value = parse_json("candidate schema", schema_bytes, &mut errors);
@@ -53,16 +58,27 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8], oracle_bytes: &[u8], orac
             }
             match (oracle_by_id.get(&id), assess_case(case)) {
                 (Some(reference), Ok(assessment)) => {
-                    let expected = reference["expected_terminal_state"].as_str().unwrap_or("<missing>");
+                    let expected = reference["expected_terminal_state"]
+                        .as_str()
+                        .unwrap_or("<missing>");
                     let blocks = assessment.state != "addressed_with_qualified_evidence"
                         && assessment.state != "not_applicable_with_authorized_rationale";
-                    let expected_blocks = reference["blocks_unqualified_signoff"].as_bool().unwrap_or(true);
-                    let expected_pairs = reference["expected_pair_states"].as_array().cloned().unwrap_or_default();
+                    let expected_blocks = reference["blocks_unqualified_signoff"]
+                        .as_bool()
+                        .unwrap_or(true);
+                    let expected_pairs = reference["expected_pair_states"]
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default();
                     let mut pair_checks = Vec::new();
                     let mut pair_match = assessment.pair_results.len() == expected_pairs.len();
                     for pair in &assessment.pair_results {
-                        let expected_pair = expected_pairs.iter().find(|row| row["pair_id"] == pair.pair_id);
-                        let expected_state = expected_pair.and_then(|row| row["terminal_state"].as_str()).unwrap_or("<missing>");
+                        let expected_pair = expected_pairs
+                            .iter()
+                            .find(|row| row["pair_id"] == pair.pair_id);
+                        let expected_state = expected_pair
+                            .and_then(|row| row["terminal_state"].as_str())
+                            .unwrap_or("<missing>");
                         let pair_blocks = pair.state != "addressed_with_qualified_evidence"
                             && pair.state != "not_applicable_with_authorized_rationale";
                         let pair_passed = pair.state == expected_state;
@@ -76,7 +92,8 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8], oracle_bytes: &[u8], orac
                             "reason_codes": pair.reasons.iter().cloned().collect::<Vec<_>>()
                         }));
                     }
-                    let passed = assessment.state == expected && blocks == expected_blocks && pair_match;
+                    let passed =
+                        assessment.state == expected && blocks == expected_blocks && pair_match;
                     results.push(json!({
                         "case_id": id,
                         "actual_terminal_state": assessment.state,
@@ -100,7 +117,11 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8], oracle_bytes: &[u8], orac
     }
 
     let passed = results.iter().filter(|row| row["passed"] == true).count();
-    let state = if errors.is_empty() && !results.is_empty() && passed == results.len() { "PASS" } else { "FAIL" };
+    let state = if errors.is_empty() && !results.is_empty() && passed == results.len() {
+        "PASS"
+    } else {
+        "FAIL"
+    };
     let report = json!({
         "report_schema": "fin-assurance-procedure-report.v1",
         "benchmark_id": input.get("benchmark_id"),
@@ -153,15 +174,23 @@ fn validate_instance(label: &str, schema: &Value, instance: &Value) -> Vec<Strin
     if let Err(error) = jsonschema::draft202012::meta::validate(schema) {
         return vec![format!("{label}: invalid Draft 2020-12 schema: {error}")];
     }
-    let validator = match draft202012::options().should_validate_formats(true).build(schema) {
+    let validator = match draft202012::options()
+        .should_validate_formats(true)
+        .build(schema)
+    {
         Ok(validator) => validator,
         Err(error) => return vec![format!("{label}: could not compile schema: {error}")],
     };
-    validator.iter_errors(instance).map(|error| format!("{label}: {} at {}", error, error.instance_path())).collect()
+    validator
+        .iter_errors(instance)
+        .map(|error| format!("{label}: {} at {}", error, error.instance_path()))
+        .collect()
 }
 
 fn assess_case(case: &Value) -> AppResult<Assessment> {
-    let manifest = case.get("manifest").ok_or_else(|| "missing manifest".to_owned())?;
+    let manifest = case
+        .get("manifest")
+        .ok_or_else(|| "missing manifest".to_owned())?;
     let required_pairs = array(manifest, "required_pairs");
     let procedures = array(manifest, "procedures");
     let populations = array(manifest, "populations");
@@ -177,17 +206,25 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     for procedure in procedures {
         let pair_id = string(procedure, "pair_id").unwrap_or_default();
         if !known_pair_ids.contains(pair_id) {
-            return Err(format!("procedure references unknown risk/assertion pair: {pair_id}"));
+            return Err(format!(
+                "procedure references unknown risk/assertion pair: {pair_id}"
+            ));
         }
     }
 
     let mut pair_results = Vec::<PairAssessment>::new();
     for pair in required_pairs {
         let pair_id = string(pair, "pair_id").ok_or_else(|| "pair missing pair_id".to_owned())?;
-        let required = pair.get("required").and_then(Value::as_bool).unwrap_or(false);
+        let required = pair
+            .get("required")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let assertion = string(pair, "assertion").unwrap_or_default();
         let purpose = string(pair, "purpose").unwrap_or_default();
-        let min_origins = pair.get("min_independent_origins").and_then(Value::as_u64).unwrap_or(1) as usize;
+        let min_origins = pair
+            .get("min_independent_origins")
+            .and_then(Value::as_u64)
+            .unwrap_or(1) as usize;
         let mut reasons = BTreeSet::<String>::new();
 
         let related = procedures
@@ -198,7 +235,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         if !required {
             let authorized_na = related.iter().any(|procedure| {
                 string(procedure, "execution_status") == Some("not_applicable")
-                    && procedure.get("reviewer_authorized").and_then(Value::as_bool) == Some(true)
+                    && procedure
+                        .get("reviewer_authorized")
+                        .and_then(Value::as_bool)
+                        == Some(true)
                     && string(procedure, "authorized_na_rationale")
                         .map(|value| !value.trim().is_empty())
                         .unwrap_or(false)
@@ -236,18 +276,29 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
             continue;
         }
-        if procedure.get("requires_human_judgment").and_then(Value::as_bool) == Some(true) {
+        if procedure
+            .get("requires_human_judgment")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             reasons.insert("professional_judgment_required".to_owned());
             pair_results.push(pair_assessment(pair_id, "human_judgment_required", reasons));
             continue;
         }
         if procedure.get("stale_workpaper").and_then(Value::as_bool) == Some(true) {
             reasons.insert("workpaper_frontier_stale".to_owned());
-            pair_results.push(pair_assessment(pair_id, "exception_requires_resolution", reasons));
+            pair_results.push(pair_assessment(
+                pair_id,
+                "exception_requires_resolution",
+                reasons,
+            ));
             continue;
         }
         if procedure.get("control_failed").and_then(Value::as_bool) == Some(true)
-            && procedure.get("compensating_procedure_present").and_then(Value::as_bool) != Some(true)
+            && procedure
+                .get("compensating_procedure_present")
+                .and_then(Value::as_bool)
+                != Some(true)
         {
             reasons.insert("control_failure_without_compensating_procedure".to_owned());
             pair_results.push(pair_assessment(pair_id, "procedure_not_performed", reasons));
@@ -255,7 +306,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
         if procedure.get("exception_open").and_then(Value::as_bool) == Some(true) {
             reasons.insert("open_procedure_exception".to_owned());
-            pair_results.push(pair_assessment(pair_id, "exception_requires_resolution", reasons));
+            pair_results.push(pair_assessment(
+                pair_id,
+                "exception_requires_resolution",
+                reasons,
+            ));
             continue;
         }
 
@@ -282,12 +337,20 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                         population.get("frame_complete").and_then(Value::as_bool) == Some(true);
                     if observed < expected {
                         reasons.insert("expected_population_incomplete".to_owned());
-                        pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+                        pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
                         continue;
                     }
                     if !frame_complete {
                         reasons.insert("sample_frame_omits_class".to_owned());
-                        pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+                        pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
                         continue;
                     }
                 }
@@ -298,10 +361,18 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         let used_denominator = string(procedure, "used_denominator");
         if expected_denominator.is_some() && expected_denominator != used_denominator {
             reasons.insert("wrong_denominator_even_when_output_matches".to_owned());
-            pair_results.push(pair_assessment(pair_id, "exception_requires_resolution", reasons));
+            pair_results.push(pair_assessment(
+                pair_id,
+                "exception_requires_resolution",
+                reasons,
+            ));
             continue;
         }
-        if procedure.get("threshold_authorized").and_then(Value::as_bool) != Some(true) {
+        if procedure
+            .get("threshold_authorized")
+            .and_then(Value::as_bool)
+            != Some(true)
+        {
             reasons.insert("analytical_threshold_unapproved".to_owned());
             pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
             continue;
@@ -311,7 +382,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 Some(true) => {}
                 Some(false) => {
                     reasons.insert("analytical_difference_above_threshold".to_owned());
-                    pair_results.push(pair_assessment(pair_id, "exception_requires_resolution", reasons));
+                    pair_results.push(pair_assessment(
+                        pair_id,
+                        "exception_requires_resolution",
+                        reasons,
+                    ));
                     continue;
                 }
                 None => {
@@ -383,7 +458,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
         if contradiction {
             reasons.insert("contradictory_evidence_unresolved".to_owned());
-            pair_results.push(pair_assessment(pair_id, "exception_requires_resolution", reasons));
+            pair_results.push(pair_assessment(
+                pair_id,
+                "exception_requires_resolution",
+                reasons,
+            ));
             continue;
         }
         if origins.len() < min_origins {
@@ -419,7 +498,9 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         "addressed_with_explicit_limitation",
     ];
     let mut state = if !states.is_empty()
-        && states.iter().all(|value| *value == "not_applicable_with_authorized_rationale")
+        && states
+            .iter()
+            .all(|value| *value == "not_applicable_with_authorized_rationale")
     {
         "not_applicable_with_authorized_rationale"
     } else {
@@ -452,12 +533,18 @@ fn pair_assessment(pair_id: &str, state: &str, reasons: BTreeSet<String>) -> Pai
 }
 
 fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
-    value.get(key).and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[])
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
 }
 fn string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key).and_then(Value::as_str)
 }
-pub fn sha256_hex(bytes: &[u8]) -> String { hex::encode(Sha256::digest(bytes)) }
+pub fn sha256_hex(bytes: &[u8]) -> String {
+    hex::encode(Sha256::digest(bytes))
+}
 
 #[cfg(test)]
 mod tests {
@@ -479,8 +566,12 @@ mod tests {
 
     #[test]
     fn all_public_reference_cases_match_case_and_pair_oracles() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
-        let oracle = parse(include_str!("../../public-assurance-oracle/fin_assurance_procedure_oracle_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
+        let oracle = parse(include_str!(
+            "../../public-assurance-oracle/fin_assurance_procedure_oracle_v1.1.0.json"
+        ));
         for case in candidate["cases"].as_array().expect("cases") {
             let id = case["case_id"].as_str().expect("case ID");
             let reference = oracle["cases"]
@@ -490,36 +581,65 @@ mod tests {
                 .find(|row| row["case_id"] == id)
                 .expect("oracle row");
             let assessment = assess_case(case).expect("assessment");
-            assert_eq!(assessment.state, reference["expected_terminal_state"].as_str().expect("expected state"), "{id}");
-            let expected_pairs = reference["expected_pair_states"].as_array().expect("pair oracle");
-            assert_eq!(assessment.pair_results.len(), expected_pairs.len(), "{id} pair count");
+            assert_eq!(
+                assessment.state,
+                reference["expected_terminal_state"]
+                    .as_str()
+                    .expect("expected state"),
+                "{id}"
+            );
+            let expected_pairs = reference["expected_pair_states"]
+                .as_array()
+                .expect("pair oracle");
+            assert_eq!(
+                assessment.pair_results.len(),
+                expected_pairs.len(),
+                "{id} pair count"
+            );
             for pair in &assessment.pair_results {
                 let expected = expected_pairs
                     .iter()
                     .find(|row| row["pair_id"] == pair.pair_id)
                     .expect("pair oracle row");
-                assert_eq!(pair.state, expected["terminal_state"].as_str().expect("pair state"), "{id}/{}", pair.pair_id);
+                assert_eq!(
+                    pair.state,
+                    expected["terminal_state"].as_str().expect("pair state"),
+                    "{id}/{}",
+                    pair.pair_id
+                );
             }
         }
     }
 
     #[test]
     fn wrong_denominator_is_not_hidden_by_matching_output() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
         let case = case_by_id(&candidate, "FAP-007");
-        assert_eq!(assess_case(case).expect("assessment").state, "exception_requires_resolution");
+        assert_eq!(
+            assess_case(case).expect("assessment").state,
+            "exception_requires_resolution"
+        );
     }
 
     #[test]
     fn same_upstream_origin_is_not_independent_corroboration() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
         let case = case_by_id(&candidate, "FAP-010");
-        assert_eq!(assess_case(case).expect("assessment").state, "insufficient_evidence");
+        assert_eq!(
+            assess_case(case).expect("assessment").state,
+            "insufficient_evidence"
+        );
     }
 
     #[test]
     fn non_applicability_requires_authorized_scoped_rationale() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
         let case = case_by_id(&candidate, "FAP-016");
         assert_eq!(
             assess_case(case).expect("assessment").state,
@@ -529,48 +649,83 @@ mod tests {
 
     #[test]
     fn a_late_source_stales_prior_workpaper() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
         let case = case_by_id(&candidate, "FAP-017");
-        assert_eq!(assess_case(case).expect("assessment").state, "exception_requires_resolution");
+        assert_eq!(
+            assess_case(case).expect("assessment").state,
+            "exception_requires_resolution"
+        );
     }
 
     #[test]
     fn multi_pair_case_preserves_each_pair_disposition() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-019")).expect("assessment");
         assert_eq!(assessment.state, "insufficient_evidence");
         assert_eq!(assessment.pair_results.len(), 2);
         assert_eq!(
-            assessment.pair_results.iter().find(|row| row.pair_id == "pair-1").unwrap().state,
+            assessment
+                .pair_results
+                .iter()
+                .find(|row| row.pair_id == "pair-1")
+                .unwrap()
+                .state,
             "addressed_with_qualified_evidence"
         );
         assert_eq!(
-            assessment.pair_results.iter().find(|row| row.pair_id == "pair-2").unwrap().state,
+            assessment
+                .pair_results
+                .iter()
+                .find(|row| row.pair_id == "pair-2")
+                .unwrap()
+                .state,
             "insufficient_evidence"
         );
     }
 
     #[test]
     fn procedure_purpose_must_match_required_pair_purpose() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-020")).expect("assessment");
         assert_eq!(assessment.state, "insufficient_evidence");
-        assert!(assessment.reasons.contains("performed_procedure_purpose_mismatch"));
+        assert!(
+            assessment
+                .reasons
+                .contains("performed_procedure_purpose_mismatch")
+        );
     }
 
     #[test]
     fn evidence_must_be_bound_to_the_reporting_entity() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-021")).expect("assessment");
         assert_eq!(assessment.state, "insufficient_evidence");
-        assert!(assessment.reasons.contains("evidence_reporting_entity_mismatch"));
+        assert!(
+            assessment
+                .reasons
+                .contains("evidence_reporting_entity_mismatch")
+        );
     }
 
     #[test]
     fn analytical_differences_above_threshold_remain_open() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+        ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-022")).expect("assessment");
         assert_eq!(assessment.state, "exception_requires_resolution");
-        assert!(assessment.reasons.contains("analytical_difference_above_threshold"));
+        assert!(
+            assessment
+                .reasons
+                .contains("analytical_difference_above_threshold")
+        );
     }
 }
