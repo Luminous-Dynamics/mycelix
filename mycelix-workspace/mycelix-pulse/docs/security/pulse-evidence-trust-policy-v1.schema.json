@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-evidence-trust-policy-v1.schema.json",
+  "title": "Pulse evidence trust policy v1",
+  "description": "Out-of-band trust policy supplied to the signed-evidence verifier. This schema validates syntax only; policy authenticity/currentness must be established separately.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy_id",
+    "policy_version",
+    "keys"
+  ],
+  "properties": {
+    "policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "policy_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "keyid",
+          "public_key_hex",
+          "roles",
+          "predicate_types",
+          "status"
+        ],
+        "properties": {
+          "keyid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "public_key_hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Ed25519 public key. This v1 local verifier supports Ed25519 only."
+          },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "host_authority",
+                "action_author",
+                "validator",
+                "observer",
+                "client_outcome",
+                "independent_auditor"
+              ]
+            }
+          },
+          "predicate_types": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "status": {
+            "enum": [
+              "active",
+              "revoked",
+              "suspended"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
