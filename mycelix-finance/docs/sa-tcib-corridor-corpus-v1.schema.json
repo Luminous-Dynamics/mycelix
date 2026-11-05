@@ -433,6 +433,7 @@
         "destination_leg_receipt",
         "finality_claim",
         "legal_finality_evidence",
+        "jurisdictional_compliance_state",
         "screening_state",
         "fraud_status_state",
         "data_audience_state",
@@ -554,6 +555,10 @@
             "string",
             "null"
           ]
+        },
+        "jurisdictional_compliance_state": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
