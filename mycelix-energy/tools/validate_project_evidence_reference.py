@@ -60,6 +60,7 @@ def walk_refs(value: Any) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--semantic-receipt", type=Path, required=True)
     args = parser.parse_args()
 
     energy_root = Path(__file__).resolve().parents[1]
@@ -203,11 +204,56 @@ def main() -> None:
     if not source_commit:
         fail("ENERGY_EVIDENCE_SOURCE_COMMIT is required for a reproducible CI receipt")
 
+    try:
+        semantic_receipt = json.loads(args.semantic_receipt.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        fail(f"cannot load Rust semantic receipt: {exc}")
+
+    if semantic_receipt.get("source_commit") != source_commit:
+        fail("Rust semantic receipt is not bound to the exact checked-out source commit")
+    if semantic_receipt.get("schema_sha256") != sha256(schema_bytes):
+        fail("Rust semantic receipt schema digest does not match the checked-out schema")
+    if semantic_receipt.get("fixtures_sha256") != sha256(fixture_bytes):
+        fail("Rust semantic receipt fixture digest does not match the checked-out fixtures")
+    if semantic_receipt.get("result") != "pass":
+        fail("Rust semantic evaluator did not pass")
+    if semantic_receipt.get("scope") != "declared_fixture_semantics_only":
+        fail("Rust semantic receipt has an unexpected claim scope")
+
+    semantic_results = semantic_receipt.get("mutation_results")
+    if not isinstance(semantic_results, list):
+        fail("Rust semantic receipt must contain mutation_results")
+    semantic_map = {}
+    for result in semantic_results:
+        if not isinstance(result, dict):
+            fail("Rust mutation result must be an object")
+        case_id = result.get("case_id")
+        expected = result.get("expected_disposition")
+        actual = result.get("actual_disposition")
+        passed = result.get("passed")
+        if not isinstance(case_id, str) or case_id in semantic_map:
+            fail(f"missing or duplicate Rust semantic case_id: {case_id}")
+        if expected != EXPECTED_MUTATIONS.get(case_id):
+            fail(f"Rust expected disposition drift for mutation: {case_id}")
+        if actual != expected or passed is not True:
+            fail(f"Rust semantic mutation did not pass: {case_id}")
+        semantic_map[case_id] = actual
+    if semantic_map != EXPECTED_MUTATIONS:
+        fail("Rust semantic receipt mutation census does not match the frozen fixture contract")
+
+    if semantic_receipt.get("canonical_example", {}).get("actual_disposition") != "eligible_for_policy_evaluation":
+        fail("Rust semantic receipt did not qualify the canonical synthetic example")
+    if semantic_receipt.get("legacy_example", {}).get("actual_disposition") != "unassessed_legacy_locator":
+        fail("Rust semantic receipt did not preserve the legacy example as unassessed")
+
     receipt_out = {
-        "receipt_version": "1",
+        "receipt_version": "2",
         "source_commit": source_commit,
-        "scope": "schema_and_fixture_structure_only",
-        "semantic_evaluator": "not_run",
+        "scope": "schema_meta_and_declared_fixture_semantics",
+        "semantic_evaluator": semantic_receipt.get("evaluator"),
+        "semantic_scope": semantic_receipt.get("scope"),
+        "semantic_result": semantic_receipt.get("result"),
+        "semantic_mutation_count": len(semantic_results),
         "schema_draft": "2020-12",
         "schema_sha256": sha256(schema_bytes),
         "fixtures_sha256": sha256(fixture_bytes),
