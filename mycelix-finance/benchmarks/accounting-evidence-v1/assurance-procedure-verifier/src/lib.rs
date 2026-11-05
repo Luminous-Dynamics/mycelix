@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 use jsonschema::draft202012;
-use serde::Serialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
