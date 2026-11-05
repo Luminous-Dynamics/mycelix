@@ -214,7 +214,7 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
         let mut early_application_profiles = BTreeSet::<String>::new();
         for qualification in array_of_objects(intersection, "early_application_qualifications")? {
             let profile_id = string_field(qualification, "profile_id")?;
-            if !refs.iter().any(|selected| selected == profile_id) {
+            if !refs.iter().any(|selected| selected.as_str() == profile_id) {
                 return Err(format!("early-application qualification {id} references a profile outside profile_refs: {profile_id}"));
             }
             if !early_application_profiles.insert(profile_id.to_owned()) {
