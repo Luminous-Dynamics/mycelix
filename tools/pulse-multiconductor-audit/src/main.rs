@@ -641,18 +641,159 @@ fn audit(history:&History,input_sha256:String)->Report {
     }
 }
 
+fn benchmark_history(event_count: usize) -> Result<History, Box<dyn Error>> {
+    if event_count == 0 || event_count > 1_000_000 {
+        return Err("--benchmark-events must be between 1 and 1000000".into());
+    }
+
+    let conductors = vec![
+        Conductor {
+            conductor_id: "peer-a".into(),
+            agent_key_ref: "agent-peer-a".into(),
+            conductor_build: "synthetic-benchmark".into(),
+            dna_hash: "uhCkk-benchmark-dna".into(),
+            cell_id: "benchmark-cell-a".into(),
+            role: "peer".into(),
+        },
+        Conductor {
+            conductor_id: "peer-b".into(),
+            agent_key_ref: "agent-peer-b".into(),
+            conductor_build: "synthetic-benchmark".into(),
+            dna_hash: "uhCkk-benchmark-dna".into(),
+            cell_id: "benchmark-cell-b".into(),
+            role: "peer".into(),
+        },
+    ];
+
+    let events = (0..event_count)
+        .map(|index| {
+            let conductor = index % 2;
+            let local_sequence = (index / 2 + 1) as u64;
+            let conductor_id = if conductor == 0 { "peer-a" } else { "peer-b" };
+            let agent = if conductor == 0 { "agent-peer-a" } else { "agent-peer-b" };
+            Event {
+                event_id: format!("signal-{conductor_id}-{local_sequence:010}"),
+                conductor_id: conductor_id.into(),
+                local_sequence,
+                source: "remote_peer".into(),
+                evidence_ref: format!("synthetic://benchmark/{conductor_id}/{local_sequence}"),
+                event_type: "remote_signal".into(),
+                data: serde_json::json!({
+                    "event_type": "benchmark.wakeup.v1",
+                    "trust_class": "unverified_hint",
+                    "transport_sender": agent,
+                    "claimed_sender": agent,
+                    "backing_action_hash": null,
+                    "record_author": null,
+                    "verified_payload_sha256": null,
+                    "verifier_build": null,
+                    "trusted_state_mutation": false,
+                    "authorizes_operation": false
+                }),
+            }
+        })
+        .collect();
+
+    Ok(History {
+        schema_version: 1,
+        trace_id: format!("synthetic-benchmark-{event_count}"),
+        evidence_class: "synthetic".into(),
+        source_commit: "0".repeat(40),
+        conductors,
+        events,
+        causal_edges: Vec::new(),
+    })
+}
+
+fn write_json_output(value: &Value, output: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    let json = serde_json::to_string_pretty(value)?;
+    if let Some(path) = output {
+        if let Some(parent) = path.parent() { fs::create_dir_all(parent)?; }
+        fs::write(path, json)?;
+    } else {
+        println!("{json}");
+    }
+    Ok(())
+}
+
+fn run_benchmark(event_count: usize, output: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    use std::time::Instant;
+
+    let build_started = Instant::now();
+    let history = benchmark_history(event_count)?;
+    let build_ns = build_started.elapsed().as_nanos();
+
+    let spec = format!(
+        "pulse-multiconductor-audit-benchmark-v1|events={event_count}|conductors=2|event=unverified_remote_signal"
+    );
+    let generator_commitment_sha256 = format!("{:x}", Sha256::digest(spec.as_bytes()));
+
+    let audit_started = Instant::now();
+    let report = audit(&history, generator_commitment_sha256.clone());
+    let audit_ns = audit_started.elapsed().as_nanos();
+    let throughput = if audit_ns == 0 {
+        0.0
+    } else {
+        event_count as f64 / (audit_ns as f64 / 1_000_000_000.0)
+    };
+
+    let status = match report.status {
+        Status::Pass => "PASS",
+        Status::Fail => "FAIL",
+        Status::Incomplete => "INCOMPLETE",
+    };
+    let output_value = serde_json::json!({
+        "benchmark_version": 1,
+        "benchmark_name": "pulse-multiconductor-audit",
+        "evidence_class": "synthetic",
+        "status": status,
+        "events": event_count,
+        "conductors": history.conductors.len(),
+        "causal_edges": history.causal_edges.len(),
+        "findings": report.findings.len(),
+        "history_build_ns": build_ns,
+        "audit_ns": audit_ns,
+        "audit_events_per_second": throughput,
+        "generator_commitment_sha256": generator_commitment_sha256,
+        "claim_ceiling": "BENCHMARK_ONLY: synthetic remote-signal histories measure this verifier build and fixture generator; this is not Holochain runtime throughput or a production workload claim"
+    });
+    write_json_output(&output_value, output)?;
+
+    if matches!(report.status, Status::Pass) {
+        Ok(())
+    } else {
+        Err("synthetic benchmark fixture did not pass structural audit".into())
+    }
+}
+
 fn main()->Result<(),Box<dyn Error>>{
-    let mut input=None;let mut output=None;
+    let mut input=None;
+    let mut output=None;
+    let mut benchmark_events=None;
     let mut args=env::args().skip(1);
     while let Some(arg)=args.next(){
         match arg.as_str(){
             "--input"=>input=Some(PathBuf::from(args.next().ok_or("--input requires a path")?)),
             "--output"=>output=Some(PathBuf::from(args.next().ok_or("--output requires a path")?)),
-            "--help"|"-h"=>{println!("pulse-multiconductor-audit --input HISTORY.json [--output REPORT.json]");return Ok(());}
+            "--benchmark-events"=>{
+                let value=args.next().ok_or("--benchmark-events requires a count")?;
+                benchmark_events=Some(value.parse::<usize>()?);
+            }
+            "--help"|"-h"=>{
+                println!("pulse-multiconductor-audit --input HISTORY.json [--output REPORT.json]");
+                println!("pulse-multiconductor-audit --benchmark-events COUNT [--output BENCHMARK.json] (1..=1000000)");
+                return Ok(());
+            }
             other=>return Err(format!("unknown argument: {other}").into())
         }
     }
-    let input=input.ok_or("--input is required")?;
+
+    if let Some(count)=benchmark_events {
+        if input.is_some() { return Err("--input and --benchmark-events are mutually exclusive".into()); }
+        return run_benchmark(count, output);
+    }
+
+    let input=input.ok_or("--input is required unless --benchmark-events is used")?;
     let raw=fs::read(&input)?;
     let digest=format!("{:x}",Sha256::digest(&raw));
     let history:History=serde_json::from_slice(&raw)?;
@@ -668,6 +809,20 @@ mod tests{
     fn fixture()->History{serde_json::from_str(include_str!("../examples/safe-history.json")).unwrap()}
     fn report(h:&History)->Report{audit(h,"0".repeat(64))}
     #[test]fn safe_multiconductor_partial_order_passes(){let r=report(&fixture());assert!(matches!(r.status,Status::Pass),"{:?}",r.findings);}
+    #[test]
+    fn synthetic_benchmark_generator_produces_safe_histories() {
+        for count in [1usize, 2, 999, 1000] {
+            let history = benchmark_history(count).unwrap();
+            assert_eq!(history.events.len(), count);
+            let r = report(&history);
+            assert!(matches!(r.status, Status::Pass), "{:?}", r.findings);
+        }
+    }
+    #[test]
+    fn synthetic_benchmark_rejects_zero_and_oversized_inputs() {
+        assert!(benchmark_history(0).is_err());
+        assert!(benchmark_history(1_000_001).is_err());
+    }
     #[test]fn same_idempotency_key_with_different_request_digest_fails(){
         let mut h=fixture();
         let mut duplicate=h.events.iter().find(|e|e.event_type=="host_grant_issued").unwrap().clone();
