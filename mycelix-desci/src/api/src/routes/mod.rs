@@ -37,6 +37,10 @@ fn public_routes() -> Router<Arc<AppState>> {
             get(handlers::get_scientific_claim),
         )
         .route(
+            "/scientific/claims/{id}/as-known-at",
+            get(handlers::get_scientific_claim_as_known_at),
+        )
+        .route(
             "/scientific/claims/{id}/events",
             get(handlers::get_scientific_claim_events),
         )
