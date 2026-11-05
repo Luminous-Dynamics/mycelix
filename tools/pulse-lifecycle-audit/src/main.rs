@@ -345,7 +345,8 @@ fn source_matches_kind(source: EvidenceSource, kind: &EventKind) -> bool {
         EventKind::ProjectionRead(_) =>
             matches!(source, EvidenceSource::Observer | EvidenceSource::Synthetic),
         EventKind::RemoteSignal(_) =>
-            matches!(source, EvidenceSource::RemotePeer | EvidenceSource::Client | EvidenceSource::Synthetic),
+            matches!(source, EvidenceSource::RemotePeer | EvidenceSource::Client |
+                EvidenceSource::Observer | EvidenceSource::Coordinator | EvidenceSource::Synthetic),
         EventKind::CallerOutcome(_) =>
             matches!(source, EvidenceSource::Client | EvidenceSource::Synthetic),
     }
@@ -747,13 +748,34 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     finding(&mut findings, "UNVERIFIED_SIGNAL_MUTATED_TRUSTED_STATE", "violation",
                         Some(&event.event_id), "unverified or advisory signal cannot mutate trusted UI/application state");
                 }
-                if signal.trust_class == SignalTrustClass::VerifiedRecord {
-                    match (&signal.claimed_sender, &signal.transport_sender, &signal.backing_action_hash) {
-                        (Some(claimed), Some(transport), Some(hash))
-                            if claimed == transport && !hash.trim().is_empty() => {}
-                        _ => finding(&mut findings, "VERIFIED_SIGNAL_EVIDENCE_INCOMPLETE", "incomplete",
-                            Some(&event.event_id), "verified record signal requires matching transport sender and backing ActionHash"),
+                match signal.trust_class {
+                    SignalTrustClass::VerifiedRecord => {
+                        if event.source != EvidenceSource::Observer {
+                            finding(&mut findings, "VERIFIED_SIGNAL_NOT_OBSERVER_ATTESTED", "incomplete",
+                                Some(&event.event_id), "VerifiedRecord classification must be emitted by the observer after backing-record validation, not by the remote sender or client");
+                        }
+                        match (&signal.claimed_sender, &signal.transport_sender, &signal.backing_action_hash) {
+                            (Some(claimed), Some(transport), Some(hash))
+                                if claimed == transport && !hash.trim().is_empty() => {}
+                            _ => finding(&mut findings, "VERIFIED_SIGNAL_EVIDENCE_INCOMPLETE", "incomplete",
+                                Some(&event.event_id), "verified record signal requires matching transport sender and backing ActionHash"),
+                        }
                     }
+                    SignalTrustClass::AuthenticatedPeerHint => {
+                        match (&signal.claimed_sender, &signal.transport_sender) {
+                            (Some(claimed), Some(transport)) if claimed == transport => {}
+                            _ => finding(&mut findings, "AUTHENTICATED_HINT_SENDER_MISMATCH", "incomplete",
+                                Some(&event.event_id), "authenticated peer hint requires a transport-bound sender matching the payload claim"),
+                        }
+                    }
+                    SignalTrustClass::LocalOnly => {
+                        if !matches!(event.source, EvidenceSource::Coordinator | EvidenceSource::Client) ||
+                            signal.claimed_sender.is_some() || signal.transport_sender.is_some() {
+                            finding(&mut findings, "LOCAL_SIGNAL_HAS_REMOTE_PROVENANCE", "incomplete",
+                                Some(&event.event_id), "local-only signal must originate from the local coordinator/client plane and omit remote sender claims");
+                        }
+                    }
+                    SignalTrustClass::UnverifiedHint | SignalTrustClass::Unknown | SignalTrustClass::Rejected => {}
                 }
             }
             EventKind::CallerOutcome(outcome) => {
@@ -1017,5 +1039,49 @@ mod tests {
         let report = run(&bundle);
         assert_eq!(report.status, Status::Incomplete);
         assert!(report.findings.iter().any(|f| f.code == "REMOTE_SIGNAL_EVENT_TYPE_INVALID"));
+    }
+
+    #[test]
+    fn verified_record_signal_requires_observer_attestation() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::RemoteSignal(_))).unwrap();
+        if let EventKind::RemoteSignal(ref mut signal) = event.kind {
+            signal.trust_class = SignalTrustClass::VerifiedRecord;
+            signal.claimed_sender = Some("agent-owner".to_string());
+            signal.transport_sender = Some("agent-owner".to_string());
+            signal.backing_action_hash = Some("action-attestation-1".to_string());
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Incomplete);
+        assert!(report.findings.iter().any(|f| f.code == "VERIFIED_SIGNAL_NOT_OBSERVER_ATTESTED"));
+    }
+
+    #[test]
+    fn authenticated_peer_hint_must_bind_claimed_sender_to_transport_sender() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::RemoteSignal(_))).unwrap();
+        if let EventKind::RemoteSignal(ref mut signal) = event.kind {
+            signal.trust_class = SignalTrustClass::AuthenticatedPeerHint;
+            signal.claimed_sender = Some("agent-owner".to_string());
+            signal.transport_sender = Some("agent-attacker".to_string());
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Incomplete);
+        assert!(report.findings.iter().any(|f| f.code == "AUTHENTICATED_HINT_SENDER_MISMATCH"));
+    }
+
+    #[test]
+    fn local_only_signal_cannot_claim_a_remote_sender() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::RemoteSignal(_))).unwrap();
+        event.source = EvidenceSource::Coordinator;
+        if let EventKind::RemoteSignal(ref mut signal) = event.kind {
+            signal.trust_class = SignalTrustClass::LocalOnly;
+            signal.claimed_sender = Some("agent-owner".to_string());
+            signal.transport_sender = None;
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Incomplete);
+        assert!(report.findings.iter().any(|f| f.code == "LOCAL_SIGNAL_HAS_REMOTE_PROVENANCE"));
     }
 }
