@@ -84,7 +84,14 @@ fn is_known_fact(case: &Value, fact: &Value) -> Result<bool, String> {
     let document_ref = string(fact, "document_ref")?;
     let document = document_by_ref(case, document_ref)?;
     let received_at = string(document, "received_at")?;
-    Ok(recorded_at <= frontier && received_at <= frontier)
+    let period = case.get("accounting_period").ok_or("missing accounting period")?;
+    let period_start = string(period, "start")?;
+    let period_end = string(period, "end")?;
+    let valid_from = string(fact, "valid_from")?;
+    let valid_to = fact.get("valid_to").and_then(Value::as_str);
+    let valid_time_overlaps = valid_from <= period_end
+        && valid_to.is_none_or(|end| end >= period_start);
+    Ok(recorded_at <= frontier && received_at <= frontier && valid_time_overlaps)
 }
 
 fn is_eligible_assertion(case: &Value, fact: &Value) -> Result<bool, String> {
@@ -136,8 +143,10 @@ fn future_evidence(case: &Value) -> Result<bool, String> {
 }
 
 fn source_integrity_failed(case: &Value) -> Result<bool, String> {
+    let frontier = string(case, "knowledge_at")?;
     Ok(array(case, "documents")?.iter().any(|document| {
         optional_string(document, "integrity_state") == Some("synthetic_mismatch")
+            && optional_string(document, "received_at").is_some_and(|received| received <= frontier)
     }))
 }
 
@@ -210,16 +219,21 @@ fn fx_rate_missing(case: &Value) -> Result<bool, String> {
 }
 
 fn service_start_missing(case: &Value) -> Result<bool, String> {
-    if facts_of_type(case, "invoice_total_minor")?.is_empty() {
+    let invoice_document_exists = array(case, "documents")?.iter()
+        .any(|document| optional_string(document, "document_type") == Some("invoice"));
+    if !invoice_document_exists {
         return Ok(false);
     }
-    Ok(facts_of_type(case, "service_period_start")?.is_empty())
+    Ok(facts_of_type(case, "invoice_total_minor")?.is_empty()
+        || facts_of_type(case, "service_period_start")?.is_empty())
 }
 
 fn account_mapping_missing(case: &Value) -> Result<bool, String> {
+    let frontier = string(case, "knowledge_at")?;
     let mapping_document_exists = array(case, "documents")?
         .iter()
-        .any(|document| optional_string(document, "document_type") == Some("account_mapping"));
+        .any(|document| optional_string(document, "document_type") == Some("account_mapping")
+            && optional_string(document, "received_at").is_some_and(|received| received <= frontier));
     if !mapping_document_exists {
         return Ok(false);
     }
@@ -239,11 +253,11 @@ fn derive_expectation(case: &Value) -> Result<(&'static str, &'static str), Stri
     if contradictory_entity_evidence(case)? {
         return Ok(("clarify", "contradictory_entity_evidence"));
     }
-    if fx_rate_missing(case)? {
-        return Ok(("clarify", "fx_rate_missing"));
-    }
     if future_evidence(case)? {
         return Ok(("clarify", "evidence_after_knowledge_frontier"));
+    }
+    if fx_rate_missing(case)? {
+        return Ok(("clarify", "fx_rate_missing"));
     }
     if service_start_missing(case)? {
         return Ok(("clarify", "required_fact_missing"));
@@ -418,7 +432,7 @@ fn validate_oracle_references(
             .iter()
             .map(|value| value.as_str().ok_or("statement journal ref is not a string"))
             .collect::<Result<BTreeSet<_>, _>>()?;
-        if linked.iter().any(|reference| !journal_entry_refs.contains(**reference)) {
+        if linked.iter().any(|reference| !journal_entry_refs.contains(*reference)) {
             return Err(format!("{case_id}/{statement_ref}: statement references unknown journal entry"));
         }
         let statement_amount = statement
@@ -656,6 +670,42 @@ mod tests {
             }
         }
         assert_eq!(array(&candidates, "cases").unwrap().len(), 11);
+    }
+
+    #[test]
+    fn future_source_integrity_result_cannot_retroactively_force_abstention() {
+        let (mut candidates, _) = fixtures();
+        let case = candidates["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("ACCT-009-SOURCE-INTEGRITY-MISMATCH")).unwrap();
+        case["documents"][0]["received_at"] = Value::String("2026-11-05T10:45:00Z".to_owned());
+        assert!(!source_integrity_failed(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("clarify", "evidence_after_knowledge_frontier"));
+    }
+
+    #[test]
+    fn future_fx_fact_does_not_satisfy_an_earlier_conversion_requirement() {
+        let (mut candidates, _) = fixtures();
+        let case = candidates["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("ACCT-005-MISSING-FX-RATE")).unwrap();
+        let fx = case["facts"].as_array_mut().unwrap().iter_mut()
+            .find(|fact| optional_string(fact, "fact_ref") == Some("F-005-FX-UNKNOWN")).unwrap();
+        fx["assertion_state"] = Value::String("asserted".to_owned());
+        fx["value"] = Value::Number(serde_json::Number::from_f64(1.1).unwrap());
+        fx["recorded_at"] = Value::String("2026-11-05T10:45:00Z".to_owned());
+        assert!(facts_of_type(case, "fx_rate_to_presentation").unwrap().is_empty());
+        assert_eq!(derive_expectation(case).unwrap(), ("clarify", "evidence_after_knowledge_frontier"));
+    }
+
+    #[test]
+    fn fact_outside_the_accounting_valid_time_is_not_eligible() {
+        let (mut candidates, _) = fixtures();
+        let case = candidates["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let amount = case["facts"].as_array_mut().unwrap().iter_mut()
+            .find(|fact| optional_string(fact, "fact_ref") == Some("F-001-AMOUNT")).unwrap();
+        amount["valid_to"] = Value::String("2026-09-30".to_owned());
+        assert!(facts_of_type(case, "invoice_total_minor").unwrap().is_empty());
+        assert_eq!(derive_expectation(case).unwrap(), ("clarify", "required_fact_missing"));
     }
 
     #[test]
