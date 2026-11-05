@@ -318,8 +318,8 @@
           "source_path": "classification.category",
           "canonical_path": "observations.data_category",
           "mapping_status": "mapped_normalized",
-          "transformation_ref": null,
-          "loss_code": "taxonomy_mapping_reviewed",
+          "transformation_ref": "TRANSFORM-BIGID-TAXONOMY-REVIEW",
+          "loss_code": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
       ],
