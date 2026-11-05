@@ -260,7 +260,8 @@
         "currency",
         "entity_ref",
         "period_ref",
-        "source_journal_entry_refs"
+        "source_journal_entry_refs",
+        "normal_balance"
       ],
       "properties": {
         "statement_line_ref": {
@@ -299,6 +300,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "normal_balance": {
+          "enum": [
+            "debit",
+            "credit"
+          ]
         }
       }
     }
