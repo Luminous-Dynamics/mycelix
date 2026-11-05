@@ -28,8 +28,7 @@ Host grants are modeled separately from projections and checkpoints.
 CONSTANTS
     a0, a1, a2,
     b0, b1,
-    NoAction,
-    CheckComponentWise
+    NoAction
 
 ActionsA == {a0, a1, a2}
 ActionsB == {b0, b1}
@@ -229,37 +228,35 @@ ConvergeB ==
            lastCanonicalARevoked, lastCanonicalBRevoked,
            lastHostAActive, lastHostBActive >>
 
-ReadWithCausalFrontier ==
-    /\ LET componentwiseFresh ==
-               /\ projectionASeq >= requiredASeq
-               /\ projectionBSeq >= requiredBSeq
-               /\ projectionAHead = requiredAHead
-               /\ projectionBHead = requiredBHead
-               /\ projectionADescends
-               /\ projectionBDescends
-           scalarFresh ==
-               projectionASeq + projectionBSeq >= requiredASeq + requiredBSeq
-           fresh ==
-               IF CheckComponentWise THEN componentwiseFresh ELSE scalarFresh
-           decision ==
-               IF ~fresh THEN "UNKNOWN"
-               ELSE IF canonicalARevoked \/ canonicalBRevoked
-                    THEN "TRUSTED_REVOKED"
-                    ELSE "TRUSTED_ACTIVE"
-       IN
-           /\ readDecision' = decision
-           /\ lastReadASeq' = projectionASeq
-           /\ lastReadBSeq' = projectionBSeq
-           /\ lastReadAHead' = projectionAHead
-           /\ lastReadBHead' = projectionBHead
-           /\ lastReadADescends' = projectionADescends
-           /\ lastReadBDescends' = projectionBDescends
-           /\ lastReadARevoked' = projectionARevoked
-           /\ lastReadBRevoked' = projectionBRevoked
-           /\ lastCanonicalARevoked' = canonicalARevoked
-           /\ lastCanonicalBRevoked' = canonicalBRevoked
-           /\ lastHostAActive' = hostAActive
-           /\ lastHostBActive' = hostBActive
+componentwiseFresh ==
+    /\ projectionASeq >= requiredASeq
+    /\ projectionBSeq >= requiredBSeq
+    /\ projectionAHead = requiredAHead
+    /\ projectionBHead = requiredBHead
+    /\ projectionADescends
+    /\ projectionBDescends
+
+scalarFresh ==
+    projectionASeq + projectionBSeq >= requiredASeq + requiredBSeq
+
+ReadWithDecision(fresh) ==
+    /\ readDecision' =
+        IF ~fresh THEN "UNKNOWN"
+        ELSE IF canonicalARevoked \/ canonicalBRevoked
+             THEN "TRUSTED_REVOKED"
+             ELSE "TRUSTED_ACTIVE"
+    /\ lastReadASeq' = projectionASeq
+    /\ lastReadBSeq' = projectionBSeq
+    /\ lastReadAHead' = projectionAHead
+    /\ lastReadBHead' = projectionBHead
+    /\ lastReadADescends' = projectionADescends
+    /\ lastReadBDescends' = projectionBDescends
+    /\ lastReadARevoked' = projectionARevoked
+    /\ lastReadBRevoked' = projectionBRevoked
+    /\ lastCanonicalARevoked' = canonicalARevoked
+    /\ lastCanonicalBRevoked' = canonicalBRevoked
+    /\ lastHostAActive' = hostAActive
+    /\ lastHostBActive' = hostBActive
     /\ UNCHANGED
         << hostAActive, hostBActive,
            canonicalASeq, canonicalBSeq, canonicalAHead, canonicalBHead,
@@ -269,6 +266,12 @@ ReadWithCausalFrontier ==
            projectionARevoked, projectionBRevoked,
            projectionADescends, projectionBDescends >>
 
+ReadWithCausalFrontier ==
+    ReadWithDecision(componentwiseFresh)
+
+ReadWithScalarHeight ==
+    ReadWithDecision(scalarFresh)
+
 Next ==
     \/ CommitRevokeA
     \/ CommitRevokeB
@@ -277,7 +280,17 @@ Next ==
     \/ ConvergeB
     \/ ReadWithCausalFrontier
 
+MutantNext ==
+    \/ CommitRevokeA
+    \/ CommitRevokeB
+    \/ ObserveScalarHeightForeignProjection
+    \/ ConvergeA
+    \/ ConvergeB
+    \/ ReadWithScalarHeight
+
 Spec == Init /\ [][Next]_vars
+
+ScalarMutantSpec == Init /\ [][MutantNext]_vars
 
 TypeOK ==
     /\ hostAActive \in BOOLEAN
