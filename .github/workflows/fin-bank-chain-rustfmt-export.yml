@@ -8,7 +8,7 @@ on:
       - ".github/workflows/fin-bank-chain-rustfmt-export.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   format:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout exact source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          persist-credentials: false
+          persist-credentials: true
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
@@ -26,7 +26,16 @@ jobs:
       - name: Format verifier sources
         working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
         run: cargo fmt --all
-      - name: Export canonical formatted sources
+      - name: Commit canonical formatting
+        run: |
+          git add mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier/src/lib.rs mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier/src/main.rs
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "style(finance-bench): format bank statement chain verifier"
+            git push origin HEAD:refs/heads/research/fin-bank-statement-chain-v1
+          fi
+      - name: Export formatted source snapshot
         working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
         run: zip -j /tmp/fin-bank-chain-rustfmt.zip src/lib.rs src/main.rs
       - name: Upload formatted source artifact
