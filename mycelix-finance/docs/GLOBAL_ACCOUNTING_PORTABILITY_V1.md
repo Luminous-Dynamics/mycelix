@@ -51,7 +51,7 @@ Use separate versioned packs for legal jurisdiction and entity/establishment fac
 
 Each pack binds source authority, publisher, document/release version, source URL and captured bytes/digest, applicable entities/transactions, valid-time and knowledge-time, review/approval, dependencies, exclusions, tests and supersession lineage.
 
-A package's existence is not a capability claim. Only an explicit qualification_intersections record with qualified_for_declared_scope may be called qualified, and it must identify the exact profile set, jurisdiction set, entity scope, supported dimensions, validity period, recorded/approved time, reviewer references, evidence references and claim ceiling. Individually qualified packages do not imply a qualified combination. The registry begins with no real-world qualified intersection; a synthetic-only positive control is reserved for resolver testing.
+A package's existence is not a capability claim. Only an explicit qualification_intersections record with qualified_for_declared_scope may be called qualified, and it must identify the exact profile set, jurisdiction set, entity scope, supported dimensions, validity period, recorded/approved time, reviewer references, evidence references and claim ceiling. Individually qualified packages do not imply a qualified combination. The registry contains no real-world qualified intersection; a synthetic-only positive control is reserved for resolver testing. The standalone Rust resolver implements exact-set intersection selection, period/knowledge-frontier checks, and explicit early-application evidence. It does not run tax/accounting rules.
 
 ### 4.3 Policy compiler and resolver
 
@@ -134,11 +134,17 @@ Every qualification identifies exact jurisdiction/entity/framework/tax/e-invoice
 
 The initial reference catalog labels real frameworks and standards research/reference only. It contains no real qualified country profile. South Africa remains review-required; its policy source registry remains separate.
 
-## 10. Ownership and claim ceiling
+## 10. Executable profile-intersection resolver
+
+The Rust resolver in `benchmarks/global-accounting-portability-v1/rust-resolver/` consumes the catalogue and a request binding jurisdiction scopes, entity scope, reporting period, knowledge time, intended use, required dimensions and exact profile IDs. It validates registry, request and report against Draft 2020-12 schemas. It only returns `qualified_for_declared_scope` when one exact intersection matches; individually available profiles are insufficient.
+
+The resolver requires explicit permission for synthetic fixtures. It preserves the `synthetic_fixture_only` ceiling, rejects profile-set/jurisdiction/entity mismatches, refuses stale or unapproved intersections, and requires intersection-bound early-application evidence when a selected profile's reference date is later than the reporting period. The synthetic positive-control intersection is not a legal profile. No real-world intersection is currently qualified.
+
+## 11. Ownership and claim ceiling
 
 - Mycelix: profile registry, source evidence, deterministic authority and receipts.
 - Symthaea: read-only context discovery, exception analysis and candidate mapping.
 - Symtropy: scenarios on named approved profile snapshots; never legal/accounting authority.
 - Existing Mycelix issues retain their own contract ownership; this package composes them.
 
-Passing this synthetic corpus does not establish international accounting compliance, IFRS conformity, tax compliance, e-invoice legal compliance, audit assurance or production readiness. Every real profile intersection requires exact primary-source snapshots and local professional review.
+Passing the synthetic corpus and resolver tests does not establish international accounting compliance, IFRS conformity, tax compliance, e-invoice legal compliance, audit assurance or production readiness. Every real profile intersection requires exact primary-source snapshots and local professional review.
