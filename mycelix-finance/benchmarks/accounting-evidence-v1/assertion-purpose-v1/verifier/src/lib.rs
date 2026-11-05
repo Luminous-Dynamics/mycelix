@@ -344,10 +344,10 @@ pub fn verify(
         let oracle_cases = array(&oracle, "cases");
         let mut oracle_by_id = BTreeMap::<String, &Value>::new();
         for row in oracle_cases {
-            if let Some(id) = string(row, "case_id") {
-                if oracle_by_id.insert(id.to_owned(), row).is_some() {
-                    errors.push(format!("duplicate oracle case: {id}"));
-                }
+            if let Some(id) = string(row, "case_id")
+                && oracle_by_id.insert(id.to_owned(), row).is_some()
+            {
+                errors.push(format!("duplicate oracle case: {id}"));
             }
         }
         let mut seen = BTreeSet::new();
