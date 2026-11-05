@@ -123,6 +123,17 @@ struct TrustedKey {
     roles: Vec<String>,
     predicate_types: Vec<String>,
     status: String,
+    subject_binding: Option<TrustSubjectBinding>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrustSubjectBinding {
+    conductor_id: String,
+    agent_key_ref: String,
+    dna_hash: String,
+    cell_id: String,
+    integrity_wasm_sha256: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -274,6 +285,37 @@ fn graph_has_cycle(edges: &[CausalEdge], event_ids: &BTreeSet<String>) -> bool {
     visited != event_ids.len()
 }
 
+fn verify_issuer_subject_binding(
+    role: &str,
+    details: &Value,
+    key: &TrustedKey,
+    subject: &Subject,
+) -> Result<(), String> {
+    if role == "independent_auditor" {
+        return Ok(());
+    }
+    let binding = key.subject_binding.as_ref()
+        .ok_or_else(|| "trusted key has no conductor/agent subject_binding".to_string())?;
+    let get = |name: &str| details.get(name).and_then(Value::as_str);
+    if get("conductor_id") != Some(binding.conductor_id.as_str())
+        || get("agent_key_ref") != Some(binding.agent_key_ref.as_str())
+        || get("dna_hash") != Some(binding.dna_hash.as_str())
+        || get("cell_id") != Some(binding.cell_id.as_str())
+        || get("integrity_wasm_sha256") != Some(binding.integrity_wasm_sha256.as_str()) {
+        return Err("signed predicate conductor/agent/DNA/CellId/WASM identity differs from trusted key binding".into());
+    }
+    let Some(lineage) = subject.conductor_lineages.iter().find(|c| c.conductor_id == binding.conductor_id) else {
+        return Err("trusted key conductor_id is absent from bundle subject lineage".into());
+    };
+    if lineage.agent_key_ref != binding.agent_key_ref
+        || lineage.dna_hash != binding.dna_hash
+        || lineage.cell_id != binding.cell_id
+        || lineage.integrity_wasm_sha256 != binding.integrity_wasm_sha256 {
+        return Err("bundle conductor lineage differs from trusted key subject binding".into());
+    }
+    Ok(())
+}
+
 fn audit(
     bundle_bytes: &[u8],
     trace_bytes: &[u8],
@@ -325,6 +367,20 @@ fn audit(
     }
     if policy.keys.is_empty() {
         finding(&mut findings, "TRUST_POLICY_HAS_NO_KEYS", "incomplete", None, "trust policy contains no issuer keys");
+    }
+    let mut conductor_ids = BTreeSet::new();
+    for lineage in &bundle.subject.conductor_lineages {
+        if !conductor_ids.insert(lineage.conductor_id.clone()) {
+            finding(&mut findings, "DUPLICATE_CONDUCTOR_LINEAGE", "violation", None, "conductor_id must be unique in bundle subject");
+        }
+        if lineage.conductor_id.trim().is_empty()
+            || lineage.agent_key_ref.trim().is_empty()
+            || lineage.conductor_build.trim().is_empty()
+            || lineage.dna_hash.trim().is_empty()
+            || lineage.cell_id.trim().is_empty()
+            || !valid_sha256(&lineage.integrity_wasm_sha256) {
+            finding(&mut findings, "CONDUCTOR_LINEAGE_INVALID", "incomplete", None, "conductor lineage is missing an identity field or a valid integrity-WASM digest");
+        }
     }
 
     let mut attestation_ids = BTreeSet::new();
@@ -442,6 +498,16 @@ fn audit(
                     };
                     if verifying_key.verify(&pae_bytes, &signature).is_err() {
                         finding(&mut findings, "DSSE_SIGNATURE_INVALID", "violation", Some(&attestation.attestation_id), format!("signature from key {} does not verify over DSSE PAE bytes", sig.keyid));
+                        signature_failure = true;
+                        continue;
+                    }
+                    if let Err(message) = verify_issuer_subject_binding(
+                        &attestation.issuer_role,
+                        &statement.predicate.details,
+                        trusted,
+                        &bundle.subject,
+                    ) {
+                        finding(&mut findings, "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH", "violation", Some(&attestation.attestation_id), message);
                         signature_failure = true;
                         continue;
                     }
