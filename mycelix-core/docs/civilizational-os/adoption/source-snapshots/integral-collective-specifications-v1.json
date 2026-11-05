@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "manifest_id": "integral-collective-specifications-v1",
+  "profile_id": "integral-collective-specifications",
+  "captured_at_utc": "2026-10-21T19:13:17Z",
+  "claim_ceiling": "SourceSnapshotOnly",
+  "sources": [
+    {
+      "source_id": "integral-specifications-repository",
+      "source_url": "https://github.com/Integral-Collective/integral-specifications",
+      "source_kind": "official_repository",
+      "source_title": "Integral Specifications repository revision (source identity only)",
+      "retrieved_at_utc": "2026-10-21T19:13:17Z",
+      "capture_state": "exact_revision_pinned",
+      "source_revision": "402bf3ed46779f81ba720b3f4dabfe0cb1ab1bc5",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "Pins the repository to an immutable Git commit; raw source bytes are not copied into this manifest.",
+        "This source revision pin does not decide whether any schema or interface is ratified or authoritative."
+      ]
+    }
+  ],
+  "nonclaims": [
+    "This manifest records the identity of a public source revision only.",
+    "It does not establish Integral Collective endorsement, partnership, ratification, or authority.",
+    "It does not qualify a Mycelix adapter or prove the semantic correctness of imported source content."
+  ]
+}
