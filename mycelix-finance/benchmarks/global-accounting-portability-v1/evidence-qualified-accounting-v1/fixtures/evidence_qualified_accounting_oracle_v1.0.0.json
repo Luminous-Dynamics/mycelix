@@ -528,6 +528,19 @@
       "expected_journal_entries": [],
       "expected_statement_lines": [],
       "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-018-CREDIT-PARENT-CROSS-NAMESPACE",
+      "expected_disposition": "escalate",
+      "primary_reason_code": "credit_note_parent_missing",
+      "required_source_fact_refs": [
+        "F-018-CREDIT",
+        "F-018-PARENT"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
     }
   ]
 }
