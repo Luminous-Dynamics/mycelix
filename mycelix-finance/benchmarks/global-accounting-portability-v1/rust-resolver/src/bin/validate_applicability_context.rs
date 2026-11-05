@@ -255,8 +255,20 @@ fn fact_eligible_at(fact: &Value, valid_at: &str, knowledge_at: &str) -> bool {
     let recorded_at = fact.get("recorded_at").and_then(Value::as_str);
     let valid_from = fact.get("valid_from").and_then(Value::as_str);
     let valid_to = fact.get("valid_to").and_then(Value::as_str);
+    let scope_ref = fact.get("scope_ref").and_then(Value::as_str);
+    let evidence_present = fact
+        .get("source_evidence_refs")
+        .and_then(Value::as_array)
+        .is_some_and(|refs| !refs.is_empty());
+    let conflict_free = fact
+        .get("conflicts_with_fact_refs")
+        .and_then(Value::as_array)
+        .is_none_or(Vec::is_empty);
     state == Some("evidence_supported")
         && origin != Some("unresolved")
+        && scope_ref.is_some_and(|scope| !scope.is_empty())
+        && evidence_present
+        && conflict_free
         && recorded_at.is_some_and(|value| value <= knowledge_at)
         && valid_from.is_some_and(|value| value <= valid_at)
         && valid_to.is_none_or(|value| valid_at < value)
@@ -388,6 +400,8 @@ mod tests {
         let mut candidate = json!({
             "assertion_state":"evidence_supported",
             "origin":"source_asserted",
+            "scope_ref":"SYN-SCOPE-A",
+            "source_evidence_refs":["SYN-EVIDENCE-UNIT-TEST"],
             "recorded_at":"2026-11-05T10:00:00Z",
             "valid_from":"2026-01-01",
             "valid_to":null
@@ -402,6 +416,8 @@ mod tests {
         let candidate = json!({
             "assertion_state":"evidence_supported",
             "origin":"source_asserted",
+            "scope_ref":"SYN-SCOPE-A",
+            "source_evidence_refs":["SYN-EVIDENCE-UNIT-TEST"],
             "recorded_at":"2026-11-05T09:00:00Z",
             "valid_from":"2026-01-01",
             "valid_to":"2026-11-05"
