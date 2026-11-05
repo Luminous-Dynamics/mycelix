@@ -146,9 +146,12 @@ fn credit_note_parent_missing(case: &Value) -> Result<bool, String> {
                 .get("value")
                 .and_then(Value::as_str)
                 .ok_or_else(|| format!("{document_ref}: original invoice ID is not a string"))?;
+            let parent_namespace = string(document, "namespace")?;
             let frontier = string(case, "knowledge_at")?;
             let found = documents.iter().any(|candidate| {
-                optional_string(candidate, "external_document_id") == Some(original_id)
+                optional_string(candidate, "document_type") == Some("invoice")
+                    && optional_string(candidate, "namespace") == Some(parent_namespace)
+                    && optional_string(candidate, "external_document_id") == Some(original_id)
                     && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
             });
             if !found {
@@ -817,6 +820,15 @@ mod tests {
         let case = case_by_id(&candidates, "ACCT-017-CONTRADICTORY-SERVICE-PERIOD").unwrap();
         assert!(contradictory_service_period_evidence(case).unwrap());
         assert_eq!(derive_expectation(case).unwrap(), ("escalate", "contradictory_service_period_evidence"));
+    }
+
+
+    #[test]
+    fn same_external_invoice_id_in_another_namespace_does_not_resolve_credit_note() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-018-CREDIT-PARENT-CROSS-NAMESPACE").unwrap();
+        assert!(credit_note_parent_missing(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("escalate", "credit_note_parent_missing"));
     }
 
     #[test]
