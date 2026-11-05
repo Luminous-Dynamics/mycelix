@@ -724,7 +724,10 @@ mod tests {
             .find(|item| item["profile_id"] == profile_id)
             .expect("profile exists")
             .clone();
-        let version = profile["version"].as_str().expect("profile version").to_owned();
+        let version = profile["version"]
+            .as_str()
+            .expect("profile version")
+            .to_owned();
         let digest = profile_sha256(&profile).expect("profile digest");
         let binding = registry["qualification_intersections"][0]["profile_bindings"]
             .as_array_mut()
