@@ -1,5 +1,5 @@
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
@@ -28,10 +28,16 @@ fn run_cli() -> Result<(), Box<dyn Error>> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--registry" => registry_path = PathBuf::from(next_arg(&mut args, "--registry")?),
-            "--registry-schema" => registry_schema_path = PathBuf::from(next_arg(&mut args, "--registry-schema")?),
+            "--registry-schema" => {
+                registry_schema_path = PathBuf::from(next_arg(&mut args, "--registry-schema")?)
+            }
             "--request" => request_path = PathBuf::from(next_arg(&mut args, "--request")?),
-            "--request-schema" => request_schema_path = PathBuf::from(next_arg(&mut args, "--request-schema")?),
-            "--report-schema" => report_schema_path = PathBuf::from(next_arg(&mut args, "--report-schema")?),
+            "--request-schema" => {
+                request_schema_path = PathBuf::from(next_arg(&mut args, "--request-schema")?)
+            }
+            "--report-schema" => {
+                report_schema_path = PathBuf::from(next_arg(&mut args, "--report-schema")?)
+            }
             "--out" => output_path = Some(PathBuf::from(next_arg(&mut args, "--out")?)),
             "--help" | "-h" => {
                 print_help();
@@ -77,7 +83,8 @@ fn run_cli() -> Result<(), Box<dyn Error>> {
 }
 
 fn next_arg(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<String, Box<dyn Error>> {
-    args.next().ok_or_else(|| format!("{flag} requires a value").into())
+    args.next()
+        .ok_or_else(|| format!("{flag} requires a value").into())
 }
 
 fn print_help() {
@@ -112,14 +119,22 @@ fn validate_instance(label: &str, schema: &Value, instance: &Value) -> AppResult
 }
 
 fn string_field<'a>(value: &'a Value, key: &str) -> AppResult<&'a str> {
-    value.get(key).and_then(Value::as_str).ok_or_else(|| format!("missing or invalid string field: {key}"))
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("missing or invalid string field: {key}"))
 }
 
 fn string_array(value: &Value, key: &str) -> AppResult<Vec<String>> {
-    let array = value.get(key).and_then(Value::as_array).ok_or_else(|| format!("missing or invalid array field: {key}"))?;
+    let array = value
+        .get(key)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("missing or invalid array field: {key}"))?;
     let mut items = Vec::with_capacity(array.len());
     for item in array {
-        let text = item.as_str().ok_or_else(|| format!("{key} contains a non-string value"))?;
+        let text = item
+            .as_str()
+            .ok_or_else(|| format!("{key} contains a non-string value"))?;
         items.push(text.to_owned());
     }
     Ok(items)
@@ -134,7 +149,10 @@ fn sorted_unique(values: Vec<String>, label: &str) -> AppResult<Vec<String>> {
 }
 
 fn array_of_objects<'a>(value: &'a Value, key: &str) -> AppResult<&'a Vec<Value>> {
-    value.get(key).and_then(Value::as_array).ok_or_else(|| format!("missing or invalid array: {key}"))
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("missing or invalid array: {key}"))
 }
 
 fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
@@ -152,50 +170,79 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
         if !intersections.insert(id.clone()) {
             return Err(format!("duplicate intersection_id: {id}"));
         }
-        let refs = sorted_unique(string_array(intersection, "profile_refs")?, "intersection profile_refs")?;
-        let dimensions = sorted_unique(string_array(intersection, "supported_dimensions")?, "intersection supported_dimensions")?;
+        let refs = sorted_unique(
+            string_array(intersection, "profile_refs")?,
+            "intersection profile_refs",
+        )?;
+        let dimensions = sorted_unique(
+            string_array(intersection, "supported_dimensions")?,
+            "intersection supported_dimensions",
+        )?;
         let binding_rows = array_of_objects(intersection, "profile_bindings")?;
         let mut bindings = BTreeMap::<String, Value>::new();
         for binding in binding_rows {
             let profile_id = string_field(binding, "profile_id")?.to_owned();
-            if bindings.insert(profile_id.clone(), binding.clone()).is_some() {
-                return Err(format!("intersection {id} has duplicate profile binding: {profile_id}"));
+            if bindings
+                .insert(profile_id.clone(), binding.clone())
+                .is_some()
+            {
+                return Err(format!(
+                    "intersection {id} has duplicate profile binding: {profile_id}"
+                ));
             }
         }
         if bindings.len() != refs.len() {
-            return Err(format!("intersection {id} profile binding count does not match profile_refs"));
+            return Err(format!(
+                "intersection {id} profile binding count does not match profile_refs"
+            ));
         }
         let mut actual_dimensions = BTreeSet::new();
         for profile_id in &refs {
-            let profile = profiles.get(profile_id).ok_or_else(|| format!("intersection {id} references unknown profile {profile_id}"))?;
-            let binding = bindings.get(profile_id).ok_or_else(|| format!("intersection {id} has no content binding for profile {profile_id}"))?;
+            let profile = profiles.get(profile_id).ok_or_else(|| {
+                format!("intersection {id} references unknown profile {profile_id}")
+            })?;
+            let binding = bindings.get(profile_id).ok_or_else(|| {
+                format!("intersection {id} has no content binding for profile {profile_id}")
+            })?;
             let expected_version = string_field(profile, "version")?;
             let bound_version = string_field(binding, "version")?;
             if bound_version != expected_version {
-                return Err(format!("intersection {id} profile version binding mismatch: {profile_id}"));
+                return Err(format!(
+                    "intersection {id} profile version binding mismatch: {profile_id}"
+                ));
             }
             let expected_digest = profile_sha256(profile)?;
             let bound_digest = string_field(binding, "profile_sha256")?;
             if bound_digest != expected_digest {
-                return Err(format!("intersection {id} profile content digest mismatch: {profile_id}"));
+                return Err(format!(
+                    "intersection {id} profile content digest mismatch: {profile_id}"
+                ));
             }
             actual_dimensions.insert(string_field(profile, "dimension")?.to_owned());
         }
         if bindings.keys().any(|profile_id| !refs.contains(profile_id)) {
-            return Err(format!("intersection {id} has a profile binding outside profile_refs"));
+            return Err(format!(
+                "intersection {id} has a profile binding outside profile_refs"
+            ));
         }
         for dimension in dimensions {
             if !actual_dimensions.contains(&dimension) {
-                return Err(format!("intersection {id} claims unsupported dimension {dimension}"));
+                return Err(format!(
+                    "intersection {id} claims unsupported dimension {dimension}"
+                ));
             }
         }
         let scope_kind = string_field(intersection, "scope_kind")?;
         let claim_ceiling = string_field(intersection, "claim_ceiling")?;
         if scope_kind == "synthetic_fixture_only" && claim_ceiling != "synthetic_fixture_only" {
-            return Err(format!("synthetic intersection {id} has an invalid claim ceiling"));
+            return Err(format!(
+                "synthetic intersection {id} has an invalid claim ceiling"
+            ));
         }
         if scope_kind == "real_world" && claim_ceiling != "declared_scope_only" {
-            return Err(format!("real-world intersection {id} has an invalid claim ceiling"));
+            return Err(format!(
+                "real-world intersection {id} has an invalid claim ceiling"
+            ));
         }
         let valid_from = string_field(intersection, "valid_from")?;
         if let Some(valid_to) = intersection.get("valid_to").and_then(Value::as_str) {
@@ -206,41 +253,69 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
         let recorded_at = string_field(intersection, "recorded_at")?;
         let approved_at = string_field(intersection, "approved_at")?;
         if approved_at < recorded_at {
-            return Err(format!("intersection {id} is approved before it was recorded"));
+            return Err(format!(
+                "intersection {id} is approved before it was recorded"
+            ));
         }
-        let evidence_refs = string_array(intersection, "evidence_refs")?.into_iter().collect::<BTreeSet<_>>();
-        let reviewer_refs = string_array(intersection, "reviewer_refs")?.into_iter().collect::<BTreeSet<_>>();
+        let evidence_refs = string_array(intersection, "evidence_refs")?
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let reviewer_refs = string_array(intersection, "reviewer_refs")?
+            .into_iter()
+            .collect::<BTreeSet<_>>();
         let intersection_approved_at = string_field(intersection, "approved_at")?;
         let mut early_application_profiles = BTreeSet::<String>::new();
         for qualification in array_of_objects(intersection, "early_application_qualifications")? {
             let profile_id = string_field(qualification, "profile_id")?;
             if !refs.iter().any(|selected| selected.as_str() == profile_id) {
-                return Err(format!("early-application qualification {id} references a profile outside profile_refs: {profile_id}"));
+                return Err(format!(
+                    "early-application qualification {id} references a profile outside profile_refs: {profile_id}"
+                ));
             }
             if !early_application_profiles.insert(profile_id.to_owned()) {
-                return Err(format!("intersection {id} has duplicate early-application qualification for profile: {profile_id}"));
+                return Err(format!(
+                    "intersection {id} has duplicate early-application qualification for profile: {profile_id}"
+                ));
             }
-            let profile = profiles.get(profile_id).ok_or_else(|| format!("early-application qualification {id} references unknown profile {profile_id}"))?;
-            if profile.get("early_application_allowed").and_then(Value::as_bool) != Some(true) {
-                return Err(format!("early-application qualification {id} references a profile that does not permit early application: {profile_id}"));
+            let profile = profiles.get(profile_id).ok_or_else(|| {
+                format!(
+                    "early-application qualification {id} references unknown profile {profile_id}"
+                )
+            })?;
+            if profile
+                .get("early_application_allowed")
+                .and_then(Value::as_bool)
+                != Some(true)
+            {
+                return Err(format!(
+                    "early-application qualification {id} references a profile that does not permit early application: {profile_id}"
+                ));
             }
             let evidence_ref = string_field(qualification, "evidence_ref")?;
             if !evidence_refs.contains(evidence_ref) {
-                return Err(format!("early-application qualification {id} evidence reference is not bound by the intersection: {evidence_ref}"));
+                return Err(format!(
+                    "early-application qualification {id} evidence reference is not bound by the intersection: {evidence_ref}"
+                ));
             }
             let reviewer_ref = string_field(qualification, "reviewer_ref")?;
             if !reviewer_refs.contains(reviewer_ref) {
-                return Err(format!("early-application qualification {id} reviewer is not bound by the intersection: {reviewer_ref}"));
+                return Err(format!(
+                    "early-application qualification {id} reviewer is not bound by the intersection: {reviewer_ref}"
+                ));
             }
             if string_field(qualification, "approved_at")? > intersection_approved_at {
-                return Err(format!("early-application qualification {id} is approved after the parent intersection"));
+                return Err(format!(
+                    "early-application qualification {id} is approved after the parent intersection"
+                ));
             }
         }
         if string_field(intersection, "status")? == "qualified_for_declared_scope" {
             let reviewers = string_array(intersection, "reviewer_refs")?;
             let evidence = string_array(intersection, "evidence_refs")?;
             if reviewers.is_empty() || evidence.is_empty() {
-                return Err(format!("qualified intersection {id} lacks review/evidence references"));
+                return Err(format!(
+                    "qualified intersection {id} lacks review/evidence references"
+                ));
             }
         }
     }
@@ -254,10 +329,22 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
     let period_start = string_field(request, "reporting_period_start")?.to_owned();
     let period_end = string_field(request, "reporting_period_end")?.to_owned();
     let knowledge_at = string_field(request, "knowledge_at")?.to_owned();
-    let jurisdiction_scopes = sorted_unique(string_array(request, "jurisdiction_scopes")?, "jurisdiction_scopes")?;
-    let required_dimensions = sorted_unique(string_array(request, "required_dimensions")?, "required_dimensions")?;
-    let selected_profile_ids = sorted_unique(string_array(request, "selected_profile_ids")?, "selected_profile_ids")?;
-    let allow_synthetic = request.get("allow_synthetic").and_then(Value::as_bool).unwrap_or(false);
+    let jurisdiction_scopes = sorted_unique(
+        string_array(request, "jurisdiction_scopes")?,
+        "jurisdiction_scopes",
+    )?;
+    let required_dimensions = sorted_unique(
+        string_array(request, "required_dimensions")?,
+        "required_dimensions",
+    )?;
+    let selected_profile_ids = sorted_unique(
+        string_array(request, "selected_profile_ids")?,
+        "selected_profile_ids",
+    )?;
+    let allow_synthetic = request
+        .get("allow_synthetic")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let invalid_reporting_period = period_end < period_start;
 
     let mut profiles = BTreeMap::<String, Value>::new();
@@ -311,11 +398,14 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
         }
     }
     selected_profiles.sort_by(|a, b| {
-        a.get("profile_id").and_then(Value::as_str).cmp(&b.get("profile_id").and_then(Value::as_str))
+        a.get("profile_id")
+            .and_then(Value::as_str)
+            .cmp(&b.get("profile_id").and_then(Value::as_str))
     });
 
     let resolved_dimension_set = resolved_dimensions.clone();
-    let missing_dimensions = required_dimensions.iter()
+    let missing_dimensions = required_dimensions
+        .iter()
         .filter(|dimension| !resolved_dimension_set.contains(*dimension))
         .cloned()
         .collect::<Vec<_>>();
@@ -326,14 +416,25 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
         blockers.insert("reporting_period_end_precedes_start".to_owned());
     }
 
-    let requested_profile_set = selected_profile_ids.iter().cloned().collect::<BTreeSet<_>>();
+    let requested_profile_set = selected_profile_ids
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
     let requested_jurisdiction_set = jurisdiction_scopes.iter().cloned().collect::<BTreeSet<_>>();
     let mut exact_intersections = Vec::<Value>::new();
     for intersection in array_of_objects(registry, "qualification_intersections")? {
-        let intersection_profiles = string_array(intersection, "profile_refs")?.into_iter().collect::<BTreeSet<_>>();
-        let intersection_jurisdictions = string_array(intersection, "jurisdiction_scopes")?.into_iter().collect::<BTreeSet<_>>();
-        let same_entity = intersection.get("entity_scope").and_then(Value::as_str) == Some(entity_scope.as_str());
-        if intersection_profiles == requested_profile_set && intersection_jurisdictions == requested_jurisdiction_set && same_entity {
+        let intersection_profiles = string_array(intersection, "profile_refs")?
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let intersection_jurisdictions = string_array(intersection, "jurisdiction_scopes")?
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let same_entity =
+            intersection.get("entity_scope").and_then(Value::as_str) == Some(entity_scope.as_str());
+        if intersection_profiles == requested_profile_set
+            && intersection_jurisdictions == requested_jurisdiction_set
+            && same_entity
+        {
             exact_intersections.push(intersection.clone());
         }
     }
@@ -351,7 +452,11 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
         disposition = "needs_review";
         blockers.insert("multiple_exact_intersections_ambiguous".to_owned());
     } else if exact_intersections.is_empty() {
-        disposition = if review_required { "needs_review" } else { "unsupported_profile" };
+        disposition = if review_required {
+            "needs_review"
+        } else {
+            "unsupported_profile"
+        };
         blockers.insert("no_exact_qualified_intersection".to_owned());
     } else {
         let intersection = &exact_intersections[0];
@@ -364,25 +469,45 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
         let recorded_at = string_field(intersection, "recorded_at")?;
         let approved_at = string_field(intersection, "approved_at")?;
         let allowed_uses = string_array(intersection, "allowed_intended_uses")?;
-        let supported_dimensions = string_array(intersection, "supported_dimensions")?.into_iter().collect::<BTreeSet<_>>();
-        let all_dimensions_supported = required_dimensions.iter().all(|dimension| supported_dimensions.contains(dimension));
+        let supported_dimensions = string_array(intersection, "supported_dimensions")?
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let all_dimensions_supported = required_dimensions
+            .iter()
+            .all(|dimension| supported_dimensions.contains(dimension));
         let all_profile_statuses_valid = selected_profile_ids.iter().all(|profile_id| {
-            profiles.get(profile_id).and_then(|profile| profile.get("status")).and_then(Value::as_str)
-                == Some(if scope_kind == "synthetic_fixture_only" { "synthetic_only" } else { "qualified_for_declared_scope" })
+            profiles
+                .get(profile_id)
+                .and_then(|profile| profile.get("status"))
+                .and_then(Value::as_str)
+                == Some(if scope_kind == "synthetic_fixture_only" {
+                    "synthetic_only"
+                } else {
+                    "qualified_for_declared_scope"
+                })
         });
         let period_in_scope = period_start >= valid_from.to_owned()
-            && valid_to.map(|end| period_end.as_str() <= end).unwrap_or(true);
-        let known_and_approved = knowledge_at.as_str() >= recorded_at && knowledge_at.as_str() >= approved_at;
-        let early_qualifications = array_of_objects(intersection, "early_application_qualifications")?;
+            && valid_to
+                .map(|end| period_end.as_str() <= end)
+                .unwrap_or(true);
+        let known_and_approved =
+            knowledge_at.as_str() >= recorded_at && knowledge_at.as_str() >= approved_at;
+        let early_qualifications =
+            array_of_objects(intersection, "early_application_qualifications")?;
         let mut profile_effective = true;
         let mut early_application_unknown = false;
         for profile_id in &selected_profile_ids {
             if let Some(profile) = profiles.get(profile_id) {
-                if let Some(profile_valid_from) = profile.get("valid_from").and_then(Value::as_str) {
+                if let Some(profile_valid_from) = profile.get("valid_from").and_then(Value::as_str)
+                {
                     if period_start.as_str() < profile_valid_from {
-                        let permits_early = profile.get("early_application_allowed").and_then(Value::as_bool) == Some(true);
+                        let permits_early = profile
+                            .get("early_application_allowed")
+                            .and_then(Value::as_bool)
+                            == Some(true);
                         let qualification = early_qualifications.iter().find(|item| {
-                            item.get("profile_id").and_then(Value::as_str) == Some(profile_id.as_str())
+                            item.get("profile_id").and_then(Value::as_str)
+                                == Some(profile_id.as_str())
                         });
                         match (permits_early, qualification) {
                             (true, Some(item)) => {
@@ -394,7 +519,9 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
                             }
                             _ => {
                                 profile_effective = false;
-                                blockers.insert(format!("profile_not_effective_for_reporting_period:{profile_id}"));
+                                blockers.insert(format!(
+                                    "profile_not_effective_for_reporting_period:{profile_id}"
+                                ));
                             }
                         }
                     }
@@ -417,22 +544,29 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
                     blockers.insert("synthetic_permission_required_for_intersection".to_owned());
                 } else if !all_profile_statuses_valid {
                     disposition = "unsupported_profile";
-                    blockers.insert("selected_profile_status_incompatible_with_intersection_scope".to_owned());
+                    blockers.insert(
+                        "selected_profile_status_incompatible_with_intersection_scope".to_owned(),
+                    );
                 } else if !period_in_scope {
                     disposition = "unsupported_profile";
                     blockers.insert("reporting_period_outside_intersection_validity".to_owned());
                 } else if !profile_effective {
                     disposition = "unsupported_profile";
-                    blockers.insert("selected_profile_not_effective_for_reporting_period".to_owned());
+                    blockers
+                        .insert("selected_profile_not_effective_for_reporting_period".to_owned());
                 } else if early_application_unknown || !known_and_approved {
                     disposition = "indeterminate";
-                    blockers.insert("intersection_or_early_application_not_yet_known_or_approved_at_frontier".to_owned());
+                    blockers.insert(
+                        "intersection_or_early_application_not_yet_known_or_approved_at_frontier"
+                            .to_owned(),
+                    );
                 } else if !allowed_uses.iter().any(|use_id| use_id == &intended_use) {
                     disposition = "unsupported_profile";
                     blockers.insert("intended_use_not_authorized_by_intersection".to_owned());
                 } else if !all_dimensions_supported {
                     disposition = "partial_or_profile_scoped";
-                    blockers.insert("intersection_does_not_cover_all_required_dimensions".to_owned());
+                    blockers
+                        .insert("intersection_does_not_cover_all_required_dimensions".to_owned());
                 } else {
                     disposition = "qualified_for_declared_scope";
                     claim_ceiling = string_field(intersection, "claim_ceiling")?.to_owned();
@@ -478,7 +612,7 @@ fn append_canonical_json(value: &Value, output: &mut String) -> AppResult<()> {
         Value::Number(value) => output.push_str(&value.to_string()),
         Value::String(value) => output.push_str(
             &serde_json::to_string(value)
-                .map_err(|error| format!("could not encode canonical JSON string: {error}"))?
+                .map_err(|error| format!("could not encode canonical JSON string: {error}"))?,
         ),
         Value::Array(values) => {
             output.push('[');
@@ -498,12 +632,13 @@ fn append_canonical_json(value: &Value, output: &mut String) -> AppResult<()> {
                 if index > 0 {
                     output.push(',');
                 }
-                output.push_str(
-                    &serde_json::to_string(*key)
-                        .map_err(|error| format!("could not encode canonical JSON key: {error}"))?
-                );
+                output
+                    .push_str(&serde_json::to_string(*key).map_err(|error| {
+                        format!("could not encode canonical JSON key: {error}")
+                    })?);
                 output.push(':');
-                let child = values.get(*key)
+                let child = values
+                    .get(*key)
                     .ok_or_else(|| "canonical JSON object key disappeared".to_owned())?;
                 append_canonical_json(child, output)?;
             }
@@ -529,9 +664,15 @@ fn resolver_source_digest() -> String {
     for (path, bytes) in [
         ("Cargo.toml", include_bytes!("../Cargo.toml").as_slice()),
         ("README.md", include_bytes!("../README.md").as_slice()),
-        ("resolve_request.schema.json", include_bytes!("../resolve_request.schema.json").as_slice()),
-        ("report.schema.json", include_bytes!("../report.schema.json").as_slice()),
-        ("src/main.rs", include_bytes!("main.rs").as_slice())
+        (
+            "resolve_request.schema.json",
+            include_bytes!("../resolve_request.schema.json").as_slice(),
+        ),
+        (
+            "report.schema.json",
+            include_bytes!("../report.schema.json").as_slice(),
+        ),
+        ("src/main.rs", include_bytes!("main.rs").as_slice()),
     ] {
         hasher.update(path.as_bytes());
         hasher.update([0]);
@@ -546,15 +687,18 @@ mod tests {
     use super::*;
 
     fn registry() -> Value {
-        serde_json::from_str(include_str!("../../profile_reference_v1.0.0.json")).expect("registry JSON")
+        serde_json::from_str(include_str!("../../profile_reference_v1.0.0.json"))
+            .expect("registry JSON")
     }
 
     fn registry_schema() -> Value {
-        serde_json::from_str(include_str!("../../profile_reference_v1.0.0.schema.json")).expect("registry schema JSON")
+        serde_json::from_str(include_str!("../../profile_reference_v1.0.0.schema.json"))
+            .expect("registry schema JSON")
     }
 
     fn request_schema() -> Value {
-        serde_json::from_str(include_str!("../resolve_request.schema.json")).expect("request schema JSON")
+        serde_json::from_str(include_str!("../resolve_request.schema.json"))
+            .expect("request schema JSON")
     }
 
     fn report_schema() -> Value {
@@ -567,7 +711,7 @@ mod tests {
             "disabled" => include_str!("../fixtures/synthetic-disabled-request.json"),
             "reference" => include_str!("../fixtures/reference-only-request.json"),
             "missing" => include_str!("../fixtures/missing-dimension-request.json"),
-            _ => panic!("unknown fixture")
+            _ => panic!("unknown fixture"),
         };
         serde_json::from_str(input).expect("request JSON")
     }
@@ -602,7 +746,10 @@ mod tests {
         let report = checked_resolve(&registry(), &request("qualified"));
         assert_eq!(report["disposition"], "qualified_for_declared_scope");
         assert_eq!(report["claim_ceiling"], "synthetic_fixture_only");
-        assert_eq!(report["matched_intersection_id"], "SYNTH-PORTABILITY-INTERSECTION-001");
+        assert_eq!(
+            report["matched_intersection_id"],
+            "SYNTH-PORTABILITY-INTERSECTION-001"
+        );
     }
 
     #[test]
@@ -610,14 +757,22 @@ mod tests {
         let report = checked_resolve(&registry(), &request("disabled"));
         assert_eq!(report["disposition"], "unsupported_profile");
         assert_eq!(report["claim_ceiling"], "no_qualification_claim");
-        assert!(report["blocking_reasons"].to_string().contains("synthetic_permission_required"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("synthetic_permission_required")
+        );
     }
 
     #[test]
     fn reference_only_profiles_do_not_become_qualified_by_coexistence() {
         let report = checked_resolve(&registry(), &request("reference"));
         assert_eq!(report["disposition"], "unsupported_profile");
-        assert!(report["blocking_reasons"].to_string().contains("no_exact_qualified_intersection"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("no_exact_qualified_intersection")
+        );
         assert!(report["unsupported_profile_ids"].as_array().unwrap().len() >= 1);
     }
 
@@ -633,9 +788,18 @@ mod tests {
         let registry = registry();
         let mut request = request("qualified");
         let before = checked_resolve(&registry, &request);
-        request["selected_profile_ids"].as_array_mut().unwrap().reverse();
-        request["required_dimensions"].as_array_mut().unwrap().reverse();
-        request["jurisdiction_scopes"].as_array_mut().unwrap().reverse();
+        request["selected_profile_ids"]
+            .as_array_mut()
+            .unwrap()
+            .reverse();
+        request["required_dimensions"]
+            .as_array_mut()
+            .unwrap()
+            .reverse();
+        request["jurisdiction_scopes"]
+            .as_array_mut()
+            .unwrap()
+            .reverse();
         let after = checked_resolve(&registry, &request);
         assert_eq!(before, after);
     }
@@ -644,7 +808,10 @@ mod tests {
     fn a_superset_profile_set_never_matches_an_exact_intersection() {
         let registry = registry();
         let mut request = request("qualified");
-        request["selected_profile_ids"].as_array_mut().unwrap().push(json!("SYN-EXTRA-PROFILE-A"));
+        request["selected_profile_ids"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("SYN-EXTRA-PROFILE-A"));
         let report = checked_resolve(&registry, &request);
         assert_ne!(report["disposition"], "qualified_for_declared_scope");
         assert_eq!(report["matched_intersection_id"], Value::Null);
@@ -668,25 +835,29 @@ mod tests {
         request["reporting_period_end"] = json!("2025-12-31");
         let report = checked_resolve(&registry, &request);
         assert_eq!(report["disposition"], "unsupported_profile");
-        assert!(report["blocking_reasons"].to_string().contains("outside_intersection_validity"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("outside_intersection_validity")
+        );
     }
-
-
-
-
 
     #[test]
     fn duplicate_early_application_qualifications_fail_closed() {
         let mut registry = registry();
         let intersection = &mut registry["qualification_intersections"][0];
-        intersection["evidence_refs"].as_array_mut().unwrap().push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
+        intersection["evidence_refs"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
         let qualification = json!({
             "profile_id": "SYN-FRAMEWORK-A",
             "evidence_ref": "SYN-EARLY-APPLICATION-APPROVAL",
             "reviewer_ref": "SYNTHETIC-FIXTURE-MAINTAINER",
             "approved_at": "2026-11-05T01:25:00Z"
         });
-        intersection["early_application_qualifications"] = json!([qualification.clone(), qualification]);
+        intersection["early_application_qualifications"] =
+            json!([qualification.clone(), qualification]);
         assert!(validate_registry_semantics(&registry).is_err());
     }
 
@@ -694,7 +865,10 @@ mod tests {
     fn early_application_qualification_for_unselected_profile_fails_closed() {
         let mut registry = registry();
         let intersection = &mut registry["qualification_intersections"][0];
-        intersection["evidence_refs"].as_array_mut().unwrap().push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
+        intersection["evidence_refs"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
         intersection["early_application_qualifications"] = json!([{
             "profile_id": "IFRS-SMES-2025",
             "evidence_ref": "SYN-EARLY-APPLICATION-APPROVAL",
@@ -712,7 +886,10 @@ mod tests {
         let second: Value = serde_json::from_str(
             r#"{"notes":"synthetic","valid_from":null,"source_url":"https://example.invalid/profile","authority_class":"synthetic_test_fixture","status":"synthetic_only","dimension":"accounting_framework","version":"v1","profile_id":"SYN-PROFILE"}"#
         ).unwrap();
-        assert_eq!(profile_sha256(&first).unwrap(), profile_sha256(&second).unwrap());
+        assert_eq!(
+            profile_sha256(&first).unwrap(),
+            profile_sha256(&second).unwrap()
+        );
     }
 
     #[test]
@@ -722,7 +899,6 @@ mod tests {
         assert!(validate_instance("request", &request_schema(), &request).is_err());
     }
 
-
     #[test]
     fn canonical_profile_digest_preserves_array_order() {
         let first: Value = serde_json::from_str(
@@ -731,14 +907,21 @@ mod tests {
         let reversed: Value = serde_json::from_str(
             r#"{"profile_id":"SYN-PROFILE","version":"v1","dimension":"accounting_framework","status":"synthetic_only","authority_class":"synthetic_test_fixture","source_url":"https://example.invalid/profile","valid_from":null,"notes":"synthetic","labels":["two","one"]}"#
         ).unwrap();
-        assert_ne!(profile_sha256(&first).unwrap(), profile_sha256(&reversed).unwrap());
+        assert_ne!(
+            profile_sha256(&first).unwrap(),
+            profile_sha256(&reversed).unwrap()
+        );
     }
 
     #[test]
     fn profile_content_mutation_invalidates_approved_intersection() {
         let mut registry = registry();
-        let profile = registry["profile_references"].as_array_mut().unwrap()
-            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        let profile = registry["profile_references"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["profile_id"] == "SYN-FRAMEWORK-A")
+            .unwrap();
         profile["notes"] = json!("mutated content under unchanged profile ID and version");
         assert!(validate_registry_semantics(&registry).is_err());
     }
@@ -746,8 +929,12 @@ mod tests {
     #[test]
     fn profile_version_mutation_invalidates_approved_intersection() {
         let mut registry = registry();
-        let profile = registry["profile_references"].as_array_mut().unwrap()
-            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        let profile = registry["profile_references"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["profile_id"] == "SYN-FRAMEWORK-A")
+            .unwrap();
         profile["version"] = json!("synthetic-framework-a-revised");
         assert!(validate_registry_semantics(&registry).is_err());
     }
@@ -756,7 +943,9 @@ mod tests {
     fn missing_profile_content_binding_fails_closed() {
         let mut registry = registry();
         registry["qualification_intersections"][0]["profile_bindings"]
-            .as_array_mut().unwrap().pop();
+            .as_array_mut()
+            .unwrap()
+            .pop();
         assert!(validate_registry_semantics(&registry).is_err());
     }
 
@@ -764,21 +953,34 @@ mod tests {
     fn unknown_profile_id_is_unsupported() {
         let registry = registry();
         let mut request = request("qualified");
-        request["selected_profile_ids"].as_array_mut().unwrap().push(json!("UNKNOWN-PROFILE"));
+        request["selected_profile_ids"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("UNKNOWN-PROFILE"));
         let report = checked_resolve(&registry, &request);
         assert_eq!(report["disposition"], "unsupported_profile");
-        assert!(report["unsupported_profile_ids"].to_string().contains("UNKNOWN-PROFILE"));
+        assert!(
+            report["unsupported_profile_ids"]
+                .to_string()
+                .contains("UNKNOWN-PROFILE")
+        );
     }
 
     #[test]
     fn partial_dimension_coverage_never_claims_full_qualification() {
         let mut registry = registry();
         registry["qualification_intersections"][0]["supported_dimensions"]
-            .as_array_mut().unwrap().retain(|dimension| dimension != "timezone_database");
+            .as_array_mut()
+            .unwrap()
+            .retain(|dimension| dimension != "timezone_database");
         let report = checked_resolve(&registry, &request("qualified"));
         assert_eq!(report["disposition"], "partial_or_profile_scoped");
         assert_eq!(report["claim_ceiling"], "no_qualification_claim");
-        assert!(report["blocking_reasons"].to_string().contains("does_not_cover_all_required_dimensions"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("does_not_cover_all_required_dimensions")
+        );
     }
 
     #[test]
@@ -786,7 +988,10 @@ mod tests {
         let mut registry = registry();
         let mut duplicate = registry["qualification_intersections"][0].clone();
         duplicate["intersection_id"] = json!("SYNTH-PORTABILITY-INTERSECTION-002");
-        registry["qualification_intersections"].as_array_mut().unwrap().push(duplicate);
+        registry["qualification_intersections"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         let report = checked_resolve(&registry, &request("qualified"));
         assert_eq!(report["disposition"], "needs_review");
         assert_eq!(report["matched_intersection_id"], Value::Null);
@@ -809,19 +1014,31 @@ mod tests {
         request["intended_use"] = json!("tax_calculation");
         let report = checked_resolve(&registry, &request);
         assert_eq!(report["disposition"], "unsupported_profile");
-        assert!(report["blocking_reasons"].to_string().contains("intended_use_not_authorized"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("intended_use_not_authorized")
+        );
     }
 
     #[test]
     fn early_application_is_rejected_when_profile_does_not_allow_it() {
         let mut registry = registry();
-        let profile = registry["profile_references"].as_array_mut().unwrap()
-            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        let profile = registry["profile_references"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["profile_id"] == "SYN-FRAMEWORK-A")
+            .unwrap();
         profile["valid_from"] = json!("2027-01-01");
         profile["early_application_allowed"] = json!(false);
         let report = checked_resolve(&registry, &request("qualified"));
         assert_eq!(report["disposition"], "unsupported_profile");
-        assert!(report["blocking_reasons"].to_string().contains("profile_not_effective_for_reporting_period"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("profile_not_effective_for_reporting_period")
+        );
     }
 
     #[test]
@@ -832,7 +1049,11 @@ mod tests {
         request["reporting_period_end"] = json!("2026-11-01");
         let report = checked_resolve(&registry, &request);
         assert_eq!(report["disposition"], "indeterminate");
-        assert!(report["blocking_reasons"].to_string().contains("reporting_period_end_precedes_start"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("reporting_period_end_precedes_start")
+        );
     }
 
     #[test]
@@ -842,7 +1063,11 @@ mod tests {
         request["knowledge_at"] = json!("2026-11-04T00:00:00Z");
         let report = checked_resolve(&registry, &request);
         assert_eq!(report["disposition"], "indeterminate");
-        assert!(report["blocking_reasons"].to_string().contains("not_yet_known_or_approved"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("not_yet_known_or_approved")
+        );
     }
 
     #[test]
@@ -851,14 +1076,21 @@ mod tests {
         registry["qualification_intersections"] = json!([]);
         let report = checked_resolve(&registry, &request("qualified"));
         assert_eq!(report["disposition"], "unsupported_profile");
-        assert!(report["blocking_reasons"].to_string().contains("no_exact_qualified_intersection"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("no_exact_qualified_intersection")
+        );
     }
 
     #[test]
     fn duplicate_registry_profile_ids_fail_closed() {
         let mut registry = registry();
         let duplicate = registry["profile_references"][0].clone();
-        registry["profile_references"].as_array_mut().unwrap().push(duplicate);
+        registry["profile_references"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         assert!(validate_registry_semantics(&registry).is_err());
     }
 
@@ -866,26 +1098,39 @@ mod tests {
     fn duplicate_intersection_ids_fail_closed() {
         let mut registry = registry();
         let duplicate = registry["qualification_intersections"][0].clone();
-        registry["qualification_intersections"].as_array_mut().unwrap().push(duplicate);
+        registry["qualification_intersections"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         assert!(validate_registry_semantics(&registry).is_err());
     }
-
 
     #[test]
     fn future_effective_profile_requires_explicit_early_application_evidence() {
         let mut registry = registry();
-        let profile = registry["profile_references"].as_array_mut().unwrap()
-            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        let profile = registry["profile_references"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["profile_id"] == "SYN-FRAMEWORK-A")
+            .unwrap();
         profile["valid_from"] = json!("2027-01-01");
         profile["early_application_allowed"] = json!(true);
 
         let request = request("qualified");
         let without_evidence = checked_resolve(&registry, &request);
         assert_eq!(without_evidence["disposition"], "unsupported_profile");
-        assert!(without_evidence["blocking_reasons"].to_string().contains("profile_not_effective_for_reporting_period"));
+        assert!(
+            without_evidence["blocking_reasons"]
+                .to_string()
+                .contains("profile_not_effective_for_reporting_period")
+        );
 
         let intersection = &mut registry["qualification_intersections"][0];
-        intersection["evidence_refs"].as_array_mut().unwrap().push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
+        intersection["evidence_refs"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
         intersection["early_application_qualifications"] = json!([{
             "profile_id": "SYN-FRAMEWORK-A",
             "evidence_ref": "SYN-EARLY-APPLICATION-APPROVAL",
@@ -900,12 +1145,19 @@ mod tests {
     #[test]
     fn future_early_application_approval_is_not_visible_before_its_frontier() {
         let mut registry = registry();
-        let profile = registry["profile_references"].as_array_mut().unwrap()
-            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        let profile = registry["profile_references"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["profile_id"] == "SYN-FRAMEWORK-A")
+            .unwrap();
         profile["valid_from"] = json!("2027-01-01");
         profile["early_application_allowed"] = json!(true);
         let intersection = &mut registry["qualification_intersections"][0];
-        intersection["evidence_refs"].as_array_mut().unwrap().push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
+        intersection["evidence_refs"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
         intersection["early_application_qualifications"] = json!([{
             "profile_id": "SYN-FRAMEWORK-A",
             "evidence_ref": "SYN-EARLY-APPLICATION-APPROVAL",
@@ -916,7 +1168,11 @@ mod tests {
         request["knowledge_at"] = json!("2026-11-05T01:00:00Z");
         let report = checked_resolve(&registry, &request);
         assert_eq!(report["disposition"], "indeterminate");
-        assert!(report["blocking_reasons"].to_string().contains("early_application_not_approved_at_knowledge_frontier"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("early_application_not_approved_at_knowledge_frontier")
+        );
     }
 
     #[test]
