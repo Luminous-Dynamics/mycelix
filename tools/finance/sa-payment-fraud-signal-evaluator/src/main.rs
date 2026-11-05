@@ -791,8 +791,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         schema,
         |v| {
             v["scenarios"][0]["signal"]["lifecycle"]["appeal_status"] = json!("closed");
-            v["scenarios"][0]["signal"]["lifecycle"]["appeal_record_ref"] =
-                json!("SYN-APPEAL-NEW");
+            v["scenarios"][0]["signal"]["lifecycle"]["appeal_record_ref"] = json!("SYN-APPEAL-NEW");
             v["scenarios"][0]["signal"]["lifecycle"]["appeal_decision_ref"] = Value::Null;
         },
     )?;
