@@ -259,25 +259,162 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn context_by_id<'a>(bundle: &'a Value, context_id: &str) -> Result<&'a Value, String> {
+    array(bundle, "contexts")?
+        .iter()
+        .find(|context| {
+            context.get("context_id").and_then(Value::as_str) == Some(context_id)
+        })
+        .ok_or_else(|| format!("missing candidate context {context_id}"))
+}
+
+fn scope_set_for_role(context: &Value, role: &str) -> Result<BTreeSet<String>, String> {
+    Ok(array(context, "jurisdiction_facts")?
+        .iter()
+        .filter(|fact| fact.get("jurisdiction_role").and_then(Value::as_str) == Some(role))
+        .filter_map(|fact| fact.get("scope_ref").and_then(Value::as_str).map(str::to_owned))
+        .collect())
+}
+
 fn validate_oracle(candidates: &Value, oracle: &Value) -> Result<(), String> {
     let candidate_ids = array(candidates, "contexts")?
         .iter()
         .map(|context| string(context, "context_id").map(str::to_owned))
         .collect::<Result<BTreeSet<_>, _>>()?;
     let mut assertion_ids = BTreeSet::new();
+
     for assertion in array(oracle, "assertions")? {
-        insert_unique(
-            &mut assertion_ids,
-            string(assertion, "assertion_id")?,
-            "oracle assertion id",
-        )?;
-        for context_id in array(assertion, "context_ids")? {
-            let context_id = context_id
-                .as_str()
-                .ok_or_else(|| "oracle context_ids must be strings".to_owned())?;
-            if !candidate_ids.contains(context_id) {
+        let assertion_id = string(assertion, "assertion_id")?;
+        insert_unique(&mut assertion_ids, assertion_id, "oracle assertion id")?;
+        let context_ids = array(assertion, "context_ids")?
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| "oracle context_ids must be strings".to_owned())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        for context_id in &context_ids {
+            if !candidate_ids.contains(*context_id) {
                 return Err(format!("oracle references missing candidate context {context_id}"));
             }
+        }
+
+        match string(assertion, "expected_behavior")? {
+            "typed_contexts_not_equivalent" => {
+                if context_ids.len() != 2 {
+                    return Err(format!("{assertion_id}: role-swap assertion requires two contexts"));
+                }
+                let a = context_by_id(candidates, context_ids[0])?;
+                let b = context_by_id(candidates, context_ids[1])?;
+                let all_scopes = |context: &Value| -> Result<BTreeSet<String>, String> {
+                    Ok(array(context, "jurisdiction_facts")?
+                        .iter()
+                        .filter_map(|fact| {
+                            fact.get("scope_ref").and_then(Value::as_str).map(str::to_owned)
+                        })
+                        .collect())
+                };
+                if all_scopes(a)? != all_scopes(b)? {
+                    return Err(format!("{assertion_id}: flattened scope sets must be equal"));
+                }
+                let mut typed_difference = false;
+                for role in ["establishment_location", "ship_from", "ship_to"] {
+                    if scope_set_for_role(a, role)? != scope_set_for_role(b, role)? {
+                        typed_difference = true;
+                    }
+                }
+                if !typed_difference {
+                    return Err(format!("{assertion_id}: no jurisdiction-role binding differs"));
+                }
+            }
+            "indeterminate_no_place_of_supply" => {
+                for context_id in &context_ids {
+                    let context = context_by_id(candidates, context_id)?;
+                    let place = array(context, "jurisdiction_facts")?
+                        .iter()
+                        .find(|fact| {
+                            fact.get("jurisdiction_role").and_then(Value::as_str)
+                                == Some("place_of_supply")
+                        })
+                        .ok_or_else(|| format!("{assertion_id}: missing place-of-supply fact"))?;
+                    if place.get("assertion_state").and_then(Value::as_str) != Some("unknown")
+                        || place.get("origin").and_then(Value::as_str) != Some("unresolved")
+                        || !place.get("scope_ref").is_some_and(Value::is_null)
+                        || place.get("subject_kind").and_then(Value::as_str) != Some("transaction")
+                    {
+                        return Err(format!(
+                            "{assertion_id}: place of supply must remain unknown and transaction-scoped"
+                        ));
+                    }
+                }
+            }
+            "needs_review_conflicting_registration" => {
+                for context_id in &context_ids {
+                    let context = context_by_id(candidates, context_id)?;
+                    let registrations = array(context, "jurisdiction_facts")?
+                        .iter()
+                        .filter(|fact| {
+                            fact.get("subject_ref").and_then(Value::as_str)
+                                == Some("SYN-PARTY-SELLER")
+                                && fact.get("jurisdiction_role").and_then(Value::as_str)
+                                    == Some("tax_registration")
+                        })
+                        .collect::<Vec<_>>();
+                    if registrations.len() < 2
+                        || registrations.iter().any(|fact| {
+                            fact.get("assertion_state").and_then(Value::as_str) != Some("disputed")
+                                || fact
+                                    .get("conflicts_with_fact_refs")
+                                    .and_then(Value::as_array)
+                                    .is_none_or(Vec::is_empty)
+                        })
+                    {
+                        return Err(format!(
+                            "{assertion_id}: expected mutually linked disputed seller-registration facts"
+                        ));
+                    }
+                }
+            }
+            "subjects_remain_distinct_across_namespaces" => {
+                for context_id in &context_ids {
+                    let context = context_by_id(candidates, context_id)?;
+                    let mut identifiers =
+                        BTreeMap::<String, BTreeSet<(String, String)>>::new();
+                    for party in array(context, "parties")? {
+                        let party_ref = string(party, "party_ref")?.to_owned();
+                        if let Some(bindings) =
+                            party.get("identity_bindings").and_then(Value::as_array)
+                        {
+                            for binding in bindings {
+                                let identifier = string(binding, "identifier")?.to_owned();
+                                let namespace = string(binding, "namespace_uri")?.to_owned();
+                                identifiers
+                                    .entry(identifier)
+                                    .or_default()
+                                    .insert((party_ref.clone(), namespace));
+                            }
+                        }
+                    }
+                    let separated = identifiers.values().any(|bindings| {
+                        let party_refs = bindings
+                            .iter()
+                            .map(|(party_ref, _)| party_ref)
+                            .collect::<BTreeSet<_>>();
+                        let namespaces = bindings
+                            .iter()
+                            .map(|(_, namespace)| namespace)
+                            .collect::<BTreeSet<_>>();
+                        party_refs.len() >= 2 && namespaces.len() >= 2
+                    });
+                    if !separated {
+                        return Err(format!(
+                            "{assertion_id}: no same-string identifier collision across issuer namespaces"
+                        ));
+                    }
+                }
+            }
+            other => return Err(format!("{assertion_id}: unsupported expected behavior {other}")),
         }
     }
     Ok(())
