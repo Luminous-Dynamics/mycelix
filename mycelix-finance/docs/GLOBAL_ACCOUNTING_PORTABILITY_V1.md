@@ -51,7 +51,7 @@ Use separate versioned packs for legal jurisdiction and entity/establishment fac
 
 Each pack binds source authority, publisher, document/release version, source URL and captured bytes/digest, applicable entities/transactions, valid-time and knowledge-time, review/approval, dependencies, exclusions, tests and supersession lineage.
 
-A package's existence is not a capability claim. Only qualified_for_declared_scope may be called qualified, and it must identify the exact tested intersection.
+A package's existence is not a capability claim. Only an explicit qualification_intersections record with qualified_for_declared_scope may be called qualified, and it must identify the exact profile set, jurisdiction set, entity scope, supported dimensions, validity period, recorded/approved time, reviewer references, evidence references and claim ceiling. Individually qualified packages do not imply a qualified combination. The registry begins with no real-world qualified intersection; a synthetic-only positive control is reserved for resolver testing.
 
 ### 4.3 Policy compiler and resolver
 
