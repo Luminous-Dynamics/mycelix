@@ -1,13 +1,31 @@
 {
- "$schema":"https://json-schema.org/draft/2020-12/schema",
- "$id":"https://luminousdynamics.io/schemas/finance-platform-adapter-bundle-v1.0.0.json",
- "title":"Mycelix Finance Platform Adapter Candidate Bundle v1.0.0",
- "type":"object","additionalProperties":false,
- "required":["bundle_id","schema_version","claim_ceiling","cases"],
- "properties":{
-  "bundle_id":{"const":"MYCELIX-PLATFORM-ADAPTER-CONFORMANCE-S0"},
-  "schema_version":{"const":"1.0.0"},
-  "claim_ceiling":{"const":"public_synthetic_adapter_mapping_fixtures_not_vendor_exports"},
-  "cases":{"type":"array","minItems":10,"items":{"$ref":"https://luminousdynamics.io/schemas/finance-platform-adapter-envelope-v1.0.0.json"}}
- }
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/finance-platform-adapter-bundle-v1.0.0.json",
+  "title": "Mycelix Finance Platform Adapter Candidate Bundle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-PLATFORM-ADAPTER-CONFORMANCE-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "public_synthetic_adapter_mapping_fixtures_not_vendor_exports"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object"
+      }
+    }
+  }
 }
