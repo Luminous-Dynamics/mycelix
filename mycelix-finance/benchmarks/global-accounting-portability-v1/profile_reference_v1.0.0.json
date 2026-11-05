@@ -450,7 +450,7 @@
         "no_production_or_compliance_claim"
       ],
       "early_application_qualifications": [],
-      "profile_binding_serialization": "serde_json_value_sorted_keys_compact_utf8_v1",
+      "profile_binding_serialization": "mycelix_sorted_key_compact_json_v1",
       "profile_bindings": [
         {
           "profile_id": "SYN-CURRENCY-A",
