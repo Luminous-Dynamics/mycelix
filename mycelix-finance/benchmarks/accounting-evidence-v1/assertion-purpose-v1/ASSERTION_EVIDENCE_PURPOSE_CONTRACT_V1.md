@@ -51,7 +51,7 @@ The reference evaluator is deliberately conservative. Missing or unqualified obl
 
 ## v1.0.0 corpus
 
-Twenty synthetic cases cover:
+Twenty-one synthetic cases cover:
 1. multi-origin occurrence support;
 2. invoice-only occurrence insufficiency;
 3. mirrored evidence not independent;
@@ -71,7 +71,7 @@ Twenty synthetic cases cover:
 17. incomplete expected population;
 18. source relevant to amount but not existence;
 19. explicitly unqualified source authentication;
-20. two invoice copies from the same origin.
+20. two invoice copies from the same origin;\n21. duplicate evidence identifiers across different source references.
 
 The oracle is published for transparent public regression. It is not a blind model evaluation set. Candidate-visible inputs and reference outcomes are in separate files/directories to preserve a future split boundary, but a public oracle is still learnable and must never be described as hidden.
 
