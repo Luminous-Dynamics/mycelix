@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: fin-trust-s0-${{ github.event.pull_request.head.sha || github.sha }}
+  group: fin-trust-s0-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
