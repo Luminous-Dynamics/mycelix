@@ -78,12 +78,12 @@ The validator:
 - derives a deterministic disposition and primary reason from the evidence;
 - compares those results with the public oracle;
 - rejects oracle source refs that point to unknown, disputed, invalidated or future evidence;
-- verifies debit/credit equality by entity/currency/period, exact invoice-total reconstruction, and statement-line reconstruction from linked journal entries;
+- verifies debit/credit equality for each journal entry independently, prevents offsetting unbalanced entries, reconstructs statement lines using the account's declared normal balance, and checks invoice-total reconciliation;
 - requires non-deliver cases to have no expected journal or statement output;
 - fingerprints the exact candidate and oracle bytes with SHA-256;
 - guarantees that the benchmark oracle never posts to a live ledger.
 
-The validator contains twelve authored tests, including future-source/future-FX negative controls and a valid-time mutation. They are **not yet executed**. JSON parsing and static authoring checks do not equal a Draft 2020-12 runtime pass, Rust compile, Cargo test, rustfmt, Clippy or CI pass. No such pass is claimed.
+The validator contains fourteen authored tests, including future-source/future-FX/future-parent negative controls, valid-time mutation, and an adversarial pair of individually unbalanced entries whose aggregate debits and credits cancel. They are **not yet executed**. JSON parsing and static authoring checks do not equal a Draft 2020-12 runtime pass, Rust compile, Cargo test, rustfmt, Clippy or CI pass. No such pass is claimed.
 
 ## Benchmark plan and target gates
 
