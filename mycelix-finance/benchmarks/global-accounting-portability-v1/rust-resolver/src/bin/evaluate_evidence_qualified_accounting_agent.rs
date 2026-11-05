@@ -267,6 +267,208 @@ fn journal_line_count(submission: &Value) -> Result<usize, String> {
     Ok(count)
 }
 
+
+fn oracle_source_fact_refs(expectation: &Value) -> Result<BTreeSet<String>, String> {
+    array(expectation, "required_source_fact_refs")?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .map(ToOwned::to_owned)
+                .ok_or_else(|| "required_source_fact_refs must contain strings".to_owned())
+        })
+        .collect()
+}
+
+fn expected_fact_evidence_state(
+    case: &Value,
+    fact: &Value,
+    available_refs: &BTreeSet<String>,
+) -> Result<&'static str, String> {
+    let source = document_by_ref(case, string(fact, "document_ref")?)?;
+    if optional_string(source, "integrity_state") == Some("synthetic_mismatch") {
+        return Ok("integrity_failed");
+    }
+    if string(fact, "recorded_at")? > string(case, "knowledge_at")?
+        || string(source, "received_at")? > string(case, "knowledge_at")?
+    {
+        return Ok("future");
+    }
+    if array(case, "documents")?.iter().any(|candidate| {
+        optional_string(candidate, "supersedes_document_ref")
+            == optional_string(fact, "document_ref")
+            && optional_string(candidate, "received_at")
+                .is_some_and(|received| received <= optional_string(case, "knowledge_at").unwrap_or(""))
+    }) {
+        return Ok("superseded");
+    }
+    match optional_string(fact, "assertion_state") {
+        Some("unknown") => return Ok("unknown"),
+        Some("disputed") => return Ok("disputed"),
+        Some("invalidated") => return Ok("invalidated"),
+        _ => {}
+    }
+    let fact_type = string(fact, "fact_type")?;
+    let values = array(case, "facts")?
+        .iter()
+        .filter(|other| {
+            optional_string(other, "fact_type") == Some(fact_type)
+                && optional_string(other, "assertion_state") == Some("asserted")
+                && !other.get("value").is_none_or(Value::is_null)
+                && is_eligible_assertion(case, other).unwrap_or(false)
+        })
+        .filter_map(|other| other.get("value").map(Value::to_string))
+        .collect::<BTreeSet<_>>();
+    if values.len() > 1 {
+        return Ok("contradicting");
+    }
+    let fact_ref = string(fact, "fact_ref")?;
+    if !available_refs.contains(fact_ref) {
+        return Ok("future");
+    }
+    Ok("asserted")
+}
+
+fn evaluate_evidence_trace(
+    case: &Value,
+    expectation: &Value,
+    submission: &Value,
+    available_refs: &BTreeSet<String>,
+) -> Result<(f64, bool, bool, Vec<String>), String> {
+    let trace = array(submission, "evidence_trace")?;
+    let mut failures = Vec::<String>::new();
+    let mut denominator = 0usize;
+    let mut covered = 0usize;
+    let expected_refs = oracle_source_fact_refs(expectation)?;
+    let expected_disposition = string(expectation, "expected_disposition")?;
+
+    for fact_ref in &expected_refs {
+        denominator += 1;
+        let fact = array(case, "facts")?
+            .iter()
+            .find(|fact| optional_string(fact, "fact_ref") == Some(fact_ref.as_str()))
+            .ok_or_else(|| format!("oracle references absent source fact {fact_ref}"))?;
+        let expected_fact_type = string(fact, "fact_type")?;
+        let expected_doc = string(fact, "document_ref")?;
+        let expected_state = expected_fact_evidence_state(case, fact, available_refs)?;
+        let expected_terminal = match expected_disposition {
+            "deliver" => "carried_to_journal",
+            "clarify" => "carried_to_question",
+            "abstain" => "abstained",
+            "escalate" => "carried_to_review",
+            _ => return Err(format!("unsupported oracle disposition {expected_disposition}")),
+        };
+        let expected_line_refs = array(expectation, "expected_journal_entries")?
+            .iter()
+            .flat_map(|entry| array(entry, "lines").unwrap_or(&[]).iter())
+            .filter(|line| array(line, "source_fact_refs").unwrap_or(&[]).iter()
+                .any(|reference| reference.as_str() == Some(fact_ref.as_str())))
+            .filter_map(|line| optional_string(line, "line_ref"))
+            .collect::<BTreeSet<_>>();
+        let matching = trace.iter().find(|entry| {
+            optional_string(entry, "fact_ref") == Some(fact_ref.as_str())
+                && optional_string(entry, "fact_type") == Some(expected_fact_type)
+        });
+        let Some(entry) = matching else {
+            failures.push(format!("missing_fact_trace:{fact_ref}"));
+            continue;
+        };
+        let source_docs = set_from_string_array(entry, "source_document_refs")?;
+        let question_refs = set_from_string_array(entry, "question_refs")?;
+        let line_refs = set_from_string_array(entry, "journal_line_refs")?;
+        let terminal_ok = optional_string(entry, "terminal_state") == Some(expected_terminal);
+        let state_ok = optional_string(entry, "evidence_state") == Some(expected_state);
+        let source_ok = source_docs.contains(expected_doc);
+        let line_ok = expected_line_refs.iter().all(|reference| line_refs.contains(*reference));
+        let question_ok = expected_disposition != "clarify"
+            || (!array(expectation, "expected_questions")?.is_empty() && !question_refs.is_empty());
+        if terminal_ok && state_ok && source_ok && line_ok && question_ok {
+            covered += 1;
+        } else {
+            failures.push(format!("fact_trace_mismatch:{fact_ref}"));
+        }
+    }
+
+    for expected_question in array(expectation, "expected_questions")? {
+        denominator += 1;
+        let question_id = string(expected_question, "question_id")?;
+        let fact_type = string(expected_question, "blocking_fact_type")?;
+        let expected_docs = array(case, "facts")?
+            .iter()
+            .filter(|fact| optional_string(fact, "fact_type") == Some(fact_type))
+            .filter_map(|fact| optional_string(fact, "document_ref"))
+            .map(ToOwned::to_owned)
+            .collect::<BTreeSet<_>>();
+        let matching = trace.iter().find(|entry| {
+            optional_string(entry, "fact_type") == Some(fact_type)
+                && optional_string(entry, "terminal_state") == Some("question_raised")
+                && array(entry, "question_refs").is_ok_and(|refs| {
+                    refs.iter().any(|reference| reference.as_str() == Some(question_id))
+                })
+        });
+        let Some(entry) = matching else {
+            failures.push(format!("missing_question_trace:{question_id}"));
+            continue;
+        };
+        let source_docs = set_from_string_array(entry, "source_document_refs")?;
+        let state_ok = optional_string(entry, "evidence_state")
+            .is_some_and(|state| state != "asserted");
+        let source_ok = expected_docs.is_subset(&source_docs);
+        if state_ok && source_ok {
+            covered += 1;
+        } else {
+            failures.push(format!("question_trace_mismatch:{question_id}"));
+        }
+    }
+
+    let mut evidence_to_journal_continuity = true;
+    for actual_entry in array(submission, "journal_entries")? {
+        for line in array(actual_entry, "lines")? {
+            let line_ref = string(line, "line_ref")?;
+            for source_ref in array(line, "source_fact_refs")? {
+                let fact_ref = source_ref.as_str().ok_or("journal source ref must be a string")?;
+                let trace_entry = trace.iter().find(|entry| {
+                    optional_string(entry, "fact_ref") == Some(fact_ref)
+                        && optional_string(entry, "terminal_state") == Some("carried_to_journal")
+                        && array(entry, "journal_line_refs").is_ok_and(|refs| {
+                            refs.iter().any(|reference| reference.as_str() == Some(line_ref))
+                        })
+                });
+                if trace_entry.is_none() {
+                    evidence_to_journal_continuity = false;
+                    failures.push(format!("journal_trace_missing:{line_ref}:{fact_ref}"));
+                }
+            }
+        }
+    }
+
+    let mut decision_to_question_continuity = true;
+    for question in array(submission, "questions")? {
+        let question_id = string(question, "question_id")?;
+        for target in array(question, "target_fact_types")? {
+            let fact_type = target.as_str().ok_or("question target must be a string")?;
+            let found = trace.iter().any(|entry| {
+                optional_string(entry, "fact_type") == Some(fact_type)
+                    && optional_string(entry, "terminal_state") == Some("question_raised")
+                    && array(entry, "question_refs").is_ok_and(|refs| {
+                        refs.iter().any(|reference| reference.as_str() == Some(question_id))
+                    })
+            });
+            if !found {
+                decision_to_question_continuity = false;
+                failures.push(format!("question_trace_missing:{question_id}:{fact_type}"));
+            }
+        }
+    }
+
+    Ok((
+        ratio(covered, denominator),
+        evidence_to_journal_continuity,
+        decision_to_question_continuity,
+        failures,
+    ))
+}
+
 fn evaluate_case(
     case: &Value,
     expectation: &Value,
@@ -331,6 +533,12 @@ fn evaluate_case(
     let expected_statement = array(expectation, "expected_statement_lines")?;
     let actual_statement = array(submission, "statement_lines")?;
     let statement_exact = expected_statement == actual_statement;
+    let (
+        evidence_trace_coverage,
+        evidence_to_journal_continuity,
+        decision_to_question_continuity,
+        continuity_failures,
+    ) = evaluate_evidence_trace(case, expectation, submission, available_refs)?;
 
     let actual_source_refs = actual_source_fact_refs(submission)?;
     let mut expected_line_count = 0usize;
@@ -409,6 +617,15 @@ fn evaluate_case(
     if !disposition_correct {
         hard_failures.push("wrong_disposition".to_owned());
     }
+    if evidence_trace_coverage < 1.0 {
+        hard_failures.push("evidence_trace_incomplete".to_owned());
+    }
+    if !evidence_to_journal_continuity {
+        hard_failures.push("evidence_to_journal_continuity_broken".to_owned());
+    }
+    if !decision_to_question_continuity {
+        hard_failures.push("decision_to_question_continuity_broken".to_owned());
+    }
 
     Ok(json!({
         "case_id": case_id,
@@ -425,6 +642,10 @@ fn evaluate_case(
         "journal_balanced": journal_balanced,
         "source_binding_completeness": source_binding_completeness,
         "statement_exact": statement_exact,
+        "evidence_trace_coverage": evidence_trace_coverage,
+        "evidence_to_journal_continuity": evidence_to_journal_continuity,
+        "decision_to_question_continuity": decision_to_question_continuity,
+        "continuity_failures": continuity_failures,
         "unsafe_delivery": unsafe_delivery,
         "decision_critical_assumption_count": decision_critical_assumption_count,
         "hard_failures": hard_failures
@@ -521,6 +742,22 @@ fn build_report(
         .iter()
         .map(|result| result["decision_critical_assumption_count"].as_u64().unwrap_or(0))
         .sum::<u64>() as usize;
+    let evidence_trace_coverage = case_results
+        .iter()
+        .map(|result| result["evidence_trace_coverage"].as_f64().unwrap_or(0.0))
+        .sum::<f64>() / count as f64;
+    let evidence_to_journal_continuity = case_results
+        .iter()
+        .filter(|result| result["evidence_to_journal_continuity"].as_bool() == Some(true))
+        .count();
+    let decision_to_question_continuity = case_results
+        .iter()
+        .filter(|result| result["decision_to_question_continuity"].as_bool() == Some(true))
+        .count();
+    let continuity_failure_count = case_results
+        .iter()
+        .map(|result| array(result, "continuity_failures").map(|items| items.len()).unwrap_or(0))
+        .sum::<usize>();
     let hard_failures = case_results
         .iter()
         .map(|result| array(result, "hard_failures").map(|items| items.len()).unwrap_or(0))
@@ -543,6 +780,10 @@ fn build_report(
             "question_target_recall": question_recall,
             "question_source_reference_precision": question_source_precision,
             "question_source_reference_recall": question_source_recall,
+            "evidence_trace_coverage": evidence_trace_coverage,
+            "evidence_to_journal_continuity": ratio(evidence_to_journal_continuity, count),
+            "decision_to_question_continuity": ratio(decision_to_question_continuity, count),
+            "continuity_failure_count": continuity_failure_count,
             "journal_exact_match_rate": ratio(journal_exact, count),
             "statement_exact_match_rate": ratio(statement_exact, count),
             "source_binding_completeness": source_binding,
@@ -646,6 +887,62 @@ mod tests {
     fn case_result<'a>(report: &'a Value, case_id: &str) -> &'a Value {
         array(report, "case_results").unwrap().iter()
             .find(|result| optional_string(result, "case_id") == Some(case_id)).unwrap()
+    }
+
+
+    #[test]
+    fn gold_control_evidence_trace_preserves_source_to_decision_continuity() {
+        let (candidates, oracle, submissions) = fixtures();
+        let result = report(&candidates, &oracle, &submissions);
+        assert_eq!(result["aggregate"]["evidence_trace_coverage"], 1.0);
+        assert_eq!(result["aggregate"]["evidence_to_journal_continuity"], 1.0);
+        assert_eq!(result["aggregate"]["decision_to_question_continuity"], 1.0);
+        assert_eq!(result["aggregate"]["continuity_failure_count"], 0);
+    }
+
+    #[test]
+    fn removing_one_journal_fact_from_trace_breaks_evidence_to_journal_continuity() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let trace = row["evidence_trace"].as_array_mut().unwrap().iter_mut()
+            .find(|trace| optional_string(trace, "fact_ref") == Some("F-001-AMOUNT")).unwrap();
+        trace["journal_line_refs"] = json!([]);
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
+        assert_eq!(evaluated["evidence_to_journal_continuity"], false);
+        assert!(array(evaluated, "hard_failures").unwrap().iter()
+            .any(|failure| failure.as_str() == Some("evidence_to_journal_continuity_broken")));
+    }
+
+    #[test]
+    fn removing_blocker_question_trace_breaks_decision_to_question_continuity() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")).unwrap();
+        row["evidence_trace"].as_array_mut().unwrap().retain(|trace| {
+            optional_string(trace, "terminal_state") != Some("question_raised")
+        });
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-002-MISSING-SERVICE-START");
+        assert_eq!(evaluated["decision_to_question_continuity"], false);
+        assert!(array(evaluated, "hard_failures").unwrap().iter()
+            .any(|failure| failure.as_str() == Some("decision_to_question_continuity_broken")));
+    }
+
+    #[test]
+    fn contradiction_trace_cannot_be_relabelled_as_supported_assertion() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-003-CONFLICTING-ENTITY")).unwrap();
+        let trace = row["evidence_trace"].as_array_mut().unwrap().iter_mut()
+            .find(|trace| optional_string(trace, "fact_ref") == Some("F-003-ENTITY-A")).unwrap();
+        trace["evidence_state"] = Value::String("asserted".to_owned());
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-003-CONFLICTING-ENTITY");
+        assert!(evaluated["evidence_trace_coverage"].as_f64().unwrap() < 1.0);
+        assert!(array(evaluated, "continuity_failures").unwrap().iter()
+            .any(|failure| failure.as_str().is_some_and(|s| s.contains("fact_trace_mismatch"))));
     }
 
     #[test]
