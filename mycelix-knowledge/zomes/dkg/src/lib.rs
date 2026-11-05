@@ -901,6 +901,32 @@ fn create_anchor(anchor: &str) -> ExternResult<EntryHash> {
 }
 
 /// Get a weighted claim with confidence calculation
+/// Build the SDK input triple from the fields that are actually declared on a DKG claim.
+///
+/// Source URIs are intentionally not inferred from free-text attestations. Until a claim
+/// carries versioned source-artifact references, the SDK source list remains empty.
+fn build_confidence_triple(claim: &ClaimEntry, object: TripleValue) -> VerifiableTriple {
+    let epistemic_type = match claim.epistemic_type.as_str() {
+        "normative" => EpistemicType::Normative,
+        "metaphysical" => EpistemicType::Metaphysical,
+        _ => EpistemicType::Empirical,
+    };
+
+    let mut triple = VerifiableTriple::new(
+        claim.subject.clone(),
+        claim.predicate.as_str(),
+        object,
+    )
+    .with_epistemic_type(epistemic_type)
+    .with_timestamp(claim.created_at);
+
+    if let Some(domain) = claim.domain.clone() {
+        triple = triple.with_domain(domain);
+    }
+
+    triple
+}
+
 fn get_weighted_claim(
     claim_hash: &ActionHash,
     current_time: u64,
@@ -959,18 +985,7 @@ fn get_weighted_claim(
         _ => TripleValue::String(claim.object.clone()),
     };
 
-    let epistemic_type = match claim.epistemic_type.as_str() {
-        "normative" => EpistemicType::Normative,
-        "metaphysical" => EpistemicType::Metaphysical,
-        _ => EpistemicType::Empirical,
-    };
-
-    let mut triple = VerifiableTriple::new(claim.subject.clone(), claim.predicate.as_str(), object)
-        .with_epistemic_type(epistemic_type)
-        .with_timestamp(claim.created_at);
-    if let Some(domain) = claim.domain.clone() {
-        triple = triple.with_domain(domain);
-    }
+    let triple = build_confidence_triple(&claim, object);
 
     let input = ConfidenceInput {
         triple: &triple,
@@ -1188,6 +1203,43 @@ pub fn get_agent_governance_tier(agent: AgentPubKey) -> ExternResult<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_confidence_triple_propagates_declared_domain_without_inventing_sources() {
+        let claim = ClaimEntry {
+            subject: "Water".to_string(),
+            predicate: "boiling_point".to_string(),
+            object: "100".to_string(),
+            object_type: "number".to_string(),
+            epistemic_type: "empirical".to_string(),
+            domain: Some("history".to_string()),
+            created_at: 1_700_000_000,
+        };
+
+        let triple = build_confidence_triple(&claim, TripleValue::Float(100.0));
+
+        assert_eq!(triple.domain.as_deref(), Some("history"));
+        assert_eq!(triple.created_at, 1_700_000_000);
+        assert!(triple.sources.is_empty());
+    }
+
+    #[test]
+    fn test_confidence_triple_preserves_unknown_domain() {
+        let claim = ClaimEntry {
+            subject: "Water".to_string(),
+            predicate: "boiling_point".to_string(),
+            object: "100".to_string(),
+            object_type: "number".to_string(),
+            epistemic_type: "empirical".to_string(),
+            domain: None,
+            created_at: 1_700_000_000,
+        };
+
+        let triple = build_confidence_triple(&claim, TripleValue::Float(100.0));
+
+        assert_eq!(triple.domain, None);
+        assert!(triple.sources.is_empty());
+    }
 
     // -----------------------------------------------------------------------
     // build_kvector_from_activity tests
