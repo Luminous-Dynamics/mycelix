@@ -240,6 +240,86 @@ fn adapter_state(case: &Value) -> Result<&'static str, String> {
     Ok("mapping_complete")
 }
 
+
+fn validate_case_references(case: &Value) -> Result<(), String> {
+    let case_id = s(case, "case_id")?;
+    let mut object_types = BTreeMap::<String, String>::new();
+    for object in arr(case, "objects")? {
+        let reference = s(object, "object_ref")?.to_owned();
+        let object_type = s(object, "object_type")?.to_owned();
+        if object_types.insert(reference.clone(), object_type).is_some() {
+            return Err(format!("{case_id}: duplicate object_ref {reference}"));
+        }
+    }
+
+    let mut relationship_ids = BTreeSet::new();
+    for relationship in arr(case, "relationships")? {
+        let relationship_id = s(relationship, "relationship_ref")?;
+        if !relationship_ids.insert(relationship_id.to_owned()) {
+            return Err(format!("{case_id}: duplicate relationship_ref {relationship_id}"));
+        }
+        if s(relationship, "direction")? != "source_to_target" {
+            return Err(format!("{case_id}/{relationship_id}: relationship direction is not source_to_target"));
+        }
+        for endpoint in ["source_object_ref", "target_object_ref"] {
+            let reference = s(relationship, endpoint)?;
+            if !object_types.contains_key(reference) {
+                return Err(format!("{case_id}/{relationship_id}: unresolved {endpoint} {reference}"));
+            }
+        }
+        if let Some(activity) = relationship.get("processing_activity_ref").and_then(Value::as_str) {
+            if object_types.get(activity).map(String::as_str) != Some("processing_activity") {
+                return Err(format!("{case_id}/{relationship_id}: invalid processing_activity_ref {activity}"));
+            }
+        }
+        for (field, expected_type) in [("purpose_refs", "purpose"), ("data_element_refs", "data_element")] {
+            for value in arr(relationship, field)? {
+                let reference = value.as_str().ok_or_else(|| format!("{case_id}/{relationship_id}: non-string {field}"))?;
+                if object_types.get(reference).map(String::as_str) != Some(expected_type) {
+                    return Err(format!("{case_id}/{relationship_id}: {reference} is not a {expected_type}"));
+                }
+            }
+        }
+        for value in arr(relationship, "access_principal_refs")? {
+            let reference = value.as_str().ok_or_else(|| format!("{case_id}/{relationship_id}: non-string access principal"))?;
+            if !matches!(object_types.get(reference).map(String::as_str), Some("person" | "service_account" | "organization")) {
+                return Err(format!("{case_id}/{relationship_id}: {reference} is not an actor/access principal"));
+            }
+        }
+    }
+
+    let mut mapping_paths = BTreeSet::new();
+    for mapping in arr(case, "field_mappings")? {
+        let source_path = s(mapping, "source_path")?;
+        if !mapping_paths.insert(source_path.to_owned()) {
+            return Err(format!("{case_id}: duplicate field mapping source path {source_path}"));
+        }
+        let status = s(mapping, "mapping_status")?;
+        let canonical = mapping.get("canonical_path").and_then(Value::as_str);
+        let canonical_is_null = mapping.get("canonical_path").is_some_and(Value::is_null);
+        let loss = mapping.get("loss_code").and_then(Value::as_str);
+        match status {
+            "mapped_exact" | "mapped_normalized" if canonical.is_none() => {
+                return Err(format!("{case_id}: mapped field {source_path} has no canonical path"));
+            }
+            "unmapped" | "unsupported" | "ambiguous" if !canonical_is_null || loss.is_none() => {
+                return Err(format!("{case_id}: unresolved field {source_path} must have null canonical path and a loss code"));
+            }
+            _ => {}
+        }
+    }
+
+    let mut capability_keys = BTreeSet::new();
+    for capability in arr(case, "capability_coverage")? {
+        let id = s(capability, "capability_id")?;
+        let scope = capability.get("scope_ref").and_then(Value::as_str).unwrap_or("<global>");
+        if !capability_keys.insert((id.to_owned(), scope.to_owned())) {
+            return Err(format!("{case_id}: duplicate capability observation for {id}/{scope}"));
+        }
+    }
+    Ok(())
+}
+
 fn run() -> Result<(), Box<dyn Error>> {
     let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../platform-adapter-v1");
     let mut args = env::args().skip(1);
@@ -265,14 +345,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     for case in cases {
         validate("envelope", &schema, case)?;
         if !ids.insert(s(case, "case_id")?.to_owned()) { return Err("duplicate case id".into()); }
-        let objects = arr(case, "objects")?.iter().map(|o| s(o, "object_ref").map(str::to_owned))
-            .collect::<Result<BTreeSet<_>, _>>()?;
-        for rel in arr(case, "relationships")? {
-            for key in ["source_object_ref", "target_object_ref"] {
-                if !objects.contains(s(rel, key)?) { return Err(format!("{}: unresolved {key}", s(case, "case_id")?)); }
-            }
-            if s(rel, "direction")? != "source_to_target" { return Err("relationship direction changed".into()); }
-        }
+        validate_case_references(case)?;
         if !arr(case, "effects")?.is_empty() { return Err("adapter envelope contains an effect".into()); }
     }
 
@@ -364,6 +437,43 @@ mod tests {
             compare(id, "reason codes", reason_codes(candidate).unwrap(), &expectation["expected_reason_codes"]).unwrap();
             assert_eq!(adapter_state(candidate).unwrap(), s(expectation, "expected_adapter_state").unwrap());
         }
+    }
+
+
+    #[test]
+    fn invalid_purpose_reference_is_rejected() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap() == "OT-DIRECTION-SUBPROCESSOR").unwrap();
+        case["relationships"][0]["purpose_refs"][0] = Value::String("MISSING-PURPOSE".to_owned());
+        assert!(validate_case_references(case).is_err());
+    }
+
+    #[test]
+    fn dataset_cannot_be_used_as_an_access_principal() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap() == "OT-DIRECTION-SUBPROCESSOR").unwrap();
+        case["relationships"][0]["access_principal_refs"][0] = Value::String("OBJ-ELEMENT-EMAIL".to_owned());
+        assert!(validate_case_references(case).is_err());
+    }
+
+    #[test]
+    fn duplicate_object_refs_are_rejected() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap() == "NAMESPACE-SCOPED-IDENTITY").unwrap();
+        case["objects"][1]["object_ref"] = Value::String("OBJ-ORG-SA".to_owned());
+        assert!(validate_case_references(case).is_err());
+    }
+
+    #[test]
+    fn unresolved_mapping_without_loss_code_is_rejected() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap() == "OT-ACCESS-PRINCIPAL-GAP").unwrap();
+        case["field_mappings"][0]["loss_code"] = Value::Null;
+        assert!(validate_case_references(case).is_err());
     }
 
     #[test]
