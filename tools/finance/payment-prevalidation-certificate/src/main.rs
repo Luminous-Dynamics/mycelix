@@ -227,6 +227,19 @@ where
     let intent_digest = str_at(intent, "intent_digest").unwrap_or("");
     let beneficiary = str_at(intent, "beneficiary_subject_commitment").unwrap_or("");
     let vop_status = str_at(vop, "status").unwrap_or("unknown");
+    let evaluation_time = str_at(scenario, "evaluation_time").unwrap_or("");
+    if !evidence_fresh_at(
+        &intent["issued_at"],
+        &intent["expires_at"],
+        evaluation_time,
+        u64::MAX,
+    ) {
+        return decide(
+            "quarantined_unknown",
+            "quarantined_unknown",
+            "payment_intent_not_current_at_certificate_evaluation",
+        );
+    }
 
     if str_at(intent, "digest_state") != Some("verified_by_upstream_intent_contract")
         || !digest_is_well_formed(intent_digest)
@@ -269,9 +282,17 @@ where
         );
     }
 
-    if str_at(payee, "status") == Some("stale")
+    let payee_freshness = u64_at(profile, "payee_resolution_freshness_seconds").unwrap_or(0);
+    if payee_freshness == 0
+        || str_at(payee, "status") == Some("stale")
         || str_at(payee, "status") == Some("unknown")
         || str_at(payee, "freshness_state") != Some("fresh")
+        || !evidence_fresh_at(
+            &payee["observed_at"],
+            &payee["expires_at"],
+            evaluation_time,
+            payee_freshness,
+        )
     {
         return decide(
             "quarantined_unknown",
@@ -327,6 +348,21 @@ where
             }
         }
         Some("supported") => {
+            let vop_freshness = u64_at(profile, "vop_freshness_seconds").unwrap_or(0);
+            if vop_freshness == 0
+                || !evidence_fresh_at(
+                    &vop["observed_at"],
+                    &vop["expires_at"],
+                    evaluation_time,
+                    vop_freshness,
+                )
+            {
+                return decide(
+                    "quarantined_unknown",
+                    "quarantined_unknown",
+                    "vop_result_timestamp_expired_future_or_over_age",
+                );
+            }
             if str_at(vop, "scheme") != str_at(profile, "vop_scheme")
                 || str_at(vop, "profile_id") != Some(profile_id)
                 || str_at(vop, "subject_commitment") != Some(beneficiary)
@@ -366,6 +402,18 @@ where
                     "quarantined_unknown",
                     "quarantined_unknown",
                     "provider_evidence_trust_or_freshness_indeterminate",
+                );
+            }
+            if !evidence_fresh_at(
+                &provider["issued_at"],
+                &provider["expires_at"],
+                evaluation_time,
+                vop_freshness,
+            ) {
+                return decide(
+                    "quarantined_unknown",
+                    "quarantined_unknown",
+                    "provider_signed_evidence_timestamp_expired_future_or_over_age",
                 );
             }
             if str_at(provider, "verification_state") != Some("verified_fixture")
@@ -419,6 +467,22 @@ where
                 "transport_payload_and_intent_disagree",
             );
         }
+    }
+
+    let limit_fee_freshness = u64_at(profile, "limit_fee_freshness_seconds").unwrap_or(0);
+    if limit_fee_freshness == 0
+        || !evidence_fresh_at(
+            &limit["observed_at"],
+            &limit["expires_at"],
+            evaluation_time,
+            limit_fee_freshness,
+        )
+    {
+        return decide(
+            "quarantined_unknown",
+            "quarantined_unknown",
+            "participant_limit_or_fee_evidence_timestamp_expired_future_or_over_age",
+        );
     }
 
     match str_at(limit, "status") {
@@ -600,6 +664,20 @@ where
     }
 
     let consent_decision = str_at(consent, "decision").unwrap_or("unknown");
+    if !matches!(consent_decision, "not_yet_decided")
+        && !evidence_fresh_at(
+            &consent["observed_at"],
+            &intent["expires_at"],
+            evaluation_time,
+            u64::MAX,
+        )
+    {
+        return decide(
+            "needs_payer_reconfirmation",
+            "needs_payer_reconfirmation",
+            "payer_decision_occurs_after_evaluation_or_intent_expiry",
+        );
+    }
     let disposition = match consent_decision {
         "not_yet_decided" => {
             if str_at(consent, "authority_state") != Some("not_applicable") {
@@ -659,10 +737,22 @@ where
                     "payer_consent_digest_binding_is_stale",
                 );
             }
-            let accepted_at = str_at(consent, "observed_at").unwrap_or("");
-            let presented_at = str_at(presentation, "presented_at").unwrap_or("");
-            let expires_at = str_at(intent, "expires_at").unwrap_or("");
-            if accepted_at <= presented_at || accepted_at >= expires_at {
+            let accepted_at = consent["observed_at"]
+                .as_str()
+                .and_then(parse_utc_seconds);
+            let presented_at = presentation["presented_at"]
+                .as_str()
+                .and_then(parse_utc_seconds);
+            let evaluation_at = parse_utc_seconds(evaluation_time);
+            let expires_at = intent["expires_at"].as_str().and_then(parse_utc_seconds);
+            if accepted_at.is_none()
+                || presented_at.is_none()
+                || evaluation_at.is_none()
+                || expires_at.is_none()
+                || accepted_at <= presented_at
+                || accepted_at > evaluation_at
+                || accepted_at >= expires_at
+            {
                 return decide(
                     "needs_payer_reconfirmation",
                     "needs_payer_reconfirmation",
@@ -688,6 +778,7 @@ where
 
     let certificate_payload = json!({
         "scenario_id": scenario["scenario_id"],
+        "evaluation_time": evaluation_time,
         "profile_id": profile_id,
         "intent_digest": intent_digest,
         "payee_resolution_ref": payee["evidence_ref"],
