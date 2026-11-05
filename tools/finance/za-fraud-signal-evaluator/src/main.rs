@@ -657,10 +657,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "errors":errors
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
-    if !report["status"]
-        .as_str()
-        .is_some_and(|status| status == "PASS")
-    {
+    if report["status"].as_str() != Some("PASS") {
         std::process::exit(1);
     }
     Ok(())
