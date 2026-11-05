@@ -332,6 +332,170 @@ describe('DKG Multi-Agent Collaboration Tests', () => {
     }, true, scenarioOptions);
   });
 
+  test('actual challenger reputation influences the legacy contradiction penalty', async () => {
+    await runScenario(async (scenario: Scenario) => {
+      const [
+        experiencedChallenger,
+        freshChallenger,
+        endorser1,
+        endorser2,
+        endorser3,
+        claimAuthor,
+        observer,
+      ] = await scenario.addPlayersWithApps([
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+      ]);
+
+      await scenario.shareAllAgents();
+      const allAgents = [
+        experiencedChallenger,
+        freshChallenger,
+        endorser1,
+        endorser2,
+        endorser3,
+        claimAuthor,
+        observer,
+      ];
+      const dnaHash = experiencedChallenger.cells[0].cell_id[0];
+
+      // Establish an endorsement-backed history for only the experienced challenger.
+      const reputationSeedClaims: ActionHash[] = [];
+      for (let i = 0; i < 10; i++) {
+        const hash: ActionHash = await experiencedChallenger.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'submit_claim',
+          payload: {
+            subject: `ChallengeHistory_${i}`,
+            predicate: 'value',
+            object: `fact_${i}`,
+            object_type: 'text',
+            epistemic_type: 'empirical',
+          } as SubmitClaimInput,
+        });
+        reputationSeedClaims.push(hash);
+      }
+
+      await dhtSync(allAgents, dnaHash);
+
+      for (const claim of reputationSeedClaims) {
+        for (const endorser of [endorser1, endorser2, endorser3]) {
+          await endorser.cells[0].callZome({
+            zome_name: 'dkg',
+            fn_name: 'attest_claim',
+            payload: {
+              claim_hash: claim,
+              attestation_type: 'endorse',
+            } as AttestClaimInput,
+          });
+        }
+      }
+
+      await dhtSync(allAgents, dnaHash);
+
+      const experiencedReputation: AgentReputation =
+        await observer.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'get_agent_reputation',
+          payload: experiencedChallenger.agentPubKey,
+        });
+      const freshReputation: AgentReputation =
+        await observer.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'get_agent_reputation',
+          payload: freshChallenger.agentPubKey,
+        });
+
+      expect(experiencedReputation.reputation_score).toBeGreaterThan(
+        freshReputation.reputation_score,
+      );
+
+      // The same agent authors both claims. Only the actual challenger differs.
+      const challengedByExperienced: ActionHash =
+        await claimAuthor.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'submit_claim',
+          payload: {
+            subject: 'ChallengeAttributionFixture',
+            predicate: 'comparison_fixture',
+            object: 'claim-challenged-by-experienced-agent',
+            object_type: 'text',
+            epistemic_type: 'empirical',
+          } as SubmitClaimInput,
+        });
+
+      const challengedByFresh: ActionHash =
+        await claimAuthor.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'submit_claim',
+          payload: {
+            subject: 'ChallengeAttributionFixture',
+            predicate: 'comparison_fixture',
+            object: 'claim-challenged-by-fresh-agent',
+            object_type: 'text',
+            epistemic_type: 'empirical',
+          } as SubmitClaimInput,
+        });
+
+      await dhtSync(allAgents, dnaHash);
+
+      await experiencedChallenger.cells[0].callZome({
+        zome_name: 'dkg',
+        fn_name: 'attest_claim',
+        payload: {
+          claim_hash: challengedByExperienced,
+          attestation_type: 'challenge',
+          evidence: 'Synthetic challenge; not independent counterevidence.',
+        } as AttestClaimInput,
+      });
+      await freshChallenger.cells[0].callZome({
+        zome_name: 'dkg',
+        fn_name: 'attest_claim',
+        payload: {
+          claim_hash: challengedByFresh,
+          attestation_type: 'challenge',
+          evidence: 'Synthetic challenge; not independent counterevidence.',
+        } as AttestClaimInput,
+      });
+
+      await dhtSync(allAgents, dnaHash);
+
+      const claims: WeightedClaim[] =
+        await observer.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'get_claims',
+          payload: 'ChallengeAttributionFixture',
+        });
+
+      const experiencedClaim = claims.find(
+        (claim) => claim.object === 'claim-challenged-by-experienced-agent',
+      );
+      const freshClaim = claims.find(
+        (claim) => claim.object === 'claim-challenged-by-fresh-agent',
+      );
+
+      expect(experiencedClaim).toBeDefined();
+      expect(freshClaim).toBeDefined();
+      expect(experiencedClaim!.challenges).toBe(1);
+      expect(freshClaim!.challenges).toBe(1);
+
+      console.log(
+        `Actual challenger reputation: experienced=${experiencedClaim!.confidence.toFixed(4)}, fresh=${freshClaim!.confidence.toFixed(4)}`,
+      );
+
+      // Same claim author, same claim type and one challenge each.
+      // The legacy heuristic applies the actual challenger's reputation to contradiction_weight.
+      expect(experiencedClaim!.confidence).toBeLessThan(
+        freshClaim!.confidence,
+      );
+    }, true, scenarioOptions);
+  });
+
   test('Subject discovery: list_subjects returns all subjects from multiple agents', async () => {
     await runScenario(async (scenario: Scenario) => {
       const [alice, bob, charlie] = await scenario.addPlayersWithApps([
