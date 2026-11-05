@@ -146,9 +146,17 @@ fn validate_semantics(input: &Value, input_bytes: &[u8], schema_bytes: &[u8]) ->
         ));
     }
 
-    validate_required_reviews(&node_map, &mut errors);
+    validate_required_reviews(&node_map, dag_version, &mut errors);
     validate_ready_disposition(input, &node_map, &required_kinds, &missing_kinds, &stale_closure, &mut errors);
 
+    let authority_escalation_detected = errors.iter().any(|reason| {
+        reason.starts_with("non_authoritative_node_escalates_scope")
+            || reason.starts_with("advisory_system_claims_authority")
+            || reason.starts_with("human_decision_owner_kind_mismatch")
+            || reason.starts_with("journal_projection_authority_mismatch")
+            || reason.starts_with("independent_verification_authority_mismatch")
+            || reason.starts_with("human_review_authority_mismatch")
+    });
     let status = if errors.is_empty() { "PASS" } else { "FAIL" };
     let canonical_dag = canonical_dag_value(input);
     let graph_digest = canonical_digest(DAG_DOMAIN, &canonical_dag);
@@ -185,7 +193,7 @@ fn validate_semantics(input: &Value, input_bytes: &[u8], schema_bytes: &[u8]) ->
         "invalidated_stale_nodes": invalidated,
         "errors": errors.into_iter().collect::<Vec<_>>(),
         "warnings": warnings.into_iter().collect::<Vec<_>>(),
-        "authority_escalation_detected": false,
+        "authority_escalation_detected": authority_escalation_detected,
         "can_post_journals": false,
         "can_approve_or_close": false,
         "limitations": limitations()
@@ -461,11 +469,18 @@ fn validate_node_authority(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSe
     }
 }
 
-fn validate_required_reviews(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSet<String>) {
+fn validate_required_reviews(
+    nodes: &BTreeMap<String, Value>,
+    dag_version: &str,
+    errors: &mut BTreeSet<String>,
+) {
     for (id, node) in nodes {
-        if node["review_requirement"]["required"] != true {
+        if node["review_requirement"]["required"] != true
+            || string(&node["result"], "state") != Some("completed")
+        {
             continue;
         }
+        let parent_commitment = string(&node["result"], "workpaper_commitment_sha256");
         let review_nodes = nodes
             .values()
             .filter(|candidate| {
@@ -479,16 +494,24 @@ fn validate_required_reviews(nodes: &BTreeMap<String, Value>, errors: &mut BTree
             .collect::<Vec<_>>();
         if review_nodes.is_empty() {
             errors.insert(format!("required_human_review_node_missing:{id}"));
+            continue;
         }
-        if string(&node["result"], "state") == Some("completed") {
-            let has_completed_review = review_nodes.iter().any(|review| {
-                string(&review["result"], "state") == Some("completed")
-                    && string(&review["result"], "terminal_disposition")
-                        .is_some_and(|state| matches!(state, "completed_and_verified" | "completed_with_scope_limitations"))
+        let has_bound_completed_review = review_nodes.iter().any(|review| {
+            let review_input = array(review, "inputs").iter().find(|input| {
+                string(input, "purpose") == Some("review_evidence")
+                    && string(&input["input_ref"], "ref_id") == Some(id)
             });
-            if !has_completed_review {
-                errors.insert(format!("completed_workpaper_missing_completed_review:{id}"));
-            }
+            let exact_binding = review_input.is_some_and(|input| {
+                string(&input["input_ref"], "version") == Some(dag_version)
+                    && string(&input["input_ref"], "sha256") == parent_commitment
+            });
+            exact_binding
+                && string(&review["result"], "state") == Some("completed")
+                && string(&review["result"], "terminal_disposition")
+                    .is_some_and(|state| matches!(state, "completed_and_verified" | "completed_with_scope_limitations"))
+        });
+        if !has_bound_completed_review {
+            errors.insert(format!("completed_workpaper_missing_exact_completed_review:{id}"));
         }
     }
 }
@@ -523,6 +546,24 @@ fn validate_recipes(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSet<Strin
 
         let join = string(recipe, "join_semantics").unwrap_or_default();
         let expected_cardinality = string(recipe, "expected_cardinality").unwrap_or_default();
+        if join == "one_to_one"
+            && !matches!(expected_cardinality, "one" | "zero_or_one")
+        {
+            errors.insert(format!("one_to_one_join_cardinality_mismatch:{id}"));
+        }
+        if join == "one_to_many_with_explicit_aggregation"
+            && expected_cardinality != "one_to_many"
+        {
+            errors.insert(format!("one_to_many_join_cardinality_mismatch:{id}"));
+        }
+        if join == "many_to_many_with_explicit_aggregation"
+            && expected_cardinality != "many_to_many"
+        {
+            errors.insert(format!("many_to_many_join_cardinality_mismatch:{id}"));
+        }
+        if join != "none" && array(recipe, "join_keys").is_empty() {
+            errors.insert(format!("join_keys_missing:{id}"));
+        }
         if matches!(join, "one_to_many_with_explicit_aggregation" | "many_to_many_with_explicit_aggregation") {
             let explicit_aggregation = matches!(operation, "ratio" | "weighted_average" | "grouped_aggregation");
             if !explicit_aggregation || array(recipe, "join_keys").is_empty() || expected_cardinality == "unknown" {
@@ -561,8 +602,9 @@ fn validate_numeric_values(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSe
         };
         let encoding = string(numeric, "encoding").unwrap_or_default();
         let unit_ref = string(&numeric["unit_profile"], "ref_id");
-        let result_unit = string(&result["unit_profile"], "ref_id");
-        if result_unit.is_some() && result_unit != unit_ref {
+        if result.get("unit_profile").is_some() && result.get("numeric_value").and_then(|value| value.get("unit_profile")).is_some()
+            && numeric["unit_profile"] != result["unit_profile"]
+        {
             errors.insert(format!("numeric_result_unit_profile_mismatch:{id}"));
         }
         match encoding {
@@ -709,12 +751,14 @@ fn canonical_decimal(value: &str) -> bool {
         Some(parts) => parts,
         None => return false,
     };
-    let whole_valid = canonical_integer(whole);
+    let magnitude = whole.strip_prefix('-').unwrap_or(whole);
+    let whole_valid = canonical_integer(whole) || (whole.starts_with('-') && magnitude == "0");
+    let all_fractional_zero = !fractional.is_empty()
+        && fractional.bytes().all(|byte| byte == b'0');
     whole_valid
         && !fractional.is_empty()
         && fractional.bytes().all(|byte| byte.is_ascii_digit())
-        && !(whole == "-0" && fractional.bytes().all(|byte| byte == b'0'))
-        && !(whole == "0" && fractional.bytes().all(|byte| byte == b'0') && value.starts_with('-'))
+        && !(whole.starts_with('-') && magnitude == "0" && all_fractional_zero)
 }
 
 fn decimal_scale(value: &str) -> Option<usize> {
@@ -989,5 +1033,71 @@ mod tests {
         });
         let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
         assert_eq!(report["status"], "FAIL");
+    }
+
+    #[test]
+    fn negative_fractional_decimal_is_valid_but_negative_zero_is_not() {
+        let mut value = fixture();
+        value["nodes"][0]["result"]["numeric_value"] = json!({
+            "encoding":"fixed_decimal",
+            "value":"-0.25",
+            "scale":2,
+            "unit_profile":{"ref_id":"SYNTH-ZAR","source_kind":"synthetic_currency"}
+        });
+        assert!(errors(&verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"))).is_empty());
+        value["nodes"][0]["result"]["numeric_value"]["value"] = json!("-0.00");
+        assert!(errors(&verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"))).contains("fixed_decimal_scale_or_format_mismatch"));
+    }
+
+    #[test]
+    fn canonical_dag_digest_ignores_node_array_order() {
+        let mut value = fixture();
+        let schema = include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json");
+        let first = verify(&serde_json::to_vec(&value).unwrap(), schema);
+        value["nodes"].as_array_mut().unwrap().reverse();
+        let second = verify(&serde_json::to_vec(&value).unwrap(), schema);
+        assert_eq!(
+            first["digests"]["canonical_dag_sha256"],
+            second["digests"]["canonical_dag_sha256"]
+        );
+    }
+
+    #[test]
+    fn prior_workpaper_input_version_must_match_dag_version() {
+        let mut value = fixture();
+        value["nodes"][1]["inputs"][1]["input_ref"]["version"] = json!("0.2.0");
+        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        assert!(errors(&report).contains("prior_workpaper_version_mismatch"));
+    }
+
+    #[test]
+    fn workpaper_commitment_binds_canonical_node_without_self_digest_field() {
+        let mut value = fixture();
+        let parent = &mut value["nodes"][0];
+        parent["result"]["state"] = json!("completed");
+        parent["result"]["terminal_disposition"] = json!("completed_and_verified");
+        parent["result"]["payload_sha256"] = json!("a".repeat(64));
+        parent["result"]["result_type"] = json!("SyntheticSourceMatch");
+        parent["result"]["produced_at"] = json!("2026-11-05T19:00:00Z");
+        parent["result"]["workpaper_commitment_sha256"] = json!("0".repeat(64));
+        let commitment = workpaper_commitment(parent);
+        parent["result"]["workpaper_commitment_sha256"] = json!(commitment);
+        value["nodes"][1]["inputs"][1]["input_ref"]["sha256"] = json!(commitment);
+        value["nodes"][2]["inputs"][1]["input_ref"]["sha256"] = json!(commitment);
+        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        assert_eq!(report["status"], "PASS");
+    }
+
+    #[test]
+    fn completed_child_cannot_consume_nonterminal_parent() {
+        let mut value = fixture();
+        value["nodes"][1]["result"]["state"] = json!("completed");
+        value["nodes"][1]["result"]["terminal_disposition"] = json!("completed_and_verified");
+        value["nodes"][1]["result"]["payload_sha256"] = json!("a".repeat(64));
+        value["nodes"][1]["result"]["result_type"] = json!("SyntheticChild");
+        value["nodes"][1]["result"]["produced_at"] = json!("2026-11-05T19:00:00Z");
+        value["nodes"][1]["result"]["workpaper_commitment_sha256"] = json!("b".repeat(64));
+        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        assert!(errors(&report).contains("completed_child_has_nonterminal_parent"));
     }
 }
