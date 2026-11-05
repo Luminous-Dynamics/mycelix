@@ -518,7 +518,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            let mut duplicate = value["scenarios"][20]["signal"]["evidence_contributions"][0].clone();
+            let mut duplicate =
+                value["scenarios"][20]["signal"]["evidence_contributions"][0].clone();
             duplicate["contribution_id"] = json!("E-21-2");
             duplicate["source_participant"] = json!("synthetic-psp-c");
             duplicate["evidence_commitment"] = json!("evidence-E-21-2");
