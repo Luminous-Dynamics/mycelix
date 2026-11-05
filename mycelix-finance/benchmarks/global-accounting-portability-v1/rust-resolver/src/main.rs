@@ -797,7 +797,12 @@ mod tests {
                 .to_string()
                 .contains("no_exact_qualified_intersection")
         );
-        assert!(!report["unsupported_profile_ids"].as_array().unwrap().is_empty());
+        assert!(
+            !report["unsupported_profile_ids"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
