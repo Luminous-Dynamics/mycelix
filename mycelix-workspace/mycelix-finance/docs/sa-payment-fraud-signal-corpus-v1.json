@@ -446,7 +446,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-001"
       },
       "expected_admission": "admit_advisory",
       "expected_reason_code": "valid_scoped_transaction_signal",
@@ -541,7 +543,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-002",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-002"
       },
       "expected_admission": "reject",
       "expected_reason_code": "invalid_signature",
@@ -636,7 +640,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-003",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-003"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "unknown_signing_key",
@@ -731,7 +737,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-004",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-004"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "issuer_authority_unknown",
@@ -826,7 +834,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-005",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-005"
       },
       "expected_admission": "reject",
       "expected_reason_code": "section_251_not_private_platform_basis",
@@ -921,7 +931,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-006",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-006"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "personal_data_basis_unknown",
@@ -1016,7 +1028,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-007",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-007"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "special_personal_review_pending",
@@ -1111,7 +1125,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-008",
         "requested_purpose": "fraud_investigation",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-008"
       },
       "expected_admission": "admit_advisory",
       "expected_reason_code": "reviewed_fixture_scope_only",
@@ -1206,7 +1222,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-009",
         "requested_purpose": "credit_scoring",
         "requested_action": "credit_scoring",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-009"
       },
       "expected_admission": "reject",
       "expected_reason_code": "prohibited_secondary_purpose",
@@ -1301,7 +1319,9 @@
         "recipient_subject_ref": "pairwise:BANK-X:SUBJECT-010",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-010"
       },
       "expected_admission": "reject",
       "expected_reason_code": "recipient_not_permitted",
@@ -1396,7 +1416,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-011",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-011"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "retention_expired",
@@ -1493,7 +1515,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-012",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-012"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "accuracy_contested",
@@ -1596,7 +1620,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-013",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-013"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "correction_not_propagated",
@@ -1699,7 +1725,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-014",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-014"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "superseded_assertion_not_current",
@@ -1802,7 +1830,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-015",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-015"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "withdrawn_assertion_not_current",
@@ -1898,7 +1928,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-016",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-016"
       },
       "expected_admission": "reject",
       "expected_reason_code": "correlated_copies_not_independent",
@@ -1993,7 +2025,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-017",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-017"
       },
       "expected_admission": "reject",
       "expected_reason_code": "model_output_not_official_determination",
@@ -2088,7 +2122,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-018",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-018"
       },
       "expected_admission": "reject",
       "expected_reason_code": "official_status_missing_authority_evidence",
@@ -2183,7 +2219,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-019",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-019"
       },
       "expected_admission": "reject",
       "expected_reason_code": "personal_signal_in_public_dht",
@@ -2278,7 +2316,9 @@
         "recipient_subject_ref": "global:SUBJECT-00020",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-020"
       },
       "expected_admission": "reject",
       "expected_reason_code": "global_subject_identifier",
@@ -2373,7 +2413,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-021",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-021"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "data_classification_unknown",
@@ -2468,7 +2510,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-022",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-022"
       },
       "expected_admission": "reject",
       "expected_reason_code": "recipient_class_not_permitted",
@@ -2560,7 +2604,9 @@
         "recipient_subject_ref": "pairwise:REGULATOR-B:SUBJECT-023",
         "requested_purpose": "statutory_fraud_reporting",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-023"
       },
       "expected_admission": "admit_advisory",
       "expected_reason_code": "regulator_statutory_scope_fixture",
@@ -2652,7 +2698,9 @@
         "recipient_subject_ref": "pairwise:THIRD-PARTY-X:SUBJECT-024",
         "requested_purpose": "statutory_fraud_reporting",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-024"
       },
       "expected_admission": "reject",
       "expected_reason_code": "section_251_recipient_scope_mismatch",
@@ -2747,7 +2795,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-025",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-025"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "lawful_basis_unknown",
@@ -2842,7 +2892,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-026",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-026"
       },
       "expected_admission": "reject",
       "expected_reason_code": "high_confidence_without_method",
@@ -2933,7 +2985,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-027",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-027"
       },
       "expected_admission": "reject",
       "expected_reason_code": "payee_match_not_fraud_adjudication",
@@ -3024,7 +3078,9 @@
         "recipient_subject_ref": "pairwise:RESEARCH-UNIT:SUBJECT-028",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-028"
       },
       "expected_admission": "reject",
       "expected_reason_code": "aggregate_reimbursement_outcome_not_live_fraud_signal",
@@ -3119,7 +3175,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-029",
         "requested_purpose": "fraud_prevention",
         "requested_action": "automatic_irreversible_denial",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-029"
       },
       "expected_admission": "reject",
       "expected_reason_code": "single_signal_cannot_authorize_irreversible_denial",
@@ -3214,7 +3272,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-030",
         "requested_purpose": "fraud_prevention",
         "requested_action": "execute_payment",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-030"
       },
       "expected_admission": "reject",
       "expected_reason_code": "fraud_signal_cannot_authorize_payment_execution",
@@ -3309,7 +3369,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-031",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-031"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "not_substantiated_assertion_not_current",
@@ -3404,7 +3466,9 @@
         "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-032",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-032"
       },
       "expected_admission": "reject",
       "expected_reason_code": "knowledge_forum_not_customer_level_exchange",
@@ -3497,7 +3561,9 @@
         "recipient_subject_ref": "pairwise:FUTURE-NPU:SUBJECT-033",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-033"
       },
       "expected_admission": "quarantine",
       "expected_reason_code": "proposed_programme_not_operational",
@@ -3592,10 +3658,206 @@
         "recipient_subject_ref": "pairwise:BANK-C:SUBJECT-034",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
-        "evaluated_at": "2026-11-05T08:00:00Z"
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "verified",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-034"
       },
       "expected_admission": "reject",
       "expected_reason_code": "pairwise_subject_scope_mismatch",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-035",
+      "signal": {
+        "signal_id": "FIS-035",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-35",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000035",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000035",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:035",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-35-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "unknown",
+        "subject_binding_receipt_ref": null
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "subject_binding_unknown",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-036",
+      "signal": {
+        "signal_id": "FIS-036",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-36",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000036",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000036",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:036",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-36-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-001",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z",
+        "subject_binding_state": "mismatch",
+        "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-036"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "subject_binding_mismatch",
       "expected_action_class": "none"
     }
   ]
