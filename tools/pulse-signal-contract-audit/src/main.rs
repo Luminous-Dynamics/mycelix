@@ -262,7 +262,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             && all_rust_names.len() == 28
             && schema_names == all_rust_names
             && expected_schema_version,
-        signal_schema_field_types_complete,
+        signal_schema_field_types_complete: schema_field_types_complete,
         zomes,
         findings,
     };
