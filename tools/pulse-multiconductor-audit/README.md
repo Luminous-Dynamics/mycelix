@@ -4,7 +4,7 @@ A Rust-first independent structural verifier for the Pulse multi-conductor causa
 
 ## Purpose
 
-The auditor consumes redacted multi-conductor histories without inventing a global clock. Each conductor has its own local_sequence and host_authority_index; those counters are compared only within that conductor. Cross-conductor ordering exists only when an explicit, evidence-referenced causal edge connects two events.
+The auditor consumes redacted multi-conductor histories without inventing a global clock. Each conductor has its own local_sequence and host_authority_index; those counters are compared only within that conductor. Cross-conductor ordering exists only when an explicit, evidence-referenced causal edge connects two events. A Holochain CellId is agent-specific (DNA hash + AgentPubKey), so different peers in one DNA network are expected to have different cell IDs. Cross-conductor validation and observer evidence are joined by the shared DNA hash and exact integrity-WASM lineage; each reported cell ID is checked against its own conductor and is never required to equal another peer's CellId.
 
 The v2 contract distinguishes:
 - host grant issuance/revocation and host call decisions;
