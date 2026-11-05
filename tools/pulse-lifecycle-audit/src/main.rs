@@ -229,6 +229,9 @@ struct RemoteSignal {
     claimed_sender: Option<String>,
     transport_sender: Option<String>,
     backing_action_hash: Option<String>,
+    record_author: Option<String>,
+    verified_payload_sha256: Option<String>,
+    verifier_build: Option<String>,
     trusted_state_mutation: bool,
     authorizes_operation: bool,
 }
@@ -754,11 +757,25 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                             finding(&mut findings, "VERIFIED_SIGNAL_NOT_OBSERVER_ATTESTED", "incomplete",
                                 Some(&event.event_id), "VerifiedRecord classification must be emitted by the observer after backing-record validation, not by the remote sender or client");
                         }
-                        match (&signal.claimed_sender, &signal.transport_sender, &signal.backing_action_hash) {
-                            (Some(claimed), Some(transport), Some(hash))
-                                if claimed == transport && !hash.trim().is_empty() => {}
+                        let digest_valid = signal.verified_payload_sha256.as_deref().is_some_and(|digest| {
+                            digest.len() == 64
+                                && digest.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+                        });
+                        match (
+                            &signal.claimed_sender,
+                            &signal.transport_sender,
+                            &signal.backing_action_hash,
+                            &signal.record_author,
+                            &signal.verifier_build,
+                        ) {
+                            (Some(claimed), Some(transport), Some(hash), Some(author), Some(verifier))
+                                if claimed == transport
+                                    && transport == author
+                                    && !hash.trim().is_empty()
+                                    && !verifier.trim().is_empty()
+                                    && digest_valid => {}
                             _ => finding(&mut findings, "VERIFIED_SIGNAL_EVIDENCE_INCOMPLETE", "incomplete",
-                                Some(&event.event_id), "verified record signal requires matching transport sender and backing ActionHash"),
+                                Some(&event.event_id), "VerifiedRecord requires matching claimed/transport/record author, exact backing ActionHash, canonical payload SHA-256, verifier build and observer-plane disposition"),
                         }
                     }
                     SignalTrustClass::AuthenticatedPeerHint => {
@@ -1054,6 +1071,43 @@ mod tests {
         let report = run(&bundle);
         assert_eq!(report.status, Status::Incomplete);
         assert!(report.findings.iter().any(|f| f.code == "VERIFIED_SIGNAL_NOT_OBSERVER_ATTESTED"));
+    }
+
+    #[test]
+    fn verified_record_signal_requires_record_author_digest_and_verifier_build() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::RemoteSignal(_))).unwrap();
+        event.source = EvidenceSource::Observer;
+        if let EventKind::RemoteSignal(ref mut signal) = event.kind {
+            signal.trust_class = SignalTrustClass::VerifiedRecord;
+            signal.claimed_sender = Some("agent-owner".to_string());
+            signal.transport_sender = Some("agent-owner".to_string());
+            signal.backing_action_hash = Some("action-attestation-1".to_string());
+            signal.record_author = Some("agent-attacker".to_string());
+            signal.verified_payload_sha256 = Some("a".repeat(64));
+            signal.verifier_build = Some("pulse-record-verifier/1".to_string());
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Incomplete);
+        assert!(report.findings.iter().any(|f| f.code == "VERIFIED_SIGNAL_EVIDENCE_INCOMPLETE"));
+    }
+
+    #[test]
+    fn complete_observer_record_receipt_satisfies_structural_verified_record_contract() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::RemoteSignal(_))).unwrap();
+        event.source = EvidenceSource::Observer;
+        if let EventKind::RemoteSignal(ref mut signal) = event.kind {
+            signal.trust_class = SignalTrustClass::VerifiedRecord;
+            signal.claimed_sender = Some("agent-owner".to_string());
+            signal.transport_sender = Some("agent-owner".to_string());
+            signal.backing_action_hash = Some("action-attestation-1".to_string());
+            signal.record_author = Some("agent-owner".to_string());
+            signal.verified_payload_sha256 = Some("a".repeat(64));
+            signal.verifier_build = Some("pulse-record-verifier/1".to_string());
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Pass, "{:?}", report.findings);
     }
 
     #[test]
