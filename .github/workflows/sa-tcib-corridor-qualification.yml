@@ -1,0 +1,44 @@
+name: South African TCIB Corridor Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/docs/SA_TCIB_CORRIDOR_PROFILE_V1.md'
+      - 'mycelix-finance/docs/sa-tcib-corridor-corpus-v1.*'
+      - 'mycelix-workspace/mycelix-finance/docs/SA_TCIB_CORRIDOR_PROFILE_V1.md'
+      - 'mycelix-workspace/mycelix-finance/docs/sa-tcib-corridor-corpus-v1.*'
+      - 'tools/finance/sa-tcib-corridor-evaluator/**'
+      - '.github/workflows/sa-tcib-corridor-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-finance/docs/SA_TCIB_CORRIDOR_PROFILE_V1.md'
+      - 'mycelix-finance/docs/sa-tcib-corridor-corpus-v1.*'
+      - 'tools/finance/sa-tcib-corridor-evaluator/**'
+      - '.github/workflows/sa-tcib-corridor-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Effects-disabled TCIB corridor evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust 1.96
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.96.0
+      - name: Format
+        run: cargo fmt --manifest-path tools/finance/sa-tcib-corridor-evaluator/Cargo.toml -- --check
+      - name: Schema and semantic tests
+        run: cargo test --manifest-path tools/finance/sa-tcib-corridor-evaluator/Cargo.toml
+      - name: Deterministic negative mutation campaign
+        run: cargo run --manifest-path tools/finance/sa-tcib-corridor-evaluator/Cargo.toml -- --self-test
+      - name: Clippy
+        run: cargo clippy --manifest-path tools/finance/sa-tcib-corridor-evaluator/Cargo.toml --all-targets -- -D warnings
