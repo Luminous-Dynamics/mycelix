@@ -338,22 +338,31 @@ fn evaluate_reference(reference: &Value, context: &Value) -> (&'static str, &'st
     if string_at(reference, "access_policy.access_decision") != Some("permitted") {
         return ("blocked", "access policy does not permit this evidence use");
     }
-    let artifact_availability = string_at(
-        reference,
-        "canonical_desci_reference.artifact_availability",
-    );
+    let artifact_availability =
+        string_at(reference, "canonical_desci_reference.artifact_availability");
     let policy_availability = string_at(reference, "access_policy.availability");
     match (artifact_availability, policy_availability) {
         (Some("unavailable"), _) | (_, Some("unavailable")) => {
-            return ("indeterminate", "artifact or authorized resolver is unavailable");
+            return (
+                "indeterminate",
+                "artifact or authorized resolver is unavailable",
+            );
         }
         (Some("public"), Some("public"))
         | (Some("controlled"), Some("controlled"))
         | (Some("embargoed"), Some("embargoed")) => {}
         (Some(_), Some(_)) => {
-            return ("blocked", "artifact availability and access-policy availability disagree");
+            return (
+                "blocked",
+                "artifact availability and access-policy availability disagree",
+            );
         }
-        _ => return ("indeterminate", "artifact availability is unknown or unavailable"),
+        _ => {
+            return (
+                "indeterminate",
+                "artifact availability is unknown or unavailable",
+            );
+        }
     }
 
     (
@@ -574,7 +583,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         }));
     }
 
-
     let output = json!({
         "receipt_version": "2",
         "source_commit": source_commit,
@@ -717,10 +725,7 @@ mod tests {
         let fixtures = load_fixtures();
         let (disposition, unique_families, references) =
             evaluate_source_family_group(&fixtures["source_family_group_example"]);
-        assert_eq!(
-            disposition,
-            "eligible_but_not_independent_corroboration"
-        );
+        assert_eq!(disposition, "eligible_but_not_independent_corroboration");
         assert_eq!(unique_families, 1);
         assert_eq!(references, 2);
     }
