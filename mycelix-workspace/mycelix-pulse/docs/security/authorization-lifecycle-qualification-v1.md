@@ -158,9 +158,26 @@ A third small model now makes the AuthorityCheckpoint proposal executable:
 
 It separates host CapGrant state, canonical authority epoch, local projection epoch, a caller's minimum required epoch, the actual conductor probe result and the application read classification. After host revocation commits, the observer may still hold an old active projection; a constrained read must return `UNKNOWN` until the projection reaches the checkpoint. The mutant's false-fresh response must violate `NoFalseFreshAuthority`. The checkpoint never creates or changes a host grant.
 
-The same pinned TLC workflow ran both checkpoint configurations in run #56: safe model PASS (27 generated / 17 distinct states, queue exhausted); checkpoint-bypass mutant caught by `NoFalseFreshAuthority` (10 generated / 9 distinct states). Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41856892659. Receipt: `docs/security/PulseAuthorityCheckpoint-model-check-2026-11-04.md`.
+The scalar freshness model was checked in run #56: safe model PASS (27 generated / 17 distinct states); scalar checkpoint-bypass mutant caught by `NoFalseFreshAuthority`. Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41856892659. Receipt: `docs/security/PulseAuthorityCheckpoint-model-check-2026-11-04.md`.
 
-This validates only the bounded abstract contract; it does not establish that Holochain already supports a ZedToken-equivalent API or that the production runtime implements the checkpoint.
+**Important limitation:** the scalar model is a preliminary contract only. Equal epoch numbers do not prove two views descend from the same source-chain transition. A foreign or conflicting history can share the same integer epoch.
+
+### Lineage-bound AuthorityCheckpoint refinement
+
+The stronger model is now in:
+- `PulseAuthorityCheckpointLineage.tla`
+- `PulseAuthorityCheckpointLineage.cfg` — safe lineage check
+- `PulseAuthorityCheckpointLineage-bypass-mutant.cfg` — deliberately unsafe epoch-only reader
+
+The checkpoint binds canonical DNA/cell identity, author/source-chain identity, exact transition ActionHash and epoch. A read is trusted only when the observer proves its projection descends from that checkpoint. An equal-height foreign or conflicting history remains UNKNOWN.
+
+TLC run #134 checked the lineage model:
+- Safe: PASS, 31 generated / 14 distinct states, queue exhausted.
+- Epoch-only bypass mutant: expected counterexample, `NoForeignLineageCanBeTrusted` violated (11 generated / 8 distinct states).
+
+Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41945984183. Receipt: `docs/security/PulseAuthorityCheckpointLineage-model-check-2026-11-05.md`. Artifact ID `13379245045`, ZIP SHA-256 `c56658f77793f63003611c01da60af059fe43d9a8103273093d083aa874d95`.
+
+This is still a bounded abstract contract, not proof that Holochain exposes a global snapshot token or that its actual DHT can provide this ancestry proof. The production design must build the checkpoint from actual DNA/cell and source-chain evidence.
 
 The TLC workflow now runs all three mailbox configurations in addition to the authorization lifecycle configurations. **The first exact run (#32) passed the safe mailbox model** with 37 generated / 20 distinct states and no invariant error. The proposed-state mutant was caught by `OnlyOriginalOwnerMayUpdate`; the protected-field mutant was caught by `ProtectedFieldsRemainImmutable`. Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41852865450. Full tool/source/state receipt: `docs/security/PulseMailboxValidation-model-check-2026-11-04.md`. The corresponding real two-conductor experiment remains open in [#5781](https://github.com/Luminous-Dynamics/mycelix/issues/5781).
 
