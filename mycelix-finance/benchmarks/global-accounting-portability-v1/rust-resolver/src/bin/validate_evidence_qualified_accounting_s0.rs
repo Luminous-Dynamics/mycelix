@@ -168,9 +168,11 @@ fn credit_note_parent_missing(case: &Value) -> Result<bool, String> {
                 .get("value")
                 .and_then(Value::as_str)
                 .ok_or_else(|| format!("{document_ref}: original invoice ID is not a string"))?;
-            let found = documents
-                .iter()
-                .any(|candidate| optional_string(candidate, "external_document_id") == Some(original_id));
+            let frontier = string(case, "knowledge_at")?;
+            let found = documents.iter().any(|candidate| {
+                optional_string(candidate, "external_document_id") == Some(original_id)
+                    && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
+            });
             if !found {
                 return Ok(true);
             }
@@ -355,8 +357,8 @@ fn validate_oracle_references(
 
     let mut journal_entry_refs = BTreeSet::new();
     let mut line_refs = BTreeSet::new();
-    let mut debit_totals = BTreeMap::<(String, String, String), i128>::new();
-    let mut credit_totals = BTreeMap::<(String, String, String), i128>::new();
+    let mut debit_totals = BTreeMap::<(String, String, String, String), i128>::new();
+    let mut credit_totals = BTreeMap::<(String, String, String, String), i128>::new();
     let mut journal_fact_refs = BTreeSet::new();
 
     for entry in array(expectation, "expected_journal_entries")? {
@@ -375,7 +377,7 @@ fn validate_oracle_references(
                 return Err(format!("{case_id}/{line_ref}: journal entity does not match reporting entity"));
             }
             let period = string(line, "period_ref")?.to_owned();
-            let key = (currency, entity, period);
+            let key = (entry_ref.clone(), currency, entity, period);
             let amount = line
                 .get("amount_minor")
                 .and_then(Value::as_i64)
@@ -442,6 +444,10 @@ fn validate_oracle_references(
         let account = string(statement, "account_ref")?;
         let currency = string(statement, "currency")?;
         let period = string(statement, "period_ref")?;
+        let normal_balance = string(statement, "normal_balance")?;
+        if !matches!(normal_balance, "debit" | "credit") {
+            return Err(format!("{case_id}/{statement_ref}: invalid account normal balance"));
+        }
         let mut reconstructed: i128 = 0;
         for entry in array(expectation, "expected_journal_entries")? {
             if linked.contains(string(entry, "entry_ref")?) {
@@ -449,7 +455,7 @@ fn validate_oracle_references(
                     if string(line, "account_ref")? == account
                         && string(line, "currency")? == currency
                         && string(line, "period_ref")? == period
-                        && string(line, "side")? == "debit"
+                        && string(line, "side")? == normal_balance
                     {
                         reconstructed += line
                             .get("amount_minor")
@@ -461,7 +467,7 @@ fn validate_oracle_references(
         }
         if reconstructed != statement_amount as i128 {
             return Err(format!(
-                "{case_id}/{statement_ref}: statement amount {statement_amount} does not reconstruct from journal debit {reconstructed}"
+                "{case_id}/{statement_ref}: statement amount {statement_amount} does not reconstruct from journal {normal_balance} balance {reconstructed}"
             ));
         }
     }
@@ -476,7 +482,7 @@ fn validate_oracle_references(
         }
         let mut journal_totals = BTreeMap::<String, i128>::new();
         for (key, debit) in &debit_totals {
-            *journal_totals.entry(key.0.clone()).or_default() += debit;
+            *journal_totals.entry(key.1.clone()).or_default() += debit;
         }
         if invoice_totals != journal_totals {
             return Err(format!("{case_id}: total journal debits {journal_totals:?} do not equal evidenced invoice totals {invoice_totals:?}"));
@@ -706,6 +712,42 @@ mod tests {
         amount["valid_to"] = Value::String("2026-09-30".to_owned());
         assert!(facts_of_type(case, "invoice_total_minor").unwrap().is_empty());
         assert_eq!(derive_expectation(case).unwrap(), ("clarify", "required_fact_missing"));
+    }
+
+
+    #[test]
+    fn per_entry_balance_cannot_be_forged_by_offsetting_two_entries() {
+        let (candidates, mut oracle) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-008-PERIOD-CUTOFF-ALLOCATION").unwrap();
+        let expectation = oracle["expectations"].as_array_mut().unwrap().iter_mut()
+            .find(|item| optional_string(item, "case_id") == Some("ACCT-008-PERIOD-CUTOFF-ALLOCATION")).unwrap();
+        let entries = expectation["expected_journal_entries"].as_array_mut().unwrap();
+        entries[0]["lines"][0]["amount_minor"] = Value::from(170100);
+        entries[1]["lines"][1]["amount_minor"] = Value::from(140100);
+        for line in entries[1]["lines"].as_array_mut().unwrap() {
+            line["period_ref"] = Value::String("2026-10".to_owned());
+        }
+        assert!(validate_oracle_references(case, expectation).is_err());
+    }
+
+    #[test]
+    fn future_parent_invoice_does_not_retroactively_resolve_credit_note() {
+        let (mut candidates, _) = fixtures();
+        let case = candidates["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("ACCT-006-CREDIT-NOTE-PARENT-MISSING")).unwrap();
+        case["documents"].as_array_mut().unwrap().push(serde_json::json!({
+            "document_ref":"DOC-006-FUTURE-PARENT",
+            "external_document_id":"INV-NOT-IN-SOURCE-SET",
+            "namespace":"tenant-acme/ap",
+            "revision":"r1",
+            "document_type":"invoice",
+            "source_system":"synthetic_erp",
+            "received_at":"2026-11-05T10:45:00Z",
+            "integrity_state":"synthetic_match",
+            "duplicate_of_document_ref":null
+        }));
+        assert!(credit_note_parent_missing(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("escalate", "credit_note_parent_missing"));
     }
 
     #[test]
