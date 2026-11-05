@@ -174,32 +174,6 @@
           "recorded_at": "2026-11-05T10:00:00Z"
         },
         {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-ACCOUNTING",
           "jurisdiction_scope_ref": "SYN-DG-SA",
           "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
@@ -224,23 +198,6 @@
             "SYN-SOURCE-POPIA-REF"
           ],
           "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
           "reviewer_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
@@ -376,7 +333,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-002-FOREIGN-PROCESSOR",
@@ -549,32 +507,6 @@
           "recorded_at": "2026-11-05T10:00:00Z"
         },
         {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-ACCOUNTING",
           "jurisdiction_scope_ref": "SYN-DG-SA",
           "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
@@ -599,23 +531,6 @@
             "SYN-SOURCE-POPIA-REF"
           ],
           "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
           "reviewer_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
@@ -690,7 +605,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-003-ONWARD-BACKUP",
@@ -863,32 +779,6 @@
           "recorded_at": "2026-11-05T10:00:00Z"
         },
         {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-ACCOUNTING",
           "jurisdiction_scope_ref": "SYN-DG-SA",
           "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
@@ -913,23 +803,6 @@
             "SYN-SOURCE-POPIA-REF"
           ],
           "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
           "reviewer_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
@@ -1091,7 +964,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-004-EU-ONWARD",
@@ -1240,19 +1114,6 @@
       ],
       "legal_profiles": [
         {
-          "profile_ref": "SYN-PROFILE-POPIA-SA",
-          "jurisdiction_scope_ref": "SYN-DG-SA",
-          "regime_id": "SYN-POPIA-S72",
-          "instrument_version": "synthetic-v1",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-POPIA-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-EU-GDPR",
           "jurisdiction_scope_ref": "SYN-DG-EU",
           "regime_id": "SYN-EU-GDPR-CHV",
@@ -1264,50 +1125,9 @@
           "effective_from": "2026-01-01",
           "effective_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-ACCOUNTING",
-          "jurisdiction_scope_ref": "SYN-DG-SA",
-          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
-          "instrument_version": "synthetic-v1",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-ACCOUNTING-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
         }
       ],
       "transfer_mechanisms": [
-        {
-          "mechanism_ref": "SYN-DG-MECH-1",
-          "profile_ref": "SYN-PROFILE-POPIA-SA",
-          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-X",
-          "status": "synthetic_not_assessed",
-          "source_refs": [
-            "SYN-SOURCE-POPIA-REF"
-          ],
-          "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
         {
           "mechanism_ref": "SYN-DG-MECH-2",
           "profile_ref": "SYN-PROFILE-EU-GDPR",
@@ -1367,6 +1187,17 @@
               "evidence_refs": [
                 "SYN-DG-EVIDENCE-LOC-ONWARD_RECIPIENT"
               ]
+            },
+            {
+              "facet": "onward_recipient",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ONWARD-RECIPIENT-2"
+              ]
             }
           ],
           "transfer_mechanism_refs": [
@@ -1394,7 +1225,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-005-UK-REGIME-VERSION",
@@ -1543,32 +1375,6 @@
       ],
       "legal_profiles": [
         {
-          "profile_ref": "SYN-PROFILE-POPIA-SA",
-          "jurisdiction_scope_ref": "SYN-DG-SA",
-          "regime_id": "SYN-POPIA-S72",
-          "instrument_version": "synthetic-v1",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-POPIA-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
           "jurisdiction_scope_ref": "SYN-DG-UK",
           "regime_id": "SYN-UK-GDPR-TRANSFER",
@@ -1580,55 +1386,9 @@
           "effective_from": "2026-02-05",
           "effective_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-ACCOUNTING",
-          "jurisdiction_scope_ref": "SYN-DG-SA",
-          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
-          "instrument_version": "synthetic-v1",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-ACCOUNTING-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
         }
       ],
-      "transfer_mechanisms": [
-        {
-          "mechanism_ref": "SYN-DG-MECH-1",
-          "profile_ref": "SYN-PROFILE-POPIA-SA",
-          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-X",
-          "status": "synthetic_not_assessed",
-          "source_refs": [
-            "SYN-SOURCE-POPIA-REF"
-          ],
-          "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        }
-      ],
+      "transfer_mechanisms": [],
       "flows": [
         {
           "flow_ref": "DG-005-UK-REGIME-VERSION-FLOW-1",
@@ -1695,7 +1455,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-006-ACCOUNTING-ONLY",
@@ -1868,32 +1629,6 @@
           "recorded_at": "2026-11-05T10:00:00Z"
         },
         {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-ACCOUNTING",
           "jurisdiction_scope_ref": "SYN-DG-SA",
           "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
@@ -1918,23 +1653,6 @@
             "SYN-SOURCE-POPIA-REF"
           ],
           "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
           "reviewer_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
@@ -2007,7 +1725,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-007-RETENTION-LEGAL-HOLD",
@@ -2180,32 +1899,6 @@
           "recorded_at": "2026-11-05T10:00:00Z"
         },
         {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-ACCOUNTING",
           "jurisdiction_scope_ref": "SYN-DG-SA",
           "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
@@ -2230,23 +1923,6 @@
             "SYN-SOURCE-POPIA-REF"
           ],
           "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
           "reviewer_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
@@ -2321,7 +1997,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-008-UNAPPROVED-PURPOSE",
@@ -2494,32 +2171,6 @@
           "recorded_at": "2026-11-05T10:00:00Z"
         },
         {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-ACCOUNTING",
           "jurisdiction_scope_ref": "SYN-DG-SA",
           "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
@@ -2544,23 +2195,6 @@
             "SYN-SOURCE-POPIA-REF"
           ],
           "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
           "reviewer_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
@@ -2633,7 +2267,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-009-UNKNOWN-REMOTE-ACCESS",
@@ -2806,32 +2441,6 @@
           "recorded_at": "2026-11-05T10:00:00Z"
         },
         {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-ACCOUNTING",
           "jurisdiction_scope_ref": "SYN-DG-SA",
           "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
@@ -2856,23 +2465,6 @@
             "SYN-SOURCE-POPIA-REF"
           ],
           "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
           "reviewer_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
@@ -3002,7 +2594,8 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T10:00:00Z"
         }
-      ]
+      ],
+      "actor_role_claims": []
     },
     {
       "context_id": "DG-010-ACTOR-ROLE-CONFLICT",
@@ -3175,32 +2768,6 @@
           "recorded_at": "2026-11-05T10:00:00Z"
         },
         {
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "jurisdiction_scope_ref": "SYN-DG-EU",
-          "regime_id": "SYN-EU-GDPR-CHV",
-          "instrument_version": "synthetic-2016-679",
-          "status": "synthetic_reference_only",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "effective_from": "2026-01-01",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
-          "jurisdiction_scope_ref": "SYN-DG-UK",
-          "regime_id": "SYN-UK-GDPR-TRANSFER",
-          "instrument_version": "synthetic-post-2026-02-05",
-          "status": "synthetic_candidate",
-          "source_refs": [
-            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
-          ],
-          "effective_from": "2026-02-05",
-          "effective_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
           "profile_ref": "SYN-PROFILE-ACCOUNTING",
           "jurisdiction_scope_ref": "SYN-DG-SA",
           "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
@@ -3225,23 +2792,6 @@
             "SYN-SOURCE-POPIA-REF"
           ],
           "evidence_refs": [],
-          "reviewer_refs": [],
-          "valid_from": "2026-01-01",
-          "valid_to": null,
-          "recorded_at": "2026-11-05T10:00:00Z"
-        },
-        {
-          "mechanism_ref": "SYN-DG-MECH-2",
-          "profile_ref": "SYN-PROFILE-EU-GDPR",
-          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
-          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
-          "status": "synthetic_review_required",
-          "source_refs": [
-            "SYN-SOURCE-EU-GDPR-REF"
-          ],
-          "evidence_refs": [
-            "SYN-DG-EVIDENCE-TRANSFER-001"
-          ],
           "reviewer_refs": [],
           "valid_from": "2026-01-01",
           "valid_to": null,
@@ -3338,6 +2888,36 @@
           "deletion_state": "not_due",
           "valid_from": "2026-01-01",
           "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "actor_role_claims": [
+        {
+          "claim_ref": "DG-010-ROLE-CLAIM-01",
+          "flow_ref": "DG-010-ACTOR-ROLE-CONFLICT-FLOW-2",
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "claimed_role": "processor",
+          "assertion_state": "synthetic_disputed",
+          "source_refs": [
+            "SYN-DG-SOURCE-ROLE-DECLARATION-A"
+          ],
+          "conflicts_with_claim_refs": [
+            "DG-010-ROLE-CLAIM-02"
+          ],
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "claim_ref": "DG-010-ROLE-CLAIM-02",
+          "flow_ref": "DG-010-ACTOR-ROLE-CONFLICT-FLOW-2",
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "claimed_role": "controller",
+          "assertion_state": "synthetic_disputed",
+          "source_refs": [
+            "SYN-DG-SOURCE-ROLE-DECLARATION-B"
+          ],
+          "conflicts_with_claim_refs": [
+            "DG-010-ROLE-CLAIM-01"
+          ],
           "recorded_at": "2026-11-05T10:00:00Z"
         }
       ]
