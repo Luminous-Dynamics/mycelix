@@ -983,6 +983,17 @@ mod tests{
     }
     #[test]fn safe_multiconductor_partial_order_passes(){let r=report(&fixture());assert!(matches!(r.status,Status::Pass),"{:?}",r.findings);}
     #[test]
+    fn same_dna_peers_have_distinct_cell_ids_and_valid_cross_peer_receipts() {
+        let h = fixture();
+        let cells: BTreeSet<_> = h.conductors.iter().map(|c| c.cell_id.as_str()).collect();
+        assert_eq!(cells.len(), h.conductors.len(), "each agent's CellId must remain distinct");
+        let dnas: BTreeSet<_> = h.conductors.iter().map(|c| c.dna_hash.as_str()).collect();
+        assert_eq!(dnas.len(), 1, "the peer conductors share one DNA network");
+        let r = report(&h);
+        assert!(matches!(r.status, Status::Pass), "{:?}", r.findings);
+        assert!(!r.findings.iter().any(|f| f.code == "VALIDATION_CELL_LINEAGE_MISMATCH"));
+    }
+    #[test]
     fn synthetic_benchmark_generator_produces_safe_histories() {
         for count in [1usize, 2, 999, 1000] {
             let history = benchmark_history(count).unwrap();
