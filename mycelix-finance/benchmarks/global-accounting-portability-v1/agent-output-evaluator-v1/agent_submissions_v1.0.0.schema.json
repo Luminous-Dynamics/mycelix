@@ -330,7 +330,8 @@
         "terminal_state",
         "source_document_refs",
         "question_refs",
-        "journal_line_refs"
+        "journal_line_refs",
+        "terminal_reason"
       ],
       "properties": {
         "trace_ref": {
@@ -390,6 +391,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "terminal_reason": {
+          "type": "string",
+          "minLength": 5
         }
       }
     }
