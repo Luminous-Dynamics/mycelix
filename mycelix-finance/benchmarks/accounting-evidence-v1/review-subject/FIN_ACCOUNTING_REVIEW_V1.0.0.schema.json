@@ -279,7 +279,7 @@
         },
         "non_human_eligible_roles": {
           "type": "array",
-          "maxItems": 3,
+          "maxItems": 1,
           "uniqueItems": true,
           "description": "Explicit opt-in for non-human performance/preparation only. Reviewer and approver roles remain human-only.",
           "items": {
