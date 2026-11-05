@@ -34,7 +34,7 @@ The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trac
 - **Host call:** exact grant hash, caller, function, conductor authority-order index, host state at decision and host disposition.
 - **Domain effect:** logical operation ID, attempt ID, durable effect ID and source-chain ActionHash.
 - **Projection read:** observed authority epoch, minimum requested epoch, freshness decision and whether projection was used as authority.
-- **Remote signal:** transport sender, payload-claimed sender, trust class, backing record reference, trusted-state mutation and authorization flags.
+- **Remote signal:** transport sender, payload-claimed sender, trust class, backing record reference, record author, canonical payload SHA-256, verifier build, trusted-state mutation and authorization flags.
 - **Caller observation:** acknowledged, rejected, committed, not-committed or unknown. Unknown does not mean no effect.
 
 ## Safety properties checked
@@ -58,7 +58,7 @@ The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trac
 
 A runtime trace must export a monotonically increasing **conductor authority-order index** at the point where grant issue, revoke and host decision are linearized. A trace bundle is currently treated as one ordered conductor history; do not merge raw authority indexes from independent conductors into one bundle without an explicit per-conductor identity and cross-conductor causal join. Wall-clock timestamps and source-chain order are not substitutes for this value. If Holochain does not expose the required event boundary, instrument a test build or mark the trace incomplete; do not infer order.
 
-Every event names an evidence source and a receipt reference. Coordinator assertions cannot stand in for conductor host decisions. A remote peer may prove who sent a hint, but it cannot prove the referenced record is true; only an observer-side record-verification event can be classified VerifiedRecord in the trace, and that classification remains structural until its receipt is independently authenticated. The verifier does not itself authenticate receipt signatures, inspect a conductor database, verify a DHT validation receipt, or prove that the exporter is honest. Its report therefore has the fixed claim ceiling STRUCTURAL_ONLY.
+Every event names an evidence source and a receipt reference. Coordinator assertions cannot stand in for conductor host decisions. A remote peer may prove who sent a hint, but it cannot prove the referenced record is true. A VerifiedRecord trace disposition must include an observer-plane record author, exact backing ActionHash, SHA-256 digest of the canonical payload comparison and verifier build. The auditor checks structural consistency only; it does not authenticate the verifier or receipt. The verifier does not itself authenticate receipt signatures, inspect a conductor database, verify a DHT validation receipt, or prove that the exporter is honest. Its report therefore has the fixed claim ceiling STRUCTURAL_ONLY.
 
 Never include capability secrets, message plaintext, private keys, raw authentication tokens or unnecessary personal identity data in the trace. Hashes and identifiers should be salted/pseudonymized where cross-run correlation is not required.
 
