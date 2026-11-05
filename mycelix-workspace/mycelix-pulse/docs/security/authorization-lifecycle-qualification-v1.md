@@ -171,15 +171,29 @@ The stronger model is now in:
 
 The checkpoint binds canonical DNA/cell identity, author/source-chain identity, exact transition ActionHash and epoch. A read is trusted only when the observer proves its projection descends from that checkpoint. An equal-height foreign or conflicting history remains UNKNOWN.
 
-TLC run #134 checked the lineage model:
+TLC run #134 checked the original lineage model:
 - Safe: PASS, 31 generated / 14 distinct states, queue exhausted.
 - Epoch-only bypass mutant: expected counterexample, `NoForeignLineageCanBeTrusted` violated (11 generated / 8 distinct states).
 
 Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41945984183. Receipt: `docs/security/PulseAuthorityCheckpointLineage-model-check-2026-11-05.md`. Artifact ID `13379245045`, ZIP SHA-256 `c56658f77793f63003611c01da60af059fe43d9a8103273093d083aa874d95`.
 
+The exact same six-domain model suite was repeated in TLC run #144: its lineage-safe configuration again exhausted its 31-state / 14-distinct-state queue, and the epoch-only mutant again violated `NoForeignLineageCanBeTrusted` (11 / 8 states). Run #144 is the broader current suite at https://github.com/Luminous-Dynamics/mycelix/actions/runs/41992920357; its artifact records every safe and mutant log.
+
 This is still a bounded abstract contract, not proof that Holochain exposes a global snapshot token or that its actual DHT can provide this ancestry proof. The production design must build the checkpoint from actual DNA/cell and source-chain evidence.
 
 The TLC workflow now runs all three mailbox configurations in addition to the authorization lifecycle configurations. **The first exact run (#32) passed the safe mailbox model** with 37 generated / 20 distinct states and no invariant error. The proposed-state mutant was caught by `OnlyOriginalOwnerMayUpdate`; the protected-field mutant was caught by `ProtectedFieldsRemainImmutable`. Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41852865450. Full tool/source/state receipt: `docs/security/PulseMailboxValidation-model-check-2026-11-04.md`. The corresponding real two-conductor experiment remains open in [#5781](https://github.com/Luminous-Dynamics/mycelix/issues/5781).
+
+### Multi-chain causal-frontier refinement
+
+A further model now explores two independent source-chain histories rather than collapsing them into one epoch:
+
+- `PulseAuthorityCausalFrontier.tla`
+- `PulseAuthorityCausalFrontier.cfg` — component-wise checkpoint validation
+- `PulseAuthorityCausalFrontier-scalar-mutant.cfg` — unsafe aggregate-epoch comparison
+
+The requested checkpoint is a vector frontier `(A:1, B:1)`. The deliberately misleading projection `(A:2, B:0)` has the same scalar sum but lacks B's required action and does not descend from the required A head. The safe reader checks each source-chain sequence, exact action identity and ancestry independently; otherwise it returns UNKNOWN. The scalar mutant compares only aggregate height and should be caught by `NoFalseFreshCausalFrontier`.
+
+The model and workflow step are committed, but the first TLC run is pending. No result is claimed until the safe queue is exhausted and the scalar mutant is caught. This model does not assert that a Holochain conductor exports a global total order; it explicitly avoids inventing one across independent chains.
 
 ## Remote signal trust-boundary model
 
@@ -192,20 +206,26 @@ A fourth finite model now captures notification authenticity and replay safety:
 
 The model separates transport caller, payload-claimed source, claimed ActionHash, exact canonical record author/value, record availability/validity, evidence verification, event ID, deduplication state and trusted UI effect. A remote signal may wake a client, but only a matching transport identity and exact backing record can update trusted state. A replay of the same logical event must not produce a second effect.
 
-The safe configuration must exhaust its bounded state space. The forged-payload mutant must violate `NoUnverifiedSignalMutatesTrustedState`; the replay mutant must violate `AtMostOneEffectPerLogicalEvent`. The same pinned TLC workflow now includes these three configurations. No model-check result is claimed until an exact run completes.
+TLC run #144 executed all three configurations with the pinned 1.8.0 build:
+- Safe model: PASS, 21 generated / 12 distinct states, queue exhausted.
+- Forged-payload mutant: expected counterexample, `NoUnverifiedSignalMutatesTrustedState` violated (7 / 7 states).
+- Replay mutant: expected counterexample, `AtMostOneEffectPerLogicalEvent` violated (23 / 13 states).
+
+Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41992920357. Artifact ID `13399540056`, ZIP SHA-256 `980b8db7abf53bfbae94c9bd9d69d6483ccdd73626b9371e45df3b8b0783c5a2`. This is a finite abstract model; it does not prove a real remote callback or UI consumer authenticates a DHT record.
 
 ## Signal protocol source auditor
 
-The new standalone Rust source tool at `tools/pulse-signal-contract-audit/` uses `syn` to parse the four active Rust enums and extracts Serde representation + variant field sets. It compares those results to the matching TypeScript unions and both sets of category filters in `SignalHub.ts`. Its JSON report lists missing/stale variants, field drift, filter drift and codec incompatibility. Default execution is fail-closed; CI initially uses explicit report-only mode to preserve the baseline report without treating current source drift as a pass.
+The standalone Rust source tool at `tools/pulse-signal-contract-audit/` uses `syn` to parse the four active Rust enums, their Serde representation and named field sets. It compares the producers with TypeScript unions, both category-filter passes in `SignalHub.ts`, and `pulse-zome-signal-wire-v1.schema.json`.
 
-This is source inventory, not a notification-authentication fix. The expected initial findings are:
-- Mail and Trust are adjacent-tagged as `{type, data}`, not flat payloads;
-- Sync and Federation use externally tagged enum encoding;
-- the current SignalHub decoder expects a flat `payload.type` object;
-- TypeScript unions and SignalHub filters are incomplete/stale relative to Rust variants;
-- individual event fields differ between Rust and TypeScript.
+The initial protocol drift has been repaired: all four producers now use Serde adjacent tagging `{type, data}`; SignalHub unwraps that envelope and only dispatches known variants; all 28 event variants and field sets match Rust, TypeScript and the schema. Signal Contract Audit run #86 passed seven parser tests and reported 28 variants with zero source-contract findings: https://github.com/Luminous-Dynamics/mycelix/actions/runs/41992920393. This is a source-contract result, not sender authentication or event truth.
 
-The next repair phase should establish one versioned event envelope, generate Rust/TypeScript fixtures from a single schema, and classify remote payloads as unverified hints until exact record retrieval and validation succeed. Keep that client-protocol work separate from authorization enforcement.
+A second hardening pass is now in the research branch:
+- runtime checks validate 39-byte ActionHash/AgentPubKey Uint8Array values, byte-vector fields, safe integer timestamps/counters, exact nullable fields, bounded strings/arrays, vector clocks, unit/custom enum shapes and score ranges;
+- the JSON Schema now defines concrete field-level and nested types rather than leaving most properties unconstrained; the portable JSON projection documents hashes as base64url and binary vectors as base64;
+- SyncOpType is aligned to every Rust integrity enum variant, including previously missing folder-move, draft-delete, filter, trust-attestation and contact operations;
+- the Rust audit tool now fails on unconstrained properties or missing runtime field validation, and has mutation tests for those conditions.
+
+**Qualification status:** the field-type/schema audit changes are committed but their new exact-head CI run is still required. Do not cite the earlier run #86 as qualification of these latest validators until the new run completes. This remains source-level validation only; callback transport identity, exact backing-record validation and two-conductor behavior still require runtime tests.
 
 ## Proposed remote signal envelope v1
 
@@ -404,15 +424,6 @@ CI: [Pulse Lifecycle Evidence Audit](https://github.com/Luminous-Dynamics/myceli
 - Jepsen fault injection and concurrent-history checking: https://github.com/jepsen-io/jepsen and https://jepsen.io/analyses
 - Porcupine linearizability checker: https://github.com/anishathalye/porcupine
 
-
-- Holochain capability model and host enforcement: https://developer.holochain.org/build/capabilities/ and https://developer.holochain.org/concepts/8_calls_capabilities/
-- Holochain 0.7.0 → 0.7.1 breaking changes, including grant shape, re-issuance and DirectSignal grants: https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/
-- Holochain roadmap snapshot (3 November 2026): https://www.holochain.org/roadmap/
-- Zanzibar paper (USENIX ATC 2019): https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/
-- SpiceDB consistency modes and ZedTokens: https://authzed.com/docs/spicedb/concepts/consistency and https://authzed.com/docs/spicedb/concepts/read-after-write
-- OpenFGA query consistency modes: https://openfga.dev/blog/query-consistency-options-announcement
-- UCAN v1.0.0 and delegation: https://github.com/ucan-wg/spec and https://github.com/ucan-wg/delegation
-- Biscuit revocation identifiers and verifier-side revocation lists: https://www.biscuitsec.org/docs/guides/revocation/
 
 The Zanzibar paper reports trillions of ACLs, millions of authorization requests per second, p95 latency below 10 ms and availability above 99.999% over three years of production use. These are Google's published 2019 production figures, not a directly comparable Pulse baseline. SpiceDB and OpenFGA expose explicit consistency preferences, illustrating the latency/freshness trade-off that the Pulse benchmark must report rather than hide. UCAN and Biscuit provide useful portable delegation, attenuation and revocation comparators, but use different verifier and revocation-distribution architectures.
 
