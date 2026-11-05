@@ -645,6 +645,12 @@ mod tests {
         (context_bytes, context_schema_bytes, request_schema, report_schema, request_bundle, oracle)
     }
 
+    fn oracle_schema() -> Value {
+        serde_json::from_str(include_str!(
+            "../../typed-context-v1/typed_context_oracle_v1.0.0.schema.json"
+        )).unwrap()
+    }
+
     fn request_for<'a>(bundle: &'a Value, id: &str) -> &'a Value {
         array(bundle, "requests").unwrap().iter()
             .find(|request| request["request_id"] == id).unwrap()
@@ -679,6 +685,45 @@ mod tests {
             let report = resolve(&bundle, &bundle_bytes, &context_schema, &schema_bytes, request).unwrap();
             validate_instance("report", &report_schema, &report).unwrap();
         }
+    }
+
+    #[test]
+    fn public_oracle_schema_and_all_expected_dispositions_match() {
+        let (_, _, request_schema, _, requests, oracle) = fixtures();
+        let oracle_schema = oracle_schema();
+        validate_instance("public typed-context oracle", &oracle_schema, &oracle).unwrap();
+
+        let expected = array(&oracle, "request_expectations").unwrap();
+        assert_eq!(
+            expected.len(),
+            array(&requests, "requests").unwrap().len(),
+            "every public candidate request must have exactly one oracle expectation"
+        );
+        let mut seen = BTreeSet::new();
+        for expectation in expected {
+            let request_id = string(expectation, "request_id").unwrap();
+            assert!(seen.insert(request_id.to_owned()), "duplicate oracle request id");
+            let request = request_for(&requests, request_id);
+            let report = resolve_fixture(request_id);
+            assert_eq!(
+                report["disposition"],
+                expectation["expected_disposition"],
+                "unexpected disposition for {request_id}"
+            );
+            let required_reason = string(expectation, "required_reason_code").unwrap();
+            assert!(
+                report["blocking_reasons"].to_string().contains(required_reason),
+                "missing oracle reason {required_reason} for {request_id}"
+            );
+            validate_instance("oracle-matched report", &report_schema_for_test(), &report).unwrap();
+            let _ = (request, request_schema);
+        }
+    }
+
+    fn report_schema_for_test() -> Value {
+        serde_json::from_str(include_str!(
+            "../../typed-context-v1/typed_context_report_v1.0.0.schema.json"
+        )).unwrap()
     }
 
     #[test]
