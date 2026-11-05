@@ -1965,7 +1965,7 @@
         ],
         "channel_coverage_state": "out_of_scope"
       },
-      "expected_disposition": "preserve_channel_coverage_unknown",
+      "expected_disposition": "declare_channel_coverage_unknown",
       "required_evidence": [
         "source_identity_and_authority",
         "signal_provenance",
