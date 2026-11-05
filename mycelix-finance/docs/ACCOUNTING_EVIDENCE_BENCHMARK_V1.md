@@ -570,3 +570,58 @@ Primary source: https://www.cipc.co.za/?page_id=4400
 ### APEX source-of-truth note
 
 The canonical reference for this protocol is the unparameterized [Mercor APEX-Accounting leaderboard](https://www.mercor.com/apex/apex-accounting-leaderboard/) and its linked [methodology](https://www.mercor.com/apex/methodology/), not cached or UTM-parameterized alternate URL renderings. At the 4 November 2026 review, the canonical page shows 100 tasks / 1,475 criteria / 71.5% ± 4.8 and k=4; the canonical methodology explicitly documents eight runs and Pass@1 / Pass@8 / Pass^8. Mercor's July blog conflicts on audit/tax scope. This is a source-version discrepancy, not evidence that either task family should be assumed covered. Preserve the source snapshots and resolve with the benchmark owner before making scope claims.
+
+
+
+## 13. Frontier benchmark refresh — 5 November 2026
+
+This section records owner-published snapshots checked on 5 November 2026. The results use different task universes and scoring methods. They must remain separate instruments; do not average them into a synthetic "industry score."
+
+| Instrument | Current owner-published result | What it actually scores | Non-equivalence / caveat |
+|---|---:|---|---|
+| DualEntry DualBench100 v1.0 | Gemini 4 Argon 91.1% accuracy; 86.1% all-three-run consistency | 101 synthetic cases, 8 accounting areas, deterministic answer checks, three attempts, accuracy, all-run consistency, cost and duration | Vendor-published synthetic case set. One task passes on 2 of 3 runs; all-run consistency is a separate metric. |
+| Mercor APEX-Accounting | Gemini 4 Argon High 71.5% ± 4.8 | 10 accounting worlds, 100 tasks, 1,475 expert-authored criteria; 4 runs, mean criterion score and Pass@1 | Single-turn professional deliverables graded against practitioner-authored rubrics by an LLM judge; not exact ledger correctness. |
+| FINBALANCE | Best reported exact final balance-sheet accuracy 46% | 710 multi-document records, 8 industries, 3 period types, 5 difficulty levels; journal/document lineage, statements and 23 inconsistency labels | Synthetic benchmark; distinguishes model-reported balance sheets from balances reconstructed from its journals. Reported strict end-to-end exactness is substantially lower than isolated subtask scores. |
+
+Sources:
+- DualEntry benchmark and methodology: https://www.dualentry.com/benchmark
+- Mercor APEX leaderboard and methodology: https://www.mercor.com/apex/apex-accounting-leaderboard/ and https://www.mercor.com/apex/methodology/
+- FINBALANCE preprint: https://arxiv.org/abs/2606.15949
+
+The task mix matters as much as the average. DualEntry reports Accounts Receivable / Month-End Close average 64.7%, compared with 93.5% Transaction Classification. It also reports leaders differ by task family and that accuracy and three-run consistency do not always align. APEX reports capability/consistency divergence and no single model wins every task. FINBALANCE reports a 26–41 percentage-point gap between model-reported statements and statements reconstructed from the model's own entries for four of six models; its strict end-to-end result requiring source-grounded entries and final statement is far lower than isolated components. These results collectively argue for typed intermediate workpapers and independent replay rather than one-shot answer generation.
+
+### Revised matched-evaluation target
+
+Keep the original ambition, but require explicit paired comparisons and task-level breakdowns:
+
+- **DualBench100-compatible:** ≥95% task accuracy, ≥95% all-three-run consistency and ≥90% in every accounting category. Also report exact numeric correctness separately from the published threshold/tolerance score.
+- **APEX-compatible:** ≥80% initial mean-criteria score and ≥90% stretch target. Reproduce the owner methodology and report Mean Score, Pass@1 and repeated-run consistency separately; do not substitute our own exact-journal metric for its rubric metric.
+- **FINBALANCE-compatible:** ≥70% exact final statement initial target and ≥85% stretch target. In addition, report strict source-grounded end-to-end accuracy, citation/document-binding correctness, journal replay, contradiction detection and empty-answer/refusal behavior independently.
+- **FIN-TRUST internal:** 100% expected behavior on the public synthetic corpus; 100% recall of seeded decision-critical unknowns; zero unsupported positive assertion upgrades; zero wrong-recipient clarification; zero false independence; zero post-frontier evidence leakage; 100% exact source/journal/statement binding.
+- **Hidden expert-reviewed target:** zero critical false qualification on a protected holdout. No public score can establish this; #5799 owns oracle isolation, candidate access controls and matched runs.
+
+No universal weighted score. A critical false qualification, unauthorized journal or source/period/currency substitution is a hard stop regardless of mean score. Report cost per independently verified, complete and approvable entity-period, review minutes, escaped material errors, abstention precision/recall and p50/p95/p99 latency as separate axes.
+
+### Industry comparison and product boundary
+
+- Intuit's Agentic Books Close is positioned as an SOP-following monthly-close agent with an audit log and accountant supervision/review/approval; its 27 October 2026 announcement says it is in pilot with select Intuit Accountant Suite users, not a generally available replacement for accounting firms.
+- NetSuite 2026.2 adds AI-suggested bank transaction matches, reviewable ambiguous-match suggestions, audit-trail details and AI-drafted flux explanations; Oracle describes human review before submission.
+- Xero's Auto Bank Reconciliation remained in beta in its 14 August 2026 product update; Xero reported >100 million automatically reconciled transactions and nearly three in four customers reporting time savings. Those are provider-reported product metrics, not independent correctness proofs.
+- Stanford's June 2026 field study across 79 SMEs and >200,000 transactions reports productivity and close-time benefits, but also warns non-consensus AI recommendations can increase errors.
+
+Sources:
+- Intuit: https://investors.intuit.com/news-events/press-releases/detail/1329/intuit-expands-intelligence-platform-to-power-the-next-era-of-accounting-firm-and-business-growth
+- NetSuite: https://www.netsuite.com/portal/resource/articles/financial-management/netsuite-2026-2-adds-ai-capabilities-for-smarter-bank-reconciliation-close-management-labor-insights-and-more.shtml
+- Xero: https://blog.xero.com/product-updates/auto-bank-rec-updates/
+- Choi & Xie, *Human + AI in Accounting: Early Evidence from the Field*, Journal of Accounting Research, June 2026: https://www.gsb.stanford.edu/faculty-research/publications/human-ai-accounting-early-evidence-field
+
+**Competitive strategy:** do not rebuild an ERP or compete solely on transaction throughput. Position Mycelix as a portable evidence-assurance and independent-verification layer that can sit beside QuickBooks, Sage, NetSuite and local bank feeds. Symthaea may discover context, draft a workpaper or propose an exception explanation; deterministic Mycelix verifiers must decide whether a declared assertion, journal or statement is supported. Human authorization and professional judgment remain external.
+
+### Standards consultation watch
+
+The IAASB exposure drafts proposing revisions to ISA 330, ISA 500 and ISA 520 were published 5 August 2026; global comments are due 15 December 2026. IRBA's South African invitation lists **6 November 2026** as its comment deadline; AUASB's consultation lists 16 November 2026. These are proposed revisions, not final/effective requirements. The engineering opportunity is to map intended procedure purpose, relevance/reliability, risk response and stand-back as explicit testable contracts, not to claim ISA compliance.
+
+Sources:
+- IAASB: https://www.iaasb.org/publications/proposed-revisions-audit-evidence-risk-response-isa-330-isa-500-isa-520
+- IRBA: https://irba.co.za/audit-and-ethics-pronouncements/exposure-drafts-and-comment-letters/
+- AUASB: https://www.auasb.gov.au/news/consultation-on-the-iaasb-s-audit-evidence-and-risk-response-exposure-drafts/
