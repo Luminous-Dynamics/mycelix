@@ -673,6 +673,59 @@ mod tests {
     }
 
     #[test]
+    fn validity_window_and_artifact_availability_are_decision_time_gates() {
+        let fixtures = load_fixtures();
+        let context = &fixtures["semantic_context"];
+        let canonical = &fixtures["valid_reference_example"];
+
+        let mut not_yet_valid = canonical.clone();
+        set_path(
+            &mut not_yet_valid,
+            "temporal_scope.valid_from",
+            Value::String("2026-08-01T00:00:00Z".to_owned()),
+        )
+        .expect("valid_from path");
+        assert_eq!(
+            evaluate_reference(&not_yet_valid, context).0,
+            "blocked_not_valid_at_decision"
+        );
+
+        let mut expired = canonical.clone();
+        set_path(
+            &mut expired,
+            "temporal_scope.valid_until",
+            Value::String("2026-06-30T23:59:59Z".to_owned()),
+        )
+        .expect("valid_until path");
+        assert_eq!(
+            evaluate_reference(&expired, context).0,
+            "blocked_not_valid_at_decision"
+        );
+
+        let mut unavailable = canonical.clone();
+        set_path(
+            &mut unavailable,
+            "canonical_desci_reference.artifact_availability",
+            Value::String("unavailable".to_owned()),
+        )
+        .expect("availability path");
+        assert_eq!(evaluate_reference(&unavailable, context).0, "indeterminate");
+    }
+
+    #[test]
+    fn copied_documents_do_not_count_as_independent_source_families() {
+        let fixtures = load_fixtures();
+        let (disposition, unique_families, references) =
+            evaluate_source_family_group(&fixtures["source_family_group_example"]);
+        assert_eq!(
+            disposition,
+            "eligible_but_not_independent_corroboration"
+        );
+        assert_eq!(unique_families, 1);
+        assert_eq!(references, 2);
+    }
+
+    #[test]
     fn utc_frontier_comparison_handles_calendar_rollover() {
         assert_eq!(
             compare_utc("2026-08-01T00:00:00Z", "2026-07-01T00:00:00Z"),
