@@ -876,7 +876,11 @@ mod tests {
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "account_lineage_unknown");
         assert_eq!(assessment.economic_observation_count, 3);
-        assert!(assessment.reason_codes.contains("event_reference_is_account_scoped"));
+        assert!(
+            assessment
+                .reason_codes
+                .contains("event_reference_is_account_scoped")
+        );
     }
 
     #[test]
