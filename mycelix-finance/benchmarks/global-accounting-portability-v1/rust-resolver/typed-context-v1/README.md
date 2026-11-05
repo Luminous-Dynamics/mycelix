@@ -35,7 +35,7 @@ From the `rust-resolver` directory:
 
 ```sh
 cargo test --locked --bin resolve_typed_context
-cargo run --locked --bin resolve_typed_context -- --request fixtures/typed_context_requests_v1.0.0.json --request-index 0
+cargo run --locked --bin resolve_typed_context -- --request typed-context-v1/fixtures/typed_context_requests_v1.0.0.json --request-index 0
 cargo fmt -- --check
 cargo clippy --locked --all-targets -- -D warnings
 ```
