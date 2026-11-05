@@ -1,0 +1,20 @@
+{
+  "request_id": "GPR-REAL-REFERENCE-ONLY-001",
+  "intended_use": "accounting_analysis",
+  "jurisdiction_scopes": [
+    "ZA"
+  ],
+  "entity_scope": "za_sme_reporting_entity",
+  "reporting_period_start": "2026-01-01",
+  "reporting_period_end": "2026-12-31",
+  "knowledge_at": "2026-11-05T02:00:00Z",
+  "required_dimensions": [
+    "accounting_framework",
+    "e_invoice_interoperability"
+  ],
+  "selected_profile_ids": [
+    "IFRS-SMES-2025",
+    "PEPPOL-BIS-BILLING-3"
+  ],
+  "allow_synthetic": false
+}
