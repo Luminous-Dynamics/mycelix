@@ -44,7 +44,7 @@ A correct amount with no source binding is not a correct journal. A balanced jou
 
 ## S0 case coverage
 
-The expanded public S0 contains **17 synthetic tasks and 17 oracle rows**:
+The expanded public S0 contains **18 synthetic tasks and 18 oracle rows**:
 
 1. Complete USD invoice and supported service period — deliver.
 2. Unknown service start date — clarify.
@@ -63,8 +63,9 @@ The expanded public S0 contains **17 synthetic tasks and 17 oracle rows**:
 15. Same external document ID in two namespaces — preserve both source identities and deliver once.
 16. Credit-note parent invoice received after the frontier — escalate; later receipt cannot retroactively resolve the earlier assessment.
 17. Service start after service end — escalate instead of guessing which source date is wrong.
+18. Credit-note parent invoice ID exists only in another tenant namespace — escalate rather than cross-linking another tenant's invoice.
 
-Expected dispositions: four deliver, eight clarify, one abstain and four escalate. The 17 cases contain 29 source documents, 62 facts, five expected journal entries and five expected statement lines. The values are synthetic; no real client or book is represented. Document integrity flags are fixture controls, not cryptographic measurements of live source bytes.
+Expected dispositions: four deliver, eight clarify, one abstain and five escalate. The 18 cases contain 31 source documents, 64 facts, five expected journal entries and five expected statement lines. The values are synthetic; no real client or book is represented. Document integrity flags are fixture controls, not cryptographic measurements of live source bytes.
 
 ## Deterministic validator
 
@@ -92,7 +93,7 @@ The validator:
 - fingerprints the exact candidate and oracle bytes with SHA-256;
 - guarantees that the benchmark never posts to a live ledger or performs another external side effect.
 
-Twenty unit tests are authored, including future-received invoices, future FX facts, future parent invoices, disputed supplier identity, invalidated service dates, namespace collisions, impossible service-period intervals, per-entry balance mutation and period allocation. They are **not yet executed**.
+Twenty-one unit tests are authored, including future-received invoices, future FX facts, future parent invoices, same-ID cross-namespace parent rejection, disputed supplier identity, invalidated service dates, namespace collisions, impossible service-period intervals, per-entry balance mutation and period allocation. They are **not yet executed**.
 
 ## Benchmark plan and target gates
 
