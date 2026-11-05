@@ -71,7 +71,8 @@
             "digital_tax_reporting_reference",
             "jurisdiction_profile",
             "locale_data",
-            "timezone_database"
+            "timezone_database",
+            "unicode_bidi_data"
           ]
         },
         "version": {
