@@ -148,6 +148,13 @@
       "reason_codes": [
         "independent_corroboration_missing"
       ]
+    },
+    {
+      "case_id": "AEP-021",
+      "expected_disposition": "indeterminate",
+      "reason_codes": [
+        "duplicate_evidence_identity"
+      ]
     }
   ]
 }
