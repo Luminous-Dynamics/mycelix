@@ -299,12 +299,12 @@
         "recorded_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "Z$"
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
         },
         "approved_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "Z$"
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
         },
         "reviewer_refs": {
           "type": "array",
@@ -382,7 +382,7 @@
         "approved_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "Z$"
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
         }
       }
     },
