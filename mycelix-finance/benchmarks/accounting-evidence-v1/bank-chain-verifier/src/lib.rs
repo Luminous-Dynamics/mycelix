@@ -149,7 +149,9 @@ pub fn verify(
         Err(error) => {
             let mut failed = report;
             failed["status"] = Value::String("FAIL".to_owned());
-            failed["errors"].as_array_mut().map(|items| items.push(Value::String(format!("embedded report schema: {error}"))));
+            if let Some(items) = failed["errors"].as_array_mut() {
+                items.push(Value::String(format!("embedded report schema: {error}")));
+            }
             return failed;
         }
     };
