@@ -1,0 +1,351 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-typed-context-resolution-request-v1.0.0.json",
+  "title": "Mycelix Global Typed Context Resolution Request v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_schema_version",
+    "request_id",
+    "context_bundle_id",
+    "context_id",
+    "context_bundle_sha256",
+    "context_schema_id",
+    "context_schema_sha256",
+    "valid_at",
+    "knowledge_at",
+    "requirements"
+  ],
+  "properties": {
+    "request_schema_version": {
+      "const": "1.0.0"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{3,100}$"
+    },
+    "context_bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{3,100}$"
+    },
+    "context_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "context_schema_id": {
+      "type": "string",
+      "format": "uri"
+    },
+    "context_schema_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "valid_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "knowledge_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$"
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/factRequirement"
+      }
+    }
+  },
+  "$defs": {
+    "partyRole": {
+      "enum": [
+        "seller",
+        "buyer",
+        "invoice_issuer",
+        "invoice_recipient",
+        "ship_from_operator",
+        "ship_to_recipient",
+        "importer_of_record",
+        "exporter_of_record",
+        "service_provider",
+        "service_recipient",
+        "carrier",
+        "agent",
+        "other"
+      ]
+    },
+    "subjectKind": {
+      "enum": [
+        "party",
+        "establishment",
+        "shipment",
+        "transaction",
+        "invoice",
+        "service_delivery",
+        "goods_consignment",
+        "other"
+      ]
+    },
+    "scopeLevel": {
+      "enum": [
+        "country",
+        "subnational_region",
+        "municipality",
+        "customs_territory",
+        "special_economic_zone",
+        "other"
+      ]
+    },
+    "factRole": {
+      "enum": [
+        "legal_domicile",
+        "establishment_location",
+        "tax_registration",
+        "buyer_location",
+        "seller_location",
+        "ship_from",
+        "ship_to",
+        "place_of_supply",
+        "goods_location",
+        "service_performance_location",
+        "fixed_establishment",
+        "import_customs_territory",
+        "export_customs_territory",
+        "other"
+      ]
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "party_ref",
+        "transaction_role"
+      ],
+      "properties": {
+        "party_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transaction_role": {
+          "$ref": "#/$defs/partyRole"
+        }
+      }
+    },
+    "scopeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_id",
+        "namespace_uri",
+        "code",
+        "scope_level",
+        "parent_scope_ref"
+      ],
+      "properties": {
+        "scope_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "namespace_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope_level": {
+          "$ref": "#/$defs/scopeLevel"
+        },
+        "parent_scope_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
+    "factRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id",
+        "subject_kind",
+        "subject_ref",
+        "subject_party_role",
+        "party_role_bindings",
+        "jurisdiction_role",
+        "scope_identity",
+        "minimum_assertion_state",
+        "required_origin",
+        "required_derivation_ref",
+        "require_evidence_refs"
+      ],
+      "properties": {
+        "requirement_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "subject_kind": {
+          "$ref": "#/$defs/subjectKind"
+        },
+        "subject_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_party_role": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/partyRole"
+            }
+          ]
+        },
+        "party_role_bindings": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "jurisdiction_role": {
+          "$ref": "#/$defs/factRole"
+        },
+        "scope_identity": {
+          "$ref": "#/$defs/scopeIdentity"
+        },
+        "minimum_assertion_state": {
+          "const": "evidence_supported"
+        },
+        "required_origin": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "source_asserted",
+                "human_adjudicated",
+                "approved_rule_derived"
+              ]
+            }
+          ]
+        },
+        "required_derivation_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "require_evidence_refs": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "subject_kind": {
+                "const": "party"
+              }
+            },
+            "required": [
+              "subject_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_party_role": {
+                "$ref": "#/$defs/partyRole"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "subject_party_role": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "jurisdiction_role": {
+                "const": "establishment_location"
+              }
+            },
+            "required": [
+              "jurisdiction_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_kind": {
+                "const": "establishment"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "jurisdiction_role": {
+                "enum": [
+                  "ship_from",
+                  "ship_to"
+                ]
+              }
+            },
+            "required": [
+              "jurisdiction_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_kind": {
+                "const": "shipment"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "jurisdiction_role": {
+                "const": "place_of_supply"
+              }
+            },
+            "required": [
+              "jurisdiction_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_kind": {
+                "const": "transaction"
+              },
+              "required_origin": {
+                "const": "approved_rule_derived"
+              },
+              "required_derivation_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
