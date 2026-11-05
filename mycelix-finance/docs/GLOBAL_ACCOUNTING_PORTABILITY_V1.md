@@ -130,6 +130,7 @@ These scores describe different task universes and metrics. They are **not direc
 | Mercor APEX-Accounting | Gemini 4 Argon High: 71.5% ± 4.8 | 100 tasks across 10 held-out company worlds and 1,475 criteria; eight runs, k=4 mean criteria score, expert-authored rubrics with an LM judge | Exact journal/statement correctness as a deterministic theorem; the metric is not DualBench accuracy |
 | FINBALANCE | At most 46% exact final balance-sheet accuracy across six evaluated LLMs | 710-record evaluation; source bundles across eight industries, three period types, five difficulty levels and 23 inconsistency classes | End-to-end production readiness or legal/tax compliance |
 | Artificial Analysis Finance & Accounting Index | Gemini 4 Carbon High: 63 | Composite across six finance/business capabilities; weighted agentic knowledge work, business knowledge, reasoning, non-hallucination, tool use and long-context benchmarks | Accounting close accuracy; a composite should not replace task-specific measurements |
+| FinNLP numeric-fidelity study | Six models over 729 firm-years (345 common subset) | Numerical computation fidelity and source-fact attribution measured separately | Research study, not a complete agentic workflow benchmark |
 
 Primary references:
 - DualEntry 2026 Accounting AI Benchmark: https://www.dualentry.com/benchmark
@@ -139,6 +140,8 @@ Primary references:
 - Artificial Analysis Finance & Accounting Index: https://artificialanalysis.ai/indexes/finance-and-accounting/
 
 FINBALANCE also reports a 26–41 percentage-point improvement for four models when statements are independently reconstructed from their own journal entries rather than trusting the model-reported statements. That reinforces the need for independent reconstruction. APEX highlights capability/consistency divergence; DualBench shows that accuracy, three-run consistency, cost and duration vary independently. Preserve these dimensions rather than optimizing only a headline score.
+
+The DualBench task breakdown is more informative than its overall score: the public board reports Kimi K3.1 Pro at 100% on bank reconciliation versus Gemini 4 Argon at 75%, and Kimi K3 at 91.7% on month-end close versus Argon at 83.3%. These are benchmark-version-specific task scores, not universal model rankings. The FinNLP study reinforces a second separation: numeric computation fidelity and source-fact attribution are distinct failure surfaces, so a correct number with an unsupported source link must still fail the relevant evidence gate. Preserve these dimensions rather than optimizing only a headline score.
 
 ### Mycelix's competitive target
 
