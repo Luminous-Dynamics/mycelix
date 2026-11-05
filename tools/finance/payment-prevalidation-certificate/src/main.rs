@@ -467,17 +467,16 @@ where
         );
     }
 
-    if let Some(transport) = scenario.get("transport_payload") {
-        if u64_at(transport, "amount_minor_units") != u64_at(intent, "amount_minor_units")
+    if let Some(transport) = scenario.get("transport_payload")
+        && (u64_at(transport, "amount_minor_units") != u64_at(intent, "amount_minor_units")
             || str_at(transport, "currency") != str_at(intent, "currency")
-            || str_at(transport, "intent_digest") != Some(intent_digest)
-        {
-            return decide(
-                "rejected_evidence",
-                "rejected_evidence",
-                "transport_payload_and_intent_disagree",
-            );
-        }
+            || str_at(transport, "intent_digest") != Some(intent_digest))
+    {
+        return decide(
+            "rejected_evidence",
+            "rejected_evidence",
+            "transport_payload_and_intent_disagree",
+        );
     }
 
     let limit_fee_freshness = u64_at(profile, "limit_fee_freshness_seconds").unwrap_or(0);
