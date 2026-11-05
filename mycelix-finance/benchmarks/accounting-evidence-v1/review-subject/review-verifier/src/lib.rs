@@ -233,7 +233,13 @@ fn digest_value(domain: &[u8], value: &Value) -> String {
 fn write_canonical_json(value: &Value, out: &mut Vec<u8>) {
     match value {
         Value::Null => out.extend_from_slice(b"null"),
-        Value::Bool(value) => out.extend_from_slice(if *value { b"true" } else { b"false" }),
+        Value::Bool(value) => {
+            if *value {
+                out.extend_from_slice(b"true");
+            } else {
+                out.extend_from_slice(b"false");
+            }
+        },
         Value::Number(value) => out.extend_from_slice(value.to_string().as_bytes()),
         Value::String(value) => out.extend_from_slice(
             serde_json::to_string(value).expect("JSON string serialization").as_bytes(),
