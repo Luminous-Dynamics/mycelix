@@ -77,7 +77,8 @@
         "export_revision",
         "observed_at",
         "capture_state",
-        "payload_sha256"
+        "payload_sha256",
+        "payload_capture_state"
       ],
       "properties": {
         "system_family": {
@@ -122,8 +123,59 @@
             "null"
           ],
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "payload_capture_state": {
+          "enum": [
+            "digest_captured",
+            "provider_revision_only",
+            "synthetic_fixture"
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "payload_capture_state": {
+                "const": "digest_captured"
+              }
+            },
+            "required": [
+              "payload_capture_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "payload_capture_state": {
+                "enum": [
+                  "provider_revision_only",
+                  "synthetic_fixture"
+                ]
+              }
+            },
+            "required": [
+              "payload_capture_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload_sha256": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "capability": {
       "type": "object",
