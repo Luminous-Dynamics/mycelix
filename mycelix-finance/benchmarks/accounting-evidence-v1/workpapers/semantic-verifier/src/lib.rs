@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use jsonschema::draft202012;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -36,14 +36,6 @@ const AUTHORITY_SENSITIVE_KINDS: &[&str] = &[
     "close_readiness",
 ];
 
-#[derive(Debug, Clone)]
-struct Graph {
-    nodes: BTreeMap<String, Value>,
-    parents: BTreeMap<String, BTreeSet<String>>,
-    children: BTreeMap<String, BTreeSet<String>>,
-    order: Vec<String>,
-    cycle: Vec<String>,
-}
 
 pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
     let input: Value = match serde_json::from_slice(input_bytes) {
@@ -71,10 +63,10 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
         return validate_report(report);
     }
 
-    validate_semantics(&input, input_bytes)
+    validate_semantics(&input, input_bytes, schema_bytes)
 }
 
-fn validate_semantics(input: &Value, input_bytes: &[u8]) -> Value {
+fn validate_semantics(input: &Value, input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
     let mut errors = BTreeSet::<String>::new();
     let mut warnings = BTreeSet::<String>::new();
     let nodes = input["nodes"].as_array().cloned().unwrap_or_default();
@@ -120,7 +112,9 @@ fn validate_semantics(input: &Value, input_bytes: &[u8]) -> Value {
         errors.insert(format!("dependency_cycle:{}", cycle.join("->")));
     }
 
-    validate_parent_inputs(&node_map, &parents, &mut errors);
+    let dag_version = string(input, "dag_version").unwrap_or_default();
+    validate_workpaper_commitments(&node_map, &mut errors);
+    validate_parent_inputs(&node_map, &parents, dag_version, &mut errors);
     validate_node_authority(&node_map, &mut errors);
     validate_recipes(&node_map, &mut errors);
     validate_numeric_values(&node_map, &mut errors);
@@ -156,7 +150,8 @@ fn validate_semantics(input: &Value, input_bytes: &[u8]) -> Value {
     validate_ready_disposition(input, &node_map, &required_kinds, &missing_kinds, &stale_closure, &mut errors);
 
     let status = if errors.is_empty() { "PASS" } else { "FAIL" };
-    let graph_digest = canonical_digest(DAG_DOMAIN, input);
+    let canonical_dag = canonical_dag_value(input);
+    let graph_digest = canonical_digest(DAG_DOMAIN, &canonical_dag);
     let node_order = if cycle.is_empty() { order } else { Vec::new() };
     let directly_stale = direct_stale.iter().cloned().collect::<Vec<_>>();
     let transitively_stale = stale_closure
@@ -179,7 +174,7 @@ fn validate_semantics(input: &Value, input_bytes: &[u8]) -> Value {
         "digests": {
             "dag_sha256": sha256_hex(input_bytes),
             "canonical_dag_sha256": graph_digest,
-            "schema_sha256": Value::Null,
+            "schema_sha256": sha256_hex(schema_bytes),
             "verifier_source_sha256": sha256_hex(include_bytes!("lib.rs"))
         },
         "node_count": node_map.len(),
@@ -330,13 +325,39 @@ fn find_cycle(parents: &BTreeMap<String, BTreeSet<String>>, remaining: &[String]
     None
 }
 
+fn validate_workpaper_commitments(
+    nodes: &BTreeMap<String, Value>,
+    errors: &mut BTreeSet<String>,
+) {
+    for (id, node) in nodes {
+        if string(&node["result"], "state") != Some("completed") {
+            continue;
+        }
+        let declared = string(&node["result"], "workpaper_commitment_sha256");
+        let computed = workpaper_commitment(node);
+        if declared != Some(computed.as_str()) {
+            errors.insert(format!("workpaper_commitment_mismatch:{id}"));
+        }
+    }
+}
+
+fn workpaper_commitment(node: &Value) -> String {
+    let mut canonical_node = node.clone();
+    if let Some(result) = canonical_node
+        .get_mut("result")
+        .and_then(Value::as_object_mut)
+    {
+        result.remove("workpaper_commitment_sha256");
+    }
+    canonical_digest(NODE_DOMAIN, &canonical_node)
+}
+
 fn validate_parent_inputs(
     nodes: &BTreeMap<String, Value>,
     parents: &BTreeMap<String, BTreeSet<String>>,
+    dag_version: &str,
     errors: &mut BTreeSet<String>,
 ) {
-    let dag_version = nodes.values().next().and_then(|_| None::<String>);
-    let _ = dag_version;
     for (id, node) in nodes {
         let expected = parents.get(id).cloned().unwrap_or_default();
         let prior_inputs = array(node, "inputs")
@@ -344,8 +365,10 @@ fn validate_parent_inputs(
             .filter(|input| string(input, "purpose") == Some("prior_workpaper"))
             .collect::<Vec<_>>();
         let mut observed = BTreeSet::<String>::new();
-        for input in prior_inputs {
-            let parent_id = string(&input["input_ref"], "ref_id").unwrap_or_default().to_owned();
+        for input in &prior_inputs {
+            let parent_id = string(&input["input_ref"], "ref_id")
+                .unwrap_or_default()
+                .to_owned();
             if !observed.insert(parent_id.clone()) {
                 errors.insert(format!("duplicate_prior_workpaper_input:{id}:{parent_id}"));
             }
@@ -354,6 +377,9 @@ fn validate_parent_inputs(
             }
             if !nodes.contains_key(&parent_id) {
                 errors.insert(format!("prior_workpaper_parent_missing:{id}:{parent_id}"));
+            }
+            if string(&input["input_ref"], "version") != Some(dag_version) {
+                errors.insert(format!("prior_workpaper_version_mismatch:{id}:{parent_id}"));
             }
         }
         for parent_id in expected.difference(&observed) {
@@ -364,15 +390,9 @@ fn validate_parent_inputs(
             if let Some(parent) = nodes.get(parent_id) {
                 let parent_state = string(&parent["result"], "state").unwrap_or_default();
                 let child_state = string(&node["result"], "state").unwrap_or_default();
-                let input_version = string(&input["input_ref"], "version");
                 let input_digest = string(&input["input_ref"], "sha256");
                 let parent_digest = string(&parent["result"], "workpaper_commitment_sha256");
                 if parent_state == "completed" {
-                    if input_version != string(node_root_context_placeholder(), "dag_version") {
-                        // Version validation is performed by the caller below using the
-                        // explicit parent commitment checks; do not infer a global version here.
-                        let _ = input_version;
-                    }
                     if input_digest != parent_digest {
                         errors.insert(format!("parent_commitment_mismatch:{id}:{parent_id}"));
                     }
@@ -386,9 +406,20 @@ fn validate_parent_inputs(
     }
 }
 
-fn node_root_context_placeholder() -> &'static Value {
-    static PLACEHOLDER: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
-    PLACEHOLDER.get_or_init(|| Value::Null)
+fn canonical_dag_value(input: &Value) -> Value {
+    let mut value = input.clone();
+    if let Some(nodes) = value.get_mut("nodes").and_then(Value::as_array_mut) {
+        nodes.sort_by(|left, right| {
+            string(left, "node_id").cmp(&string(right, "node_id"))
+        });
+    }
+    if let Some(kinds) = value
+        .get_mut("required_node_kinds")
+        .and_then(Value::as_array_mut)
+    {
+        kinds.sort_by(|left, right| left.as_str().cmp(&right.as_str()));
+    }
+    value
 }
 
 fn validate_node_authority(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSet<String>) {
