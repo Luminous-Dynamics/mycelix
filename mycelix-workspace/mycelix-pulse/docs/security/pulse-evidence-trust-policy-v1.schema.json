@@ -74,8 +74,73 @@
               "revoked",
               "suspended"
             ]
+          },
+          "subject_binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "conductor_id",
+              "agent_key_ref",
+              "dna_hash",
+              "cell_id",
+              "integrity_wasm_sha256"
+            ],
+            "properties": {
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "agent_key_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "dna_hash": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "cell_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "integrity_wasm_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "description": "Required for host_authority, action_author, validator, observer and client_outcome keys. Binds an issuer key to one exact agent-specific conductor/cell identity."
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "roles": {
+                  "contains": {
+                    "enum": [
+                      "host_authority",
+                      "action_author",
+                      "validator",
+                      "observer",
+                      "client_outcome"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "roles"
+              ]
+            },
+            "then": {
+              "required": [
+                "subject_binding"
+              ]
+            }
+          }
+        ]
       }
     }
   }
