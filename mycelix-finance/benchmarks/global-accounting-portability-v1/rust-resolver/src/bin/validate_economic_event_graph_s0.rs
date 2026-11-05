@@ -304,6 +304,106 @@ fn event_assertion_types(case: &Value, event: &Value) -> Result<BTreeSet<String>
     Ok(types)
 }
 
+
+fn validate_event_amount_matches_assertion(
+    case: &Value,
+    event: &Value,
+    expected_fact_type: &str,
+) -> Result<(), String> {
+    let case_id = string(case, "case_id")?;
+    let event_ref = string(event, "event_ref")?;
+    let matches = array(event, "assertion_refs")?
+        .iter()
+        .map(|value| value.as_str().ok_or("event assertion ref is not a string"))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(|reference| assertion_by_ref(case, reference))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(|assertion| optional_string(assertion, "fact_type") == Some(expected_fact_type))
+        .collect::<Vec<_>>();
+    if matches.len() != 1 {
+        return Err(format!(
+            "{case_id}/{event_ref}: expected exactly one {expected_fact_type} assertion, found {}",
+            matches.len()
+        ));
+    }
+    let assertion = matches[0];
+    let source_amount = assertion.get("value").and_then(Value::as_i64)
+        .ok_or_else(|| format!("{case_id}/{event_ref}: {expected_fact_type} must be integer minor units"))?;
+    let event_amount = event.get("amount_minor").and_then(Value::as_i64)
+        .ok_or_else(|| format!("{case_id}/{event_ref}: event amount_minor must be integer minor units"))?;
+    let source_currency = optional_string(assertion, "currency")
+        .ok_or_else(|| format!("{case_id}/{event_ref}: {expected_fact_type} assertion has no currency"))?;
+    let event_currency = string(event, "currency")?;
+    if source_amount != event_amount || source_currency != event_currency {
+        return Err(format!(
+            "{case_id}/{event_ref}: event amount/currency {event_amount} {event_currency} does not match source assertion {source_amount} {source_currency}"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_event_date_matches_assertion(
+    case: &Value,
+    event: &Value,
+    expected_fact_type: &str,
+) -> Result<(), String> {
+    let case_id = string(case, "case_id")?;
+    let event_ref = string(event, "event_ref")?;
+    let matches = array(event, "assertion_refs")?
+        .iter()
+        .map(|value| value.as_str().ok_or("event assertion ref is not a string"))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(|reference| assertion_by_ref(case, reference))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(|assertion| optional_string(assertion, "fact_type") == Some(expected_fact_type))
+        .collect::<Vec<_>>();
+    if matches.len() != 1 {
+        return Err(format!(
+            "{case_id}/{event_ref}: expected exactly one {expected_fact_type} date assertion, found {}",
+            matches.len()
+        ));
+    }
+    let asserted_date = string(matches[0], "value")?;
+    let event_date = string(event, "occurred_at")?
+        .get(..10)
+        .ok_or_else(|| format!("{case_id}/{event_ref}: occurred_at does not contain a date prefix"))?;
+    if asserted_date != event_date {
+        return Err(format!(
+            "{case_id}/{event_ref}: event occurred date {event_date} does not match {expected_fact_type} {asserted_date}"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_service_period_assertions(case: &Value, event: &Value) -> Result<(), String> {
+    let refs = array(event, "assertion_refs")?
+        .iter()
+        .map(|value| value.as_str().ok_or("event assertion ref is not a string"))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut start: Option<&str> = None;
+    let mut end: Option<&str> = None;
+    for reference in refs {
+        let assertion = assertion_by_ref(case, reference)?;
+        match optional_string(assertion, "fact_type") {
+            Some("service_period_start") => start = Some(string(assertion, "value")?),
+            Some("service_period_end") => end = Some(string(assertion, "value")?),
+            _ => {}
+        }
+    }
+    if start.zip(end).is_some_and(|(start, end)| start > end) {
+        return Err(format!(
+            "{}/{}: service period start is after service period end",
+            string(case, "case_id")?,
+            string(event, "event_ref")?
+        ));
+    }
+    Ok(())
+}
+
 fn validate_events(case: &Value) -> Result<(usize, usize), String> {
     let case_id = string(case, "case_id")?;
     let mut refs = BTreeSet::new();
@@ -332,22 +432,31 @@ fn validate_events(case: &Value) -> Result<(usize, usize), String> {
 
         let types = event_assertion_types(case, event)?;
         match string(event, "event_kind")? {
-            "service_delivery" if !types.contains("service_acceptance_date") => {
-                return Err(format!("{case_id}/{event_ref}: service_delivery lacks service acceptance assertion"));
+            "service_delivery" => {
+                if !types.contains("service_acceptance_date") {
+                    return Err(format!("{case_id}/{event_ref}: service_delivery lacks service acceptance assertion"));
+                }
+                validate_event_date_matches_assertion(case, event, "service_acceptance_date")?;
+                validate_service_period_assertions(case, event)?;
             }
-            "invoice_issued" if !types.contains("invoice_amount_minor") => {
-                return Err(format!("{case_id}/{event_ref}: invoice_issued lacks invoice amount assertion"));
+            "invoice_issued" => {
+                if !types.contains("invoice_amount_minor") {
+                    return Err(format!("{case_id}/{event_ref}: invoice_issued lacks invoice amount assertion"));
+                }
+                validate_event_amount_matches_assertion(case, event, "invoice_amount_minor")?;
             }
-            "credit_issued"
-                if !types.contains("credit_amount_minor")
-                    || !types.contains("original_invoice_id") =>
-            {
-                return Err(format!("{case_id}/{event_ref}: credit_issued lacks credit amount or parent assertion"));
+            "credit_issued" => {
+                if !types.contains("credit_amount_minor") || !types.contains("original_invoice_id") {
+                    return Err(format!("{case_id}/{event_ref}: credit_issued lacks credit amount or parent assertion"));
+                }
+                validate_event_amount_matches_assertion(case, event, "credit_amount_minor")?;
             }
-            "settlement_made" | "settlement_received"
-                if !types.contains("payment_amount_minor") || !types.contains("payment_date") =>
-            {
-                return Err(format!("{case_id}/{event_ref}: settlement event lacks payment amount/date assertion"));
+            "settlement_made" | "settlement_received" => {
+                if !types.contains("payment_amount_minor") || !types.contains("payment_date") {
+                    return Err(format!("{case_id}/{event_ref}: settlement event lacks payment amount/date assertion"));
+                }
+                validate_event_amount_matches_assertion(case, event, "payment_amount_minor")?;
+                validate_event_date_matches_assertion(case, event, "payment_date")?;
             }
             _ => {}
         }
@@ -412,8 +521,48 @@ fn validate_relation_semantics(
     }
     if kind == "corrects" {
         let from = event_by_ref(case, string(relation, "from_ref")?)?;
-        if optional_string(from, "event_kind") != Some("credit_issued") {
-            return Err(format!("{}: corrects relation must originate at credit_issued", string(case, "case_id")?));
+        let to = event_by_ref(case, string(relation, "to_ref")?)?;
+        if optional_string(from, "event_kind") != Some("credit_issued")
+            || optional_string(to, "event_kind") != Some("invoice_issued")
+        {
+            return Err(format!("{}: corrects relation must link credit_issued to invoice_issued", string(case, "case_id")?));
+        }
+        let credit_parent_id = array(from, "assertion_refs")?
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|reference| assertion_by_ref(case, reference))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .find(|assertion| optional_string(assertion, "fact_type") == Some("original_invoice_id"))
+            .and_then(|assertion| assertion.get("value").and_then(Value::as_str))
+            .ok_or("credit_issued event has no original_invoice_id value")?;
+        let credit_source = array(from, "assertion_refs")?
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|reference| assertion_by_ref(case, reference))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .find(|assertion| optional_string(assertion, "fact_type") == Some("original_invoice_id"))
+            .map(|assertion| source_by_ref(case, string(assertion, "source_ref")?))
+            .transpose()?
+            .ok_or("credit parent assertion source is missing")?;
+        let parent_invoice_found = array(to, "assertion_refs")?
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|reference| assertion_by_ref(case, reference))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .filter(|assertion| optional_string(assertion, "fact_type") == Some("invoice_amount_minor"))
+            .any(|assertion| {
+                let source = source_by_ref(case, string(assertion, "source_ref").unwrap_or(""));
+                source.ok().is_some_and(|source| {
+                    optional_string(source, "external_id") == Some(credit_parent_id)
+                        && optional_string(source, "tenant_namespace")
+                            == optional_string(credit_source, "tenant_namespace")
+                })
+            });
+        if !parent_invoice_found {
+            return Err(format!("{}: credit note parent invoice is not in the same tenant namespace and source identity", string(case, "case_id")?));
         }
     }
     Ok(())
@@ -632,6 +781,52 @@ mod tests {
             read_json(data_dir.join("fixtures/economic_event_graph_candidates_v1.0.0.json")).unwrap(),
             read_json(data_dir.join("economic_event_graph_v1.0.0.schema.json")).unwrap(),
         )
+    }
+
+
+    #[test]
+    fn invoice_event_amount_and_currency_must_match_its_source_assertion() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF")).unwrap();
+        case["events"][0]["amount_minor"] = Value::from(125001);
+        assert!(validate_events(case).is_err());
+    }
+
+    #[test]
+    fn invoice_event_currency_must_match_its_source_assertion() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF")).unwrap();
+        case["events"][0]["currency"] = Value::String("EUR".to_owned());
+        assert!(validate_events(case).is_err());
+    }
+
+    #[test]
+    fn service_delivery_occurred_date_must_match_acceptance_assertion() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-002-SERVICE-THEN-INVOICE")).unwrap();
+        case["events"][0]["occurred_at"] = Value::String("2026-10-30T12:00:00Z".to_owned());
+        assert!(validate_events(case).is_err());
+    }
+
+    #[test]
+    fn settlement_event_amount_must_match_payment_assertion() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-003-SETTLEMENT-NOT-SECOND-EXPENSE")).unwrap();
+        case["events"][1]["amount_minor"] = Value::from(97000);
+        assert!(validate_events(case).is_err());
+    }
+
+    #[test]
+    fn credit_note_correction_must_resolve_parent_in_same_tenant() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-004-CREDIT-NOTE-PARENT")).unwrap();
+        case["source_objects"][0]["tenant_namespace"] = Value::String("tenant-other/ap".to_owned());
+        assert!(validate_relations(case).is_err());
     }
 
     #[test]
