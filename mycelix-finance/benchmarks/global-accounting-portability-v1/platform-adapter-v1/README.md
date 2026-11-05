@@ -80,7 +80,7 @@ cargo fmt -- --check
 cargo clippy --locked --all-targets -- -D warnings
 ```
 
-The Rust binary validates the candidate bundle, public oracle, each envelope and selected mapping invariants: unique case IDs, relationship endpoint references, direction, bitemporal relationship visibility, field-mapping loss, incomplete capabilities, access-principal refs, upstream-origin refs and no external effects.
+The Rust binary validates the candidate bundle, public oracle and each envelope; checks unique case/object/relationship/capability IDs; type-checks processing-activity, purpose, data-element and access-principal references; requires explicit loss codes on unresolved mappings; enforces the knowledge frontier across snapshots, capabilities, field mappings and relationships; filters relationship valid time; compares active relationship refs, unmapped paths, incomplete capabilities, access principals, upstream origins, composite adapter states and reason codes against the public oracle; and rejects external effects.
 
 The Rust evaluator now derives adapter states and reason codes, compares them with every public oracle row, and has a dedicated all-ten-case test. It also compares active relationships, mapping-loss paths, incomplete capabilities, access principals and upstream origins. A separate static JavaScript audit checks the authored fixtures and expectations independently of Rust execution; that is not a Rust run.
 
@@ -102,4 +102,4 @@ The S0 public corpus contains ten cases. Next gates are 50 fixture cases, at lea
 
 This package can test whether a mapping preserves or loses selected fields under a frozen synthetic contract. It cannot prove vendor scan correctness, actual export completeness, source authenticity, legal transfer permission, accounting correctness, filing compliance or product superiority.
 
-The schemas and fixtures were fetched back from GitHub and parsed as JSON in a static authoring audit. Cross-references for relationship endpoints, purpose/data-element/access-principal refs, expected mapping losses, capability coverage, upstream origins and temporal exclusions were checked in a custom JS simulation. The Rust binary and its seven tests are authored but **not executed**. No Cargo compile, cargo test, rustfmt, Clippy, Draft 2020-12 runtime pass, live API test, professional review or benchmark result is claimed.
+The schemas and fixtures were fetched back from GitHub and parsed as JSON in a static authoring audit. Cross-references for relationship endpoints, purpose/data-element/access-principal refs, expected mapping losses, capability coverage, upstream origins and temporal exclusions were checked in a custom JS simulation. The Rust binary and its eleven tests are authored but **not executed**. No Cargo compile, cargo test, rustfmt, Clippy, Draft 2020-12 runtime pass, live API test, professional review or benchmark result is claimed.
