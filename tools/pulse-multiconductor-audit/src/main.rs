@@ -696,4 +696,98 @@ mod tests{
     #[test]fn rejected_action_cannot_be_trusted(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_id=="projection-after-reject").unwrap();e.data["projection_state"]=Value::String("integrated".into());e.data["decision"]=Value::String("trusted".into());let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="REJECTED_ACTION_PROJECTED_AS_TRUSTED"));}
     #[test]fn forged_remote_signal_cannot_mutate_trusted_state(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_type=="remote_signal").unwrap();e.data["trusted_state_mutation"]=Value::Bool(true);let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="UNVERIFIED_SIGNAL_MUTATED_TRUSTED_STATE"));}
     #[test]fn event_data_rejects_unknown_fields(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_type=="host_call").unwrap();e.data["debug_secret"]=Value::String("never-allowed".into());let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="EVENT_DATA_SHAPE_INVALID"));}
+
+    #[test]
+    fn same_action_hash_in_different_dna_cells_is_not_a_collision() {
+        let mut h = fixture();
+        h.conductors.push(Conductor {
+            conductor_id: "foreign-caller".into(),
+            agent_key_ref: "agent-foreign".into(),
+            conductor_build: "holochain-test".into(),
+            dna_hash: "uhCkk-foreign-dna".into(),
+            cell_id: "foreign-cell".into(),
+            role: "caller".into(),
+        });
+        let mut foreign_action = h.events.iter().find(|e| e.event_type == "action_authored").unwrap().clone();
+        foreign_action.event_id = "same-hash-other-cell".into();
+        foreign_action.conductor_id = "foreign-caller".into();
+        foreign_action.local_sequence = 1;
+        foreign_action.data["author"] = Value::String("agent-foreign".into());
+        h.events.push(foreign_action);
+
+        let r = report(&h);
+        assert!(!r.findings.iter().any(|f| f.code == "ACTION_HASH_AUTHORED_TWICE"), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn projection_action_hash_must_equal_checkpoint_action_hash() {
+        let mut h = fixture();
+        let projection = h.events.iter_mut().find(|e| e.event_type == "projection_observed").unwrap();
+        projection.data["action_hash"] = Value::String("uhCkk-some-other-action".into());
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "PROJECTION_ACTION_IDENTITY_MISMATCH"), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn projection_must_reference_an_exact_validator_event() {
+        let mut h = fixture();
+        let projection = h.events.iter_mut().find(|e| e.event_type == "projection_observed").unwrap();
+        projection.data["validator_event_id"] = Value::String("missing-validator-receipt".into());
+        projection.data["decision"] = Value::String("trusted".into());
+        projection.data["projection_state"] = Value::String("integrated".into());
+        projection.data["observed_epoch"] = Value::Number(8u64.into());
+        projection.data["descends_from_required"] = Value::Bool(true);
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "PROJECTION_VALIDATOR_RECEIPT_MISSING"), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn validator_from_foreign_dna_cannot_back_a_projection() {
+        let mut h = fixture();
+        h.conductors.push(Conductor {
+            conductor_id: "foreign-validator".into(),
+            agent_key_ref: "agent-foreign-validator".into(),
+            conductor_build: "holochain-test".into(),
+            dna_hash: "uhCkk-foreign-dna".into(),
+            cell_id: "foreign-cell".into(),
+            role: "validator".into(),
+        });
+        h.events.push(Event {
+            event_id: "foreign-validator-accepted".into(),
+            conductor_id: "foreign-validator".into(),
+            local_sequence: 1,
+            source: "validator".into(),
+            evidence_ref: "fixture://foreign-validator/receipt".into(),
+            event_type: "validation_disposition".into(),
+            data: serde_json::json!({
+                "action_hash": "uhCkk-mailbox-forged",
+                "author_conductor_id": "caller-host",
+                "receiving_conductor_id": "foreign-validator",
+                "disposition": "accepted",
+                "validator_build": "foreign-integrity-wasm",
+                "reason_code": null
+            }),
+        });
+        h.causal_edges.push(CausalEdge {
+            from_event: "mailbox-action-authored".into(),
+            to_event: "foreign-validator-accepted".into(),
+            relation: "validator_receipt".into(),
+            evidence_ref: "fixture://foreign-validator/receipt-edge".into(),
+        });
+        h.causal_edges.push(CausalEdge {
+            from_event: "foreign-validator-accepted".into(),
+            to_event: "projection-after-reject".into(),
+            relation: "observer_confirmation".into(),
+            evidence_ref: "fixture://foreign-validator/projection-edge".into(),
+        });
+        let projection = h.events.iter_mut().find(|e| e.event_type == "projection_observed").unwrap();
+        projection.data["validator_event_id"] = Value::String("foreign-validator-accepted".into());
+        projection.data["decision"] = Value::String("trusted".into());
+        projection.data["projection_state"] = Value::String("integrated".into());
+        projection.data["observed_epoch"] = Value::Number(8u64.into());
+        projection.data["descends_from_required"] = Value::Bool(true);
+
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "VALIDATION_CELL_LINEAGE_MISMATCH"), "{:?}", r.findings);
+    }
 }
