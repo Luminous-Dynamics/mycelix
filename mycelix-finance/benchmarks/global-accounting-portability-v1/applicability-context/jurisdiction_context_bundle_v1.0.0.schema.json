@@ -1,0 +1,515 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-bundle-v1.0.0.json",
+  "title": "Mycelix Global Jurisdiction Context Bundle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "contexts"
+  ],
+  "properties": {
+    "bundle_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{3,100}$"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_context_conformance_only_not_tax_or_legal_applicability"
+    },
+    "contexts": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/context"
+      }
+    }
+  },
+  "$defs": {
+    "utcSecond": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "partyRole": {
+      "enum": [
+        "seller",
+        "buyer",
+        "invoice_issuer",
+        "invoice_recipient",
+        "ship_from_operator",
+        "ship_to_recipient",
+        "importer_of_record",
+        "exporter_of_record",
+        "service_provider",
+        "service_recipient",
+        "carrier",
+        "agent",
+        "other"
+      ]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context_id",
+        "transaction_ref",
+        "reporting_entity_ref",
+        "event_time_utc",
+        "reporting_period",
+        "knowledge_at",
+        "parties",
+        "scope_registry",
+        "jurisdiction_facts"
+      ],
+      "properties": {
+        "context_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "transaction_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reporting_entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_time_utc": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "reporting_period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "$ref": "#/$defs/date"
+            },
+            "end": {
+              "$ref": "#/$defs/date"
+            }
+          }
+        },
+        "knowledge_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "parties": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/party"
+          }
+        },
+        "scope_registry": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/jurisdictionScope"
+          }
+        },
+        "jurisdiction_facts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/jurisdictionFact"
+          }
+        }
+      }
+    },
+    "party": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "party_ref",
+        "transaction_roles"
+      ],
+      "properties": {
+        "party_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "transaction_roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/partyRole"
+          }
+        },
+        "identity_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identityBinding"
+          }
+        }
+      }
+    },
+    "identityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace_uri",
+        "identifier",
+        "assertion_state",
+        "evidence_ref"
+      ],
+      "properties": {
+        "namespace_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assertion_state": {
+          "enum": [
+            "verified_in_issuer_namespace",
+            "asserted_unverified",
+            "disputed"
+          ]
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "jurisdictionScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_id",
+        "namespace_uri",
+        "code",
+        "scope_level"
+      ],
+      "properties": {
+        "scope_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "namespace_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope_level": {
+          "enum": [
+            "country",
+            "subnational_region",
+            "municipality",
+            "customs_territory",
+            "special_economic_zone",
+            "other"
+          ]
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "jurisdictionFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fact_id",
+        "subject_party_ref",
+        "subject_role",
+        "jurisdiction_role",
+        "assertion_state",
+        "origin",
+        "scope_ref",
+        "source_evidence_refs",
+        "valid_from",
+        "valid_to",
+        "recorded_at"
+      ],
+      "properties": {
+        "fact_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "subject_party_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_role": {
+          "$ref": "#/$defs/partyRole"
+        },
+        "jurisdiction_role": {
+          "enum": [
+            "legal_domicile",
+            "establishment_location",
+            "tax_registration",
+            "buyer_location",
+            "seller_location",
+            "ship_from",
+            "ship_to",
+            "place_of_supply",
+            "goods_location",
+            "service_performance_location",
+            "fixed_establishment",
+            "import_customs_territory",
+            "export_customs_territory",
+            "other"
+          ]
+        },
+        "assertion_state": {
+          "enum": [
+            "evidence_supported",
+            "asserted_unverified",
+            "disputed",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "origin": {
+          "enum": [
+            "source_asserted",
+            "human_adjudicated",
+            "approved_rule_derived",
+            "unresolved"
+          ]
+        },
+        "scope_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "derivation_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conflicts_with_fact_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "supersedes_fact_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assertion_state": {
+                "enum": [
+                  "unknown",
+                  "not_applicable"
+                ]
+              }
+            },
+            "required": [
+              "assertion_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope_ref": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assertion_state": {
+                "enum": [
+                  "evidence_supported",
+                  "asserted_unverified",
+                  "disputed"
+                ]
+              }
+            },
+            "required": [
+              "assertion_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assertion_state": {
+                "const": "evidence_supported"
+              }
+            },
+            "required": [
+              "assertion_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_evidence_refs": {
+                "minItems": 1
+              },
+              "origin": {
+                "not": {
+                  "const": "unresolved"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assertion_state": {
+                "const": "disputed"
+              }
+            },
+            "required": [
+              "assertion_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "conflicts_with_fact_refs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "conflicts_with_fact_refs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "source_asserted"
+              }
+            },
+            "required": [
+              "origin"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "human_adjudicated"
+              }
+            },
+            "required": [
+              "origin"
+            ]
+          },
+          "then": {
+            "required": [
+              "reviewer_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "approved_rule_derived"
+              }
+            },
+            "required": [
+              "origin"
+            ]
+          },
+          "then": {
+            "required": [
+              "derivation_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "unresolved"
+              }
+            },
+            "required": [
+              "origin"
+            ]
+          },
+          "then": {
+            "properties": {
+              "assertion_state": {
+                "const": "unknown"
+              },
+              "scope_ref": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
