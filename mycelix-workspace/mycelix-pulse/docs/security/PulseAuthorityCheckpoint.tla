@@ -72,9 +72,11 @@ CommitHostRevocation ==
     /\ authorityEpoch' = authorityEpoch + 1
     /\ canonicalRevoked' = TRUE
     /\ minimumEpoch' = authorityEpoch + 1
+    /\ readState' =
+        IF readState = "TRUSTED_ACTIVE" THEN "STALE" ELSE readState
     /\ UNCHANGED
         << projectionEpoch, projectionState, caller, hostProbe,
-           lastHostActiveAtProbe, readState, lastReadEpoch, lastRequiredEpoch,
+           lastHostActiveAtProbe, lastReadEpoch, lastRequiredEpoch,
            lastCanonicalRevoked, lastHostActiveAtRead, lastReadUsedCheckpoint >>
 
 ConvergeProjection ==
@@ -141,7 +143,7 @@ TypeOK ==
     /\ caller \in Agents \cup {NoAgent}
     /\ hostProbe \in {"none", "AUTHORIZED", "UNAUTHORIZED"}
     /\ lastHostActiveAtProbe \in BOOLEAN
-    /\ readState \in {"none", "UNKNOWN", "TRUSTED_ACTIVE", "TRUSTED_REVOKED"}
+    /\ readState \in {"none", "UNKNOWN", "STALE", "TRUSTED_ACTIVE", "TRUSTED_REVOKED"}
     /\ lastReadEpoch \in Nat
     /\ lastRequiredEpoch \in Nat
     /\ lastCanonicalRevoked \in BOOLEAN
