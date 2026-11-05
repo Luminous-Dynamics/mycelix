@@ -1,0 +1,970 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-jurisdiction-pack-v1.0.0.json",
+  "title": "Mycelix Jurisdiction Pack Qualification Dossier v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pack_id",
+    "revision",
+    "scope_kind",
+    "maturity_status",
+    "claim_scope",
+    "generated_on",
+    "jurisdiction_scopes",
+    "profile_candidates",
+    "source_records",
+    "interpretation_records",
+    "test_evidence",
+    "change_control",
+    "limitations"
+  ],
+  "properties": {
+    "pack_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{3,100}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "scope_kind": {
+      "enum": [
+        "synthetic_fixture_only",
+        "real_world"
+      ]
+    },
+    "maturity_status": {
+      "enum": [
+        "candidate",
+        "research_only",
+        "review_required",
+        "qualified_for_declared_scope",
+        "suspended",
+        "retired"
+      ]
+    },
+    "claim_scope": {
+      "const": "source_archive_and_qualification_lifecycle_only_no_substantive_legal_or_accounting_rule_authority"
+    },
+    "generated_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction_scopes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/jurisdictionScope"
+      }
+    },
+    "profile_candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/profileCandidate"
+      }
+    },
+    "source_records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/sourceRecord"
+      }
+    },
+    "interpretation_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/interpretation"
+      }
+    },
+    "test_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/testEvidence"
+      }
+    },
+    "change_control": {
+      "$ref": "#/$defs/changeControl"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 3
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scope_kind": {
+            "const": "synthetic_fixture_only"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "maturity_status": {
+            "enum": [
+              "candidate",
+              "research_only",
+              "review_required",
+              "suspended",
+              "retired"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "maturity_status": {
+            "const": "qualified_for_declared_scope"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source_records": {
+            "items": {
+              "properties": {
+                "snapshot_state": {
+                  "const": "archived"
+                }
+              }
+            }
+          },
+          "interpretation_records": {
+            "minItems": 1
+          },
+          "test_evidence": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "jurisdictionScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_id",
+        "scope_level",
+        "code_system",
+        "code",
+        "display_name",
+        "parent_scope_id",
+        "valid_from",
+        "valid_to"
+      ],
+      "properties": {
+        "scope_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "scope_level": {
+          "enum": [
+            "country",
+            "state_or_province",
+            "region",
+            "municipality",
+            "territory",
+            "special_economic_zone",
+            "other_subnational"
+          ]
+        },
+        "code_system": {
+          "type": "string",
+          "minLength": 3
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent_scope_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "valid_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      }
+    },
+    "profileCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "dimension",
+        "intended_uses",
+        "jurisdiction_scope_ids",
+        "entity_scope",
+        "maturity_status",
+        "valid_from",
+        "valid_to",
+        "dependencies",
+        "source_record_ids",
+        "limitations"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "dimension": {
+          "enum": [
+            "legal_entity_scope",
+            "accounting_framework_adoption",
+            "tax_profile",
+            "statutory_reporting",
+            "reporting_taxonomy",
+            "e_invoice_interoperability",
+            "digital_tax_reporting",
+            "retention_requirement",
+            "other_jurisdiction_profile"
+          ]
+        },
+        "intended_uses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "research",
+              "accounting_analysis",
+              "accounting_projection",
+              "tax_calculation",
+              "statutory_reporting",
+              "e_invoice_validation",
+              "digital_reporting",
+              "management_reporting"
+            ]
+          }
+        },
+        "jurisdiction_scope_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "entity_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "maturity_status": {
+          "enum": [
+            "candidate",
+            "research_only",
+            "review_required",
+            "qualified_for_declared_scope",
+            "suspended",
+            "retired"
+          ]
+        },
+        "valid_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "dependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "source_record_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "sourceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_record_id",
+        "source_role",
+        "authority_metadata",
+        "document_identity",
+        "snapshot_state",
+        "snapshot",
+        "source_language",
+        "translation_status",
+        "temporal_facts",
+        "applicability_scope_ids",
+        "supersession",
+        "limitations"
+      ],
+      "properties": {
+        "source_record_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "source_role": {
+          "enum": [
+            "primary_legislation",
+            "official_gazette",
+            "tax_authority_guidance",
+            "regulator_guidance",
+            "standard_setter_publication",
+            "official_taxonomy",
+            "official_schema_or_codelist",
+            "official_technical_guide",
+            "official_filing_guide",
+            "other_official_source",
+            "secondary_commentary"
+          ]
+        },
+        "authority_metadata": {
+          "$ref": "#/$defs/authorityMetadata"
+        },
+        "document_identity": {
+          "$ref": "#/$defs/documentIdentity"
+        },
+        "snapshot_state": {
+          "enum": [
+            "not_archived",
+            "archived",
+            "source_unavailable",
+            "access_restricted"
+          ]
+        },
+        "snapshot": {
+          "$ref": "#/$defs/sourceSnapshot"
+        },
+        "source_language": {
+          "type": "string",
+          "minLength": 2
+        },
+        "translation_status": {
+          "enum": [
+            "not_required",
+            "not_available",
+            "machine_draft_unreviewed",
+            "human_review_required",
+            "human_reviewed",
+            "official_translation"
+          ]
+        },
+        "temporal_facts": {
+          "$ref": "#/$defs/temporalFacts"
+        },
+        "applicability_scope_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "supersession": {
+          "$ref": "#/$defs/supersession"
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "authorityMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publisher_name",
+        "publisher_namespace",
+        "issuer_type",
+        "officiality_state",
+        "jurisdiction_of_issuer"
+      ],
+      "properties": {
+        "publisher_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publisher_namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer_type": {
+          "enum": [
+            "legislature",
+            "government_gazette",
+            "tax_administration",
+            "financial_regulator",
+            "company_registry",
+            "standard_setter",
+            "international_organization",
+            "other_public_body",
+            "private_publisher",
+            "unknown"
+          ]
+        },
+        "officiality_state": {
+          "enum": [
+            "official_publication",
+            "official_explanatory_material",
+            "official_technical_material",
+            "secondary",
+            "unverified"
+          ]
+        },
+        "jurisdiction_of_issuer": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "documentIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "document_identifier",
+        "canonical_uri",
+        "media_type",
+        "language_label"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "document_identifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canonical_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 3
+        },
+        "language_label": {
+          "type": "string",
+          "minLength": 2
+        }
+      }
+    },
+    "sourceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "byte_length",
+        "acquired_at",
+        "content_type",
+        "etag",
+        "last_modified",
+        "archive_ref"
+      ],
+      "properties": {
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "byte_length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "acquired_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "content_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "etag": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "last_modified": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "archive_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "temporalFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "published_at",
+        "promulgated_at",
+        "effective_from",
+        "effective_to",
+        "captured_at",
+        "known_at",
+        "superseded_at"
+      ],
+      "properties": {
+        "published_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "promulgated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "known_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "superseded_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "supersession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supersedes_source_ids",
+        "superseded_by_source_ids",
+        "relationship_status"
+      ],
+      "properties": {
+        "supersedes_source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "superseded_by_source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "relationship_status": {
+          "enum": [
+            "unknown",
+            "current_as_reviewed",
+            "amends_prior",
+            "repeals_prior",
+            "supersedes_prior",
+            "superseded",
+            "partial_amendment",
+            "conflicting_sources"
+          ]
+        }
+      }
+    },
+    "interpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interpretation_id",
+        "profile_id",
+        "interpretation_kind",
+        "candidate_statement",
+        "source_passages",
+        "decision_status",
+        "review_decisions",
+        "rule_artifact_ref",
+        "execution_enabled",
+        "limitations"
+      ],
+      "properties": {
+        "interpretation_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "interpretation_kind": {
+          "enum": [
+            "applicability",
+            "definition",
+            "obligation_candidate",
+            "threshold_candidate",
+            "reporting_requirement",
+            "technical_validation_requirement",
+            "exclusion_candidate",
+            "other"
+          ]
+        },
+        "candidate_statement": {
+          "type": "string",
+          "minLength": 10
+        },
+        "source_passages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourcePassage"
+          }
+        },
+        "decision_status": {
+          "enum": [
+            "candidate",
+            "review_required",
+            "approved_for_declared_scope",
+            "rejected",
+            "conflicted"
+          ]
+        },
+        "review_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reviewDecision"
+          }
+        },
+        "rule_artifact_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "execution_enabled": {
+          "const": false
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "sourcePassage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_record_id",
+        "locator_kind",
+        "locator",
+        "quoted_text_digest",
+        "reviewed_language"
+      ],
+      "properties": {
+        "source_record_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "locator_kind": {
+          "enum": [
+            "page",
+            "section",
+            "article",
+            "paragraph",
+            "table_cell",
+            "xml_path",
+            "html_fragment",
+            "other"
+          ]
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quoted_text_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "reviewed_language": {
+          "type": "string",
+          "minLength": 2
+        }
+      }
+    },
+    "reviewDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer_ref",
+        "reviewer_role",
+        "competence_scope",
+        "decision",
+        "decided_at",
+        "conflict_disclosed",
+        "notes"
+      ],
+      "properties": {
+        "reviewer_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_role": {
+          "enum": [
+            "accounting_professional",
+            "tax_professional",
+            "legal_reviewer",
+            "regulatory_specialist",
+            "technical_standards_reviewer",
+            "native_language_reviewer",
+            "other_qualified_reviewer"
+          ]
+        },
+        "competence_scope": {
+          "type": "string",
+          "minLength": 3
+        },
+        "decision": {
+          "enum": [
+            "approve",
+            "reject",
+            "request_revision",
+            "record_disagreement"
+          ]
+        },
+        "decided_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "conflict_disclosed": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 5
+        }
+      }
+    },
+    "testEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_id",
+        "profile_id",
+        "test_family",
+        "fixture_ref",
+        "expected_disposition",
+        "actual_execution_state",
+        "review_state",
+        "limitations"
+      ],
+      "properties": {
+        "test_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "test_family": {
+          "enum": [
+            "source_integrity",
+            "temporal_selection",
+            "jurisdiction_scope",
+            "entity_applicability",
+            "cross_border_context",
+            "locale_and_translation",
+            "rule_boundary",
+            "supersession",
+            "historical_replay",
+            "other"
+          ]
+        },
+        "fixture_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_disposition": {
+          "enum": [
+            "qualified",
+            "partial",
+            "needs_review",
+            "indeterminate",
+            "unsupported",
+            "rejected"
+          ]
+        },
+        "actual_execution_state": {
+          "enum": [
+            "not_run",
+            "run_unqualified",
+            "run_qualified"
+          ]
+        },
+        "review_state": {
+          "enum": [
+            "not_reviewed",
+            "review_required",
+            "reviewed",
+            "disputed"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "changeControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "watch_sources",
+        "material_change_triggers",
+        "requalification_policy",
+        "supersedes_pack_ids",
+        "successor_pack_ids"
+      ],
+      "properties": {
+        "watch_sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "material_change_triggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "requalification_policy": {
+          "type": "string",
+          "minLength": 10
+        },
+        "supersedes_pack_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "successor_pack_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        }
+      }
+    }
+  }
+}
