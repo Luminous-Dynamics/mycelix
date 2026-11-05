@@ -113,7 +113,7 @@ fn evidence_fresh_at(
     };
     observed <= evaluation
         && evaluation < expires
-        && evaluation - observed <= maximum_age_seconds as i64
+        && evaluation - observed <= maximum_age_seconds.min(i64::MAX as u64) as i64
 }
 
 fn digest_is_well_formed(value: &str) -> bool {
@@ -1051,6 +1051,40 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_reject("expired provider evidence despite fresh label", corpus, schema, |value| {
+        value["scenarios"][0]["provider_evidence"]["expires_at"] =
+            json!("2026-11-05T09:02:59Z");
+    })?;
+    count += 1;
+
+    mutate_and_reject("expired VoP result despite fresh label", corpus, schema, |value| {
+        value["scenarios"][0]["vop_result"]["expires_at"] = json!("2026-11-05T09:02:59Z");
+    })?;
+    count += 1;
+
+    mutate_and_reject("expired payee resolution despite fresh label", corpus, schema, |value| {
+        value["scenarios"][0]["payee_resolution"]["expires_at"] =
+            json!("2026-11-05T09:02:59Z");
+    })?;
+    count += 1;
+
+    mutate_and_reject("future-dated provider evidence despite fresh label", corpus, schema, |value| {
+        value["scenarios"][0]["provider_evidence"]["issued_at"] =
+            json!("2026-11-05T09:03:01Z");
+    })?;
+    count += 1;
+
+    mutate_and_reject("stale fee evidence despite allowed status", corpus, schema, |value| {
+        value["scenarios"][0]["limit_fee"]["observed_at"] =
+            json!("2026-11-05T08:52:59Z");
+    })?;
+    count += 1;
+
+    mutate_and_reject("payer decision after evaluation time", corpus, schema, |value| {
+        value["scenarios"][3]["consent"]["observed_at"] = json!("2026-11-05T09:03:01Z");
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -1168,7 +1202,35 @@ mod tests {
     fn deterministic_negative_mutation_campaign_rejects_composition_failures() {
         let corpus: Value = serde_json::from_str(CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("mutations"), 16);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("mutations"), 22);
+    }
+
+    #[test]
+    fn utc_timestamp_freshness_is_checked_against_evaluation_time() {
+        assert!(evidence_fresh_at(
+            &json!("2026-11-05T09:01:00Z"),
+            &json!("2026-11-05T09:05:00Z"),
+            "2026-11-05T09:03:00Z",
+            300
+        ));
+        assert!(!evidence_fresh_at(
+            &json!("2026-11-05T09:01:00Z"),
+            &json!("2026-11-05T09:02:59Z"),
+            "2026-11-05T09:03:00Z",
+            300
+        ));
+        assert!(!evidence_fresh_at(
+            &json!("2026-11-05T09:03:01Z"),
+            &json!("2026-11-05T09:05:00Z"),
+            "2026-11-05T09:03:00Z",
+            300
+        ));
+        assert!(!evidence_fresh_at(
+            &json!("2026-11-05T08:52:59Z"),
+            &json!("2026-11-05T09:10:00Z"),
+            "2026-11-05T09:03:00Z",
+            600
+        ));
     }
 
     #[test]
