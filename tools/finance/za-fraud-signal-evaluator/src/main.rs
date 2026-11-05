@@ -117,7 +117,11 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     {
         errors.push("corpus identity/status/jurisdiction mismatch".into());
     }
-    if corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false) {
+    if corpus
+        .get("external_effects_enabled")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
         errors.push("external effects must remain disabled".into());
     }
     if u64_at(corpus, "aggregate_minimum_cell_threshold") != Some(20) {
@@ -127,9 +131,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     let sources = array_at(corpus, "source_register")
         .cloned()
         .unwrap_or_default();
-    let scenarios = array_at(corpus, "scenarios")
-        .cloned()
-        .unwrap_or_default();
+    let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     unique_ids(&sources, "id", "source_register", &mut errors);
     unique_ids(&scenarios, "scenario_id", "scenarios", &mut errors);
     let source_ids: BTreeSet<String> = sources
@@ -173,7 +175,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let expected = str_at(signal, "expected_disposition").unwrap_or("");
 
         if str_at(evidence, "evidence_reference").is_none_or(str::is_empty) {
-            errors.push(format!("{label}/{id}: synthetic case evidence reference missing"));
+            errors.push(format!(
+                "{label}/{id}: synthetic case evidence reference missing"
+            ));
         }
         if str_at(evidence, "evidence_commitment").is_none_or(str::is_empty) {
             errors.push(format!("{label}/{id}: evidence commitment missing"));
@@ -182,7 +186,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!("{label}/{id}: origin evidence is not verified"));
         }
         if str_at(issuer, "signature_verification_receipt").is_none_or(str::is_empty) {
-            errors.push(format!("{label}/{id}: signature verification receipt missing"));
+            errors.push(format!(
+                "{label}/{id}: signature verification receipt missing"
+            ));
         }
         if audience.is_empty() || purpose.is_empty() {
             errors.push(format!("{label}/{id}: audience and purpose are required"));
@@ -196,10 +202,16 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         if str_at(retention, "policy_id").is_none_or(str::is_empty) {
             errors.push(format!("{label}/{id}: retention policy is missing"));
         }
-        if signal.get("raw_personal_data_present").and_then(Value::as_bool) != Some(false) {
+        if signal
+            .get("raw_personal_data_present")
+            .and_then(Value::as_bool)
+            != Some(false)
+        {
             errors.push(format!("{label}/{id}: raw personal data is prohibited"));
         }
-        let prohibited = array_at(signal, "prohibited_uses").cloned().unwrap_or_default();
+        let prohibited = array_at(signal, "prohibited_uses")
+            .cloned()
+            .unwrap_or_default();
         for required in REQUIRED_PROHIBITIONS {
             if !contains(&prohibited, required) {
                 errors.push(format!("{label}/{id}: missing prohibited use {required}"));
@@ -266,7 +278,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 "operational_case" => {
                     let subject = &signal["subject_reference"];
                     if subject.is_null()
-                        || signal.get("aggregate").is_some_and(|value| !value.is_null())
+                        || signal
+                            .get("aggregate")
+                            .is_some_and(|value| !value.is_null())
                         || str_at(signal, "case_reference").is_none_or(str::is_empty)
                     {
                         "reject"
@@ -284,13 +298,13 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                         let token_reused_in_another_scope = token_scopes
                             .get(token)
                             .is_some_and(|existing| existing != &scope_tuple);
-                        token_scopes
-                            .entry(token.to_owned())
-                            .or_insert(scope_tuple);
+                        token_scopes.entry(token.to_owned()).or_insert(scope_tuple);
                         if token.is_empty()
                             || scope.is_empty()
                             || purpose_id != purpose
-                            || !audience.iter().any(|value| value.as_str() == Some(audience_id))
+                            || !audience
+                                .iter()
+                                .any(|value| value.as_str() == Some(audience_id))
                             || !matches!(token_profile, "pairwise_scoped" | "case_scoped")
                             || token_reused_in_another_scope
                         {
@@ -298,8 +312,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                         } else {
                             let epistemic = str_at(signal, "epistemic_status").unwrap_or("");
                             if epistemic == "adjudicated"
-                                && (str_at(evidence, "adjudication_reference").is_none_or(str::is_empty)
-                                    || str_at(evidence, "corroboration_state") != Some("adjudicated"))
+                                && (str_at(evidence, "adjudication_reference")
+                                    .is_none_or(str::is_empty)
+                                    || str_at(evidence, "corroboration_state")
+                                        != Some("adjudicated"))
                             {
                                 "reject"
                             } else if is_before_as_of(
@@ -326,7 +342,8 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                                         }
                                     }
                                     "asserted" | "corroborated" => {
-                                        if matches!(epistemic, "alleged" | "observed" | "inferred") {
+                                        if matches!(epistemic, "alleged" | "observed" | "inferred")
+                                        {
                                             "admit_scoped_assertion"
                                         } else {
                                             "reject"
@@ -346,13 +363,19 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             disposition = "quarantine_unknown_authority";
         }
 
-        let permitted = array_at(signal, "permitted_actions").cloned().unwrap_or_default();
-        let uses = array_at(signal, "recipient_uses").cloned().unwrap_or_default();
+        let permitted = array_at(signal, "permitted_actions")
+            .cloned()
+            .unwrap_or_default();
+        let uses = array_at(signal, "recipient_uses")
+            .cloned()
+            .unwrap_or_default();
         for (use_index, use_event) in uses.iter().enumerate() {
             let recipient = str_at(use_event, "recipient_id").unwrap_or("");
             let use_purpose = str_at(use_event, "purpose").unwrap_or("");
             let action = str_at(use_event, "action").unwrap_or("");
-            if !audience.iter().any(|value| value.as_str() == Some(recipient))
+            if !audience
+                .iter()
+                .any(|value| value.as_str() == Some(recipient))
                 || use_purpose != purpose
                 || !contains(&permitted, action)
                 || !ALLOWED_ACTIONS.contains(&action)
@@ -411,25 +434,45 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         value["external_effects_enabled"] = json!(true);
     })?;
     count += 1;
-    mutate_and_reject("FSR Act s251 promoted to private blanket basis", corpus, schema, |value| {
-        value["scenarios"][4]["signal"]["authority"]["review_state"] = json!("verified");
-    })?;
+    mutate_and_reject(
+        "FSR Act s251 promoted to private blanket basis",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][4]["signal"]["authority"]["review_state"] = json!("verified");
+        },
+    )?;
     count += 1;
-    mutate_and_reject("small aggregate cell not suppressed", corpus, schema, |value| {
-        value["scenarios"][1]["signal"]["aggregate"]["suppression_applied"] = json!(false);
-    })?;
+    mutate_and_reject(
+        "small aggregate cell not suppressed",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][1]["signal"]["aggregate"]["suppression_applied"] = json!(false);
+        },
+    )?;
     count += 1;
-    mutate_and_reject("pairwise token scope widened across audience", corpus, schema, |value| {
-        value["scenarios"][9]["signal"]["subject_reference"]["audience_id"] = json!("BANK-C");
-    })?;
+    mutate_and_reject(
+        "pairwise token scope widened across audience",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][9]["signal"]["subject_reference"]["audience_id"] = json!("BANK-C");
+        },
+    )?;
     count += 1;
     mutate_and_reject("raw personal data in envelope", corpus, schema, |value| {
         value["scenarios"][10]["signal"]["raw_personal_data_present"] = json!(true);
     })?;
     count += 1;
-    mutate_and_reject("allegation changed to adjudicated without evidence", corpus, schema, |value| {
-        value["scenarios"][7]["signal"]["epistemic_status"] = json!("adjudicated");
-    })?;
+    mutate_and_reject(
+        "allegation changed to adjudicated without evidence",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][7]["signal"]["epistemic_status"] = json!("adjudicated");
+        },
+    )?;
     count += 1;
     mutate_and_reject("expired signal kept asserted", corpus, schema, |value| {
         value["scenarios"][12]["signal"]["lifecycle"]["state"] = json!("asserted");
@@ -439,53 +482,82 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         value["scenarios"][13]["signal"]["lifecycle"]["state"] = json!("asserted");
     })?;
     count += 1;
-    mutate_and_reject("correction acknowledged before recipient acknowledgement", corpus, schema, |value| {
-        value["scenarios"][14]["signal"]["lifecycle"]["recipient_acknowledgements"][0]["correction_ack_state"] = json!("acknowledged");
-    })?;
+    mutate_and_reject(
+        "correction acknowledged before recipient acknowledgement",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][14]["signal"]["lifecycle"]["recipient_acknowledgements"][0]["correction_ack_state"] =
+                json!("acknowledged");
+        },
+    )?;
     count += 1;
     mutate_and_reject("recipient purpose changed", corpus, schema, |value| {
         value["scenarios"][17]["signal"]["recipient_uses"][0]["purpose"] = json!("marketing");
     })?;
     count += 1;
-    mutate_and_reject("onward disclosure to outside audience", corpus, schema, |value| {
-        value["scenarios"][18]["signal"]["recipient_uses"][0]["recipient_id"] = json!("BANK-C");
-    })?;
+    mutate_and_reject(
+        "onward disclosure to outside audience",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][18]["signal"]["recipient_uses"][0]["recipient_id"] = json!("BANK-C");
+        },
+    )?;
     count += 1;
     mutate_and_reject("automatic payment denial", corpus, schema, |value| {
-        value["scenarios"][20]["signal"]["recipient_uses"][0]["action"] = json!("automatic_payment_denial");
+        value["scenarios"][20]["signal"]["recipient_uses"][0]["action"] =
+            json!("automatic_payment_denial");
     })?;
     count += 1;
     mutate_and_reject("global person score", corpus, schema, |value| {
-        value["scenarios"][22]["signal"]["recipient_uses"][0]["action"] = json!("global_person_scoring");
+        value["scenarios"][22]["signal"]["recipient_uses"][0]["action"] =
+            json!("global_person_scoring");
     })?;
     count += 1;
-    mutate_and_reject("unknown retention treated as qualified", corpus, schema, |value| {
-        value["scenarios"][23]["signal"]["retention"]["review_state"] = json!("verified");
-        value["scenarios"][23]["signal"]["retention"]["policy_id"] = json!("RETENTION-CASE-30D");
-    })?;
+    mutate_and_reject(
+        "unknown retention treated as qualified",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][23]["signal"]["retention"]["review_state"] = json!("verified");
+            value["scenarios"][23]["signal"]["retention"]["policy_id"] =
+                json!("RETENTION-CASE-30D");
+        },
+    )?;
     count += 1;
     mutate_and_reject("revoked key treated as current", corpus, schema, |value| {
         value["scenarios"][25]["signal"]["issuer"]["credential_state"] = json!("verified");
     })?;
     count += 1;
-    mutate_and_reject("aggregate plane gains subject reference", corpus, schema, |value| {
-        value["scenarios"][0]["signal"]["subject_reference"] = json!({
-            "opaque_token":"token",
-            "tokenisation_profile":"pairwise_scoped",
-            "scope_id":"scope",
-            "audience_id":"PEM_STRATEGIC_FORUM",
-            "purpose_id":"aggregate_payment_fraud_typology"
-        });
-    })?;
+    mutate_and_reject(
+        "aggregate plane gains subject reference",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["signal"]["subject_reference"] = json!({
+                "opaque_token":"token",
+                "tokenisation_profile":"pairwise_scoped",
+                "scope_id":"scope",
+                "audience_id":"PEM_STRATEGIC_FORUM",
+                "purpose_id":"aggregate_payment_fraud_typology"
+            });
+        },
+    )?;
     count += 1;
     mutate_and_reject("undeclared risk score field", corpus, schema, |value| {
         value["scenarios"][7]["signal"]["risk_score"] = json!(0.01);
     })?;
     count += 1;
-    mutate_and_reject("pairwise subject token reused outside original case scope", corpus, schema, |value| {
-        value["scenarios"][9]["signal"]["subject_reference"]["opaque_token"] =
-            value["scenarios"][8]["signal"]["subject_reference"]["opaque_token"].clone();
-    })?;
+    mutate_and_reject(
+        "pairwise subject token reused outside original case scope",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][9]["signal"]["subject_reference"]["opaque_token"] =
+                value["scenarios"][8]["signal"]["subject_reference"]["opaque_token"].clone();
+        },
+    )?;
     count += 1;
     Ok(count)
 }
@@ -549,7 +621,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         "errors":errors
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
-    if !report["status"].as_str().is_some_and(|status| status=="PASS") {
+    if !report["status"]
+        .as_str()
+        .is_some_and(|status| status == "PASS")
+    {
         std::process::exit(1);
     }
     Ok(())
