@@ -1331,13 +1331,11 @@ mod tests {
             "scale":2,
             "unit_profile":{"ref_id":"SYNTH-ZAR","source_kind":"synthetic_currency"}
         });
-        assert!(
-            errors(&verify(
-                &serde_json::to_vec(&value).unwrap(),
-                include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json")
-            ))
-            .is_empty()
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
         );
+        assert!(errors(&report).is_empty(), "{}", errors(&report));
         value["nodes"][0]["result"]["numeric_value"]["value"] = json!("-0.00");
         assert!(
             errors(&verify(
