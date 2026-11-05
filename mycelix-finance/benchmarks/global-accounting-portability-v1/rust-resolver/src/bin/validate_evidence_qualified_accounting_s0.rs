@@ -145,17 +145,22 @@ fn future_evidence(case: &Value) -> Result<bool, String> {
         }
         let fact_type = string(fact, "fact_type")?;
         let future_document = document_by_ref(case, string(fact, "document_ref")?)?;
-        let same_source_fact_known = array(case, "facts")?.iter().any(|known_fact| {
-            optional_string(known_fact, "fact_type") == Some(fact_type)
-                && is_eligible_assertion(case, known_fact).unwrap_or(false)
-                && document_by_ref(case, string(known_fact, "document_ref").unwrap_or(""))
-                    .ok()
-                    .is_some_and(|known_document| {
-                        optional_string(known_document, "namespace") == optional_string(future_document, "namespace")
-                            && optional_string(known_document, "external_document_id") == optional_string(future_document, "external_document_id")
-                            && optional_string(known_document, "document_type") == optional_string(future_document, "document_type")
-                    })
-        });
+        let mut same_source_fact_known = false;
+        for known_fact in array(case, "facts")? {
+            if optional_string(known_fact, "fact_type") != Some(fact_type)
+                || !is_eligible_assertion(case, known_fact)?
+            {
+                continue;
+            }
+            let known_document = document_by_ref(case, string(known_fact, "document_ref")?)?;
+            if optional_string(known_document, "namespace") == optional_string(future_document, "namespace")
+                && optional_string(known_document, "external_document_id") == optional_string(future_document, "external_document_id")
+                && optional_string(known_document, "document_type") == optional_string(future_document, "document_type")
+            {
+                same_source_fact_known = true;
+                break;
+            }
+        }
         if !same_source_fact_known {
             return Ok(true);
         }
