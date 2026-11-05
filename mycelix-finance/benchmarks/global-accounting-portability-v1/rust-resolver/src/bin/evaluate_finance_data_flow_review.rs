@@ -7,7 +7,7 @@ use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
-const REASONS: [&str; 10] = [
+const REASONS: [&str; 11] = [
     "actor_role_or_authority_conflict",
     "legal_hold_blocks_deletion",
     "secondary_purpose_unreviewed",
