@@ -1,0 +1,389 @@
+{
+  "benchmark_id": "FIN-TRUST-BENCH",
+  "dataset_version": "1.0.0",
+  "responses": [
+    {
+      "task_id": "FTB-001",
+      "disposition": "clarify",
+      "questions": [
+        {
+          "question_id": "Q-APPROVAL-001",
+          "text": "Was INV-001 approved by an authorized approver for E-001? Please provide the approval record or the approver's signed decision.",
+          "resolves": [
+            "UNK-APPROVAL-001"
+          ],
+          "target": "approver"
+        }
+      ],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-RECOGNITION-001",
+          "source_id": "SRC-INV-001",
+          "revision": "1",
+          "sha256": "614d5cd5dbc5d5af85a9b38b6f1faf63fc5a162d60629d241f724efe706b3788",
+          "locator": "page 1 / total 1250.00",
+          "qualifies": false
+        }
+      ],
+      "journal_entries": [],
+      "statement_reconstruction": [],
+      "unresolved": [
+        "UNK-APPROVAL-001"
+      ],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-002",
+      "disposition": "deliver",
+      "questions": [],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-RECOGNITION-002",
+          "source_id": "SRC-INV-002",
+          "revision": "1",
+          "sha256": "cbf3ef1cec897fdfc386b45d0d1a87a6a9a09baa2404f5c815890deafeaf4ec5",
+          "locator": "page 1 / total 1250.00",
+          "qualifies": true
+        },
+        {
+          "requirement_id": "REQ-AUTHORITY-002",
+          "source_id": "SRC-APP-002",
+          "revision": "1",
+          "sha256": "5b635629457039bff333e2b4ee2cbf8406f4ffdd4f9945b1ab79c5560d27e642",
+          "locator": "approval block",
+          "qualifies": true
+        }
+      ],
+      "journal_entries": [
+        {
+          "entry_id": "JE-FTB-002",
+          "entity_id": "E-001",
+          "period": "2026-10-31",
+          "currency": "ZAR",
+          "policy_id": "policy-zar-v1",
+          "source_ids": [
+            "SRC-INV-002",
+            "SRC-APP-002"
+          ],
+          "lines": [
+            {
+              "account_id": "6100-maintenance-expense",
+              "debit_minor": "125000",
+              "credit_minor": "0"
+            },
+            {
+              "account_id": "2100-accounts-payable",
+              "debit_minor": "0",
+              "credit_minor": "125000"
+            }
+          ]
+        }
+      ],
+      "statement_reconstruction": [
+        {
+          "entity_id": "E-001",
+          "period": "2026-10-31",
+          "currency": "ZAR",
+          "lines": [
+            {
+              "line_id": "expense-maintenance",
+              "amount_minor": "125000"
+            },
+            {
+              "line_id": "accounts-payable",
+              "amount_minor": "125000"
+            }
+          ]
+        }
+      ],
+      "unresolved": [],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-003",
+      "disposition": "deliver",
+      "questions": [],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-REPLAY-003",
+          "source_id": "SRC-INV-003-A",
+          "revision": "1",
+          "sha256": "cc91dc4fb5b4db7d10b66ddff6de03595ad55da60a4f49599c1b3346b1f6ac06",
+          "locator": "page 1",
+          "qualifies": true
+        }
+      ],
+      "journal_entries": [
+        {
+          "entry_id": "JE-FTB-003",
+          "entity_id": "E-001",
+          "period": "2026-10-31",
+          "currency": "ZAR",
+          "policy_id": "policy-zar-v1",
+          "source_ids": [
+            "SRC-INV-003-A"
+          ],
+          "lines": [
+            {
+              "account_id": "6200-office-expense",
+              "debit_minor": "88000",
+              "credit_minor": "0"
+            },
+            {
+              "account_id": "2100-accounts-payable",
+              "debit_minor": "0",
+              "credit_minor": "88000"
+            }
+          ]
+        }
+      ],
+      "statement_reconstruction": [
+        {
+          "entity_id": "E-001",
+          "period": "2026-10-31",
+          "currency": "ZAR",
+          "lines": [
+            {
+              "line_id": "office-expense",
+              "amount_minor": "88000"
+            },
+            {
+              "line_id": "accounts-payable",
+              "amount_minor": "88000"
+            }
+          ]
+        }
+      ],
+      "unresolved": [],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-004",
+      "disposition": "escalate",
+      "questions": [],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-CONFLICT-004",
+          "source_id": "SRC-INV-004-A",
+          "revision": "1",
+          "sha256": "cf069d99dd0388bdd0eae0b563e3ad4388354961fe442903b286e591fa7c89ae",
+          "locator": "page 1",
+          "qualifies": false
+        },
+        {
+          "requirement_id": "REQ-CONFLICT-004",
+          "source_id": "SRC-INV-004-B",
+          "revision": "1",
+          "sha256": "dcc4b35988473e42d679378b283995781671f9b886179036336683161b5ca2c5",
+          "locator": "page 1",
+          "qualifies": false
+        }
+      ],
+      "journal_entries": [],
+      "statement_reconstruction": [],
+      "unresolved": [
+        "UNK-CONFLICT-004"
+      ],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-005",
+      "disposition": "clarify",
+      "questions": [
+        {
+          "question_id": "Q-FX-005",
+          "text": "Which approved FX translation profile and measurement-date rate source apply to this USD invoice in the ZAR ledger? Please provide the exact profile revision and rate evidence.",
+          "resolves": [
+            "UNK-FX-005"
+          ],
+          "target": "accounting_owner"
+        }
+      ],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-FX-005",
+          "source_id": "SRC-INV-005",
+          "revision": "1",
+          "sha256": "c62fb8de5306f8e7332657f4f85e4306904fa86540d08bd7f532d9bf82afec69",
+          "locator": "page 1",
+          "qualifies": false
+        }
+      ],
+      "journal_entries": [],
+      "statement_reconstruction": [],
+      "unresolved": [
+        "UNK-FX-005"
+      ],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-006",
+      "disposition": "abstain",
+      "questions": [],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-ENTITY-006",
+          "source_id": "SRC-INV-006",
+          "revision": "1",
+          "sha256": "ff47768ebb1877889509b3f2a12b9081d041ed65fcbdba284ce2226172259c1b",
+          "locator": "page 1",
+          "qualifies": false
+        }
+      ],
+      "journal_entries": [],
+      "statement_reconstruction": [],
+      "unresolved": [
+        "UNK-ENTITY-006"
+      ],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-007",
+      "disposition": "clarify",
+      "questions": [
+        {
+          "question_id": "Q-SETTLE-007",
+          "text": "Please provide a qualified settlement or beneficiary-credit confirmation that identifies SUP-06 and the booked value date; a debit observation alone does not prove receipt.",
+          "resolves": [
+            "UNK-BENEFICIARY-007"
+          ],
+          "target": "bank"
+        }
+      ],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-SETTLEMENT-007",
+          "source_id": "SRC-BANK-007",
+          "revision": "1",
+          "sha256": "ec050b7546005a5f5a7d5798ff3205674919d587cb95d764bacd42f99b9149af",
+          "locator": "transaction row",
+          "qualifies": false
+        }
+      ],
+      "journal_entries": [],
+      "statement_reconstruction": [],
+      "unresolved": [
+        "UNK-BENEFICIARY-007"
+      ],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-008",
+      "disposition": "abstain",
+      "questions": [],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-TEMPORAL-008",
+          "source_id": "SRC-CN-008",
+          "revision": "1",
+          "sha256": "d8a5c26f6eb2519de3765723d3e17b25ded3b98fc6117f979cdda7091e8b76dd",
+          "locator": "page 1",
+          "qualifies": false
+        }
+      ],
+      "journal_entries": [],
+      "statement_reconstruction": [],
+      "unresolved": [
+        "UNK-FUTURE-008"
+      ],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-009",
+      "disposition": "clarify",
+      "questions": [
+        {
+          "question_id": "Q-AP-POPULATION-009",
+          "text": "Please provide the October AP supplier feed and its control total, or an authorized zero-activity attestation covering all 12 expected suppliers.",
+          "resolves": [
+            "UNK-AP-FEED-009"
+          ],
+          "target": "source_system"
+        }
+      ],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-POPULATION-009",
+          "source_id": "SRC-SCOPE-009",
+          "revision": "1",
+          "sha256": "daf5592aee9d279af4a5b5236b58e9b8ec999ff0e3737b272817de08c9a4d117",
+          "locator": "AP population definition",
+          "qualifies": true
+        }
+      ],
+      "journal_entries": [],
+      "statement_reconstruction": [],
+      "unresolved": [
+        "UNK-AP-FEED-009"
+      ],
+      "claims_complete_books": false
+    },
+    {
+      "task_id": "FTB-010",
+      "disposition": "deliver",
+      "questions": [],
+      "source_bindings": [
+        {
+          "requirement_id": "REQ-RECOGNITION-010",
+          "source_id": "SRC-INV-010",
+          "revision": "1",
+          "sha256": "4b6dbf25728d00773bc0e4663ca48705ddd1a7b1bee5316541b5ccb927e00dbc",
+          "locator": "page 1",
+          "qualifies": true
+        },
+        {
+          "requirement_id": "REQ-AUTHORITY-010",
+          "source_id": "SRC-APP-010",
+          "revision": "1",
+          "sha256": "f1fe91bef7b260a4eb675acba3f21e210f5fe429ba1b938e96c21e2c6e8d5c8a",
+          "locator": "approval block",
+          "qualifies": true
+        }
+      ],
+      "journal_entries": [
+        {
+          "entry_id": "JE-FTB-010",
+          "entity_id": "E-001",
+          "period": "2026-10-31",
+          "currency": "ZAR",
+          "policy_id": "policy-zar-v1",
+          "source_ids": [
+            "SRC-INV-010",
+            "SRC-APP-010"
+          ],
+          "lines": [
+            {
+              "account_id": "6300-stationery-expense",
+              "debit_minor": "75000",
+              "credit_minor": "0"
+            },
+            {
+              "account_id": "2100-accounts-payable",
+              "debit_minor": "0",
+              "credit_minor": "75000"
+            }
+          ]
+        }
+      ],
+      "statement_reconstruction": [
+        {
+          "entity_id": "E-001",
+          "period": "2026-10-31",
+          "currency": "ZAR",
+          "lines": [
+            {
+              "line_id": "stationery-expense",
+              "amount_minor": "75000"
+            },
+            {
+              "line_id": "accounts-payable",
+              "amount_minor": "75000"
+            }
+          ]
+        }
+      ],
+      "unresolved": [],
+      "claims_complete_books": false
+    }
+  ]
+}

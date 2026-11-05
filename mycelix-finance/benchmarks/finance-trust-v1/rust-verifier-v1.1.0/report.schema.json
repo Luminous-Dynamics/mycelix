@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-trust-s1-verifier-report-v1.1.0.json",
+  "title": "FIN-TRUST v1.1.0 verifier report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "benchmark_id",
+    "dataset_version",
+    "status",
+    "claim_scope",
+    "network_access_during_verification",
+    "case_count",
+    "passed_case_count",
+    "errors",
+    "cases",
+    "digests"
+  ],
+  "properties": {
+    "report_schema": {
+      "const": "fin-trust-s1-verifier.report.v1.1.0"
+    },
+    "benchmark_id": {
+      "const": "FIN-TRUST-BENCH"
+    },
+    "dataset_version": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "claim_scope": {
+      "const": "public_synthetic_clarification_source_binding_journal_and_statement_conformance_only"
+    },
+    "network_access_during_verification": {
+      "const": false
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passed_case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "status",
+          "actual_disposition",
+          "expected_disposition",
+          "checks",
+          "reason_codes"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "actual_disposition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expected_disposition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "invariant",
+                "passed",
+                "detail"
+              ],
+              "properties": {
+                "invariant": {
+                  "type": "string"
+                },
+                "passed": {
+                  "type": "boolean"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tasks_sha256",
+        "task_schema_sha256",
+        "oracle_sha256",
+        "oracle_schema_sha256",
+        "responses_sha256",
+        "response_schema_sha256",
+        "verifier_source_sha256",
+        "report_schema_sha256"
+      ],
+      "properties": {
+        "tasks_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "task_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "oracle_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "oracle_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "responses_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "response_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "verifier_source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "report_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

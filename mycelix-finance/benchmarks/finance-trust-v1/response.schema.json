@@ -1,0 +1,272 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-trust-response-v1.0.0.json",
+  "title": "FIN-TRUST candidate response v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "dataset_version",
+    "responses"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "FIN-TRUST-BENCH"
+    },
+    "dataset_version": {
+      "const": "1.0.0"
+    },
+    "responses": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/response"
+      }
+    }
+  },
+  "$defs": {
+    "minor": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question_id",
+        "text",
+        "resolves",
+        "target"
+      ],
+      "properties": {
+        "question_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "resolves": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "target": {
+          "enum": [
+            "user",
+            "approver",
+            "bank",
+            "accounting_owner",
+            "source_system",
+            "professional_reviewer"
+          ]
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id",
+        "source_id",
+        "revision",
+        "sha256",
+        "locator",
+        "qualifies"
+      ],
+      "properties": {
+        "requirement_id": {
+          "type": "string"
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "qualifies": {
+          "type": "boolean"
+        }
+      }
+    },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_id",
+        "debit_minor",
+        "credit_minor"
+      ],
+      "properties": {
+        "account_id": {
+          "type": "string"
+        },
+        "debit_minor": {
+          "$ref": "#/$defs/minor"
+        },
+        "credit_minor": {
+          "$ref": "#/$defs/minor"
+        }
+      }
+    },
+    "journal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_id",
+        "entity_id",
+        "period",
+        "currency",
+        "policy_id",
+        "source_ids",
+        "lines"
+      ],
+      "properties": {
+        "entry_id": {
+          "type": "string"
+        },
+        "entity_id": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string",
+          "format": "date"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "policy_id": {
+          "type": "string"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/line"
+          }
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "disposition",
+        "questions",
+        "source_bindings",
+        "journal_entries",
+        "unresolved",
+        "statement_reconstruction",
+        "claims_complete_books"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "deliver",
+            "clarify",
+            "abstain",
+            "escalate"
+          ]
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/question"
+          }
+        },
+        "source_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "journal_entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/journal"
+          }
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "statement_reconstruction": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          }
+        },
+        "claims_complete_books": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "statementLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "line_id",
+        "amount_minor"
+      ],
+      "properties": {
+        "line_id": {
+          "type": "string"
+        },
+        "amount_minor": {
+          "$ref": "#/$defs/minor"
+        }
+      }
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entity_id",
+        "period",
+        "currency",
+        "lines"
+      ],
+      "properties": {
+        "entity_id": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string",
+          "format": "date"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/statementLine"
+          }
+        }
+      }
+    }
+  }
+}
