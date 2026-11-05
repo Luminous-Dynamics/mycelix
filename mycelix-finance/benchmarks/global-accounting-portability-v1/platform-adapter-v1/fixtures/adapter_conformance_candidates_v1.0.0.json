@@ -15,7 +15,8 @@
         "export_revision": "OT-ACCESS-PRINCIPAL-GAP-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "partial",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -136,7 +137,8 @@
         "export_revision": "OT-DIRECTION-SUBPROCESSOR-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "complete",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -274,7 +276,8 @@
         "export_revision": "BIGID-CLASSIFICATION-NOT-AUTHORITY-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "complete",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -337,7 +340,8 @@
         "export_revision": "PURVIEW-LINEAGE-PARTIAL-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "partial",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -421,7 +425,8 @@
         "export_revision": "BLACKLINE-RECON-NO-POSTING-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "complete",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -512,7 +517,8 @@
         "export_revision": "WORKIVA-DISCLOSURE-LINK-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "complete",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -611,7 +617,8 @@
         "export_revision": "TEMP-FUTURE-FACT-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "complete",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -680,7 +687,8 @@
         "export_revision": "PAGINATION-TRUNCATED-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "truncated",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -755,7 +763,8 @@
         "export_revision": "MIRRORED-EVIDENCE-SAME-ORIGIN-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "complete",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
@@ -844,7 +853,8 @@
         "export_revision": "NAMESPACE-SCOPED-IDENTITY-revision-1",
         "observed_at": "2026-11-05T10:00:00Z",
         "capture_state": "complete",
-        "payload_sha256": null
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
       },
       "capability_coverage": [
         {
