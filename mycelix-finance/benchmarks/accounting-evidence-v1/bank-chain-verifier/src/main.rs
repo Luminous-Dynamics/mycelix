@@ -12,10 +12,10 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let mut input = PathBuf::from("../bank_statement_chain_candidates_v1.0.0.json");
-    let mut schema = PathBuf::from("../bank_statement_chain_input_v1.schema.json");
-    let mut oracle = PathBuf::from("../public-reference-oracle/bank_statement_chain_oracle_v1.0.0.json");
-    let mut oracle_schema = PathBuf::from("../public-reference-oracle/bank_statement_chain_oracle_v1.schema.json");
+    let mut input = PathBuf::from("../bank_statement_chain_candidates_v1.0.1.json");
+    let mut schema = PathBuf::from("../bank_statement_chain_input_v1.0.1.schema.json");
+    let mut oracle = PathBuf::from("../public-reference-oracle/bank_statement_chain_oracle_v1.0.1.json");
+    let mut oracle_schema = PathBuf::from("../public-reference-oracle/bank_statement_chain_oracle_v1.0.1.schema.json");
     let mut output: Option<PathBuf> = None;
 
     let mut args = env::args().skip(1);
