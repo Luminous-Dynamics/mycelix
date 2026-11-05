@@ -1505,8 +1505,14 @@
             "SYN-CONTEST-12"
           ],
           "superseding_signal_id": null,
-          "previous_recipient_ids": [],
-          "notified_recipient_ids": []
+          "previous_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "notified_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ]
         }
       },
       "query": {
