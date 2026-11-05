@@ -165,7 +165,8 @@
             "contradictory_amount_evidence",
             "account_mapping_missing",
             "supplier_identity_disputed",
-            "contradictory_service_period_evidence"
+            "contradictory_service_period_evidence",
+            "source_revision_lineage_missing"
           ]
         },
         "required_source_fact_refs": {
