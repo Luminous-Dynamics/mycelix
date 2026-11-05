@@ -298,6 +298,7 @@ fn oracle_source_fact_refs(
 
 fn expected_fact_evidence_state(
     case: &Value,
+    expectation: &Value,
     fact: &Value,
     available_refs: &BTreeSet<String>,
 ) -> Result<&'static str, String> {
@@ -305,16 +306,16 @@ fn expected_fact_evidence_state(
     if optional_string(source, "integrity_state") == Some("synthetic_mismatch") {
         return Ok("integrity_failed");
     }
-    if string(fact, "recorded_at")? > string(case, "knowledge_at")?
-        || string(source, "received_at")? > string(case, "knowledge_at")?
-    {
+    if optional_string(source, "integrity_state") == Some("synthetic_not_checked") {
+        return Ok("integrity_unverified");
+    }
+    let frontier = string(case, "knowledge_at")?;
+    if string(fact, "recorded_at")? > frontier || string(source, "received_at")? > frontier {
         return Ok("future");
     }
     if array(case, "documents")?.iter().any(|candidate| {
-        optional_string(candidate, "supersedes_document_ref")
-            == optional_string(fact, "document_ref")
-            && optional_string(candidate, "received_at")
-                .is_some_and(|received| received <= optional_string(case, "knowledge_at").unwrap_or(""))
+        optional_string(candidate, "supersedes_document_ref") == optional_string(fact, "document_ref")
+            && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
     }) {
         return Ok("superseded");
     }
@@ -324,23 +325,120 @@ fn expected_fact_evidence_state(
         Some("invalidated") => return Ok("invalidated"),
         _ => {}
     }
+
     let fact_type = string(fact, "fact_type")?;
-    let values = array(case, "facts")?
-        .iter()
-        .filter(|other| {
-            optional_string(other, "fact_type") == Some(fact_type)
-                && optional_string(other, "assertion_state") == Some("asserted")
-                && !other.get("value").is_none_or(Value::is_null)
-                && fact_is_available(case, other).unwrap_or(false)
-        })
-        .filter_map(|other| other.get("value").map(Value::to_string))
-        .collect::<BTreeSet<_>>();
+    let reason = optional_string(expectation, "primary_reason_code").unwrap_or("");
+    if (reason == "contradictory_service_period_evidence"
+        && matches!(fact_type, "service_period_start" | "service_period_end"))
+        || (reason == "contradictory_amount_evidence"
+            && matches!(fact_type, "invoice_total_minor" | "purchase_order_total_minor"))
+        || (reason == "source_revision_lineage_missing" && fact_type == "invoice_total_minor")
+    {
+        return Ok("contradicting");
+    }
+
+    let mut values = BTreeSet::new();
+    for other in array(case, "facts")? {
+        if optional_string(other, "fact_type") == Some(fact_type)
+            && optional_string(other, "assertion_state") == Some("asserted")
+            && !other.get("value").is_none_or(Value::is_null)
+            && fact_is_available(case, other)?
+        {
+            values.insert(other.get("value").ok_or("asserted fact missing value")?.to_string());
+        }
+    }
     if values.len() > 1 {
         return Ok("contradicting");
     }
-    let fact_ref = string(fact, "fact_ref")?;
-    if !available_refs.contains(fact_ref) {
+    if !available_refs.contains(string(fact, "fact_ref")?) {
+        let period = case.get("accounting_period").ok_or("missing accounting period")?;
+        let period_start = string(period, "start")?;
+        let period_end = string(period, "end")?;
+        let valid_from = string(fact, "valid_from")?;
+        let valid_to = fact.get("valid_to").and_then(Value::as_str);
+        if valid_from > period_end || valid_to.is_some_and(|end| end < period_start) {
+            return Ok("outside_period");
+        }
         return Ok("future");
+    }
+    Ok("asserted")
+}
+
+fn expected_trace_terminal_state(
+    disposition: &str,
+    fact_ref: &str,
+    fact_type: &str,
+    expected_refs: &BTreeSet<String>,
+    expected_question_types: &BTreeSet<String>,
+) -> Result<&'static str, String> {
+    if expected_refs.contains(fact_ref) {
+        return match disposition {
+            "deliver" => Ok("carried_to_journal"),
+            "clarify" => Ok("carried_to_question"),
+            "abstain" => Ok("abstained"),
+            "escalate" => Ok("carried_to_review"),
+            other => Err(format!("unsupported oracle disposition {other}")),
+        };
+    }
+    if expected_question_types.contains(fact_type) {
+        return Ok("question_raised");
+    }
+    Ok("excluded")
+}
+
+fn expected_terminal_reason(disposition: &str, terminal_state: &str) -> &'static str {
+    match terminal_state {
+        "carried_to_journal" => "Supported fact was carried to one or more journal lines.",
+        "carried_to_question" => "Supporting context was retained for a blocking clarification.",
+        "carried_to_review" => "Material fact was preserved for escalation review.",
+        "abstained" => "Evidence was retained as the basis for abstention.",
+        "question_raised" => "Blocking fact was explicitly carried into a clarification question.",
+        "excluded" if disposition == "deliver" => "Fact was assessed and excluded from the requested deliverable.",
+        "excluded" => "Fact was assessed and excluded from the decision path.",
+        _ => "Evidence terminal disposition recorded.",
+    }
+}
+
+fn expected_question_evidence_state(
+    case: &Value,
+    expectation: &Value,
+    fact_type: &str,
+    available_refs: &BTreeSet<String>,
+) -> Result<&'static str, String> {
+    let typed = array(case, "facts")?
+        .iter()
+        .filter(|fact| optional_string(fact, "fact_type") == Some(fact_type))
+        .collect::<Vec<_>>();
+    if typed.is_empty() {
+        return Ok("missing");
+    }
+    let mut states = BTreeSet::new();
+    for fact in &typed {
+        states.insert(expected_fact_evidence_state(case, expectation, fact, available_refs)?);
+    }
+    if states.contains("contradicting") {
+        return Ok("contradicting");
+    }
+    if states.contains("future") {
+        return Ok("future");
+    }
+    if states.contains("integrity_failed") {
+        return Ok("integrity_failed");
+    }
+    if states.contains("integrity_unverified") {
+        return Ok("integrity_unverified");
+    }
+    if states.contains("disputed") {
+        return Ok("disputed");
+    }
+    if states.contains("invalidated") {
+        return Ok("invalidated");
+    }
+    if states.contains("unknown") {
+        return Ok("unknown");
+    }
+    if states.contains("superseded") {
+        return Ok("superseded");
     }
     Ok("asserted")
 }
@@ -353,37 +451,55 @@ fn evaluate_evidence_trace(
 ) -> Result<(f64, bool, bool, Vec<String>), String> {
     let trace = array(submission, "evidence_trace")?;
     let mut failures = Vec::<String>::new();
-    let mut denominator = 0usize;
-    let mut covered = 0usize;
+    let mut trace_refs = BTreeSet::new();
+    for entry in trace {
+        let trace_ref = string(entry, "trace_ref")?;
+        if !trace_refs.insert(trace_ref.to_owned()) {
+            return Err(format!("duplicate evidence trace ref {trace_ref}"));
+        }
+        if string(entry, "terminal_reason")?.trim().len() < 5 {
+            return Err(format!("evidence trace {trace_ref} has no meaningful terminal reason"));
+        }
+    }
+
     let expected_refs = oracle_source_fact_refs(case, expectation)?;
     let expected_disposition = string(expectation, "expected_disposition")?;
+    let expected_q_types = expected_question_types(expectation)?;
+    let mut denominator = 0usize;
+    let mut covered = 0usize;
 
-    for fact_ref in &expected_refs {
+    // Every supplied fact must have one terminal evidence disposition, including facts
+    // deliberately excluded, superseded, disputed, invalidated or discovered too late.
+    for fact in array(case, "facts")? {
         denominator += 1;
-        let fact = array(case, "facts")?
-            .iter()
-            .find(|fact| optional_string(fact, "fact_ref") == Some(fact_ref.as_str()))
-            .ok_or_else(|| format!("oracle references absent source fact {fact_ref}"))?;
-        let expected_fact_type = string(fact, "fact_type")?;
-        let expected_doc = string(fact, "document_ref")?;
-        let expected_state = expected_fact_evidence_state(case, fact, available_refs)?;
-        let expected_terminal = match expected_disposition {
-            "deliver" => "carried_to_journal",
-            "clarify" => "carried_to_question",
-            "abstain" => "abstained",
-            "escalate" => "carried_to_review",
-            _ => return Err(format!("unsupported oracle disposition {expected_disposition}")),
+        let fact_ref = string(fact, "fact_ref")?;
+        let fact_type = string(fact, "fact_type")?;
+        let document_ref = string(fact, "document_ref")?;
+        let expected_state = expected_fact_evidence_state(case, expectation, fact, available_refs)?;
+        let expected_terminal = expected_trace_terminal_state(
+            expected_disposition,
+            fact_ref,
+            fact_type,
+            &expected_refs,
+            &expected_q_types,
+        )?;
+        let expected_line_refs = {
+            let mut refs = BTreeSet::new();
+            for entry in array(expectation, "expected_journal_entries")? {
+                for line in array(entry, "lines")? {
+                    if array(line, "source_fact_refs")?.iter()
+                        .any(|reference| reference.as_str() == Some(fact_ref))
+                    {
+                        refs.insert(string(line, "line_ref")?.to_owned());
+                    }
+                }
+            }
+            refs
         };
-        let expected_line_refs = array(expectation, "expected_journal_entries")?
-            .iter()
-            .flat_map(|entry| array(entry, "lines").unwrap_or(&[]).iter())
-            .filter(|line| array(line, "source_fact_refs").unwrap_or(&[]).iter()
-                .any(|reference| reference.as_str() == Some(fact_ref.as_str())))
-            .filter_map(|line| optional_string(line, "line_ref"))
-            .collect::<BTreeSet<_>>();
         let matching = trace.iter().find(|entry| {
-            optional_string(entry, "fact_ref") == Some(fact_ref.as_str())
-                && optional_string(entry, "fact_type") == Some(expected_fact_type)
+            optional_string(entry, "fact_ref") == Some(fact_ref)
+                && optional_string(entry, "fact_type") == Some(fact_type)
+                && optional_string(entry, "terminal_state") == Some(expected_terminal)
         });
         let Some(entry) = matching else {
             failures.push(format!("missing_fact_trace:{fact_ref}"));
@@ -392,13 +508,13 @@ fn evaluate_evidence_trace(
         let source_docs = set_from_string_array(entry, "source_document_refs")?;
         let question_refs = set_from_string_array(entry, "question_refs")?;
         let line_refs = set_from_string_array(entry, "journal_line_refs")?;
-        let terminal_ok = optional_string(entry, "terminal_state") == Some(expected_terminal);
+        let terminal_reason = string(entry, "terminal_reason")?;
         let state_ok = optional_string(entry, "evidence_state") == Some(expected_state);
-        let source_ok = source_docs.contains(expected_doc);
-        let line_ok = expected_line_refs.iter().all(|reference| line_refs.contains(*reference));
-        let question_ok = expected_disposition != "clarify"
-            || (!array(expectation, "expected_questions")?.is_empty() && !question_refs.is_empty());
-        if terminal_ok && state_ok && source_ok && line_ok && question_ok {
+        let source_ok = source_docs.contains(document_ref);
+        let line_ok = expected_line_refs.iter().all(|reference| line_refs.contains(reference));
+        let question_ok = expected_terminal != "carried_to_question" || !question_refs.is_empty();
+        let terminal_reason_ok = !terminal_reason.trim().is_empty();
+        if state_ok && source_ok && line_ok && question_ok && terminal_reason_ok {
             covered += 1;
         } else {
             failures.push(format!("fact_trace_mismatch:{fact_ref}"));
@@ -415,6 +531,7 @@ fn evaluate_evidence_trace(
             .filter_map(|fact| optional_string(fact, "document_ref"))
             .map(ToOwned::to_owned)
             .collect::<BTreeSet<_>>();
+        let expected_state = expected_question_evidence_state(case, expectation, fact_type, available_refs)?;
         let actual_questions = array(submission, "questions")?
             .iter()
             .filter(|question| {
@@ -435,9 +552,9 @@ fn evaluate_evidence_trace(
             });
             if let Some(entry) = matching {
                 let source_docs = set_from_string_array(entry, "source_document_refs")?;
-                let state_ok = optional_string(entry, "evidence_state")
-                    .is_some_and(|state| state != "asserted");
-                if state_ok && expected_docs.is_subset(&source_docs) {
+                let state_ok = optional_string(entry, "evidence_state") == Some(expected_state);
+                let terminal_reason_ok = optional_string(entry, "terminal_reason").is_some_and(|reason| reason.trim().len() >= 5);
+                if state_ok && terminal_reason_ok && expected_docs.is_subset(&source_docs) {
                     found_continuous_question = true;
                 } else {
                     failures.push(format!("question_trace_mismatch:{question_id}"));
