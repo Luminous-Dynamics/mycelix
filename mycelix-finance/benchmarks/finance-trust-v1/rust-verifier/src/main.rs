@@ -38,12 +38,18 @@ fn run_cli() -> Result<(), Box<dyn Error>> {
             "--tasks" => tasks = PathBuf::from(next_arg(&mut args, "--tasks")?),
             "--task-schema" => task_schema = PathBuf::from(next_arg(&mut args, "--task-schema")?),
             "--oracle" => oracle = PathBuf::from(next_arg(&mut args, "--oracle")?),
-            "--oracle-schema" => oracle_schema = PathBuf::from(next_arg(&mut args, "--oracle-schema")?),
+            "--oracle-schema" => {
+                oracle_schema = PathBuf::from(next_arg(&mut args, "--oracle-schema")?)
+            }
             "--responses" => responses = PathBuf::from(next_arg(&mut args, "--responses")?),
-            "--response-schema" => response_schema = PathBuf::from(next_arg(&mut args, "--response-schema")?),
+            "--response-schema" => {
+                response_schema = PathBuf::from(next_arg(&mut args, "--response-schema")?)
+            }
             "--out" => output = Some(PathBuf::from(next_arg(&mut args, "--out")?)),
             "--help" | "-h" => {
-                println!("FIN-TRUST S0 verifier: --tasks --task-schema --oracle --oracle-schema --responses --response-schema --out");
+                println!(
+                    "FIN-TRUST S0 verifier: --tasks --task-schema --oracle --oracle-schema --responses --response-schema --out"
+                );
                 return Ok(());
             }
             unknown => return Err(format!("unknown argument: {unknown}; use --help").into()),
@@ -141,7 +147,11 @@ fn verify(
         }
 
         for task_id in &task_ids {
-            match (task_map.get(task_id), oracle_map.get(task_id), response_map.get(task_id)) {
+            match (
+                task_map.get(task_id),
+                oracle_map.get(task_id),
+                response_map.get(task_id),
+            ) {
                 (Some(task), Some(expected), Some(response)) => {
                     results.push(verify_case(task_id, task, expected, response));
                 }
@@ -150,10 +160,7 @@ fn verify(
         }
     }
 
-    let passed = results
-        .iter()
-        .filter(|row| row["status"] == "PASS")
-        .count();
+    let passed = results.iter().filter(|row| row["status"] == "PASS").count();
     let status = if errors.is_empty() && !results.is_empty() && passed == results.len() {
         "PASS"
     } else {
@@ -185,15 +192,21 @@ fn verify(
         Ok(value) => value,
         Err(error) => {
             report["status"] = Value::String("FAIL".to_owned());
-            report["errors"].as_array_mut().expect("errors array")
-                .push(Value::String(format!("embedded report schema JSON: {error}")));
+            report["errors"]
+                .as_array_mut()
+                .expect("errors array")
+                .push(Value::String(format!(
+                    "embedded report schema JSON: {error}"
+                )));
             return report;
         }
     };
     let report_errors = validate_instance("report", &report_schema, &report);
     if !report_errors.is_empty() {
         report["status"] = Value::String("FAIL".to_owned());
-        report["errors"].as_array_mut().expect("errors array")
+        report["errors"]
+            .as_array_mut()
+            .expect("errors array")
             .push(Value::String(report_errors.join("; ")));
     }
     report
@@ -203,11 +216,15 @@ fn validate_instance(label: &str, schema: &Value, instance: &Value) -> Vec<Strin
     if let Err(error) = jsonschema::draft202012::meta::validate(schema) {
         return vec![format!("{label}: invalid Draft 2020-12 schema: {error}")];
     }
-    let validator = match draft202012::options().should_validate_formats(true).build(schema) {
+    let validator = match draft202012::options()
+        .should_validate_formats(true)
+        .build(schema)
+    {
         Ok(value) => value,
         Err(error) => return vec![format!("{label}: cannot compile schema: {error}")],
     };
-    validator.iter_errors(instance)
+    validator
+        .iter_errors(instance)
         .map(|error| format!("{label}: {} at {}", error, error.instance_path()))
         .collect()
 }
@@ -269,7 +286,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
         &mut checks,
         &mut reasons,
         "no_forbidden_or_redundant_questions",
-        forbidden_questions.iter().all(|id| !actual_questions.contains(id)),
+        forbidden_questions
+            .iter()
+            .all(|id| !actual_questions.contains(id)),
         format!("forbidden question IDs={forbidden_questions:?}"),
     );
 
@@ -280,7 +299,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
     let mut question_resolutions = BTreeSet::new();
     let mut question_ids_unique = BTreeSet::new();
     for question in array(response, "questions") {
-        let qid = text(question, "question_id").unwrap_or("<missing>").to_owned();
+        let qid = text(question, "question_id")
+            .unwrap_or("<missing>")
+            .to_owned();
         if !question_ids_unique.insert(qid.clone()) {
             reasons.push("duplicate_question_id".to_owned());
         }
@@ -293,7 +314,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
     }
     let question_resolution_checks_valid = !reasons.iter().any(|reason| {
         reason == "duplicate_question_id" || reason == "question_resolves_unknown_not_in_task"
-    }) && question_resolutions.iter().all(|unknown| task_unknowns.contains(unknown));
+    }) && question_resolutions
+        .iter()
+        .all(|unknown| task_unknowns.contains(unknown));
     check(
         &mut checks,
         &mut reasons,
@@ -332,7 +355,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
 
     for binding in array(response, "source_bindings") {
         let source_id = text(binding, "source_id").unwrap_or("<missing>").to_owned();
-        let requirement_id = text(binding, "requirement_id").unwrap_or("<missing>").to_owned();
+        let requirement_id = text(binding, "requirement_id")
+            .unwrap_or("<missing>")
+            .to_owned();
         bound_source_ids.insert(source_id.clone());
         bound_requirement_ids.insert(requirement_id.clone());
 
@@ -342,7 +367,8 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
         if let Some(source) = source {
             let digest = text(source, "sha256").unwrap_or_default();
             let revision = text(source, "revision").unwrap_or_default();
-            let locator = text(source.get("locator").unwrap_or(&Value::Null), "location").unwrap_or_default();
+            let locator =
+                text(source.get("locator").unwrap_or(&Value::Null), "location").unwrap_or_default();
             binding_valid &= text(binding, "sha256") == Some(digest)
                 && text(binding, "revision") == Some(revision)
                 && text(binding, "locator") == Some(locator);
@@ -377,14 +403,19 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             }
         }
         if !binding_valid {
-            reasons.push(format!("source_binding_invalid:{source_id}:{requirement_id}"));
+            reasons.push(format!(
+                "source_binding_invalid:{source_id}:{requirement_id}"
+            ));
         }
     }
 
     let required_sources = strings(array(expected, "required_source_ids"))
         .into_iter()
         .collect::<BTreeSet<_>>();
-    let missing_sources = required_sources.difference(&bound_source_ids).cloned().collect::<Vec<_>>();
+    let missing_sources = required_sources
+        .difference(&bound_source_ids)
+        .cloned()
+        .collect::<Vec<_>>();
     check(
         &mut checks,
         &mut reasons,
@@ -410,7 +441,10 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
         &mut checks,
         &mut reasons,
         "source_bindings_are_valid",
-        !reasons.iter().any(|reason| reason.starts_with("source_binding_invalid:") || reason == "unqualified_source_promoted_to_decision_grade"),
+        !reasons.iter().any(|reason| {
+            reason.starts_with("source_binding_invalid:")
+                || reason == "unqualified_source_promoted_to_decision_grade"
+        }),
         "source digest, revision, locator, entity, currency, authority and temporal frontier must match",
     );
 
@@ -419,7 +453,9 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
     let mut journal_valid = expected_journals.len() == actual_journals.len();
     for expected_journal in expected_journals {
         let id = text(expected_journal, "entry_id").unwrap_or("<missing>");
-        let actual = actual_journals.iter().find(|row| text(row, "entry_id") == Some(id));
+        let actual = actual_journals
+            .iter()
+            .find(|row| text(row, "entry_id") == Some(id));
         let Some(actual) = actual else {
             journal_valid = false;
             reasons.push(format!("journal_entry_missing:{id}"));
@@ -429,8 +465,12 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             && text(actual, "period") == text(expected_journal, "period")
             && text(actual, "currency") == text(expected_journal, "currency")
             && text(actual, "policy_id") == text(expected_journal, "policy_id");
-        let actual_sources = strings(array(actual, "source_ids")).into_iter().collect::<BTreeSet<_>>();
-        journal_valid &= actual_sources.iter().all(|source_id| qualified_source_ids.contains(source_id));
+        let actual_sources = strings(array(actual, "source_ids"))
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        journal_valid &= actual_sources
+            .iter()
+            .all(|source_id| qualified_source_ids.contains(source_id));
         let (debits, credits, lines_valid) = journal_totals(actual);
         let expected_debit = amount(expected_journal, "debit_minor");
         let expected_credit = amount(expected_journal, "credit_minor");
@@ -438,7 +478,11 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             && expected_debit == Some(debits)
             && expected_credit == Some(credits)
             && debits == credits;
-        if !lines_valid || expected_debit != Some(debits) || expected_credit != Some(credits) || debits != credits {
+        if !lines_valid
+            || expected_debit != Some(debits)
+            || expected_credit != Some(credits)
+            || debits != credits
+        {
             reasons.push(format!("journal_amount_or_balance_invalid:{id}"));
         }
         let context = task.get("context").unwrap_or(&Value::Null);
@@ -462,11 +506,15 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             .flat_map(|row| array(row, "lines").iter().cloned())
             .collect::<Vec<_>>(),
     );
-    let statement_context_valid = array(response, "statement_reconstruction").iter().all(|row| {
-        text(row, "entity_id") == text(task.get("context").unwrap_or(&Value::Null), "entity_id")
-            && text(row, "period") == text(task.get("context").unwrap_or(&Value::Null), "period_end")
-            && text(row, "currency") == text(task.get("context").unwrap_or(&Value::Null), "currency")
-    });
+    let statement_context_valid = array(response, "statement_reconstruction")
+        .iter()
+        .all(|row| {
+            text(row, "entity_id") == text(task.get("context").unwrap_or(&Value::Null), "entity_id")
+                && text(row, "period")
+                    == text(task.get("context").unwrap_or(&Value::Null), "period_end")
+                && text(row, "currency")
+                    == text(task.get("context").unwrap_or(&Value::Null), "currency")
+        });
     check(
         &mut checks,
         &mut reasons,
@@ -490,14 +538,18 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
     })
 }
 
-fn unique_source_index<'a>(sources: &'a [Value], reasons: &mut Vec<String>) -> BTreeMap<String, &'a Value> {
+fn unique_source_index<'a>(
+    sources: &'a [Value],
+    reasons: &mut Vec<String>,
+) -> BTreeMap<String, &'a Value> {
     let mut map = BTreeMap::new();
     for source in sources {
         let id = text(source, "source_id").unwrap_or("<missing>").to_owned();
         if map.insert(id.clone(), source).is_some() {
             reasons.push(format!("duplicate_source_id:{id}"));
         }
-        let actual = source.get("content")
+        let actual = source
+            .get("content")
             .and_then(|content| serde_json::to_vec(content).ok())
             .map(|bytes| sha256_hex(&bytes));
         if actual.as_deref() != text(source, "sha256") {
@@ -520,26 +572,47 @@ fn journal_totals(journal: &Value) -> (u128, u128, bool) {
         valid &= (debit == 0) ^ (credit == 0);
         debits = match debits.checked_add(debit) {
             Some(value) => value,
-            None => { valid = false; debits }
+            None => {
+                valid = false;
+                debits
+            }
         };
         credits = match credits.checked_add(credit) {
             Some(value) => value,
-            None => { valid = false; credits }
+            None => {
+                valid = false;
+                credits
+            }
         };
     }
-    (debits, credits, valid && !array(journal, "lines").is_empty())
+    (
+        debits,
+        credits,
+        valid && !array(journal, "lines").is_empty(),
+    )
 }
 
 fn sorted_statement_lines(rows: &[Value]) -> Vec<(String, String)> {
-    let mut result = rows.iter().map(|row| (
-        text(row, "line_id").unwrap_or_default().to_owned(),
-        text(row, "amount_minor").unwrap_or_default().to_owned()
-    )).collect::<Vec<_>>();
+    let mut result = rows
+        .iter()
+        .map(|row| {
+            (
+                text(row, "line_id").unwrap_or_default().to_owned(),
+                text(row, "amount_minor").unwrap_or_default().to_owned(),
+            )
+        })
+        .collect::<Vec<_>>();
     result.sort();
     result
 }
 
-fn check(checks: &mut Vec<Value>, reasons: &mut Vec<String>, invariant: &str, passed: bool, detail: impl Into<String>) {
+fn check(
+    checks: &mut Vec<Value>,
+    reasons: &mut Vec<String>,
+    invariant: &str,
+    passed: bool,
+    detail: impl Into<String>,
+) {
     if !passed {
         reasons.push(invariant.to_owned());
     }
@@ -551,7 +624,11 @@ fn check(checks: &mut Vec<Value>, reasons: &mut Vec<String>, invariant: &str, pa
 }
 
 fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
-    value.get(key).and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[])
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
 }
 
 fn text<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
@@ -563,7 +640,11 @@ fn bool_value(value: &Value, key: &str) -> Option<bool> {
 }
 
 fn strings(values: &[Value]) -> Vec<String> {
-    values.iter().filter_map(Value::as_str).map(str::to_owned).collect()
+    values
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect()
 }
 
 fn sorted_strings(values: &[Value]) -> Vec<String> {
@@ -574,7 +655,10 @@ fn sorted_strings(values: &[Value]) -> Vec<String> {
 
 fn amount(value: &Value, key: &str) -> Option<u128> {
     let raw = text(value, key)?;
-    if raw.is_empty() || (raw.len() > 1 && raw.starts_with('0')) || !raw.bytes().all(|byte| byte.is_ascii_digit()) {
+    if raw.is_empty()
+        || (raw.len() > 1 && raw.starts_with('0'))
+        || !raw.bytes().all(|byte| byte.is_ascii_digit())
+    {
         return None;
     }
     raw.parse::<u128>().ok()
@@ -594,15 +678,23 @@ mod tests {
             serde_json::from_str(include_str!("../../task.schema.json")).expect("task schema"),
             serde_json::from_str(include_str!("../../oracle_v1.0.0.json")).expect("oracle"),
             serde_json::from_str(include_str!("../../oracle.schema.json")).expect("oracle schema"),
-            serde_json::from_str(include_str!("../../reference_responses_v1.0.0.json")).expect("responses"),
-            serde_json::from_str(include_str!("../../response.schema.json")).expect("response schema"),
+            serde_json::from_str(include_str!("../../reference_responses_v1.0.0.json"))
+                .expect("responses"),
+            serde_json::from_str(include_str!("../../response.schema.json"))
+                .expect("response schema"),
         )
     }
 
     fn report(data: &(Value, Value, Value, Value, Value, Value)) -> Value {
         let bytes = data.0.to_string();
-        verify(bytes.as_bytes(), data.1.to_string().as_bytes(), data.2.to_string().as_bytes(),
-            data.3.to_string().as_bytes(), data.4.to_string().as_bytes(), data.5.to_string().as_bytes())
+        verify(
+            bytes.as_bytes(),
+            data.1.to_string().as_bytes(),
+            data.2.to_string().as_bytes(),
+            data.3.to_string().as_bytes(),
+            data.4.to_string().as_bytes(),
+            data.5.to_string().as_bytes(),
+        )
     }
 
     #[test]
@@ -624,12 +716,15 @@ mod tests {
     #[test]
     fn redundant_clarification_is_rejected() {
         let mut data = fixture();
-        data.4["responses"][0]["questions"].as_array_mut().unwrap().push(json!({
-            "question_id":"Q-REDUNDANT",
-            "text":"Can you confirm the invoice amount?",
-            "resolves":["UNK-APPROVAL-001"],
-            "target":"user"
-        }));
+        data.4["responses"][0]["questions"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "question_id":"Q-REDUNDANT",
+                "text":"Can you confirm the invoice amount?",
+                "resolves":["UNK-APPROVAL-001"],
+                "target":"user"
+            }));
         assert_eq!(report(&data)["status"], "FAIL");
     }
 
