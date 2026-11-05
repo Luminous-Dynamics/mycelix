@@ -501,6 +501,29 @@ mod tests {
         assert!(validate_case_references(case).is_err());
     }
 
+
+    #[test]
+    fn fractional_timestamp_precision_is_rejected_for_lexical_frontiers() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../platform-adapter-v1");
+        let schema: Value = read(root.join("finance_platform_adapter_envelope_v1.0.0.schema.json")).unwrap();
+        let (mut candidates, _) = fixtures();
+        let case = arr(&mut candidates, "cases").unwrap().iter_mut()
+            .find(|item| s(item, "case_id").unwrap() == "OT-DIRECTION-SUBPROCESSOR").unwrap();
+        case["requested_knowledge_at"] = Value::String("2026-11-05T10:30:00.500Z".to_owned());
+        assert!(validate("adapter envelope", &schema, case).is_err());
+    }
+
+    #[test]
+    fn non_utc_offset_timestamp_is_rejected_for_lexical_frontiers() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../platform-adapter-v1");
+        let schema: Value = read(root.join("finance_platform_adapter_envelope_v1.0.0.schema.json")).unwrap();
+        let (mut candidates, _) = fixtures();
+        let case = arr(&mut candidates, "cases").unwrap().iter_mut()
+            .find(|item| s(item, "case_id").unwrap() == "OT-DIRECTION-SUBPROCESSOR").unwrap();
+        case["requested_knowledge_at"] = Value::String("2026-11-05T12:30:00+02:00".to_owned());
+        assert!(validate("adapter envelope", &schema, case).is_err());
+    }
+
     #[test]
     fn no_adapter_fixture_contains_an_external_effect() {
         let (c, _) = fixtures();
