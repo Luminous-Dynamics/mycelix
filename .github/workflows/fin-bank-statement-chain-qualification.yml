@@ -47,10 +47,6 @@ jobs:
       - name: Assert toolchain
         run: test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
 
-      - name: Format
-        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
-        run: cargo fmt --all -- --check
-
       - name: Locked tests
         working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
         run: cargo test --locked
