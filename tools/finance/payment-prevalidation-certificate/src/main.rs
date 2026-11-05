@@ -680,16 +680,12 @@ where
 
     let consent_decision = str_at(consent, "decision").unwrap_or("unknown");
     if !matches!(consent_decision, "not_yet_decided") {
-        let decision_at = consent["observed_at"]
-            .as_str()
-            .and_then(parse_utc_seconds);
+        let decision_at = consent["observed_at"].as_str().and_then(parse_utc_seconds);
         let presentation_at = presentation["presented_at"]
             .as_str()
             .and_then(parse_utc_seconds);
         let evaluation_at = parse_utc_seconds(evaluation_time);
-        let intent_expiry = intent["expires_at"]
-            .as_str()
-            .and_then(parse_utc_seconds);
+        let intent_expiry = intent["expires_at"].as_str().and_then(parse_utc_seconds);
         if decision_at.is_none()
             || presentation_at.is_none()
             || evaluation_at.is_none()
@@ -1102,8 +1098,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][0]["payee_resolution"]["expires_at"] =
-                json!("2026-11-05T09:02:59Z");
+            value["scenarios"][0]["payee_resolution"]["expires_at"] = json!("2026-11-05T09:02:59Z");
         },
     )?;
     count += 1;
@@ -1113,8 +1108,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][0]["provider_evidence"]["issued_at"] =
-                json!("2026-11-05T09:03:01Z");
+            value["scenarios"][0]["provider_evidence"]["issued_at"] = json!("2026-11-05T09:03:01Z");
         },
     )?;
     count += 1;
@@ -1124,8 +1118,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][0]["limit_fee"]["observed_at"] =
-                json!("2026-11-05T08:52:59Z");
+            value["scenarios"][0]["limit_fee"]["observed_at"] = json!("2026-11-05T08:52:59Z");
         },
     )?;
     count += 1;
