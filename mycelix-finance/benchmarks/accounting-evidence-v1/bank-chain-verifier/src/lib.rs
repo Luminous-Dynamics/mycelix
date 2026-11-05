@@ -2,7 +2,7 @@
 
 use jsonschema::draft202012;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -63,7 +63,11 @@ pub fn verify(
 
     if errors.is_empty() {
         errors.extend(validate_instance("candidate input", &input_schema, &input));
-        errors.extend(validate_instance("public reference oracle", &oracle_schema, &oracle));
+        errors.extend(validate_instance(
+            "public reference oracle",
+            &oracle_schema,
+            &oracle,
+        ));
     }
 
     let mut results = Vec::<CaseResult>::new();
@@ -94,8 +98,9 @@ pub fn verify(
                     let assessment = assess_case(case);
                     match (expected, assessment) {
                         (Some(expected), Ok(assessment)) => {
-                            let expected_disposition =
-                                string(expected, "expected_disposition").unwrap_or("<missing>").to_owned();
+                            let expected_disposition = string(expected, "expected_disposition")
+                                .unwrap_or("<missing>")
+                                .to_owned();
                             let passed = assessment.disposition == expected_disposition;
                             results.push(CaseResult {
                                 case_id: id,
@@ -106,7 +111,9 @@ pub fn verify(
                                 economic_observation_count: assessment.economic_observation_count,
                             });
                         }
-                        (None, _) => errors.push(format!("candidate case {id} has no oracle record")),
+                        (None, _) => {
+                            errors.push(format!("candidate case {id} has no oracle record"))
+                        }
                         (_, Err(error)) => errors.push(format!("case {id}: {error}")),
                     }
                 }
@@ -116,7 +123,8 @@ pub fn verify(
                     }
                 }
             }
-            _ => errors.push("candidate and oracle corpora must each contain a cases array".to_owned()),
+            _ => errors
+                .push("candidate and oracle corpora must each contain a cases array".to_owned()),
         }
     }
 
@@ -192,39 +200,60 @@ fn string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
 }
 
 fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
-    value.get(key).and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[])
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
 }
 
 fn amount(value: &Value) -> AppResult<i128> {
-    let text = value.as_str().ok_or_else(|| "amount must be a canonical integer string".to_owned())?;
-    if text.is_empty() || (text.len() > 1 && text.starts_with('0')) || !text.bytes().all(|b| b.is_ascii_digit()) {
+    let text = value
+        .as_str()
+        .ok_or_else(|| "amount must be a canonical integer string".to_owned())?;
+    if text.is_empty()
+        || (text.len() > 1 && text.starts_with('0'))
+        || !text.bytes().all(|b| b.is_ascii_digit())
+    {
         return Err(format!("non-canonical non-negative amount: {text}"));
     }
-    let parsed = text.parse::<u128>().map_err(|error| format!("amount parse failed: {error}"))?;
+    let parsed = text
+        .parse::<u128>()
+        .map_err(|error| format!("amount parse failed: {error}"))?;
     i128::try_from(parsed).map_err(|_| "amount exceeds i128 verifier range".to_owned())
 }
 
 fn field_amount(value: &Value, key: &str) -> AppResult<i128> {
-    let field = value.get(key).ok_or_else(|| format!("missing amount field: {key}"))?;
+    let field = value
+        .get(key)
+        .ok_or_else(|| format!("missing amount field: {key}"))?;
     amount(field)
 }
 
 fn assess_case(case: &Value) -> AppResult<Assessment> {
-    let manifest = case.get("manifest").ok_or_else(|| "case is missing manifest".to_owned())?;
+    let manifest = case
+        .get("manifest")
+        .ok_or_else(|| "case is missing manifest".to_owned())?;
     let mut findings = BTreeSet::<String>::new();
     let mut reasons = BTreeSet::<String>::new();
 
-    let account = manifest.get("account").ok_or_else(|| "manifest is missing account".to_owned())?;
-    let chain_account = string(account, "account_token").ok_or_else(|| "account token is missing".to_owned())?;
-    let chain_entity = string(account, "entity_token").ok_or_else(|| "entity token is missing".to_owned())?;
-    let chain_denomination = string(manifest, "denomination_profile_ref").ok_or_else(|| "denomination profile is missing".to_owned())?;
+    let account = manifest
+        .get("account")
+        .ok_or_else(|| "manifest is missing account".to_owned())?;
+    let chain_account =
+        string(account, "account_token").ok_or_else(|| "account token is missing".to_owned())?;
+    let chain_entity =
+        string(account, "entity_token").ok_or_else(|| "entity token is missing".to_owned())?;
+    let chain_denomination = string(manifest, "denomination_profile_ref")
+        .ok_or_else(|| "denomination profile is missing".to_owned())?;
 
     let artifacts = array(manifest, "artifacts");
     let statements = array(manifest, "statements");
     let relations = array(manifest, "relations");
     let mut artifact_by_id = BTreeMap::<String, &Value>::new();
     for artifact in artifacts {
-        let id = string(artifact, "artifact_id").ok_or_else(|| "artifact missing artifact_id".to_owned())?;
+        let id = string(artifact, "artifact_id")
+            .ok_or_else(|| "artifact missing artifact_id".to_owned())?;
         if artifact_by_id.insert(id.to_owned(), artifact).is_some() {
             findings.insert("revision_conflict".to_owned());
             reasons.insert("duplicate_artifact_identity".to_owned());
@@ -234,8 +263,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     // A message identity with changed fixture bytes is a conflict, not an overwrite.
     let mut message_digest = BTreeMap::<String, String>::new();
     for artifact in artifacts {
-        let message_id = string(artifact, "message_id").ok_or_else(|| "artifact missing message_id".to_owned())?;
-        let digest = string(artifact, "fixture_digest_token").ok_or_else(|| "artifact missing fixture_digest_token".to_owned())?;
+        let message_id = string(artifact, "message_id")
+            .ok_or_else(|| "artifact missing message_id".to_owned())?;
+        let digest = string(artifact, "fixture_digest_token")
+            .ok_or_else(|| "artifact missing fixture_digest_token".to_owned())?;
         if let Some(prior) = message_digest.insert(message_id.to_owned(), digest.to_owned())
             && prior != digest
         {
@@ -257,11 +288,14 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             }
         }
     }
-    let active_statements = statements.iter().filter(|statement| {
-        string(statement, "artifact_id")
-            .map(|id| !superseded_artifacts.contains(id))
-            .unwrap_or(false)
-    }).collect::<Vec<_>>();
+    let active_statements = statements
+        .iter()
+        .filter(|statement| {
+            string(statement, "artifact_id")
+                .map(|id| !superseded_artifacts.contains(id))
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
 
     // Verify identity, profile, pagination, booked-balance arithmetic and source authority.
     for statement in &active_statements {
@@ -282,8 +316,9 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             findings.insert("account_lineage_unknown".to_owned());
             reasons.insert("artifact_statement_account_mismatch".to_owned());
         }
-        if string(statement, "account_token") != Some(chain_account) ||
-           string(statement, "entity_token") != Some(chain_entity) {
+        if string(statement, "account_token") != Some(chain_account)
+            || string(statement, "entity_token") != Some(chain_entity)
+        {
             findings.insert("account_lineage_unknown".to_owned());
             reasons.insert("account_entity_binding_conflict".to_owned());
         }
@@ -297,13 +332,23 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 reasons.insert("entry_denomination_profile_mismatch".to_owned());
             }
         }
-        if artifact.get("sender_authenticated").and_then(Value::as_bool) != Some(true) {
+        if artifact
+            .get("sender_authenticated")
+            .and_then(Value::as_bool)
+            != Some(true)
+        {
             findings.insert("source_authentication_unqualified".to_owned());
             reasons.insert("transport_or_sender_authentication_unqualified".to_owned());
         }
-        let expected_pages = statement.get("expected_page_count").and_then(Value::as_u64).unwrap_or(0) as usize;
+        let expected_pages = statement
+            .get("expected_page_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0) as usize;
         let received_pages = array(statement, "received_pages");
-        let page_set = received_pages.iter().filter_map(Value::as_u64).collect::<BTreeSet<_>>();
+        let page_set = received_pages
+            .iter()
+            .filter_map(Value::as_u64)
+            .collect::<BTreeSet<_>>();
         let pages_complete = expected_pages > 0
             && page_set.len() == expected_pages
             && (1..=expected_pages as u64).all(|page| page_set.contains(&page));
@@ -312,10 +357,15 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             reasons.insert("statement_pagination_incomplete".to_owned());
         }
 
-        let opening = statement.get("opening_balance").ok_or_else(|| "statement opening balance missing".to_owned())?;
-        let closing = statement.get("closing_balance").ok_or_else(|| "statement closing balance missing".to_owned())?;
-        if string(opening, "balance_type") != Some("BOOKED") ||
-           string(closing, "balance_type") != Some("BOOKED") {
+        let opening = statement
+            .get("opening_balance")
+            .ok_or_else(|| "statement opening balance missing".to_owned())?;
+        let closing = statement
+            .get("closing_balance")
+            .ok_or_else(|| "statement closing balance missing".to_owned())?;
+        if string(opening, "balance_type") != Some("BOOKED")
+            || string(closing, "balance_type") != Some("BOOKED")
+        {
             findings.insert("profile_unsupported".to_owned());
             reasons.insert("available_balance_not_booked_balance".to_owned());
         }
@@ -334,7 +384,8 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 Some("CREDIT") => reconstructed.checked_add(entry_amount),
                 Some("DEBIT") => reconstructed.checked_sub(entry_amount),
                 _ => None,
-            }.ok_or_else(|| "invalid direction or checked balance arithmetic overflow".to_owned())?;
+            }
+            .ok_or_else(|| "invalid direction or checked balance arithmetic overflow".to_owned())?;
         }
         let declared = field_amount(closing, "amount_minor")?;
         if reconstructed != declared {
@@ -348,11 +399,15 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     let mut active_by_period = BTreeMap::<String, Vec<&Value>>::new();
     for statement in &active_statements {
         if let Some(period_id) = string(statement, "period_id") {
-            active_by_period.entry(period_id.to_owned()).or_default().push(*statement);
+            active_by_period
+                .entry(period_id.to_owned())
+                .or_default()
+                .push(*statement);
         }
-        if let Some(scope) = expected_scope.iter().find(|scope| {
-            string(scope, "period_id") == string(statement, "period_id")
-        }) {
+        if let Some(scope) = expected_scope
+            .iter()
+            .find(|scope| string(scope, "period_id") == string(statement, "period_id"))
+        {
             if string(statement, "cutoff_profile_ref") != string(scope, "cutoff_profile_ref") {
                 findings.insert("profile_unsupported".to_owned());
                 reasons.insert("incompatible_cutoff_semantics".to_owned());
@@ -369,7 +424,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             }
         }
     }
-    for scope in expected_scope.iter().filter(|scope| scope.get("required").and_then(Value::as_bool) == Some(true)) {
+    for scope in expected_scope
+        .iter()
+        .filter(|scope| scope.get("required").and_then(Value::as_bool) == Some(true))
+    {
         let period_id = string(scope, "period_id").unwrap_or_default();
         match active_by_period.get(period_id) {
             None => {
@@ -385,15 +443,24 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     }
 
     // The expected source population is declared independently of files received.
-    let expected_population = array(manifest, "expected_population_tokens").iter().filter_map(Value::as_str).collect::<BTreeSet<_>>();
-    let observed_population = array(manifest, "observed_population_tokens").iter().filter_map(Value::as_str).collect::<BTreeSet<_>>();
+    let expected_population = array(manifest, "expected_population_tokens")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<BTreeSet<_>>();
+    let observed_population = array(manifest, "observed_population_tokens")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<BTreeSet<_>>();
     if !expected_population.is_subset(&observed_population) {
         findings.insert("gap_unknown".to_owned());
         reasons.insert("expected_source_population_not_observed".to_owned());
     }
 
     // Adjacent required periods compare only compatible booked balances and cutoff profiles.
-    let mut scopes = expected_scope.iter().filter(|scope| scope.get("required").and_then(Value::as_bool) == Some(true)).collect::<Vec<_>>();
+    let mut scopes = expected_scope
+        .iter()
+        .filter(|scope| scope.get("required").and_then(Value::as_bool) == Some(true))
+        .collect::<Vec<_>>();
     scopes.sort_by_key(|scope| string(scope, "start_at").unwrap_or_default());
     for pair in scopes.windows(2) {
         let previous_id = string(pair[0], "period_id").unwrap_or_default();
@@ -407,19 +474,30 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             reasons.insert("incompatible_cutoff_semantics".to_owned());
             continue;
         }
-        let previous = active_by_period.get(previous_id).and_then(|rows| rows.first());
+        let previous = active_by_period
+            .get(previous_id)
+            .and_then(|rows| rows.first());
         let next = active_by_period.get(next_id).and_then(|rows| rows.first());
         if let (Some(previous), Some(next)) = (previous, next) {
-            let previous_closing = previous.get("closing_balance").ok_or_else(|| "previous closing balance missing".to_owned())?;
-            let next_opening = next.get("opening_balance").ok_or_else(|| "next opening balance missing".to_owned())?;
-            if string(previous_closing, "balance_type") != Some("BOOKED") ||
-               string(next_opening, "balance_type") != Some("BOOKED") {
+            let previous_closing = previous
+                .get("closing_balance")
+                .ok_or_else(|| "previous closing balance missing".to_owned())?;
+            let next_opening = next
+                .get("opening_balance")
+                .ok_or_else(|| "next opening balance missing".to_owned())?;
+            if string(previous_closing, "balance_type") != Some("BOOKED")
+                || string(next_opening, "balance_type") != Some("BOOKED")
+            {
                 findings.insert("profile_unsupported".to_owned());
                 reasons.insert("carry_forward_not_booked_balance".to_owned());
-            } else if string(previous, "denomination_profile_ref") != string(next, "denomination_profile_ref") {
+            } else if string(previous, "denomination_profile_ref")
+                != string(next, "denomination_profile_ref")
+            {
                 findings.insert("profile_unsupported".to_owned());
                 reasons.insert("carry_forward_denomination_mismatch".to_owned());
-            } else if field_amount(previous_closing, "amount_minor")? != field_amount(next_opening, "amount_minor")? {
+            } else if field_amount(previous_closing, "amount_minor")?
+                != field_amount(next_opening, "amount_minor")?
+            {
                 findings.insert("balance_conflict".to_owned());
                 reasons.insert("opening_closing_booked_balance_mismatch".to_owned());
             }
@@ -433,7 +511,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         let artifact_id = string(statement, "artifact_id").unwrap_or_default();
         for entry in array(statement, "entries") {
             if let Some(event_id) = string(entry, "economic_event_ref") {
-                event_rows.entry(event_id.to_owned()).or_default().push((statement, entry));
+                event_rows
+                    .entry(event_id.to_owned())
+                    .or_default()
+                    .push((statement, entry));
             }
         }
         let _ = artifact_id;
@@ -444,7 +525,8 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             for duplicate in rows.iter().skip(1) {
                 let same = string(first.1, "amount_minor") == string(duplicate.1, "amount_minor")
                     && string(first.1, "direction") == string(duplicate.1, "direction")
-                    && string(first.1, "denomination_profile_ref") == string(duplicate.1, "denomination_profile_ref")
+                    && string(first.1, "denomination_profile_ref")
+                        == string(duplicate.1, "denomination_profile_ref")
                     && string(first.1, "booking_at") == string(duplicate.1, "booking_at")
                     && string(first.1, "value_date") == string(duplicate.1, "value_date");
                 let from_artifact = string(first.0, "artifact_id").unwrap_or_default();
@@ -471,7 +553,8 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             let linked = relations.iter().any(|relation| {
                 string(relation, "relation_type") == Some("notification_for")
                     && string(relation, "from_artifact_id") == Some(id)
-                    && artifact_by_id.get(string(relation, "to_artifact_id").unwrap_or_default())
+                    && artifact_by_id
+                        .get(string(relation, "to_artifact_id").unwrap_or_default())
                         .and_then(|target| string(target, "message_definition"))
                         == Some("camt.053.001.14")
             });
@@ -481,9 +564,13 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
     }
 
-    if has_explicit_revision || active_statements.iter().any(|statement| {
-        array(statement, "entries").iter().any(|entry| string(entry, "entry_type") == Some("BANK_FEE"))
-    }) {
+    if has_explicit_revision
+        || active_statements.iter().any(|statement| {
+            array(statement, "entries")
+                .iter()
+                .any(|entry| string(entry, "entry_type") == Some("BANK_FEE"))
+        })
+    {
         reasons.insert("explicit_adjustment_or_revision_preserved".to_owned());
     }
 
@@ -501,13 +588,18 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         "gap_unknown"
     } else if findings.contains("source_authentication_unqualified") {
         "source_authentication_unqualified"
-    } else if has_explicit_revision || active_statements.iter().any(|statement| {
-        array(statement, "entries").iter().any(|entry| string(entry, "entry_type") == Some("BANK_FEE"))
-    }) {
+    } else if has_explicit_revision
+        || active_statements.iter().any(|statement| {
+            array(statement, "entries")
+                .iter()
+                .any(|entry| string(entry, "entry_type") == Some("BANK_FEE"))
+        })
+    {
         "complete_with_explicit_adjustment"
     } else {
         "complete_contiguous"
-    }.to_owned();
+    }
+    .to_owned();
 
     let economic_observation_count = event_rows.len();
     Ok(Assessment {
@@ -532,22 +624,40 @@ mod tests {
 
     #[test]
     fn all_public_reference_cases_match_the_oracle() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
-        let oracle = fixture(include_str!("../../public-reference-oracle/bank_statement_chain_oracle_v1.0.1.json"));
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.1.json"
+        ));
+        let oracle = fixture(include_str!(
+            "../../public-reference-oracle/bank_statement_chain_oracle_v1.0.1.json"
+        ));
         let expected = oracle["cases"].as_array().expect("oracle cases");
         for case in candidate["cases"].as_array().expect("candidate cases") {
             let id = case["case_id"].as_str().expect("case id");
-            let row = expected.iter().find(|row| row["case_id"] == id).expect("matching oracle row");
+            let row = expected
+                .iter()
+                .find(|row| row["case_id"] == id)
+                .expect("matching oracle row");
             let assessment = assess_case(case).expect("case assessment");
-            assert_eq!(assessment.disposition, row["expected_disposition"].as_str().expect("expected disposition"), "{id}");
+            assert_eq!(
+                assessment.disposition,
+                row["expected_disposition"]
+                    .as_str()
+                    .expect("expected disposition"),
+                "{id}"
+            );
         }
     }
 
     #[test]
     fn exact_replay_does_not_increase_economic_observation_count() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.1.json"
+        ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
-        let case = cases.iter().find(|case| case["case_id"] == "BSC-026").expect("BSC-026");
+        let case = cases
+            .iter()
+            .find(|case| case["case_id"] == "BSC-026")
+            .expect("BSC-026");
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "complete_contiguous");
         assert_eq!(assessment.economic_observation_count, 2);
@@ -555,39 +665,74 @@ mod tests {
 
     #[test]
     fn missing_period_is_never_complete() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.1.json"
+        ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
-        let case = cases.iter().find(|case| case["case_id"] == "BSC-010").expect("BSC-010");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "gap_unknown");
+        let case = cases
+            .iter()
+            .find(|case| case["case_id"] == "BSC-010")
+            .expect("BSC-010");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "gap_unknown"
+        );
     }
 
     #[test]
     fn one_minor_unit_balance_mutation_is_detected() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.1.json"
+        ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
-        let case = cases.iter().find(|case| case["case_id"] == "BSC-002").expect("BSC-002");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "balance_conflict");
+        let case = cases
+            .iter()
+            .find(|case| case["case_id"] == "BSC-002")
+            .expect("BSC-002");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "balance_conflict"
+        );
     }
 
     #[test]
     fn arrival_order_does_not_change_chain_disposition_or_event_count() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.1.json"
+        ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
-        let baseline = cases.iter().find(|case| case["case_id"] == "BSC-001").expect("BSC-001");
-        let reordered = cases.iter().find(|case| case["case_id"] == "BSC-025").expect("BSC-025");
+        let baseline = cases
+            .iter()
+            .find(|case| case["case_id"] == "BSC-001")
+            .expect("BSC-001");
+        let reordered = cases
+            .iter()
+            .find(|case| case["case_id"] == "BSC-025")
+            .expect("BSC-025");
         let baseline_result = assess_case(baseline).expect("baseline assessment");
         let reordered_result = assess_case(reordered).expect("reordered assessment");
         assert_eq!(baseline_result.disposition, reordered_result.disposition);
-        assert_eq!(baseline_result.economic_observation_count, reordered_result.economic_observation_count);
+        assert_eq!(
+            baseline_result.economic_observation_count,
+            reordered_result.economic_observation_count
+        );
     }
 
     #[test]
     fn period_boundary_and_sequence_gaps_fail_closed() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.1.json"
+        ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         for id in ["BSC-027", "BSC-028"] {
-            let case = cases.iter().find(|case| case["case_id"] == id).expect("case exists");
-            assert_eq!(assess_case(case).expect("assessment").disposition, "gap_unknown");
+            let case = cases
+                .iter()
+                .find(|case| case["case_id"] == id)
+                .expect("case exists");
+            assert_eq!(
+                assess_case(case).expect("assessment").disposition,
+                "gap_unknown"
+            );
         }
     }
 }
