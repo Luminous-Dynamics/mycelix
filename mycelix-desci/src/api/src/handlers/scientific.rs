@@ -292,12 +292,28 @@ fn authority_status_label(status: AuthorityAttestationStatus) -> &'static str {
     }
 }
 
+fn receipt_sequences_are_contiguous(sequences: &[u64]) -> bool {
+    sequences.windows(2).all(|pair| {
+        pair[0]
+            .checked_add(1)
+            .is_some_and(|expected| expected == pair[1])
+    })
+}
+
 /// Validate that the store returned one contiguous receipt chain, optionally
 /// beginning after an explicitly anchored legacy event prefix.
 fn valid_committed_receipt_chain(
     stream: &[mycelix_desci_core::SignedScientificEvent],
     receipts: &[mycelix_desci_core::SignedScientificAuthorityReceipt],
 ) -> bool {
+    let sequences = receipts
+        .iter()
+        .map(|signed| signed.receipt.sequence)
+        .collect::<Vec<_>>();
+    if !receipt_sequences_are_contiguous(&sequences) {
+        return false;
+    }
+
     let mut previous: Option<&mycelix_desci_core::SignedScientificAuthorityReceipt> = None;
     for signed in receipts {
         let receipt = &signed.receipt;
@@ -676,6 +692,16 @@ mod as_known_at_projection_tests {
             &service_signer,
         );
         assert!(!valid_committed_receipt_chain(&events, &[first, second]));
+    }
+
+    #[test]
+    fn receipt_sequence_gaps_and_duplicates_are_rejected() {
+        assert!(receipt_sequences_are_contiguous(&[]));
+        assert!(receipt_sequences_are_contiguous(&[7]));
+        assert!(receipt_sequences_are_contiguous(&[4, 5, 6]));
+        assert!(!receipt_sequences_are_contiguous(&[4, 6]));
+        assert!(!receipt_sequences_are_contiguous(&[4, 4]));
+        assert!(!receipt_sequences_are_contiguous(&[u64::MAX - 1, u64::MAX, 0]));
     }
 
     #[test]
