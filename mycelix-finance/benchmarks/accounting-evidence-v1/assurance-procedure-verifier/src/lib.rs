@@ -8,14 +8,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 type AppResult<T> = Result<T, String>;
 
-#[derive(Debug, Serialize)]
-struct PairResult {
-    pair_id: String,
-    terminal_state: String,
-    blocks_unqualified_signoff: bool,
-    reason_codes: Vec<String>,
-}
-
 #[derive(Debug)]
 struct Assessment {
     state: String,
