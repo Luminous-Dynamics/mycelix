@@ -47,7 +47,31 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
             "can_approve_close": false
         });
     }
-    verify_value(&input)
+    let report = verify_value(&input);
+    validate_report_schema(&report)
+}
+
+fn validate_report_schema(report: &Value) -> Value {
+    let schema: Value = match serde_json::from_str(include_str!("../report.schema.json")) {
+        Ok(schema) => schema,
+        Err(error) => return report_error("invalid_report", format!("embedded report schema: {error}")),
+    };
+    if let Err(error) = jsonschema::draft202012::meta::validate(&schema) {
+        return report_error("invalid_report", format!("embedded report schema meta-validation: {error}"));
+    }
+    let validator = match draft202012::options().should_validate_formats(true).build(&schema) {
+        Ok(validator) => validator,
+        Err(error) => return report_error("invalid_report", format!("embedded report schema compilation: {error}")),
+    };
+    let errors = validator
+        .iter_errors(report)
+        .map(|error| format!("{error} at {}", error.instance_path()))
+        .collect::<Vec<_>>();
+    if errors.is_empty() {
+        report.clone()
+    } else {
+        report_error("invalid_report", errors.join("; "))
+    }
 }
 
 pub fn verify_value(input: &Value) -> Value {
@@ -472,4 +496,21 @@ mod tests {
         let second = json!({"assertions":["b","a"]});
         assert_ne!(digest_value(SUBJECT_DOMAIN, &first), digest_value(SUBJECT_DOMAIN, &second));
     }
+    #[test]
+    fn generated_report_satisfies_closed_report_schema() {
+        let report = verify_value(&base_record());
+        let schema: Value = serde_json::from_str(include_str!("../report.schema.json")).unwrap();
+        let validator = draft202012::options().build(&schema).unwrap();
+        assert!(validator.is_valid(&report));
+    }
+
+    #[test]
+    fn input_json_and_candidate_schema_are_checked_before_semantics() {
+        let record = base_record();
+        let input = serde_json::to_vec(&record).unwrap();
+        let schema = include_bytes!("../../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json");
+        let report = verify(&input, schema);
+        assert_eq!(report["disposition"], "structurally_ready_pending_external_authority");
+    }
+
 }
