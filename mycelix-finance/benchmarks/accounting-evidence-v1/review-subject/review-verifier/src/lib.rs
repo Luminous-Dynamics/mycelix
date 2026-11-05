@@ -472,6 +472,16 @@ mod tests {
             .to_owned()
     }
 
+    fn rebind_subject_and_policy(record: &mut Value) {
+        let policy_digest = digest_value(POLICY_DOMAIN, &record["review_policy"]);
+        record["subject"]["review_policy_digest"] = json!(policy_digest);
+        let subject_digest = digest_value(SUBJECT_DOMAIN, &record["subject"]);
+        for event in record["review_events"].as_array_mut().unwrap() {
+            event["policy_digest"] = json!(policy_digest);
+            event["subject_digest"] = json!(subject_digest);
+        }
+    }
+
     #[test]
     fn exact_subject_and_disjoint_roles_are_structurally_ready_but_never_approved() {
         let report = verify_value(&base_record());
@@ -502,6 +512,7 @@ mod tests {
     fn one_canonical_principal_counts_once_toward_multi_reviewer_quorum() {
         let mut record = base_record();
         record["review_policy"]["required_role_counts"][0]["minimum_unique_principals"] = json!(2);
+        rebind_subject_and_policy(&mut record);
         let mut duplicate = record["review_events"][0].clone();
         duplicate["event_id"] = json!("review-event:reviewer-duplicate-presentation");
         record["review_events"]
