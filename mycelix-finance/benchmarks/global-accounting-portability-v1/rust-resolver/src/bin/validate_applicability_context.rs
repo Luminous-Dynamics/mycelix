@@ -146,7 +146,7 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
                 if !scopes.contains_key(parent) {
                     return Err(format!("{context_id}: {scope_id} references missing parent scope {parent}"));
                 }
-                if parent == scope_id {
+                if parent == scope_id.as_str() {
                     return Err(format!("{context_id}: scope {scope_id} is its own parent"));
                 }
             }
