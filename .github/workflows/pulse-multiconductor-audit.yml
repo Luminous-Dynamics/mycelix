@@ -82,3 +82,103 @@ jobs:
             ${{ runner.temp }}/pulse-multiconductor-receipt.txt
           if-no-files-found: error
           retention-days: 30
+
+  benchmark:
+    name: Reproducible synthetic verifier performance
+    if: github.event_name == 'workflow_dispatch'
+    needs: audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RUNS_PER_SIZE: "30"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+
+      - name: Generate pinned dependency lock and release binary
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path tools/pulse-multiconductor-audit/Cargo.toml
+          cargo build --release --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked
+
+      - name: Benchmark 1k, 10k, 100k and 1M synthetic events
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$PWD/tools/pulse-multiconductor-audit/target/release/pulse-multiconductor-audit"
+          OUT="$RUNNER_TEMP/pulse-multiconductor-benchmark"
+          mkdir -p "$OUT"
+          JSONL="$OUT/results.jsonl"
+          : > "$JSONL"
+
+          run_batch() {
+            local events="$1"
+            local repetitions="$2"
+            for repetition in $(seq 1 "$repetitions"); do
+              local report="$OUT/report-$events-$repetition.json"
+              local usage="$OUT/usage-$events-$repetition.txt"
+              /usr/bin/time -f "%M" -o "$usage" \
+                "$BIN" --benchmark-events "$events" --output "$report"
+              local rss_kib
+              rss_kib="$(tr -d '[:space:]' < "$usage")"
+              jq -c --argjson repetition "$repetition" --argjson peak_rss_kib "$rss_kib" \
+                '. + {repetition: $repetition, peak_rss_kib: $peak_rss_kib}' \
+                "$report" >> "$JSONL"
+              echo "completed events=$events repetition=$repetition peak_rss_kib=$rss_kib"
+            done
+          }
+
+          run_batch 1000 "$RUNS_PER_SIZE"
+          run_batch 10000 "$RUNS_PER_SIZE"
+          run_batch 100000 "$RUNS_PER_SIZE"
+          # Capacity stretch only: one run is not a percentile population.
+          run_batch 1000000 1
+
+          jq -s '
+            group_by(.events)
+            | map(
+                ([.[].audit_ns] | sort) as $times
+                | ([.[].audit_events_per_second] | sort) as $throughput
+                | {
+                    events: .[0].events,
+                    repetitions: length,
+                    status_counts: (group_by(.status) | map({status: .[0].status, count: length})),
+                    median_audit_ns: $times[(($times | length) / 2 | floor)],
+                    p95_audit_ns: $times[((($times | length) * 0.95) | ceil) - 1],
+                    min_audit_ns: ($times | min),
+                    max_audit_ns: ($times | max),
+                    median_events_per_second: $throughput[(($throughput | length) / 2 | floor)],
+                    max_peak_rss_kib: ([.[].peak_rss_kib] | max)
+                  }
+              )
+          ' "$JSONL" > "$OUT/summary.json"
+          cat "$OUT/summary.json"
+
+      - name: Record exact benchmark receipt
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pulse-multiconductor-benchmark"
+          {
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "workflow_run=$GITHUB_RUN_ID"
+            echo "workflow_attempt=$GITHUB_RUN_ATTEMPT"
+            rustc --version
+            cargo --version
+            sha256sum tools/pulse-multiconductor-audit/Cargo.lock
+            sha256sum tools/pulse-multiconductor-audit/src/main.rs
+            sha256sum "$RUNNER_TEMP/pulse-multiconductor-benchmark/results.jsonl"
+            sha256sum "$RUNNER_TEMP/pulse-multiconductor-benchmark/summary.json"
+          } > "$RUNNER_TEMP/pulse-multiconductor-benchmark/receipt.txt"
+
+      - name: Upload raw runs, summary and receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-multiconductor-benchmark-${{ github.sha }}
+          path: ${{ runner.temp }}/pulse-multiconductor-benchmark/
+          if-no-files-found: warn
+          retention-days: 30
