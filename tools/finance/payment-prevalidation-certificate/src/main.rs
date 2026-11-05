@@ -96,11 +96,23 @@ fn admission(
     let presentation = &scenario["presentation"];
     let consent = &scenario["consent"];
 
-    let decide = |state, disposition, reason| CaseDecision {
-        admission: state,
-        disposition,
-        reason,
-        certificate_digest: String::new(),
+    let decide = |state: &'static str, disposition: &'static str, reason: &'static str| {
+        let payload = json!({
+            "scenario_id": scenario["scenario_id"],
+            "profile_id": scenario["profile_id"],
+            "intent_digest": scenario["intent"]["intent_digest"],
+            "admission": state,
+            "disposition": disposition,
+            "reason": reason
+        });
+        let certificate_digest =
+            digest_domain(CERTIFICATE_DOMAIN, &payload).unwrap_or_default();
+        CaseDecision {
+            admission: state,
+            disposition,
+            reason,
+            certificate_digest,
+        }
     };
 
     let Some(profile) = profile else {
@@ -138,29 +150,6 @@ fn admission(
         );
     }
 
-    let Some(as_of) = str_at(scenario, "as_of").or_else(|| None) else {
-        // The corpus-level date is checked by semantic_evaluation. This branch is
-        // intentionally not a source of current-time assumptions.
-        if str_at(profile, "vop_mode") == Some("unknown") {
-            return decide(
-                "quarantined_unknown",
-                "quarantined_unknown",
-                "profile_capability_unknown",
-            );
-        }
-        if str_at(profile, "vop_mode") == Some("proposal_only") {
-            // Continue below: this profile explicitly has no operational VoP result.
-        }
-        let _ = as_of;
-        return evaluate_bound_case(
-            scenario,
-            profile,
-            source_ids,
-            required_fields,
-            decide,
-        );
-    };
-    let _ = as_of;
     evaluate_bound_case(
         scenario,
         profile,
