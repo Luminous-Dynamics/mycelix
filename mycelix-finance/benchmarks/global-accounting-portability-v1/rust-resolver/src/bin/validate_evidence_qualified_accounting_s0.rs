@@ -71,6 +71,20 @@ fn document_by_ref<'a>(case: &'a Value, document_ref: &str) -> Result<&'a Value,
         .ok_or_else(|| format!("missing document {document_ref}"))
 }
 
+fn document_is_superseded_at_frontier(case: &Value, document_ref: &str) -> Result<bool, String> {
+    let frontier = string(case, "knowledge_at")?;
+    Ok(array(case, "documents")?.iter().any(|candidate| {
+        optional_string(candidate, "supersedes_document_ref") == Some(document_ref)
+            && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
+    }))
+}
+
+fn fact_by_document_ref<'a>(case: &'a Value, document_ref: &str) -> Result<&'a Value, String> {
+    array(case, "facts")?.iter()
+        .find(|fact| optional_string(fact, "document_ref") == Some(document_ref))
+        .ok_or_else(|| format!("missing fact for document {document_ref}"))
+}
+
 fn is_known_fact(case: &Value, fact: &Value) -> Result<bool, String> {
     let frontier = string(case, "knowledge_at")?;
     let recorded_at = string(fact, "recorded_at")?;
@@ -84,7 +98,10 @@ fn is_known_fact(case: &Value, fact: &Value) -> Result<bool, String> {
     let valid_to = fact.get("valid_to").and_then(Value::as_str);
     let valid_time_overlaps = valid_from <= period_end
         && valid_to.is_none_or(|end| end >= period_start);
-    Ok(recorded_at <= frontier && received_at <= frontier && valid_time_overlaps)
+    Ok(recorded_at <= frontier
+        && received_at <= frontier
+        && valid_time_overlaps
+        && !document_is_superseded_at_frontier(case, document_ref)?)
 }
 
 fn is_eligible_assertion(case: &Value, fact: &Value) -> Result<bool, String> {
@@ -107,14 +124,27 @@ fn facts_of_type<'a>(case: &'a Value, fact_type: &str) -> Result<Vec<&'a Value>,
 
 fn future_evidence(case: &Value) -> Result<bool, String> {
     let frontier = string(case, "knowledge_at")?;
-    for document in array(case, "documents")? {
-        if string(document, "received_at")? > frontier {
+    let documents = array(case, "documents")?;
+    for document in documents {
+        if string(document, "received_at")? <= frontier {
+            continue;
+        }
+        let has_prior_known_identity = documents.iter().any(|prior| {
+            optional_string(prior, "namespace") == optional_string(document, "namespace")
+                && optional_string(prior, "external_document_id") == optional_string(document, "external_document_id")
+                && optional_string(prior, "document_type") == optional_string(document, "document_type")
+                && optional_string(prior, "received_at").is_some_and(|received| received <= frontier)
+        });
+        if !has_prior_known_identity {
             return Ok(true);
         }
     }
     for fact in array(case, "facts")? {
         if string(fact, "recorded_at")? > frontier {
-            return Ok(true);
+            let fact_type = string(fact, "fact_type")?;
+            if facts_of_type(case, fact_type)?.is_empty() {
+                return Ok(true);
+            }
         }
     }
     Ok(false)
@@ -122,10 +152,15 @@ fn future_evidence(case: &Value) -> Result<bool, String> {
 
 fn source_integrity_failed(case: &Value) -> Result<bool, String> {
     let frontier = string(case, "knowledge_at")?;
-    Ok(array(case, "documents")?.iter().any(|document| {
-        optional_string(document, "integrity_state") == Some("synthetic_mismatch")
+    for document in array(case, "documents")? {
+        if optional_string(document, "integrity_state") == Some("synthetic_mismatch")
             && optional_string(document, "received_at").is_some_and(|received| received <= frontier)
-    }))
+            && !document_is_superseded_at_frontier(case, string(document, "document_ref")?)?
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn credit_note_parent_missing(case: &Value) -> Result<bool, String> {
@@ -321,6 +356,26 @@ fn validate_case_references(case: &Value) -> Result<(), String> {
                 ));
             }
             document_identity.insert(identity, document_ref);
+        }
+    }
+
+    for document in array(case, "documents")? {
+        let Some(supersedes_ref) = optional_string(document, "supersedes_document_ref") else {
+            continue;
+        };
+        if optional_string(document, "duplicate_of_document_ref").is_some() {
+            return Err(format!("{case_id}: a document cannot be both a duplicate and a superseding revision"));
+        }
+        let previous = document_by_ref(case, supersedes_ref)?;
+        if optional_string(previous, "namespace") != optional_string(document, "namespace")
+            || optional_string(previous, "external_document_id") != optional_string(document, "external_document_id")
+            || optional_string(previous, "document_type") != optional_string(document, "document_type")
+            || optional_string(previous, "revision") == optional_string(document, "revision")
+        {
+            return Err(format!("{case_id}: superseding revision must preserve namespace, external ID and document type while changing revision"));
+        }
+        if string(document, "received_at")? <= string(previous, "received_at")? {
+            return Err(format!("{case_id}: superseding revision must be received after the revision it supersedes"));
         }
     }
 
@@ -829,6 +884,31 @@ mod tests {
         let case = case_by_id(&candidates, "ACCT-018-CREDIT-PARENT-CROSS-NAMESPACE").unwrap();
         assert!(credit_note_parent_missing(case).unwrap());
         assert_eq!(derive_expectation(case).unwrap(), ("escalate", "credit_note_parent_missing"));
+    }
+
+
+    #[test]
+    fn known_superseding_revision_replaces_earlier_invoice_facts() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-019-SUPERSEDING-INVOICE-REVISION").unwrap();
+        let amounts = facts_of_type(case, "invoice_total_minor").unwrap();
+        assert_eq!(amounts.len(), 1);
+        assert_eq!(amounts[0]["value"], Value::from(120000));
+        assert!(!is_known_fact(case, fact_by_document_ref(case, "DOC-019-INV-R1").unwrap()).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("deliver", "no_blocker_detected"));
+    }
+
+    #[test]
+    fn future_superseding_revision_does_not_invalidate_historical_revision() {
+        let (mut candidates, _) = fixtures();
+        let case = candidates["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("ACCT-019-SUPERSEDING-INVOICE-REVISION")).unwrap();
+        case["knowledge_at"] = Value::String("2026-11-05T10:00:00Z".to_owned());
+        let amounts = facts_of_type(case, "invoice_total_minor").unwrap();
+        assert_eq!(amounts.len(), 1);
+        assert_eq!(amounts[0]["value"], Value::from(100000));
+        assert!(!future_evidence(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("deliver", "no_blocker_detected"));
     }
 
     #[test]
