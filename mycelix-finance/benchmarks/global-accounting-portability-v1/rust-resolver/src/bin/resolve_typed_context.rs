@@ -469,8 +469,6 @@ fn evaluate_requirement(
         disposition = "satisfied";
         matched_ids.insert(string(eligible[0], "fact_id")?.to_owned());
         reasons.insert("exact_typed_fact_satisfied".to_owned());
-    } else if visible_review {
-        disposition = "needs_review";
     } else if !exact_visible.is_empty() {
         disposition = "unsupported";
         if reasons.is_empty() {
@@ -762,8 +760,41 @@ mod tests {
         request["requirements"][2]["subject_ref"] = json!("SYN-PARTY-BUYER");
         request["requirements"][2]["subject_party_role"] = json!("buyer");
         let report = resolve(&bundle, &bundle_bytes, &schema, &schema_bytes, &request).unwrap();
-        assert_eq!(report["requirement_results"][2]["disposition"], "indeterminate");
-        assert!(report["requirement_results"][2]["reason_codes"].to_string().contains("required_typed_fact_missing"));
+        assert_eq!(report["requirement_results"][2]["disposition"], "unsupported");
+        assert!(report["requirement_results"][2]["reason_codes"].to_string().contains("jurisdiction_scope_mismatch"));
+    }
+
+    #[test]
+    fn reordered_fact_and_scope_arrays_preserve_semantic_result() {
+        let (bundle_bytes, schema_bytes, _, _, requests, _) = fixtures();
+        let original_bundle: Value = serde_json::from_slice(&bundle_bytes).unwrap();
+        let schema: Value = serde_json::from_slice(&schema_bytes).unwrap();
+        let original_request = request_for(&requests, "TCTX-ROLE-A-COMPLETE").clone();
+        let original = resolve(&original_bundle, &bundle_bytes, &schema, &schema_bytes, &original_request).unwrap();
+
+        let mut reordered = original_bundle;
+        let context = reordered["contexts"].as_array_mut().unwrap()
+            .iter_mut().find(|item| item["context_id"] == "CTX-ROLE-A").unwrap();
+        context["jurisdiction_facts"].as_array_mut().unwrap().reverse();
+        context["scope_registry"].as_array_mut().unwrap().reverse();
+        let reordered_bytes = serde_json::to_vec(&reordered).unwrap();
+        let mut request = original_request;
+        request["context_bundle_sha256"] = json!(sha256_hex(&reordered_bytes));
+        let actual = resolve(&reordered, &reordered_bytes, &schema, &schema_bytes, &request).unwrap();
+
+        assert_eq!(original["disposition"], actual["disposition"]);
+        assert_eq!(original["requirement_results"], actual["requirement_results"]);
+    }
+
+    #[test]
+    fn identical_frozen_inputs_produce_byte_identical_report_json() {
+        let (bundle_bytes, schema_bytes, _, _, requests, _) = fixtures();
+        let bundle: Value = serde_json::from_slice(&bundle_bytes).unwrap();
+        let schema: Value = serde_json::from_slice(&schema_bytes).unwrap();
+        let request = request_for(&requests, "TCTX-ROLE-A-COMPLETE");
+        let first = resolve(&bundle, &bundle_bytes, &schema, &schema_bytes, request).unwrap();
+        let second = resolve(&bundle, &bundle_bytes, &schema, &schema_bytes, request).unwrap();
+        assert_eq!(serde_json::to_vec(&first).unwrap(), serde_json::to_vec(&second).unwrap());
     }
 
     #[test]
