@@ -36,7 +36,6 @@ const AUTHORITY_SENSITIVE_KINDS: &[&str] = &[
     "close_readiness",
 ];
 
-
 pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
     let input: Value = match serde_json::from_slice(input_bytes) {
         Ok(value) => value,
@@ -1410,15 +1409,16 @@ mod tests {
     #[test]
     fn current_policy_frontier_change_stales_parent_and_transitive_child_only() {
         let mut value = fixture();
-        value["nodes"].as_array_mut().unwrap().retain(|node| {
-            node["node_id"] != "entity-quarantine-guard"
-        });
+        value["nodes"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|node| node["node_id"] != "entity-quarantine-guard");
         value["nodes"][0]["frontier_bindings"]["policy_snapshot"] =
             value["frontiers"]["policy_snapshot"].clone();
         value["frontiers"]["policy_snapshot"]["ref_id"] = json!("SYNTHETIC-ACCRUAL-POLICY-V2");
         let report = verify(
             &serde_json::to_vec(&value).unwrap(),
-            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json")
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
         );
         assert_eq!(report["directly_stale_nodes"], json!(["source-match-001"]));
         assert_eq!(
@@ -1438,7 +1438,11 @@ mod tests {
             &serde_json::to_vec(&value).unwrap(),
             include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json")
         );
-        assert!(errors(&report).contains("required_frontier_binding_missing:entity-quarantine-guard:validator_build"));
+        assert!(
+            errors(&report).contains(
+                "required_frontier_binding_missing:entity-quarantine-guard:validator_build"
+            )
+        );
     }
 
 }
