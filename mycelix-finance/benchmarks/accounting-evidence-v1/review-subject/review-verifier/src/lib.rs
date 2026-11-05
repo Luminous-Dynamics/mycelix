@@ -210,11 +210,12 @@ pub fn verify_value(input: &Value) -> Value {
         let actor_kind = event["actor_kind"].as_str().unwrap_or_default();
         if actor_kind != "human" {
             non_human_principals.insert(principal.clone());
-            let policy_allows_non_human = policy["non_human_eligible_roles"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .any(|allowed_role| allowed_role.as_str() == Some(role.as_str()));
+            let policy_allows_non_human = role == "performer"
+                && policy["non_human_eligible_roles"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|allowed_role| allowed_role.as_str() == Some(role.as_str()));
             if !policy_allows_non_human {
                 blockers.insert(format!("non_human_actor_for_role:{role}:{principal}"));
                 continue;
@@ -693,11 +694,27 @@ mod tests {
     }
 
     #[test]
-    fn non_human_role_requires_an_explicit_policy_allowlist() {
+    fn policy_can_allow_agent_performance_but_not_human_review_substitution() {
         let mut record = base_record();
-        record["review_events"][0]["actor_kind"] = json!("agent");
-        record["review_events"][0]["agent_build_digest"] = json!("b".repeat(64));
-        record["review_policy"]["non_human_eligible_roles"] = json!(["reviewer"]);
+        record["review_policy"]["required_role_counts"].as_array_mut().unwrap().push(json!({
+            "role":"performer",
+            "minimum_unique_principals":1
+        }));
+        record["review_policy"]["non_human_eligible_roles"] = json!(["performer"]);
+
+        let mut agent_performance = record["review_events"][0].clone();
+        agent_performance["event_id"] = json!("review-event:agent-performer");
+        agent_performance["role"] = json!("performer");
+        agent_performance["principal_ref"] = json!("agent:workpaper-builder");
+        agent_performance["decision"] = json!("performed");
+        agent_performance["actor_kind"] = json!("agent");
+        agent_performance["agent_build_digest"] = json!("b".repeat(64));
+        record["review_events"][0] = agent_performance;
+
+        let mut human_reviewer = base_record()["review_events"][0].clone();
+        human_reviewer["event_id"] = json!("review-event:human-reviewer-after-agent");
+        record["review_events"].as_array_mut().unwrap().push(human_reviewer);
+
         rebind_subject_and_policy(&mut record);
         let report = verify_value(&record);
         assert_eq!(
@@ -706,8 +723,27 @@ mod tests {
         );
         assert_eq!(
             report["non_human_role_principal_refs"][0],
-            "principal:reviewer"
+            "agent:workpaper-builder"
         );
         assert_eq!(report["external_authority_verified"], false);
+        assert_eq!(report["human_review_sufficiency_verified"], false);
+        assert_eq!(report["can_approve_close"], false);
+    }
+
+    #[test]
+    fn reviewer_role_cannot_be_allowlisted_for_non_human_actors() {
+        let mut record = base_record();
+        record["review_policy"]["non_human_eligible_roles"] = json!(["reviewer"]);
+        assert!(verify_schema(&record).is_err());
+    }
+
+    #[test]
+    fn system_actor_requires_an_exact_system_build_digest() {
+        let mut record = base_record();
+        record["review_events"][0]["actor_kind"] = json!("system");
+        assert!(verify_schema(&record).is_err());
+        record["review_events"][0]["system_build_digest"] = json!("c".repeat(64));
+        assert!(verify_schema(&record).is_ok());
+        assert_eq!(disposition(&record), "blocked_by_non_human_role");
     }
 }
