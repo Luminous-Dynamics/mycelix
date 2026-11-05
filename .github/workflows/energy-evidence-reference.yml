@@ -55,13 +55,18 @@ jobs:
       - name: Run Rust semantic conformance tests
         run: |
           cargo test --manifest-path mycelix-energy/Cargo.toml \
-            --package energy-evidence-conformance --locked
+            --package energy-evidence-conformance
 
       - name: Generate Rust semantic conformance receipt
         run: |
           cargo run --manifest-path mycelix-energy/Cargo.toml \
-            --package energy-evidence-conformance --locked -- \
+            --package energy-evidence-conformance -- \
             --output artifacts/project-evidence-reference-semantic.json
+
+      - name: Diagnose generated lockfile changes
+        if: always()
+        run: |
+          git diff -- mycelix-energy/Cargo.lock
 
       - name: Set up isolated Python schema validator runtime
         uses: actions/setup-python@v5
