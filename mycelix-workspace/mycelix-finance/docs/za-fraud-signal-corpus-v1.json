@@ -1,0 +1,3053 @@
+{
+  "schema": "mycelix.za-fraud-signal-exchange/v1",
+  "corpus_id": "ZA-FRAUD-SIGNAL-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "as_of": "2026-11-05",
+  "jurisdiction": "ZA",
+  "external_effects_enabled": false,
+  "aggregate_minimum_cell_threshold": 20,
+  "source_register": [
+    {
+      "id": "SARB_PEM_PAGE_2026",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Programme",
+      "url": "https://resbank.co.za/en/home/what-we-do/payments-and-settlements/pem",
+      "published_on": null,
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_programme_page",
+      "supports": [
+        "SARB describes an insights capability and fraud framework as PEM programme work"
+      ],
+      "does_not_support": [
+        "A production fraud intelligence API",
+        "Mycelix endorsement"
+      ]
+    },
+    {
+      "id": "SARB_PEM_WORKING_GROUPS_2026",
+      "authority": "South African Reserve Bank",
+      "title": "PEM Working Groups",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/pem/working-groups.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_programme_working_group_document",
+      "supports": [
+        "A Fraud and Intelligence Information Sharing Forum exists for PEM private-sector stakeholders"
+      ],
+      "does_not_support": [
+        "A production person-level blacklist or live API"
+      ]
+    },
+    {
+      "id": "SARB_PEM_POSITION_2025",
+      "authority": "South African Reserve Bank",
+      "title": "Positioning the SARB's Payments Ecosystem Modernisation Programme",
+      "url": "https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf",
+      "published_on": "2025-01-01",
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_programme_position_paper",
+      "supports": [
+        "The PEM position paper proposes a central fraud and intelligence management capability"
+      ],
+      "does_not_support": [
+        "Operational availability or private-sector safe harbour"
+      ]
+    },
+    {
+      "id": "SARB_PEM_DIALOGUE_APRIL_2026",
+      "authority": "South African Reserve Bank",
+      "title": "PEM Industry Dialogue April 2026 Day One",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/pem/dialogues/2026/april-day-one.pdf",
+      "published_on": "2026-04-09",
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_programme_dialogue_presentation",
+      "supports": [
+        "April dialogue describes PEM design and work in progress"
+      ],
+      "does_not_support": [
+        "A deployed national fraud framework or live API"
+      ]
+    },
+    {
+      "id": "FATF_PPP_DATA_SHARING_2026",
+      "authority": "Financial Action Task Force",
+      "title": "Information Sharing to Combat Illicit Finance: Global Overview of Public and Private Sector Partnerships and Data Protection Arrangements",
+      "url": "https://www.fatf-gafi.org/en/publications/Methodsandtrends/information-sharing-ppp-data-protection-arrangements.html",
+      "published_on": "2026-07-08",
+      "observed_on": "2026-11-05",
+      "evidence_class": "international_policy_and_industry_report",
+      "supports": [
+        "FATF identifies at least 84 public-private partnerships globally",
+        "Robust legal basis, governance and data protection safeguards are essential",
+        "Strategic typology sharing and operational case sharing differ"
+      ],
+      "does_not_support": [
+        "South African private-sector permission or universal fraud scoring"
+      ]
+    },
+    {
+      "id": "FSR_ACT_2017_S251",
+      "authority": "Republic of South Africa",
+      "title": "Financial Sector Regulation Act 9 of 2017",
+      "url": "https://www.gov.za/documents/financial-sector-regulation-act-9-2017-english-sepedi-22-aug-2017-0000",
+      "published_on": "2017-08-22",
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_legislation",
+      "supports": [
+        "Section 251 addresses information handling by SARB and financial-sector regulators within statutory functions and safeguards"
+      ],
+      "does_not_support": [
+        "A blanket private-sector permission or safe harbour"
+      ]
+    },
+    {
+      "id": "POPIA_ACT_2013",
+      "authority": "Republic of South Africa",
+      "title": "Protection of Personal Information Act 4 of 2013",
+      "url": "https://www.gov.za/documents/protection-personal-information-act",
+      "published_on": "2013-11-26",
+      "observed_on": "2026-11-05",
+      "evidence_class": "official_legislation",
+      "supports": [
+        "POPIA establishes conditions for lawful processing of personal information including purpose and retention safeguards"
+      ],
+      "does_not_support": [
+        "A determination that a particular exchange is lawful or that pseudonymisation is anonymisation"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "ZA-FSI-001",
+      "scenario_type": "strategic_aggregate_with_suppression_clearance",
+      "signal": {
+        "signal_id": "SIG-001",
+        "plane": "strategic_aggregate",
+        "signal_class": "PAYMENT_FRAUD_TYPOLOGY",
+        "epistemic_status": "observed",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "PEM_STRATEGIC_FORUM"
+        ],
+        "purpose": "aggregate_payment_fraud_typology",
+        "subject_reference": null,
+        "case_reference": null,
+        "evidence": {
+          "evidence_class": "aggregated_incident_statistics",
+          "origin_verification_state": "verified",
+          "corroboration_state": "multiple_independent_sources",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-001",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "other",
+          "review_state": "verified",
+          "basis_reference": "AUTH-AGGREGATE-GOV-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": []
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "aggregate_analysis"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-001",
+            "recipient_id": "PEM_STRATEGIC_FORUM",
+            "purpose": "aggregate_payment_fraud_typology",
+            "action": "aggregate_analysis",
+            "human_review": true,
+            "separate_decision_reference": "AGGREGATE-REVIEW-001"
+          }
+        ],
+        "aggregate": {
+          "denominator": 100,
+          "cell_count": 40,
+          "suppression_threshold": 20,
+          "suppression_applied": false,
+          "reidentification_review": "low",
+          "output_class": "aggregate_typology"
+        },
+        "expected_disposition": "admit_aggregate_only"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-002",
+      "scenario_type": "small_aggregate_cell_suppressed",
+      "signal": {
+        "signal_id": "SIG-002",
+        "plane": "strategic_aggregate",
+        "signal_class": "PAYMENT_FRAUD_TYPOLOGY",
+        "epistemic_status": "observed",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "PEM_STRATEGIC_FORUM"
+        ],
+        "purpose": "aggregate_payment_fraud_typology",
+        "subject_reference": null,
+        "case_reference": null,
+        "evidence": {
+          "evidence_class": "aggregated_incident_statistics",
+          "origin_verification_state": "verified",
+          "corroboration_state": "multiple_independent_sources",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-002",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "other",
+          "review_state": "verified",
+          "basis_reference": "AUTH-AGGREGATE-GOV-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": []
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "aggregate_analysis"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-002",
+            "recipient_id": "PEM_STRATEGIC_FORUM",
+            "purpose": "aggregate_payment_fraud_typology",
+            "action": "aggregate_analysis",
+            "human_review": true,
+            "separate_decision_reference": "AGGREGATE-REVIEW-001"
+          }
+        ],
+        "aggregate": {
+          "denominator": 100,
+          "cell_count": 8,
+          "suppression_threshold": 20,
+          "suppression_applied": true,
+          "reidentification_review": "low",
+          "output_class": "aggregate_typology"
+        },
+        "expected_disposition": "admit_aggregate_only"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-003",
+      "scenario_type": "small_aggregate_cell_not_suppressed",
+      "signal": {
+        "signal_id": "SIG-003",
+        "plane": "strategic_aggregate",
+        "signal_class": "PAYMENT_FRAUD_TYPOLOGY",
+        "epistemic_status": "observed",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "PEM_STRATEGIC_FORUM"
+        ],
+        "purpose": "aggregate_payment_fraud_typology",
+        "subject_reference": null,
+        "case_reference": null,
+        "evidence": {
+          "evidence_class": "aggregated_incident_statistics",
+          "origin_verification_state": "verified",
+          "corroboration_state": "multiple_independent_sources",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-003",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "other",
+          "review_state": "verified",
+          "basis_reference": "AUTH-AGGREGATE-GOV-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": []
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "aggregate_analysis"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-003",
+            "recipient_id": "PEM_STRATEGIC_FORUM",
+            "purpose": "aggregate_payment_fraud_typology",
+            "action": "aggregate_analysis",
+            "human_review": true,
+            "separate_decision_reference": "AGGREGATE-REVIEW-001"
+          }
+        ],
+        "aggregate": {
+          "denominator": 100,
+          "cell_count": 8,
+          "suppression_threshold": 20,
+          "suppression_applied": false,
+          "reidentification_review": "high",
+          "output_class": "aggregate_typology"
+        },
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-004",
+      "scenario_type": "operational_signal_without_legal_basis_review",
+      "signal": {
+        "signal_id": "SIG-004",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-004",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-004",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-004",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-004",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "unknown",
+          "review_state": "unknown",
+          "basis_reference": null,
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-004",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "quarantine_unknown_authority"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-005",
+      "scenario_type": "fsr_section_251_misclaimed_as_private_blanket_authority",
+      "signal": {
+        "signal_id": "SIG-005",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-005",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-005",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-005",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-005",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "statutory",
+          "review_state": "denied",
+          "basis_reference": "FSR_ACT_S251",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-005",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-006",
+      "scenario_type": "recipient_purpose_mismatch",
+      "signal": {
+        "signal_id": "SIG-006",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-006",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-006",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-006",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-006",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-006",
+            "recipient_id": "BANK-B",
+            "purpose": "credit_scoring",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-006"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-007",
+      "scenario_type": "authenticated_sender_but_role_not_authorised",
+      "signal": {
+        "signal_id": "SIG-007",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "unknown",
+          "credential_state": "verified",
+          "role_authority_state": "denied",
+          "signature_verification_receipt": "SIG-VERIFY-007"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-007",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-007",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-007",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-007",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-007",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-008",
+      "scenario_type": "alleged_signal_remains_assertion_not_adjudicated_fact",
+      "signal": {
+        "signal_id": "SIG-008",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-008",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-008",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-008",
+        "evidence": {
+          "evidence_class": "customer_report",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-008",
+          "evidence_commitment": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-008",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "admit_scoped_assertion"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-009",
+      "scenario_type": "allegation_promoted_to_adjudicated_without_basis",
+      "signal": {
+        "signal_id": "SIG-009",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "adjudicated",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-009",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-009",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-009",
+        "evidence": {
+          "evidence_class": "customer_report",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-009",
+          "evidence_commitment": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-009",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-010",
+      "scenario_type": "pairwise_token_scope_does_not_match_audience",
+      "signal": {
+        "signal_id": "SIG-010",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-reused-cross-audience",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-10",
+          "audience_id": "BANK-C",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-010",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-010",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-010",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-011",
+      "scenario_type": "raw_personal_data_disclosed",
+      "signal": {
+        "signal_id": "SIG-011",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-011",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-011",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-011",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-011",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": true,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-011",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-012",
+      "scenario_type": "missing_evidence_commitment",
+      "signal": {
+        "signal_id": "SIG-012",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-012",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-012",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-012",
+        "evidence": {
+          "evidence_class": "provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-012",
+          "evidence_commitment": ""
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-012",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-013",
+      "scenario_type": "expired_signal",
+      "signal": {
+        "signal_id": "SIG-013",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-013",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-013",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-013",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-013",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-04T08:00:00Z",
+          "asserted_at": "2026-11-04T08:01:00Z",
+          "issued_at": "2026-11-04T08:02:00Z",
+          "expires_at": "2026-11-04T09:00:00Z"
+        },
+        "lifecycle": {
+          "state": "expired",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-013",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "quarantine_expired"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-014",
+      "scenario_type": "disputed_signal_cannot_be_operationally_used",
+      "signal": {
+        "signal_id": "SIG-014",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-014",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-014",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-014",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-014",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "disputed",
+          "correction_state": "dispute_open",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [],
+        "aggregate": null,
+        "expected_disposition": "quarantine_disputed"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-015",
+      "scenario_type": "correction_not_acknowledged_by_recipient",
+      "signal": {
+        "signal_id": "SIG-015",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-015",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-015",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-015",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-015",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "corrected",
+          "correction_state": "correction_pending",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "pending"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [],
+        "aggregate": null,
+        "expected_disposition": "quarantine_propagation_incomplete"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-016",
+      "scenario_type": "withdrawal_fully_acknowledged",
+      "signal": {
+        "signal_id": "SIG-016",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-016",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-016",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-016",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-016",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "withdrawn",
+          "correction_state": "withdrawal_acknowledged",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "acknowledged"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [],
+        "aggregate": null,
+        "expected_disposition": "quarantine_withdrawn"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-017",
+      "scenario_type": "withdrawn_signal_recipient_attempts_new_use",
+      "signal": {
+        "signal_id": "SIG-017",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-017",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-017",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-017",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-017",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "withdrawn",
+          "correction_state": "withdrawal_acknowledged",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "acknowledged"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-017",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-018",
+      "scenario_type": "recipient_changes_purpose_after_delivery",
+      "signal": {
+        "signal_id": "SIG-018",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-018",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-018",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-018",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-018",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-018",
+            "recipient_id": "BANK-B",
+            "purpose": "marketing",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-018"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-019",
+      "scenario_type": "onward_disclosure_not_in_audience",
+      "signal": {
+        "signal_id": "SIG-019",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-019",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-019",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-019",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-019",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-019",
+            "recipient_id": "BANK-C",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-019"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-020",
+      "scenario_type": "bulk_identifier_search_attempt",
+      "signal": {
+        "signal_id": "SIG-020",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-020",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-020",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-020",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-020",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-020",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "bulk_identifier_search",
+            "human_review": false,
+            "separate_decision_reference": "LOCAL-020"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-021",
+      "scenario_type": "automatic_payment_denial_from_signal",
+      "signal": {
+        "signal_id": "SIG-021",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-021",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-021",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-021",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-021",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-021",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "automatic_payment_denial",
+            "human_review": false,
+            "separate_decision_reference": "LOCAL-021"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-022",
+      "scenario_type": "automatic_account_closure_from_signal",
+      "signal": {
+        "signal_id": "SIG-022",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-022",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-022",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-022",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-022",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-022",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "automatic_account_closure",
+            "human_review": false,
+            "separate_decision_reference": "LOCAL-022"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-023",
+      "scenario_type": "global_person_score_attempt",
+      "signal": {
+        "signal_id": "SIG-023",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-023",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-023",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-023",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-023",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-023",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "global_person_scoring",
+            "human_review": false,
+            "separate_decision_reference": "LOCAL-023"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-024",
+      "scenario_type": "missing_retention_policy",
+      "signal": {
+        "signal_id": "SIG-024",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-024",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-024",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-024",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-024",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "unknown"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-024",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "quarantine_unknown_authority"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-025",
+      "scenario_type": "expired_signing_key_cannot_issue_new_signal",
+      "signal": {
+        "signal_id": "SIG-025",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "expired",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-025"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-025",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-025",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-025",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-025",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-025",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-026",
+      "scenario_type": "historical_signature_preserved_but_revoked_key_blocks_current_use",
+      "signal": {
+        "signal_id": "SIG-026",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "revoked_after_issuance",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-026"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-026",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-026",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-026",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-026",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [],
+        "aggregate": null,
+        "expected_disposition": "quarantine_revoked_key_current_use"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-027",
+      "scenario_type": "false_positive_correction_propagates_to_all_recipients",
+      "signal": {
+        "signal_id": "SIG-027",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-case-shared-27",
+          "tokenisation_profile": "case_scoped",
+          "scope_id": "case-27",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-027",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-027",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "corrected",
+          "correction_state": "correction_acknowledged",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "acknowledged"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [],
+        "aggregate": null,
+        "expected_disposition": "quarantine_corrected"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-028",
+      "scenario_type": "dispute_open_without_resolution",
+      "signal": {
+        "signal_id": "SIG-028",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-028",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-028",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-028",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-028",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "disputed",
+          "correction_state": "dispute_open",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [],
+        "aggregate": null,
+        "expected_disposition": "quarantine_disputed"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-029",
+      "scenario_type": "recipient_does_not_acknowledge_correction",
+      "signal": {
+        "signal_id": "SIG-029",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-029",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-029",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-029",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-029",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "corrected",
+          "correction_state": "correction_pending",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "failed",
+              "correction_ack_state": "pending"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [],
+        "aggregate": null,
+        "expected_disposition": "quarantine_propagation_incomplete"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-030",
+      "scenario_type": "consent_basis_without_consent_receipt",
+      "signal": {
+        "signal_id": "SIG-030",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-030",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-030",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-030",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-030",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "consent",
+          "review_state": "unknown",
+          "basis_reference": null,
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-030",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "human_review",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-REVIEW-001"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "quarantine_unknown_authority"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-031",
+      "scenario_type": "recipient_uses_signal_for_credit_scoring",
+      "signal": {
+        "signal_id": "SIG-031",
+        "plane": "operational_case",
+        "signal_class": "APP_SCAM_INDICATOR",
+        "epistemic_status": "alleged",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "BANK-B"
+        ],
+        "purpose": "case_specific_payment_fraud_triage",
+        "subject_reference": {
+          "opaque_token": "tok-sig-031",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-SIG-031",
+          "audience_id": "BANK-B",
+          "purpose_id": "case_specific_payment_fraud_triage"
+        },
+        "case_reference": "CASE-SIG-031",
+        "evidence": {
+          "evidence_class": "customer_report_plus_provider_event",
+          "origin_verification_state": "verified",
+          "corroboration_state": "single_source",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-031",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "contract",
+          "review_state": "verified",
+          "basis_reference": "AUTH-LEGAL-REVIEW-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": [
+            {
+              "recipient_id": "BANK-B",
+              "delivery_state": "acknowledged",
+              "correction_ack_state": "not_required"
+            }
+          ]
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "triage",
+          "request_more_evidence",
+          "human_review"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-031",
+            "recipient_id": "BANK-B",
+            "purpose": "case_specific_payment_fraud_triage",
+            "action": "credit_scoring",
+            "human_review": true,
+            "separate_decision_reference": "LOCAL-031"
+          }
+        ],
+        "aggregate": null,
+        "expected_disposition": "reject"
+      }
+    },
+    {
+      "scenario_id": "ZA-FSI-032",
+      "scenario_type": "strategic_aggregate_contains_subject_reference",
+      "signal": {
+        "signal_id": "SIG-032",
+        "plane": "strategic_aggregate",
+        "signal_class": "PAYMENT_FRAUD_TYPOLOGY",
+        "epistemic_status": "observed",
+        "issuer": {
+          "organisation_id": "BANK-A",
+          "organisational_role": "regulated_payment_participant",
+          "credential_state": "verified",
+          "role_authority_state": "verified",
+          "signature_verification_receipt": "SIG-VERIFY-001"
+        },
+        "audience": [
+          "PEM_STRATEGIC_FORUM"
+        ],
+        "purpose": "aggregate_payment_fraud_typology",
+        "subject_reference": {
+          "opaque_token": "tok-person-32",
+          "tokenisation_profile": "pairwise_scoped",
+          "scope_id": "case-32",
+          "audience_id": "PEM_STRATEGIC_FORUM",
+          "purpose_id": "aggregate_payment_fraud_typology"
+        },
+        "case_reference": null,
+        "evidence": {
+          "evidence_class": "aggregated_incident_statistics",
+          "origin_verification_state": "verified",
+          "corroboration_state": "multiple_independent_sources",
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-032",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "authority": {
+          "basis_type": "other",
+          "review_state": "verified",
+          "basis_reference": "AUTH-AGGREGATE-GOV-001",
+          "policy_version": "share-policy-v1"
+        },
+        "timestamps": {
+          "observed_at": "2026-11-05T08:00:00Z",
+          "asserted_at": "2026-11-05T08:01:00Z",
+          "issued_at": "2026-11-05T08:02:00Z",
+          "expires_at": "2026-11-05T12:00:00Z"
+        },
+        "lifecycle": {
+          "state": "asserted",
+          "correction_state": "none",
+          "recipient_acknowledgements": []
+        },
+        "retention": {
+          "policy_id": "RETENTION-CASE-30D",
+          "delete_after": "2026-12-05T08:02:00Z",
+          "exception_basis": null,
+          "review_state": "verified"
+        },
+        "permitted_actions": [
+          "aggregate_analysis"
+        ],
+        "prohibited_uses": [
+          "global_person_scoring",
+          "credit_scoring",
+          "automatic_payment_denial",
+          "automatic_account_closure",
+          "essential_service_denial",
+          "unrelated_marketing",
+          "bulk_identifier_search",
+          "unrestricted_onward_disclosure"
+        ],
+        "raw_personal_data_present": false,
+        "recipient_uses": [
+          {
+            "use_id": "USE-SIG-032",
+            "recipient_id": "PEM_STRATEGIC_FORUM",
+            "purpose": "aggregate_payment_fraud_typology",
+            "action": "aggregate_analysis",
+            "human_review": true,
+            "separate_decision_reference": "AGGREGATE-REVIEW-001"
+          }
+        ],
+        "aggregate": {
+          "denominator": 100,
+          "cell_count": 40,
+          "suppression_threshold": 20,
+          "suppression_applied": false,
+          "reidentification_review": "low",
+          "output_class": "aggregate_typology"
+        },
+        "expected_disposition": "reject"
+      }
+    }
+  ],
+  "policy_source_refs": [
+    "SARB_PEM_PAGE_2026",
+    "SARB_PEM_WORKING_GROUPS_2026",
+    "SARB_PEM_POSITION_2025",
+    "SARB_PEM_DIALOGUE_APRIL_2026",
+    "FATF_PPP_DATA_SHARING_2026",
+    "FSR_ACT_2017_S251",
+    "POPIA_ACT_2013"
+  ]
+}
