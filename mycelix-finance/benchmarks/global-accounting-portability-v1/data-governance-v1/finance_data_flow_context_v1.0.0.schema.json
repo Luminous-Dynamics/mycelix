@@ -214,7 +214,10 @@
         "actor_roles",
         "home_scope_ref",
         "identity_namespace",
-        "identity_ref"
+        "identity_ref",
+        "valid_from",
+        "valid_to",
+        "recorded_at"
       ],
       "properties": {
         "actor_ref": {
@@ -243,6 +246,19 @@
         "identity_ref": {
           "type": "string",
           "minLength": 1
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
         }
       }
     },
