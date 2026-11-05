@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-acc-assertion-purpose-input-v1.json",
+  "title": "FIN-ACC assertion-purpose candidate input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "dataset_version",
+    "status",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "FIN-ACC-ASSERTION-PURPOSE"
+    },
+    "dataset_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic_assertion_procedure_conformance_not_audit_opinion"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 21,
+      "maxItems": 21,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "source_ref",
+        "origin_group_ref",
+        "evidence_class",
+        "polarity",
+        "purpose_fit",
+        "source_authentication",
+        "source_authority",
+        "temporal_fit",
+        "transformation_state"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_group_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_class": {
+          "enum": [
+            "source_document",
+            "delivery_record",
+            "bank_record",
+            "external_confirmation",
+            "management_report",
+            "approval_record",
+            "valuation_report",
+            "parsed_extraction",
+            "management_representation",
+            "other"
+          ]
+        },
+        "polarity": {
+          "enum": [
+            "supports",
+            "contradicts",
+            "neutral",
+            "duplicate",
+            "derived"
+          ]
+        },
+        "purpose_fit": {
+          "type": "boolean"
+        },
+        "source_authentication": {
+          "enum": [
+            "qualified",
+            "unqualified",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "source_authority": {
+          "enum": [
+            "qualified",
+            "unqualified",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "temporal_fit": {
+          "enum": [
+            "within_reporting_period",
+            "outside_reporting_period",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "transformation_state": {
+          "enum": [
+            "original_preserved",
+            "derived_with_lineage",
+            "derived_without_lineage",
+            "altered_or_conflicted",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "task",
+        "contract"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^AEP-[0-9]{3}$"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract": {
+          "$ref": "#/$defs/contract"
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "assertion_kind",
+        "entity_ref",
+        "period",
+        "applicability",
+        "not_applicable_rationale",
+        "procedure",
+        "population",
+        "evidence",
+        "candidate_claims",
+        "limitations"
+      ],
+      "properties": {
+        "assertion_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assertion_kind": {
+          "enum": [
+            "existence_occurrence",
+            "completeness",
+            "rights_obligations",
+            "accuracy_valuation_allocation",
+            "cutoff",
+            "classification",
+            "presentation_disclosure",
+            "authorization",
+            "settlement_finality"
+          ]
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "period_id",
+            "start_at",
+            "end_at",
+            "cutoff_at",
+            "policy_frontier_ref"
+          ],
+          "properties": {
+            "period_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "start_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "end_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "cutoff_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "policy_frontier_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "applicability": {
+          "enum": [
+            "applicable",
+            "not_applicable"
+          ]
+        },
+        "not_applicable_rationale": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "procedure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "procedure_id",
+            "purpose",
+            "required_obligations",
+            "min_independent_origins"
+          ],
+          "properties": {
+            "procedure_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required_obligations": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "purpose_fit",
+                  "source_authentication",
+                  "issuer_authority",
+                  "population_completeness",
+                  "independent_corroboration",
+                  "transformation_lineage",
+                  "temporal_coverage",
+                  "authorization"
+                ]
+              }
+            },
+            "min_independent_origins": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20
+            }
+          }
+        },
+        "population": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scope_status",
+            "expected_count",
+            "observed_count",
+            "population_ref"
+          ],
+          "properties": {
+            "scope_status": {
+              "enum": [
+                "qualified",
+                "gap",
+                "unknown",
+                "not_required"
+              ]
+            },
+            "expected_count": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "observed_count": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "population_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "candidate_claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim_id",
+              "evidence_refs"
+            ],
+            "properties": {
+              "claim_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

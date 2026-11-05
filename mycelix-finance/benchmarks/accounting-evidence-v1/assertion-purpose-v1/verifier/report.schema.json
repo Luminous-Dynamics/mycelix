@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-acc-assertion-purpose-report-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "benchmark_id",
+    "dataset_version",
+    "status",
+    "claim_scope",
+    "digests",
+    "case_count",
+    "passed_case_count",
+    "errors",
+    "cases"
+  ],
+  "properties": {
+    "report_schema": {
+      "const": "fin-acc-assertion-purpose.report.v1"
+    },
+    "benchmark_id": {
+      "const": "FIN-ACC-ASSERTION-PURPOSE"
+    },
+    "dataset_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "claim_scope": {
+      "const": "public_synthetic_assertion_purpose_conformance_not_audit_sufficiency"
+    },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_input_sha256",
+        "candidate_schema_sha256",
+        "public_oracle_sha256",
+        "oracle_schema_sha256",
+        "verifier_source_sha256"
+      ],
+      "properties": {
+        "candidate_input_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "candidate_schema_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "public_oracle_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_schema_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "verifier_source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passed_case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "actual_disposition",
+          "expected_disposition",
+          "passed",
+          "reason_codes"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^AEP-[0-9]{3}$"
+          },
+          "actual_disposition": {
+            "enum": [
+              "supported_within_declared_scope",
+              "contradicted",
+              "insufficient_evidence",
+              "indeterminate",
+              "not_applicable_with_rationale",
+              "needs_authorized_review"
+            ]
+          },
+          "expected_disposition": {
+            "enum": [
+              "supported_within_declared_scope",
+              "contradicted",
+              "insufficient_evidence",
+              "indeterminate",
+              "not_applicable_with_rationale",
+              "needs_authorized_review"
+            ]
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

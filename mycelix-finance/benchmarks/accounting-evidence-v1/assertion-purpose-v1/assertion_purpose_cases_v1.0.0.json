@@ -1,0 +1,1188 @@
+{
+  "benchmark_id": "FIN-ACC-ASSERTION-PURPOSE",
+  "dataset_version": "1.0.0",
+  "status": "synthetic_assertion_procedure_conformance_not_audit_opinion",
+  "cases": [
+    {
+      "case_id": "AEP-001",
+      "task": "Determine whether the billed acquisition occurrence is supported by the purchase order, receipt record and supplier invoice.",
+      "contract": {
+        "assertion_id": "assert-aep-001",
+        "assertion_kind": "existence_occurrence",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-001",
+          "purpose": "Occurrence of the acquired goods within the synthetic reporting period",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "temporal_coverage",
+            "transformation_lineage",
+            "independent_corroboration"
+          ],
+          "min_independent_origins": 2
+        },
+        "population": {
+          "scope_status": "qualified",
+          "expected_count": 1,
+          "observed_count": 1,
+          "population_ref": "population-ap-001"
+        },
+        "evidence": [
+          {
+            "evidence_id": "invoice-001",
+            "source_ref": "src-invoice-001",
+            "origin_group_ref": "supplier-system-001",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          },
+          {
+            "evidence_id": "grn-001",
+            "source_ref": "src-grn-001",
+            "origin_group_ref": "warehouse-system-001",
+            "evidence_class": "delivery_record",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-002",
+      "task": "Determine whether an invoice alone proves that goods were received.",
+      "contract": {
+        "assertion_id": "assert-aep-002",
+        "assertion_kind": "existence_occurrence",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-002",
+          "purpose": "Occurrence of goods receipt, not merely a supplier billing claim",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "temporal_coverage",
+            "transformation_lineage",
+            "independent_corroboration"
+          ],
+          "min_independent_origins": 2
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "invoice-002",
+            "source_ref": "src-invoice-002",
+            "origin_group_ref": "supplier-system-002",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-003",
+      "task": "Determine whether a bank report and screenshot from the same source are independent corroboration.",
+      "contract": {
+        "assertion_id": "assert-aep-003",
+        "assertion_kind": "settlement_finality",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-003",
+          "purpose": "Independent corroboration of the bank-reported debit",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "independent_corroboration"
+          ],
+          "min_independent_origins": 2
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "bank-report-003",
+            "source_ref": "src-bank-report-003",
+            "origin_group_ref": "bank-export-session-003",
+            "evidence_class": "bank_record",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          },
+          {
+            "evidence_id": "bank-screenshot-003",
+            "source_ref": "src-bank-screenshot-003",
+            "origin_group_ref": "bank-export-session-003",
+            "evidence_class": "parsed_extraction",
+            "polarity": "derived",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "derived_with_lineage"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-004",
+      "task": "Determine whether a qualified external bank confirmation contradicts the internal cash ledger.",
+      "contract": {
+        "assertion_id": "assert-aep-004",
+        "assertion_kind": "accuracy_valuation_allocation",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-004",
+          "purpose": "Determine whether a qualified external bank confirmation contradicts the internal cash ledger.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "gl-report-004",
+            "source_ref": "src-gl-report-004",
+            "origin_group_ref": "entity-gl-004",
+            "evidence_class": "management_report",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          },
+          {
+            "evidence_id": "bank-confirm-004",
+            "source_ref": "src-bank-confirm-004",
+            "origin_group_ref": "bank-direct-004",
+            "evidence_class": "external_confirmation",
+            "polarity": "contradicts",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-005",
+      "task": "Determine whether an unverified supplier-origin document is sufficient for an issuer-authenticity assertion.",
+      "contract": {
+        "assertion_id": "assert-aep-005",
+        "assertion_kind": "rights_obligations",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-005",
+          "purpose": "Determine whether an unverified supplier-origin document is sufficient for an issuer-authenticity assertion.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "supplier-doc-005",
+            "source_ref": "src-supplier-doc-005",
+            "origin_group_ref": "supplier-upload-005",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "unknown",
+            "source_authority": "unknown",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-006",
+      "task": "Determine whether a supplier invoice for a different legal entity contradicts the target entity's obligation assertion.",
+      "contract": {
+        "assertion_id": "assert-aep-006",
+        "assertion_kind": "rights_obligations",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-006",
+          "purpose": "Determine whether a supplier invoice for a different legal entity contradicts the target entity's obligation assertion.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "wrong-entity-invoice-006",
+            "source_ref": "src-wrong-entity-invoice-006",
+            "origin_group_ref": "supplier-direct-006",
+            "evidence_class": "source_document",
+            "polarity": "contradicts",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-007",
+      "task": "Determine whether evidence outside the reporting period supports a period-specific assertion.",
+      "contract": {
+        "assertion_id": "assert-aep-007",
+        "assertion_kind": "cutoff",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-007",
+          "purpose": "Determine whether evidence outside the reporting period supports a period-specific assertion.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "temporal_coverage"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "stale-record-007",
+            "source_ref": "src-stale-record-007",
+            "origin_group_ref": "external-source-007",
+            "evidence_class": "external_confirmation",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "outside_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-008",
+      "task": "Determine whether an authenticated delivery record after the cutoff contradicts an assertion that delivery occurred before cutoff.",
+      "contract": {
+        "assertion_id": "assert-aep-008",
+        "assertion_kind": "cutoff",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-008",
+          "purpose": "Determine whether an authenticated delivery record after the cutoff contradicts an assertion that delivery occurred before cutoff.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "temporal_coverage"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "delivery-after-cutoff-008",
+            "source_ref": "src-delivery-after-cutoff-008",
+            "origin_group_ref": "warehouse-direct-008",
+            "evidence_class": "delivery_record",
+            "polarity": "contradicts",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "outside_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-009",
+      "task": "Determine whether an approval record signed by a non-delegated role satisfies authorization.",
+      "contract": {
+        "assertion_id": "assert-aep-009",
+        "assertion_kind": "authorization",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-009",
+          "purpose": "Determine whether an approval record signed by a non-delegated role satisfies authorization.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "authorization"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "approval-009",
+            "source_ref": "src-approval-009",
+            "origin_group_ref": "workflow-009",
+            "evidence_class": "approval_record",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "unqualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-010",
+      "task": "Determine whether a supplier invoice alone supports inventory net-realizable-value valuation.",
+      "contract": {
+        "assertion_id": "assert-aep-010",
+        "assertion_kind": "accuracy_valuation_allocation",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-010",
+          "purpose": "Determine whether a supplier invoice alone supports inventory net-realizable-value valuation.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "transformation_lineage"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "invoice-cost-010",
+            "source_ref": "src-invoice-cost-010",
+            "origin_group_ref": "supplier-010",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": false,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-011",
+      "task": "Determine whether a management report and general-ledger extract from the same upstream ledger are independent corroboration.",
+      "contract": {
+        "assertion_id": "assert-aep-011",
+        "assertion_kind": "completeness",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-011",
+          "purpose": "Independent corroboration of the completeness of ledger postings",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "independent_corroboration"
+          ],
+          "min_independent_origins": 2
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "management-report-011",
+            "source_ref": "src-management-report-011",
+            "origin_group_ref": "same-ledger-011",
+            "evidence_class": "management_report",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          },
+          {
+            "evidence_id": "gl-export-011",
+            "source_ref": "src-gl-export-011",
+            "origin_group_ref": "same-ledger-011",
+            "evidence_class": "management_report",
+            "polarity": "derived",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "derived_with_lineage"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-012",
+      "task": "Determine whether a management representation contradicted by an independently authenticated external confirmation supports the claim.",
+      "contract": {
+        "assertion_id": "assert-aep-012",
+        "assertion_kind": "rights_obligations",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-012",
+          "purpose": "Determine whether a management representation contradicted by an independently authenticated external confirmation supports the claim.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "management-letter-012",
+            "source_ref": "src-management-letter-012",
+            "origin_group_ref": "management-012",
+            "evidence_class": "management_representation",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          },
+          {
+            "evidence_id": "external-confirm-012",
+            "source_ref": "src-external-confirm-012",
+            "origin_group_ref": "regulator-direct-012",
+            "evidence_class": "external_confirmation",
+            "polarity": "contradicts",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-013",
+      "task": "Determine whether OCR-derived amount text without a retained transformation recipe can support an exact amount assertion.",
+      "contract": {
+        "assertion_id": "assert-aep-013",
+        "assertion_kind": "accuracy_valuation_allocation",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-013",
+          "purpose": "Determine whether OCR-derived amount text without a retained transformation recipe can support an exact amount assertion.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "transformation_lineage"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "ocr-extract-013",
+            "source_ref": "src-ocr-extract-013",
+            "origin_group_ref": "invoice-source-013",
+            "evidence_class": "parsed_extraction",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "derived_without_lineage"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-014",
+      "task": "Determine whether a candidate explanation that cites a nonexistent evidence reference can support the assertion.",
+      "contract": {
+        "assertion_id": "assert-aep-014",
+        "assertion_kind": "existence_occurrence",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-014",
+          "purpose": "Determine whether a candidate explanation that cites a nonexistent evidence reference can support the assertion.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "invoice-014",
+            "source_ref": "src-invoice-014",
+            "origin_group_ref": "supplier-014",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [
+          {
+            "claim_id": "claim-014",
+            "evidence_refs": [
+              "invoice-014",
+              "missing-source-999"
+            ]
+          }
+        ],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-015",
+      "task": "Determine whether a valid supplier invoice is relevant to the assertion that the entity holds title to the inventory.",
+      "contract": {
+        "assertion_id": "assert-aep-015",
+        "assertion_kind": "rights_obligations",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-015",
+          "purpose": "Determine whether a valid supplier invoice is relevant to the assertion that the entity holds title to the inventory.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "invoice-015",
+            "source_ref": "src-invoice-015",
+            "origin_group_ref": "supplier-015",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": false,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-016",
+      "task": "Determine whether a tax assertion is applicable to this explicitly tax-exempt synthetic transaction.",
+      "contract": {
+        "assertion_id": "assert-aep-016",
+        "assertion_kind": "presentation_disclosure",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "not_applicable",
+        "not_applicable_rationale": "The synthetic case profile explicitly excludes tax scope; no tax assertion is being evaluated.",
+        "procedure": {
+          "procedure_id": "proc-aep-016",
+          "purpose": "Determine whether a tax assertion is applicable to this explicitly tax-exempt synthetic transaction.",
+          "required_obligations": [],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-017",
+      "task": "Determine whether a close population is complete when the expected source manifest reports a gap.",
+      "contract": {
+        "assertion_id": "assert-aep-017",
+        "assertion_kind": "completeness",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-017",
+          "purpose": "Determine whether a close population is complete when the expected source manifest reports a gap.",
+          "required_obligations": [
+            "purpose_fit",
+            "population_completeness"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "gap",
+          "expected_count": 100,
+          "observed_count": 87,
+          "population_ref": "ap-population-017"
+        },
+        "evidence": [
+          {
+            "evidence_id": "ap-summary-017",
+            "source_ref": "src-ap-summary-017",
+            "origin_group_ref": "ap-system-017",
+            "evidence_class": "management_report",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-018",
+      "task": "Determine whether an invoice amount record is relevant to an existence assertion about physical delivery.",
+      "contract": {
+        "assertion_id": "assert-aep-018",
+        "assertion_kind": "existence_occurrence",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-018",
+          "purpose": "Determine whether an invoice amount record is relevant to an existence assertion about physical delivery.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "invoice-018",
+            "source_ref": "src-invoice-018",
+            "origin_group_ref": "supplier-018",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": false,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-019",
+      "task": "Determine whether an otherwise relevant source with explicitly unqualified sender authentication can be used as the primary support.",
+      "contract": {
+        "assertion_id": "assert-aep-019",
+        "assertion_kind": "accuracy_valuation_allocation",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-019",
+          "purpose": "Determine whether an otherwise relevant source with explicitly unqualified sender authentication can be used as the primary support.",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority"
+          ],
+          "min_independent_origins": 1
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "source-019",
+            "source_ref": "src-source-019",
+            "origin_group_ref": "unverified-channel-019",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "unqualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-020",
+      "task": "Determine whether two copies of a supplier invoice from one origin can satisfy a two-origin corroboration requirement.",
+      "contract": {
+        "assertion_id": "assert-aep-020",
+        "assertion_kind": "accuracy_valuation_allocation",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-020",
+          "purpose": "Corroborate the supplier's billed amount with two independent origins",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "independent_corroboration"
+          ],
+          "min_independent_origins": 2
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "invoice-original-020",
+            "source_ref": "src-invoice-original-020",
+            "origin_group_ref": "supplier-system-020",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          },
+          {
+            "evidence_id": "invoice-copy-020",
+            "source_ref": "src-invoice-copy-020",
+            "origin_group_ref": "supplier-system-020",
+            "evidence_class": "source_document",
+            "polarity": "duplicate",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-021",
+      "task": "Determine whether different source artifacts reusing one evidence ID can be independently qualified.",
+      "contract": {
+        "assertion_id": "assert-aep-021",
+        "assertion_kind": "accuracy_valuation_allocation",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-021",
+          "purpose": "Check evidence identity integrity before exact amount qualification",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "independent_corroboration"
+          ],
+          "min_independent_origins": 2
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "shared-evidence-id-021",
+            "source_ref": "src-evidence-a-021",
+            "origin_group_ref": "origin-group-021-a",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          },
+          {
+            "evidence_id": "shared-evidence-id-021",
+            "source_ref": "src-evidence-b-021",
+            "origin_group_ref": "origin-group-021-b",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic duplicate evidence ID control."
+        ]
+      }
+    }
+  ]
+}
