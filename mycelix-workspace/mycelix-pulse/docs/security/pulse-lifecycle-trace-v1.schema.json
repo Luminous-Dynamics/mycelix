@@ -118,7 +118,8 @@
         "assigned",
         "functions",
         "idempotency_key",
-        "authority_index"
+        "authority_index",
+        "request_digest_sha256"
       ],
       "properties": {
         "grant_ref": {
@@ -156,6 +157,11 @@
         "authority_index": {
           "type": "integer",
           "minimum": 1
+        },
+        "request_digest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 commitment to the canonical normalized request used for grant idempotency"
         }
       }
     },
