@@ -18,7 +18,9 @@
         "grantor": "agent-owner",
         "grantee": "agent-recipient",
         "assigned": true,
-        "functions": ["messages.send"],
+        "functions": [
+          "messages.send"
+        ],
         "idempotency_key": "grant-request-001",
         "authority_index": 1
       }
@@ -132,7 +134,10 @@
         "transport_sender": "agent-attacker",
         "backing_action_hash": null,
         "trusted_state_mutation": false,
-        "authorizes_operation": false
+        "authorizes_operation": false,
+        "record_author": null,
+        "verified_payload_sha256": null,
+        "verifier_build": null
       }
     },
     {
