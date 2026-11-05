@@ -1,0 +1,405 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-human-decision-v1.schema.json",
+  "title": "Mycelix South African Payment Human Decision Development Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "as_of",
+    "created_on",
+    "jurisdiction",
+    "purpose",
+    "external_effects_enabled",
+    "participant_data_included",
+    "holdout_status",
+    "design",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-human-decision/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-PAYMENT-HUMAN-DECISION-DEVELOPMENT-24"
+    },
+    "status": {
+      "const": "synthetic_development_only"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "participant_data_included": {
+      "const": false
+    },
+    "holdout_status": {
+      "const": "not_a_blinded_holdout"
+    },
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arms",
+        "allocation",
+        "truth_class_counts",
+        "primary_endpoints",
+        "single_composite_score_prohibited",
+        "sample_size",
+        "human_study_status"
+      ],
+      "properties": {
+        "arms": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allocation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "truth_class_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "legitimate_supported",
+            "deceptive_or_contradictory",
+            "insufficient_or_ambiguous"
+          ],
+          "properties": {
+            "legitimate_supported": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "deceptive_or_contradictory": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "insufficient_or_ambiguous": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "primary_endpoints": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "single_composite_score_prohibited": {
+          "const": true
+        },
+        "sample_size": {
+          "type": "string",
+          "minLength": 1
+        },
+        "human_study_status": {
+          "const": "not_approved_not_started"
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 24,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visible_fields",
+        "warning_style",
+        "body"
+      ],
+      "properties": {
+        "visible_fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "warning_style": {
+          "enum": [
+            "generic_confirmation",
+            "evidence_and_uncertainty_explicit"
+          ]
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "scenario_type",
+        "truth_class",
+        "simulation_only",
+        "real_money_enabled",
+        "pii_present",
+        "locale",
+        "translation_status",
+        "task_context",
+        "request",
+        "evidence",
+        "baseline_presentation",
+        "treatment_presentation",
+        "critical_material_fields",
+        "expected_action",
+        "reference_rationale",
+        "comprehension_items",
+        "presentation_modes",
+        "language_coverage"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "pattern": "^HD-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "truth_class": {
+          "enum": [
+            "legitimate_supported",
+            "deceptive_or_contradictory",
+            "insufficient_or_ambiguous"
+          ]
+        },
+        "simulation_only": {
+          "const": true
+        },
+        "real_money_enabled": {
+          "const": false
+        },
+        "pii_present": {
+          "const": false
+        },
+        "locale": {
+          "type": "string",
+          "const": "en-ZA"
+        },
+        "translation_status": {
+          "type": "string",
+          "const": "development_english_only"
+        },
+        "task_context": {
+          "type": "string",
+          "minLength": 20
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "request_id",
+            "request_version",
+            "counterparty_label",
+            "beneficiary_label",
+            "amount_minor_units",
+            "currency",
+            "fee_minor_units",
+            "purpose",
+            "reference",
+            "expiry_state",
+            "expires_in_minutes"
+          ],
+          "properties": {
+            "request_id": {
+              "type": "string",
+              "pattern": "^SIM-HD-[0-9]{3}$"
+            },
+            "request_version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "counterparty_label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "beneficiary_label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "amount_minor_units": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "currency": {
+              "const": "ZAR"
+            },
+            "fee_minor_units": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "expiry_state": {
+              "enum": [
+                "known",
+                "unknown"
+              ]
+            },
+            "expires_in_minutes": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sender_authentication",
+            "payee_match",
+            "requester_authority",
+            "claim_evidence",
+            "digest_integrity",
+            "freshness"
+          ],
+          "properties": {
+            "sender_authentication": {
+              "enum": [
+                "verified",
+                "authenticated_session",
+                "unknown",
+                "compromised_or_suspected"
+              ]
+            },
+            "payee_match": {
+              "enum": [
+                "match",
+                "close_match",
+                "no_match",
+                "unable_to_verify",
+                "stale"
+              ]
+            },
+            "requester_authority": {
+              "enum": [
+                "confirmed",
+                "not_established",
+                "contradicted",
+                "unknown"
+              ]
+            },
+            "claim_evidence": {
+              "enum": [
+                "supported",
+                "insufficient",
+                "unsupported",
+                "contradicted",
+                "already_satisfied"
+              ]
+            },
+            "digest_integrity": {
+              "enum": [
+                "valid",
+                "mismatch",
+                "unknown"
+              ]
+            },
+            "freshness": {
+              "enum": [
+                "current",
+                "stale",
+                "unknown"
+              ]
+            }
+          }
+        },
+        "baseline_presentation": {
+          "$ref": "#/$defs/presentation"
+        },
+        "treatment_presentation": {
+          "$ref": "#/$defs/presentation"
+        },
+        "critical_material_fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "expected_action": {
+          "enum": [
+            "accept",
+            "decline_and_report",
+            "pause_and_verify"
+          ]
+        },
+        "reference_rationale": {
+          "type": "string",
+          "minLength": 20
+        },
+        "comprehension_items": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "presentation_modes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "mobile_simulation",
+              "desktop_simulation",
+              "screen_reader_simulation",
+              "low_bandwidth_simulation",
+              "ussd_prototype_simulation"
+            ]
+          }
+        },
+        "language_coverage": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
