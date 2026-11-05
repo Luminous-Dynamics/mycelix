@@ -454,7 +454,7 @@
             "purpose_fit": true,
             "source_authentication": "qualified",
             "source_authority": "qualified",
-            "temporal_fit": "within_reporting_period",
+            "temporal_fit": "outside_reporting_period",
             "transformation_state": "original_preserved"
           }
         ],
@@ -1116,6 +1116,71 @@
         "candidate_claims": [],
         "limitations": [
           "Synthetic evidence only; no audit opinion or professional assurance conclusion."
+        ]
+      }
+    },
+    {
+      "case_id": "AEP-021",
+      "task": "Determine whether different source artifacts reusing one evidence ID can be independently qualified.",
+      "contract": {
+        "assertion_id": "assert-aep-021",
+        "assertion_kind": "accuracy_valuation_allocation",
+        "entity_ref": "entity-synthetic-001",
+        "period": {
+          "period_id": "2026-10",
+          "start_at": "2026-10-01T00:00:00+02:00",
+          "end_at": "2026-11-01T00:00:00+02:00",
+          "cutoff_at": "2026-11-01T00:00:00+02:00",
+          "policy_frontier_ref": "policy-synthetic-v1"
+        },
+        "applicability": "applicable",
+        "not_applicable_rationale": null,
+        "procedure": {
+          "procedure_id": "proc-aep-021",
+          "purpose": "Check evidence identity integrity before exact amount qualification",
+          "required_obligations": [
+            "purpose_fit",
+            "source_authentication",
+            "issuer_authority",
+            "independent_corroboration"
+          ],
+          "min_independent_origins": 2
+        },
+        "population": {
+          "scope_status": "not_required",
+          "expected_count": null,
+          "observed_count": null,
+          "population_ref": null
+        },
+        "evidence": [
+          {
+            "evidence_id": "shared-evidence-id-021",
+            "source_ref": "src-evidence-a-021",
+            "origin_group_ref": "origin-group-021-a",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          },
+          {
+            "evidence_id": "shared-evidence-id-021",
+            "source_ref": "src-evidence-b-021",
+            "origin_group_ref": "origin-group-021-b",
+            "evidence_class": "source_document",
+            "polarity": "supports",
+            "purpose_fit": true,
+            "source_authentication": "qualified",
+            "source_authority": "qualified",
+            "temporal_fit": "within_reporting_period",
+            "transformation_state": "original_preserved"
+          }
+        ],
+        "candidate_claims": [],
+        "limitations": [
+          "Synthetic duplicate evidence ID control."
         ]
       }
     }
