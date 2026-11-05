@@ -67,3 +67,16 @@ Quality measures include false-ready and false-quarantine rates, freshness and u
 ## Claim ceiling
 
 A synthetic PASS does not establish live South African VoP coverage, live JWS verification, legal payee identity, requester authority, debt validity, payment authorisation, dispatch, settlement or legal finality.
+
+
+## Independent timestamp freshness check
+
+A freshness label is not sufficient by itself. Every certificate scenario binds a frozen `evaluation_time`. The evaluator independently checks:
+- payment intent issue/expiry window;
+- payee resolution observation, expiry and profile maximum age;
+- VoP result observation/expiry and profile maximum age;
+- signed provider evidence issue/expiry and profile maximum age;
+- limit/fee evidence observation, expiry and profile maximum age;
+- payer decision time relative to presentation, evaluation and intent expiry.
+
+The synthetic evaluator uses UTC RFC 3339 timestamps to make replay deterministic. A provider label of `fresh` cannot override an expired, future-dated or over-age timestamp. Unknown freshness bounds are quarantined, not guessed.
