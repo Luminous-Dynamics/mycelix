@@ -63,7 +63,8 @@
           "period_ref": "2026-10",
           "source_journal_entry_refs": [
             "JE-001"
-          ]
+          ],
+          "normal_balance": "debit"
         }
       ]
     },
@@ -168,7 +169,8 @@
           "period_ref": "2026-10",
           "source_journal_entry_refs": [
             "JE-004"
-          ]
+          ],
+          "normal_balance": "debit"
         }
       ]
     },
@@ -317,7 +319,8 @@
           "period_ref": "2026-10",
           "source_journal_entry_refs": [
             "JE-008-OCT"
-          ]
+          ],
+          "normal_balance": "debit"
         },
         {
           "statement_line_ref": "ST-008-NOV",
@@ -329,7 +332,8 @@
           "period_ref": "2026-11",
           "source_journal_entry_refs": [
             "JE-008-NOV"
-          ]
+          ],
+          "normal_balance": "debit"
         }
       ]
     },
