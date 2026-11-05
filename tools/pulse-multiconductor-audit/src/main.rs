@@ -187,7 +187,9 @@ fn valid_event_shape(event: &Event) -> bool {
                 && matches!(str_value(&event.data,"host_state_at_decision"),Some("active"|"revoked"|"absent"|"unknown"))
                 && matches!(str_value(&event.data,"domain_decision"),Some("allow"|"deny"|"not_run"|"unknown"))
         }
-        "domain_effect" | "caller_outcome" => u64_value(&event.data,"attempt_id").is_some_and(|v| v > 0),
+        "domain_effect" => u64_value(&event.data,"attempt_id").is_some_and(|v| v > 0),
+        "caller_outcome" => u64_value(&event.data,"attempt_id").is_some_and(|v| v > 0)
+            && matches!(str_value(&event.data,"outcome"),Some("acknowledged"|"unknown"|"committed"|"not_committed"|"rejected")),
         "validation_disposition" => {
             matches!(str_value(&event.data,"disposition"),Some("accepted"|"rejected"))
                 && (event.data["reason_code"].is_null() || event.data["reason_code"].is_string())
@@ -201,7 +203,6 @@ fn valid_event_shape(event: &Event) -> bool {
                 && ["transport_sender","claimed_sender","backing_action_hash","record_author","verified_payload_sha256","verifier_build"]
                     .iter().all(|k| event.data[*k].is_null() || event.data[*k].is_string())
         }
-        "caller_outcome" => matches!(str_value(&event.data,"outcome"),Some("acknowledged"|"unknown"|"committed"|"not_committed"|"rejected")),
         _ => true,
     }
 }
@@ -497,7 +498,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         let hash=str_value(d,"action_hash").unwrap_or_default();
         let matching:Vec<_>=validation_events.iter().filter(|v|str_value(&v.data,"action_hash")==Some(hash)).collect();
         if matching.iter().any(|v|str_value(&v.data,"disposition")==Some("rejected"))&&decision=="trusted" { finding(&mut findings,"REJECTED_ACTION_PROJECTED_AS_TRUSTED","violation",Some(&e.event_id),"a rejected action cannot be trusted as integrated"); }
-        for v in matching { if !path_exists(&adjacency,&v.event_id,&e.event_id) { finding(&mut findings,"VALIDATION_NOT_CAUSAL_BEFORE_PROJECTION","incomplete",Some(&e.event_id),"projection must causally follow validation disposition"); } }
+        for v in &matching { if !path_exists(&adjacency,&v.event_id,&e.event_id) { finding(&mut findings,"VALIDATION_NOT_CAUSAL_BEFORE_PROJECTION","incomplete",Some(&e.event_id),"projection must causally follow validation disposition"); } }
         if decision=="trusted"&&matching.is_empty() { finding(&mut findings,"TRUSTED_PROJECTION_WITHOUT_VALIDATION","incomplete",Some(&e.event_id),"trusted projection lacks a matching receiving-validator disposition"); }
     }
 
@@ -507,7 +508,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         let attempt=u64_value(d,"attempt_id").unwrap_or(0);
         let outcome=str_value(d,"outcome").unwrap_or_default();
         let effect=effect_bindings.contains(&(op.clone(),attempt));
-        match calls.get(&(op,attempt)) {
+        match calls.get(&(op.clone(),attempt)) {
             None=>finding(&mut findings,"OUTCOME_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"caller outcome has no host-call attempt"),
             Some(call)=>{
                 if !path_exists(&adjacency,&call.event_id,&e.event_id) { finding(&mut findings,"OUTCOME_NOT_CAUSAL_AFTER_CALL","incomplete",Some(&e.event_id),"caller outcome must causally follow the host call"); }
