@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-profile-resolution-request-v1.0.0.json",
+  "title": "Global Profile Resolution Request v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "intended_use",
+    "jurisdiction_scopes",
+    "entity_scope",
+    "reporting_period_start",
+    "reporting_period_end",
+    "knowledge_at",
+    "required_dimensions",
+    "selected_profile_ids",
+    "allow_synthetic"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{3,100}$"
+    },
+    "intended_use": {
+      "enum": [
+        "research",
+        "accounting_analysis",
+        "accounting_projection",
+        "tax_calculation",
+        "statutory_reporting",
+        "e_invoice_validation",
+        "digital_reporting",
+        "management_reporting"
+      ]
+    },
+    "jurisdiction_scopes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "entity_scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reporting_period_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "reporting_period_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "knowledge_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "required_dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "portable_core",
+          "jurisdiction_adoption_reference",
+          "accounting_framework",
+          "e_invoice_interoperability",
+          "e_invoice_semantics",
+          "digital_reporting_taxonomy",
+          "digital_tax_reporting_reference",
+          "jurisdiction_profile",
+          "locale_data",
+          "timezone_database",
+          "tax_profile",
+          "currency_profile"
+        ]
+      }
+    },
+    "selected_profile_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9-]+$"
+      }
+    },
+    "allow_synthetic": {
+      "type": "boolean"
+    }
+  }
+}
