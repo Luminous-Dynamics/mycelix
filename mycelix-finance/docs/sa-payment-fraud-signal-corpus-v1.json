@@ -2137,7 +2137,7 @@
       "query": {
         "recipient_id": "BANK-B",
         "recipient_class": "regulated_payment_participant",
-        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-020",
+        "recipient_subject_ref": "global:SUBJECT-00020",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
         "evaluated_at": "2026-11-05T08:00:00Z"
