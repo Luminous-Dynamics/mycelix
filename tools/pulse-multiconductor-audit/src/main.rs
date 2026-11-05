@@ -293,7 +293,7 @@ fn audit(history:&History,input_sha256:String)->Report {
     let mut edge_keys=BTreeSet::new();
     for edge in &history.causal_edges {
         if !edge_keys.insert((edge.from_event.clone(),edge.to_event.clone(),edge.relation.clone())) { finding(&mut findings,"DUPLICATE_CAUSAL_EDGE","violation",None,"duplicate causal edge"); }
-        if edge.from_event==edge.to_event { finding(&mut findings,"SELF_CAUSAL_EDGE","violation,None,"causal edge cannot point to itself"); }
+        if edge.from_event==edge.to_event { finding(&mut findings,"SELF_CAUSAL_EDGE","violation",None,"causal edge cannot point to itself"); }
         if edge.evidence_ref.trim().is_empty()||!relation_valid(&edge.relation) { finding(&mut findings,"CAUSAL_EDGE_EVIDENCE_INVALID","incomplete",None,"edge relation and evidence_ref are required"); }
         let (Some(from),Some(to))=(event_map.get(&edge.from_event),event_map.get(&edge.to_event)) else {
             finding(&mut findings,"CAUSAL_EDGE_ENDPOINT_MISSING","incomplete",None,"edge references a missing event"); continue;
