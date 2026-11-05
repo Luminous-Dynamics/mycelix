@@ -13,7 +13,7 @@
       "source_role": "methodology_page",
       "canonical_url": "https://www.mercor.com/apex/methodology/",
       "observed_at": "2026-11-05T19:39:00+02:00",
-      "publication_date": "2026-03-01",
+      "publication_date": null,
       "source_state": "current_methodology_snapshot",
       "access": {
         "metadata_access": "public",
@@ -283,7 +283,7 @@
       "source_role": "research_paper",
       "canonical_url": "https://aclanthology.org/2026.findings-emnlp.675/",
       "observed_at": "2026-11-05T19:39:00+02:00",
-      "publication_date": "2026-10-01",
+      "publication_date": null,
       "source_state": "primary_paper_snapshot",
       "access": {
         "metadata_access": "public",
