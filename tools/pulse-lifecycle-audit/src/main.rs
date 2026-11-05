@@ -107,6 +107,7 @@ struct GrantIssued {
     assigned: bool,
     functions: Vec<String>,
     idempotency_key: String,
+    request_digest_sha256: String,
     authority_index: u64,
 }
 
@@ -334,6 +335,10 @@ fn finding(
     });
 }
 
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+}
+
 fn valid_source_commit(value: &str) -> bool {
     value.len() == 40 && value.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
@@ -359,7 +364,7 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
     let mut findings = Vec::new();
     let mut counts = Counts { events: bundle.events.len(), ..Counts::default() };
     let mut grants: BTreeMap<String, GrantState> = BTreeMap::new();
-    let mut idempotency: BTreeMap<String, String> = BTreeMap::new();
+    let mut idempotency: BTreeMap<String, (String, String)> = BTreeMap::new();
     let mut grant_hashes = BTreeSet::new();
     let mut event_ids = BTreeSet::new();
     let mut call_states: BTreeMap<(String, u32), CallState> = BTreeMap::new();
@@ -417,7 +422,8 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 if issue.grant_ref.trim().is_empty() || issue.grant_action_hash.trim().is_empty() ||
                     issue.grantor.trim().is_empty() || issue.grantee.trim().is_empty() ||
                     issue.idempotency_key.trim().is_empty() || issue.functions.is_empty() ||
-                    issue.functions.iter().any(|f| f.trim().is_empty()) {
+                    issue.functions.iter().any(|f| f.trim().is_empty()) ||
+                    !valid_sha256(&issue.request_digest_sha256) {
                     finding(&mut findings, "GRANT_ISSUANCE_INCOMPLETE", "incomplete",
                         Some(&event.event_id), "grant identity, actors, idempotency key and scope are required");
                 }
@@ -427,13 +433,17 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 }
                 last_authority_index = issue.authority_index;
 
-                if let Some(existing) = idempotency.get(&issue.idempotency_key) {
-                    if existing != &issue.grant_ref {
+                if let Some((existing_grant, existing_digest)) = idempotency.get(&issue.idempotency_key) {
+                    if existing_digest != &issue.request_digest_sha256 {
+                        finding(&mut findings, "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST", "violation",
+                            Some(&event.event_id), "one idempotency key was presented with different canonical request digests");
+                    }
+                    if existing_grant != &issue.grant_ref {
                         finding(&mut findings, "IDEMPOTENCY_KEY_MINTED_MULTIPLE_GRANTS", "violation",
-                            Some(&event.event_id), format!("idempotency key {} maps to {} and {}", issue.idempotency_key, existing, issue.grant_ref));
+                            Some(&event.event_id), format!("idempotency key {} maps to {} and {}", issue.idempotency_key, existing_grant, issue.grant_ref));
                     }
                 } else {
-                    idempotency.insert(issue.idempotency_key.clone(), issue.grant_ref.clone());
+                    idempotency.insert(issue.idempotency_key.clone(), (issue.grant_ref.clone(), issue.request_digest_sha256.clone()));
                 }
                 if !grant_hashes.insert(issue.grant_action_hash.clone()) {
                     finding(&mut findings, "DUPLICATE_GRANT_ACTION_HASH", "violation",
@@ -929,6 +939,35 @@ mod tests {
         bundle.events.push(duplicate);
         assert_eq!(run(&bundle).status, Status::Fail);
         assert!(run(&bundle).findings.iter().any(|f| f.code == "IDEMPOTENCY_KEY_MINTED_MULTIPLE_GRANTS"));
+    }
+
+    #[test]
+    fn same_idempotency_key_with_different_request_digest_fails() {
+        let mut bundle = fixture();
+        let mut duplicate = bundle.events[0].clone();
+        duplicate.seq = 10;
+        duplicate.event_id = "grant-retry-changed-request".to_string();
+        if let EventKind::GrantIssued(ref mut grant) = duplicate.kind {
+            grant.grant_ref = "grant-B".to_string();
+            grant.grant_action_hash = "action-grant-B".to_string();
+            grant.authority_index = 5;
+            grant.request_digest_sha256 = "e".repeat(64);
+        }
+        bundle.events.push(duplicate);
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Fail);
+        assert!(report.findings.iter().any(|f| f.code == "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST"));
+    }
+
+    #[test]
+    fn malformed_grant_request_digest_is_incomplete() {
+        let mut bundle = fixture();
+        if let EventKind::GrantIssued(ref mut grant) = bundle.events[0].kind {
+            grant.request_digest_sha256 = "not-a-sha256".to_string();
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Incomplete);
+        assert!(report.findings.iter().any(|f| f.code == "GRANT_ISSUANCE_INCOMPLETE"));
     }
 
     #[test]
