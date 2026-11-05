@@ -17,7 +17,7 @@ A result is qualified only for the exact entity, period, denomination, source re
 
 ## S0 corpus
 
-- 10 synthetic tasks, including a matched unanswered/answered approval pair.
+- This PR starts a **10-task public seed** (v1.0.0), including a matched unanswered/answered approval pair. The issue's S0 acceptance target remains 50 tasks; the remaining 40 cases are not yet claimed complete.
 - Candidate tasks and evaluator-only oracle are separate files.
 - Sources carry a canonical JSON SHA-256, immutable revision, entity/period, recorded/valid time and document locator.
 - The output contract includes minimal clarification IDs, source bindings, exact journal lines, statement reconstruction and unresolved decisions.
