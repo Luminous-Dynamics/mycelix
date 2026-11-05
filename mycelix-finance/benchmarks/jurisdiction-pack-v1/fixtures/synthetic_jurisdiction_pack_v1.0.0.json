@@ -1,0 +1,353 @@
+{
+  "pack_id": "SYN-JURISDICTION-PACK-001",
+  "revision": "1.0.0",
+  "scope_kind": "synthetic_fixture_only",
+  "maturity_status": "research_only",
+  "claim_scope": "source_archive_and_qualification_lifecycle_only_no_substantive_legal_or_accounting_rule_authority",
+  "generated_on": "2026-11-05",
+  "jurisdiction_scopes": [
+    {
+      "scope_id": "SYN-COUNTRY-A",
+      "scope_level": "country",
+      "code_system": "SYNTHETIC-NAMESPACE",
+      "code": "SYN-A",
+      "display_name": "Synthetic Country A",
+      "parent_scope_id": null,
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "scope_id": "SYN-PROVINCE-A1",
+      "scope_level": "state_or_province",
+      "code_system": "SYNTHETIC-NAMESPACE",
+      "code": "SYN-A-P1",
+      "display_name": "Synthetic Province A1",
+      "parent_scope_id": "SYN-COUNTRY-A",
+      "valid_from": null,
+      "valid_to": null
+    }
+  ],
+  "profile_candidates": [
+    {
+      "profile_id": "SYN-TAX-VAT-A1",
+      "dimension": "tax_profile",
+      "intended_uses": [
+        "research",
+        "accounting_analysis"
+      ],
+      "jurisdiction_scope_ids": [
+        "SYN-COUNTRY-A",
+        "SYN-PROVINCE-A1"
+      ],
+      "entity_scope": "synthetic_registered_business_with_establishment_in_province_a1",
+      "maturity_status": "research_only",
+      "valid_from": null,
+      "valid_to": null,
+      "dependencies": [],
+      "source_record_ids": [
+        "SYN-SRC-STATUTE-A1",
+        "SYN-SRC-GUIDANCE-A1"
+      ],
+      "limitations": [
+        "synthetic_fixture_only",
+        "no_tax_rate_or_threshold_encoded",
+        "no_rule_execution_enabled",
+        "no_real_jurisdiction_coverage"
+      ]
+    },
+    {
+      "profile_id": "SYN-EINV-A1",
+      "dimension": "e_invoice_interoperability",
+      "intended_uses": [
+        "research",
+        "e_invoice_validation"
+      ],
+      "jurisdiction_scope_ids": [
+        "SYN-COUNTRY-A",
+        "SYN-PROVINCE-A1"
+      ],
+      "entity_scope": "synthetic_registered_business_with_establishment_in_province_a1",
+      "maturity_status": "candidate",
+      "valid_from": null,
+      "valid_to": null,
+      "dependencies": [
+        "SYN-TAX-VAT-A1"
+      ],
+      "source_record_ids": [
+        "SYN-SRC-TECH-A1"
+      ],
+      "limitations": [
+        "synthetic_fixture_only",
+        "no_real_einvoice_schema_or_obligation_encoded"
+      ]
+    }
+  ],
+  "source_records": [
+    {
+      "source_record_id": "SYN-SRC-STATUTE-A1",
+      "source_role": "primary_legislation",
+      "authority_metadata": {
+        "publisher_name": "Synthetic Parliament A",
+        "publisher_namespace": "SYNTHETIC-GOV",
+        "issuer_type": "legislature",
+        "officiality_state": "unverified",
+        "jurisdiction_of_issuer": "SYN-COUNTRY-A"
+      },
+      "document_identity": {
+        "title": "Synthetic Revenue Act A1",
+        "document_identifier": "SYN-ACT-A1",
+        "canonical_uri": "https://example.invalid/synthetic-act-a1",
+        "media_type": "application/pdf",
+        "language_label": "en"
+      },
+      "snapshot_state": "not_archived",
+      "snapshot": {
+        "sha256": null,
+        "byte_length": null,
+        "acquired_at": null,
+        "content_type": null,
+        "etag": null,
+        "last_modified": null,
+        "archive_ref": null
+      },
+      "source_language": "en",
+      "translation_status": "not_required",
+      "temporal_facts": {
+        "published_at": null,
+        "promulgated_at": null,
+        "effective_from": null,
+        "effective_to": null,
+        "captured_at": "2026-11-05T08:00:00Z",
+        "known_at": "2026-11-05T08:00:00Z",
+        "superseded_at": null
+      },
+      "applicability_scope_ids": [
+        "SYN-COUNTRY-A",
+        "SYN-PROVINCE-A1"
+      ],
+      "supersession": {
+        "supersedes_source_ids": [],
+        "superseded_by_source_ids": [],
+        "relationship_status": "unknown"
+      },
+      "limitations": [
+        "synthetic_metadata_only",
+        "not_an_actual_statute",
+        "source_bytes_not_archived",
+        "no_digest_claim"
+      ]
+    },
+    {
+      "source_record_id": "SYN-SRC-GUIDANCE-A1",
+      "source_role": "tax_authority_guidance",
+      "authority_metadata": {
+        "publisher_name": "Synthetic Revenue Office A",
+        "publisher_namespace": "SYNTHETIC-TAX",
+        "issuer_type": "tax_administration",
+        "officiality_state": "unverified",
+        "jurisdiction_of_issuer": "SYN-COUNTRY-A"
+      },
+      "document_identity": {
+        "title": "Synthetic VAT Guidance A1",
+        "document_identifier": "SYN-GUIDE-A1",
+        "canonical_uri": "https://example.invalid/synthetic-vat-guidance-a1",
+        "media_type": "text/html",
+        "language_label": "en"
+      },
+      "snapshot_state": "not_archived",
+      "snapshot": {
+        "sha256": null,
+        "byte_length": null,
+        "acquired_at": null,
+        "content_type": null,
+        "etag": null,
+        "last_modified": null,
+        "archive_ref": null
+      },
+      "source_language": "en",
+      "translation_status": "not_required",
+      "temporal_facts": {
+        "published_at": null,
+        "promulgated_at": null,
+        "effective_from": null,
+        "effective_to": null,
+        "captured_at": "2026-11-05T08:00:00Z",
+        "known_at": "2026-11-05T08:00:00Z",
+        "superseded_at": null
+      },
+      "applicability_scope_ids": [
+        "SYN-COUNTRY-A",
+        "SYN-PROVINCE-A1"
+      ],
+      "supersession": {
+        "supersedes_source_ids": [],
+        "superseded_by_source_ids": [],
+        "relationship_status": "unknown"
+      },
+      "limitations": [
+        "synthetic_metadata_only",
+        "not_an_actual_tax_authority_page",
+        "source_bytes_not_archived",
+        "no_digest_claim"
+      ]
+    },
+    {
+      "source_record_id": "SYN-SRC-TECH-A1",
+      "source_role": "official_schema_or_codelist",
+      "authority_metadata": {
+        "publisher_name": "Synthetic Standards Office A",
+        "publisher_namespace": "SYNTHETIC-STANDARDS",
+        "issuer_type": "other_public_body",
+        "officiality_state": "unverified",
+        "jurisdiction_of_issuer": "SYN-COUNTRY-A"
+      },
+      "document_identity": {
+        "title": "Synthetic Electronic Document Schema A1",
+        "document_identifier": "SYN-SCHEMA-A1",
+        "canonical_uri": "https://example.invalid/synthetic-schema-a1",
+        "media_type": "application/xml",
+        "language_label": "en"
+      },
+      "snapshot_state": "not_archived",
+      "snapshot": {
+        "sha256": null,
+        "byte_length": null,
+        "acquired_at": null,
+        "content_type": null,
+        "etag": null,
+        "last_modified": null,
+        "archive_ref": null
+      },
+      "source_language": "en",
+      "translation_status": "not_required",
+      "temporal_facts": {
+        "published_at": null,
+        "promulgated_at": null,
+        "effective_from": null,
+        "effective_to": null,
+        "captured_at": "2026-11-05T08:00:00Z",
+        "known_at": "2026-11-05T08:00:00Z",
+        "superseded_at": null
+      },
+      "applicability_scope_ids": [
+        "SYN-COUNTRY-A",
+        "SYN-PROVINCE-A1"
+      ],
+      "supersession": {
+        "supersedes_source_ids": [],
+        "superseded_by_source_ids": [],
+        "relationship_status": "unknown"
+      },
+      "limitations": [
+        "synthetic_metadata_only",
+        "not_an_actual_schema",
+        "source_bytes_not_archived",
+        "no_digest_claim"
+      ]
+    }
+  ],
+  "interpretation_records": [
+    {
+      "interpretation_id": "SYN-INTERP-TAX-A1",
+      "profile_id": "SYN-TAX-VAT-A1",
+      "interpretation_kind": "applicability",
+      "candidate_statement": "Synthetic test only: this profile is scoped to the synthetic business and province in this fixture.",
+      "source_passages": [
+        {
+          "source_record_id": "SYN-SRC-STATUTE-A1",
+          "locator_kind": "section",
+          "locator": "SYN-SECTION-1",
+          "quoted_text_digest": null,
+          "reviewed_language": "en"
+        }
+      ],
+      "decision_status": "candidate",
+      "review_decisions": [],
+      "rule_artifact_ref": null,
+      "execution_enabled": false,
+      "limitations": [
+        "not_a_legal_interpretation",
+        "not_reviewed",
+        "no_rule_generated"
+      ]
+    },
+    {
+      "interpretation_id": "SYN-INTERP-EINV-A1",
+      "profile_id": "SYN-EINV-A1",
+      "interpretation_kind": "technical_validation_requirement",
+      "candidate_statement": "Synthetic test only: schema-profile applicability would require source and validator review.",
+      "source_passages": [
+        {
+          "source_record_id": "SYN-SRC-TECH-A1",
+          "locator_kind": "other",
+          "locator": "SYN-ARTIFACT-1",
+          "quoted_text_digest": null,
+          "reviewed_language": "en"
+        }
+      ],
+      "decision_status": "candidate",
+      "review_decisions": [],
+      "rule_artifact_ref": null,
+      "execution_enabled": false,
+      "limitations": [
+        "not_a_technical_standard",
+        "not_reviewed",
+        "no_validator_qualified"
+      ]
+    }
+  ],
+  "test_evidence": [
+    {
+      "test_id": "SYN-TEST-SNAPSHOT-001",
+      "profile_id": "SYN-TAX-VAT-A1",
+      "test_family": "source_integrity",
+      "fixture_ref": "synthetic://missing-source-snapshot",
+      "expected_disposition": "needs_review",
+      "actual_execution_state": "not_run",
+      "review_state": "not_reviewed",
+      "limitations": [
+        "test_not_run",
+        "source_bytes_unavailable"
+      ]
+    },
+    {
+      "test_id": "SYN-TEST-SUBNATIONAL-001",
+      "profile_id": "SYN-TAX-VAT-A1",
+      "test_family": "jurisdiction_scope",
+      "fixture_ref": "synthetic://country-versus-province-scope",
+      "expected_disposition": "partial",
+      "actual_execution_state": "not_run",
+      "review_state": "not_reviewed",
+      "limitations": [
+        "test_not_run",
+        "synthetic_scope_only"
+      ]
+    }
+  ],
+  "change_control": {
+    "watch_sources": [
+      "synthetic://publisher-watch/primary",
+      "synthetic://publisher-watch/technical"
+    ],
+    "material_change_triggers": [
+      "new_or_amended_source",
+      "effective_date_change",
+      "scope_boundary_change",
+      "validator_or_schema_release_change",
+      "translation_revision",
+      "conflicting_authority"
+    ],
+    "requalification_policy": "Any material source, scope, profile, translation, validator or dependency change creates an immutable new revision and suspends affected claims until exact-scope review and tests are complete.",
+    "supersedes_pack_ids": [],
+    "successor_pack_ids": []
+  },
+  "limitations": [
+    "synthetic_fixture_only",
+    "no_actual_jurisdiction_or_tax_rule",
+    "all_source_snapshots_unarchived",
+    "all_interpretations_unreviewed",
+    "no_executable_rules",
+    "no_compliance_or_audit_claim"
+  ],
+  "qualification_decisions": []
+}
