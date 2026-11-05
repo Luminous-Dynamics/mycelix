@@ -319,6 +319,14 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             findings.insert("profile_unsupported".to_owned());
             reasons.insert("available_balance_not_booked_balance".to_owned());
         }
+        if string(opening, "as_of") != string(statement, "start_at") {
+            findings.insert("gap_unknown".to_owned());
+            reasons.insert("opening_balance_boundary_timestamp_mismatch".to_owned());
+        }
+        if string(closing, "as_of") != string(statement, "end_at") {
+            findings.insert("gap_unknown".to_owned());
+            reasons.insert("closing_balance_boundary_timestamp_mismatch".to_owned());
+        }
         let mut reconstructed = field_amount(opening, "amount_minor")?;
         for entry in array(statement, "entries") {
             let entry_amount = field_amount(entry, "amount_minor")?;
@@ -344,10 +352,21 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
         if let Some(scope) = expected_scope.iter().find(|scope| {
             string(scope, "period_id") == string(statement, "period_id")
-        }) && string(statement, "cutoff_profile_ref") != string(scope, "cutoff_profile_ref")
-        {
-            findings.insert("profile_unsupported".to_owned());
-            reasons.insert("incompatible_cutoff_semantics".to_owned());
+        }) {
+            if string(statement, "cutoff_profile_ref") != string(scope, "cutoff_profile_ref") {
+                findings.insert("profile_unsupported".to_owned());
+                reasons.insert("incompatible_cutoff_semantics".to_owned());
+            }
+            if string(statement, "start_at") != string(scope, "start_at")
+                || string(statement, "end_at") != string(scope, "end_at")
+            {
+                findings.insert("gap_unknown".to_owned());
+                reasons.insert("statement_period_boundary_mismatch".to_owned());
+            }
+            if string(statement, "sequence") != string(scope, "expected_sequence") {
+                findings.insert("gap_unknown".to_owned());
+                reasons.insert("statement_sequence_does_not_match_expected_scope".to_owned());
+            }
         }
     }
     for scope in expected_scope.iter().filter(|scope| scope.get("required").and_then(Value::as_bool) == Some(true)) {
@@ -379,6 +398,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     for pair in scopes.windows(2) {
         let previous_id = string(pair[0], "period_id").unwrap_or_default();
         let next_id = string(pair[1], "period_id").unwrap_or_default();
+        if string(pair[0], "end_at") != string(pair[1], "start_at") {
+            findings.insert("gap_unknown".to_owned());
+            reasons.insert("expected_scope_boundary_gap".to_owned());
+        }
         if string(pair[0], "cutoff_profile_ref") != string(pair[1], "cutoff_profile_ref") {
             findings.insert("profile_unsupported".to_owned());
             reasons.insert("incompatible_cutoff_semantics".to_owned());
@@ -509,8 +532,8 @@ mod tests {
 
     #[test]
     fn all_public_reference_cases_match_the_oracle() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.0.json"));
-        let oracle = fixture(include_str!("../../public-reference-oracle/bank_statement_chain_oracle_v1.0.0.json"));
+        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
+        let oracle = fixture(include_str!("../../public-reference-oracle/bank_statement_chain_oracle_v1.0.1.json"));
         let expected = oracle["cases"].as_array().expect("oracle cases");
         for case in candidate["cases"].as_array().expect("candidate cases") {
             let id = case["case_id"].as_str().expect("case id");
@@ -522,7 +545,7 @@ mod tests {
 
     #[test]
     fn exact_replay_does_not_increase_economic_observation_count() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.0.json"));
+        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases.iter().find(|case| case["case_id"] == "BSC-026").expect("BSC-026");
         let assessment = assess_case(case).expect("assessment");
@@ -532,7 +555,7 @@ mod tests {
 
     #[test]
     fn missing_period_is_never_complete() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.0.json"));
+        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases.iter().find(|case| case["case_id"] == "BSC-010").expect("BSC-010");
         assert_eq!(assess_case(case).expect("assessment").disposition, "gap_unknown");
@@ -540,17 +563,31 @@ mod tests {
 
     #[test]
     fn one_minor_unit_balance_mutation_is_detected() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.0.json"));
+        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases.iter().find(|case| case["case_id"] == "BSC-002").expect("BSC-002");
         assert_eq!(assess_case(case).expect("assessment").disposition, "balance_conflict");
     }
 
     #[test]
-    fn arrival_order_does_not_change_chain_disposition() {
-        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.0.json"));
+    fn arrival_order_does_not_change_chain_disposition_or_event_count() {
+        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
         let cases = candidate["cases"].as_array().expect("candidate cases");
-        let case = cases.iter().find(|case| case["case_id"] == "BSC-025").expect("BSC-025");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "complete_contiguous");
+        let baseline = cases.iter().find(|case| case["case_id"] == "BSC-001").expect("BSC-001");
+        let reordered = cases.iter().find(|case| case["case_id"] == "BSC-025").expect("BSC-025");
+        let baseline_result = assess_case(baseline).expect("baseline assessment");
+        let reordered_result = assess_case(reordered).expect("reordered assessment");
+        assert_eq!(baseline_result.disposition, reordered_result.disposition);
+        assert_eq!(baseline_result.economic_observation_count, reordered_result.economic_observation_count);
+    }
+
+    #[test]
+    fn period_boundary_and_sequence_gaps_fail_closed() {
+        let candidate = fixture(include_str!("../../bank_statement_chain_candidates_v1.0.1.json"));
+        let cases = candidate["cases"].as_array().expect("candidate cases");
+        for id in ["BSC-027", "BSC-028"] {
+            let case = cases.iter().find(|case| case["case_id"] == id).expect("case exists");
+            assert_eq!(assess_case(case).expect("assessment").disposition, "gap_unknown");
+        }
     }
 }
