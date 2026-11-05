@@ -291,11 +291,14 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
             question_resolutions.insert(unknown);
         }
     }
+    let question_resolution_checks_valid = !reasons.iter().any(|reason| {
+        reason == "duplicate_question_id" || reason == "question_resolves_unknown_not_in_task"
+    }) && question_resolutions.iter().all(|unknown| task_unknowns.contains(unknown));
     check(
         &mut checks,
         &mut reasons,
         "questions_resolve_declared_unknowns",
-        reasons.iter().all(|reason| reason != "duplicate_question_id" && reason != "question_resolves_unknown_not_in_task"),
+        question_resolution_checks_valid,
         "clarification IDs must be unique and target declared task unknowns",
     );
 
@@ -432,10 +435,10 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
         let expected_debit = amount(expected_journal, "debit_minor");
         let expected_credit = amount(expected_journal, "credit_minor");
         journal_valid &= lines_valid
-            && debits == expected_debit
-            && credits == expected_credit
+            && expected_debit == Some(debits)
+            && expected_credit == Some(credits)
             && debits == credits;
-        if !lines_valid || debits != expected_debit || credits != expected_credit || debits != credits {
+        if !lines_valid || expected_debit != Some(debits) || expected_credit != Some(credits) || debits != credits {
             reasons.push(format!("journal_amount_or_balance_invalid:{id}"));
         }
         let context = task.get("context").unwrap_or(&Value::Null);
