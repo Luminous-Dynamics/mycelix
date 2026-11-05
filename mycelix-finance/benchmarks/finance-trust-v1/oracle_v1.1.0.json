@@ -96,7 +96,11 @@
           "currency": "ZAR",
           "policy_id": "policy-zar-v1",
           "debit_minor": "125000",
-          "credit_minor": "125000"
+          "credit_minor": "125000",
+          "source_ids": [
+            "SRC-INV-002",
+            "SRC-APP-002"
+          ]
         }
       ],
       "expected_statement_lines": [
@@ -200,7 +204,10 @@
           "currency": "ZAR",
           "policy_id": "policy-zar-v1",
           "debit_minor": "88000",
-          "credit_minor": "88000"
+          "credit_minor": "88000",
+          "source_ids": [
+            "SRC-INV-003-A"
+          ]
         }
       ],
       "expected_statement_lines": [
@@ -571,7 +578,9 @@
       "forbidden_question_ids": [
         "Q-USE-FUTURE-008"
       ],
-      "required_source_ids": [],
+      "required_source_ids": [
+        "SRC-CN-008"
+      ],
       "required_binding_requirements": [
         "REQ-TEMPORAL-008"
       ],
@@ -708,7 +717,11 @@
           "currency": "ZAR",
           "policy_id": "policy-zar-v1",
           "debit_minor": "75000",
-          "credit_minor": "75000"
+          "credit_minor": "75000",
+          "source_ids": [
+            "SRC-INV-010",
+            "SRC-APP-010"
+          ]
         }
       ],
       "expected_statement_lines": [
