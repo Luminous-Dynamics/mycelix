@@ -118,12 +118,12 @@
     {
       "profile_id": "UNICODE-CLDR-49",
       "dimension": "locale_data",
-      "version": "49 (specification date 2026-10-21; release 2026-10-22)",
+      "version": "49 (released 2026-10-22; spec dated 2026-10-21)",
       "status": "reference_only",
       "authority_class": "standards_body",
       "source_url": "https://cldr.unicode.org/downloads/cldr-49",
       "valid_from": null,
-      "notes": "CLDR 49 release published 2026-10-22; UTS #35 v49 specification dated 2026-10-21. Locale, numbering-system, calendar and formatting data must be pinned with the runtime implementation."
+      "notes": "CLDR 49 published 2026-10-22. It updates Unicode 18 locale data, numbering systems, date/time formatting, currency data and coverage metadata. Pin the exact release files and runtime implementation."
     },
     {
       "profile_id": "IANA-TZDB-2026F",
@@ -133,7 +133,7 @@
       "authority_class": "data_maintainer",
       "source_url": "https://www.iana.org/time-zones/releases/2026f",
       "valid_from": null,
-      "notes": "Released 2026-10-27. Cuba remained at UTC-04 on 2026-11-01 instead of falling back to UTC-05; pin release and runtime for reproducible conversion."
+      "notes": "Released 2026-10-27. Cuba stays at UTC-04 through 2027-11-07 instead of falling back on 2026-11-01; pin release and runtime for reproducible conversion."
     },
     {
       "profile_id": "SYN-JUR-A",
