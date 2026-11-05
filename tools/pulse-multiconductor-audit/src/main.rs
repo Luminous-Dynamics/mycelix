@@ -26,6 +26,7 @@ struct Conductor {
     conductor_build: String,
     dna_hash: String,
     cell_id: String,
+    integrity_wasm_sha256: String,
     role: String,
 }
 #[derive(Debug, Clone, Deserialize)]
@@ -166,16 +167,17 @@ fn valid_event_shape(event: &Event) -> bool {
                 &["operation_id","attempt_id","effect_id","action_hash"],
                 &["operation_id","effect_id","action_hash"], &["attempt_id"], &[], &[]),
             "action_authored" => (
-                &["action_hash","author","entry_type"], &["action_hash","author","entry_type"], &[], &[], &[]),
+                &["action_hash","author","entry_type","payload_sha256"],
+                &["action_hash","author","entry_type","payload_sha256"], &[], &[], &[]),
             "validation_disposition" => (
-                &["action_hash","author_conductor_id","receiving_conductor_id","disposition","validator_build","reason_code"],
-                &["action_hash","author_conductor_id","receiving_conductor_id","disposition","validator_build"], &[], &[], &[]),
+                &["action_hash","author_conductor_id","receiving_conductor_id","disposition","validator_wasm_sha256","reason_code"],
+                &["action_hash","author_conductor_id","receiving_conductor_id","disposition","validator_wasm_sha256"], &[], &[], &[]),
             "projection_observed" => (
                 &["action_hash","author_conductor_id","projection_state","decision","required_dna_hash","observed_dna_hash","required_cell_id","observed_cell_id","required_author","observed_author","required_action_hash","observed_action_hash","required_epoch","observed_epoch","descends_from_required"],
                 &["action_hash","author_conductor_id","projection_state","decision","required_dna_hash","observed_dna_hash","required_cell_id","observed_cell_id","required_author","observed_author","required_action_hash","observed_action_hash"],
                 &["required_epoch","observed_epoch"], &["descends_from_required"], &[]),
             "remote_signal" => (
-                &["event_type","trust_class","transport_sender","claimed_sender","backing_action_hash","record_author","verified_payload_sha256","verifier_build","trusted_state_mutation","authorizes_operation"],
+                &["event_type","trust_class","transport_sender","claimed_sender","backing_action_hash","record_author","verified_payload_sha256","verifier_build","backing_author_conductor_id","backing_validator_event_id","trusted_state_mutation","authorizes_operation"],
                 &["event_type","trust_class"], &[], &["trusted_state_mutation","authorizes_operation"], &[]),
             "caller_outcome" => (
                 &["operation_id","attempt_id","outcome"], &["operation_id","outcome"], &["attempt_id"], &[], &[]),
@@ -200,6 +202,7 @@ fn valid_event_shape(event: &Event) -> bool {
         "host_grant_issued" => u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0)
             && str_value(&event.data,"request_digest_sha256").is_some_and(valid_sha256),
         "host_grant_revoked" => u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0),
+        "action_authored" => str_value(&event.data,"payload_sha256").is_some_and(valid_sha256),
         "host_call" => {
             u64_value(&event.data,"attempt_id").is_some_and(|v| v > 0)
                 && u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0)
@@ -212,6 +215,7 @@ fn valid_event_shape(event: &Event) -> bool {
             && matches!(str_value(&event.data,"outcome"),Some("acknowledged"|"unknown"|"committed"|"not_committed"|"rejected")),
         "validation_disposition" => {
             matches!(str_value(&event.data,"disposition"),Some("accepted"|"rejected"))
+                && str_value(&event.data,"validator_wasm_sha256").is_some_and(valid_sha256)
                 && (event.data["reason_code"].is_null() || event.data["reason_code"].is_string())
         }
         "projection_observed" => {
@@ -220,8 +224,10 @@ fn valid_event_shape(event: &Event) -> bool {
         }
         "remote_signal" => {
             matches!(str_value(&event.data,"trust_class"),Some("verified_record"|"authenticated_peer_hint"|"unverified_hint"|"local_only"|"unknown"|"rejected"))
-                && ["transport_sender","claimed_sender","backing_action_hash","record_author","verified_payload_sha256","verifier_build"]
+                && ["transport_sender","claimed_sender","backing_action_hash","record_author","verified_payload_sha256","verifier_build","backing_author_conductor_id","backing_validator_event_id"]
                     .iter().all(|k| event.data[*k].is_null() || event.data[*k].is_string())
+                && (event.data["verified_payload_sha256"].is_null()
+                    || str_value(&event.data,"verified_payload_sha256").is_some_and(valid_sha256))
         }
         _ => true,
     }
@@ -267,7 +273,7 @@ fn direct_relation(edges:&[CausalEdge],from:&str,to:&str,relation:&str)->bool {
 fn audit(history:&History,input_sha256:String)->Report {
     let mut findings=Vec::new();
     let mut counts=Counts{conductors:history.conductors.len(),events:history.events.len(),causal_edges:history.causal_edges.len(),..Counts::default()};
-    if history.schema_version!=1 { finding(&mut findings,"UNSUPPORTED_SCHEMA_VERSION","incomplete",None,"expected schema version 1"); }
+    if history.schema_version!=2 { finding(&mut findings,"UNSUPPORTED_SCHEMA_VERSION","incomplete",None,"expected schema version 2"); }
     if history.trace_id.trim().is_empty() || !valid_sha(&history.source_commit) { finding(&mut findings,"HISTORY_HEADER_INCOMPLETE","incomplete",None,"trace_id and lowercase 40-character source_commit are required"); }
     if !matches!(history.evidence_class.as_str(),"synthetic"|"runtime_capture") { finding(&mut findings,"EVIDENCE_CLASS_INVALID","incomplete",None,"evidence_class must be synthetic or runtime_capture"); }
     if history.conductors.len()<2 { finding(&mut findings,"MULTICONDUCTOR_HISTORY_REQUIRED","incomplete",None,"at least two conductors are required"); }
@@ -275,6 +281,7 @@ fn audit(history:&History,input_sha256:String)->Report {
     let mut conductors:BTreeMap<String,&Conductor>=BTreeMap::new();
     for c in &history.conductors {
         let valid=!c.conductor_id.trim().is_empty()&&!c.agent_key_ref.trim().is_empty()&&!c.conductor_build.trim().is_empty()&&!c.dna_hash.trim().is_empty()&&!c.cell_id.trim().is_empty()
+            && valid_sha256(&c.integrity_wasm_sha256)
             && matches!(c.role.as_str(),"grant_owner"|"caller"|"validator"|"observer"|"peer");
         if !valid { finding(&mut findings,"CONDUCTOR_IDENTITY_INCOMPLETE","incomplete",None,"conductor identity, build, DNA, cell and supported role are required"); }
         if conductors.insert(c.conductor_id.clone(),c).is_some() { finding(&mut findings,"DUPLICATE_CONDUCTOR_ID","violation",None,"conductor_id must be unique"); }
@@ -387,26 +394,119 @@ fn audit(history:&History,input_sha256:String)->Report {
             }
             "validation_disposition"=>{counts.validator_dispositions+=1;validation_events.push(e);}
             "projection_observed"=>{counts.projections_observed+=1;projection_events.push(e);}
-            "remote_signal"=>{
-                counts.remote_signals+=1;
-                let trust=str_value(d,"trust_class").unwrap_or_default();
-                if bool_value(d,"authorizes_operation")==Some(true) { finding(&mut findings,"REMOTE_SIGNAL_USED_AS_AUTHORITY","violation",Some(&e.event_id),"remote signal cannot authorize an operation"); }
-                if trust!="verified_record"&&bool_value(d,"trusted_state_mutation")==Some(true) { finding(&mut findings,"UNVERIFIED_SIGNAL_MUTATED_TRUSTED_STATE","violation",Some(&e.event_id),"unverified signal cannot mutate trusted state"); }
-                if trust=="verified_record" {
-                    let claimed=d["claimed_sender"].as_str();
-                    let transport=d["transport_sender"].as_str();
-                    let author=d["record_author"].as_str();
-                    let hash=d["backing_action_hash"].as_str();
-                    let digest=d["verified_payload_sha256"].as_str().unwrap_or_default();
-                    if e.source!="observer"||claimed.is_none()||claimed!=transport||transport!=author||hash.is_none_or(str::is_empty)
-                        ||digest.len()!=64||!digest.bytes().all(|b|b.is_ascii_hexdigit()&&!b.is_ascii_uppercase())
-                        ||d["verifier_build"].as_str().is_none_or(str::is_empty) {
-                        finding(&mut findings,"VERIFIED_SIGNAL_EVIDENCE_INCOMPLETE","incomplete",Some(&e.event_id),"verified record requires observer attestation, matching sender/author, ActionHash, digest and verifier build");
-                    }
-                }
-            }
+            "remote_signal"=>{ counts.remote_signals+=1; }
             "caller_outcome"=>{counts.caller_outcomes+=1;outcome_events.push(e);}
             _=>{}
+        }
+    }
+
+    // Remote signal trust is a claim about evidence, not authority. Bind a
+    // verified_record assertion to exact source-chain authorship, payload digest,
+    // validator WASM and observer lineage before accepting its structural shape.
+    for e in history.events.iter().filter(|e| e.event_type == "remote_signal") {
+        let d = &e.data;
+        let trust = str_value(d, "trust_class").unwrap_or_default();
+        let transport = str_value(d, "transport_sender");
+        let claimed = str_value(d, "claimed_sender");
+        let record_author = str_value(d, "record_author");
+        let backing_hash = str_value(d, "backing_action_hash");
+        let digest = str_value(d, "verified_payload_sha256");
+        let verifier_build = str_value(d, "verifier_build");
+        let author_conductor_id = str_value(d, "backing_author_conductor_id");
+        let validator_event_id = str_value(d, "backing_validator_event_id");
+
+        if bool_value(d, "authorizes_operation") == Some(true) {
+            finding(&mut findings, "REMOTE_SIGNAL_USED_AS_AUTHORITY", "violation", Some(&e.event_id), "remote signal cannot authorize an operation");
+        }
+        if trust != "verified_record" && bool_value(d, "trusted_state_mutation") == Some(true) {
+            finding(&mut findings, "UNVERIFIED_SIGNAL_MUTATED_TRUSTED_STATE", "violation", Some(&e.event_id), "unverified or advisory signal cannot mutate trusted state");
+        }
+
+        match trust {
+            "verified_record" => {
+                let observer = conductors.get(&e.conductor_id);
+                if e.source != "observer" || observer.is_none_or(|c| c.role != "observer") {
+                    finding(&mut findings, "VERIFIED_SIGNAL_WRONG_OBSERVER", "incomplete", Some(&e.event_id), "verified_record must be emitted by an observer conductor");
+                }
+                if transport.is_none() || transport != claimed || claimed != record_author {
+                    finding(&mut findings, "VERIFIED_SIGNAL_SENDER_MISMATCH", "violation", Some(&e.event_id), "transport sender, claimed sender and record author must match exactly");
+                }
+                if backing_hash.is_none_or(str::is_empty)
+                    || digest.is_none_or(|v| !valid_sha256(v))
+                    || verifier_build.is_none_or(str::is_empty)
+                    || author_conductor_id.is_none_or(str::is_empty)
+                    || validator_event_id.is_none_or(str::is_empty) {
+                    finding(&mut findings, "VERIFIED_SIGNAL_EVIDENCE_INCOMPLETE", "incomplete", Some(&e.event_id), "verified_record requires exact author conductor, backing ActionHash, validator event, payload digest and verifier build");
+                    continue;
+                }
+
+                let Some(author_conductor) = conductors.get(author_conductor_id.unwrap()) else {
+                    finding(&mut findings, "VERIFIED_SIGNAL_AUTHOR_CONDUCTOR_UNKNOWN", "incomplete", Some(&e.event_id), "backing author conductor is not declared");
+                    continue;
+                };
+                if author_conductor.agent_key_ref != record_author.unwrap()
+                    || observer.is_none_or(|o| o.dna_hash != author_conductor.dna_hash || o.cell_id != author_conductor.cell_id) {
+                    finding(&mut findings, "VERIFIED_SIGNAL_AUTHOR_LINEAGE_MISMATCH", "violation", Some(&e.event_id), "backing author identity and observer must share exact DNA/cell lineage");
+                }
+
+                let authored_key = (author_conductor_id.unwrap().to_string(), backing_hash.unwrap().to_string());
+                let Some(authored_event) = authored.get(&authored_key) else {
+                    finding(&mut findings, "VERIFIED_SIGNAL_ACTION_NOT_AUTHORED", "incomplete", Some(&e.event_id), "backing ActionHash does not resolve to authored source-chain action in the claimed author conductor");
+                    continue;
+                };
+                if authored_event.source != "source_chain"
+                    || str_value(&authored_event.data, "author") != record_author
+                    || str_value(&authored_event.data, "payload_sha256") != digest {
+                    finding(&mut findings, "VERIFIED_SIGNAL_PAYLOAD_OR_AUTHOR_MISMATCH", "violation", Some(&e.event_id), "authored source action author and canonical payload digest must match the verified record");
+                }
+
+                let Some(validator_event) = validation_events.iter().find(|v| v.event_id == validator_event_id.unwrap()) else {
+                    finding(&mut findings, "VERIFIED_SIGNAL_VALIDATOR_EVENT_MISSING", "incomplete", Some(&e.event_id), "backing_validator_event_id does not identify a validation disposition");
+                    continue;
+                };
+                let validator_conductor = conductors.get(&validator_event.conductor_id);
+                let exact_validation = str_value(&validator_event.data, "action_hash") == backing_hash
+                    && str_value(&validator_event.data, "author_conductor_id") == author_conductor_id
+                    && str_value(&validator_event.data, "receiving_conductor_id") == Some(validator_event.conductor_id.as_str())
+                    && str_value(&validator_event.data, "disposition") == Some("accepted")
+                    && validator_conductor.is_some_and(|v| v.role == "validator"
+                        && v.dna_hash == author_conductor.dna_hash
+                        && v.cell_id == author_conductor.cell_id
+                        && str_value(&validator_event.data, "validator_wasm_sha256") == Some(v.integrity_wasm_sha256.as_str()));
+                if !exact_validation {
+                    if str_value(&validator_event.data, "disposition") == Some("rejected") {
+                        finding(&mut findings, "REJECTED_RECORD_MARKED_VERIFIED", "violation", Some(&e.event_id), "a rejected source action cannot be promoted to verified_record");
+                    } else {
+                        finding(&mut findings, "VERIFIED_SIGNAL_VALIDATOR_MISMATCH", "violation", Some(&e.event_id), "validator receipt must accept the exact action from the declared author and matching DNA/cell/WASM lineage");
+                    }
+                }
+                if !direct_relation(&history.causal_edges, &authored_event.event_id, &validator_event.event_id, "validator_receipt") {
+                    finding(&mut findings, "VERIFIED_SIGNAL_AUTHOR_VALIDATOR_EDGE_MISSING", "incomplete", Some(&e.event_id), "verified record requires an explicit author-to-validator receipt edge");
+                }
+                if !direct_relation(&history.causal_edges, &validator_event.event_id, &e.event_id, "observer_confirmation") {
+                    finding(&mut findings, "VERIFIED_SIGNAL_VALIDATOR_OBSERVER_EDGE_MISSING", "incomplete", Some(&e.event_id), "verified record requires an explicit validator-to-observer confirmation edge");
+                }
+            }
+            "authenticated_peer_hint" => {
+                if e.source != "remote_peer" || transport.is_none_or(str::is_empty) {
+                    finding(&mut findings, "AUTHENTICATED_HINT_SENDER_MISSING", "incomplete", Some(&e.event_id), "authenticated_peer_hint requires transport-level sender evidence");
+                }
+                if claimed.is_some() && claimed != transport {
+                    finding(&mut findings, "AUTHENTICATED_HINT_SENDER_MISMATCH", "violation", Some(&e.event_id), "payload sender claim conflicts with transport provenance");
+                }
+            }
+            "unverified_hint" => {
+                if e.source != "remote_peer" || transport.is_none_or(str::is_empty) {
+                    finding(&mut findings, "UNVERIFIED_HINT_TRANSPORT_MISSING", "incomplete", Some(&e.event_id), "unverified_hint should retain transport sender evidence when received remotely");
+                }
+            }
+            "local_only" => {
+                if transport.is_some() || claimed.is_some() {
+                    finding(&mut findings, "LOCAL_ONLY_HAS_REMOTE_SENDER", "violation", Some(&e.event_id), "local_only events cannot claim remote transport or payload sender identity");
+                }
+            }
+            "unknown" | "rejected" => {}
+            _ => finding(&mut findings, "REMOTE_SIGNAL_TRUST_CLASS_INVALID", "incomplete", Some(&e.event_id), "unsupported signal trust class"),
         }
     }
 
@@ -515,6 +615,9 @@ fn audit(history:&History,input_sha256:String)->Report {
             }
         }
         if conductors.get(&e.conductor_id).is_none_or(|c|c.role!="validator") { finding(&mut findings,"VALIDATION_NON_VALIDATOR_CONDUCTOR","incomplete",Some(&e.event_id),"validation disposition must come from validator role"); }
+        if conductors.get(&e.conductor_id).is_some_and(|c|str_value(d,"validator_wasm_sha256")!=Some(c.integrity_wasm_sha256.as_str())) {
+            finding(&mut findings,"VALIDATOR_WASM_DIGEST_MISMATCH","violation",Some(&e.event_id),"validator receipt WASM digest must equal the receiving conductor's declared integrity-WASM digest");
+        }
         if e.source!="validator" { finding(&mut findings,"VALIDATION_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"validation must be reported by validator plane"); }
         if authored_event.source != "source_chain" { finding(&mut findings,"ACTION_AUTHOR_WRONG_EVIDENCE_SOURCE","incomplete",Some(&authored_event.event_id),"action authoring must come from source-chain evidence"); }
         if conductors.get(&authored_event.conductor_id).is_none_or(|c| c.role != "caller" && c.role != "peer") { finding(&mut findings,"ACTION_AUTHOR_CONDUCTOR_ROLE_MISMATCH","incomplete",Some(&authored_event.event_id),"action should originate from caller or peer conductor"); }
