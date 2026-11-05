@@ -1,0 +1,905 @@
+{
+  "bundle_id": "MYCELIX-PLATFORM-ADAPTER-CONFORMANCE-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "public_synthetic_adapter_mapping_fixtures_not_vendor_exports",
+  "cases": [
+    {
+      "case_id": "OT-ACCESS-PRINCIPAL-GAP",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "onetrust",
+        "tenant_namespace": "synthetic:onetrust:tenant-A",
+        "connector_id": "fixture-onetrust-connector",
+        "export_revision": "OT-ACCESS-PRINCIPAL-GAP-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "partial",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "asset_discovery",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "data_transfer_relationships",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "actor_access_principals",
+          "status": "unsupported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "relationship_data_elements",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "purpose_context",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-ASSET-A",
+          "external_object_id": "asset-001",
+          "object_namespace": "tenant-A/assets",
+          "object_type": "data_asset",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-ASSET-B",
+          "external_object_id": "asset-002",
+          "object_namespace": "tenant-A/assets",
+          "object_type": "data_asset",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-PA-1",
+          "external_object_id": "processing-001",
+          "object_namespace": "tenant-A/activities",
+          "object_type": "processing_activity",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-PURPOSE-1",
+          "external_object_id": "purpose-support",
+          "object_namespace": "tenant-A/purposes",
+          "object_type": "purpose",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-ELEMENT-EMAIL",
+          "external_object_id": "email-address",
+          "object_namespace": "tenant-A/data-elements",
+          "object_type": "data_element",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_ref": "REL-OT-TRANSFER-1",
+          "source_object_ref": "OBJ-ASSET-A",
+          "target_object_ref": "OBJ-ASSET-B",
+          "direction": "source_to_target",
+          "relationship_type": "transfers_data_to",
+          "processing_activity_ref": "OBJ-PA-1",
+          "purpose_refs": [
+            "OBJ-PURPOSE-1"
+          ],
+          "data_element_refs": [
+            "OBJ-ELEMENT-EMAIL"
+          ],
+          "access_principal_refs": [],
+          "evidence_refs": [
+            "EVIDENCE-OT-1"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-CRM-1"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "field_mappings": [
+        {
+          "source_path": "relationships.accessPrincipals",
+          "canonical_path": null,
+          "mapping_status": "unsupported",
+          "transformation_ref": null,
+          "loss_code": "source_feature_unsupported",
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "effects": []
+    },
+    {
+      "case_id": "OT-DIRECTION-SUBPROCESSOR",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "onetrust",
+        "tenant_namespace": "synthetic:onetrust:tenant-A",
+        "connector_id": "fixture-onetrust-connector",
+        "export_revision": "OT-DIRECTION-SUBPROCESSOR-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "complete",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "data_transfer_relationships",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "subprocessor_directionality",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "actor_access_principals",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "relationship_data_elements",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "purpose_context",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-PROCESSOR-1",
+          "external_object_id": "processor-001",
+          "object_namespace": "tenant-A/actors",
+          "object_type": "organization",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-SUBPROCESSOR-1",
+          "external_object_id": "subprocessor-001",
+          "object_namespace": "tenant-A/actors",
+          "object_type": "organization",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-PA-1",
+          "external_object_id": "processing-001",
+          "object_namespace": "tenant-A/activities",
+          "object_type": "processing_activity",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-PURPOSE-1",
+          "external_object_id": "purpose-support",
+          "object_namespace": "tenant-A/purposes",
+          "object_type": "purpose",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-ELEMENT-EMAIL",
+          "external_object_id": "email-address",
+          "object_namespace": "tenant-A/data-elements",
+          "object_type": "data_element",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-PERSON-1",
+          "external_object_id": "supporter-001",
+          "object_namespace": "tenant-A/actors",
+          "object_type": "person",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_ref": "REL-OT-SUBPROCESSOR-1",
+          "source_object_ref": "OBJ-SUBPROCESSOR-1",
+          "target_object_ref": "OBJ-PROCESSOR-1",
+          "direction": "source_to_target",
+          "relationship_type": "subprocessor_for",
+          "processing_activity_ref": "OBJ-PA-1",
+          "purpose_refs": [
+            "OBJ-PURPOSE-1"
+          ],
+          "data_element_refs": [
+            "OBJ-ELEMENT-EMAIL"
+          ],
+          "access_principal_refs": [
+            "OBJ-PERSON-1"
+          ],
+          "evidence_refs": [
+            "EVIDENCE-OT-2"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-CRM-2"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "field_mappings": [
+        {
+          "source_path": "relationship.from",
+          "canonical_path": "relationships.source_object_ref",
+          "mapping_status": "mapped_exact",
+          "transformation_ref": null,
+          "loss_code": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "source_path": "relationship.to",
+          "canonical_path": "relationships.target_object_ref",
+          "mapping_status": "mapped_exact",
+          "transformation_ref": null,
+          "loss_code": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "effects": []
+    },
+    {
+      "case_id": "BIGID-CLASSIFICATION-NOT-AUTHORITY",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "bigid",
+        "tenant_namespace": "synthetic:bigid:tenant-A",
+        "connector_id": "fixture-bigid-connector",
+        "export_revision": "BIGID-CLASSIFICATION-NOT-AUTHORITY-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "complete",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "asset_discovery",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "personal_data_classification",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "data_transfer_relationships",
+          "status": "unknown",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-ASSET-A",
+          "external_object_id": "asset-001",
+          "object_namespace": "tenant-A/assets",
+          "object_type": "data_asset",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-ELEMENT-EMAIL",
+          "external_object_id": "email-address",
+          "object_namespace": "tenant-A/data-elements",
+          "object_type": "data_element",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [],
+      "field_mappings": [
+        {
+          "source_path": "classification.category",
+          "canonical_path": "observations.data_category",
+          "mapping_status": "mapped_normalized",
+          "transformation_ref": "TRANSFORM-BIGID-TAXONOMY-REVIEW",
+          "loss_code": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "effects": []
+    },
+    {
+      "case_id": "PURVIEW-LINEAGE-PARTIAL",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "microsoft_purview",
+        "tenant_namespace": "synthetic:microsoft_purview:tenant-A",
+        "connector_id": "fixture-microsoft_purview-connector",
+        "export_revision": "PURVIEW-LINEAGE-PARTIAL-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "partial",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "asset_discovery",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "data_lineage",
+          "status": "partial",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "pagination_completeness",
+          "status": "unknown",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-DATASET-A",
+          "external_object_id": "dataset-A",
+          "object_namespace": "tenant-A/datasets",
+          "object_type": "dataset",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-DATASET-B",
+          "external_object_id": "dataset-B",
+          "object_namespace": "tenant-A/datasets",
+          "object_type": "dataset",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_ref": "REL-PURVIEW-LINEAGE-1",
+          "source_object_ref": "OBJ-DATASET-A",
+          "target_object_ref": "OBJ-DATASET-B",
+          "direction": "source_to_target",
+          "relationship_type": "lineage",
+          "processing_activity_ref": null,
+          "purpose_refs": [],
+          "data_element_refs": [],
+          "access_principal_refs": [],
+          "evidence_refs": [
+            "EVIDENCE-PURVIEW-1"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-PIPELINE-1"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "field_mappings": [
+        {
+          "source_path": "lineage.columnMapping",
+          "canonical_path": null,
+          "mapping_status": "ambiguous",
+          "transformation_ref": null,
+          "loss_code": "unsupported_column_level_lineage",
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "effects": []
+    },
+    {
+      "case_id": "BLACKLINE-RECON-NO-POSTING",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "blackline",
+        "tenant_namespace": "synthetic:blackline:tenant-A",
+        "connector_id": "fixture-blackline-connector",
+        "export_revision": "BLACKLINE-RECON-NO-POSTING-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "complete",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "journal_reconciliation",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "journal_posting",
+          "status": "unsupported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "source_revision",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-RECON-1",
+          "external_object_id": "reconciliation-01",
+          "object_namespace": "tenant-A/close",
+          "object_type": "reconciliation",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-JOURNAL-1",
+          "external_object_id": "journal-01",
+          "object_namespace": "tenant-A/ledger",
+          "object_type": "journal_entry",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-ORG-1",
+          "external_object_id": "entity-01",
+          "object_namespace": "tenant-A/entities",
+          "object_type": "legal_entity",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_ref": "REL-BL-RECON-1",
+          "source_object_ref": "OBJ-RECON-1",
+          "target_object_ref": "OBJ-JOURNAL-1",
+          "direction": "source_to_target",
+          "relationship_type": "matches",
+          "processing_activity_ref": null,
+          "purpose_refs": [],
+          "data_element_refs": [],
+          "access_principal_refs": [],
+          "evidence_refs": [
+            "EVIDENCE-BL-1"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-ERP-LEDGER-1"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "field_mappings": [
+        {
+          "source_path": "reconciliation.result",
+          "canonical_path": "observations.reconciliation_result",
+          "mapping_status": "mapped_exact",
+          "transformation_ref": null,
+          "loss_code": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "effects": []
+    },
+    {
+      "case_id": "WORKIVA-DISCLOSURE-LINK",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "workiva",
+        "tenant_namespace": "synthetic:workiva:tenant-A",
+        "connector_id": "fixture-workiva-connector",
+        "export_revision": "WORKIVA-DISCLOSURE-LINK-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "complete",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "financial_disclosure_linking",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "xbrl_tagging",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "source_revision",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-JOURNAL-1",
+          "external_object_id": "journal-01",
+          "object_namespace": "tenant-A/ledger",
+          "object_type": "journal_entry",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-DISCLOSURE-1",
+          "external_object_id": "filing-01",
+          "object_namespace": "tenant-A/reporting",
+          "object_type": "disclosure",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-ORG-1",
+          "external_object_id": "entity-01",
+          "object_namespace": "tenant-A/entities",
+          "object_type": "legal_entity",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_ref": "REL-WK-PUBLISH-1",
+          "source_object_ref": "OBJ-JOURNAL-1",
+          "target_object_ref": "OBJ-DISCLOSURE-1",
+          "direction": "source_to_target",
+          "relationship_type": "publishes_from",
+          "processing_activity_ref": null,
+          "purpose_refs": [],
+          "data_element_refs": [],
+          "access_principal_refs": [],
+          "evidence_refs": [
+            "EVIDENCE-WK-1"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-ERP-LEDGER-1"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "field_mappings": [
+        {
+          "source_path": "linkedFact.sourceRef",
+          "canonical_path": "relationships.source_object_ref",
+          "mapping_status": "mapped_exact",
+          "transformation_ref": null,
+          "loss_code": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "source_path": "xbrl.tag",
+          "canonical_path": "observations.taxonomy_concept",
+          "mapping_status": "mapped_exact",
+          "transformation_ref": null,
+          "loss_code": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "effects": []
+    },
+    {
+      "case_id": "TEMP-FUTURE-FACT",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "synthetic_other",
+        "tenant_namespace": "synthetic:synthetic_other:tenant-A",
+        "connector_id": "fixture-synthetic_other-connector",
+        "export_revision": "TEMP-FUTURE-FACT-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "complete",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "data_transfer_relationships",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "source_revision",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-ASSET-A",
+          "external_object_id": "asset-001",
+          "object_namespace": "tenant-A/assets",
+          "object_type": "data_asset",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-ASSET-B",
+          "external_object_id": "asset-002",
+          "object_namespace": "tenant-A/assets",
+          "object_type": "data_asset",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_ref": "REL-TEMP-FUTURE-1",
+          "source_object_ref": "OBJ-ASSET-A",
+          "target_object_ref": "OBJ-ASSET-B",
+          "direction": "source_to_target",
+          "relationship_type": "transfers_data_to",
+          "processing_activity_ref": null,
+          "purpose_refs": [],
+          "data_element_refs": [],
+          "access_principal_refs": [],
+          "evidence_refs": [
+            "EVIDENCE-FUTURE-1"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-FUTURE-1"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:45:00Z"
+        }
+      ],
+      "field_mappings": [],
+      "effects": []
+    },
+    {
+      "case_id": "PAGINATION-TRUNCATED",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "microsoft_purview",
+        "tenant_namespace": "synthetic:microsoft_purview:tenant-A",
+        "connector_id": "fixture-microsoft_purview-connector",
+        "export_revision": "PAGINATION-TRUNCATED-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "truncated",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "asset_discovery",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "pagination_completeness",
+          "status": "truncated",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "data_lineage",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-DATASET-A",
+          "external_object_id": "dataset-A",
+          "object_namespace": "tenant-A/datasets",
+          "object_type": "dataset",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-DATASET-B",
+          "external_object_id": "dataset-B",
+          "object_namespace": "tenant-A/datasets",
+          "object_type": "dataset",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_ref": "REL-PAG-1",
+          "source_object_ref": "OBJ-DATASET-A",
+          "target_object_ref": "OBJ-DATASET-B",
+          "direction": "source_to_target",
+          "relationship_type": "lineage",
+          "processing_activity_ref": null,
+          "purpose_refs": [],
+          "data_element_refs": [],
+          "access_principal_refs": [],
+          "evidence_refs": [
+            "EVIDENCE-PAG-1"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-PIPELINE-2"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "field_mappings": [],
+      "effects": []
+    },
+    {
+      "case_id": "MIRRORED-EVIDENCE-SAME-ORIGIN",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "synthetic_other",
+        "tenant_namespace": "synthetic:synthetic_other:tenant-A",
+        "connector_id": "fixture-synthetic_other-connector",
+        "export_revision": "MIRRORED-EVIDENCE-SAME-ORIGIN-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "complete",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "data_lineage",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "capability_id": "source_revision",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-ASSET-A",
+          "external_object_id": "asset-001",
+          "object_namespace": "tenant-A/assets",
+          "object_type": "data_asset",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-JOURNAL-1",
+          "external_object_id": "journal-01",
+          "object_namespace": "tenant-A/ledger",
+          "object_type": "journal_entry",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_ref": "REL-MIRROR-1",
+          "source_object_ref": "OBJ-ASSET-A",
+          "target_object_ref": "OBJ-JOURNAL-1",
+          "direction": "source_to_target",
+          "relationship_type": "derived_from",
+          "processing_activity_ref": null,
+          "purpose_refs": [],
+          "data_element_refs": [],
+          "access_principal_refs": [],
+          "evidence_refs": [
+            "EXPORT-COPY-A"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-ERP-LEDGER-9"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "relationship_ref": "REL-MIRROR-2",
+          "source_object_ref": "OBJ-ASSET-A",
+          "target_object_ref": "OBJ-JOURNAL-1",
+          "direction": "source_to_target",
+          "relationship_type": "derived_from",
+          "processing_activity_ref": null,
+          "purpose_refs": [],
+          "data_element_refs": [],
+          "access_principal_refs": [],
+          "evidence_refs": [
+            "EXPORT-COPY-B"
+          ],
+          "upstream_origin_refs": [
+            "ORIGIN-ERP-LEDGER-9"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "field_mappings": [],
+      "effects": []
+    },
+    {
+      "case_id": "NAMESPACE-SCOPED-IDENTITY",
+      "contract_version": "1.0.0",
+      "claim_ceiling": "synthetic_adapter_mapping_conformance_only_not_vendor_certification_or_business_authority",
+      "requested_knowledge_at": "2026-11-05T10:30:00Z",
+      "source_snapshot": {
+        "system_family": "synthetic_other",
+        "tenant_namespace": "synthetic:synthetic_other:tenant-A",
+        "connector_id": "fixture-synthetic_other-connector",
+        "export_revision": "NAMESPACE-SCOPED-IDENTITY-revision-1",
+        "observed_at": "2026-11-05T10:00:00Z",
+        "capture_state": "complete",
+        "payload_sha256": null,
+        "payload_capture_state": "synthetic_fixture"
+      },
+      "capability_coverage": [
+        {
+          "capability_id": "source_revision",
+          "status": "supported",
+          "scope_ref": null,
+          "observed_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "objects": [
+        {
+          "object_ref": "OBJ-ORG-SA",
+          "external_object_id": "same-id",
+          "object_namespace": "tenant-SA/actors",
+          "object_type": "organization",
+          "object_revision": "r1"
+        },
+        {
+          "object_ref": "OBJ-ORG-UK",
+          "external_object_id": "same-id",
+          "object_namespace": "tenant-UK/actors",
+          "object_type": "organization",
+          "object_revision": "r1"
+        }
+      ],
+      "relationships": [],
+      "field_mappings": [
+        {
+          "source_path": "object.namespace",
+          "canonical_path": "objects.object_namespace",
+          "mapping_status": "mapped_exact",
+          "transformation_ref": null,
+          "loss_code": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "source_path": "object.id",
+          "canonical_path": "objects.external_object_id",
+          "mapping_status": "mapped_exact",
+          "transformation_ref": null,
+          "loss_code": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "effects": []
+    }
+  ]
+}

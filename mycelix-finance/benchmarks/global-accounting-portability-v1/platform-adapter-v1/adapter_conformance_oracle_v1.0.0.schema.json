@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/finance-platform-adapter-oracle-v1.0.0.json",
+  "title": "Mycelix Finance Platform Adapter Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_id",
+    "schema_version",
+    "claim_ceiling",
+    "expectations"
+  ],
+  "properties": {
+    "oracle_id": {
+      "const": "MYCELIX-PLATFORM-ADAPTER-ORACLE-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "public_mapping_conformance_expectations_not_vendor_certification"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/expectation"
+      }
+    }
+  },
+  "$defs": {
+    "expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_adapter_state",
+        "expected_active_relationship_refs",
+        "expected_unmapped_source_paths",
+        "expected_incomplete_capabilities",
+        "expected_access_principal_refs",
+        "expected_upstream_origin_refs",
+        "expected_reason_codes",
+        "expected_no_effects"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 3
+        },
+        "expected_adapter_state": {
+          "enum": [
+            "mapping_complete",
+            "mapping_partial",
+            "indeterminate",
+            "duplicate_origin_review",
+            "identity_scope_preserved",
+            "evidence_only_read_only"
+          ]
+        },
+        "expected_active_relationship_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "expected_unmapped_source_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "expected_incomplete_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "expected_access_principal_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "expected_upstream_origin_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "expected_reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "actor_access_principal_not_represented",
+              "classification_is_not_transfer_authority",
+              "source_lineage_partial_or_truncated",
+              "journal_posting_capability_not_authorised_by_adapter",
+              "future_recorded_relationship_excluded",
+              "export_pagination_incomplete",
+              "correlated_origin_not_independent",
+              "same_external_id_different_namespace",
+              "no_unresolved_mapping_loss",
+              "evidence_after_knowledge_frontier"
+            ]
+          }
+        },
+        "expected_no_effects": {
+          "const": true
+        }
+      }
+    }
+  }
+}
