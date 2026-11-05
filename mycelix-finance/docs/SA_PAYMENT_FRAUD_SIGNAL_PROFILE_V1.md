@@ -30,7 +30,7 @@ POPIA requires minimality, specific lawful purpose, limited retention, compatibl
 
 Each signal binds the issuer organisation, role, key and a separately produced verification receipt; an issuer-local opaque subject reference and data classification; event category and event/record times; assertion status, evidence class, evidence references, source-independence groups, qualitative confidence and determining authority; permitted recipients and purposes, prohibited secondary purposes, legal-basis review reference, special-information review, retention deadline and storage scope; plus correction/dispute/withdrawal state and downstream recipient notification counts.
 
-Each recipient query carries its own pairwise subject reference, purpose, requested action and evaluation time.
+Each recipient query carries its own pairwise subject reference that must be bound to that exact recipient, purpose, requested action and evaluation time. The assertion records source-register references for policy/evidence context. Correction lineage identifies prior recipient IDs and notified recipient IDs, not only counts, so incomplete propagation is detectable.
 
 The evaluator verifies structural and semantic consistency against synthetic fixtures. It does not perform production cryptographic signature verification or legal-basis review. The reviewed_for_fixture markers are test data, not legal approvals.
 
@@ -93,5 +93,7 @@ EU Verification of Payee is a name/account match service before payment initiati
 No competing trust engine, global identity graph, legal source registry or universal risk score is introduced.
 
 ## Claim ceiling
+
+The v1 corpus contains 34 synthetic cases, including wrong-recipient pairwise-token substitution and a proposed-but-not-operational NPU profile that must remain quarantined.
 
 Passing the corpus proves only the exact synthetic schema/evaluator behavior. It does not establish a lawful basis, POPIA/FSR compliance, actual fraud-detection accuracy, a national fraud service, SARB endorsement, provider liability or real-world consumer benefit. Live exchange requires participating controllers, current rules, data-sharing agreements, privacy impact assessment and specialist legal review.
