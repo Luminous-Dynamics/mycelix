@@ -1,0 +1,688 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/za-fraud-signal-exchange-v1.schema.json",
+  "title": "ZA Fraud Signal Exchange Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "as_of",
+    "jurisdiction",
+    "external_effects_enabled",
+    "aggregate_minimum_cell_threshold",
+    "source_register",
+    "policy_source_refs",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.za-fraud-signal-exchange/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-FRAUD-SIGNAL-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "aggregate_minimum_cell_threshold": {
+      "const": 20
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 28,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "policy_source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_]+$"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "ack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recipient_id",
+        "delivery_state",
+        "correction_ack_state"
+      ],
+      "properties": {
+        "recipient_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "delivery_state": {
+          "enum": [
+            "pending",
+            "acknowledged",
+            "failed",
+            "quarantined"
+          ]
+        },
+        "correction_ack_state": {
+          "enum": [
+            "not_required",
+            "pending",
+            "acknowledged",
+            "failed",
+            "quarantined"
+          ]
+        }
+      }
+    },
+    "issuer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "organisation_id",
+        "organisational_role",
+        "credential_state",
+        "role_authority_state",
+        "signature_verification_receipt"
+      ],
+      "properties": {
+        "organisation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "organisational_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "credential_state": {
+          "enum": [
+            "verified",
+            "unknown",
+            "expired",
+            "revoked_before_issuance",
+            "revoked_after_issuance"
+          ]
+        },
+        "role_authority_state": {
+          "enum": [
+            "verified",
+            "unknown",
+            "denied"
+          ]
+        },
+        "signature_verification_receipt": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opaque_token",
+        "tokenisation_profile",
+        "scope_id",
+        "audience_id",
+        "purpose_id"
+      ],
+      "properties": {
+        "opaque_token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tokenisation_profile": {
+          "enum": [
+            "pairwise_scoped",
+            "case_scoped"
+          ]
+        },
+        "scope_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audience_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_class",
+        "evidence_reference",
+        "evidence_commitment",
+        "origin_verification_state",
+        "corroboration_state",
+        "adjudication_reference"
+      ],
+      "properties": {
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_verification_state": {
+          "enum": [
+            "verified",
+            "unknown",
+            "invalid"
+          ]
+        },
+        "corroboration_state": {
+          "enum": [
+            "none",
+            "single_source",
+            "multiple_independent_sources",
+            "adjudicated"
+          ]
+        },
+        "adjudication_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence_reference": {
+          "type": "string",
+          "pattern": "^SYNTHETIC-EVIDENCE-[0-9]{3}$"
+        },
+        "evidence_commitment": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis_type",
+        "review_state",
+        "basis_reference",
+        "policy_version"
+      ],
+      "properties": {
+        "basis_type": {
+          "enum": [
+            "statutory",
+            "contract",
+            "consent",
+            "other",
+            "unknown"
+          ]
+        },
+        "review_state": {
+          "enum": [
+            "verified",
+            "unknown",
+            "expired",
+            "denied"
+          ]
+        },
+        "basis_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "policy_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_at",
+        "asserted_at",
+        "issued_at",
+        "expires_at"
+      ],
+      "properties": {
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "asserted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "correction_state",
+        "recipient_acknowledgements"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "asserted",
+            "corroborated",
+            "disputed",
+            "corrected",
+            "withdrawn",
+            "expired"
+          ]
+        },
+        "correction_state": {
+          "enum": [
+            "none",
+            "dispute_open",
+            "correction_pending",
+            "correction_acknowledged",
+            "withdrawal_pending",
+            "withdrawal_acknowledged"
+          ]
+        },
+        "recipient_acknowledgements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ack"
+          }
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "delete_after",
+        "exception_basis",
+        "review_state"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string"
+        },
+        "delete_after": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "exception_basis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "review_state": {
+          "enum": [
+            "verified",
+            "unknown",
+            "denied"
+          ]
+        }
+      }
+    },
+    "use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "use_id",
+        "recipient_id",
+        "purpose",
+        "action",
+        "human_review",
+        "separate_decision_reference"
+      ],
+      "properties": {
+        "use_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "enum": [
+            "triage",
+            "request_more_evidence",
+            "human_review",
+            "aggregate_analysis",
+            "credit_scoring",
+            "global_person_scoring",
+            "automatic_payment_denial",
+            "automatic_account_closure",
+            "essential_service_denial",
+            "bulk_identifier_search",
+            "unrestricted_onward_disclosure",
+            "unrelated_marketing"
+          ]
+        },
+        "human_review": {
+          "type": "boolean"
+        },
+        "separate_decision_reference": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "denominator",
+        "cell_count",
+        "suppression_threshold",
+        "suppression_applied",
+        "reidentification_review",
+        "output_class"
+      ],
+      "properties": {
+        "denominator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cell_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppression_threshold": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "suppression_applied": {
+          "type": "boolean"
+        },
+        "reidentification_review": {
+          "enum": [
+            "low",
+            "high",
+            "unknown"
+          ]
+        },
+        "output_class": {
+          "const": "aggregate_typology"
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_id",
+        "plane",
+        "signal_class",
+        "epistemic_status",
+        "issuer",
+        "audience",
+        "purpose",
+        "subject_reference",
+        "case_reference",
+        "evidence",
+        "authority",
+        "timestamps",
+        "lifecycle",
+        "retention",
+        "permitted_actions",
+        "prohibited_uses",
+        "raw_personal_data_present",
+        "recipient_uses",
+        "aggregate",
+        "expected_disposition"
+      ],
+      "properties": {
+        "signal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "plane": {
+          "enum": [
+            "strategic_aggregate",
+            "operational_case"
+          ]
+        },
+        "signal_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "epistemic_status": {
+          "enum": [
+            "observed",
+            "alleged",
+            "inferred",
+            "adjudicated"
+          ]
+        },
+        "issuer": {
+          "$ref": "#/$defs/issuer"
+        },
+        "audience": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_reference": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/subject"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "case_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        },
+        "authority": {
+          "$ref": "#/$defs/authority"
+        },
+        "timestamps": {
+          "$ref": "#/$defs/timestamps"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        },
+        "retention": {
+          "$ref": "#/$defs/retention"
+        },
+        "permitted_actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "triage",
+              "request_more_evidence",
+              "human_review",
+              "aggregate_analysis"
+            ]
+          }
+        },
+        "prohibited_uses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "raw_personal_data_present": {
+          "const": false
+        },
+        "recipient_uses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/use"
+          }
+        },
+        "aggregate": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/aggregate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_disposition": {
+          "enum": [
+            "admit_aggregate_only",
+            "admit_scoped_assertion",
+            "quarantine_unknown_authority",
+            "quarantine_expired",
+            "quarantine_disputed",
+            "quarantine_propagation_incomplete",
+            "quarantine_withdrawn",
+            "quarantine_corrected",
+            "quarantine_revoked_key_current_use",
+            "reject"
+          ]
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "signal"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^ZA-FSI-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signal": {
+          "$ref": "#/$defs/signal"
+        }
+      }
+    }
+  }
+}
