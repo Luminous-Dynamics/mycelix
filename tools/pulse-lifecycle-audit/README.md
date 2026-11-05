@@ -51,14 +51,14 @@ The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trac
 - a signal never authorizes an operation, and an unverified/advisory signal never mutates trusted state;
 - caller outcomes reconcile per exact logical operation ID plus attempt ID; a not-committed/rejected attempt cannot contradict an effect from that same attempt, and a different retry attempt is not conflated;
 - every projection read references an exact issued grant; a view older than a revocation already present in the trace cannot be labeled trusted-active/trusted-revoked, and an unconstrained stale view must be explicitly STALE_ADVISORY or UNKNOWN;
-- remote signal event types are bounded identifiers, and unknown/empty/oversized identifiers are incomplete evidence;
+- remote signal event types are bounded identifiers; a VerifiedRecord disposition requires observer-plane evidence, matching claimed/transport sender and a backing ActionHash; an AuthenticatedPeerHint binds the sender but remains advisory; LocalOnly cannot claim remote sender metadata;
 - missing or misclassified evidence becomes INCOMPLETE, not PASS.
 
 ## Evidence semantics and limits
 
 A runtime trace must export a monotonically increasing **conductor authority-order index** at the point where grant issue, revoke and host decision are linearized. A trace bundle is currently treated as one ordered conductor history; do not merge raw authority indexes from independent conductors into one bundle without an explicit per-conductor identity and cross-conductor causal join. Wall-clock timestamps and source-chain order are not substitutes for this value. If Holochain does not expose the required event boundary, instrument a test build or mark the trace incomplete; do not infer order.
 
-Every event names an evidence source and a receipt reference. Coordinator assertions cannot stand in for conductor host decisions. The verifier does not itself authenticate receipt signatures, inspect a conductor database, verify a DHT validation receipt, or prove that the exporter is honest. Its report therefore has the fixed claim ceiling STRUCTURAL_ONLY.
+Every event names an evidence source and a receipt reference. Coordinator assertions cannot stand in for conductor host decisions. A remote peer may prove who sent a hint, but it cannot prove the referenced record is true; only an observer-side record-verification event can be classified VerifiedRecord in the trace, and that classification remains structural until its receipt is independently authenticated. The verifier does not itself authenticate receipt signatures, inspect a conductor database, verify a DHT validation receipt, or prove that the exporter is honest. Its report therefore has the fixed claim ceiling STRUCTURAL_ONLY.
 
 Never include capability secrets, message plaintext, private keys, raw authentication tokens or unnecessary personal identity data in the trace. Hashes and identifiers should be salted/pseudonymized where cross-run correlation is not required.
 
