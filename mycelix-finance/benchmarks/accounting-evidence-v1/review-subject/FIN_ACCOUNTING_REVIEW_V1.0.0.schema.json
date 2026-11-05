@@ -1,0 +1,440 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-accounting-review-v1.0.0.json",
+  "title": "FIN-ACC-REVIEW-001 exact-subject review record v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "subject",
+    "review_policy",
+    "review_events"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "mycelix.fin.accounting-review"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "review_policy": {
+      "$ref": "#/$defs/reviewPolicy"
+    },
+    "review_events": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/reviewEvent"
+      }
+    }
+  },
+  "$defs": {
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "workpaper_ref",
+        "workpaper_digest",
+        "reporting_entity_ref",
+        "reporting_period",
+        "book_domain",
+        "assertion_pair_ids",
+        "procedure_ref",
+        "source_frontier_digest",
+        "evidence_frontier_digest",
+        "parent_workpaper_digests",
+        "accounting_profile_digest",
+        "accounting_policy_digest",
+        "review_policy_ref",
+        "review_policy_digest",
+        "knowledge_frontier_digest",
+        "authority_frontier_digest",
+        "prepared_by",
+        "prepared_at_unix_ms"
+      ],
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "workpaper_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "workpaper_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reporting_entity_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "reporting_period": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+        },
+        "book_domain": {
+          "enum": [
+            "financial",
+            "encumbrance",
+            "operational",
+            "management"
+          ]
+        },
+        "assertion_pair_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^[^\\u0000-\\u001f]+$"
+          }
+        },
+        "procedure_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "source_frontier_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "evidence_frontier_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "parent_workpaper_digests": {
+          "type": "array",
+          "maxItems": 500,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "accounting_profile_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "accounting_policy_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "review_policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "review_policy_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "knowledge_frontier_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authority_frontier_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "prepared_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principal_ref",
+            "actor_kind"
+          ],
+          "properties": {
+            "principal_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^[^\\u0000-\\u001f]+$"
+            },
+            "actor_kind": {
+              "enum": [
+                "human",
+                "agent",
+                "system"
+              ]
+            },
+            "agent_build_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "prepared_at_unix_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "reviewPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_ref",
+        "policy_version",
+        "policy_owner_principal_ref",
+        "required_role_counts",
+        "separation_constraints"
+      ],
+      "properties": {
+        "policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "policy_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "policy_owner_principal_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "required_role_counts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "minimum_unique_principals"
+            ],
+            "properties": {
+              "role": {
+                "enum": [
+                  "performer",
+                  "reviewer",
+                  "approver"
+                ]
+              },
+              "minimum_unique_principals": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20
+              }
+            }
+          }
+        },
+        "separation_constraints": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "left_role",
+              "right_role"
+            ],
+            "properties": {
+              "left_role": {
+                "enum": [
+                  "preparer",
+                  "performer",
+                  "reviewer",
+                  "approver",
+                  "policy_owner"
+                ]
+              },
+              "right_role": {
+                "enum": [
+                  "preparer",
+                  "performer",
+                  "reviewer",
+                  "approver",
+                  "policy_owner"
+                ]
+              }
+            }
+          }
+        },
+        "non_human_eligible_roles": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "description": "Explicit, narrowly scoped policy opt-in for non-human principals in these roles; omitted means none.",
+          "items": {
+            "enum": [
+              "performer",
+              "reviewer",
+              "approver"
+            ]
+          }
+        }
+      }
+    },
+    "reviewEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "subject_digest",
+        "policy_digest",
+        "role",
+        "principal_ref",
+        "decision",
+        "reporting_entity_ref",
+        "reporting_period",
+        "assertion_pair_ids",
+        "procedure_ref",
+        "authority_frontier_digest",
+        "identity_evidence_ref",
+        "authority_evidence_ref",
+        "recorded_at_unix_ms",
+        "actor_kind"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "subject_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policy_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "role": {
+          "enum": [
+            "performer",
+            "reviewer",
+            "approver"
+          ]
+        },
+        "principal_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "decision": {
+          "enum": [
+            "performed",
+            "reviewed",
+            "approved",
+            "approved_with_limitation",
+            "rejected",
+            "request_changes"
+          ]
+        },
+        "reporting_entity_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "reporting_period": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+        },
+        "assertion_pair_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^[^\\u0000-\\u001f]+$"
+          }
+        },
+        "procedure_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "authority_frontier_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "identity_evidence_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "authority_evidence_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "recorded_at_unix_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "notes_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "actor_kind": {
+          "enum": [
+            "human",
+            "agent",
+            "system"
+          ]
+        },
+        "agent_build_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "actor_kind": {
+                "const": "agent"
+              }
+            },
+            "required": [
+              "actor_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "agent_build_digest"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
