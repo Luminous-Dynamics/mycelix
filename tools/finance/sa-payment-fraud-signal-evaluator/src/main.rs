@@ -450,14 +450,9 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     }
     let mut count = 0;
 
-    mutate_and_reject(
-        "external effects enabled",
-        corpus,
-        schema,
-        |value| {
-            value["external_effects_enabled"] = json!(true);
-        },
-    )?;
+    mutate_and_reject("external effects enabled", corpus, schema, |value| {
+        value["external_effects_enabled"] = json!(true);
+    })?;
     count += 1;
 
     mutate_and_reject(
