@@ -1,0 +1,461 @@
+{
+  "bundle_id": "MYCELIX-TYPED-CONTEXT-REQUEST-FIXTURES-V1",
+  "context_bundle_sha256": "5c8ba790dc0e494550b394d04ac69980b508f367b9d41460582c4a55a59e84ed",
+  "context_schema_sha256": "ef89d88a5156915ab42e5f63d083c1bfd886b4f77a0c402f1c1796585bb1a931",
+  "requests": [
+    {
+      "request_schema_version": "1.0.0",
+      "request_id": "TCTX-ROLE-A-COMPLETE",
+      "context_bundle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1",
+      "context_id": "CTX-ROLE-A",
+      "context_bundle_sha256": "5c8ba790dc0e494550b394d04ac69980b508f367b9d41460582c4a55a59e84ed",
+      "context_schema_id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-bundle-v1.0.0.json",
+      "context_schema_sha256": "ef89d88a5156915ab42e5f63d083c1bfd886b4f77a0c402f1c1796585bb1a931",
+      "valid_at": "2026-10-31",
+      "knowledge_at": "2026-11-05T09:30:00Z",
+      "requirements": [
+        {
+          "requirement_id": "REQ-SELLER-ESTABLISHMENT",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-ROLE-A-SELLER-ESTABLISHMENT-01",
+          "subject_party_role": null,
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ],
+          "jurisdiction_role": "establishment_location",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-SELLER-SHIP-FROM",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-ROLE-A-SHIPMENT-001",
+          "subject_party_role": null,
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "ship_from_operator"
+            }
+          ],
+          "jurisdiction_role": "ship_from",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-B",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "B",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-SELLER-TAX-REGISTRATION",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller",
+          "party_role_bindings": [],
+          "jurisdiction_role": "tax_registration",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-PLACE-OF-SUPPLY",
+          "subject_kind": "transaction",
+          "subject_ref": "SYN-TRANSACTION-001",
+          "subject_party_role": null,
+          "party_role_bindings": [],
+          "jurisdiction_role": "place_of_supply",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-B",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "B",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "approved_rule_derived",
+          "required_derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001",
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-BUYER-SHIP-TO",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-ROLE-A-SHIPMENT-001",
+          "subject_party_role": null,
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-BUYER",
+              "transaction_role": "ship_to_recipient"
+            }
+          ],
+          "jurisdiction_role": "ship_to",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-BUYER-TAX-REGISTRATION",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer",
+          "party_role_bindings": [],
+          "jurisdiction_role": "tax_registration",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-B",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "B",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        }
+      ]
+    },
+    {
+      "request_schema_version": "1.0.0",
+      "request_id": "TCTX-ROLE-B-ROLE-SWAP",
+      "context_bundle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1",
+      "context_id": "CTX-ROLE-B",
+      "context_bundle_sha256": "5c8ba790dc0e494550b394d04ac69980b508f367b9d41460582c4a55a59e84ed",
+      "context_schema_id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-bundle-v1.0.0.json",
+      "context_schema_sha256": "ef89d88a5156915ab42e5f63d083c1bfd886b4f77a0c402f1c1796585bb1a931",
+      "valid_at": "2026-10-31",
+      "knowledge_at": "2026-11-05T09:30:00Z",
+      "requirements": [
+        {
+          "requirement_id": "REQ-SELLER-ESTABLISHMENT-B",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-ROLE-A-SELLER-ESTABLISHMENT-01",
+          "subject_party_role": null,
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ],
+          "jurisdiction_role": "establishment_location",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-SELLER-SHIP-FROM-B",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-ROLE-A-SHIPMENT-001",
+          "subject_party_role": null,
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "ship_from_operator"
+            }
+          ],
+          "jurisdiction_role": "ship_from",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-B",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "B",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-SELLER-TAX-REGISTRATION-B",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller",
+          "party_role_bindings": [],
+          "jurisdiction_role": "tax_registration",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-PLACE-OF-SUPPLY-B",
+          "subject_kind": "transaction",
+          "subject_ref": "SYN-TRANSACTION-001",
+          "subject_party_role": null,
+          "party_role_bindings": [],
+          "jurisdiction_role": "place_of_supply",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-B",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "B",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "approved_rule_derived",
+          "required_derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001",
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-BUYER-SHIP-TO-B",
+          "subject_kind": "shipment",
+          "subject_ref": "CTX-ROLE-A-SHIPMENT-001",
+          "subject_party_role": null,
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-BUYER",
+              "transaction_role": "ship_to_recipient"
+            }
+          ],
+          "jurisdiction_role": "ship_to",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        },
+        {
+          "requirement_id": "REQ-BUYER-TAX-REGISTRATION-B",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-BUYER",
+          "subject_party_role": "buyer",
+          "party_role_bindings": [],
+          "jurisdiction_role": "tax_registration",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-B",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "B",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        }
+      ]
+    },
+    {
+      "request_schema_version": "1.0.0",
+      "request_id": "TCTX-UNKNOWN-PLACE",
+      "context_bundle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1",
+      "context_id": "CTX-PLACE-UNKNOWN",
+      "context_bundle_sha256": "5c8ba790dc0e494550b394d04ac69980b508f367b9d41460582c4a55a59e84ed",
+      "context_schema_id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-bundle-v1.0.0.json",
+      "context_schema_sha256": "ef89d88a5156915ab42e5f63d083c1bfd886b4f77a0c402f1c1796585bb1a931",
+      "valid_at": "2026-10-31",
+      "knowledge_at": "2026-11-05T09:30:00Z",
+      "requirements": [
+        {
+          "requirement_id": "REQ-UNKNOWN-PLACE",
+          "subject_kind": "transaction",
+          "subject_ref": "SYN-TRANSACTION-001",
+          "subject_party_role": null,
+          "party_role_bindings": [],
+          "jurisdiction_role": "place_of_supply",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-B",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "B",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "approved_rule_derived",
+          "required_derivation_ref": "SYN-APPROVED-RULE-PROJECTION-001",
+          "require_evidence_refs": true
+        }
+      ]
+    },
+    {
+      "request_schema_version": "1.0.0",
+      "request_id": "TCTX-DISPUTED-REGISTRATION",
+      "context_bundle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1",
+      "context_id": "CTX-REGISTRATION-DISPUTED",
+      "context_bundle_sha256": "5c8ba790dc0e494550b394d04ac69980b508f367b9d41460582c4a55a59e84ed",
+      "context_schema_id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-bundle-v1.0.0.json",
+      "context_schema_sha256": "ef89d88a5156915ab42e5f63d083c1bfd886b4f77a0c402f1c1796585bb1a931",
+      "valid_at": "2026-10-31",
+      "knowledge_at": "2026-11-05T09:30:00Z",
+      "requirements": [
+        {
+          "requirement_id": "REQ-DISPUTED-SELLER-REG",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller",
+          "party_role_bindings": [],
+          "jurisdiction_role": "tax_registration",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        }
+      ]
+    },
+    {
+      "request_schema_version": "1.0.0",
+      "request_id": "TCTX-MULTI-ESTABLISHMENT",
+      "context_bundle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1",
+      "context_id": "CTX-ROLE-A",
+      "context_bundle_sha256": "5c8ba790dc0e494550b394d04ac69980b508f367b9d41460582c4a55a59e84ed",
+      "context_schema_id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-bundle-v1.0.0.json",
+      "context_schema_sha256": "ef89d88a5156915ab42e5f63d083c1bfd886b4f77a0c402f1c1796585bb1a931",
+      "valid_at": "2026-10-31",
+      "knowledge_at": "2026-11-05T09:30:00Z",
+      "requirements": [
+        {
+          "requirement_id": "REQ-ESTABLISHMENT-02",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-ROLE-A-SELLER-ESTABLISHMENT-02",
+          "subject_party_role": null,
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ],
+          "jurisdiction_role": "establishment_location",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A-REGION-1",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A-REGION-1",
+            "scope_level": "subnational_region",
+            "parent_scope_ref": "SYN-SCOPE-A"
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        }
+      ]
+    },
+    {
+      "request_schema_version": "1.0.0",
+      "request_id": "TCTX-COUNTRY-NOT-SUBNATIONAL",
+      "context_bundle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1",
+      "context_id": "CTX-ROLE-A",
+      "context_bundle_sha256": "5c8ba790dc0e494550b394d04ac69980b508f367b9d41460582c4a55a59e84ed",
+      "context_schema_id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-bundle-v1.0.0.json",
+      "context_schema_sha256": "ef89d88a5156915ab42e5f63d083c1bfd886b4f77a0c402f1c1796585bb1a931",
+      "valid_at": "2026-10-31",
+      "knowledge_at": "2026-11-05T09:30:00Z",
+      "requirements": [
+        {
+          "requirement_id": "REQ-ESTABLISHMENT-02-COUNTRY",
+          "subject_kind": "establishment",
+          "subject_ref": "CTX-ROLE-A-SELLER-ESTABLISHMENT-02",
+          "subject_party_role": null,
+          "party_role_bindings": [
+            {
+              "party_ref": "SYN-PARTY-SELLER",
+              "transaction_role": "seller"
+            }
+          ],
+          "jurisdiction_role": "establishment_location",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        }
+      ]
+    },
+    {
+      "request_schema_version": "1.0.0",
+      "request_id": "TCTX-KNOWLEDGE-FRONTIER",
+      "context_bundle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1",
+      "context_id": "CTX-ROLE-A",
+      "context_bundle_sha256": "5c8ba790dc0e494550b394d04ac69980b508f367b9d41460582c4a55a59e84ed",
+      "context_schema_id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-bundle-v1.0.0.json",
+      "context_schema_sha256": "ef89d88a5156915ab42e5f63d083c1bfd886b4f77a0c402f1c1796585bb1a931",
+      "valid_at": "2026-10-31",
+      "knowledge_at": "2026-11-05T08:59:59Z",
+      "requirements": [
+        {
+          "requirement_id": "REQ-SELLER-REG-HISTORIC",
+          "subject_kind": "party",
+          "subject_ref": "SYN-PARTY-SELLER",
+          "subject_party_role": "seller",
+          "party_role_bindings": [],
+          "jurisdiction_role": "tax_registration",
+          "scope_identity": {
+            "scope_id": "SYN-SCOPE-A",
+            "namespace_uri": "urn:mycelix:synthetic-jurisdiction-scope:v1",
+            "code": "A",
+            "scope_level": "country",
+            "parent_scope_ref": null
+          },
+          "minimum_assertion_state": "evidence_supported",
+          "required_origin": "source_asserted",
+          "required_derivation_ref": null,
+          "require_evidence_refs": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-typed-context-resolution-oracle-v1.0.0.json",
+  "title": "Mycelix Global Typed Context Resolution Public Oracle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_id",
+    "visibility",
+    "request_expectations"
+  ],
+  "properties": {
+    "oracle_id": {
+      "const": "MYCELIX-GLOBAL-TYPED-CONTEXT-RESOLVER-ORACLE-V1"
+    },
+    "visibility": {
+      "const": "public_reference_oracle_not_hidden_evaluation"
+    },
+    "request_expectations": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_id",
+          "expected_disposition",
+          "required_reason_code"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_disposition": {
+            "enum": [
+              "requirements_satisfied",
+              "partial",
+              "needs_review",
+              "indeterminate",
+              "unsupported"
+            ]
+          },
+          "required_reason_code": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

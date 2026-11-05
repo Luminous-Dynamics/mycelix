@@ -355,7 +355,7 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T09:00:00Z",
           "subject_kind": "establishment",
-          "subject_ref": "CTX-ROLE-B-SELLER-ESTABLISHMENT-01",
+          "subject_ref": "CTX-ROLE-A-SELLER-ESTABLISHMENT-01",
           "party_role_bindings": [
             {
               "party_ref": "SYN-PARTY-SELLER",
@@ -424,7 +424,7 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T09:00:00Z",
           "subject_kind": "shipment",
-          "subject_ref": "CTX-ROLE-B-SHIPMENT-001",
+          "subject_ref": "CTX-ROLE-A-SHIPMENT-001",
           "party_role_bindings": [
             {
               "party_ref": "SYN-PARTY-SELLER",
@@ -445,7 +445,7 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T09:00:00Z",
           "subject_kind": "shipment",
-          "subject_ref": "CTX-ROLE-B-SHIPMENT-001",
+          "subject_ref": "CTX-ROLE-A-SHIPMENT-001",
           "party_role_bindings": [
             {
               "party_ref": "SYN-PARTY-BUYER",
@@ -483,7 +483,7 @@
           "valid_to": null,
           "recorded_at": "2026-11-05T09:05:00Z",
           "subject_kind": "establishment",
-          "subject_ref": "CTX-ROLE-B-SELLER-ESTABLISHMENT-02",
+          "subject_ref": "CTX-ROLE-A-SELLER-ESTABLISHMENT-02",
           "party_role_bindings": [
             {
               "party_ref": "SYN-PARTY-SELLER",
