@@ -6,10 +6,10 @@
 
 ## Files
 
-- `bank_statement_chain_input_v1.0.3.schema.json`: candidate-visible structural schema.
-- `bank_statement_chain_candidates_v1.0.3.json`: 26 synthetic candidate-visible chain tasks.
-- `public-reference-oracle/bank_statement_chain_oracle_v1.0.3.json`: public reference outcomes for deterministic regression and independent implementation comparison.
-- `public-reference-oracle/bank_statement_chain_oracle_v1.0.3.schema.json`: structural schema for those public outcomes.
+- `bank_statement_chain_input_v1.0.4.schema.json`: candidate-visible structural schema.
+- `bank_statement_chain_candidates_v1.0.4.json`: 26 synthetic candidate-visible chain tasks.
+- `public-reference-oracle/bank_statement_chain_oracle_v1.0.4.json`: public reference outcomes for deterministic regression and independent implementation comparison.
+- `public-reference-oracle/bank_statement_chain_oracle_v1.0.4.schema.json`: structural schema for those public outcomes.
 - `BANK_STATEMENT_CHAIN_V1.md`: semantic contract and rationale.
 
 ## Important boundary
@@ -32,6 +32,8 @@ When raw CAMT XML fixtures are added, store the exact bytes separately, calculat
 - v1.0.2: 30 public semantic cases. Adds exact duplicate statement-record replay suppression and rejects cross-account/cross-scope replacement relations. The v1.0.1 files remain immutable.
 
 - v1.0.3: 31 public semantic cases. Adds account/entity/denomination/source-profile scoping for economic-event references and verifies exact economic-observation counts in oracle parity. The v1.0.2 files remain immutable.
+
+- v1.0.4: 33 public semantic cases. Adds replay projection integrity and cyclic revision-graph rejection. The v1.0.3 files remain immutable.
 
 ## Corpus limits
 
