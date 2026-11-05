@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -49,16 +49,24 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8]) -> Value {
     if let Err(error) = jsonschema::draft202012::meta::validate(&schema) {
         return failure_report("invalid_schema", format!("Draft 2020-12 schema: {error}"));
     }
-    let validator = match draft202012::options().should_validate_formats(true).build(&schema) {
+    let validator = match draft202012::options()
+        .should_validate_formats(true)
+        .build(&schema)
+    {
         Ok(value) => value,
-        Err(error) => return failure_report("invalid_schema", format!("schema compilation: {error}")),
+        Err(error) => {
+            return failure_report("invalid_schema", format!("schema compilation: {error}"));
+        }
     };
     let schema_errors = validator
         .iter_errors(&input)
         .map(|error| format!("{error} at {}", error.instance_path()))
         .collect::<Vec<_>>();
     if !schema_errors.is_empty() {
-        let mut report = failure_report("invalid_input", "candidate does not satisfy the pinned workpaper DAG schema".to_owned());
+        let mut report = failure_report(
+            "invalid_input",
+            "candidate does not satisfy the pinned workpaper DAG schema".to_owned(),
+        );
         report["errors"] = json!(schema_errors);
         return validate_report(report);
     }
@@ -102,7 +110,10 @@ fn validate_semantics(input: &Value, input_bytes: &[u8], schema_bytes: &[u8]) ->
                 errors.insert(format!("dangling_dependency:{id}:{parent}"));
                 continue;
             }
-            parents.entry(id.clone()).or_default().insert(parent.clone());
+            parents
+                .entry(id.clone())
+                .or_default()
+                .insert(parent.clone());
             children.entry(parent).or_default().insert(id.clone());
         }
     }
@@ -147,7 +158,14 @@ fn validate_semantics(input: &Value, input_bytes: &[u8], schema_bytes: &[u8]) ->
     }
 
     validate_required_reviews(&node_map, dag_version, &mut errors);
-    validate_ready_disposition(input, &node_map, &required_kinds, &missing_kinds, &stale_closure, &mut errors);
+    validate_ready_disposition(
+        input,
+        &node_map,
+        &required_kinds,
+        &missing_kinds,
+        &stale_closure,
+        &mut errors,
+    );
 
     let authority_escalation_detected = errors.iter().any(|reason| {
         reason.starts_with("non_authoritative_node_escalates_scope")
@@ -168,7 +186,11 @@ fn validate_semantics(input: &Value, input_bytes: &[u8], schema_bytes: &[u8]) ->
         .collect::<Vec<_>>();
     let invalidated = stale_closure
         .iter()
-        .filter(|id| node_map.get(*id).is_some_and(|node| string(&node["result"], "state") == Some("invalidated_stale")))
+        .filter(|id| {
+            node_map
+                .get(*id)
+                .is_some_and(|node| string(&node["result"], "state") == Some("invalidated_stale"))
+        })
         .cloned()
         .collect::<Vec<_>>();
 
@@ -204,14 +226,27 @@ fn validate_semantics(input: &Value, input_bytes: &[u8], schema_bytes: &[u8]) ->
 fn validate_report(mut report: Value) -> Value {
     let schema: Value = match serde_json::from_str(include_str!("../report.schema.json")) {
         Ok(value) => value,
-        Err(error) => return failure_report("invalid_report", format!("embedded report schema: {error}")),
+        Err(error) => {
+            return failure_report("invalid_report", format!("embedded report schema: {error}"));
+        }
     };
     if let Err(error) = jsonschema::draft202012::meta::validate(&schema) {
-        return failure_report("invalid_report", format!("embedded report schema meta-validation: {error}"));
+        return failure_report(
+            "invalid_report",
+            format!("embedded report schema meta-validation: {error}"),
+        );
     }
-    let validator = match draft202012::options().should_validate_formats(true).build(&schema) {
+    let validator = match draft202012::options()
+        .should_validate_formats(true)
+        .build(&schema)
+    {
         Ok(value) => value,
-        Err(error) => return failure_report("invalid_report", format!("embedded report schema compilation: {error}")),
+        Err(error) => {
+            return failure_report(
+                "invalid_report",
+                format!("embedded report schema compilation: {error}"),
+            );
+        }
     };
     let issues = validator
         .iter_errors(&report)
@@ -294,7 +329,10 @@ fn topological_order(
     }
 }
 
-fn find_cycle(parents: &BTreeMap<String, BTreeSet<String>>, remaining: &[String]) -> Option<Vec<String>> {
+fn find_cycle(
+    parents: &BTreeMap<String, BTreeSet<String>>,
+    remaining: &[String],
+) -> Option<Vec<String>> {
     fn visit(
         id: &str,
         parents: &BTreeMap<String, BTreeSet<String>>,
@@ -333,10 +371,7 @@ fn find_cycle(parents: &BTreeMap<String, BTreeSet<String>>, remaining: &[String]
     None
 }
 
-fn validate_workpaper_commitments(
-    nodes: &BTreeMap<String, Value>,
-    errors: &mut BTreeSet<String>,
-) {
+fn validate_workpaper_commitments(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSet<String>) {
     for (id, node) in nodes {
         if string(&node["result"], "state") != Some("completed") {
             continue;
@@ -381,7 +416,9 @@ fn validate_parent_inputs(
                 errors.insert(format!("duplicate_prior_workpaper_input:{id}:{parent_id}"));
             }
             if !expected.contains(&parent_id) {
-                errors.insert(format!("prior_workpaper_input_without_edge:{id}:{parent_id}"));
+                errors.insert(format!(
+                    "prior_workpaper_input_without_edge:{id}:{parent_id}"
+                ));
             }
             if !nodes.contains_key(&parent_id) {
                 errors.insert(format!("prior_workpaper_parent_missing:{id}:{parent_id}"));
@@ -391,7 +428,9 @@ fn validate_parent_inputs(
             }
         }
         for parent_id in expected.difference(&observed) {
-            errors.insert(format!("dependency_without_prior_workpaper_input:{id}:{parent_id}"));
+            errors.insert(format!(
+                "dependency_without_prior_workpaper_input:{id}:{parent_id}"
+            ));
         }
         for input in prior_inputs {
             let parent_id = string(&input["input_ref"], "ref_id").unwrap_or_default();
@@ -405,9 +444,13 @@ fn validate_parent_inputs(
                         errors.insert(format!("parent_commitment_mismatch:{id}:{parent_id}"));
                     }
                 } else if child_state == "completed" {
-                    errors.insert(format!("completed_child_has_nonterminal_parent:{id}:{parent_id}"));
+                    errors.insert(format!(
+                        "completed_child_has_nonterminal_parent:{id}:{parent_id}"
+                    ));
                 } else if input_digest.is_some() {
-                    errors.insert(format!("nonterminal_parent_claimed_as_completed:{id}:{parent_id}"));
+                    errors.insert(format!(
+                        "nonterminal_parent_claimed_as_completed:{id}:{parent_id}"
+                    ));
                 }
             }
         }
@@ -417,9 +460,7 @@ fn validate_parent_inputs(
 fn canonical_dag_value(input: &Value) -> Value {
     let mut value = input.clone();
     if let Some(nodes) = value.get_mut("nodes").and_then(Value::as_array_mut) {
-        nodes.sort_by(|left, right| {
-            string(left, "node_id").cmp(&string(right, "node_id"))
-        });
+        nodes.sort_by(|left, right| string(left, "node_id").cmp(&string(right, "node_id")));
     }
     if let Some(kinds) = value
         .get_mut("required_node_kinds")
@@ -436,15 +477,26 @@ fn validate_node_authority(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSe
         let authority = string(node, "authority_class").unwrap_or_default();
         let owner = string(node, "owner_system").unwrap_or_default();
 
-        if matches!(authority, "candidate_analysis" | "simulation_non_authoritative")
-            && AUTHORITY_SENSITIVE_KINDS.contains(&kind)
+        if matches!(
+            authority,
+            "candidate_analysis" | "simulation_non_authoritative"
+        ) && AUTHORITY_SENSITIVE_KINDS.contains(&kind)
         {
-            errors.insert(format!("non_authoritative_node_escalates_scope:{id}:{authority}:{kind}"));
+            errors.insert(format!(
+                "non_authoritative_node_escalates_scope:{id}:{authority}:{kind}"
+            ));
         }
         if matches!(owner, "symthaea" | "symtropy")
-            && matches!(authority, "deterministic_financial_projection" | "human_authorized_decision" | "independent_verification")
+            && matches!(
+                authority,
+                "deterministic_financial_projection"
+                    | "human_authorized_decision"
+                    | "independent_verification"
+            )
         {
-            errors.insert(format!("advisory_system_claims_authority:{id}:{owner}:{authority}"));
+            errors.insert(format!(
+                "advisory_system_claims_authority:{id}:{owner}:{authority}"
+            ));
         }
         if authority == "human_authorized_decision"
             && !(owner == "human_reviewer" && kind == "human_review")
@@ -485,7 +537,9 @@ fn validate_required_reviews(
             .values()
             .filter(|candidate| {
                 string(candidate, "node_kind") == Some("human_review")
-                    && array(candidate, "depends_on").iter().any(|parent| parent.as_str() == Some(id))
+                    && array(candidate, "depends_on")
+                        .iter()
+                        .any(|parent| parent.as_str() == Some(id))
                     && array(candidate, "inputs").iter().any(|input| {
                         string(input, "purpose") == Some("review_evidence")
                             && string(&input["input_ref"], "ref_id") == Some(id)
@@ -507,11 +561,17 @@ fn validate_required_reviews(
             });
             exact_binding
                 && string(&review["result"], "state") == Some("completed")
-                && string(&review["result"], "terminal_disposition")
-                    .is_some_and(|state| matches!(state, "completed_and_verified" | "completed_with_scope_limitations"))
+                && string(&review["result"], "terminal_disposition").is_some_and(|state| {
+                    matches!(
+                        state,
+                        "completed_and_verified" | "completed_with_scope_limitations"
+                    )
+                })
         });
         if !has_bound_completed_review {
-            errors.insert(format!("completed_workpaper_missing_exact_completed_review:{id}"));
+            errors.insert(format!(
+                "completed_workpaper_missing_exact_completed_review:{id}"
+            ));
         }
     }
 }
@@ -546,13 +606,10 @@ fn validate_recipes(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSet<Strin
 
         let join = string(recipe, "join_semantics").unwrap_or_default();
         let expected_cardinality = string(recipe, "expected_cardinality").unwrap_or_default();
-        if join == "one_to_one"
-            && !matches!(expected_cardinality, "one" | "zero_or_one")
-        {
+        if join == "one_to_one" && !matches!(expected_cardinality, "one" | "zero_or_one") {
             errors.insert(format!("one_to_one_join_cardinality_mismatch:{id}"));
         }
-        if join == "one_to_many_with_explicit_aggregation"
-            && expected_cardinality != "one_to_many"
+        if join == "one_to_many_with_explicit_aggregation" && expected_cardinality != "one_to_many"
         {
             errors.insert(format!("one_to_many_join_cardinality_mismatch:{id}"));
         }
@@ -564,21 +621,34 @@ fn validate_recipes(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSet<Strin
         if join != "none" && array(recipe, "join_keys").is_empty() {
             errors.insert(format!("join_keys_missing:{id}"));
         }
-        if matches!(join, "one_to_many_with_explicit_aggregation" | "many_to_many_with_explicit_aggregation") {
-            let explicit_aggregation = matches!(operation, "ratio" | "weighted_average" | "grouped_aggregation");
-            if !explicit_aggregation || array(recipe, "join_keys").is_empty() || expected_cardinality == "unknown" {
+        if matches!(
+            join,
+            "one_to_many_with_explicit_aggregation" | "many_to_many_with_explicit_aggregation"
+        ) {
+            let explicit_aggregation = matches!(
+                operation,
+                "ratio" | "weighted_average" | "grouped_aggregation"
+            );
+            if !explicit_aggregation
+                || array(recipe, "join_keys").is_empty()
+                || expected_cardinality == "unknown"
+            {
                 errors.insert(format!("nontrivial_join_without_explicit_aggregation:{id}"));
             }
             if operation == "grouped_aggregation" && array(recipe, "group_by").is_empty() {
                 errors.insert(format!("grouped_join_missing_group_by:{id}"));
             }
         }
-        if matches!(join, "one_to_many_with_explicit_aggregation" | "many_to_many_with_explicit_aggregation")
-            && expected_cardinality.is_empty()
+        if matches!(
+            join,
+            "one_to_many_with_explicit_aggregation" | "many_to_many_with_explicit_aggregation"
+        ) && expected_cardinality.is_empty()
         {
             errors.insert(format!("join_expected_cardinality_missing:{id}"));
         }
-        if let (Some(start), Some(end)) = (string(recipe, "period_start"), string(recipe, "period_end")) {
+        if let (Some(start), Some(end)) =
+            (string(recipe, "period_start"), string(recipe, "period_end"))
+        {
             if start > end {
                 errors.insert(format!("recipe_period_reversed:{id}"));
             }
@@ -589,7 +659,9 @@ fn validate_recipes(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSet<Strin
         if string(recipe, "null_semantics") == Some("profile_defined")
             && recipe.get("implementation_ref").is_none()
         {
-            errors.insert(format!("profile_defined_nulls_without_pinned_implementation:{id}"));
+            errors.insert(format!(
+                "profile_defined_nulls_without_pinned_implementation:{id}"
+            ));
         }
     }
 }
@@ -602,7 +674,11 @@ fn validate_numeric_values(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSe
         };
         let encoding = string(numeric, "encoding").unwrap_or_default();
         let unit_ref = string(&numeric["unit_profile"], "ref_id");
-        if result.get("unit_profile").is_some() && result.get("numeric_value").and_then(|value| value.get("unit_profile")).is_some()
+        if result.get("unit_profile").is_some()
+            && result
+                .get("numeric_value")
+                .and_then(|value| value.get("unit_profile"))
+                .is_some()
             && numeric["unit_profile"] != result["unit_profile"]
         {
             errors.insert(format!("numeric_result_unit_profile_mismatch:{id}"));
@@ -676,7 +752,10 @@ fn validate_ready_disposition(
     errors: &mut BTreeSet<String>,
 ) {
     let disposition = string(input, "close_disposition").unwrap_or_default();
-    if !matches!(disposition, "ready_for_authorized_signoff" | "ready_with_scope_limitations") {
+    if !matches!(
+        disposition,
+        "ready_for_authorized_signoff" | "ready_with_scope_limitations"
+    ) {
         return;
     }
 
@@ -692,11 +771,17 @@ fn validate_ready_disposition(
         }
     }
     for id in stale_nodes {
-        if nodes.get(id).is_some_and(|node| node["required_in_close"] == true) {
+        if nodes
+            .get(id)
+            .is_some_and(|node| node["required_in_close"] == true)
+        {
             errors.insert(format!("ready_close_contains_stale_required_node:{id}"));
         }
     }
-    for (id, node) in nodes.iter().filter(|(_, node)| node["required_in_close"] == true) {
+    for (id, node) in nodes
+        .iter()
+        .filter(|(_, node)| node["required_in_close"] == true)
+    {
         if string(&node["result"], "state") != Some("completed") {
             errors.insert(format!("ready_close_required_node_not_completed:{id}"));
         }
@@ -721,9 +806,16 @@ fn validate_ready_disposition(
             errors.insert(format!("ready_close_frontier_not_qualified:{frontier}"));
         }
     }
-    for profile in ["accounting_framework_profile", "jurisdiction_profile", "currency_profile"] {
-        if string(&input["reporting_context"][profile], "qualification_status") != Some("qualified") {
-            errors.insert(format!("ready_close_reporting_profile_not_qualified:{profile}"));
+    for profile in [
+        "accounting_framework_profile",
+        "jurisdiction_profile",
+        "currency_profile",
+    ] {
+        if string(&input["reporting_context"][profile], "qualification_status") != Some("qualified")
+        {
+            errors.insert(format!(
+                "ready_close_reporting_profile_not_qualified:{profile}"
+            ));
         }
     }
 }
@@ -753,8 +845,7 @@ fn canonical_decimal(value: &str) -> bool {
     };
     let magnitude = whole.strip_prefix('-').unwrap_or(whole);
     let whole_valid = canonical_integer(whole) || (whole.starts_with('-') && magnitude == "0");
-    let all_fractional_zero = !fractional.is_empty()
-        && fractional.bytes().all(|byte| byte == b'0');
+    let all_fractional_zero = !fractional.is_empty() && fractional.bytes().all(|byte| byte == b'0');
     whole_valid
         && !fractional.is_empty()
         && fractional.bytes().all(|byte| byte.is_ascii_digit())
@@ -762,7 +853,9 @@ fn canonical_decimal(value: &str) -> bool {
 }
 
 fn decimal_scale(value: &str) -> Option<usize> {
-    value.split_once('.').map(|(_, fractional)| fractional.len())
+    value
+        .split_once('.')
+        .map(|(_, fractional)| fractional.len())
 }
 
 fn canonical_digest(domain: &[u8], value: &Value) -> String {
@@ -777,7 +870,9 @@ fn write_canonical_json(value: &Value, output: &mut Vec<u8>) {
         Value::Bool(value) => output.extend_from_slice(if *value { b"true" } else { b"false" }),
         Value::Number(value) => output.extend_from_slice(value.to_string().as_bytes()),
         Value::String(value) => output.extend_from_slice(
-            serde_json::to_string(value).expect("JSON string").as_bytes(),
+            serde_json::to_string(value)
+                .expect("JSON string")
+                .as_bytes(),
         ),
         Value::Array(values) => {
             output.push(b'[');
@@ -796,9 +891,7 @@ fn write_canonical_json(value: &Value, output: &mut Vec<u8>) {
                 if index > 0 {
                     output.push(b',');
                 }
-                output.extend_from_slice(
-                    serde_json::to_string(key).expect("JSON key").as_bytes(),
-                );
+                output.extend_from_slice(serde_json::to_string(key).expect("JSON key").as_bytes());
                 output.push(b':');
                 write_canonical_json(value, output);
             }
@@ -812,11 +905,16 @@ fn string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
 }
 
 fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
-    value.get(key).and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[])
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
 }
 
 fn string_set(value: &Value) -> BTreeSet<String> {
-    value.as_array()
+    value
+        .as_array()
         .into_iter()
         .flatten()
         .filter_map(Value::as_str)
@@ -843,7 +941,10 @@ mod tests {
     use super::*;
 
     fn fixture() -> Value {
-        serde_json::from_str(include_str!("../../examples/acc-syn-0001-minimal-dag-v0.1.json")).expect("DAG fixture")
+        serde_json::from_str(include_str!(
+            "../../examples/acc-syn-0001-minimal-dag-v0.1.json"
+        ))
+        .expect("DAG fixture")
     }
 
     fn errors(report: &Value) -> String {
@@ -862,7 +963,12 @@ mod tests {
         let report = verify(&input, schema);
         assert_eq!(report["status"], "PASS");
         assert_eq!(report["close_disposition"], "not_ready");
-        assert!(!report["missing_required_node_kinds"].as_array().unwrap().is_empty());
+        assert!(
+            !report["missing_required_node_kinds"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(report["can_post_journals"], false);
         assert_eq!(report["can_approve_or_close"], false);
     }
@@ -935,7 +1041,10 @@ mod tests {
     #[test]
     fn dependency_without_prior_workpaper_input_fails() {
         let mut value = fixture();
-        value["nodes"][1]["inputs"].as_array_mut().unwrap().retain(|item| item["purpose"] != "prior_workpaper");
+        value["nodes"][1]["inputs"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|item| item["purpose"] != "prior_workpaper");
         let report = verify(
             &serde_json::to_vec(&value).unwrap(),
             include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
@@ -960,32 +1069,54 @@ mod tests {
     #[test]
     fn frontier_change_stales_only_consumers_and_descendants() {
         let mut value = fixture();
-        set_frontier(&mut value["nodes"][0], "evidence_frontier", "MUTATED-EVIDENCE");
+        set_frontier(
+            &mut value["nodes"][0],
+            "evidence_frontier",
+            "MUTATED-EVIDENCE",
+        );
         let report = verify(
             &serde_json::to_vec(&value).unwrap(),
             include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
         );
         assert_eq!(report["directly_stale_nodes"], json!(["source-match-001"]));
-        assert_eq!(report["transitively_stale_nodes"], json!(["bank-observation-001","entity-quarantine-guard"]));
+        assert_eq!(
+            report["transitively_stale_nodes"],
+            json!(["bank-observation-001", "entity-quarantine-guard"])
+        );
     }
 
     #[test]
     fn changed_child_frontier_is_directly_stale_without_affecting_sibling() {
         let mut value = fixture();
-        set_frontier(&mut value["nodes"][1], "evidence_frontier", "MUTATED-EVIDENCE");
+        set_frontier(
+            &mut value["nodes"][1],
+            "evidence_frontier",
+            "MUTATED-EVIDENCE",
+        );
         let report = verify(
             &serde_json::to_vec(&value).unwrap(),
             include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
         );
-        assert_eq!(report["directly_stale_nodes"], json!(["bank-observation-001"]));
+        assert_eq!(
+            report["directly_stale_nodes"],
+            json!(["bank-observation-001"])
+        );
         assert_eq!(report["transitively_stale_nodes"], json!([]));
-        assert!(!report["directly_stale_nodes"].to_string().contains("entity-quarantine-guard"));
+        assert!(
+            !report["directly_stale_nodes"]
+                .to_string()
+                .contains("entity-quarantine-guard")
+        );
     }
 
     #[test]
     fn stale_completed_or_in_progress_node_must_be_invalidated() {
         let mut value = fixture();
-        set_frontier(&mut value["nodes"][0], "evidence_frontier", "MUTATED-EVIDENCE");
+        set_frontier(
+            &mut value["nodes"][0],
+            "evidence_frontier",
+            "MUTATED-EVIDENCE",
+        );
         let report = verify(
             &serde_json::to_vec(&value).unwrap(),
             include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
