@@ -1,0 +1,56 @@
+{
+  "oracle_id": "MYCELIX-FINANCE-DATA-FLOW-ORACLE-V1",
+  "visibility": "public_reference_oracle_not_hidden_evaluation",
+  "expectations": [
+    {
+      "context_id": "DG-001-FOREIGN-SUPPORT",
+      "expected_review_disposition": "needs_review",
+      "reason_code": "foreign_support_access_without_transfer_qualification"
+    },
+    {
+      "context_id": "DG-002-FOREIGN-PROCESSOR",
+      "expected_review_disposition": "needs_review",
+      "reason_code": "foreign_processor_transfer_unqualified"
+    },
+    {
+      "context_id": "DG-003-ONWARD-BACKUP",
+      "expected_review_disposition": "needs_review",
+      "reason_code": "onward_transfer_destination_unqualified"
+    },
+    {
+      "context_id": "DG-004-EU-ONWARD",
+      "expected_review_disposition": "needs_review",
+      "reason_code": "onward_transfer_mechanism_scope_incomplete"
+    },
+    {
+      "context_id": "DG-005-UK-REGIME-VERSION",
+      "expected_review_disposition": "needs_review",
+      "reason_code": "uk_regime_profile_not_qualified"
+    },
+    {
+      "context_id": "DG-006-ACCOUNTING-ONLY",
+      "expected_review_disposition": "indeterminate",
+      "reason_code": "accounting_profile_cannot_authorise_data_transfer"
+    },
+    {
+      "context_id": "DG-007-RETENTION-LEGAL-HOLD",
+      "expected_review_disposition": "needs_review",
+      "reason_code": "legal_hold_blocks_deletion"
+    },
+    {
+      "context_id": "DG-008-UNAPPROVED-PURPOSE",
+      "expected_review_disposition": "needs_review",
+      "reason_code": "secondary_purpose_unreviewed"
+    },
+    {
+      "context_id": "DG-009-UNKNOWN-REMOTE-ACCESS",
+      "expected_review_disposition": "indeterminate",
+      "reason_code": "support_access_location_unknown"
+    },
+    {
+      "context_id": "DG-010-ACTOR-ROLE-CONFLICT",
+      "expected_review_disposition": "needs_review",
+      "reason_code": "actor_role_or_authority_conflict"
+    }
+  ]
+}
