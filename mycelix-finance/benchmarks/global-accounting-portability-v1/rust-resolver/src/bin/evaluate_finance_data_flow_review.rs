@@ -650,6 +650,27 @@ mod tests {
         assert_eq!(result["review_disposition"], "needs_review");
     }
 
+
+    #[test]
+    fn fractional_actor_timestamp_is_rejected_by_context_schema() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../data-governance-v1");
+        let schema: Value = read_json(root.join("finance_data_flow_context_v1.0.0.schema.json")).unwrap();
+        let (mut candidates, _) = fixtures();
+        let context = &mut candidates["contexts"][0];
+        context["actors"][0]["recorded_at"] = Value::String("2025-01-01T00:00:00.500Z".to_owned());
+        assert!(validate_instance("data-flow context", &schema, context).is_err());
+    }
+
+    #[test]
+    fn offset_knowledge_frontier_is_rejected_by_context_schema() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../data-governance-v1");
+        let schema: Value = read_json(root.join("finance_data_flow_context_v1.0.0.schema.json")).unwrap();
+        let (mut candidates, _) = fixtures();
+        let context = &mut candidates["contexts"][0];
+        context["knowledge_at"] = Value::String("2026-11-05T12:30:00+02:00".to_owned());
+        assert!(validate_instance("data-flow context", &schema, context).is_err());
+    }
+
     #[test]
     fn active_legal_hold_remains_a_review_blocker() {
         let (candidates, _, _) = fixtures();
