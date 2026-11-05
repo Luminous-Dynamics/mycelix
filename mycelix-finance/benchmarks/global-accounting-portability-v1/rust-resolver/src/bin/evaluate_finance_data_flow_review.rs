@@ -341,10 +341,12 @@ fn evaluate_context(context: &Value) -> Result<Value, String> {
         if !onward.is_empty() {
             let mechanisms = array(context, "transfer_mechanisms")?;
             let has_any_referenced_mechanism = !array(flow, "transfer_mechanism_refs")?.is_empty();
-            let all_destinations_covered = onward.iter().all(|destination| {
-                mechanism_qualifies_for_fixture_scope(context, flow, destination)
-                    .unwrap_or(false)
-            });
+            let mut all_destinations_covered = true;
+            for destination in &onward {
+                if !mechanism_qualifies_for_fixture_scope(context, flow, destination)? {
+                    all_destinations_covered = false;
+                }
+            }
             if has_any_referenced_mechanism || onward.len() > 1 {
                 if !all_destinations_covered {
                     push_reason(&mut reasons, "onward_transfer_mechanism_scope_incomplete");
@@ -486,9 +488,10 @@ mod tests {
         let (candidates, oracle, _) = fixtures();
         let results = array(&candidates, "contexts").unwrap().iter()
             .map(evaluate_context).collect::<Result<Vec<_>, _>>().unwrap();
+        let result_count = results.len();
         let report = json!({ "results": results });
         validate_oracle_conformance(&report, &oracle).unwrap();
-        assert_eq!(results.len(), 10);
+        assert_eq!(result_count, 10);
     }
 
     #[test]
@@ -510,6 +513,24 @@ mod tests {
         let context = &candidates["contexts"][context_index(&candidates, "DG-001-FOREIGN-SUPPORT")];
         let result = evaluate_context(context).unwrap();
         assert_eq!(result["primary_reason_code"], "foreign_support_access_without_transfer_qualification");
+        assert_eq!(result["review_disposition"], "needs_review");
+    }
+
+    #[test]
+    fn post_2026_uk_profile_is_not_fallback_resolved_to_eu_profile() {
+        let (candidates, _, _) = fixtures();
+        let context = &candidates["contexts"][context_index(&candidates, "DG-005-UK-REGIME-VERSION")];
+        let result = evaluate_context(context).unwrap();
+        assert_eq!(result["primary_reason_code"], "uk_regime_profile_not_qualified");
+        assert_eq!(result["review_disposition"], "needs_review");
+    }
+
+    #[test]
+    fn multiple_onward_destinations_require_independent_mechanism_scope() {
+        let (candidates, _, _) = fixtures();
+        let context = &candidates["contexts"][context_index(&candidates, "DG-004-EU-ONWARD")];
+        let result = evaluate_context(context).unwrap();
+        assert_eq!(result["primary_reason_code"], "onward_transfer_mechanism_scope_incomplete");
         assert_eq!(result["review_disposition"], "needs_review");
     }
 
