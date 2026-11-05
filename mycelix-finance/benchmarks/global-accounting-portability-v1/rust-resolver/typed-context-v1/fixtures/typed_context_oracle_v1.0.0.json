@@ -1,0 +1,41 @@
+{
+  "oracle_id": "MYCELIX-GLOBAL-TYPED-CONTEXT-RESOLVER-ORACLE-V1",
+  "visibility": "public_reference_oracle_not_hidden_evaluation",
+  "request_expectations": [
+    {
+      "request_id": "TCTX-ROLE-A-COMPLETE",
+      "expected_disposition": "requirements_satisfied",
+      "required_reason_code": "all_exact_typed_facts_satisfied"
+    },
+    {
+      "request_id": "TCTX-ROLE-B-ROLE-SWAP",
+      "expected_disposition": "unsupported",
+      "required_reason_code": "jurisdiction_scope_mismatch"
+    },
+    {
+      "request_id": "TCTX-UNKNOWN-PLACE",
+      "expected_disposition": "indeterminate",
+      "required_reason_code": "required_fact_unknown"
+    },
+    {
+      "request_id": "TCTX-DISPUTED-REGISTRATION",
+      "expected_disposition": "needs_review",
+      "required_reason_code": "matching_fact_disputed"
+    },
+    {
+      "request_id": "TCTX-MULTI-ESTABLISHMENT",
+      "expected_disposition": "requirements_satisfied",
+      "required_reason_code": "exact_establishment_subject_match"
+    },
+    {
+      "request_id": "TCTX-COUNTRY-NOT-SUBNATIONAL",
+      "expected_disposition": "unsupported",
+      "required_reason_code": "jurisdiction_scope_mismatch"
+    },
+    {
+      "request_id": "TCTX-KNOWLEDGE-FRONTIER",
+      "expected_disposition": "indeterminate",
+      "required_reason_code": "matching_fact_not_visible_at_knowledge_frontier"
+    }
+  ]
+}
