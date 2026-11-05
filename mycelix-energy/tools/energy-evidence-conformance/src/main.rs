@@ -362,6 +362,32 @@ fn evaluate_reference(reference: &Value, context: &Value) -> (&'static str, &'st
     )
 }
 
+fn evaluate_source_family_group(group: &Value) -> (&'static str, usize, usize) {
+    let ids = match group.get("source_family_ids").and_then(Value::as_array) {
+        Some(ids) if !ids.is_empty() => ids,
+        _ => return ("indeterminate", 0, 0),
+    };
+    let mut unique = std::collections::BTreeSet::new();
+    for id in ids {
+        match id.as_str() {
+            Some(value) if !value.is_empty() => {
+                unique.insert(value.to_owned());
+            }
+            _ => return ("indeterminate", 0, ids.len()),
+        }
+    }
+    let unique_count = unique.len();
+    if unique_count < ids.len() {
+        (
+            "eligible_but_not_independent_corroboration",
+            unique_count,
+            ids.len(),
+        )
+    } else {
+        ("independent_source_families", unique_count, ids.len())
+    }
+}
+
 fn run() -> Result<(), Box<dyn Error>> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let energy_root = manifest_dir.join("../..");
@@ -453,19 +479,107 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    if seen.len() != 6 {
+    if seen.len() != mutations.len() {
         return Err(format!(
-            "expected exactly 6 declared mutations, found {}",
-            seen.len()
+            "mutation execution census mismatch: executed {}, declared {}",
+            seen.len(),
+            mutations.len()
         )
         .into());
     }
 
+    let source_family_group = fixtures
+        .get("source_family_group_example")
+        .ok_or("fixture has no source_family_group_example")?;
+    let (source_family_disposition, independent_family_count, source_reference_count) =
+        evaluate_source_family_group(source_family_group);
+    let source_family_expected = source_family_group
+        .get("expected_disposition")
+        .and_then(Value::as_str)
+        .ok_or("source-family example has no expected disposition")?;
+    if source_family_disposition != source_family_expected {
+        return Err(format!(
+            "source-family disposition mismatch: expected {source_family_expected}, got {source_family_disposition}"
+        )
+        .into());
+    }
+
+    let mutation_dispositions: std::collections::BTreeMap<String, String> = results
+        .iter()
+        .filter_map(|result| {
+            Some((
+                result.get("case_id")?.as_str()?.to_owned(),
+                result.get("actual_disposition")?.as_str()?.to_owned(),
+            ))
+        })
+        .collect();
+    let summary_cases = fixtures
+        .get("cases")
+        .and_then(Value::as_array)
+        .ok_or("summary cases must be an array")?;
+    let mut summary_results = Vec::new();
+    for case in summary_cases {
+        let case_id = case
+            .get("case_id")
+            .and_then(Value::as_str)
+            .ok_or("summary case_id is missing")?;
+        let expected = case
+            .get("expected_disposition")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("summary expected disposition missing: {case_id}"))?;
+        let detailed_actual = match case_id {
+            "valid-reference-001" => base_disposition,
+            "legacy-url-002" => legacy_disposition,
+            "wrong-boundary-003" => mutation_dispositions
+                .get("wrong-boundary")
+                .map(String::as_str)
+                .ok_or("wrong-boundary mutation result missing")?,
+            "future-known-004" => mutation_dispositions
+                .get("future-known")
+                .map(String::as_str)
+                .ok_or("future-known mutation result missing")?,
+            "unauthorized-signer-005" => mutation_dispositions
+                .get("unauthorized-role")
+                .map(String::as_str)
+                .ok_or("unauthorized-role mutation result missing")?,
+            "superseded-evidence-006" => mutation_dispositions
+                .get("superseded")
+                .map(String::as_str)
+                .ok_or("superseded mutation result missing")?,
+            "copied-source-family-007" => source_family_disposition,
+            "embargoed-public-view-008" => mutation_dispositions
+                .get("public-embargo-leak")
+                .map(String::as_str)
+                .ok_or("public-embargo-leak mutation result missing")?,
+            _ => return Err(format!("unknown summary case: {case_id}").into()),
+        };
+        let actual = if detailed_actual.starts_with("blocked") {
+            "blocked"
+        } else {
+            detailed_actual
+        };
+        let passed = actual == expected;
+        if !passed {
+            return Err(format!(
+                "summary case {case_id} mismatch: expected {expected}, got {actual}"
+            )
+            .into());
+        }
+        summary_results.push(json!({
+            "case_id": case_id,
+            "expected_disposition": expected,
+            "actual_disposition": actual,
+            "detailed_actual_disposition": detailed_actual,
+            "passed": passed
+        }));
+    }
+
+
     let output = json!({
-        "receipt_version": "1",
+        "receipt_version": "2",
         "source_commit": source_commit,
         "evaluator": format!("energy-evidence-conformance/{VERSION}"),
-        "scope": "declared_fixture_semantics_only",
+        "scope": "declared_fixture_semantics_and_source_family_census",
         "canonical_example": {
             "actual_disposition": base_disposition,
             "reason": base_reason
@@ -476,10 +590,14 @@ fn run() -> Result<(), Box<dyn Error>> {
         },
         "mutation_results": results,
         "mutation_count": seen.len(),
-        "summary_cases_not_semantically_executed": fixtures
-            .get("cases")
-            .and_then(Value::as_array)
-            .map_or(0, Vec::len),
+        "source_family_result": {
+            "expected_disposition": source_family_expected,
+            "actual_disposition": source_family_disposition,
+            "independent_family_count": independent_family_count,
+            "reference_count": source_reference_count
+        },
+        "summary_case_results": summary_results,
+        "summary_cases_not_semantically_executed": 0,
         "schema_sha256": sha256_hex(&schema_bytes),
         "fixtures_sha256": sha256_hex(&fixtures_bytes),
         "result": "pass"
