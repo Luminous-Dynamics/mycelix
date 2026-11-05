@@ -44,7 +44,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003e9",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -52,12 +51,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003e9"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d1",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -65,7 +64,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d1"
           }
         ],
         "statements": [
@@ -188,7 +188,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003ea",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -196,12 +195,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ea"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d2",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -209,7 +208,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d2"
           }
         ],
         "statements": [
@@ -332,7 +332,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003eb",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -340,12 +339,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003eb"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d3",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -353,7 +352,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d3"
           }
         ],
         "statements": [
@@ -476,7 +476,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003ec",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -484,12 +483,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ec"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d4",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -497,12 +496,12 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d4"
           },
           {
             "artifact_id": "art-oct-replay",
             "receipt_id": "receipt-oct-2",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003ec",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -510,7 +509,8 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ec"
           }
         ],
         "statements": [
@@ -640,7 +640,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003ed",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -648,12 +647,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ed"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d5",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -661,12 +660,12 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d5"
           },
           {
             "artifact_id": "art-oct-conflict",
             "receipt_id": "receipt-oct-conflict",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000f423f",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -674,7 +673,8 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000f423f"
           }
         ],
         "statements": [
@@ -797,7 +797,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003ee",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -805,12 +804,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ee"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d6",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -818,12 +817,12 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d6"
           },
           {
             "artifact_id": "art-nov-reissued",
             "receipt_id": "receipt-nov-reissued",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000d9038",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-002",
             "message_definition": "camt.053.001.14",
@@ -831,7 +830,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000d9038"
           }
         ],
         "statements": [
@@ -998,7 +998,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003ef",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -1006,12 +1005,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ef"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d7",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -1019,12 +1018,12 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d7"
           },
           {
             "artifact_id": "art-nov-competing",
             "receipt_id": "receipt-nov-competing",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000bde31",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-002",
             "message_definition": "camt.053.001.14",
@@ -1032,7 +1031,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000bde31"
           }
         ],
         "statements": [
@@ -1192,7 +1192,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f0",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -1200,12 +1199,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f0"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d8",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -1213,7 +1212,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d8"
           }
         ],
         "statements": [
@@ -1380,7 +1380,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f1",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -1388,12 +1387,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f1"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007d9",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -1401,7 +1400,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d9"
           }
         ],
         "statements": [
@@ -1568,7 +1568,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f2",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -1576,12 +1575,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f2"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007da",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -1589,7 +1588,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007da"
           }
         ],
         "statements": [
@@ -1675,7 +1675,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f3",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -1683,12 +1682,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f3"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007db",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -1696,7 +1695,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007db"
           }
         ],
         "statements": [
@@ -1819,7 +1819,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f4",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -1827,12 +1826,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f4"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007dc",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.052.001.14",
@@ -1840,7 +1839,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007dc"
           }
         ],
         "statements": [
@@ -1926,7 +1926,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f5",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -1934,12 +1933,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f5"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007dd",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.054.001.14",
@@ -1947,7 +1946,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007dd"
           }
         ],
         "statements": [
@@ -2033,7 +2033,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f6",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -2041,12 +2040,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f6"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007de",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -2054,12 +2053,12 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007de"
           },
           {
             "artifact_id": "art-nov-notification",
             "receipt_id": "receipt-nov-notification",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000a2c2a",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-notice-001",
             "message_definition": "camt.054.001.14",
@@ -2067,7 +2066,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000a2c2a"
           }
         ],
         "statements": [
@@ -2197,7 +2197,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f7",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -2205,12 +2204,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f7"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007df",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -2218,12 +2217,12 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007df"
           },
           {
             "artifact_id": "art-oct-corrected",
             "receipt_id": "receipt-oct-corrected",
-            "payload_sha256": "0000000000000000000000000000000000000000000000000000000000087a23",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-002",
             "message_definition": "camt.053.001.14",
@@ -2231,7 +2230,8 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "0000000000000000000000000000000000000000000000000000000000087a23"
           }
         ],
         "statements": [
@@ -2398,7 +2398,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f8",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -2406,12 +2405,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f8"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e0",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -2419,7 +2418,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e0"
           }
         ],
         "statements": [
@@ -2551,7 +2551,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003f9",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -2559,12 +2558,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f9"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e1",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -2572,7 +2571,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e1"
           }
         ],
         "statements": [
@@ -2711,7 +2711,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003fa",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -2719,12 +2718,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fa"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e2",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -2732,7 +2731,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e2"
           }
         ],
         "statements": [
@@ -2855,7 +2855,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003fb",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -2863,12 +2862,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fb"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e3",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -2876,7 +2875,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e3"
           }
         ],
         "statements": [
@@ -2999,7 +2999,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003fc",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -3007,12 +3006,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fc"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e4",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -3020,7 +3019,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e4"
           }
         ],
         "statements": [
@@ -3143,7 +3143,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003fd",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -3151,12 +3150,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fd"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e5",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -3164,7 +3163,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e5"
           }
         ],
         "statements": [
@@ -3297,7 +3297,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003fe",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -3305,12 +3304,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fe"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e6",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -3318,7 +3317,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e6"
           }
         ],
         "statements": [
@@ -3441,7 +3441,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000003ff",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -3449,12 +3448,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ff"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e7",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -3462,7 +3461,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": false
+            "sender_authenticated": false,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e7"
           }
         ],
         "statements": [
@@ -3586,7 +3586,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000400",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -3594,12 +3593,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "0000000000000000000000000000000000000000000000000000000000000400"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e8",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -3607,7 +3606,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e8"
           }
         ],
         "statements": [
@@ -3730,7 +3730,6 @@
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007e9",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -3738,12 +3737,12 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e9"
           },
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000401",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -3751,7 +3750,8 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "0000000000000000000000000000000000000000000000000000000000000401"
           }
         ],
         "statements": [
@@ -3874,7 +3874,6 @@
           {
             "artifact_id": "art-oct",
             "receipt_id": "receipt-oct-1",
-            "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000402",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-oct-001",
             "message_definition": "camt.053.001.14",
@@ -3882,12 +3881,12 @@
             "created_at": "2026-11-01T00:03:00+02:00",
             "captured_at": "2026-11-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "0000000000000000000000000000000000000000000000000000000000000402"
           },
           {
             "artifact_id": "art-nov",
             "receipt_id": "receipt-nov-1",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007ea",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -3895,12 +3894,12 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007ea"
           },
           {
             "artifact_id": "art-nov-replay",
             "receipt_id": "receipt-nov-replay",
-            "payload_sha256": "00000000000000000000000000000000000000000000000000000000000007ea",
             "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
             "message_id": "msg-nov-001",
             "message_definition": "camt.053.001.14",
@@ -3908,7 +3907,8 @@
             "created_at": "2026-12-01T00:03:00+02:00",
             "captured_at": "2026-12-01T00:04:00+02:00",
             "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
-            "sender_authenticated": true
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007ea"
           }
         ],
         "statements": [
