@@ -541,12 +541,12 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
     mutate_and_reject("automatic payment denial", corpus, schema, |value| {
-        value["scenarios"][20]["signal"]["recipient_uses"][0]["action"] =
+        value["scenarios"][7]["signal"]["recipient_uses"][0]["action"] =
             json!("automatic_payment_denial");
     })?;
     count += 1;
     mutate_and_reject("global person score", corpus, schema, |value| {
-        value["scenarios"][22]["signal"]["recipient_uses"][0]["action"] =
+        value["scenarios"][7]["signal"]["recipient_uses"][0]["action"] =
             json!("global_person_scoring");
     })?;
     count += 1;
@@ -555,9 +555,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][23]["signal"]["retention"]["review_state"] = json!("verified");
-            value["scenarios"][23]["signal"]["retention"]["policy_id"] =
-                json!("RETENTION-CASE-30D");
+            value["scenarios"][7]["signal"]["retention"]["review_state"] = json!("unknown");
         },
     )?;
     count += 1;
@@ -590,7 +588,10 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         schema,
         |value| {
             value["scenarios"][9]["signal"]["subject_reference"]["opaque_token"] =
-                value["scenarios"][8]["signal"]["subject_reference"]["opaque_token"].clone();
+                value["scenarios"][7]["signal"]["subject_reference"]["opaque_token"].clone();
+            value["scenarios"][9]["signal"]["subject_reference"]["audience_id"] = json!("BANK-B");
+            value["scenarios"][9]["signal"]["expected_disposition"] =
+                json!("admit_scoped_assertion");
         },
     )?;
     count += 1;
