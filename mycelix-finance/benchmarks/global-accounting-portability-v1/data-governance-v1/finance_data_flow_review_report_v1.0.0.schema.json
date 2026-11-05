@@ -70,7 +70,8 @@
               "support_access_location_unknown",
               "actor_role_or_authority_conflict",
               null,
-              "required_fact_after_knowledge_frontier"
+              "required_fact_after_knowledge_frontier",
+              "actor_scope_not_valid_for_context_period"
             ]
           },
           "triggered_reason_codes": {
@@ -88,7 +89,8 @@
                 "secondary_purpose_unreviewed",
                 "support_access_location_unknown",
                 "actor_role_or_authority_conflict",
-                "required_fact_after_knowledge_frontier"
+                "required_fact_after_knowledge_frontier",
+                "actor_scope_not_valid_for_context_period"
               ]
             }
           }
