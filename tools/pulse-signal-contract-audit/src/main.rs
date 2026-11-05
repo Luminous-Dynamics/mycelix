@@ -65,8 +65,10 @@ struct AuditReport {
     status: String,
     repository_root: String,
     signal_hub_decodes_adjacent_type_data_envelope: bool,
+    signal_hub_validates_field_types: bool,
     signal_schema_variant_count: usize,
     signal_schema_complete: bool,
+    signal_schema_field_types_complete: bool,
     zomes: Vec<ZomeReport>,
     findings: Vec<String>,
 }
@@ -94,6 +96,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let signal_hub = fs::read_to_string(client_root.join("signals/SignalHub.ts"))?;
     let filters = extract_filter_arrays(&signal_hub)?;
     let adjacent_envelope = signal_hub_decodes_adjacent_envelope(&signal_hub);
+    let runtime_field_validation = signal_hub_validates_field_types(&signal_hub);
     let schema_path = root.join("docs/security/pulse-zome-signal-wire-v1.schema.json");
     let signal_schema: Value = serde_json::from_slice(&fs::read(schema_path)?)?;
     let schema_variants = extract_schema_variants(&signal_schema)?;
@@ -105,6 +108,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         .is_some_and(|id| id.ends_with("/zome-signal-wire-v1.schema.json"));
     if !expected_schema_version {
         findings.push("signal JSON Schema $id is missing the v1 wire-contract identifier".to_string());
+    }
+    if !runtime_field_validation {
+        findings.push("SignalHub is missing required runtime field-type and bounded-shape validation".to_string());
+    }
+    let schema_field_types_complete = schema_field_types_are_constrained(&signal_schema)?;
+    if !schema_field_types_complete {
+        findings.push("one or more signal JSON Schema properties are unconstrained or have an incomplete nested type definition".to_string());
     }
 
     // Parse every producer once to construct the global source-of-truth variant
@@ -245,12 +255,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         status: if findings.is_empty() { "PASS" } else { "FAIL" }.to_string(),
         repository_root: root.display().to_string(),
         signal_hub_decodes_adjacent_type_data_envelope: adjacent_envelope,
+        signal_hub_validates_field_types: runtime_field_validation,
         signal_schema_variant_count: schema_variants.len(),
         signal_schema_complete: schema_variants.len() == 28
             && schema_names.len() == 28
             && all_rust_names.len() == 28
             && schema_names == all_rust_names
             && expected_schema_version,
+        signal_schema_field_types_complete,
         zomes,
         findings,
     };
@@ -369,6 +381,65 @@ fn signal_hub_decodes_adjacent_envelope(source: &str) -> bool {
         && source.contains("typeof envelope.type !== 'string'")
         && source.contains("envelope.data")
         && source.contains("...data, type")
+}
+
+fn signal_hub_validates_field_types(source: &str) -> bool {
+    source.contains("function validateSignalData(type: string, data: SignalRecord): boolean")
+        && source.contains("value instanceof Uint8Array && value.byteLength === 39")
+        && source.contains("Number.isSafeInteger(value)")
+        && source.contains("function isVectorClock")
+        && source.contains("function isConflictResolution")
+        && source.contains("function isNetworkType")
+        && source.contains("function isSyncOperationType")
+        && source.contains("if (!validateSignalData(type, data)) return null;")
+}
+
+fn schema_node_is_constrained(node: &Value) -> bool {
+    let Some(object) = node.as_object() else { return false; };
+    let has_contract = ["type", "enum", "const", "$ref", "oneOf", "anyOf", "allOf"]
+        .iter().any(|key| object.get(*key).is_some());
+    if !has_contract { return false; }
+
+    if let Some(variants) = object.get("oneOf").or_else(|| object.get("anyOf")).or_else(|| object.get("allOf")) {
+        let Some(items) = variants.as_array() else { return false; };
+        if items.is_empty() || !items.iter().all(schema_node_is_constrained) { return false; }
+    }
+    if object.get("type").and_then(Value::as_str) == Some("object") {
+        if object.get("additionalProperties") != Some(&Value::Bool(false)) { return false; }
+        if let Some(properties) = object.get("properties") {
+            let Some(fields) = properties.as_object() else { return false; };
+            if !fields.values().all(schema_node_is_constrained) { return false; }
+        }
+        if let Some(required) = object.get("required") {
+            let Some(items) = required.as_array() else { return false; };
+            if items.iter().any(|item| !item.is_string()) { return false; }
+        }
+    }
+    if object.get("type").and_then(Value::as_str) == Some("array") {
+        let has_items = object.get("items").is_some_and(schema_node_is_constrained)
+            || object.get("prefixItems").and_then(Value::as_array)
+                .is_some_and(|items| !items.is_empty() && items.iter().all(schema_node_is_constrained));
+        if !has_items { return false; }
+    }
+    true
+}
+
+fn schema_field_types_are_constrained(schema: &Value) -> Result<bool, Box<dyn Error>> {
+    let defs = schema.get("$defs").and_then(Value::as_object).ok_or("signal schema must define $defs")?;
+    if defs.is_empty() || !defs.values().all(schema_node_is_constrained) { return Ok(false); }
+    let alternatives = schema.get("oneOf").and_then(Value::as_array).ok_or("signal schema must define oneOf")?;
+    for alternative in alternatives {
+        let properties = alternative.get("properties").and_then(Value::as_object)
+            .ok_or("signal variant must define properties")?;
+        let Some(data) = properties.get("data") else { continue; };
+        if data.get("type").and_then(Value::as_str) != Some("object")
+            || data.get("additionalProperties") != Some(&Value::Bool(false)) {
+            return Ok(false);
+        }
+        let Some(fields) = data.get("properties").and_then(Value::as_object) else { return Ok(false); };
+        if !fields.values().all(schema_node_is_constrained) { return Ok(false); }
+    }
+    Ok(true)
 }
 
 fn extract_filter_arrays(source: &str) -> Result<Vec<FilterArray>, Box<dyn Error>> {
@@ -553,6 +624,42 @@ mod tests {
             if (typeof payload.type !== 'string') return null;
         "#;
         assert!(!signal_hub_decodes_adjacent_envelope(flat_only));
+    }
+
+    #[test]
+    fn unconstrained_schema_properties_are_rejected() {
+        assert!(!schema_node_is_constrained(&serde_json::json!({})));
+        assert!(schema_node_is_constrained(&serde_json::json!({"type":"string","minLength":1})));
+        assert!(schema_node_is_constrained(&serde_json::json!({
+            "type":"object",
+            "additionalProperties":false,
+            "required":["value"],
+            "properties":{"value":{"type":"integer","minimum":0}}
+        })));
+        assert!(!schema_node_is_constrained(&serde_json::json!({
+            "type":"object",
+            "properties":{"value":{}}
+        })));
+    }
+
+    #[test]
+    fn runtime_signal_validator_requires_typed_hashes_vectors_and_enum_shapes() {
+        let safe = r#"
+            function validateSignalData(type: string, data: SignalRecord): boolean {}
+            value instanceof Uint8Array && value.byteLength === 39
+            Number.isSafeInteger(value)
+            function isVectorClock() {}
+            function isConflictResolution() {}
+            function isNetworkType() {}
+            function isSyncOperationType() {}
+            if (!validateSignalData(type, data)) return null;
+        "#;
+        assert!(signal_hub_validates_field_types(safe));
+        let shallow = r#"
+            function validateSignalData(type: string, data: SignalRecord): boolean {}
+            if (!validateSignalData(type, data)) return null;
+        "#;
+        assert!(!signal_hub_validates_field_types(shallow));
     }
 
     #[test]
