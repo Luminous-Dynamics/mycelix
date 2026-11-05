@@ -349,15 +349,13 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
         if str_at(profile, "participant") == Some("ICASA")
             && str_at(profile, "admission") == Some("draft_for_public_comment_not_binding_law")
-        {
-            if profile
+            && profile
                 .get("effective_from")
                 .is_some_and(|value| !value.is_null())
-            {
-                errors.push(format!(
-                    "profiles[{index}]: draft regulation cannot have asserted effective date"
-                ));
-            }
+        {
+            errors.push(format!(
+                "profiles[{index}]: draft regulation cannot have asserted effective date"
+            ));
         }
         if profile
             .get("cooling_off_seconds")
@@ -463,11 +461,13 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     errors
 }
 
+type Mutation = (&'static str, fn(&mut Value));
+
 fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
     if !semantic_errors(corpus).is_empty() {
         return Err("baseline corpus must pass before mutation campaign".into());
     }
-    let mutations: [(&str, fn(&mut Value)); 12] = [
+    let mutations: [Mutation; 12] = [
         ("enable external effects", |value| {
             value["external_effects_enabled"] = json!(true);
         }),
