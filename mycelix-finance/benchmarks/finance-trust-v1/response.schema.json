@@ -71,7 +71,8 @@
         "source_id",
         "revision",
         "sha256",
-        "locator"
+        "locator",
+        "qualifies"
       ],
       "properties": {
         "requirement_id": {
@@ -88,6 +89,9 @@
         },
         "locator": {
           "type": "string"
+        },
+        "qualifies": {
+          "type": "boolean"
         }
       }
     },
@@ -165,7 +169,8 @@
         "source_bindings",
         "journal_entries",
         "unresolved",
-        "statement_reconstruction"
+        "statement_reconstruction",
+        "claims_complete_books"
       ],
       "properties": {
         "task_id": {
@@ -208,6 +213,9 @@
           "items": {
             "$ref": "#/$defs/statement"
           }
+        },
+        "claims_complete_books": {
+          "type": "boolean"
         }
       }
     },
