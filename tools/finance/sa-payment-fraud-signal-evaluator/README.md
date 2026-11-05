@@ -11,7 +11,7 @@ cargo run --manifest-path tools/finance/sa-payment-fraud-signal-evaluator/Cargo.
 cargo clippy --manifest-path tools/finance/sa-payment-fraud-signal-evaluator/Cargo.toml --all-targets -- -D warnings
 ```
 
-The evaluator checks Draft 2020-12 structure, source/profile references, synthetic key-verification receipts, issuer scope, recipient and purpose admission, retention, dispute/correction state, evidence independence, special-information review fixtures and permitted action boundaries.
+The evaluator checks Draft 2020-12 structure, source/profile references, synthetic key-verification receipts, issuer scope, recipient and purpose admission, pairwise subject binding, retention, dispute/correction state, evidence independence, special-information review fixtures and permitted action boundaries.
 
 ## Security and legal boundary
 
