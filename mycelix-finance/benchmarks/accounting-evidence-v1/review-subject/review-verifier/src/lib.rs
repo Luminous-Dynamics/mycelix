@@ -743,7 +743,7 @@ mod tests {
         assert_eq!(
             verify(
                 &serde_json::to_vec(&record).unwrap(),
-                include_bytes!("../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
+                include_bytes!("../../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
             )["disposition"],
             "invalid_input"
         );
@@ -756,7 +756,7 @@ mod tests {
         assert_eq!(
             verify(
                 &serde_json::to_vec(&record).unwrap(),
-                include_bytes!("../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
+                include_bytes!("../../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
             )["disposition"],
             "invalid_input"
         );
@@ -764,7 +764,7 @@ mod tests {
         assert_ne!(
             verify(
                 &serde_json::to_vec(&record).unwrap(),
-                include_bytes!("../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
+                include_bytes!("../../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
             )["disposition"],
             "invalid_input"
         );
