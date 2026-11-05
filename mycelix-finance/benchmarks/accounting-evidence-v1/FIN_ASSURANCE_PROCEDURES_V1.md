@@ -176,7 +176,11 @@ The v1.0.0 corpus has 18 base task families; v1.1.0 extends it to 22 cases with 
 | FAP-015 | Ratio is within tolerance but material contradictory evidence exists | exception requires resolution |
 | FAP-016 | Assertion is not applicable with authorized scoped rationale | not applicable with authorized rationale |
 | FAP-017 | Late evidence changes a completed workpaper frontier | exception requires resolution / stale |
-| FAP-018 | Residual risk requires professional judgment | human judgment required |\n| FAP-019 | Two required pairs: one supported, one with an incomplete population | Overall insufficient; pair dispositions remain separate |\n| FAP-020 | Procedure purpose differs from required assertion-purpose pair | insufficient evidence |\n| FAP-021 | Evidence belongs to a different reporting entity | insufficient evidence |\n| FAP-022 | Analytical procedure exceeds its authorized investigation threshold | exception requires resolution |
+| FAP-018 | Residual risk requires professional judgment | human judgment required | 
+| FAP-019 | Two required pairs: one supported, one with an incomplete population | Overall insufficient; pair dispositions remain separate |
+| FAP-020 | Procedure purpose differs from required assertion-purpose pair | insufficient evidence |
+| FAP-021 | Evidence belongs to a different reporting entity | insufficient evidence |
+| FAP-022 | Analytical procedure exceeds its authorized investigation threshold | exception requires resolution |
 
 ## 7. Qualification gates and measurements
 
