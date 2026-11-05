@@ -345,7 +345,7 @@
           }
         },
         "profile_binding_serialization": {
-          "const": "serde_json_value_sorted_keys_compact_utf8_v1"
+          "const": "mycelix_sorted_key_compact_json_v1"
         },
         "profile_bindings": {
           "type": "array",
