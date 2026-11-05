@@ -1,0 +1,108 @@
+{
+  "schema_id": "mycelix.fin.accounting-review",
+  "schema_version": "1.0.0",
+  "subject": {
+    "subject_id": "workpaper:ap-reconciliation:entity-za-001:2026-10:rev-3",
+    "workpaper_ref": "workpaper:ap-reconciliation:entity-za-001:2026-10:rev-3",
+    "workpaper_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "reporting_entity_ref": "entity:synthetic-za-001",
+    "reporting_period": "2026-10",
+    "book_domain": "financial",
+    "assertion_pair_ids": [
+      "risk:ap-completeness:assertion:completeness",
+      "risk:ap-existence:assertion:existence"
+    ],
+    "procedure_ref": "procedure:ap-subledger-to-invoice-reconciliation:v2",
+    "source_frontier_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "evidence_frontier_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "parent_workpaper_digests": [
+      "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    ],
+    "accounting_profile_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "accounting_policy_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "review_policy_ref": "review-policy:material-close-v1",
+    "review_policy_digest": "b5fa0110374ec0a98c66310e670f4f5f457637da230e4ea9f1ece29b0e8bd23c",
+    "knowledge_frontier_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "authority_frontier_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "prepared_by": {
+      "principal_ref": "principal:synthetic-preparer-01",
+      "actor_kind": "human"
+    },
+    "prepared_at_unix_ms": 1793400000000
+  },
+  "review_policy": {
+    "policy_ref": "review-policy:material-close-v1",
+    "policy_version": "1",
+    "policy_owner_principal_ref": "principal:synthetic-control-owner-01",
+    "required_role_counts": [
+      {
+        "role": "reviewer",
+        "minimum_unique_principals": 1
+      },
+      {
+        "role": "approver",
+        "minimum_unique_principals": 1
+      }
+    ],
+    "separation_constraints": [
+      {
+        "left_role": "preparer",
+        "right_role": "reviewer"
+      },
+      {
+        "left_role": "preparer",
+        "right_role": "approver"
+      },
+      {
+        "left_role": "reviewer",
+        "right_role": "approver"
+      },
+      {
+        "left_role": "policy_owner",
+        "right_role": "approver"
+      }
+    ]
+  },
+  "review_events": [
+    {
+      "subject_digest": "60828559f3223b3f864c7d221bf41a8b37b54d2faddd08c5822c81ccd7c0c6d4",
+      "policy_digest": "b5fa0110374ec0a98c66310e670f4f5f457637da230e4ea9f1ece29b0e8bd23c",
+      "reporting_entity_ref": "entity:synthetic-za-001",
+      "reporting_period": "2026-10",
+      "assertion_pair_ids": [
+        "risk:ap-completeness:assertion:completeness",
+        "risk:ap-existence:assertion:existence"
+      ],
+      "procedure_ref": "procedure:ap-subledger-to-invoice-reconciliation:v2",
+      "authority_frontier_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "identity_evidence_ref": "identity-evidence:synthetic",
+      "authority_evidence_ref": "authority-evidence:synthetic",
+      "recorded_at_unix_ms": 1793400001000,
+      "event_id": "review-event:reviewer-1",
+      "role": "reviewer",
+      "principal_ref": "principal:synthetic-reviewer-01",
+      "decision": "reviewed",
+      "actor_kind": "human"
+    },
+    {
+      "subject_digest": "60828559f3223b3f864c7d221bf41a8b37b54d2faddd08c5822c81ccd7c0c6d4",
+      "policy_digest": "b5fa0110374ec0a98c66310e670f4f5f457637da230e4ea9f1ece29b0e8bd23c",
+      "reporting_entity_ref": "entity:synthetic-za-001",
+      "reporting_period": "2026-10",
+      "assertion_pair_ids": [
+        "risk:ap-completeness:assertion:completeness",
+        "risk:ap-existence:assertion:existence"
+      ],
+      "procedure_ref": "procedure:ap-subledger-to-invoice-reconciliation:v2",
+      "authority_frontier_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "identity_evidence_ref": "identity-evidence:synthetic",
+      "authority_evidence_ref": "authority-evidence:synthetic",
+      "recorded_at_unix_ms": 1793400001000,
+      "event_id": "review-event:approver-1",
+      "role": "approver",
+      "principal_ref": "principal:synthetic-approver-01",
+      "decision": "approved",
+      "actor_kind": "human"
+    }
+  ]
+}
