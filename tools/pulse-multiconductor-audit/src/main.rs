@@ -501,8 +501,8 @@ fn audit(history:&History,input_sha256:String)->Report {
                 }
             }
             "local_only" => {
-                if transport.is_some() || claimed.is_some() {
-                    finding(&mut findings, "LOCAL_ONLY_HAS_REMOTE_SENDER", "violation", Some(&e.event_id), "local_only events cannot claim remote transport or payload sender identity");
+                if e.source == "remote_peer" || transport.is_some() || claimed.is_some() {
+                    finding(&mut findings, "LOCAL_ONLY_HAS_REMOTE_SENDER", "violation", Some(&e.event_id), "local_only events cannot originate from remote-peer evidence or claim remote transport/payload sender identity");
                 }
             }
             "unknown" | "rejected" => {}
