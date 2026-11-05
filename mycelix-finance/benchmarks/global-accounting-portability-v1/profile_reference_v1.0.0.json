@@ -1,7 +1,7 @@
 {
   "registry_id": "MYCELIX-GLOBAL-ACCOUNTING-PROFILE-REFERENCE",
   "registry_version": "1.0.0",
-  "generated_on": "2026-11-04",
+  "generated_on": "2026-11-05",
   "claim_scope": "reference_inventory_and_maturity_matrix_only_not_global_compliance_or_qualified_country_coverage",
   "profile_references": [
     {
@@ -52,7 +52,8 @@
       "authority_class": "standard_setter",
       "source_url": "https://www.ifrs.org/issued-standards/ifrs-for-smes/",
       "valid_from": "2027-01-01",
-      "notes": "Effective for annual periods beginning on/after 2027-01-01; early application is permitted; no local/entity eligibility is inferred."
+      "notes": "Effective for annual periods beginning on/after 2027-01-01; early application is permitted; no local/entity eligibility is inferred.",
+      "early_application_allowed": true
     },
     {
       "profile_id": "US-GAAP-FASB-ASC",
@@ -70,9 +71,9 @@
       "version": "3.0.21",
       "status": "reference_only",
       "authority_class": "network_governance",
-      "source_url": "https://docs.peppol.eu/poacc/billing/3.0/bis/",
+      "source_url": "https://docs.peppol.eu/poacc/billing/3.0/release-notes/",
       "valid_from": null,
-      "notes": "CIUS of EN 16931; base validation and country-qualified rules remain distinct."
+      "notes": "Peppol BIS Billing 3.0.21 was published 2026-05-20 and became mandatory 2026-08-17. It is a CIUS of EN 16931; base validation and country-qualified rules remain distinct."
     },
     {
       "profile_id": "EN-16931",
@@ -117,12 +118,12 @@
     {
       "profile_id": "UNICODE-CLDR-49",
       "dimension": "locale_data",
-      "version": "49 (2026-10-21)",
+      "version": "49 (released 2026-10-22; spec dated 2026-10-21)",
       "status": "reference_only",
       "authority_class": "standards_body",
-      "source_url": "https://unicode.org/reports/tr35/",
+      "source_url": "https://cldr.unicode.org/downloads/cldr-49",
       "valid_from": null,
-      "notes": "Locale, numbering-system, calendar, timezone and currency formatting data; pin the exact release and implementation data."
+      "notes": "CLDR 49 published 2026-10-22. It updates Unicode 18 locale data, numbering systems, date/time formatting, currency data and coverage metadata. Pin the exact release files and runtime implementation."
     },
     {
       "profile_id": "IANA-TZDB-2026F",
@@ -130,9 +131,99 @@
       "version": "2026f (2026-10-27)",
       "status": "reference_only",
       "authority_class": "data_maintainer",
-      "source_url": "https://www.iana.org/time-zones",
+      "source_url": "https://www.iana.org/time-zones/releases/2026f",
       "valid_from": null,
-      "notes": "Time-zone history and rules change with political decisions; pin release to reproduce event-time conversion."
+      "notes": "Released 2026-10-27. Cuba stays at UTC-04 through 2027-11-07 instead of falling back on 2026-11-01; pin release and runtime for reproducible conversion."
+    },
+    {
+      "profile_id": "SYN-JUR-A",
+      "dimension": "jurisdiction_profile",
+      "version": "synthetic-jurisdiction-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-FRAMEWORK-A",
+      "dimension": "accounting_framework",
+      "version": "synthetic-framework-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-TAX-A",
+      "dimension": "tax_profile",
+      "version": "synthetic-tax-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-REPORTING-A",
+      "dimension": "digital_reporting_taxonomy",
+      "version": "synthetic-reporting-taxonomy-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-EINVOICE-A",
+      "dimension": "e_invoice_interoperability",
+      "version": "synthetic-einvoice-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-CURRENCY-A",
+      "dimension": "currency_profile",
+      "version": "synthetic-currency-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-LOCALE-A",
+      "dimension": "locale_data",
+      "version": "synthetic-locale-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-TZ-A",
+      "dimension": "timezone_database",
+      "version": "synthetic-timezone-profile-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Synthetic resolver fixture only; no real jurisdiction, legal effect, tax/accounting rule, currency denomination or production validation."
+    },
+    {
+      "profile_id": "SYN-EXTRA-PROFILE-A",
+      "dimension": "currency_profile",
+      "version": "synthetic-extra-currency-a",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5826",
+      "valid_from": null,
+      "notes": "Additional synthetic profile used only to test exact-set mismatch; not a denomination, financial instrument or production currency."
     }
   ],
   "coverage_matrix": [
@@ -266,6 +357,141 @@
         "no_timezone_evaluator_qualified",
         "release_and_runtime_data_must_be_pinned",
         "data_updates_do_not_authorize_source_rewriting"
+      ]
+    },
+    {
+      "coverage_id": "SYNTHETIC-RESOLVER-POSITIVE-CONTROL",
+      "jurisdiction_scope": "synthetic_only",
+      "framework_scope": "synthetic_framework_only",
+      "dimensions": [
+        "jurisdiction_profile",
+        "accounting_framework",
+        "tax_profile",
+        "digital_reporting_taxonomy",
+        "e_invoice_interoperability",
+        "currency_profile",
+        "locale_data",
+        "timezone_database"
+      ],
+      "status": "qualified_for_declared_scope",
+      "evidence_refs": [
+        "SYN-JUR-A",
+        "SYN-FRAMEWORK-A",
+        "SYN-TAX-A",
+        "SYN-REPORTING-A",
+        "SYN-EINVOICE-A",
+        "SYN-CURRENCY-A",
+        "SYN-LOCALE-A",
+        "SYN-TZ-A"
+      ],
+      "limitations": [
+        "synthetic_fixture_only",
+        "not_a_real_jurisdiction_qualification",
+        "not_a_tax_or_accounting_rule",
+        "resolver_test_only"
+      ]
+    }
+  ],
+  "qualification_intersections": [
+    {
+      "intersection_id": "SYNTH-PORTABILITY-INTERSECTION-001",
+      "scope_kind": "synthetic_fixture_only",
+      "jurisdiction_scopes": [
+        "SYNTH-JUR-A"
+      ],
+      "entity_scope": "synthetic_entity_only",
+      "profile_refs": [
+        "SYN-JUR-A",
+        "SYN-FRAMEWORK-A",
+        "SYN-TAX-A",
+        "SYN-REPORTING-A",
+        "SYN-EINVOICE-A",
+        "SYN-CURRENCY-A",
+        "SYN-LOCALE-A",
+        "SYN-TZ-A"
+      ],
+      "supported_dimensions": [
+        "jurisdiction_profile",
+        "accounting_framework",
+        "tax_profile",
+        "digital_reporting_taxonomy",
+        "e_invoice_interoperability",
+        "currency_profile",
+        "locale_data",
+        "timezone_database"
+      ],
+      "allowed_intended_uses": [
+        "research",
+        "accounting_analysis"
+      ],
+      "status": "qualified_for_declared_scope",
+      "valid_from": "2026-01-01",
+      "valid_to": null,
+      "recorded_at": "2026-11-05T01:25:00Z",
+      "approved_at": "2026-11-05T01:25:00Z",
+      "reviewer_refs": [
+        "SYNTHETIC-FIXTURE-MAINTAINER"
+      ],
+      "evidence_refs": [
+        "SYN-JUR-A",
+        "SYN-FRAMEWORK-A",
+        "SYN-TAX-A",
+        "SYN-REPORTING-A",
+        "SYN-EINVOICE-A",
+        "SYN-CURRENCY-A",
+        "SYN-LOCALE-A",
+        "SYN-TZ-A"
+      ],
+      "claim_ceiling": "synthetic_fixture_only",
+      "limitations": [
+        "synthetic_test_fixture_only",
+        "no_real_jurisdiction_or_entity",
+        "no_tax_or_accounting_rule",
+        "no_production_or_compliance_claim"
+      ],
+      "early_application_qualifications": [],
+      "profile_binding_serialization": "mycelix_sorted_key_compact_json_v1",
+      "profile_bindings": [
+        {
+          "profile_id": "SYN-CURRENCY-A",
+          "version": "synthetic-currency-profile-a",
+          "profile_sha256": "4d4141b71d339b0d18c62d4428911d54f601aa678f3bfe133b61a1f38402733f"
+        },
+        {
+          "profile_id": "SYN-EINVOICE-A",
+          "version": "synthetic-einvoice-profile-a",
+          "profile_sha256": "7cbb669efa1bee4afaddf1d9cb811280c34ae68e2a7f39e94658951d3a0a2e6f"
+        },
+        {
+          "profile_id": "SYN-FRAMEWORK-A",
+          "version": "synthetic-framework-a",
+          "profile_sha256": "3ff01a90d1f48dafce03e4aff6fc0d200754124b6090e7fdaae1dc33cda4330b"
+        },
+        {
+          "profile_id": "SYN-JUR-A",
+          "version": "synthetic-jurisdiction-a",
+          "profile_sha256": "bd43bbfd8fcc4c6c00d921d0852035b969b5b3a4d10e0cd29cb06c3ca9d1172b"
+        },
+        {
+          "profile_id": "SYN-LOCALE-A",
+          "version": "synthetic-locale-profile-a",
+          "profile_sha256": "3d9bb58637029ea88352ee3c020cd1b71ae74b38af41c057fd0975ce0678a7f7"
+        },
+        {
+          "profile_id": "SYN-REPORTING-A",
+          "version": "synthetic-reporting-taxonomy-a",
+          "profile_sha256": "b5541b820f29e9d2860d82d8a6432d05a1c647fc42d5ecfd31b79c1de80f989f"
+        },
+        {
+          "profile_id": "SYN-TAX-A",
+          "version": "synthetic-tax-profile-a",
+          "profile_sha256": "c3947709bb3a384956cba5c1f7178dcb22f9e258989a5ebb5c6e1c511abd2577"
+        },
+        {
+          "profile_id": "SYN-TZ-A",
+          "version": "synthetic-timezone-profile-a",
+          "profile_sha256": "c2384a698f59a3032d8013b9b4dd0bdaca4a7a756303369847f8a065d5e8635e"
+        }
       ]
     }
   ]

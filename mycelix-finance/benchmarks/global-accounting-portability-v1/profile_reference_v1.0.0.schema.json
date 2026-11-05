@@ -10,7 +10,8 @@
     "generated_on",
     "claim_scope",
     "profile_references",
-    "coverage_matrix"
+    "coverage_matrix",
+    "qualification_intersections"
   ],
   "properties": {
     "registry_id": {
@@ -38,6 +39,12 @@
       "minItems": 5,
       "items": {
         "$ref": "#/$defs/coverage"
+      }
+    },
+    "qualification_intersections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/qualificationIntersection"
       }
     }
   },
@@ -71,7 +78,9 @@
             "digital_tax_reporting_reference",
             "jurisdiction_profile",
             "locale_data",
-            "timezone_database"
+            "timezone_database",
+            "tax_profile",
+            "currency_profile"
           ]
         },
         "version": {
@@ -115,6 +124,9 @@
         "notes": {
           "type": "string",
           "minLength": 20
+        },
+        "early_application_allowed": {
+          "type": "boolean"
         }
       }
     },
@@ -178,6 +190,222 @@
             "type": "string",
             "minLength": 3
           }
+        }
+      }
+    },
+    "qualificationIntersection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intersection_id",
+        "scope_kind",
+        "jurisdiction_scopes",
+        "entity_scope",
+        "profile_refs",
+        "supported_dimensions",
+        "allowed_intended_uses",
+        "status",
+        "valid_from",
+        "valid_to",
+        "recorded_at",
+        "approved_at",
+        "reviewer_refs",
+        "evidence_refs",
+        "claim_ceiling",
+        "limitations",
+        "early_application_qualifications",
+        "profile_binding_serialization",
+        "profile_bindings"
+      ],
+      "properties": {
+        "intersection_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "scope_kind": {
+          "enum": [
+            "synthetic_fixture_only",
+            "real_world"
+          ]
+        },
+        "jurisdiction_scopes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "entity_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "supported_dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allowed_intended_uses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "research",
+              "accounting_analysis",
+              "accounting_projection",
+              "tax_calculation",
+              "statutory_reporting",
+              "e_invoice_validation",
+              "digital_reporting",
+              "management_reporting"
+            ]
+          }
+        },
+        "status": {
+          "enum": [
+            "candidate",
+            "review_required",
+            "qualified_for_declared_scope",
+            "suspended",
+            "retired"
+          ]
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "reviewer_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "claim_ceiling": {
+          "enum": [
+            "synthetic_fixture_only",
+            "declared_scope_only"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "early_application_qualifications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/earlyApplicationQualification"
+          }
+        },
+        "profile_binding_serialization": {
+          "const": "mycelix_sorted_key_compact_json_v1"
+        },
+        "profile_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/profileBinding"
+          }
+        }
+      }
+    },
+    "earlyApplicationQualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "evidence_ref",
+        "reviewer_ref",
+        "approved_at"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        }
+      }
+    },
+    "profileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "version",
+        "profile_sha256"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         }
       }
     }
