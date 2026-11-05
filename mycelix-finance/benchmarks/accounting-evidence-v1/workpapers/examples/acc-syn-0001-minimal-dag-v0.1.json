@@ -61,6 +61,12 @@
       "ref_id": "KNOWLEDGE-2026-11-04",
       "version": "1",
       "source_kind": "fixture_knowledge_frontier"
+    },
+    "validator_build": {
+      "ref_id": "SYNTH-WORKPAPER-VERIFIER-001",
+      "version": "0.1.0",
+      "source_kind": "synthetic_verifier_build",
+      "qualification_status": "unknown"
     }
   },
   "nodes": [
@@ -174,6 +180,11 @@
           "version": "0.1",
           "source_kind": "synthetic_fixture",
           "qualification_status": "unknown"
+        },
+        "knowledge_frontier": {
+          "ref_id": "KNOWLEDGE-2026-11-04",
+          "version": "1",
+          "source_kind": "fixture_knowledge_frontier"
         }
       }
     },
@@ -276,6 +287,16 @@
           "version": "0.1",
           "source_kind": "synthetic_fixture",
           "qualification_status": "unknown"
+        },
+        "account_taxonomy": {
+          "ref_id": "SYNTH-COA-001",
+          "version": "1",
+          "source_kind": "synthetic_account_catalog"
+        },
+        "knowledge_frontier": {
+          "ref_id": "KNOWLEDGE-2026-11-04",
+          "version": "1",
+          "source_kind": "fixture_knowledge_frontier"
         }
       }
     },
@@ -331,6 +352,34 @@
           "ref_id": "EVIDENCE-ACC-SYN-0001",
           "version": "0.1",
           "source_kind": "synthetic_fixture",
+          "qualification_status": "unknown"
+        },
+        "policy_snapshot": {
+          "ref_id": "SYNTHETIC_ACCRUAL_DEMO_V1",
+          "version": "1",
+          "source_kind": "synthetic_policy",
+          "qualification_status": "qualified"
+        },
+        "account_taxonomy": {
+          "ref_id": "SYNTH-COA-001",
+          "version": "1",
+          "source_kind": "synthetic_account_catalog"
+        },
+        "authority_frontier": {
+          "ref_id": "AUTHORITY-NOT-IN-SCOPE",
+          "version": "0",
+          "source_kind": "scope_limitation",
+          "qualification_status": "unknown"
+        },
+        "knowledge_frontier": {
+          "ref_id": "KNOWLEDGE-2026-11-04",
+          "version": "1",
+          "source_kind": "fixture_knowledge_frontier"
+        },
+        "validator_build": {
+          "ref_id": "SYNTH-WORKPAPER-VERIFIER-001",
+          "version": "0.1.0",
+          "source_kind": "synthetic_verifier_build",
           "qualification_status": "unknown"
         }
       }
