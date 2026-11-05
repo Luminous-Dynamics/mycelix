@@ -271,7 +271,7 @@ export class SignalHub {
       return null;
     }
 
-    const envelope = payload as { type?: unknown; data?: unknown };
+    const envelope = payload as Record<string, unknown>;
     if (typeof envelope.type !== 'string') {
       return null;
     }
@@ -279,17 +279,19 @@ export class SignalHub {
     const type = envelope.type;
     const unitVariant = type === 'Online' || type === 'Offline';
     let data: Record<string, unknown>;
-    if (envelope.data === undefined || envelope.data === null) {
-      // Serde omits the content field for unit variants in the adjacent-tag format.
-      if (!unitVariant) return null;
+    if (unitVariant) {
+      // Adjacent-tag Serde unit variants omit content or encode it as null;
+      // no other top-level property is part of the v1 transport contract.
+      const typeOnly = hasExactKeys(envelope, ['type']);
+      const typeAndNullData =
+        hasExactKeys(envelope, ['type', 'data']) && envelope.data === null;
+      if (!typeOnly && !typeAndNullData) return null;
       data = {};
-    } else if (
-      typeof envelope.data === 'object' &&
-      !Array.isArray(envelope.data)
-    ) {
-      data = envelope.data as Record<string, unknown>;
     } else {
-      return null;
+      if (!hasExactKeys(envelope, ['type', 'data']) || !isSignalRecord(envelope.data)) {
+        return null;
+      }
+      data = envelope.data;
     }
 
     // Exact field sets are part of the wire contract. This rejects both
