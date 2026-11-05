@@ -217,6 +217,7 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
     let required_dimensions = sorted_unique(string_array(request, "required_dimensions")?, "required_dimensions")?;
     let selected_profile_ids = sorted_unique(string_array(request, "selected_profile_ids")?, "selected_profile_ids")?;
     let allow_synthetic = request.get("allow_synthetic").and_then(Value::as_bool).unwrap_or(false);
+    let invalid_reporting_period = period_end < period_start;
 
     let mut profiles = BTreeMap::<String, Value>::new();
     for profile in array_of_objects(registry, "profile_references")? {
@@ -278,6 +279,9 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
     if !missing_dimensions.is_empty() {
         blockers.insert("required_dimensions_missing".to_owned());
     }
+    if invalid_reporting_period {
+        blockers.insert("reporting_period_end_precedes_start".to_owned());
+    }
 
     let requested_profile_set = selected_profile_ids.iter().cloned().collect::<BTreeSet<_>>();
     let requested_jurisdiction_set = jurisdiction_scopes.iter().cloned().collect::<BTreeSet<_>>();
@@ -296,7 +300,7 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
     let mut claim_ceiling = "no_qualification_claim".to_owned();
     let mut disposition = "unsupported_profile";
 
-    if !missing_dimensions.is_empty() {
+    if invalid_reporting_period || !missing_dimensions.is_empty() {
         disposition = "indeterminate";
     } else if !unknown_profile_ids.is_empty() {
         disposition = "unsupported_profile";
@@ -569,6 +573,17 @@ mod tests {
         let report = checked_resolve(&registry, &request);
         assert_eq!(report["disposition"], "unsupported_profile");
         assert!(report["blocking_reasons"].to_string().contains("outside_intersection_validity"));
+    }
+
+    #[test]
+    fn reversed_reporting_period_is_indeterminate() {
+        let registry = registry();
+        let mut request = request("qualified");
+        request["reporting_period_start"] = json!("2026-11-30");
+        request["reporting_period_end"] = json!("2026-11-01");
+        let report = checked_resolve(&registry, &request);
+        assert_eq!(report["disposition"], "indeterminate");
+        assert!(report["blocking_reasons"].to_string().contains("reporting_period_end_precedes_start"));
     }
 
     #[test]
