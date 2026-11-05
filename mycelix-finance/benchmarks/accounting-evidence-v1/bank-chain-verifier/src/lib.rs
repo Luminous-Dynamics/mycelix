@@ -588,10 +588,15 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             .and_then(|artifact| string(artifact, "profile_ref"))
             .unwrap_or_default()
             .to_owned();
-        let account_token = string(statement, "account_token").unwrap_or_default().to_owned();
-        let entity_token = string(statement, "entity_token").unwrap_or_default().to_owned();
-        let denomination_profile =
-            string(statement, "denomination_profile_ref").unwrap_or_default().to_owned();
+        let account_token = string(statement, "account_token")
+            .unwrap_or_default()
+            .to_owned();
+        let entity_token = string(statement, "entity_token")
+            .unwrap_or_default()
+            .to_owned();
+        let denomination_profile = string(statement, "denomination_profile_ref")
+            .unwrap_or_default()
+            .to_owned();
         for entry in array(statement, "entries") {
             if let Some(event_id) = string(entry, "economic_event_ref") {
                 let context = (
@@ -645,10 +650,7 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 });
                 if !same || !linked {
                     findings.insert("overlap_unresolved".to_owned());
-                    reasons.insert(format!(
-                        "overlap_entry_semantics_conflict:{}",
-                        event_key.4
-                    ));
+                    reasons.insert(format!("overlap_entry_semantics_conflict:{}", event_key.4));
                 }
             }
         }
@@ -755,10 +757,10 @@ mod tests {
             );
             let expected_count = row["economic_observation_count"]
                 .as_u64()
-                .expect("expected economic observation count") as usize;
+                .expect("expected economic observation count")
+                as usize;
             assert_eq!(
-                assessment.economic_observation_count,
-                expected_count,
+                assessment.economic_observation_count, expected_count,
                 "{id} economic observation count"
             );
         }
@@ -844,7 +846,11 @@ mod tests {
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "revision_conflict");
         assert_eq!(assessment.economic_observation_count, 3);
-        assert!(assessment.reason_codes.contains("event_reference_is_account_scoped"));
+        assert!(
+            assessment
+                .reason_codes
+                .contains("event_reference_is_account_scoped")
+        );
         assert!(
             assessment
                 .reason_codes
