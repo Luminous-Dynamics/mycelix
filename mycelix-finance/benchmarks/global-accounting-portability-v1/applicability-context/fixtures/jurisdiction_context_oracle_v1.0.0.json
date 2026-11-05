@@ -1,0 +1,40 @@
+{
+  "oracle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-ORACLE-V1",
+  "candidate_bundle_id": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1",
+  "visibility": "public_reference_oracle_not_hidden_evaluation",
+  "assertions": [
+    {
+      "assertion_id": "ROLE-SWAP-NOT-EQUIVALENT",
+      "context_ids": [
+        "CTX-ROLE-A",
+        "CTX-ROLE-B"
+      ],
+      "expected_behavior": "typed_contexts_not_equivalent",
+      "reason_code": "same_scope_set_different_role_binding"
+    },
+    {
+      "assertion_id": "UNKNOWN-PLACE-ABSTAINS",
+      "context_ids": [
+        "CTX-PLACE-UNKNOWN"
+      ],
+      "expected_behavior": "indeterminate_no_place_of_supply",
+      "reason_code": "required_place_of_supply_unknown"
+    },
+    {
+      "assertion_id": "CONFLICTING-REGISTRATION-REVIEW",
+      "context_ids": [
+        "CTX-REGISTRATION-DISPUTED"
+      ],
+      "expected_behavior": "needs_review_conflicting_registration",
+      "reason_code": "overlapping_disputed_registration_claims"
+    },
+    {
+      "assertion_id": "ISSUER-NAMESPACE-IDENTITY-SEPARATION",
+      "context_ids": [
+        "CTX-ROLE-A"
+      ],
+      "expected_behavior": "subjects_remain_distinct_across_namespaces",
+      "reason_code": "same_identifier_different_issuer_namespace"
+    }
+  ]
+}
