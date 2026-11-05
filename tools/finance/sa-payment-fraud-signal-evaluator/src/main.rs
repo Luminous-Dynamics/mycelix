@@ -465,7 +465,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][2]["signal"]["events"][1]["source_status_effect"] = json!("unchanged");
+            value["scenarios"][2]["signal"]["events"][1]["source_status_effect"] =
+                json!("unchanged");
         },
     )?;
     count += 1;
@@ -559,7 +560,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][31]["signal"]["events"][1]["source_status_effect"] = json!("unchanged");
+            value["scenarios"][31]["signal"]["events"][1]["source_status_effect"] =
+                json!("unchanged");
         },
     )?;
     count += 1;
@@ -601,7 +603,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][36]["signal"]["channel_coverage_state"] = json!("qualified_synthetic");
+            value["scenarios"][36]["signal"]["channel_coverage_state"] =
+                json!("qualified_synthetic");
         },
     )?;
     count += 1;
