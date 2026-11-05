@@ -915,6 +915,74 @@ mod tests{
     use super::*;
     fn fixture()->History{serde_json::from_str(include_str!("../examples/safe-history.json")).unwrap()}
     fn report(h:&History)->Report{audit(h,"0".repeat(64))}
+    fn verified_record_fixture() -> History {
+        let mut h = fixture();
+        h.events.push(Event {
+            event_id: "verified-attestation-authored".into(),
+            conductor_id: "caller-host".into(),
+            local_sequence: 6,
+            source: "source_chain".into(),
+            evidence_ref: "fixture://caller/verified-attestation".into(),
+            event_type: "action_authored".into(),
+            data: serde_json::json!({
+                "action_hash": "uhCkk-verified-attestation",
+                "author": "agent-caller",
+                "entry_type": "TrustAttestation",
+                "payload_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }),
+        });
+        h.events.push(Event {
+            event_id: "verified-attestation-accepted".into(),
+            conductor_id: "validator-host".into(),
+            local_sequence: 2,
+            source: "validator".into(),
+            evidence_ref: "fixture://validator/verified-attestation".into(),
+            event_type: "validation_disposition".into(),
+            data: serde_json::json!({
+                "action_hash": "uhCkk-verified-attestation",
+                "author_conductor_id": "caller-host",
+                "receiving_conductor_id": "validator-host",
+                "disposition": "accepted",
+                "validator_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "reason_code": null
+            }),
+        });
+        h.events.push(Event {
+            event_id: "verified-record-signal".into(),
+            conductor_id: "observer-host".into(),
+            local_sequence: 2,
+            source: "observer".into(),
+            evidence_ref: "fixture://observer/verified-attestation".into(),
+            event_type: "remote_signal".into(),
+            data: serde_json::json!({
+                "event_type": "TrustAttestationReceived",
+                "trust_class": "verified_record",
+                "transport_sender": "agent-caller",
+                "claimed_sender": "agent-caller",
+                "backing_action_hash": "uhCkk-verified-attestation",
+                "record_author": "agent-caller",
+                "verified_payload_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "verifier_build": "pulse-verifier-1",
+                "backing_author_conductor_id": "caller-host",
+                "backing_validator_event_id": "verified-attestation-accepted",
+                "trusted_state_mutation": true,
+                "authorizes_operation": false
+            }),
+        });
+        h.causal_edges.push(CausalEdge {
+            from_event: "verified-attestation-authored".into(),
+            to_event: "verified-attestation-accepted".into(),
+            relation: "validator_receipt".into(),
+            evidence_ref: "fixture://causal/verified-author-to-validator".into(),
+        });
+        h.causal_edges.push(CausalEdge {
+            from_event: "verified-attestation-accepted".into(),
+            to_event: "verified-record-signal".into(),
+            relation: "observer_confirmation".into(),
+            evidence_ref: "fixture://causal/verified-validator-to-observer".into(),
+        });
+        h
+    }
     #[test]fn safe_multiconductor_partial_order_passes(){let r=report(&fixture());assert!(matches!(r.status,Status::Pass),"{:?}",r.findings);}
     #[test]
     fn synthetic_benchmark_generator_produces_safe_histories() {
@@ -956,6 +1024,67 @@ mod tests{
     #[test]fn causal_cycle_is_rejected(){let mut h=fixture();h.causal_edges.push(CausalEdge{from_event:"projection-after-reject".into(),to_event:"mailbox-action-authored".into(),relation:"test_harness_barrier".into(),evidence_ref:"fixture://invalid/cycle".into()});let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="CAUSAL_GRAPH_CYCLE"));}
     #[test]fn post_revoke_allow_is_rejected(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_id=="host-call-after-revoke").unwrap();e.data["host_decision"]=Value::String("authorized".into());e.data["domain_decision"]=Value::String("allow".into());let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="HOST_ALLOW_OUTSIDE_GRANT"));}
     #[test]fn rejected_action_cannot_be_trusted(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_id=="projection-after-reject").unwrap();e.data["projection_state"]=Value::String("integrated".into());e.data["decision"]=Value::String("trusted".into());let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="REJECTED_ACTION_PROJECTED_AS_TRUSTED"));}
+    #[test]
+    fn verified_record_signal_resolves_exact_action_digest_and_validator_receipt() {
+        let h = verified_record_fixture();
+        let r = report(&h);
+        assert!(matches!(r.status, Status::Pass), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn verified_record_cannot_point_to_an_unknown_action_hash() {
+        let mut h = verified_record_fixture();
+        let signal = h.events.iter_mut().find(|e| e.event_id == "verified-record-signal").unwrap();
+        signal.data["backing_action_hash"] = Value::String("uhCkk-unknown-action".into());
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "VERIFIED_SIGNAL_ACTION_NOT_AUTHORED"), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn verified_record_payload_digest_must_match_authored_payload() {
+        let mut h = verified_record_fixture();
+        let signal = h.events.iter_mut().find(|e| e.event_id == "verified-record-signal").unwrap();
+        signal.data["verified_payload_sha256"] = Value::String("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into());
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "VERIFIED_SIGNAL_PAYLOAD_OR_AUTHOR_MISMATCH"), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn verified_record_requires_both_authorship_and_validator_causal_edges() {
+        let mut h = verified_record_fixture();
+        h.causal_edges.retain(|e| e.from_event != "verified-attestation-accepted");
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "VERIFIED_SIGNAL_VALIDATOR_OBSERVER_EDGE_MISSING"), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn authenticated_peer_hint_cannot_claim_a_different_transport_sender() {
+        let mut h = fixture();
+        let signal = h.events.iter_mut().find(|e| e.event_type == "remote_signal").unwrap();
+        signal.data["trust_class"] = Value::String("authenticated_peer_hint".into());
+        signal.data["claimed_sender"] = Value::String("agent-owner".into());
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "AUTHENTICATED_HINT_SENDER_MISMATCH"), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn local_only_signal_cannot_claim_remote_transport_identity() {
+        let mut h = fixture();
+        let signal = h.events.iter_mut().find(|e| e.event_type == "remote_signal").unwrap();
+        signal.data["trust_class"] = Value::String("local_only".into());
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "LOCAL_ONLY_HAS_REMOTE_SENDER"), "{:?}", r.findings);
+    }
+
+    #[test]
+    fn validator_wasm_digest_must_match_declared_conductor_artifact() {
+        let mut h = fixture();
+        let event = h.events.iter_mut().find(|e| e.event_type == "validation_disposition").unwrap();
+        event.data["validator_wasm_sha256"] = Value::String("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into());
+        let r = report(&h);
+        assert!(r.findings.iter().any(|f| f.code == "VALIDATOR_WASM_DIGEST_MISMATCH"), "{:?}", r.findings);
+    }
+
     #[test]fn forged_remote_signal_cannot_mutate_trusted_state(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_type=="remote_signal").unwrap();e.data["trusted_state_mutation"]=Value::Bool(true);let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="UNVERIFIED_SIGNAL_MUTATED_TRUSTED_STATE"));}
     #[test]fn event_data_rejects_unknown_fields(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_type=="host_call").unwrap();e.data["debug_secret"]=Value::String("never-allowed".into());let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="EVENT_DATA_SHAPE_INVALID"));}
 
