@@ -18,11 +18,11 @@ The current SDK calculation combines five factors:
 |--------|--------|-------------------------------|----------------------|
 | Attestation count | 25% | Number of endorsements, with diminishing returns | Coordinated or correlated attestations are not independent evidence |
 | Reputation weighting | 30% | Reputation-weighted attester signal | Contributor reputation is not proposition truth or source reliability |
-| Source quality | 20% | Existing source-category heuristic | A category such as academic, institutional, commercial or social is not a universal reliability ordering |
-| Time decay | 10% | Domain-configured age adjustment | Score decay is not proof that older evidence is invalid; currentness must be assessed by claim type and temporal scope |
+| Source quality | 20% | SDK has a domain-category heuristic, but the current DKG adapter passes no source URIs, so this factor is neutral (0.50) on the `get_truth` path | A category such as academic, institutional, commercial or social is not a universal reliability ordering |
+| Time decay | 10% | Current DKG adapter does not pass `ClaimEntry.domain`, so the SDK uses its default 365-day half-life on this path | Score decay is not proof that older evidence is invalid; currentness must be assessed by claim type and temporal scope |
 | Consistency | 15% | Penalty derived from recorded contradiction weights | Agreement/disagreement alone does not resolve factual validity or preserve all competing interpretations |
 
-The factors and weights are legacy implementation choices, not empirically calibrated estimates. Their output should be named and interpreted as a **legacy confidence/ranking score**, not “truth”, “veracity probability” or a universal reliability measure.
+The factors and weights are legacy implementation choices, not empirically calibrated estimates. In the inspected DKG path, the source-quality factor receives no source URIs and therefore remains neutral; the claim domain is also not propagated to the SDK. These adapter defects are tracked in [KNOW-TRUTH-DKG-001 / Mycelix #5824](https://github.com/Luminous-Dynamics/mycelix/issues/5824). Their output should be named and interpreted as a **legacy confidence/ranking score**, not “truth”, “veracity probability” or a universal reliability measure.
 
 A source's authenticity, its byte integrity, its relevance to a particular assertion, its independence from other sources, the authority of a knowledge holder, and social endorsement are distinct properties. No single scalar should silently collapse them.
 
