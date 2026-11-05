@@ -608,6 +608,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("correction receipt identity missing", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["lifecycle"]["correction_status"] =
+            json!("correction_applied");
         v["scenarios"][0]["signal"]["lifecycle"]["previous_recipient_count"] = json!(1);
         v["scenarios"][0]["signal"]["lifecycle"]["previous_recipient_ids"] = json!(["BANK-C"]);
     })?;
