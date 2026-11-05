@@ -74,3 +74,38 @@ jobs:
             ${{ runner.temp }}/pulse-multiconductor-receipt.txt
           if-no-files-found: error
           retention-days: 30
+
+      - name: Audit checked-in safe history
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked -- \
+            --input tools/pulse-multiconductor-audit/examples/safe-history.json \
+            --output "$RUNNER_TEMP/pulse-multiconductor-report.json"
+          jq -e '.status == "PASS" and .evidence_class == "synthetic" and (.claim_ceiling | contains("STRUCTURAL_PARTIAL_ORDER_ONLY"))' \
+            "$RUNNER_TEMP/pulse-multiconductor-report.json"
+
+      - name: Record exact verifier receipt
+        run: |
+          set -euo pipefail
+          {
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "workflow_run=$GITHUB_RUN_ID"
+            echo "workflow_attempt=$GITHUB_RUN_ATTEMPT"
+            rustc --version
+            cargo --version
+            sha256sum tools/pulse-multiconductor-audit/Cargo.lock
+            sha256sum tools/pulse-multiconductor-audit/examples/safe-history.json
+            sha256sum mycelix-workspace/mycelix-pulse/docs/security/pulse-multiconductor-history-v1.schema.json
+            sha256sum "$RUNNER_TEMP/pulse-multiconductor-report.json"
+          } > "$RUNNER_TEMP/pulse-multiconductor-receipt.txt"
+
+      - name: Upload report, lock and receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-multiconductor-audit-${{ github.sha }}
+          path: |
+            tools/pulse-multiconductor-audit/Cargo.lock
+            ${{ runner.temp }}/pulse-multiconductor-report.json
+            ${{ runner.temp }}/pulse-multiconductor-receipt.txt
+          if-no-files-found: error
+          retention-days: 30
