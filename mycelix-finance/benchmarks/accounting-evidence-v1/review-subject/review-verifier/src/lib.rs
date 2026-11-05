@@ -696,10 +696,13 @@ mod tests {
     #[test]
     fn policy_can_allow_agent_performance_but_not_human_review_substitution() {
         let mut record = base_record();
-        record["review_policy"]["required_role_counts"].as_array_mut().unwrap().push(json!({
-            "role":"performer",
-            "minimum_unique_principals":1
-        }));
+        record["review_policy"]["required_role_counts"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "role":"performer",
+                "minimum_unique_principals":1
+            }));
         record["review_policy"]["non_human_eligible_roles"] = json!(["performer"]);
 
         let mut agent_performance = record["review_events"][0].clone();
@@ -713,7 +716,10 @@ mod tests {
 
         let mut human_reviewer = base_record()["review_events"][0].clone();
         human_reviewer["event_id"] = json!("review-event:human-reviewer-after-agent");
-        record["review_events"].as_array_mut().unwrap().push(human_reviewer);
+        record["review_events"]
+            .as_array_mut()
+            .unwrap()
+            .push(human_reviewer);
 
         rebind_subject_and_policy(&mut record);
         let report = verify_value(&record);
