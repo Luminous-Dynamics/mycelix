@@ -33,6 +33,53 @@ fn contains_string(value: &Value, key: &str, expected: &str) -> bool {
         .is_some_and(|items| items.iter().any(|item| item.as_str() == Some(expected)))
 }
 
+fn utc_epoch_seconds(value: &str) -> Option<i64> {
+    let value = value.strip_suffix('Z')?;
+    let (date, time) = value.split_once('T')?;
+    let mut date_parts = date.split('-');
+    let year = date_parts.next()?.parse::<i64>().ok()?;
+    let month = date_parts.next()?.parse::<i64>().ok()?;
+    let day = date_parts.next()?.parse::<i64>().ok()?;
+    if date_parts.next().is_some() || year < 1970 || !(1..=12).contains(&month) {
+        return None;
+    }
+    let leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap_year => 29,
+        2 => 28,
+        _ => return None,
+    };
+    if !(1..=days_in_month).contains(&day) {
+        return None;
+    }
+
+    let mut time_parts = time.split(':');
+    let hour = time_parts.next()?.parse::<i64>().ok()?;
+    let minute = time_parts.next()?.parse::<i64>().ok()?;
+    let second = time_parts.next()?.parse::<i64>().ok()?;
+    if time_parts.next().is_some()
+        || !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=59).contains(&second)
+    {
+        return None;
+    }
+
+    // All fixture timestamps are canonical UTC seconds ending in Z. Reject
+    // offsets/fractions so lexical source fields cannot create clock ambiguity.
+    let adjusted_year = year - i64::from(month <= 2);
+    let era = adjusted_year.div_euclid(400);
+    let year_of_era = adjusted_year - era * 400;
+    let adjusted_month = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * adjusted_month + 2) / 5 + day - 1;
+    let day_of_era =
+        year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    let days_since_epoch = era * 146_097 + day_of_era - 719_468;
+    Some(days_since_epoch * 86_400 + hour * 3_600 + minute * 60 + second)
+}
+
 fn unique_string_count(value: &Value, key: &str) -> usize {
     array_at(value, key)
         .map(|items| {
@@ -97,6 +144,14 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     let action = str_at(query, "requested_action").unwrap_or("");
     let now = str_at(query, "evaluated_at").unwrap_or("");
     let expiry = str_at(sharing, "retention_expires_at").unwrap_or("");
+    let issuer_id = str_at(issuer, "participant_id").unwrap_or("");
+
+    if !contains_string(profile, "allowed_issuer_ids", issuer_id) {
+        return ("reject", "issuer_not_permitted_by_profile");
+    }
+    if !contains_string(profile, "allowed_assertion_statuses", status) {
+        return ("reject", "assertion_status_not_permitted_by_profile");
+    }
 
     // Comparator and programme contexts are deliberately narrower than
     // transaction-level fraud assertions.
@@ -251,6 +306,28 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
         return ("quarantine", "retention_expired");
     }
 
+    let Some(observed_at) = str_at(event, "observed_at").and_then(utc_epoch_seconds) else {
+        return ("quarantine", "signal_time_unqualified");
+    };
+    let Some(recorded_at) = str_at(event, "recorded_at").and_then(utc_epoch_seconds) else {
+        return ("quarantine", "signal_time_unqualified");
+    };
+    let Some(evaluated_at) = utc_epoch_seconds(now) else {
+        return ("quarantine", "signal_time_unqualified");
+    };
+    if observed_at > recorded_at {
+        return ("quarantine", "signal_time_order_invalid");
+    }
+    if observed_at > evaluated_at || recorded_at > evaluated_at {
+        return ("quarantine", "signal_event_from_future");
+    }
+    let Some(max_signal_age) = u64_at(profile, "max_signal_age_seconds") else {
+        return ("quarantine", "signal_freshness_policy_unknown");
+    };
+    if evaluated_at - observed_at > max_signal_age as i64 {
+        return ("quarantine", "signal_stale");
+    }
+
     if str_at(query, "recipient_id").is_none() || str_at(query, "recipient_class").is_none() {
         return ("reject", "recipient_identity_missing");
     }
@@ -284,6 +361,43 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     let notified_ids_len = notified_ids.map_or(0, Vec::len);
     if previous != previous_ids_len as u64 || notified != notified_ids_len as u64 {
         return ("quarantine", "correction_recipient_ledger_mismatch");
+    }
+    if notified_ids.is_some_and(|notified_items| {
+        notified_items.iter().any(|recipient_id| {
+            !previous_ids.is_some_and(|previous_items| previous_items.contains(recipient_id))
+        })
+    }) {
+        return ("quarantine", "correction_recipient_ledger_mismatch");
+    }
+
+    let appeal_status = str_at(lifecycle, "appeal_status").unwrap_or("unknown");
+    let appeal_record = str_at(lifecycle, "appeal_record_ref");
+    let appeal_decision = str_at(lifecycle, "appeal_decision_ref");
+    match appeal_status {
+        "none" if appeal_record.is_some() || appeal_decision.is_some() => {
+            return ("quarantine", "appeal_reference_without_case_state");
+        }
+        "open" if appeal_record.is_none() || appeal_decision.is_some() => {
+            return ("quarantine", "appeal_record_missing");
+        }
+        "accepted" | "rejected" | "closed"
+            if appeal_record.is_none() || appeal_decision.is_none() =>
+        {
+            return ("quarantine", "appeal_disposition_missing");
+        }
+        "none" | "open" | "accepted" | "rejected" | "closed" => {}
+        _ => return ("quarantine", "appeal_state_unknown"),
+    }
+
+    if correction_status != "none"
+        && array_at(lifecycle, "correction_record_refs").is_none_or(Vec::is_empty)
+    {
+        return ("quarantine", "correction_record_missing");
+    }
+    if correction_status == "correction_applied"
+        && str_at(lifecycle, "superseding_signal_id").is_none()
+    {
+        return ("quarantine", "superseding_signal_missing");
     }
     if correction_status == "contested" || status == "disputed" {
         return ("quarantine", "accuracy_contested");
@@ -622,6 +736,63 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
 
     mutate_and_reject("subject binding mismatch", corpus, schema, |v| {
         v["scenarios"][0]["query"]["subject_binding_state"] = json!("mismatch");
+    })?;
+    count += 1;
+
+    mutate_and_reject("issuer identity outside profile allowlist", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["issuer"]["participant_id"] = json!("BANK-UNLISTED");
+    })?;
+    count += 1;
+
+    mutate_and_reject("assertion status outside profile allowlist", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["assertion"]["status"] = json!("official_determination");
+    })?;
+    count += 1;
+
+    mutate_and_reject("future-dated signal event", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["observed_event"]["observed_at"] =
+            json!("2026-11-06T08:00:00Z");
+        v["scenarios"][0]["signal"]["observed_event"]["recorded_at"] =
+            json!("2026-11-06T08:01:00Z");
+    })?;
+    count += 1;
+
+    mutate_and_reject("stale signal exceeds profile freshness window", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["observed_event"]["observed_at"] =
+            json!("2026-11-02T08:00:00Z");
+        v["scenarios"][0]["signal"]["observed_event"]["recorded_at"] =
+            json!("2026-11-02T08:01:00Z");
+    })?;
+    count += 1;
+
+    mutate_and_reject("recorded event precedes observation", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["observed_event"]["recorded_at"] =
+            json!("2026-11-04T07:59:00Z");
+    })?;
+    count += 1;
+
+    mutate_and_reject("appeal closed without decision record", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["lifecycle"]["appeal_status"] = json!("closed");
+        v["scenarios"][0]["signal"]["lifecycle"]["appeal_record_ref"] =
+            json!("SYN-APPEAL-NEW");
+        v["scenarios"][0]["signal"]["lifecycle"]["appeal_decision_ref"] = Value::Null;
+    })?;
+    count += 1;
+
+    mutate_and_reject("correction notified an unlisted prior recipient", corpus, schema, |v| {
+        let lifecycle = &mut v["scenarios"][0]["signal"]["lifecycle"];
+        lifecycle["previous_recipient_count"] = json!(1);
+        lifecycle["notified_recipient_count"] = json!(1);
+        lifecycle["previous_recipient_ids"] = json!(["BANK-C"]);
+        lifecycle["notified_recipient_ids"] = json!(["BANK-B"]);
+    })?;
+    count += 1;
+
+    mutate_and_reject("correction applied without correction record", corpus, schema, |v| {
+        let lifecycle = &mut v["scenarios"][0]["signal"]["lifecycle"];
+        lifecycle["correction_status"] = json!("correction_applied");
+        lifecycle["superseding_signal_id"] = json!("FIS-001-V2");
+        lifecycle["correction_record_refs"] = json!([]);
     })?;
     count += 1;
 
