@@ -251,7 +251,10 @@ fn assess(case: &Value) -> Assessment {
                 Some("derived_without_lineage" | "altered_or_conflicted" | "unknown")
             )
         });
-        if !lineage_ok || lineage_bad {
+        if relevant.is_empty() {
+            reasons.insert("transformation_lineage_missing".to_owned());
+            disposition = "insufficient_evidence".to_owned();
+        } else if !lineage_ok || lineage_bad {
             reasons.insert("transformation_lineage_unqualified".to_owned());
             disposition = "indeterminate".to_owned();
         } else {
@@ -461,6 +464,26 @@ mod tests {
             .expect("AEP-004");
         assert_eq!(assess(case).disposition, "contradicted");
     }
+    #[test]
+    fn irrelevant_invoice_is_insufficient_for_valuation_purpose() {
+        let input = fixture(include_str!("../../assertion_purpose_cases_v1.0.0.json"));
+        let case = array(&input, "cases")
+            .iter()
+            .find(|case| string(case, "case_id") == Some("AEP-010"))
+            .expect("AEP-010");
+        assert_eq!(assess(case).disposition, "insufficient_evidence");
+    }
+
+    #[test]
+    fn relevant_ocr_without_lineage_is_indeterminate() {
+        let input = fixture(include_str!("../../assertion_purpose_cases_v1.0.0.json"));
+        let case = array(&input, "cases")
+            .iter()
+            .find(|case| string(case, "case_id") == Some("AEP-013"))
+            .expect("AEP-013");
+        assert_eq!(assess(case).disposition, "indeterminate");
+    }
+
     #[test]
     fn nonexistent_candidate_citations_abstain() {
         let input = fixture(include_str!("../../assertion_purpose_cases_v1.0.0.json"));
