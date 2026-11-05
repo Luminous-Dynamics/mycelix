@@ -1,0 +1,763 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-fraud-signal-corpus-v1.schema.json",
+  "title": "Mycelix South African Payment Fraud Signal Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "jurisdiction",
+    "as_of",
+    "created_on",
+    "purpose",
+    "external_effects_enabled",
+    "source_register",
+    "profiles",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-fraud-signal/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-SA-PAYMENT-FRAUD-SIGNAL-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_contract_fixture_only"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 28,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "published_on",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "operational_state",
+        "controller_roles",
+        "allowed_recipient_classes",
+        "allowed_signal_categories",
+        "allowed_data_classes",
+        "allowed_purposes",
+        "permitted_actions",
+        "source_refs",
+        "notes"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+-V1$"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "operational_state": {
+          "enum": [
+            "synthetic_only_not_live",
+            "synthetic_statutory_scope_fixture_only",
+            "knowledge_exchange_only",
+            "comparator_only",
+            "statistics_comparator_only",
+            "proposed_or_being_scoped"
+          ]
+        },
+        "controller_roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_recipient_classes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_signal_categories": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_data_classes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_purposes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "permitted_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signature_state",
+        "key_state",
+        "verification_receipt_ref",
+        "payload_digest",
+        "verified_payload_digest",
+        "trusted_key_registry_revision"
+      ],
+      "properties": {
+        "signature_state": {
+          "enum": [
+            "verified",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "key_state": {
+          "enum": [
+            "valid",
+            "revoked",
+            "unknown"
+          ]
+        },
+        "verification_receipt_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "payload_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "verified_payload_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "trusted_key_registry_revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
+    "issuer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_id",
+        "issuer_role",
+        "controller_role",
+        "authority_scope_state",
+        "signing_key_id",
+        "verification"
+      ],
+      "properties": {
+        "participant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer_role": {
+          "enum": [
+            "private_payment_participant",
+            "financial_sector_regulator",
+            "reserve_bank",
+            "scheme_operator",
+            "customer_report",
+            "model_service",
+            "third_party"
+          ]
+        },
+        "controller_role": {
+          "enum": [
+            "private_payment_participant",
+            "financial_sector_regulator",
+            "reserve_bank",
+            "scheme_operator",
+            "customer_report",
+            "model_service",
+            "third_party"
+          ]
+        },
+        "authority_scope_state": {
+          "enum": [
+            "authorized",
+            "denied",
+            "unknown"
+          ]
+        },
+        "signing_key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification": {
+          "$ref": "#/$defs/verification"
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_type",
+        "issuer_local_subject_ref",
+        "data_classification"
+      ],
+      "properties": {
+        "subject_type": {
+          "enum": [
+            "transaction",
+            "account",
+            "business_entity",
+            "natural_person",
+            "credential",
+            "device",
+            "aggregate_cohort"
+          ]
+        },
+        "issuer_local_subject_ref": {
+          "type": "string",
+          "pattern": "^issuer-local:[A-Z0-9-]+$"
+        },
+        "data_classification": {
+          "enum": [
+            "transaction_only",
+            "business_entity",
+            "personal",
+            "special_personal_alleged_offence",
+            "aggregate_non_personal",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "observed_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "observed_at",
+        "recorded_at",
+        "event_reference",
+        "description_code"
+      ],
+      "properties": {
+        "category": {
+          "enum": [
+            "transaction_pattern_observed",
+            "beneficiary_mismatch_observed",
+            "credential_compromise_observed",
+            "customer_reported_scam",
+            "participant_reported_fraud",
+            "official_fraud_disposition",
+            "payee_name_match_result",
+            "reimbursement_outcome",
+            "programme_status_observation"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "event_reference": {
+          "type": "string",
+          "pattern": "^issuer-event:[A-Z0-9-]+$"
+        },
+        "description_code": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "evidence_class",
+        "evidence_refs",
+        "evidence_group_ids",
+        "confidence_level",
+        "confidence_method_ref",
+        "determining_authority_ref"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "suspected",
+            "under_investigation",
+            "corroborated",
+            "issuer_substantiated",
+            "official_determination",
+            "disputed",
+            "not_substantiated",
+            "corrected",
+            "withdrawn"
+          ]
+        },
+        "evidence_class": {
+          "enum": [
+            "direct_participant_observation",
+            "customer_report",
+            "third_party_report",
+            "model_derived_indicator",
+            "independent_participant_confirmation",
+            "court_or_official_record",
+            "payment_system_verification_result",
+            "aggregate_regulatory_outcome"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^SYN-EVID-[A-Z0-9-]+$"
+          }
+        },
+        "evidence_group_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          }
+        },
+        "confidence_level": {
+          "enum": [
+            "not_assessed",
+            "low",
+            "moderate",
+            "high"
+          ]
+        },
+        "confidence_method_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "determining_authority_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
+    "sharing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "permitted_recipient_ids",
+        "permitted_purposes",
+        "prohibited_purposes",
+        "lawful_basis_code",
+        "lawful_basis_status",
+        "lawful_basis_ref",
+        "special_info_review_status",
+        "special_info_review_ref",
+        "retention_expires_at",
+        "storage_scope"
+      ],
+      "properties": {
+        "permitted_recipient_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "permitted_purposes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "prohibited_purposes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "lawful_basis_code": {
+          "enum": [
+            "consent",
+            "contract_necessity",
+            "legal_obligation",
+            "legitimate_interest",
+            "data_subject_interest",
+            "public_law_duty",
+            "FSR_ACT_251_REGULATOR_SCOPE",
+            "unknown"
+          ]
+        },
+        "lawful_basis_status": {
+          "enum": [
+            "reviewed_for_fixture",
+            "unknown",
+            "denied"
+          ]
+        },
+        "lawful_basis_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "special_info_review_status": {
+          "enum": [
+            "reviewed_for_fixture",
+            "pending",
+            "denied",
+            "not_applicable"
+          ]
+        },
+        "special_info_review_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "retention_expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "storage_scope": {
+          "enum": [
+            "issuer_private_store",
+            "controlled_exchange",
+            "public_dht",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correction_status",
+        "previous_recipient_count",
+        "notified_recipient_count",
+        "correction_record_refs",
+        "superseding_signal_id"
+      ],
+      "properties": {
+        "correction_status": {
+          "enum": [
+            "none",
+            "contested",
+            "correction_applied",
+            "withdrawn",
+            "superseded"
+          ]
+        },
+        "previous_recipient_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "notified_recipient_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correction_record_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^SYN-[A-Z0-9-]+$"
+          }
+        },
+        "superseding_signal_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^FIS-[0-9]{3}-V[0-9]+$"
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_id",
+        "profile_id",
+        "version",
+        "issuer",
+        "subject",
+        "observed_event",
+        "assertion",
+        "sharing",
+        "lifecycle"
+      ],
+      "properties": {
+        "signal_id": {
+          "type": "string",
+          "pattern": "^FIS-[0-9]{3}$"
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "issuer": {
+          "$ref": "#/$defs/issuer"
+        },
+        "subject": {
+          "$ref": "#/$defs/subject"
+        },
+        "observed_event": {
+          "$ref": "#/$defs/observed_event"
+        },
+        "assertion": {
+          "$ref": "#/$defs/assertion"
+        },
+        "sharing": {
+          "$ref": "#/$defs/sharing"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recipient_id",
+        "recipient_class",
+        "recipient_subject_ref",
+        "requested_purpose",
+        "requested_action",
+        "evaluated_at"
+      ],
+      "properties": {
+        "recipient_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_subject_ref": {
+          "type": "string",
+          "pattern": "^pairwise:[A-Z0-9-]+:SUBJECT-[0-9]{3}$"
+        },
+        "requested_purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_action": {
+          "enum": [
+            "warning",
+            "step_up_authentication",
+            "manual_review",
+            "open_fraud_case",
+            "open_recourse_case",
+            "automatic_irreversible_denial",
+            "execute_payment",
+            "credit_scoring",
+            "marketing",
+            "legal_guilt_label"
+          ]
+        },
+        "evaluated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "signal",
+        "query",
+        "expected_admission",
+        "expected_reason_code",
+        "expected_action_class"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^SA-FIS-[0-9]{3}$"
+        },
+        "signal": {
+          "$ref": "#/$defs/signal"
+        },
+        "query": {
+          "$ref": "#/$defs/query"
+        },
+        "expected_admission": {
+          "enum": [
+            "admit_advisory",
+            "quarantine",
+            "reject"
+          ]
+        },
+        "expected_reason_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_action_class": {
+          "enum": [
+            "advisory_only",
+            "none"
+          ]
+        }
+      }
+    }
+  }
+}
