@@ -737,7 +737,7 @@ fn run_benchmark(event_count: usize, output: Option<PathBuf>) -> Result<(), Box<
         event_count as f64 / (audit_ns as f64 / 1_000_000_000.0)
     };
 
-    let status = match report.status {
+    let status = match &report.status {
         Status::Pass => "PASS",
         Status::Fail => "FAIL",
         Status::Incomplete => "INCOMPLETE",
@@ -759,7 +759,7 @@ fn run_benchmark(event_count: usize, output: Option<PathBuf>) -> Result<(), Box<
     });
     write_json_output(&output_value, output)?;
 
-    if matches!(report.status, Status::Pass) {
+    if matches!(&report.status, Status::Pass) {
         Ok(())
     } else {
         Err("synthetic benchmark fixture did not pass structural audit".into())
