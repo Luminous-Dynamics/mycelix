@@ -1,0 +1,563 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::env;
+use std::error::Error;
+use std::fs;
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct History {
+    schema_version: u32,
+    trace_id: String,
+    evidence_class: String,
+    source_commit: String,
+    conductors: Vec<Conductor>,
+    events: Vec<Event>,
+    causal_edges: Vec<CausalEdge>,
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Conductor {
+    conductor_id: String,
+    agent_key_ref: String,
+    conductor_build: String,
+    dna_hash: String,
+    cell_id: String,
+    role: String,
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Event {
+    event_id: String,
+    conductor_id: String,
+    local_sequence: u64,
+    source: String,
+    evidence_ref: String,
+    event_type: String,
+    data: Value,
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CausalEdge {
+    from_event: String,
+    to_event: String,
+    relation: String,
+    evidence_ref: String,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "UPPERCASE")]
+enum Status { Pass, Fail, Incomplete }
+#[derive(Debug, Clone, Serialize)]
+struct Finding {
+    code: String,
+    severity: String,
+    event_id: Option<String>,
+    detail: String,
+}
+#[derive(Debug, Clone, Default, Serialize)]
+struct Counts {
+    conductors: usize,
+    events: usize,
+    causal_edges: usize,
+    grants_issued: usize,
+    grants_revoked: usize,
+    claims_accepted: usize,
+    host_calls: usize,
+    domain_effects: usize,
+    actions_authored: usize,
+    validator_dispositions: usize,
+    projections_observed: usize,
+    remote_signals: usize,
+    caller_outcomes: usize,
+}
+#[derive(Debug, Clone, Serialize)]
+struct Report {
+    schema_version: u32,
+    status: Status,
+    trace_id: String,
+    evidence_class: String,
+    input_sha256: String,
+    counts: Counts,
+    findings: Vec<Finding>,
+    claim_ceiling: String,
+}
+#[derive(Debug, Clone)]
+struct Grant {
+    conductor_id: String,
+    action_hash: String,
+    grantor: String,
+    grantee: String,
+    assigned: bool,
+    functions: BTreeSet<String>,
+    issue_index: u64,
+    revoke_index: Option<u64>,
+}
+#[derive(Debug, Clone)]
+struct Call {
+    event_id: String,
+    conductor_id: String,
+    host_authorized: bool,
+    domain_allowed: bool,
+}
+
+fn finding(findings: &mut Vec<Finding>, code: &str, severity: &str, event_id: Option<&str>, detail: impl Into<String>) {
+    findings.push(Finding {
+        code: code.to_string(),
+        severity: severity.to_string(),
+        event_id: event_id.map(ToString::to_string),
+        detail: detail.into(),
+    });
+}
+fn valid_sha(value: &str) -> bool {
+    value.len() == 40 && value.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+}
+fn str_value<'a>(data: &'a Value, key: &str) -> Option<&'a str> {
+    data.get(key).and_then(Value::as_str)
+}
+fn nonempty_str(data: &Value, key: &str) -> bool {
+    str_value(data, key).is_some_and(|v| !v.trim().is_empty())
+}
+fn u64_value(data: &Value, key: &str) -> Option<u64> {
+    data.get(key).and_then(Value::as_u64)
+}
+fn bool_value(data: &Value, key: &str) -> Option<bool> {
+    data.get(key).and_then(Value::as_bool)
+}
+fn str_array(data: &Value, key: &str) -> Option<Vec<String>> {
+    data.get(key)?.as_array()?.iter().map(|v| v.as_str().map(ToString::to_string)).collect()
+}
+fn exact_fields(data: &Value, expected: &[&str]) -> bool {
+    let Some(map) = data.as_object() else { return false; };
+    map.len() == expected.len() && expected.iter().all(|key| map.contains_key(*key))
+}
+
+fn valid_event_shape(event: &Event) -> bool {
+    let (fields, strings, numbers, booleans, arrays): (&[&str], &[&str], &[&str], &[&str], &[&str]) =
+        match event.event_type.as_str() {
+            "host_grant_issued" => (
+                &["grant_ref","grant_action_hash","grantor","grantee","assigned","functions","idempotency_key","host_authority_index"],
+                &["grant_ref","grant_action_hash","grantor","grantee","idempotency_key"],
+                &["host_authority_index"], &["assigned"], &["functions"]),
+            "host_grant_revoked" => (
+                &["grant_ref","target_grant_action_hash","actor","revocation_action_hash","host_authority_index"],
+                &["grant_ref","target_grant_action_hash","actor","revocation_action_hash"],
+                &["host_authority_index"], &[], &[]),
+            "capability_claim_accepted" => (
+                &["grant_ref","grant_action_hash","recipient","claim_action_hash"],
+                &["grant_ref","grant_action_hash","recipient","claim_action_hash"], &[], &[], &[]),
+            "host_call" => (
+                &["operation_id","attempt_id","grant_ref","grant_action_hash","caller","function","host_authority_index","host_decision","host_state_at_decision","domain_decision","projection_used_for_authorization"],
+                &["operation_id","grant_ref","grant_action_hash","caller","function","host_decision","host_state_at_decision","domain_decision"],
+                &["attempt_id","host_authority_index"], &["projection_used_for_authorization"], &[]),
+            "domain_effect" => (
+                &["operation_id","attempt_id","effect_id","action_hash"],
+                &["operation_id","effect_id","action_hash"], &["attempt_id"], &[], &[]),
+            "action_authored" => (
+                &["action_hash","author","entry_type"], &["action_hash","author","entry_type"], &[], &[], &[]),
+            "validation_disposition" => (
+                &["action_hash","author_conductor_id","receiving_conductor_id","disposition","validator_build","reason_code"],
+                &["action_hash","author_conductor_id","receiving_conductor_id","disposition","validator_build"], &[], &[], &[]),
+            "projection_observed" => (
+                &["action_hash","projection_state","decision","required_dna_hash","observed_dna_hash","required_cell_id","observed_cell_id","required_author","observed_author","required_action_hash","observed_action_hash","required_epoch","observed_epoch","descends_from_required"],
+                &["action_hash","projection_state","decision","required_dna_hash","observed_dna_hash","required_cell_id","observed_cell_id","required_author","observed_author","required_action_hash","observed_action_hash"],
+                &["required_epoch","observed_epoch"], &["descends_from_required"], &[]),
+            "remote_signal" => (
+                &["event_type","trust_class","transport_sender","claimed_sender","backing_action_hash","record_author","verified_payload_sha256","verifier_build","trusted_state_mutation","authorizes_operation"],
+                &["event_type","trust_class"], &[], &["trusted_state_mutation","authorizes_operation"], &[]),
+            "caller_outcome" => (
+                &["operation_id","attempt_id","outcome"], &["operation_id","outcome"], &["attempt_id"], &[], &[]),
+            _ => return false,
+        };
+    if !exact_fields(&event.data, fields)
+        || !strings.iter().all(|key| nonempty_str(&event.data,key))
+        || !numbers.iter().all(|key| u64_value(&event.data,key).is_some())
+        || !booleans.iter().all(|key| bool_value(&event.data,key).is_some())
+        || !arrays.iter().all(|key| str_array(&event.data,key).is_some_and(|v| !v.is_empty() && v.iter().all(|s| !s.trim().is_empty())))
+    { return false; }
+
+    match event.event_type.as_str() {
+        "host_grant_issued" | "host_grant_revoked" => u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0),
+        "host_call" => {
+            u64_value(&event.data,"attempt_id").is_some_and(|v| v > 0)
+                && u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0)
+                && matches!(str_value(&event.data,"host_decision"),Some("authorized"|"unauthorized"|"unknown"))
+                && matches!(str_value(&event.data,"host_state_at_decision"),Some("active"|"revoked"|"absent"|"unknown"))
+                && matches!(str_value(&event.data,"domain_decision"),Some("allow"|"deny"|"not_run"|"unknown"))
+        }
+        "domain_effect" | "caller_outcome" => u64_value(&event.data,"attempt_id").is_some_and(|v| v > 0),
+        "validation_disposition" => {
+            matches!(str_value(&event.data,"disposition"),Some("accepted"|"rejected"))
+                && (event.data["reason_code"].is_null() || event.data["reason_code"].is_string())
+        }
+        "projection_observed" => {
+            matches!(str_value(&event.data,"projection_state"),Some("integrated"|"not_integrated"|"pending"|"conflicting"|"unknown"))
+                && matches!(str_value(&event.data,"decision"),Some("trusted"|"stale_advisory"|"unknown"|"conflicting"))
+        }
+        "remote_signal" => {
+            matches!(str_value(&event.data,"trust_class"),Some("verified_record"|"authenticated_peer_hint"|"unverified_hint"|"local_only"|"unknown"|"rejected"))
+                && ["transport_sender","claimed_sender","backing_action_hash","record_author","verified_payload_sha256","verifier_build"]
+                    .iter().all(|k| event.data[*k].is_null() || event.data[*k].is_string())
+        }
+        "caller_outcome" => matches!(str_value(&event.data,"outcome"),Some("acknowledged"|"unknown"|"committed"|"not_committed"|"rejected")),
+        _ => true,
+    }
+}
+
+fn relation_valid(relation: &str) -> bool {
+    matches!(relation,"program_order"|"request_response"|"source_action_dependency"|"validator_receipt"|"observer_confirmation"|"test_harness_barrier")
+}
+fn path_exists(adjacency: &BTreeMap<String,BTreeSet<String>>, from: &str, to: &str) -> bool {
+    if from == to { return true; }
+    let mut seen = BTreeSet::new();
+    let mut stack = vec![from.to_string()];
+    while let Some(node) = stack.pop() {
+        if !seen.insert(node.clone()) { continue; }
+        if let Some(next) = adjacency.get(&node) {
+            for target in next {
+                if target == to { return true; }
+                stack.push(target.clone());
+            }
+        }
+    }
+    false
+}
+fn graph_has_cycle(adjacency: &BTreeMap<String,BTreeSet<String>>, nodes: &BTreeSet<String>) -> bool {
+    let mut indegree: BTreeMap<String,usize> = nodes.iter().map(|n|(n.clone(),0)).collect();
+    for targets in adjacency.values() { for target in targets { *indegree.entry(target.clone()).or_default() += 1; } }
+    let mut queue: VecDeque<String> = indegree.iter().filter(|(_,d)| **d == 0).map(|(n,_)|n.clone()).collect();
+    let mut visited=0;
+    while let Some(node)=queue.pop_front() {
+        visited+=1;
+        if let Some(next)=adjacency.get(&node) {
+            for target in next {
+                if let Some(d)=indegree.get_mut(target) { *d-=1; if *d==0 { queue.push_back(target.clone()); } }
+            }
+        }
+    }
+    visited != nodes.len()
+}
+fn direct_relation(edges:&[CausalEdge],from:&str,to:&str,relation:&str)->bool {
+    edges.iter().any(|e|e.from_event==from && e.to_event==to && e.relation==relation)
+}
+
+fn audit(history:&History,input_sha256:String)->Report {
+    let mut findings=Vec::new();
+    let mut counts=Counts{conductors:history.conductors.len(),events:history.events.len(),causal_edges:history.causal_edges.len(),..Counts::default()};
+    if history.schema_version!=1 { finding(&mut findings,"UNSUPPORTED_SCHEMA_VERSION","incomplete",None,"expected schema version 1"); }
+    if history.trace_id.trim().is_empty() || !valid_sha(&history.source_commit) { finding(&mut findings,"HISTORY_HEADER_INCOMPLETE","incomplete",None,"trace_id and lowercase 40-character source_commit are required"); }
+    if !matches!(history.evidence_class.as_str(),"synthetic"|"runtime_capture") { finding(&mut findings,"EVIDENCE_CLASS_INVALID","incomplete",None,"evidence_class must be synthetic or runtime_capture"); }
+    if history.conductors.len()<2 { finding(&mut findings,"MULTICONDUCTOR_HISTORY_REQUIRED","incomplete",None,"at least two conductors are required"); }
+
+    let mut conductors:BTreeMap<String,&Conductor>=BTreeMap::new();
+    let mut agent_refs=BTreeSet::new();
+    for c in &history.conductors {
+        let valid=!c.conductor_id.trim().is_empty()&&!c.agent_key_ref.trim().is_empty()&&!c.conductor_build.trim().is_empty()&&!c.dna_hash.trim().is_empty()&&!c.cell_id.trim().is_empty()
+            && matches!(c.role.as_str(),"grant_owner"|"caller"|"validator"|"observer"|"peer");
+        if !valid { finding(&mut findings,"CONDUCTOR_IDENTITY_INCOMPLETE","incomplete",None,"conductor identity, build, DNA, cell and supported role are required"); }
+        if conductors.insert(c.conductor_id.clone(),c).is_some() { finding(&mut findings,"DUPLICATE_CONDUCTOR_ID","violation",None,"conductor_id must be unique"); }
+        if !agent_refs.insert(c.agent_key_ref.clone()) { finding(&mut findings,"DUPLICATE_AGENT_KEY_REFERENCE","incomplete",None,"agent key references must be distinct in this profile"); }
+    }
+
+    let mut event_map:BTreeMap<String,&Event>=BTreeMap::new();
+    let mut nodes=BTreeSet::new();
+    let mut by_conductor:BTreeMap<String,Vec<&Event>>=BTreeMap::new();
+    for e in &history.events {
+        nodes.insert(e.event_id.clone());
+        if e.event_id.trim().is_empty()||e.evidence_ref.trim().is_empty()||e.local_sequence==0 { finding(&mut findings,"EVENT_IDENTITY_INCOMPLETE","incomplete",Some(&e.event_id),"event_id, evidence_ref and positive local_sequence are required"); }
+        if !conductors.contains_key(&e.conductor_id) { finding(&mut findings,"UNKNOWN_CONDUCTOR","incomplete",Some(&e.event_id),format!("unknown conductor {}",e.conductor_id)); }
+        if !matches!(e.source.as_str(),"conductor_host"|"source_chain"|"validator"|"observer"|"remote_peer"|"client"|"coordinator"|"synthetic") {
+            finding(&mut findings,"EVENT_SOURCE_INVALID","incomplete",Some(&e.event_id),"source is outside the v1 evidence vocabulary");
+        }
+        if !valid_event_shape(e) { finding(&mut findings,"EVENT_DATA_SHAPE_INVALID","incomplete",Some(&e.event_id),format!("{} data is missing, mistyped or contains unknown fields",e.event_type)); }
+        if history.evidence_class=="runtime_capture"&&e.source=="synthetic" { finding(&mut findings,"SYNTHETIC_EVENT_IN_RUNTIME_CAPTURE","incomplete",Some(&e.event_id),"runtime capture cannot contain synthetic evidence"); }
+        if event_map.insert(e.event_id.clone(),e).is_some() { finding(&mut findings,"DUPLICATE_EVENT_ID","violation",Some(&e.event_id),"event IDs must be globally unique"); }
+        by_conductor.entry(e.conductor_id.clone()).or_default().push(e);
+    }
+
+    // Local sequence numbers create order only within their own conductor.
+    let mut adjacency:BTreeMap<String,BTreeSet<String>>=BTreeMap::new();
+    for (conductor,events) in &mut by_conductor {
+        events.sort_by_key(|e|e.local_sequence);
+        let mut seen=BTreeSet::new();
+        let mut previous:Option<&Event>=None;
+        for e in events.iter() {
+            if !seen.insert(e.local_sequence) { finding(&mut findings,"DUPLICATE_LOCAL_SEQUENCE","violation",Some(&e.event_id),format!("conductor {conductor} reused local_sequence {}",e.local_sequence)); }
+            if let Some(prev)=previous { adjacency.entry(prev.event_id.clone()).or_default().insert(e.event_id.clone()); }
+            previous=Some(*e);
+        }
+    }
+
+    let mut edge_keys=BTreeSet::new();
+    for edge in &history.causal_edges {
+        if !edge_keys.insert((edge.from_event.clone(),edge.to_event.clone(),edge.relation.clone())) { finding(&mut findings,"DUPLICATE_CAUSAL_EDGE","violation",None,"duplicate causal edge"); }
+        if edge.from_event==edge.to_event { finding(&mut findings,"SELF_CAUSAL_EDGE","violation,None,"causal edge cannot point to itself"); }
+        if edge.evidence_ref.trim().is_empty()||!relation_valid(&edge.relation) { finding(&mut findings,"CAUSAL_EDGE_EVIDENCE_INVALID","incomplete",None,"edge relation and evidence_ref are required"); }
+        let (Some(from),Some(to))=(event_map.get(&edge.from_event),event_map.get(&edge.to_event)) else {
+            finding(&mut findings,"CAUSAL_EDGE_ENDPOINT_MISSING","incomplete",None,"edge references a missing event"); continue;
+        };
+        if edge.relation=="program_order" && (from.conductor_id!=to.conductor_id||from.local_sequence>=to.local_sequence) {
+            finding(&mut findings,"PROGRAM_ORDER_CROSSES_CONDUCTORS","violation",Some(&to.event_id),"program_order is valid only within one conductor with increasing local_sequence");
+        }
+        adjacency.entry(edge.from_event.clone()).or_default().insert(edge.to_event.clone());
+    }
+    if graph_has_cycle(&adjacency,&nodes) { finding(&mut findings,"CAUSAL_GRAPH_CYCLE","violation",None,"local order plus evidence-backed edges must form a DAG"); }
+
+    let mut grants:BTreeMap<(String,String),Grant>=BTreeMap::new();
+    let mut grant_hashes=BTreeSet::new();
+    let mut idempotency:BTreeMap<(String,String,String),String>=BTreeMap::new();
+    let mut grant_events=Vec::new();
+    let mut revoke_events=Vec::new();
+    let mut claim_events=Vec::new();
+    let mut call_events=Vec::new();
+    let mut effect_events=Vec::new();
+    let mut authored:BTreeMap<String,&Event>=BTreeMap::new();
+    let mut validation_events=Vec::new();
+    let mut projection_events=Vec::new();
+    let mut outcome_events=Vec::new();
+
+    for e in &history.events {
+        let d=&e.data;
+        match e.event_type.as_str() {
+            "host_grant_issued"=>{
+                counts.grants_issued+=1;grant_events.push(e);
+                let grant_ref=str_value(d,"grant_ref").unwrap_or_default().to_string();
+                let action_hash=str_value(d,"grant_action_hash").unwrap_or_default().to_string();
+                let grantor=str_value(d,"grantor").unwrap_or_default().to_string();
+                let grantee=str_value(d,"grantee").unwrap_or_default().to_string();
+                let assigned=bool_value(d,"assigned").unwrap_or(false);
+                let functions=str_array(d,"functions").unwrap_or_default();
+                let index=u64_value(d,"host_authority_index").unwrap_or(0);
+                if !grant_hashes.insert((e.conductor_id.clone(),action_hash.clone())) { finding(&mut findings,"DUPLICATE_GRANT_ACTION_HASH","violation",Some(&e.event_id),"grant ActionHash reused within one conductor"); }
+                if let Some(c)=conductors.get(&e.conductor_id) {
+                    if c.agent_key_ref!=grantor { finding(&mut findings,"GRANTOR_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"grantor does not match host conductor agent key"); }
+                    if c.role!="grant_owner" { finding(&mut findings,"GRANT_ISSUED_BY_NON_OWNER_CONDUCTOR","incomplete",Some(&e.event_id),"grant issuance should be observed on grant_owner conductor"); }
+                }
+                let idem=(e.conductor_id.clone(),grantor.clone(),str_value(d,"idempotency_key").unwrap_or_default().to_string());
+                if let Some(old)=idempotency.get(&idem) { if old!=&grant_ref { finding(&mut findings,"IDEMPOTENCY_KEY_MINTED_MULTIPLE_GRANTS","violation",Some(&e.event_id),"same conductor/grantor idempotency key minted multiple grants"); } }
+                else { idempotency.insert(idem,grant_ref.clone()); }
+                let key=(e.conductor_id.clone(),grant_ref.clone());
+                if grants.contains_key(&key) { finding(&mut findings,"GRANT_REFERENCE_REUSED","violation",Some(&e.event_id),"grant_ref reused on one host conductor"); }
+                else { grants.insert(key,Grant{conductor_id:e.conductor_id.clone(),action_hash,grantor,grantee,assigned,functions:functions.into_iter().collect(),issue_index:index,revoke_index:None}); }
+            }
+            "host_grant_revoked"=>{counts.grants_revoked+=1;revoke_events.push(e);}
+            "capability_claim_accepted"=>{counts.claims_accepted+=1;claim_events.push(e);}
+            "host_call"=>{counts.host_calls+=1;call_events.push(e);}
+            "domain_effect"=>{counts.domain_effects+=1;effect_events.push(e);}
+            "action_authored"=>{
+                counts.actions_authored+=1;
+                let hash=str_value(d,"action_hash").unwrap_or_default().to_string();
+                if let Some(old)=authored.insert(hash.clone(),e) { finding(&mut findings,"ACTION_HASH_AUTHORED_TWICE","violation",Some(&e.event_id),format!("action hash also authored in {}",old.event_id)); }
+                if let Some(c)=conductors.get(&e.conductor_id) {
+                    if str_value(d,"author")!=Some(c.agent_key_ref.as_str()) { finding(&mut findings,"ACTION_AUTHOR_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"action author differs from author conductor identity"); }
+                }
+            }
+            "validation_disposition"=>{counts.validator_dispositions+=1;validation_events.push(e);}
+            "projection_observed"=>{counts.projections_observed+=1;projection_events.push(e);}
+            "remote_signal"=>{
+                counts.remote_signals+=1;
+                let trust=str_value(d,"trust_class").unwrap_or_default();
+                if bool_value(d,"authorizes_operation")==Some(true) { finding(&mut findings,"REMOTE_SIGNAL_USED_AS_AUTHORITY","violation",Some(&e.event_id),"remote signal cannot authorize an operation"); }
+                if trust!="verified_record"&&bool_value(d,"trusted_state_mutation")==Some(true) { finding(&mut findings,"UNVERIFIED_SIGNAL_MUTATED_TRUSTED_STATE","violation",Some(&e.event_id),"unverified signal cannot mutate trusted state"); }
+                if trust=="verified_record" {
+                    let claimed=d["claimed_sender"].as_str();
+                    let transport=d["transport_sender"].as_str();
+                    let author=d["record_author"].as_str();
+                    let hash=d["backing_action_hash"].as_str();
+                    let digest=d["verified_payload_sha256"].as_str().unwrap_or_default();
+                    if e.source!="observer"||claimed.is_none()||claimed!=transport||transport!=author||hash.is_none_or(str::is_empty)
+                        ||digest.len()!=64||!digest.bytes().all(|b|b.is_ascii_hexdigit()&&!b.is_ascii_uppercase())
+                        ||d["verifier_build"].as_str().is_none_or(str::is_empty) {
+                        finding(&mut findings,"VERIFIED_SIGNAL_EVIDENCE_INCOMPLETE","incomplete",Some(&e.event_id),"verified record requires observer attestation, matching sender/author, ActionHash, digest and verifier build");
+                    }
+                }
+            }
+            "caller_outcome"=>{counts.caller_outcomes+=1;outcome_events.push(e);}
+            _=>{}
+        }
+    }
+
+    // Never compare local counters from different conductors.
+    for (conductor,events) in &by_conductor {
+        let mut indexed:Vec<(&Event,u64)>=events.iter().filter_map(|e|match e.event_type.as_str(){
+            "host_grant_issued"|"host_grant_revoked"|"host_call"=>Some((*e,u64_value(&e.data,"host_authority_index").unwrap_or(0))),
+            _=>None
+        }).collect();
+        indexed.sort_by_key(|(e,_)|e.local_sequence);
+        let mut previous=0;
+        for (e,index) in indexed {
+            if index==0||index<=previous { finding(&mut findings,"HOST_AUTHORITY_INDEX_NOT_MONOTONIC","violation",Some(&e.event_id),format!("host_authority_index did not increase within conductor {conductor}")); }
+            previous=index;
+        }
+    }
+
+    for e in &revoke_events {
+        let d=&e.data;
+        let key=(e.conductor_id.clone(),str_value(d,"grant_ref").unwrap_or_default().to_string());
+        match grants.get_mut(&key) {
+            None=>finding(&mut findings,"REVOCATION_WITHOUT_GRANT","incomplete",Some(&e.event_id),"revocation does not match a grant on the same conductor"),
+            Some(g)=>{
+                if str_value(d,"target_grant_action_hash")!=Some(g.action_hash.as_str()) { finding(&mut findings,"REVOCATION_TARGET_HASH_MISMATCH","violation",Some(&e.event_id),"revocation must target exact host grant ActionHash"); }
+                if str_value(d,"actor")!=Some(g.grantor.as_str()) { finding(&mut findings,"REVOCATION_ACTOR_MISMATCH","violation",Some(&e.event_id),"only original grantor may revoke"); }
+                let index=u64_value(d,"host_authority_index").unwrap_or(0);
+                if index<=g.issue_index||g.revoke_index.is_some() { finding(&mut findings,"INVALID_GRANT_REVOCATION_ORDER","violation",Some(&e.event_id),"revocation must follow issuance once"); }
+                g.revoke_index=Some(index);
+            }
+        }
+    }
+
+    let mut accepted_claims=BTreeSet::new();
+    for e in &claim_events {
+        let d=&e.data;
+        let hash=str_value(d,"grant_action_hash").unwrap_or_default();
+        let recipient=str_value(d,"recipient").unwrap_or_default();
+        let candidates:Vec<_>=grants.values().filter(|g|g.action_hash==hash&&g.grantee==recipient).collect();
+        let Some(g)=candidates.first() else { finding(&mut findings,"CLAIM_WITHOUT_MATCHING_GRANT","incomplete",Some(&e.event_id),"claim does not match issued grant ActionHash and grantee"); continue; };
+        if !g.assigned { finding(&mut findings,"CLAIM_FOR_UNASSIGNED_GRANT","violation",Some(&e.event_id),"private cap claim only applies to Assigned grant"); }
+        if conductors.get(&e.conductor_id).is_none_or(|c|c.agent_key_ref!=recipient) { finding(&mut findings,"CLAIM_RECIPIENT_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"claim must be accepted on recipient conductor"); }
+        let issue_id=grant_events.iter().find(|x|str_value(&x.data,"grant_action_hash")==Some(g.action_hash.as_str())).map(|x|x.event_id.as_str()).unwrap_or("");
+        if !direct_relation(&history.causal_edges,issue_id,&e.event_id,"source_action_dependency") { finding(&mut findings,"GRANT_TO_CLAIM_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"grant issue and private claim require an evidence-backed causal edge"); }
+        if !accepted_claims.insert((g.conductor_id.clone(),g.action_hash.clone(),recipient.to_string())) { finding(&mut findings,"DUPLICATE_CAPABILITY_CLAIM","violation",Some(&e.event_id),"same assigned grant accepted more than one claim"); }
+        let actual_ref=grant_events.iter().find(|x|str_value(&x.data,"grant_action_hash")==Some(g.action_hash.as_str())).and_then(|x|str_value(&x.data,"grant_ref"));
+        if str_value(d,"grant_ref")!=actual_ref { finding(&mut findings,"CLAIM_GRANT_REFERENCE_MISMATCH","violation",Some(&e.event_id),"claim grant_ref conflicts with host issuance"); }
+    }
+
+    let mut calls:BTreeMap<(String,u64),Call>=BTreeMap::new();
+    for e in &call_events {
+        let d=&e.data;
+        let grant_ref=str_value(d,"grant_ref").unwrap_or_default();
+        let key=(e.conductor_id.clone(),grant_ref.to_string());
+        let Some(g)=grants.get(&key) else { finding(&mut findings,"HOST_CALL_WITHOUT_LOCAL_GRANT","incomplete",Some(&e.event_id),"host call has no matching grant on receiving conductor"); continue; };
+        let index=u64_value(d,"host_authority_index").unwrap_or(0);
+        let expected_state=if index<=g.issue_index {"absent"}else if g.revoke_index.is_some_and(|r|index>=r){"revoked"}else{"active"};
+        if str_value(d,"host_state_at_decision")!=Some(expected_state) { finding(&mut findings,"HOST_STATE_CONFLICT","violation",Some(&e.event_id),"host state conflicts with conductor-local authority index"); }
+        if str_value(d,"grant_action_hash")!=Some(g.action_hash.as_str()) { finding(&mut findings,"CALL_GRANT_ACTION_HASH_MISMATCH","violation",Some(&e.event_id),"call must bind exact local grant ActionHash"); }
+        if bool_value(d,"projection_used_for_authorization")==Some(true) { finding(&mut findings,"PROJECTION_USED_AS_AUTHORITY","violation",Some(&e.event_id),"projection cannot authorize host call"); }
+        let host=str_value(d,"host_decision").unwrap_or_default();
+        let domain=str_value(d,"domain_decision").unwrap_or_default();
+        let scope_ok=str_value(d,"caller")==Some(g.grantee.as_str())&&str_value(d,"function").is_some_and(|f|g.functions.contains(f));
+        let authorized=host=="authorized";
+        if authorized&&(expected_state!="active"||!scope_ok) { finding(&mut findings,"HOST_ALLOW_OUTSIDE_GRANT","violation",Some(&e.event_id),"host allowed with inactive grant or wrong assigned caller/function"); }
+        if authorized&&g.assigned&&!accepted_claims.contains(&(g.conductor_id.clone(),g.action_hash.clone(),g.grantee.clone())) { finding(&mut findings,"ASSIGNED_CALL_BEFORE_PRIVATE_CLAIM","violation",Some(&e.event_id),"assigned host grant used before recipient claim"); }
+        if domain=="allow"&&!authorized { finding(&mut findings,"DOMAIN_ALLOW_WITHOUT_HOST_ALLOW","violation",Some(&e.event_id),"domain allow cannot follow host denial/unknown"); }
+        if e.source!="conductor_host" { finding(&mut findings,"HOST_CALL_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"host decision must come from conductor evidence"); }
+        if authorized&&g.assigned {
+            let claim=claim_events.iter().find(|c|str_value(&c.data,"grant_action_hash")==Some(g.action_hash.as_str())&&str_value(&c.data,"recipient")==Some(g.grantee.as_str()));
+            if let Some(claim)=claim { if !path_exists(&adjacency,&claim.event_id,&e.event_id) { finding(&mut findings,"CLAIM_NOT_CAUSAL_BEFORE_HOST_CALL","incomplete",Some(&e.event_id),"claim must causally precede assigned call"); } }
+        }
+        let op=str_value(d,"operation_id").unwrap_or_default().to_string();
+        let attempt=u64_value(d,"attempt_id").unwrap_or(0);
+        if calls.insert((op,attempt),Call{event_id:e.event_id.clone(),conductor_id:e.conductor_id.clone(),host_authorized:authorized,domain_allowed:domain=="allow"}).is_some() { finding(&mut findings,"DUPLICATE_CALL_ATTEMPT","violation",Some(&e.event_id),"operation/attempt pair must be unique"); }
+    }
+
+    let mut effects_by_operation=BTreeSet::new();
+    let mut effects_by_attempt=BTreeSet::new();
+    let mut effect_bindings=BTreeSet::new();
+    for e in &effect_events {
+        let d=&e.data;
+        let op=str_value(d,"operation_id").unwrap_or_default().to_string();
+        let attempt=u64_value(d,"attempt_id").unwrap_or(0);
+        if !effects_by_operation.insert(op.clone()) { finding(&mut findings,"MULTIPLE_EFFECTS_PER_LOGICAL_OPERATION","violation",Some(&e.event_id),"logical operation has more than one durable effect"); }
+        if !effects_by_attempt.insert((op.clone(),attempt)) { finding(&mut findings,"MULTIPLE_EFFECTS_PER_ATTEMPT","violation",Some(&e.event_id),"attempt has more than one durable effect"); }
+        let Some(call)=calls.get(&(op.clone(),attempt)) else { finding(&mut findings,"EFFECT_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"domain effect has no matching host call"); continue; };
+        if !call.host_authorized||!call.domain_allowed { finding(&mut findings,"EFFECT_WITHOUT_AUTHORIZED_DOMAIN_CALL","violation",Some(&e.event_id),"effect requires host authorization and domain allow"); }
+        if e.conductor_id!=call.conductor_id||!path_exists(&adjacency,&call.event_id,&e.event_id) { finding(&mut findings,"EFFECT_NOT_CAUSAL_AFTER_HOST_CALL","incomplete",Some(&e.event_id),"effect must causally follow call on the same conductor"); }
+        if !effect_bindings.insert((op,attempt)) { finding(&mut findings,"DUPLICATE_EFFECT_BINDING","violation",Some(&e.event_id),"effect bound twice to one attempt"); }
+    }
+
+    for e in &validation_events {
+        let d=&e.data;
+        let hash=str_value(d,"action_hash").unwrap_or_default();
+        let Some(authored_event)=authored.get(hash) else { finding(&mut findings,"VALIDATION_WITHOUT_AUTHORED_ACTION","incomplete",Some(&e.event_id),"validation has no corresponding authored action"); continue; };
+        let author_conductor=str_value(d,"author_conductor_id").unwrap_or_default();
+        let receiver=str_value(d,"receiving_conductor_id").unwrap_or_default();
+        if authored_event.conductor_id!=author_conductor||authored_event.conductor_id==e.conductor_id||receiver!=e.conductor_id { finding(&mut findings,"VALIDATION_CONDUCTOR_BINDING_MISMATCH","violation",Some(&e.event_id),"author/receiving conductor IDs do not match event provenance"); }
+        if conductors.get(&e.conductor_id).is_none_or(|c|c.role!="validator") { finding(&mut findings,"VALIDATION_NON_VALIDATOR_CONDUCTOR","incomplete",Some(&e.event_id),"validation disposition must come from validator role"); }
+        if e.source!="validator" { finding(&mut findings,"VALIDATION_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"validation must be reported by validator plane"); }
+        if !direct_relation(&history.causal_edges,&authored_event.event_id,&e.event_id,"validator_receipt") { finding(&mut findings,"VALIDATOR_RECEIPT_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"authored action and validation require explicit validator_receipt edge"); }
+    }
+
+    for e in &projection_events {
+        let d=&e.data;
+        let decision=str_value(d,"decision").unwrap_or_default();
+        let state=str_value(d,"projection_state").unwrap_or_default();
+        if e.source!="observer"||conductors.get(&e.conductor_id).is_none_or(|c|c.role!="observer") { finding(&mut findings,"PROJECTION_WRONG_OBSERVER","incomplete",Some(&e.event_id),"projection must be reported by observer role"); }
+        let exact=str_value(d,"required_dna_hash")==str_value(d,"observed_dna_hash")
+            &&str_value(d,"required_cell_id")==str_value(d,"observed_cell_id")
+            &&str_value(d,"required_author")==str_value(d,"observed_author")
+            &&str_value(d,"required_action_hash")==str_value(d,"observed_action_hash");
+        let fresh=u64_value(d,"observed_epoch").unwrap_or(0)>=u64_value(d,"required_epoch").unwrap_or(u64::MAX);
+        let descends=bool_value(d,"descends_from_required")==Some(true);
+        if decision=="trusted"&&(state!="integrated"||!exact||!fresh||!descends) { finding(&mut findings,"FALSE_FRESH_PROJECTION","violation",Some(&e.event_id),"trusted projection requires integrated state, exact identity, adequate epoch and ancestry"); }
+        if state=="conflicting"&&!matches!(decision,"conflicting"|"unknown") { finding(&mut findings,"CONFLICTING_PROJECTION_MISCLASSIFIED","violation",Some(&e.event_id),"conflicting projection must remain conflicting or unknown"); }
+        let hash=str_value(d,"action_hash").unwrap_or_default();
+        let matching:Vec<_>=validation_events.iter().filter(|v|str_value(&v.data,"action_hash")==Some(hash)).collect();
+        if matching.iter().any(|v|str_value(&v.data,"disposition")==Some("rejected"))&&decision=="trusted" { finding(&mut findings,"REJECTED_ACTION_PROJECTED_AS_TRUSTED","violation",Some(&e.event_id),"a rejected action cannot be trusted as integrated"); }
+        for v in matching { if !path_exists(&adjacency,&v.event_id,&e.event_id) { finding(&mut findings,"VALIDATION_NOT_CAUSAL_BEFORE_PROJECTION","incomplete",Some(&e.event_id),"projection must causally follow validation disposition"); } }
+        if decision=="trusted"&&matching.is_empty() { finding(&mut findings,"TRUSTED_PROJECTION_WITHOUT_VALIDATION","incomplete",Some(&e.event_id),"trusted projection lacks a matching receiving-validator disposition"); }
+    }
+
+    for e in &outcome_events {
+        let d=&e.data;
+        let op=str_value(d,"operation_id").unwrap_or_default().to_string();
+        let attempt=u64_value(d,"attempt_id").unwrap_or(0);
+        let outcome=str_value(d,"outcome").unwrap_or_default();
+        let effect=effect_bindings.contains(&(op.clone(),attempt));
+        match calls.get(&(op,attempt)) {
+            None=>finding(&mut findings,"OUTCOME_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"caller outcome has no host-call attempt"),
+            Some(call)=>{
+                if !path_exists(&adjacency,&call.event_id,&e.event_id) { finding(&mut findings,"OUTCOME_NOT_CAUSAL_AFTER_CALL","incomplete",Some(&e.event_id),"caller outcome must causally follow the host call"); }
+                if outcome=="committed"&&!effect { finding(&mut findings,"COMMITTED_WITHOUT_EFFECT","incomplete",Some(&e.event_id),"committed outcome has no durable effect"); }
+                if matches!(outcome,"not_committed"|"rejected")&&effect { finding(&mut findings,"REJECTED_OUTCOME_WITH_EFFECT","violation",Some(&e.event_id),"rejected outcome contradicts durable effect"); }
+            }
+        }
+    }
+
+    let violation=findings.iter().any(|f|f.severity=="violation");
+    let incomplete=findings.iter().any(|f|f.severity=="incomplete");
+    let status=if violation{Status::Fail}else if incomplete{Status::Incomplete}else{Status::Pass};
+    Report{
+        schema_version:1,status,trace_id:history.trace_id.clone(),evidence_class:history.evidence_class.clone(),
+        input_sha256,counts,findings,
+        claim_ceiling:"STRUCTURAL_PARTIAL_ORDER_ONLY: this verifier checks a redacted multi-conductor event DAG and conductor-local order; it does not authenticate receipts, prove conductor honesty, establish DHT consensus, or prove unbounded linearizability".to_string()
+    }
+}
+
+fn main()->Result<(),Box<dyn Error>>{
+    let mut input=None;let mut output=None;
+    let mut args=env::args().skip(1);
+    while let Some(arg)=args.next(){
+        match arg.as_str(){
+            "--input"=>input=Some(PathBuf::from(args.next().ok_or("--input requires a path")?)),
+            "--output"=>output=Some(PathBuf::from(args.next().ok_or("--output requires a path")?)),
+            "--help"|"-h"=>{println!("pulse-multiconductor-audit --input HISTORY.json [--output REPORT.json]");return Ok(());}
+            other=>return Err(format!("unknown argument: {other}").into())
+        }
+    }
+    let input=input.ok_or("--input is required")?;
+    let raw=fs::read(&input)?;
+    let digest=format!("{:x}",Sha256::digest(&raw));
+    let history:History=serde_json::from_slice(&raw)?;
+    let report=audit(&history,digest);
+    let json=serde_json::to_string_pretty(&report)?;
+    if let Some(path)=output{if let Some(parent)=path.parent(){fs::create_dir_all(parent)?;}fs::write(path,&json)?;}else{println!("{json}");}
+    match report.status{Status::Pass=>Ok(()),Status::Fail=>Err("multiconductor history violation".into()),Status::Incomplete=>Err("multiconductor evidence incomplete".into())}
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    fn fixture()->History{serde_json::from_str(include_str!("../examples/safe-history.json")).unwrap()}
+    fn report(h:&History)->Report{audit(h,"0".repeat(64))}
+    #[test]fn safe_multiconductor_partial_order_passes(){let r=report(&fixture());assert!(matches!(r.status,Status::Pass),"{:?}",r.findings);}
+    #[test]fn local_sequences_are_not_compared_across_conductors(){let h=fixture();let r=report(&h);assert!(matches!(r.status,Status::Pass),"{:?}",r.findings);assert_eq!(h.events.iter().filter(|e|e.local_sequence==1).count(),4);}
+    #[test]fn cross_conductor_program_order_is_rejected(){let mut h=fixture();h.causal_edges.push(CausalEdge{from_event:"grant-issue".into(),to_event:"claim-accepted".into(),relation:"program_order".into(),evidence_ref:"fixture://invalid/scalar-order".into()});let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="PROGRAM_ORDER_CROSSES_CONDUCTORS"));}
+    #[test]fn missing_claim_edge_is_incomplete(){let mut h=fixture();h.causal_edges.retain(|e|!(e.from_event=="grant-issue"&&e.to_event=="claim-accepted"));let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="GRANT_TO_CLAIM_CAUSAL_EDGE_MISSING"));}
+    #[test]fn causal_cycle_is_rejected(){let mut h=fixture();h.causal_edges.push(CausalEdge{from_event:"projection-after-reject".into(),to_event:"mailbox-action-authored".into(),relation:"test_harness_barrier".into(),evidence_ref:"fixture://invalid/cycle".into()});let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="CAUSAL_GRAPH_CYCLE"));}
+    #[test]fn post_revoke_allow_is_rejected(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_id=="host-call-after-revoke").unwrap();e.data["host_decision"]=Value::String("authorized".into());e.data["domain_decision"]=Value::String("allow".into());let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="HOST_ALLOW_OUTSIDE_GRANT"));}
+    #[test]fn rejected_action_cannot_be_trusted(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_id=="projection-after-reject").unwrap();e.data["projection_state"]=Value::String("integrated".into());e.data["decision"]=Value::String("trusted".into());let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="REJECTED_ACTION_PROJECTED_AS_TRUSTED"));}
+    #[test]fn forged_remote_signal_cannot_mutate_trusted_state(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_type=="remote_signal").unwrap();e.data["trusted_state_mutation"]=Value::Bool(true);let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="UNVERIFIED_SIGNAL_MUTATED_TRUSTED_STATE"));}
+    #[test]fn event_data_rejects_unknown_fields(){let mut h=fixture();let e=h.events.iter_mut().find(|e|e.event_type=="host_call").unwrap();e.data["debug_secret"]=Value::String("never-allowed".into());let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="EVENT_DATA_SHAPE_INVALID"));}
+}
