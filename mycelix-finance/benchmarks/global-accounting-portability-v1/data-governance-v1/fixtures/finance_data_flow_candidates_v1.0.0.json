@@ -1,0 +1,3346 @@
+{
+  "bundle_id": "MYCELIX-FINANCE-DATA-FLOW-SYNTHETIC-V1",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_data_flow_context_only_not_privacy_or_transfer_compliance",
+  "contexts": [
+    {
+      "context_id": "DG-001-FOREIGN-SUPPORT",
+      "reporting_entity_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "actor_roles": [
+            "responsible_party",
+            "controller"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-PROCESSOR",
+          "actor_roles": [
+            "operator",
+            "processor",
+            "cloud_provider"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-001-FOREIGN-SUPPORT-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "recipient_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "operation": "processing",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [
+            "SYN-PROFILE-ACCOUNTING"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "flow_ref": "DG-001-FOREIGN-SUPPORT-FLOW-2",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "recipient_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "operation": "support_access",
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            },
+            {
+              "facet": "support_access",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-SUPPORT_ACCESS"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [
+            "SYN-DG-MECH-1"
+          ],
+          "legal_profile_refs": [
+            "SYN-PROFILE-POPIA-SA"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-001-FOREIGN-SUPPORT-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-002-FOREIGN-PROCESSOR",
+      "reporting_entity_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "actor_roles": [
+            "responsible_party",
+            "controller"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-PROCESSOR",
+          "actor_roles": [
+            "operator",
+            "processor",
+            "cloud_provider"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-002-FOREIGN-PROCESSOR-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "recipient_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "operation": "processing",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [
+            "SYN-DG-MECH-1"
+          ],
+          "legal_profile_refs": [
+            "SYN-PROFILE-POPIA-SA"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-002-FOREIGN-PROCESSOR-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-003-ONWARD-BACKUP",
+      "reporting_entity_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "actor_roles": [
+            "responsible_party",
+            "controller"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-PROCESSOR",
+          "actor_roles": [
+            "operator",
+            "processor",
+            "cloud_provider"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-003-ONWARD-BACKUP-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "recipient_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "operation": "processing",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [
+            "SYN-PROFILE-ACCOUNTING"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "flow_ref": "DG-003-ONWARD-BACKUP-FLOW-2",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "recipient_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "operation": "backup",
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            },
+            {
+              "facet": "backup_dr",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-BACKUP_DR"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [
+            "SYN-DG-MECH-1"
+          ],
+          "legal_profile_refs": [
+            "SYN-PROFILE-POPIA-SA"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "flow_ref": "DG-003-ONWARD-BACKUP-FLOW-3",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "recipient_actor_ref": "SYN-ACTOR-RECIPIENT",
+          "operation": "onward_transfer",
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "location_observations": [
+            {
+              "facet": "onward_recipient",
+              "scope_ref": "SYN-DG-FOREIGN-Y",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ONWARD_RECIPIENT"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-003-ONWARD-BACKUP-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-004-EU-ONWARD",
+      "reporting_entity_ref": "SYN-ACTOR-EU-CONTROLLER",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-EU-CONTROLLER",
+          "actor_roles": [
+            "controller",
+            "responsible_party"
+          ],
+          "home_scope_ref": "SYN-DG-EU",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-EU-CONTROLLER"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-004-EU-ONWARD-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-EU-CONTROLLER",
+          "recipient_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "operation": "disclosure",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-EU",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            },
+            {
+              "facet": "onward_recipient",
+              "scope_ref": "SYN-DG-FOREIGN-Y",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ONWARD_RECIPIENT"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [
+            "SYN-DG-MECH-2"
+          ],
+          "legal_profile_refs": [
+            "SYN-PROFILE-EU-GDPR"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-004-EU-ONWARD-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-005-UK-REGIME-VERSION",
+      "reporting_entity_ref": "SYN-ACTOR-UK-CONTROLLER",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-UK-CONTROLLER",
+          "actor_roles": [
+            "controller",
+            "responsible_party"
+          ],
+          "home_scope_ref": "SYN-DG-UK",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-UK-CONTROLLER"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-005-UK-REGIME-VERSION-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-UK-CONTROLLER",
+          "recipient_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "operation": "disclosure",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-UK",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            },
+            {
+              "facet": "recipient_establishment",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-RECIPIENT_ESTABLISHMENT"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [
+            "SYN-PROFILE-UK-GDPR-2026"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-005-UK-REGIME-VERSION-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-006-ACCOUNTING-ONLY",
+      "reporting_entity_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "actor_roles": [
+            "responsible_party",
+            "controller"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-PROCESSOR",
+          "actor_roles": [
+            "operator",
+            "processor",
+            "cloud_provider"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-006-ACCOUNTING-ONLY-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "recipient_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "operation": "processing",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            },
+            {
+              "facet": "recipient_establishment",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-RECIPIENT_ESTABLISHMENT"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [
+            "SYN-PROFILE-ACCOUNTING"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-006-ACCOUNTING-ONLY-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-007-RETENTION-LEGAL-HOLD",
+      "reporting_entity_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "actor_roles": [
+            "responsible_party",
+            "controller"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-PROCESSOR",
+          "actor_roles": [
+            "operator",
+            "processor",
+            "cloud_provider"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-007-RETENTION-LEGAL-HOLD-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "recipient_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "operation": "storage",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [
+            "SYN-PROFILE-ACCOUNTING"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-007-RETENTION-LEGAL-HOLD-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2026-11-01",
+          "legal_hold_state": "active",
+          "legal_hold_refs": [
+            "SYN-DG-LEGAL-HOLD-001"
+          ],
+          "deletion_state": "requested",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-008-UNAPPROVED-PURPOSE",
+      "reporting_entity_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "actor_roles": [
+            "responsible_party",
+            "controller"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-PROCESSOR",
+          "actor_roles": [
+            "operator",
+            "processor",
+            "cloud_provider"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-008-UNAPPROVED-PURPOSE-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "recipient_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "operation": "processing",
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [
+            "SYN-PROFILE-ACCOUNTING"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-008-UNAPPROVED-PURPOSE-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-009-UNKNOWN-REMOTE-ACCESS",
+      "reporting_entity_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "actor_roles": [
+            "responsible_party",
+            "controller"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-PROCESSOR",
+          "actor_roles": [
+            "operator",
+            "processor",
+            "cloud_provider"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-009-UNKNOWN-REMOTE-ACCESS-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "recipient_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "operation": "processing",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [
+            "SYN-PROFILE-ACCOUNTING"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "flow_ref": "DG-009-UNKNOWN-REMOTE-ACCESS-FLOW-2",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "recipient_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "operation": "support_access",
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            },
+            {
+              "facet": "support_access",
+              "scope_ref": null,
+              "assertion_state": "unknown",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": []
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-009-UNKNOWN-REMOTE-ACCESS-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "context_id": "DG-010-ACTOR-ROLE-CONFLICT",
+      "reporting_entity_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-12-31"
+      },
+      "scope_registry": [
+        {
+          "scope_id": "SYN-DG-SA",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "SA",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-EU",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "EU",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-UK",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "UK",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-X",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-X",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        },
+        {
+          "scope_id": "SYN-DG-FOREIGN-Y",
+          "namespace_uri": "urn:mycelix:synthetic-jurisdiction:v1",
+          "code": "FOREIGN-Y",
+          "scope_level": "country",
+          "parent_scope_ref": null
+        }
+      ],
+      "actors": [
+        {
+          "actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "actor_roles": [
+            "responsible_party",
+            "controller"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-PROCESSOR",
+          "actor_roles": [
+            "operator",
+            "processor",
+            "cloud_provider"
+          ],
+          "home_scope_ref": "SYN-DG-SA",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "actor_roles": [
+            "support_provider",
+            "processor"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-X",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+        },
+        {
+          "actor_ref": "SYN-ACTOR-RECIPIENT",
+          "actor_roles": [
+            "recipient",
+            "onward_recipient"
+          ],
+          "home_scope_ref": "SYN-DG-FOREIGN-Y",
+          "identity_namespace": "urn:mycelix:synthetic-identity:v1",
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+        }
+      ],
+      "data_assets": [
+        {
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "subject_class": "employee",
+          "data_categories": [
+            "ordinary_personal_information",
+            "employee_payroll",
+            "bank_payment",
+            "tax"
+          ],
+          "field_class_refs": [
+            "employee_identifier",
+            "gross_pay",
+            "net_pay",
+            "bank_account_reference",
+            "tax_withholding"
+          ],
+          "synthetic_only": true
+        }
+      ],
+      "purposes": [
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "purpose_class": "bookkeeping",
+          "description": "Synthetic statutory bookkeeping and close support",
+          "status": "synthetic_approved",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-PURPOSE-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-MARKETING",
+          "purpose_class": "marketing",
+          "description": "Synthetic proposed secondary marketing use",
+          "status": "synthetic_unreviewed",
+          "valid_from": "2026-11-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": []
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-SUPPORT",
+          "purpose_class": "support_maintenance",
+          "description": "Synthetic technical support and maintenance",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-SUPPORT-001"
+          ]
+        },
+        {
+          "purpose_ref": "SYN-DG-PURPOSE-BACKUP",
+          "purpose_class": "backup_recovery",
+          "description": "Synthetic backup and disaster recovery",
+          "status": "synthetic_candidate",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-BACKUP-001"
+          ]
+        }
+      ],
+      "legal_profiles": [
+        {
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-POPIA-S72",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "jurisdiction_scope_ref": "SYN-DG-EU",
+          "regime_id": "SYN-EU-GDPR-CHV",
+          "instrument_version": "synthetic-2016-679",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-UK-GDPR-2026",
+          "jurisdiction_scope_ref": "SYN-DG-UK",
+          "regime_id": "SYN-UK-GDPR-TRANSFER",
+          "instrument_version": "synthetic-post-2026-02-05",
+          "status": "synthetic_candidate",
+          "source_refs": [
+            "SYN-SOURCE-UK-DUAA-2025-POST-2026-02-05"
+          ],
+          "effective_from": "2026-02-05",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "profile_ref": "SYN-PROFILE-ACCOUNTING",
+          "jurisdiction_scope_ref": "SYN-DG-SA",
+          "regime_id": "SYN-ACCOUNTING-FRAMEWORK",
+          "instrument_version": "synthetic-v1",
+          "status": "synthetic_reference_only",
+          "source_refs": [
+            "SYN-SOURCE-ACCOUNTING-REF"
+          ],
+          "effective_from": "2026-01-01",
+          "effective_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "transfer_mechanisms": [
+        {
+          "mechanism_ref": "SYN-DG-MECH-1",
+          "profile_ref": "SYN-PROFILE-POPIA-SA",
+          "mechanism_label": "Synthetic cross-border protection mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-X",
+          "status": "synthetic_not_assessed",
+          "source_refs": [
+            "SYN-SOURCE-POPIA-REF"
+          ],
+          "evidence_refs": [],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "mechanism_ref": "SYN-DG-MECH-2",
+          "profile_ref": "SYN-PROFILE-EU-GDPR",
+          "mechanism_label": "Synthetic GDPR Chapter V transfer mechanism candidate",
+          "destination_scope_ref": "SYN-DG-FOREIGN-Y",
+          "status": "synthetic_review_required",
+          "source_refs": [
+            "SYN-SOURCE-EU-GDPR-REF"
+          ],
+          "evidence_refs": [
+            "SYN-DG-EVIDENCE-TRANSFER-001"
+          ],
+          "reviewer_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "flows": [
+        {
+          "flow_ref": "DG-010-ACTOR-ROLE-CONFLICT-FLOW-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-SA-RESPONSIBLE",
+          "recipient_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "operation": "processing",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "collection_source",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-COLLECTION_SOURCE"
+              ]
+            },
+            {
+              "facet": "primary_storage",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-PRIMARY_STORAGE"
+              ]
+            },
+            {
+              "facet": "active_processing",
+              "scope_ref": "SYN-DG-SA",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-ACTIVE_PROCESSING"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [
+            "SYN-PROFILE-ACCOUNTING"
+          ],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        },
+        {
+          "flow_ref": "DG-010-ACTOR-ROLE-CONFLICT-FLOW-2",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "source_actor_ref": "SYN-ACTOR-PROCESSOR",
+          "recipient_actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
+          "operation": "disclosure",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "location_observations": [
+            {
+              "facet": "recipient_establishment",
+              "scope_ref": "SYN-DG-FOREIGN-X",
+              "assertion_state": "synthetic_observed",
+              "recorded_at": "2026-11-05T10:00:00Z",
+              "valid_from": "2026-01-01",
+              "valid_to": null,
+              "evidence_refs": [
+                "SYN-DG-EVIDENCE-LOC-RECIPIENT_ESTABLISHMENT"
+              ]
+            }
+          ],
+          "transfer_mechanism_refs": [],
+          "legal_profile_refs": [],
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ],
+      "retention_policies": [
+        {
+          "retention_ref": "DG-010-ACTOR-ROLE-CONFLICT-RETENTION-1",
+          "asset_ref": "SYN-DG-ASSET-PAYROLL-001",
+          "purpose_ref": "SYN-DG-PURPOSE-BOOKKEEPING",
+          "retention_trigger": "tax_period_end",
+          "scheduled_delete_at": "2027-10-31",
+          "legal_hold_state": "none_declared",
+          "legal_hold_refs": [],
+          "deletion_state": "not_due",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z"
+        }
+      ]
+    }
+  ]
+}
