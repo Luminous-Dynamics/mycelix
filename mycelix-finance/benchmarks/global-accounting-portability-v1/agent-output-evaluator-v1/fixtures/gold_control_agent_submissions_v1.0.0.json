@@ -67,11 +67,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-001-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-001-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-001-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-001-INV"
           ],
@@ -82,11 +83,25 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-001-ENTITY",
+          "trace_ref": "TRACE-FACT-F-001-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "fact_ref": "F-001-SUPPLIER",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-001-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-001-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-001-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-001-CONTRACT"
           ],
@@ -97,11 +112,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-001-START",
+          "trace_ref": "TRACE-FACT-F-001-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-001-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-001-CONTRACT"
           ],
@@ -112,11 +128,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-001-END",
+          "trace_ref": "TRACE-FACT-F-001-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-001-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-001-CONTRACT"
           ],
@@ -153,25 +170,38 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-002-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-002-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-002-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-002-INV"
           ],
-          "question_refs": [
-            "Q-002-START"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-002-END",
+          "trace_ref": "TRACE-FACT-F-002-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-002-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-002-SOW"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-002-START-UNKNOWN",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-002-START-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
           "source_document_refs": [
             "DOC-002-SOW"
           ],
@@ -186,6 +216,7 @@
           "fact_ref": "F-002-START-UNKNOWN",
           "evidence_state": "unknown",
           "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
           "source_document_refs": [
             "DOC-002-SOW"
           ],
@@ -222,11 +253,25 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-003-ENTITY-A",
+          "trace_ref": "TRACE-FACT-F-003-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-003-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-003-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-003-ENTITY-A",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-003-ENTITY-A",
           "evidence_state": "contradicting",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-003-INV"
           ],
@@ -236,11 +281,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-003-ENTITY-B",
+          "trace_ref": "TRACE-FACT-F-003-ENTITY-B",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-003-ENTITY-B",
           "evidence_state": "contradicting",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-003-CTR"
           ],
@@ -255,6 +301,7 @@
           "fact_ref": null,
           "evidence_state": "contradicting",
           "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
           "source_document_refs": [
             "DOC-003-INV",
             "DOC-003-CTR"
@@ -331,11 +378,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-004-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-004-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-004-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-004-INV-A"
           ],
@@ -346,11 +394,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-004-SUPPLIER",
+          "trace_ref": "TRACE-FACT-F-004-SUPPLIER",
           "fact_type": "supplier_identity",
           "fact_ref": "F-004-SUPPLIER",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-004-INV-A"
           ],
@@ -361,11 +410,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-004-ENTITY",
+          "trace_ref": "TRACE-FACT-F-004-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-004-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-004-INV-A"
           ],
@@ -376,11 +426,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-004-START",
+          "trace_ref": "TRACE-FACT-F-004-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-004-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-004-INV-A"
           ],
@@ -391,11 +442,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-004-END",
+          "trace_ref": "TRACE-FACT-F-004-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-004-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-004-INV-A"
           ],
@@ -432,53 +484,64 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-005-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-005-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-005-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-005-INV"
           ],
-          "question_refs": [
-            "Q-005-FX"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-005-ENTITY",
+          "trace_ref": "TRACE-FACT-F-005-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-005-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-005-INV"
           ],
-          "question_refs": [
-            "Q-005-FX"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-005-START",
+          "trace_ref": "TRACE-FACT-F-005-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-005-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-005-INV"
           ],
-          "question_refs": [
-            "Q-005-FX"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-005-END",
+          "trace_ref": "TRACE-FACT-F-005-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-005-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-005-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-005-FX-UNKNOWN",
+          "fact_type": "fx_rate_to_presentation",
+          "fact_ref": "F-005-FX-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
           "source_document_refs": [
             "DOC-005-INV"
           ],
@@ -493,6 +556,7 @@
           "fact_ref": "F-005-FX-UNKNOWN",
           "evidence_state": "unknown",
           "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
           "source_document_refs": [
             "DOC-005-INV"
           ],
@@ -516,11 +580,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-006-CREDIT",
+          "trace_ref": "TRACE-FACT-F-006-CREDIT",
           "fact_type": "credit_note_amount_minor",
           "fact_ref": "F-006-CREDIT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-006-CN"
           ],
@@ -528,11 +593,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-006-PARENT",
+          "trace_ref": "TRACE-FACT-F-006-PARENT",
           "fact_type": "original_invoice_id",
           "fact_ref": "F-006-PARENT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-006-CN"
           ],
@@ -566,11 +632,27 @@
       "assumptions": [],
       "evidence_trace": [
         {
+          "trace_ref": "TRACE-FACT-F-007-ACCEPTANCE-FUTURE",
+          "fact_type": "acceptance_date",
+          "fact_ref": "F-007-ACCEPTANCE-FUTURE",
+          "evidence_state": "future",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-007-DELIVERY"
+          ],
+          "question_refs": [
+            "Q-007-ACCEPTANCE"
+          ],
+          "journal_line_refs": []
+        },
+        {
           "trace_ref": "TRACE-BLOCKER-Q-007-ACCEPTANCE",
           "fact_type": "acceptance_date",
           "fact_ref": "F-007-ACCEPTANCE-FUTURE",
           "evidence_state": "future",
           "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
           "source_document_refs": [
             "DOC-007-DELIVERY"
           ],
@@ -692,11 +774,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-008-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-008-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-008-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-008-INV"
           ],
@@ -709,11 +792,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-008-ENTITY",
+          "trace_ref": "TRACE-FACT-F-008-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-008-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-008-CTR"
           ],
@@ -726,11 +810,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-008-START",
+          "trace_ref": "TRACE-FACT-F-008-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-008-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-008-CTR"
           ],
@@ -743,11 +828,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-008-END",
+          "trace_ref": "TRACE-FACT-F-008-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-008-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-008-CTR"
           ],
@@ -774,11 +860,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-009-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-009-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-009-AMOUNT",
           "evidence_state": "integrity_failed",
           "terminal_state": "abstained",
+          "terminal_reason": "Source fact retained as the reason for abstention.",
           "source_document_refs": [
             "DOC-009-INV"
           ],
@@ -786,11 +873,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-009-ENTITY",
+          "trace_ref": "TRACE-FACT-F-009-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-009-ENTITY",
           "evidence_state": "integrity_failed",
           "terminal_state": "abstained",
+          "terminal_reason": "Source fact retained as the reason for abstention.",
           "source_document_refs": [
             "DOC-009-INV"
           ],
@@ -812,11 +900,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-010-INV-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-010-INV-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-010-INV-AMOUNT",
-          "evidence_state": "asserted",
+          "evidence_state": "contradicting",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-010-INV"
           ],
@@ -824,13 +913,27 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-010-PO-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-010-PO-AMOUNT",
           "fact_type": "purchase_order_total_minor",
           "fact_ref": "F-010-PO-AMOUNT",
-          "evidence_state": "asserted",
+          "evidence_state": "contradicting",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-010-PO"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-010-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-010-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-010-INV"
           ],
           "question_refs": [],
           "journal_line_refs": []
@@ -862,55 +965,66 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-011-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-011-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-011-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-011-INV"
           ],
-          "question_refs": [
-            "Q-011-ACCOUNT"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-011-ENTITY",
+          "trace_ref": "TRACE-FACT-F-011-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-011-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-011-INV"
           ],
-          "question_refs": [
-            "Q-011-ACCOUNT"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-011-START",
+          "trace_ref": "TRACE-FACT-F-011-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-011-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-011-INV"
           ],
-          "question_refs": [
-            "Q-011-ACCOUNT"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-011-END",
+          "trace_ref": "TRACE-FACT-F-011-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-011-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-011-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-011-ACCOUNT-UNKNOWN",
+          "fact_type": "account_mapping_ref",
+          "fact_ref": "F-011-ACCOUNT-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-011-COA"
           ],
           "question_refs": [
             "Q-011-ACCOUNT"
@@ -923,6 +1037,7 @@
           "fact_ref": "F-011-ACCOUNT-UNKNOWN",
           "evidence_state": "unknown",
           "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
           "source_document_refs": [
             "DOC-011-COA"
           ],
@@ -958,11 +1073,66 @@
       "assumptions": [],
       "evidence_trace": [
         {
+          "trace_ref": "TRACE-FACT-F-012-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-012-AMOUNT",
+          "evidence_state": "future",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [
+            "Q-012-RECEIPT"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-012-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-012-ENTITY",
+          "evidence_state": "future",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-012-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-012-START",
+          "evidence_state": "future",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-012-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-012-END",
+          "evidence_state": "future",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
           "trace_ref": "TRACE-BLOCKER-Q-012-RECEIPT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-012-AMOUNT",
           "evidence_state": "future",
           "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
           "source_document_refs": [
             "DOC-012-INV"
           ],
@@ -998,53 +1168,64 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-013-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-013-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-013-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-013-INV"
           ],
-          "question_refs": [
-            "Q-013-SUPPLIER"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-013-ENTITY",
+          "trace_ref": "TRACE-FACT-F-013-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-013-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-013-INV"
           ],
-          "question_refs": [
-            "Q-013-SUPPLIER"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-013-START",
+          "trace_ref": "TRACE-FACT-F-013-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-013-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-013-INV"
           ],
-          "question_refs": [
-            "Q-013-SUPPLIER"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-013-END",
+          "trace_ref": "TRACE-FACT-F-013-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-013-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-013-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-013-SUPPLIER-DISPUTED",
+          "fact_type": "supplier_identity",
+          "fact_ref": "F-013-SUPPLIER-DISPUTED",
+          "evidence_state": "disputed",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
           "source_document_refs": [
             "DOC-013-INV"
           ],
@@ -1059,6 +1240,7 @@
           "fact_ref": "F-013-SUPPLIER-DISPUTED",
           "evidence_state": "disputed",
           "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
           "source_document_refs": [
             "DOC-013-INV"
           ],
@@ -1094,39 +1276,51 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-014-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-014-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-014-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-014-INV"
           ],
-          "question_refs": [
-            "Q-014-END"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-014-ENTITY",
+          "trace_ref": "TRACE-FACT-F-014-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-014-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
           "source_document_refs": [
             "DOC-014-CTR"
           ],
-          "question_refs": [
-            "Q-014-END"
-          ],
+          "question_refs": [],
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-014-START",
+          "trace_ref": "TRACE-FACT-F-014-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-014-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-014-CTR"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-014-END-INVALID",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-014-END-INVALID",
+          "evidence_state": "invalidated",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
           "source_document_refs": [
             "DOC-014-CTR"
           ],
@@ -1141,6 +1335,7 @@
           "fact_ref": "F-014-END-INVALID",
           "evidence_state": "invalidated",
           "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
           "source_document_refs": [
             "DOC-014-CTR"
           ],
@@ -1214,11 +1409,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-015-AMOUNT",
+          "trace_ref": "TRACE-FACT-F-015-AMOUNT",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-015-AMOUNT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-015-INV"
           ],
@@ -1229,11 +1425,25 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-015-ENTITY",
+          "trace_ref": "TRACE-FACT-F-015-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "fact_ref": "F-015-SUPPLIER",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-015-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-015-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-015-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-015-CONTRACT"
           ],
@@ -1244,11 +1454,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-015-START",
+          "trace_ref": "TRACE-FACT-F-015-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-015-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-015-CONTRACT"
           ],
@@ -1259,11 +1470,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-015-END",
+          "trace_ref": "TRACE-FACT-F-015-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-015-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-015-CONTRACT"
           ],
@@ -1288,11 +1500,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-016-CREDIT",
+          "trace_ref": "TRACE-FACT-F-016-CREDIT",
           "fact_type": "credit_note_amount_minor",
           "fact_ref": "F-016-CREDIT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-016-CN"
           ],
@@ -1300,11 +1513,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-016-PARENT",
+          "trace_ref": "TRACE-FACT-F-016-PARENT",
           "fact_type": "original_invoice_id",
           "fact_ref": "F-016-PARENT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-016-CN"
           ],
@@ -1326,11 +1540,25 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-017-START",
-          "fact_type": "service_period_start",
-          "fact_ref": "F-017-START",
+          "trace_ref": "TRACE-FACT-F-017-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-017-AMOUNT",
           "evidence_state": "asserted",
-          "terminal_state": "carried_to_review",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-017-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-017-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-017-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
           "source_document_refs": [
             "DOC-017-CTR"
           ],
@@ -1338,11 +1566,25 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-017-END",
+          "trace_ref": "TRACE-FACT-F-017-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-017-START",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-017-CTR"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-017-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-017-END",
-          "evidence_state": "asserted",
+          "evidence_state": "contradicting",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-017-CTR"
           ],
@@ -1364,11 +1606,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-018-CREDIT",
+          "trace_ref": "TRACE-FACT-F-018-CREDIT",
           "fact_type": "credit_note_amount_minor",
           "fact_ref": "F-018-CREDIT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-018-CN"
           ],
@@ -1376,11 +1619,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-018-PARENT",
+          "trace_ref": "TRACE-FACT-F-018-PARENT",
           "fact_type": "original_invoice_id",
           "fact_ref": "F-018-PARENT",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-018-CN"
           ],
@@ -1452,11 +1696,25 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-019-AMOUNT-R2",
+          "trace_ref": "TRACE-FACT-F-019-AMOUNT-R1",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-019-AMOUNT-R1",
+          "evidence_state": "superseded",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-019-INV-R1"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-019-AMOUNT-R2",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-019-AMOUNT-R2",
-          "evidence_state": "contradicting",
+          "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-019-INV-R2"
           ],
@@ -1467,11 +1725,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-019-ENTITY",
+          "trace_ref": "TRACE-FACT-F-019-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-019-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-019-CONTRACT"
           ],
@@ -1482,11 +1741,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-019-START",
+          "trace_ref": "TRACE-FACT-F-019-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-019-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-019-CONTRACT"
           ],
@@ -1497,11 +1757,12 @@
           ]
         },
         {
-          "trace_ref": "TRACE-F-019-END",
+          "trace_ref": "TRACE-FACT-F-019-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-019-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
           "source_document_refs": [
             "DOC-019-CONTRACT"
           ],
@@ -1526,11 +1787,12 @@
       "assumptions": [],
       "evidence_trace": [
         {
-          "trace_ref": "TRACE-F-020-AMOUNT-R1",
+          "trace_ref": "TRACE-FACT-F-020-AMOUNT-R1",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-020-AMOUNT-R1",
           "evidence_state": "contradicting",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-020-INV-R1"
           ],
@@ -1538,11 +1800,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-020-AMOUNT-R2",
+          "trace_ref": "TRACE-FACT-F-020-AMOUNT-R2",
           "fact_type": "invoice_total_minor",
           "fact_ref": "F-020-AMOUNT-R2",
           "evidence_state": "contradicting",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-020-INV-R2"
           ],
@@ -1550,11 +1813,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-020-ENTITY",
+          "trace_ref": "TRACE-FACT-F-020-ENTITY",
           "fact_type": "reporting_entity_ref",
           "fact_ref": "F-020-ENTITY",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-020-CONTRACT"
           ],
@@ -1562,11 +1826,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-020-START",
+          "trace_ref": "TRACE-FACT-F-020-START",
           "fact_type": "service_period_start",
           "fact_ref": "F-020-START",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-020-CONTRACT"
           ],
@@ -1574,11 +1839,12 @@
           "journal_line_refs": []
         },
         {
-          "trace_ref": "TRACE-F-020-END",
+          "trace_ref": "TRACE-FACT-F-020-END",
           "fact_type": "service_period_end",
           "fact_ref": "F-020-END",
           "evidence_state": "asserted",
           "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
           "source_document_refs": [
             "DOC-020-CONTRACT"
           ],
