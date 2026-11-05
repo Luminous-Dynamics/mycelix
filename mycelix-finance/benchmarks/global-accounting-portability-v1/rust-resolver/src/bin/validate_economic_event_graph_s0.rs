@@ -536,31 +536,33 @@ fn validate_relation_semantics(
             .find(|assertion| optional_string(assertion, "fact_type") == Some("original_invoice_id"))
             .and_then(|assertion| assertion.get("value").and_then(Value::as_str))
             .ok_or("credit_issued event has no original_invoice_id value")?;
-        let credit_source = array(from, "assertion_refs")?
+        let credit_parent_assertion = array(from, "assertion_refs")?
             .iter()
-            .filter_map(Value::as_str)
-            .map(|reference| assertion_by_ref(case, reference))
+            .map(|reference| {
+                let reference = reference.as_str().ok_or("credit event assertion ref is not a string")?;
+                assertion_by_ref(case, reference)
+            })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .find(|assertion| optional_string(assertion, "fact_type") == Some("original_invoice_id"))
-            .map(|assertion| source_by_ref(case, string(assertion, "source_ref")?))
-            .transpose()?
-            .ok_or("credit parent assertion source is missing")?;
-        let parent_invoice_found = array(to, "assertion_refs")?
-            .iter()
-            .filter_map(Value::as_str)
-            .map(|reference| assertion_by_ref(case, reference))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .filter(|assertion| optional_string(assertion, "fact_type") == Some("invoice_amount_minor"))
-            .any(|assertion| {
-                let source = source_by_ref(case, string(assertion, "source_ref").unwrap_or(""));
-                source.ok().is_some_and(|source| {
-                    optional_string(source, "external_id") == Some(credit_parent_id)
-                        && optional_string(source, "tenant_namespace")
-                            == optional_string(credit_source, "tenant_namespace")
-                })
-            });
+            .ok_or("credit event has no original_invoice_id assertion")?;
+        let credit_source = source_by_ref(case, string(credit_parent_assertion, "source_ref")?)?;
+        let mut parent_invoice_found = false;
+        for reference in array(to, "assertion_refs")? {
+            let reference = reference.as_str().ok_or("invoice event assertion ref is not a string")?;
+            let assertion = assertion_by_ref(case, reference)?;
+            if optional_string(assertion, "fact_type") != Some("invoice_amount_minor") {
+                continue;
+            }
+            let source = source_by_ref(case, string(assertion, "source_ref")?)?;
+            if optional_string(source, "external_id") == Some(credit_parent_id)
+                && optional_string(source, "tenant_namespace")
+                    == optional_string(credit_source, "tenant_namespace")
+            {
+                parent_invoice_found = true;
+                break;
+            }
+        }
         if !parent_invoice_found {
             return Err(format!("{}: credit note parent invoice is not in the same tenant namespace and source identity", string(case, "case_id")?));
         }
