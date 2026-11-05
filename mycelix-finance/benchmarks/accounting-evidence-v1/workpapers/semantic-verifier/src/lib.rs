@@ -986,6 +986,7 @@ mod tests {
     fn ready_close_with_unknown_scope_frontier_fails() {
         let mut value = fixture();
         value["close_disposition"] = json!("ready_for_authorized_signoff");
+        value["frontiers"]["source_scope_manifest"]["qualification_status"] = json!("qualified");
         let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
         assert!(errors(&report).contains("ready_close_frontier_not_qualified"));
         assert!(errors(&report).contains("ready_close_missing_required_node_kinds"));
