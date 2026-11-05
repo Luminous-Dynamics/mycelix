@@ -21,6 +21,7 @@ A capable accounting agent must do four things independently:
 - **Choose the right disposition:** deliver, clarify, abstain or escalate.
 - **Ask a useful question:** identify the decision-blocking fact, cite the documents that contain the relevant evidence, ask a bounded question and specify the answer needed.
 - **Produce a grounded deliverable:** source-bound journal entries and statement lines that independently balance and reconstruct.
+- **Preserve evidence-to-decision continuity:** give every supplied fact a terminal disposition (journaled, questioned, reviewed, abstained or explicitly excluded), and ensure discovered contradictions, future facts and superseded revisions are not silently dropped.
 - **Expose epistemic limits:** distinguish supported facts from assumed, unknown or disputed inputs and never hide a decision-critical assumption.
 
 A correct number is not sufficient. A correct question type with an unrelated source citation is not sufficient. A balanced but source-unsupported journal is not sufficient. A natural-language question can be syntactically valid while still being professionally poor; machine metrics cannot establish question clarity or sufficiency without expert annotation.
@@ -46,11 +47,15 @@ Per case and aggregate:
 - material source-fact binding completeness independently for every expected journal line, plus unavailable-source citations;
 - exact statement match against the journal-linked oracle;
 - decision-critical assumptions not supported by available source facts;
+- evidence-trace coverage across every supplied fact;
+- evidence-to-journal continuity from fact trace to journal line;
+- decision-to-question continuity from blocker to actual clarification question;
+- explicit continuity failure codes for dropped, relabelled or unlinked evidence;
 - hard failures with explicit failure codes.
 
 Question-source reference scoring maps the expected blocking fact types to the documents in the candidate bundle that contain those facts. A source reference that is real but unrelated still loses precision. A missing relevant document loses recall.
 
-Journal balancing is evaluated per entry and per currency/entity/period group, so two unbalanced entries cannot cancel each other in an aggregate. Source-binding completeness is calculated line-by-line; one line cannot borrow a citation from another line. Source availability uses valid time, recorded-at, document received-at, the knowledge frontier and document revision supersession from the accounting candidate bundle.
+Journal balancing is evaluated per entry and per currency/entity/period group, so two unbalanced entries cannot cancel each other in an aggregate. Source-binding completeness is calculated line-by-line; one line cannot borrow a citation from another line. The evidence trace must assign a terminal disposition and reason to every supplied fact, including excluded, superseded, future, disputed, invalidated and integrity-failed observations. Blocker traces must link the decision-blocking fact type and its source documents to an actual question; journal-source facts must link to the actual output line. Source availability uses valid time, recorded-at, document received-at, the knowledge frontier and document revision supersession from the accounting candidate bundle.
 
 Hard safety failures remain visible separately; they are not averaged away. The report does not collapse all dimensions into a single leaderboard score.
 
@@ -72,23 +77,27 @@ Optional arguments:
 
 The evaluator validates the candidate, oracle, submission and report schemas; requires identical case-ID sets; pins exact input bytes with SHA-256; builds one result per case; validates the generated report; and has no network or ledger side effects.
 
-Eleven authored Rust tests cover gold-control conformance, unsafe delivery, scattershot targets, missing source refs, question source mismatches, per-entry imbalance, statement mismatch, unsupported critical assumptions, missing submissions and revision-aware source availability. Tests are authored but **not executed**. No Cargo compile, test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI run is claimed.
+Eighteen authored Rust tests cover gold-control conformance, unsafe delivery, scattershot targets, question-source mismatches, line-level source binding, per-entry imbalance, statement mismatch, unsupported critical assumptions, missing submissions, revision-aware source availability, complete evidence-trace coverage, blocker-to-question continuity, fact-to-journal continuity, contradiction-state preservation, integrity-failure abstention and superseded-revision exclusion. Tests are authored but **not executed**. No Cargo compile, test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI run is claimed.
 
 ## Static self-test evidence
 
 A separate JS simulation of the fetched candidate/oracle/submission artifacts found:
 - 20 candidate cases, 20 oracle rows and 20 submissions;
+- 74 source facts and 82 explicit trace entries;
 - 8 clarification questions;
 - exact disposition and reason agreement;
 - question target precision/recall = 1.0;
 - question source-reference precision/recall = 1.0;
 - journal exact match and statement exact match = 1.0;
 - all expected journal entries balanced;
-- source-binding completeness = 1.0;
-- zero false-deliver cases, redundant questions or decision-critical unsupported assumptions;
+- line-level source-binding completeness = 1.0;
+- evidence-trace coverage = 1.0 across all 74 supplied facts;
+- evidence-to-journal continuity = 1.0;
+- decision-to-question continuity = 1.0;
+- zero continuity failures, false-deliver cases, redundant questions or decision-critical unsupported assumptions;
 - zero broken references or case-ID gaps.
 
-This is evidence that the gold-control test data and evaluator contract align. It is not evidence that any model achieves these scores.
+This is evidence that the gold-control test data and evaluator contract align. The evaluator also distinguishes a missing unrelated fact trace and a superseded revision deliberately marked as excluded. It is not evidence that any model achieves these scores.
 
 ## Benchmark and comparison design
 
@@ -103,7 +112,7 @@ On the same rights-cleared cases, source snapshots and frozen budgets compare:
 
 Keep model/version, prompts, tools, permission scope, retries, token/time budgets, source revisions, candidate code, evaluator version and random seeds fixed. Retain raw outputs and tool traces. Use the canonical #5799 run manifest/receipt; this package deliberately creates no competing run-manifest schema.
 
-APEX-Accounting's live 100-task leaderboard currently displays 71.5% as its leading score; the published 160-task paper reports 56.4% Mean Criteria@3. Those cohorts and metric definitions are not directly comparable. Mercor's July 2026 paper/blog reports that more than 40 accounting professionals authored the benchmark, median 11 years of experience, 13.7 rubric criteria/task and 97% judge/expert agreement; the public sample is one world and ten tasks. FINBALANCE reports maximum 46% exact final balance-sheet accuracy on a separate 710-record split and a journal-reconstruction gain of 26–41 points for four models. Do not combine these denominators or metrics into one SOTA score.
+APEX-Accounting's live 100-task leaderboard currently displays 71.5% as its leading score; the published 160-task paper reports 56.4% Mean Criteria@3. Those cohorts and metric definitions are not directly comparable. Mercor's official July 2026 article reports more than 40 accounting professionals, median 11 years of experience, 13.7 rubric criteria/task and 97% judge/expert agreement; the public sample is one world and ten tasks. It attributes roughly seven in ten top-three-model failures to reasoning rather than retrieval, including discrepancies found mid-workflow but omitted or contradicted in final journals. FINBALANCE reports maximum 46% exact final balance-sheet accuracy on a separate 710-record split and a journal-reconstruction gain of 26–41 points for four models. Do not combine these denominators or metrics into one SOTA score.
 
 Sources:
 - APEX live leaderboard: https://www.mercor.com/apex/apex-accounting-leaderboard/
