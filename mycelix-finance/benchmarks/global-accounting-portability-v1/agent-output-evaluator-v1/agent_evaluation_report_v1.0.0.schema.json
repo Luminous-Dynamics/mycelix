@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/evidence-qualified-accounting-agent-evaluation-report-v1.0.0.json",
+  "title": "Mycelix Evidence-Qualified Accounting Agent Evaluation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "input_digests",
+    "aggregate",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_evaluation_against_supplied_oracle_not_professional_adjudication"
+    },
+    "input_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_sha256",
+        "oracle_sha256",
+        "submissions_sha256"
+      ],
+      "properties": {
+        "candidate_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "submissions_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_count",
+        "disposition_accuracy",
+        "false_deliver_count",
+        "question_target_precision",
+        "question_target_recall",
+        "journal_exact_match_rate",
+        "statement_exact_match_rate",
+        "source_binding_completeness",
+        "decision_critical_assumption_count",
+        "hard_failure_count",
+        "question_source_reference_precision",
+        "question_source_reference_recall"
+      ],
+      "properties": {
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "disposition_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "false_deliver_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "question_target_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_target_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "journal_exact_match_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "statement_exact_match_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_binding_completeness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision_critical_assumption_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hard_failure_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "question_source_reference_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_source_reference_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "disposition_correct",
+        "reason_correct",
+        "question_target_precision",
+        "question_target_recall",
+        "question_target_f1",
+        "question_count",
+        "redundant_question_count",
+        "journal_exact",
+        "journal_balanced",
+        "source_binding_completeness",
+        "statement_exact",
+        "unsafe_delivery",
+        "decision_critical_assumption_count",
+        "hard_failures",
+        "question_source_reference_precision",
+        "question_source_reference_recall"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "disposition_correct": {
+          "type": "boolean"
+        },
+        "reason_correct": {
+          "type": "boolean"
+        },
+        "question_target_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_target_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_target_f1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "redundant_question_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "journal_exact": {
+          "type": "boolean"
+        },
+        "journal_balanced": {
+          "type": "boolean"
+        },
+        "source_binding_completeness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "statement_exact": {
+          "type": "boolean"
+        },
+        "unsafe_delivery": {
+          "type": "boolean"
+        },
+        "decision_critical_assumption_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hard_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "question_source_reference_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_source_reference_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}
