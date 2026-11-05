@@ -64,13 +64,6 @@ fn case_by_id<'a>(bundle: &'a Value, case_id: &str) -> Result<&'a Value, String>
         .ok_or_else(|| format!("missing candidate case {case_id}"))
 }
 
-fn fact_by_ref<'a>(case: &'a Value, fact_ref: &str) -> Result<&'a Value, String> {
-    array(case, "facts")?
-        .iter()
-        .find(|fact| optional_string(fact, "fact_ref") == Some(fact_ref))
-        .ok_or_else(|| format!("missing fact {fact_ref}"))
-}
-
 fn document_by_ref<'a>(case: &'a Value, document_ref: &str) -> Result<&'a Value, String> {
     array(case, "documents")?
         .iter()
@@ -110,21 +103,6 @@ fn facts_of_type<'a>(case: &'a Value, fact_type: &str) -> Result<Vec<&'a Value>,
         }
     }
     Ok(found)
-}
-
-fn has_unknown_fact(case: &Value, fact_type: &str) -> Result<bool, String> {
-    for fact in array(case, "facts")? {
-        if optional_string(fact, "fact_type") == Some(fact_type)
-            && is_known_fact(case, fact)?
-            && matches!(
-                optional_string(fact, "assertion_state"),
-                Some("unknown" | "disputed" | "invalidated")
-            )
-        {
-            return Ok(true);
-        }
-    }
-    Ok(false)
 }
 
 fn future_evidence(case: &Value) -> Result<bool, String> {
