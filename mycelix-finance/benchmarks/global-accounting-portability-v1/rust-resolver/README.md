@@ -45,7 +45,7 @@ The program emits one deterministic JSON resolution report. A refusal/abstention
 
 ## Current evidence status
 
-- The Rust package, CLI, schemas and 23 unit tests are authored. Tests cover positive synthetic qualification, opt-in synthetic mode, exact profile/jurisdiction/entity intersection matching, unsupported references, missing dimensions, partial coverage, profile-set ordering, review/ambiguous intersections, time validity, historical knowledge frontiers and early application.
+- The Rust package, CLI, schemas and 28 unit tests are authored. Tests cover positive synthetic qualification, opt-in synthetic mode, exact profile/jurisdiction/entity intersection matching, unsupported references, missing dimensions, partial coverage, profile-set ordering, review/ambiguous intersections, time validity, historical knowledge frontiers and early application.
 - The catalogue and request/report schemas are validated at runtime using the pinned JSON Schema Draft 2020-12 implementation.
 - No Cargo.lock has been generated.
 - No Rust compile, unit test, rustfmt, Clippy or CI result is claimed in this authoring environment.
