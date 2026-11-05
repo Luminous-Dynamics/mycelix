@@ -120,13 +120,54 @@ Research target after expansion to 100+ expert-reviewed cases, at least 5 langua
 
 These are goals to test, not results.
 
-## 8. Industry comparison: compete at the seams
+## 8. External benchmark landscape (snapshot 5 November 2026)
+
+These scores describe different task universes and metrics. They are **not directly comparable** and must not be collapsed into a single leaderboard.
+
+| Reference | Current public result | Evaluation design | What it does not establish |
+|---|---:|---|---|
+| DualEntry DualBench100 | Gemini 4 Argon: 91.1% overall | 101 synthetic accounting tasks across eight areas; same company books/tools; deterministic reference grading, three runs, cost/latency/consistency | Global legal coverage, source-population completeness or professional assurance |
+| Mercor APEX-Accounting | Gemini 4 Argon High: 71.5% ± 4.8 | 100 tasks across 10 held-out company worlds and 1,475 criteria; eight runs, k=4 mean criteria score, expert-authored rubrics with an LM judge | Exact journal/statement correctness as a deterministic theorem; the metric is not DualBench accuracy |
+| FINBALANCE | At most 46% exact final balance-sheet accuracy across six evaluated LLMs | 710-record evaluation; source bundles across eight industries, three period types, five difficulty levels and 23 inconsistency classes | End-to-end production readiness or legal/tax compliance |
+| Artificial Analysis Finance & Accounting Index | Gemini 4 Carbon High: 63 | Composite across six finance/business capabilities; weighted agentic knowledge work, business knowledge, reasoning, non-hallucination, tool use and long-context benchmarks | Accounting close accuracy; a composite should not replace task-specific measurements |
+
+Primary references:
+- DualEntry 2026 Accounting AI Benchmark: https://www.dualentry.com/benchmark
+- Mercor APEX-Accounting leaderboard: https://www.mercor.com/apex/apex-accounting-leaderboard/
+- APEX methodology: https://www.mercor.com/apex/methodology/
+- FINBALANCE, Findings of EMNLP 2026: https://aclanthology.org/2026.findings-emnlp.675/
+- Artificial Analysis Finance & Accounting Index: https://artificialanalysis.ai/indexes/finance-and-accounting/
+
+FINBALANCE also reports a 26–41 percentage-point improvement for four models when statements are independently reconstructed from their own journal entries rather than trusting the model-reported statements. That reinforces the need for independent reconstruction. APEX highlights capability/consistency divergence; DualBench shows that accuracy, three-run consistency, cost and duration vary independently. Preserve these dimensions rather than optimizing only a headline score.
+
+### Mycelix's competitive target
+
+Mycelix should not try to beat these scores by changing the scoring rule or by claiming that a synthetic profile resolver is an accountant. It should target capabilities those leaderboards do not fully isolate:
+
+- **zero false qualification:** no unsupported jurisdiction/framework/tax/e-invoice intersection presented as qualified;
+- **zero silent source loss:** original bytes, namespaces, transformations and unmapped fields remain inspectable;
+- **zero unsupported coercion:** currency/unit scales, local dates, locale-specific numbers and identifier namespaces are never guessed;
+- **complete population semantics:** missing feeds and omitted control populations cannot be interpreted as zero;
+- **exact replay:** the same source/profile/knowledge frontier produces the same selected profile intersection and result;
+- **safe abstention:** correct indeterminate/needs-review/unsupported dispositions are measured as distinct outcomes, not penalized as ordinary wrong answers;
+- **operational value:** reduce human review time and total cost without increasing escaped material errors.
+
+Proposed next comparison:
+1. Reproduce a rights-permitted DualBench100-compatible track and a FINBALANCE-compatible source-reconciliation track under their own conditions.
+2. Add a hidden, expert-reviewed cross-border profile-resolution set with at least 100 cases, at least five locale/language families, three framework families and three currency precision classes.
+3. Compare rules-only, model-only, conventional accounting-tool workflow, Mycelix profile resolver/evidence controls, Symthaea advisory analysis plus Mycelix verification, and blinded human professionals on identical inputs and budgets.
+4. Report exact task results, false-qualification rate, selective risk/coverage, per-class abstention, reviewer minutes, cost per correctly qualified entity-period, p50/p95/p99 latency and repeated-run stability.
+5. Keep hard integrity gates separate; any critical false qualification blocks the relevant capability claim regardless of aggregate score.
+
+Target: 100% correct dispositions on the public synthetic resolver corpus, zero critical false qualifications on the hidden expert-reviewed set, and at least a 15-percentage-point paired improvement over the strongest matched baseline on a preregistered hard subset, with confidence intervals. These are targets, not results.
+
+## 9. Industry comparison: compete at the seams
 
 NetSuite OneWorld describes multi-subsidiary, tax-jurisdiction and currency handling/consolidation. SAP S/4HANA localization covers local statutory/tax/payment reporting and parallel accounting. Xero markets multi-currency transaction capture, FX tracking and reporting. These are established ERP capabilities. [NetSuite OneWorld](https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_N266701.html) · [SAP localization](https://learning.sap.com/courses/configuring-sap-s4hana-cloud-public-edition-with-sap-central-business-configuration/defining-localizations-and-scope_b21b44bb-a7eb-418e-8c64-da171b2a4f18) · [Xero multi-currency](https://www.xero.com/za/accounting-software/use-multiple-currencies/)
 
 Do not rebuild an ERP. Integrate with accounting/tax systems. Test whether Mycelix adds expected-evidence completeness, source-specific provenance, independent corroboration, authority-aware abstention, bitemporal reproducibility, loss-aware interoperability and portable evidence across vendors. Compare by capability, profile intersection, cost, reviewer effort and error class. Vendor feature pages are vendor claims, not independent performance measurements.
 
-## 9. Qualification and release model
+## 10. Qualification and release model
 
 Profile states: not_in_scope, candidate, research_only, review_required, qualified_for_declared_scope, suspended, retired.
 
@@ -134,13 +175,13 @@ Every qualification identifies exact jurisdiction/entity/framework/tax/e-invoice
 
 The initial reference catalog labels real frameworks and standards research/reference only. It contains no real qualified country profile. South Africa remains review-required; its policy source registry remains separate.
 
-## 10. Executable profile-intersection resolver
+## 11. Executable profile-intersection resolver
 
 The Rust resolver in `benchmarks/global-accounting-portability-v1/rust-resolver/` consumes the catalogue and a request binding jurisdiction scopes, entity scope, reporting period, knowledge time, intended use, required dimensions and exact profile IDs. It validates registry, request and report against Draft 2020-12 schemas. It only returns `qualified_for_declared_scope` when one exact intersection matches; individually available profiles are insufficient.
 
 The resolver requires explicit permission for synthetic fixtures. It preserves the `synthetic_fixture_only` ceiling, rejects profile-set/jurisdiction/entity mismatches, refuses stale or unapproved intersections, and requires intersection-bound early-application evidence when a selected profile's reference date is later than the reporting period. The synthetic positive-control intersection is not a legal profile. No real-world intersection is currently qualified.
 
-## 11. Ownership and claim ceiling
+## 12. Ownership and claim ceiling
 
 - Mycelix: profile registry, source evidence, deterministic authority and receipts.
 - Symthaea: read-only context discovery, exception analysis and candidate mapping.
