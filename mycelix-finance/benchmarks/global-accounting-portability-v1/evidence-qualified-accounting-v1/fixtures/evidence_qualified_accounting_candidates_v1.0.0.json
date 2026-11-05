@@ -27,7 +27,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-001-CONTRACT",
@@ -38,7 +39,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -128,7 +130,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-002-SOW",
@@ -139,7 +142,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -205,7 +209,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-003-CTR",
@@ -216,7 +221,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -282,7 +288,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-004-INV-B",
@@ -293,7 +300,8 @@
           "source_system": "synthetic_mail_import",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": "DOC-004-INV-A"
+          "duplicate_of_document_ref": "DOC-004-INV-A",
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -383,7 +391,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -473,7 +482,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -527,7 +537,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -569,7 +580,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-008-CTR",
@@ -580,7 +592,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -658,7 +671,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_mismatch",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -712,7 +726,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-010-PO",
@@ -723,7 +738,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -789,7 +805,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-011-COA",
@@ -800,7 +817,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -890,7 +908,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:45:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -968,7 +987,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-013-VENDOR",
@@ -979,7 +999,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -1069,7 +1090,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-014-CTR",
@@ -1080,7 +1102,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -1158,7 +1181,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-015-CONTRACT",
@@ -1169,7 +1193,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -1259,7 +1284,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-016-PARENT-FUTURE",
@@ -1270,7 +1296,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:45:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -1324,7 +1351,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-017-CTR",
@@ -1335,7 +1363,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -1413,7 +1442,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         },
         {
           "document_ref": "DOC-018-OTHER-TENANT-INV",
@@ -1424,7 +1454,8 @@
           "source_system": "synthetic_erp",
           "received_at": "2026-11-05T10:00:00Z",
           "integrity_state": "synthetic_match",
-          "duplicate_of_document_ref": null
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
         }
       ],
       "facts": [
@@ -1449,6 +1480,121 @@
           "value": "INV-CROSS-18",
           "currency": null,
           "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-019-SUPERSEDING-INVOICE-REVISION",
+      "task_prompt": "Prepare the October accrual using the latest invoice revision that was received by the requested knowledge frontier. The earlier revision remains in the source set but is explicitly superseded. Do not add both revisions together, and do not let a future revision invalidate an earlier historical replay.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-019-INV-R1",
+          "external_document_id": "INV-1919",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-019-INV-R2",
+          "external_document_id": "INV-1919",
+          "namespace": "tenant-acme/ap",
+          "revision": "r2",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:15:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": "DOC-019-INV-R1"
+        },
+        {
+          "document_ref": "DOC-019-CONTRACT",
+          "external_document_id": "CTR-1919",
+          "namespace": "tenant-acme/contracts",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T09:30:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-019-AMOUNT-R1",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-019-INV-R1",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 100000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-019-AMOUNT-R2",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-019-INV-R2",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 120000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:15:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-019-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-019-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:30:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-019-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-019-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:30:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-019-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-019-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:30:00Z",
           "valid_from": "2026-10-01",
           "valid_to": null
         }
