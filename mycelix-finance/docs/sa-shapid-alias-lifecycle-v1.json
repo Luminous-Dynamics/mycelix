@@ -1343,7 +1343,8 @@
           "freshness": null,
           "valid_until": null,
           "evidence_types": [
-            "bankB_registration_receipt"
+            "bankB_registration_receipt",
+            "alias_registration_receipt"
           ]
         },
         {
@@ -2481,7 +2482,8 @@
           "freshness": null,
           "valid_until": null,
           "evidence_types": [
-            "provider_receipt"
+            "provider_receipt",
+            "alias_registration_receipt"
           ]
         },
         {
