@@ -14,7 +14,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut input = PathBuf::from("../fin_assurance_procedure_candidates_v1.1.0.json");
     let mut schema = PathBuf::from("../FIN_ASSURANCE_PROCEDURE_INPUT_V1.1.0.schema.json");
     let mut oracle = PathBuf::from("../public-assurance-oracle/fin_assurance_procedure_oracle_v1.1.0.json");
-    let mut oracle_schema = PathBuf::from("../public-assurance-oracle/fin_assurance_procedure_oracle_v1.schema.json");
+    let mut oracle_schema = PathBuf::from("../public-assurance-oracle/fin_assurance_procedure_oracle_v1.1.0.schema.json");
     let mut output: Option<PathBuf> = None;
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
