@@ -1,0 +1,71 @@
+name: FIN-BANK-CHAIN exact-head qualification
+
+on:
+  push:
+    branches:
+      - research/fin-bank-statement-chain-v1
+    paths:
+      - "mycelix-finance/benchmarks/accounting-evidence-v1/**"
+      - ".github/workflows/fin-bank-statement-chain-qualification.yml"
+  pull_request:
+    branches:
+      - research/fin-acc-bench-v1
+    paths:
+      - "mycelix-finance/benchmarks/accounting-evidence-v1/**"
+      - ".github/workflows/fin-bank-statement-chain-qualification.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-bank-chain-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Schema, arithmetic, chain semantics and oracle parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      QUALIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact checked-out commit
+        run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+          components: rustfmt, clippy
+
+      - name: Assert toolchain
+        run: test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
+
+      - name: Format
+        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
+        run: cargo fmt --all -- --check
+
+      - name: Locked tests
+        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
+        run: cargo test --locked
+
+      - name: Warnings-denied Clippy
+        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Emit exact-head qualification report
+        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
+        run: cargo run --locked -- --out /tmp/fin-bank-chain-report.json
+
+      - name: Upload exact-head report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fin-bank-chain-${{ env.QUALIFIED_SHA }}
+          path: /tmp/fin-bank-chain-report.json
+          if-no-files-found: error
