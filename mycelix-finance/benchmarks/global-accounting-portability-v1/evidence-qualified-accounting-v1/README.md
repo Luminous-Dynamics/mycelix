@@ -74,15 +74,16 @@ The validator:
 - checks unique document, fact, journal-entry, line and statement identities;
 - checks tenant/source document identity and duplicate-link rules;
 - resolves every fact to a source document;
-- excludes facts whose `recorded_at` or source document `received_at` is later than `knowledge_at`;
+- enforces valid-time overlap with the accounting period and excludes facts whose `recorded_at` or source document `received_at` is later than `knowledge_at`;
 - derives a deterministic disposition and primary reason from the evidence;
 - compares those results with the public oracle;
 - rejects oracle source refs that point to unknown, disputed, invalidated or future evidence;
 - verifies debit/credit equality by entity/currency/period, exact invoice-total reconstruction, and statement-line reconstruction from linked journal entries;
 - requires non-deliver cases to have no expected journal or statement output;
+- fingerprints the exact candidate and oracle bytes with SHA-256;
 - guarantees that the benchmark oracle never posts to a live ledger.
 
-The validator contains nine authored tests. They are **not yet executed**. JSON parsing and static authoring checks do not equal a Draft 2020-12 runtime pass, Rust compile, Cargo test, rustfmt, Clippy or CI pass. No such pass is claimed.
+The validator contains twelve authored tests, including future-source/future-FX negative controls and a valid-time mutation. They are **not yet executed**. JSON parsing and static authoring checks do not equal a Draft 2020-12 runtime pass, Rust compile, Cargo test, rustfmt, Clippy or CI pass. No such pass is claimed.
 
 ## Benchmark plan and target gates
 
