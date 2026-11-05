@@ -1,0 +1,153 @@
+{
+  "benchmark_id": "FIN-ACC-ASSERTION-PURPOSE",
+  "dataset_version": "1.0.0",
+  "visibility": "public_reference_oracle_not_blind_evaluation",
+  "cases": [
+    {
+      "case_id": "AEP-001",
+      "expected_disposition": "supported_within_declared_scope",
+      "reason_codes": [
+        "purpose_fit_met",
+        "source_authentication_met",
+        "issuer_authority_met",
+        "independent_corroboration_met",
+        "temporal_coverage_met",
+        "transformation_lineage_met"
+      ]
+    },
+    {
+      "case_id": "AEP-002",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "independent_corroboration_missing"
+      ]
+    },
+    {
+      "case_id": "AEP-003",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "independent_corroboration_missing"
+      ]
+    },
+    {
+      "case_id": "AEP-004",
+      "expected_disposition": "contradicted",
+      "reason_codes": [
+        "qualified_contradictory_evidence_present"
+      ]
+    },
+    {
+      "case_id": "AEP-005",
+      "expected_disposition": "indeterminate",
+      "reason_codes": [
+        "source_authentication_unknown",
+        "issuer_authority_unknown"
+      ]
+    },
+    {
+      "case_id": "AEP-006",
+      "expected_disposition": "contradicted",
+      "reason_codes": [
+        "qualified_contradictory_evidence_present"
+      ]
+    },
+    {
+      "case_id": "AEP-007",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "temporal_coverage_missing"
+      ]
+    },
+    {
+      "case_id": "AEP-008",
+      "expected_disposition": "contradicted",
+      "reason_codes": [
+        "qualified_contradictory_evidence_present"
+      ]
+    },
+    {
+      "case_id": "AEP-009",
+      "expected_disposition": "needs_authorized_review",
+      "reason_codes": [
+        "authorization_not_qualified"
+      ]
+    },
+    {
+      "case_id": "AEP-010",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "purpose_fit_missing"
+      ]
+    },
+    {
+      "case_id": "AEP-011",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "independent_corroboration_missing"
+      ]
+    },
+    {
+      "case_id": "AEP-012",
+      "expected_disposition": "contradicted",
+      "reason_codes": [
+        "qualified_contradictory_evidence_present"
+      ]
+    },
+    {
+      "case_id": "AEP-013",
+      "expected_disposition": "indeterminate",
+      "reason_codes": [
+        "transformation_lineage_unqualified"
+      ]
+    },
+    {
+      "case_id": "AEP-014",
+      "expected_disposition": "indeterminate",
+      "reason_codes": [
+        "candidate_claim_references_unknown_evidence"
+      ]
+    },
+    {
+      "case_id": "AEP-015",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "purpose_fit_missing"
+      ]
+    },
+    {
+      "case_id": "AEP-016",
+      "expected_disposition": "not_applicable_with_rationale",
+      "reason_codes": [
+        "not_applicable_rationale_present"
+      ]
+    },
+    {
+      "case_id": "AEP-017",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "population_completeness_not_qualified"
+      ]
+    },
+    {
+      "case_id": "AEP-018",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "purpose_fit_missing"
+      ]
+    },
+    {
+      "case_id": "AEP-019",
+      "expected_disposition": "needs_authorized_review",
+      "reason_codes": [
+        "source_authentication_unqualified"
+      ]
+    },
+    {
+      "case_id": "AEP-020",
+      "expected_disposition": "insufficient_evidence",
+      "reason_codes": [
+        "independent_corroboration_missing"
+      ]
+    }
+  ]
+}
