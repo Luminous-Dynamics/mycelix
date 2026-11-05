@@ -1,0 +1,749 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/payment-agent-delegation-v1.schema.json",
+  "title": "Mycelix Payment Agent Delegation Synthetic Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "created_on",
+    "as_of",
+    "jurisdiction",
+    "purpose",
+    "external_effects_enabled",
+    "pii_present",
+    "source_register",
+    "scenarios",
+    "invariants"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.payment-agent-delegation/v1"
+    },
+    "corpus_id": {
+      "const": "PAYMENT-AGENT-DELEGATION-SYNTHETIC-32"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "pii_present": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 32,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "published_on",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "envelope_id",
+        "issuer_id",
+        "max_single_cost_minor_units",
+        "max_total_budget_minor_units",
+        "max_fee_minor_units",
+        "permitted_currencies",
+        "permitted_actions",
+        "permitted_purposes",
+        "allowed_beneficiaries",
+        "max_transactions_per_period",
+        "max_concurrent_reservations",
+        "max_subdelegation_depth"
+      ],
+      "properties": {
+        "envelope_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_single_cost_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_total_budget_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "permitted_currencies": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "permitted_actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "permitted_purposes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_beneficiaries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "max_transactions_per_period": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_concurrent_reservations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_subdelegation_depth": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "mandate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mandate_id",
+        "mandate_version",
+        "status",
+        "principal_id",
+        "agent_id",
+        "permitted_subagents",
+        "intended_audience",
+        "mandate_purpose",
+        "permitted_actions",
+        "permitted_purposes",
+        "permitted_currencies",
+        "allowed_beneficiaries",
+        "budget_currency",
+        "max_single_cost_minor_units",
+        "max_total_budget_minor_units",
+        "max_fee_minor_units",
+        "max_transactions_per_period",
+        "max_concurrent_reservations",
+        "period_start",
+        "period_end",
+        "issued_at",
+        "expires_at",
+        "revoked_at",
+        "max_subdelegation_depth",
+        "confirmation_threshold_minor_units",
+        "require_confirmation_for_new_beneficiary",
+        "refund_replenishes_budget",
+        "envelope_chain"
+      ],
+      "properties": {
+        "mandate_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mandate_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "active",
+            "suspended",
+            "revoked",
+            "expired"
+          ]
+        },
+        "principal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permitted_subagents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "intended_audience": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mandate_purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permitted_actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "permitted_purposes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "permitted_currencies": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "allowed_beneficiaries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "budget_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "max_single_cost_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_total_budget_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_transactions_per_period": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_concurrent_reservations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revoked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "max_subdelegation_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confirmation_threshold_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "require_confirmation_for_new_beneficiary": {
+          "type": "boolean"
+        },
+        "refund_replenishes_budget": {
+          "type": "boolean"
+        },
+        "envelope_chain": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/envelope"
+          }
+        }
+      }
+    },
+    "reservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reservation_id",
+        "idempotency_key",
+        "action_digest",
+        "amount_minor_units",
+        "state"
+      ],
+      "properties": {
+        "reservation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "state": {
+          "enum": [
+            "reserved",
+            "dispatched",
+            "outcome_unknown",
+            "consumed",
+            "returned_not_replenished",
+            "failed_reconciled",
+            "cancelled_before_dispatch"
+          ]
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "agent_id",
+        "agent_chain",
+        "action_type",
+        "purpose",
+        "beneficiary_id",
+        "amount_minor_units",
+        "currency",
+        "budget_amount_minor_units",
+        "budget_currency",
+        "requester_fee_minor_units",
+        "other_fee_minor_units",
+        "fx_cost_minor_units",
+        "fees_known",
+        "fx_quote",
+        "new_beneficiary",
+        "issued_at",
+        "idempotency_key",
+        "candidate_digest",
+        "action_request_digest",
+        "untrusted_context",
+        "human_confirmation"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_chain": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "action_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "beneficiary_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "budget_amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "budget_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "requester_fee_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "other_fee_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "fx_cost_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "fees_known": {
+          "type": "boolean"
+        },
+        "fx_quote": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "source_id",
+            "quoted_at",
+            "expires_at",
+            "quote_reference"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "not_required",
+                "verified",
+                "unknown",
+                "expired"
+              ]
+            },
+            "source_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "quoted_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "expires_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "quote_reference": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            }
+          }
+        },
+        "new_beneficiary": {
+          "type": "boolean"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "action_request_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "untrusted_context": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "human_confirmation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "actor",
+            "digest",
+            "confirmed_at"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "not_required",
+                "absent",
+                "accepted",
+                "declined"
+              ]
+            },
+            "actor": {
+              "enum": [
+                "none",
+                "principal",
+                "agent"
+              ]
+            },
+            "digest": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "confirmed_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "simulation_only",
+        "external_effects_enabled",
+        "pii_present",
+        "mandate",
+        "prior_reservations",
+        "candidate_actions",
+        "expected_decisions",
+        "expected_reservation_effects",
+        "nonclaims"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^PA-AGENT-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "simulation_only": {
+          "const": true
+        },
+        "external_effects_enabled": {
+          "const": false
+        },
+        "pii_present": {
+          "const": false
+        },
+        "mandate": {
+          "$ref": "#/$defs/mandate"
+        },
+        "prior_reservations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reservation"
+          }
+        },
+        "candidate_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "expected_decisions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "eligible_within_mandate",
+              "reject_mandate_inactive",
+              "reject_agent_identity",
+              "reject_subdelegation_depth",
+              "reject_action_scope",
+              "reject_purpose_scope",
+              "reject_beneficiary_scope",
+              "reject_currency_scope",
+              "reject_parent_envelope",
+              "requires_complete_cost_quote",
+              "reject_expired_fx_quote",
+              "reject_single_transaction_limit",
+              "reject_fee_limit",
+              "requires_principal_confirmation",
+              "reject_confirmation_binding",
+              "reject_confirmation_authority",
+              "reject_principal_declined",
+              "reject_total_budget",
+              "reject_transaction_count_limit",
+              "reject_concurrency_limit",
+              "deduplicated_existing_authorization",
+              "reject_idempotency_conflict"
+            ]
+          }
+        },
+        "expected_reservation_effects": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "reserved",
+              "none",
+              "deduplicated"
+            ]
+          }
+        },
+        "nonclaims": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
