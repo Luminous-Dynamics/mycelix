@@ -246,6 +246,30 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
         return Some("reject_score_as_sole_confirmation");
     }
 
+    let confirmation_events = events.iter().filter(|event| {
+        str_at(event, "event_type") == Some("source_confirmed")
+            && str_at(event, "actor_role") == Some("originating_psp")
+            && str_at(event, "authority_state") == Some("valid")
+    });
+    let contributions = array_at(signal, "evidence_contributions")
+        .cloned()
+        .unwrap_or_default();
+    for event in confirmation_events {
+        let commitment = str_at(event, "evidence_commitment").unwrap_or("");
+        let source_participant = str_at(signal, "source_participant").unwrap_or("");
+        let origin_commitment = str_at(signal, "origin_case_commitment").unwrap_or("");
+        let evidence_bound = !commitment.is_empty()
+            && contributions.iter().any(|contribution| {
+                str_at(contribution, "evidence_commitment") == Some(commitment)
+                    && str_at(contribution, "source_participant") == Some(source_participant)
+                    && str_at(contribution, "origin_case_commitment") == Some(origin_commitment)
+                    && contribution.get("independent_claim").and_then(Value::as_bool) == Some(true)
+            });
+        if !evidence_bound {
+            return Some("reject_confirmation_without_independent_evidence");
+        }
+    }
+
     if matches!(status, "disproved" | "withdrawn" | "corrected")
         && str_at(signal, "correction_propagation_state") == Some("pending")
     {
