@@ -111,6 +111,10 @@ fn finding(findings: &mut Vec<Finding>, code: &str, severity: &str, event_id: Op
         detail: detail.into(),
     });
 }
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+}
+
 fn valid_sha(value: &str) -> bool {
     value.len() == 40 && value.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
@@ -138,8 +142,8 @@ fn valid_event_shape(event: &Event) -> bool {
     let (fields, strings, numbers, booleans, arrays): (&[&str], &[&str], &[&str], &[&str], &[&str]) =
         match event.event_type.as_str() {
             "host_grant_issued" => (
-                &["grant_ref","grant_action_hash","grantor","grantee","assigned","functions","idempotency_key","host_authority_index"],
-                &["grant_ref","grant_action_hash","grantor","grantee","idempotency_key"],
+                &["grant_ref","grant_action_hash","grantor","grantee","assigned","functions","idempotency_key","request_digest_sha256","host_authority_index"],
+                &["grant_ref","grant_action_hash","grantor","grantee","idempotency_key","request_digest_sha256"],
                 &["host_authority_index"], &["assigned"], &["functions"]),
             "host_grant_revoked" => (
                 &["grant_ref","target_grant_action_hash","actor","revocation_action_hash","host_authority_index"],
@@ -179,7 +183,9 @@ fn valid_event_shape(event: &Event) -> bool {
     { return false; }
 
     match event.event_type.as_str() {
-        "host_grant_issued" | "host_grant_revoked" => u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0),
+        "host_grant_issued" => u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0)
+            && str_value(&event.data,"request_digest_sha256").is_some_and(valid_sha256),
+        "host_grant_revoked" => u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0),
         "host_call" => {
             u64_value(&event.data,"attempt_id").is_some_and(|v| v > 0)
                 && u64_value(&event.data,"host_authority_index").is_some_and(|v| v > 0)
@@ -306,7 +312,7 @@ fn audit(history:&History,input_sha256:String)->Report {
 
     let mut grants:BTreeMap<(String,String),Grant>=BTreeMap::new();
     let mut grant_hashes=BTreeSet::new();
-    let mut idempotency:BTreeMap<(String,String,String),String>=BTreeMap::new();
+    let mut idempotency:BTreeMap<(String,String,String),(String,String)>=BTreeMap::new();
     let mut grant_events=Vec::new();
     let mut revoke_events=Vec::new();
     let mut claim_events=Vec::new();
@@ -334,9 +340,18 @@ fn audit(history:&History,input_sha256:String)->Report {
                     if c.agent_key_ref!=grantor { finding(&mut findings,"GRANTOR_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"grantor does not match host conductor agent key"); }
                     if c.role!="grant_owner" { finding(&mut findings,"GRANT_ISSUED_BY_NON_OWNER_CONDUCTOR","incomplete",Some(&e.event_id),"grant issuance should be observed on grant_owner conductor"); }
                 }
+                let request_digest=str_value(d,"request_digest_sha256").unwrap_or_default().to_string();
                 let idem=(e.conductor_id.clone(),grantor.clone(),str_value(d,"idempotency_key").unwrap_or_default().to_string());
-                if let Some(old)=idempotency.get(&idem) { if old!=&grant_ref { finding(&mut findings,"IDEMPOTENCY_KEY_MINTED_MULTIPLE_GRANTS","violation",Some(&e.event_id),"same conductor/grantor idempotency key minted multiple grants"); } }
-                else { idempotency.insert(idem,grant_ref.clone()); }
+                if let Some((old_grant,old_digest))=idempotency.get(&idem) {
+                    if old_digest!=&request_digest {
+                        finding(&mut findings,"IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST","violation",Some(&e.event_id),"same conductor/grantor idempotency key was reused with a different canonical request digest");
+                    }
+                    if old_grant!=&grant_ref {
+                        finding(&mut findings,"IDEMPOTENCY_KEY_MINTED_MULTIPLE_GRANTS","violation",Some(&e.event_id),"same conductor/grantor idempotency key minted multiple grant references");
+                    }
+                } else {
+                    idempotency.insert(idem,(grant_ref.clone(),request_digest));
+                }
                 let key=(e.conductor_id.clone(),grant_ref.clone());
                 if grants.contains_key(&key) { finding(&mut findings,"GRANT_REFERENCE_REUSED","violation",Some(&e.event_id),"grant_ref reused on one host conductor"); }
                 else { grants.insert(key,Grant{conductor_id:e.conductor_id.clone(),action_hash,grantor,grantee,assigned,functions:functions.into_iter().collect(),issue_index:index,revoke_index:None}); }
@@ -557,6 +572,26 @@ mod tests{
     fn fixture()->History{serde_json::from_str(include_str!("../examples/safe-history.json")).unwrap()}
     fn report(h:&History)->Report{audit(h,"0".repeat(64))}
     #[test]fn safe_multiconductor_partial_order_passes(){let r=report(&fixture());assert!(matches!(r.status,Status::Pass),"{:?}",r.findings);}
+    #[test]fn same_idempotency_key_with_different_request_digest_fails(){
+        let mut h=fixture();
+        let mut duplicate=h.events.iter().find(|e|e.event_type=="host_grant_issued").unwrap().clone();
+        duplicate.event_id="grant-retry-changed-request".into();
+        duplicate.local_sequence=6;
+        duplicate.data["grant_ref"]=Value::String("grant-B".into());
+        duplicate.data["grant_action_hash"]=Value::String("uhCkk-grant-B".into());
+        duplicate.data["host_authority_index"]=Value::Number(5u64.into());
+        duplicate.data["request_digest_sha256"]=Value::String("e".repeat(64));
+        h.events.push(duplicate);
+        let r=report(&h);
+        assert!(r.findings.iter().any(|f|f.code=="IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST"),"{:?}",r.findings);
+    }
+    #[test]fn malformed_request_digest_is_incomplete(){
+        let mut h=fixture();
+        let issue=h.events.iter_mut().find(|e|e.event_type=="host_grant_issued").unwrap();
+        issue.data["request_digest_sha256"]=Value::String("not-a-sha256".into());
+        let r=report(&h);
+        assert!(r.findings.iter().any(|f|f.code=="EVENT_DATA_SHAPE_INVALID"),"{:?}",r.findings);
+    }
     #[test]fn local_sequences_are_not_compared_across_conductors(){let h=fixture();let r=report(&h);assert!(matches!(r.status,Status::Pass),"{:?}",r.findings);assert_eq!(h.events.iter().filter(|e|e.local_sequence==1).count(),4);}
     #[test]fn cross_conductor_program_order_is_rejected(){let mut h=fixture();h.causal_edges.push(CausalEdge{from_event:"grant-issue".into(),to_event:"claim-accepted".into(),relation:"program_order".into(),evidence_ref:"fixture://invalid/scalar-order".into()});let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="PROGRAM_ORDER_CROSSES_CONDUCTORS"));}
     #[test]fn missing_claim_edge_is_incomplete(){let mut h=fixture();h.causal_edges.retain(|e|!(e.from_event=="grant-issue"&&e.to_event=="claim-accepted"));let r=report(&h);assert!(r.findings.iter().any(|f|f.code=="GRANT_TO_CLAIM_CAUSAL_EDGE_MISSING"));}
