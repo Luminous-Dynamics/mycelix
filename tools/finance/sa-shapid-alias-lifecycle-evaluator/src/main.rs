@@ -493,9 +493,10 @@ fn mutation_campaign(corpus: &Value) -> Result<usize, String> {
                 .unwrap()
                 .retain(|event| str_at(event, "event_type") != Some("sim_swap_signal"));
         }),
-        ("stale resolver promoted to fresh", |value| {
-            value["scenarios"][17]["events"][4]["freshness"] = json!("fresh");
-            value["scenarios"][17]["events"][4]["valid_until"] = json!("2026-11-05T00:00:00Z");
+        ("expired resolver promoted to active resolution", |value| {
+            value["scenarios"][17]["expected_state"] = json!("active_resolved");
+            value["scenarios"][17]["resolution_allowed"] = json!(true);
+            value["scenarios"][17]["requires_new_payer_consent"] = json!(false);
         }),
         ("directory epoch advance erased", |value| {
             value["scenarios"][18]["events"]
