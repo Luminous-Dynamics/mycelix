@@ -537,6 +537,9 @@ pub struct JournalPosting {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JournalEntryDraft {
+    /// Entity whose books receive the proposed entry. Must match the pinned ledger
+    /// profile and every posting account's entity; never inferred from a source claim.
+    pub reporting_entity: ReferenceId,
     pub reporting_period: ReferenceId,
     pub effective_at_unix_ms: u64,
     pub source: QualifiedEconomicSource,
@@ -1182,6 +1185,7 @@ mod tests {
         .expect("qualified source binding");
         let reversing = reverses.is_some();
         JournalEntryDraft {
+            reporting_entity: reference("entity:treasury"),
             reporting_period: reference("period:2026-11"),
             effective_at_unix_ms: 10_001,
             source,
@@ -1310,6 +1314,7 @@ mod tests {
         .expect("source");
         source.settlement_profile.profile_id = reference("finality:unapproved");
         let draft = JournalEntryDraft {
+            reporting_entity: reference("entity:treasury"),
             reporting_period: reference("period:2026-11"),
             effective_at_unix_ms: 10_001,
             source,
@@ -1617,6 +1622,7 @@ mod tests {
         .expect("source");
         source.settlement_profile.revision += 1;
         let invalid = JournalEntryDraft {
+            reporting_entity: reference("entity:treasury"),
             reporting_period: reference("period:2026-11"),
             effective_at_unix_ms: 10_001,
             source,
@@ -1765,7 +1771,8 @@ mod tests {
             &ledger,
             &policy,
             JournalEntryDraft {
-                reporting_period: reference("period:2026-11"),
+                reporting_entity: reference("entity:treasury"),
+            reporting_period: reference("period:2026-11"),
                 effective_at_unix_ms: 10_001,
                 source,
                 postings: vec![
