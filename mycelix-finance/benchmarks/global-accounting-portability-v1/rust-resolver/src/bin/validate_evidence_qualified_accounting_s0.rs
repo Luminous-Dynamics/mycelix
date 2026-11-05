@@ -198,6 +198,37 @@ fn fx_rate_missing(case: &Value) -> Result<bool, String> {
     Ok(false)
 }
 
+
+fn supplier_identity_disputed(case: &Value) -> Result<bool, String> {
+    for fact in array(case, "facts")? {
+        if optional_string(fact, "fact_type") == Some("supplier_identity")
+            && is_known_fact(case, fact)?
+            && matches!(
+                optional_string(fact, "assertion_state"),
+                Some("unknown" | "disputed" | "invalidated")
+            )
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn contradictory_service_period_evidence(case: &Value) -> Result<bool, String> {
+    let starts = facts_of_type(case, "service_period_start")?;
+    let ends = facts_of_type(case, "service_period_end")?;
+    for start in &starts {
+        let start_value = start.get("value").and_then(Value::as_str);
+        for end in &ends {
+            let end_value = end.get("value").and_then(Value::as_str);
+            if start_value.zip(end_value).is_some_and(|(start, end)| start > end) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
 fn service_start_missing(case: &Value) -> Result<bool, String> {
     let invoice_document_exists = array(case, "documents")?.iter()
         .any(|document| optional_string(document, "document_type") == Some("invoice"));
@@ -205,7 +236,8 @@ fn service_start_missing(case: &Value) -> Result<bool, String> {
         return Ok(false);
     }
     Ok(facts_of_type(case, "invoice_total_minor")?.is_empty()
-        || facts_of_type(case, "service_period_start")?.is_empty())
+        || facts_of_type(case, "service_period_start")?.is_empty()
+        || facts_of_type(case, "service_period_end")?.is_empty())
 }
 
 fn account_mapping_missing(case: &Value) -> Result<bool, String> {
@@ -230,11 +262,17 @@ fn derive_expectation(case: &Value) -> Result<(&'static str, &'static str), Stri
     if contradictory_amount_evidence(case)? {
         return Ok(("escalate", "contradictory_amount_evidence"));
     }
+    if contradictory_service_period_evidence(case)? {
+        return Ok(("escalate", "contradictory_service_period_evidence"));
+    }
     if contradictory_entity_evidence(case)? {
         return Ok(("clarify", "contradictory_entity_evidence"));
     }
     if future_evidence(case)? {
         return Ok(("clarify", "evidence_after_knowledge_frontier"));
+    }
+    if supplier_identity_disputed(case)? {
+        return Ok(("clarify", "supplier_identity_disputed"));
     }
     if fx_rate_missing(case)? {
         return Ok(("clarify", "fx_rate_missing"));
@@ -726,6 +764,59 @@ mod tests {
         }));
         assert!(credit_note_parent_missing(case).unwrap());
         assert_eq!(derive_expectation(case).unwrap(), ("escalate", "credit_note_parent_missing"));
+    }
+
+
+    #[test]
+    fn future_received_invoice_is_not_used_at_prior_knowledge_frontier() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-012-FUTURE-RECEIVED-INVOICE").unwrap();
+        assert!(future_evidence(case).unwrap());
+        assert!(facts_of_type(case, "invoice_total_minor").unwrap().is_empty());
+        assert_eq!(derive_expectation(case).unwrap(), ("clarify", "evidence_after_knowledge_frontier"));
+    }
+
+    #[test]
+    fn disputed_supplier_identity_requires_clarification() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-013-DISPUTED-SUPPLIER-IDENTITY").unwrap();
+        assert!(supplier_identity_disputed(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("clarify", "supplier_identity_disputed"));
+    }
+
+    #[test]
+    fn invalidated_service_end_date_is_not_silently_inferred() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-014-INVALIDATED-SERVICE-END").unwrap();
+        assert!(facts_of_type(case, "service_period_end").unwrap().is_empty());
+        assert_eq!(derive_expectation(case).unwrap(), ("clarify", "required_fact_missing"));
+    }
+
+    #[test]
+    fn same_external_id_in_different_namespaces_is_not_a_duplicate() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-015-SAME-EXTERNAL-ID-CROSS-NAMESPACE").unwrap();
+        validate_case_references(case).unwrap();
+        assert_eq!(array(case, "documents").unwrap().iter()
+            .filter(|document| optional_string(document, "external_document_id") == Some("INV-1515"))
+            .count(), 2);
+        assert_eq!(derive_expectation(case).unwrap(), ("deliver", "no_blocker_detected"));
+    }
+
+    #[test]
+    fn future_received_parent_invoice_does_not_resolve_credit_note() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-016-CREDIT-PARENT-FUTURE").unwrap();
+        assert!(credit_note_parent_missing(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("escalate", "credit_note_parent_missing"));
+    }
+
+    #[test]
+    fn contradictory_service_dates_escalate_instead_of_guessing() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-017-CONTRADICTORY-SERVICE-PERIOD").unwrap();
+        assert!(contradictory_service_period_evidence(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("escalate", "contradictory_service_period_evidence"));
     }
 
     #[test]
