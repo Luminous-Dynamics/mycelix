@@ -2520,8 +2520,7 @@
           "signature_verification_receipt": "SIG-VERIFY-001"
         },
         "audience": [
-          "BANK-B",
-          "BANK-C"
+          "BANK-B"
         ],
         "purpose": "case_specific_payment_fraud_triage",
         "subject_reference": {
@@ -2558,11 +2557,6 @@
           "recipient_acknowledgements": [
             {
               "recipient_id": "BANK-B",
-              "delivery_state": "acknowledged",
-              "correction_ack_state": "acknowledged"
-            },
-            {
-              "recipient_id": "BANK-C",
               "delivery_state": "acknowledged",
               "correction_ack_state": "acknowledged"
             }
@@ -2760,16 +2754,7 @@
           "unrestricted_onward_disclosure"
         ],
         "raw_personal_data_present": false,
-        "recipient_uses": [
-          {
-            "use_id": "USE-029",
-            "recipient_id": "BANK-B",
-            "purpose": "case_specific_payment_fraud_triage",
-            "action": "human_review",
-            "human_review": true,
-            "separate_decision_reference": "LOCAL-029"
-          }
-        ],
+        "recipient_uses": [],
         "aggregate": null,
         "expected_disposition": "quarantine_propagation_incomplete"
       }
