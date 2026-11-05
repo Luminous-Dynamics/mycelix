@@ -109,7 +109,7 @@ Hard gates:
 
 Quality metrics: context-axis exact match and missing-axis detection; profile selection and correct abstention; cross-border exception recall; exact rational FX/minor-unit accuracy; adapter field preservation and loss accounting; locale/timezone parsing and referral; taxonomy mapping and unmapped-extension recall; bitemporal replay parity; material error and reviewer agreement; reviewer minutes, fully loaded cost, p50/p95/p99 latency and repeatability.
 
-Initial synthetic target: 100% expected behavior on this 22-case public development set. This is conformance, not field readiness.
+Initial synthetic target: 100% expected behavior on this 34-case public development set. This is conformance, not field readiness.
 
 Research target after expansion to 100+ expert-reviewed cases, at least 5 language/locale families, 3 framework families and 3 currency precision classes:
 - at least 95% profile-context axis recall;
