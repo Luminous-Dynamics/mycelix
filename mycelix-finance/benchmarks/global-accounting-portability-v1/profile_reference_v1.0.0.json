@@ -449,7 +449,50 @@
         "no_tax_or_accounting_rule",
         "no_production_or_compliance_claim"
       ],
-      "early_application_qualifications": []
+      "early_application_qualifications": [],
+      "profile_binding_serialization": "serde_json_value_sorted_keys_compact_utf8_v1",
+      "profile_bindings": [
+        {
+          "profile_id": "SYN-CURRENCY-A",
+          "version": "synthetic-currency-profile-a",
+          "profile_sha256": "4d4141b71d339b0d18c62d4428911d54f601aa678f3bfe133b61a1f38402733f"
+        },
+        {
+          "profile_id": "SYN-EINVOICE-A",
+          "version": "synthetic-einvoice-profile-a",
+          "profile_sha256": "7cbb669efa1bee4afaddf1d9cb811280c34ae68e2a7f39e94658951d3a0a2e6f"
+        },
+        {
+          "profile_id": "SYN-FRAMEWORK-A",
+          "version": "synthetic-framework-a",
+          "profile_sha256": "3ff01a90d1f48dafce03e4aff6fc0d200754124b6090e7fdaae1dc33cda4330b"
+        },
+        {
+          "profile_id": "SYN-JUR-A",
+          "version": "synthetic-jurisdiction-a",
+          "profile_sha256": "bd43bbfd8fcc4c6c00d921d0852035b969b5b3a4d10e0cd29cb06c3ca9d1172b"
+        },
+        {
+          "profile_id": "SYN-LOCALE-A",
+          "version": "synthetic-locale-profile-a",
+          "profile_sha256": "3d9bb58637029ea88352ee3c020cd1b71ae74b38af41c057fd0975ce0678a7f7"
+        },
+        {
+          "profile_id": "SYN-REPORTING-A",
+          "version": "synthetic-reporting-taxonomy-a",
+          "profile_sha256": "b5541b820f29e9d2860d82d8a6432d05a1c647fc42d5ecfd31b79c1de80f989f"
+        },
+        {
+          "profile_id": "SYN-TAX-A",
+          "version": "synthetic-tax-profile-a",
+          "profile_sha256": "c3947709bb3a384956cba5c1f7178dcb22f9e258989a5ebb5c6e1c511abd2577"
+        },
+        {
+          "profile_id": "SYN-TZ-A",
+          "version": "synthetic-timezone-profile-a",
+          "profile_sha256": "c2384a698f59a3032d8013b9b4dd0bdaca4a7a756303369847f8a065d5e8635e"
+        }
+      ]
     }
   ]
 }
