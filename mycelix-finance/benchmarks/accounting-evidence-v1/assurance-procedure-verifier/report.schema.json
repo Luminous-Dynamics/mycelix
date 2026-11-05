@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://luminousdynamics.io/schemas/fin-assurance-procedure-report-v1.json",
+  "$id": "https://luminousdynamics.io/schemas/fin-assurance-procedure-report-v1.1.0.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
