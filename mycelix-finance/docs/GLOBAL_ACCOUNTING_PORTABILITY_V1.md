@@ -120,6 +120,31 @@ Research target after expansion to 100+ expert-reviewed cases, at least 5 langua
 
 These are goals to test, not results.
 
+### External benchmark landscape (snapshot 5 November 2026)
+
+These current public results use different task universes, metrics and graders; they are not directly comparable and must not be collapsed into one ranking.
+
+| Benchmark | Current public result | What it measures | Important limitation |
+|---|---:|---|---|
+| DualEntry DualBench100 v1.0 | Gemini 4 Argon 91.1% accuracy; 86.1% all-three-run consistency | 101 synthetic tasks across eight accounting areas, same books/tools, three runs, deterministic answer checks | Does not qualify global legal/profile coverage or source-population completeness |
+| Mercor APEX-Accounting | Gemini 4 Argon High 71.5% ± 4.8 mean criteria score | 100 tasks, 10 company worlds, 1,475 professional criteria, repeated runs and expert rubrics | Rubric mean score, not deterministic journal/close truth |
+| FINBALANCE | At most 46% exact final balance-sheet accuracy | 710 multi-document records across eight industries, three period types and five difficulty levels | Measures a different source-to-statement task; it is not a profile-resolution score |
+| Artificial Analysis Finance & Accounting Index | Gemini 4 Carbon High 63 | Weighted composite of agentic work, business knowledge, reasoning, non-hallucination, tool use and long-context | Broad composite, not a month-end close pass rate |
+| FinNLP numeric-fidelity study | Six models over 729 firm-years (345 common subset) | Numeric computation fidelity and source-fact attribution measured separately | Research study, not a full agentic workflow benchmark |
+
+Sources and methodology:
+- DualEntry 2026 benchmark: https://www.dualentry.com/benchmark
+- Mercor APEX-Accounting leaderboard and methodology: https://www.mercor.com/apex/apex-accounting-leaderboard/ and https://www.mercor.com/apex/methodology/
+- FINBALANCE (Findings of EMNLP 2026): https://aclanthology.org/2026.findings-emnlp.675/
+- Artificial Analysis Finance & Accounting Index: https://artificialanalysis.ai/indexes/finance-and-accounting
+- FinNLP numeric-fidelity study: https://aclanthology.org/2026.finnlp-1.1/
+
+The task-level DualBench breakdown matters: Gemini 4 Argon leads overall, but Kimi K3.1 Pro has 100% on bank reconciliation compared with Argon's 75%, and Kimi K3 leads month-end close at 91.7% compared with Argon's 83.3%. APEX also reports that all-attempt reliability differs from solving a task at least once. FINBALANCE finds that independent reconstruction from model-produced journals improves balance-sheet accuracy by 26–41 percentage points for four models. FinNLP separately demonstrates that correct numeric calculation and correct source attribution can decouple.
+
+Mycelix should therefore compete on exact source/profile binding, completeness, safe abstention, historical replay and independently reconstructed outcomes—not by claiming superiority from a synthetic resolver corpus or an incompatible aggregate score. The next matched evaluation should compare rules-only, model-only, conventional accounting-tool workflows, Mycelix deterministic evidence/profile controls, Symthaea advisory analysis plus Mycelix verification, and blinded professionals on identical inputs and budgets. Report accuracy, repeated-run consistency, false qualification, source/population recall, justified abstention, review minutes, cost per correctly qualified entity-period, and p50/p95/p99 latency independently.
+
+Targets remain: 100% expected behavior on public synthetic fixtures; zero critical false qualifications on a hidden expert-reviewed set; at least a 15 percentage-point paired gain over the strongest matched baseline on a preregistered hard subset; and at least 30% less reviewer effort in a bounded supported workflow without additional escaped material errors. These are research targets, not results.
+
 ## 8. Industry comparison: compete at the seams
 
 NetSuite OneWorld describes multi-subsidiary, tax-jurisdiction and currency handling/consolidation. SAP S/4HANA localization covers local statutory/tax/payment reporting and parallel accounting. Xero markets multi-currency transaction capture, FX tracking and reporting. These are established ERP capabilities. [NetSuite OneWorld](https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_N266701.html) · [SAP localization](https://learning.sap.com/courses/configuring-sap-s4hana-cloud-public-edition-with-sap-central-business-configuration/defining-localizations-and-scope_b21b44bb-a7eb-418e-8c64-da171b2a4f18) · [Xero multi-currency](https://www.xero.com/za/accounting-software/use-multiple-currencies/)
