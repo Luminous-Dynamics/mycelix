@@ -25,6 +25,214 @@ interface SignalSubscription {
   zomeFilter?: string[];
 }
 
+type SignalRecord = Record<string, unknown>;
+
+const isSignalRecord = (value: unknown): value is SignalRecord =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const hasExactKeys = (value: SignalRecord, expected: readonly string[]): boolean => {
+  const actual = Object.keys(value);
+  return actual.length === expected.length &&
+    expected.every((key) => Object.prototype.hasOwnProperty.call(value, key));
+};
+
+const isBoundedString = (value: unknown, maxBytes = 1024): value is string =>
+  typeof value === 'string' && value.trim().length > 0 &&
+  new TextEncoder().encode(value).length <= maxBytes;
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const isSafeInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value);
+
+const isNonNegativeInteger = (value: unknown): value is number =>
+  isSafeInteger(value) && value >= 0;
+
+const isTimestamp = (value: unknown): value is number => isSafeInteger(value);
+
+const isHashBytes = (value: unknown): value is Uint8Array =>
+  value instanceof Uint8Array && value.byteLength === 39;
+
+const isByteVector = (value: unknown, minLength = 0, maxLength = 1_048_576): value is Uint8Array =>
+  value instanceof Uint8Array && value.byteLength >= minLength && value.byteLength <= maxLength;
+
+const isHashArray = (value: unknown, maxItems = 4096): value is Uint8Array[] =>
+  Array.isArray(value) && value.length <= maxItems && value.every(isHashBytes);
+
+const isBoundedHashArray = (value: unknown, maxItems = 4096): value is Uint8Array[] =>
+  Array.isArray(value) && value.length > 0 && value.length <= maxItems && value.every(isHashBytes);
+
+const isUnitEnum = (value: unknown, variants: readonly string[]): boolean =>
+  typeof value === 'string' && variants.includes(value);
+
+const isExternallyTaggedStringEnum = (
+  value: unknown,
+  variants: readonly string[],
+  customVariant: string
+): boolean => {
+  if (isUnitEnum(value, variants)) return true;
+  if (!isSignalRecord(value) || !hasExactKeys(value, [customVariant])) return false;
+  return isBoundedString(value[customVariant], 256);
+};
+
+const isConflictResolution = (value: unknown): boolean => {
+  if (isUnitEnum(value, ['Pending', 'Merged', 'BothKept'])) return true;
+  if (!isSignalRecord(value) || Object.keys(value).length !== 1) return false;
+  if (hasExactKeys(value, ['AutoResolved'])) {
+    const item = value.AutoResolved;
+    return isSignalRecord(item) && hasExactKeys(item, ['strategy']) &&
+      isBoundedString(item.strategy, 256);
+  }
+  if (hasExactKeys(value, ['LastWriterWins'])) {
+    const item = value.LastWriterWins;
+    return isSignalRecord(item) && hasExactKeys(item, ['winner']) && isHashBytes(item.winner);
+  }
+  if (hasExactKeys(value, ['ManualResolution'])) {
+    const item = value.ManualResolution;
+    return isSignalRecord(item) && hasExactKeys(item, ['resolver']) && isHashBytes(item.resolver);
+  }
+  return false;
+};
+
+const isNetworkType = (value: unknown): boolean => {
+  if (isUnitEnum(value, [
+    'HolochainNative', 'SmtpBridge', 'MatrixBridge', 'ActivityPubBridge',
+    'XmppBridge', 'OrganizationPrivate', 'PublicOpen'
+  ])) return true;
+  if (!isSignalRecord(value) || !hasExactKeys(value, ['CustomBridge'])) return false;
+  const item = value.CustomBridge;
+  return isSignalRecord(item) && hasExactKeys(item, ['protocol']) &&
+    isBoundedString(item.protocol, 128);
+};
+
+const isSyncOperationType = (value: unknown): boolean =>
+  isExternallyTaggedStringEnum(value, [
+    'EmailReceived', 'EmailRead', 'EmailDeleted', 'EmailMoved', 'EmailFlagged',
+    'EmailLabeled', 'FolderCreated', 'FolderRenamed', 'FolderDeleted',
+    'FolderMoved', 'DraftCreated', 'DraftUpdated', 'DraftDeleted', 'DraftSent',
+    'SettingChanged', 'FilterCreated', 'FilterUpdated', 'FilterDeleted',
+    'TrustAttestationCreated', 'TrustAttestationRevoked',
+    'ContactCreated', 'ContactUpdated', 'ContactDeleted'
+  ], 'Custom');
+
+const isVectorClock = (value: unknown): boolean => {
+  if (!isSignalRecord(value) || !hasExactKeys(value, ['clocks'])) return false;
+  const clocks = value.clocks;
+  return Array.isArray(clocks) && clocks.length <= 4096 &&
+    clocks.every((item) =>
+      Array.isArray(item) && item.length === 2 &&
+      isHashBytes(item[0]) && isNonNegativeInteger(item[1])
+    );
+};
+
+const isEmailStateUpdate = (value: unknown): boolean => {
+  if (!isSignalRecord(value)) return false;
+  const fields = ['is_read', 'is_starred', 'is_archived', 'is_trashed', 'folders'];
+  return hasExactKeys(value, fields) &&
+    ['is_read', 'is_starred', 'is_archived', 'is_trashed'].every(
+      (field) => value[field] === null || typeof value[field] === 'boolean'
+    ) &&
+    (value.folders === null || isHashArray(value.folders));
+};
+
+/**
+ * Runtime validation for the fully decoded adjacent-tag signal payload.
+ * Rust newtypes/aliases remain typed Uint8Array/number at the JS boundary;
+ * JSON Schema separately documents their portable JSON projection.
+ */
+function validateSignalData(type: string, data: SignalRecord): boolean {
+  switch (type) {
+    case 'EmailReceived':
+      return isHashBytes(data.email_hash) && isHashBytes(data.sender) &&
+        isByteVector(data.encrypted_subject, 1, 65_536) &&
+        isTimestamp(data.timestamp) &&
+        isUnitEnum(data.priority, ['Low', 'Normal', 'High', 'Urgent']);
+    case 'DeliveryConfirmed':
+      return isHashBytes(data.email_hash) && isHashBytes(data.recipient) &&
+        isTimestamp(data.delivered_at);
+    case 'ReadReceiptReceived':
+      return isHashBytes(data.email_hash) && isHashBytes(data.reader) &&
+        isTimestamp(data.read_at);
+    case 'EmailStateChanged':
+      return isHashBytes(data.email_hash) && isEmailStateUpdate(data.state);
+    case 'ThreadActivity':
+      return isBoundedString(data.thread_id, 256) &&
+        isHashBytes(data.email_hash) && isHashBytes(data.sender);
+    case 'DraftSaved':
+      return isHashBytes(data.draft_hash);
+    case 'ScheduledEmailSent':
+      return isHashBytes(data.email_hash) && isBoundedHashArray(data.recipients);
+    case 'TypingIndicator':
+      return isHashBytes(data.sender) &&
+        (data.thread_id === null || isBoundedString(data.thread_id, 256));
+
+    case 'AttestationReceived':
+      return isHashBytes(data.attestation_hash) && isHashBytes(data.truster) &&
+        isFiniteNumber(data.trust_level) && data.trust_level >= -1 && data.trust_level <= 1 &&
+        isExternallyTaggedStringEnum(data.category, [
+          'Identity', 'Communication', 'FileSharing', 'Scheduling', 'Financial',
+          'CredentialIssuer', 'Organization', 'Personal', 'Professional'
+        ], 'Custom');
+    case 'TrustScoreUpdated':
+      return isHashBytes(data.agent) && isFiniteNumber(data.new_score) &&
+        data.new_score >= 0 && data.new_score <= 1 &&
+        isFiniteNumber(data.confidence) && data.confidence >= 0 && data.confidence <= 1;
+    case 'IntroductionReceived':
+      return isHashBytes(data.introduction_hash) && isHashBytes(data.introducer) &&
+        isHashBytes(data.introduced) && isFiniteNumber(data.recommendation);
+    case 'DisputeFiled':
+      return isHashBytes(data.dispute_hash) && isHashBytes(data.attestation_hash) &&
+        isHashBytes(data.disputer);
+    case 'ByzantineDetected':
+      return isHashBytes(data.agent) &&
+        isUnitEnum(data.flag_type, [
+          'SybilSuspicion', 'CollusionPattern', 'TrustVolatility',
+          'InconsistentAttestations', 'SelfDealing', 'AttestationFarming'
+        ]) &&
+        isFiniteNumber(data.severity) && data.severity >= 0 && data.severity <= 1;
+
+    case 'SyncStateChanged':
+      return isVectorClock(data.vector_clock) && isNonNegativeInteger(data.pending_ops);
+    case 'OperationReceived':
+      return isBoundedString(data.op_id, 256) && isSyncOperationType(data.op_type) &&
+        isHashBytes(data.from_agent);
+    case 'ConflictDetected':
+      return isBoundedString(data.conflict_id, 256) &&
+        isUnitEnum(data.conflict_type, [
+          'ConcurrentEdit', 'DeleteUpdate', 'ConcurrentMove',
+          'CausalityViolation', 'VersionMismatch'
+        ]);
+    case 'ConflictResolved':
+      return isBoundedString(data.conflict_id, 256) && isConflictResolution(data.resolution);
+    case 'Online':
+    case 'Offline':
+      return hasExactKeys(data, []);
+    case 'SyncProgress':
+      return isNonNegativeInteger(data.synced) && isNonNegativeInteger(data.total) &&
+        data.synced <= data.total && isHashBytes(data.peer);
+    case 'SyncComplete':
+      return isHashBytes(data.peer) && isNonNegativeInteger(data.ops_synced);
+
+    case 'NetworkDiscovered':
+      return isBoundedString(data.network_id, 256) && isNetworkType(data.network_type);
+    case 'EnvelopeReceived':
+      return isBoundedString(data.envelope_id, 256) && isBoundedString(data.from_network, 256);
+    case 'EnvelopeDelivered':
+      return isBoundedString(data.envelope_id, 256) && isBoundedString(data.to_network, 256);
+    case 'DeliveryFailed':
+      return isBoundedString(data.envelope_id, 256) && isBoundedString(data.error, 4096);
+    case 'BridgeStatusChanged':
+      return isHashBytes(data.bridge_agent) && typeof data.is_active === 'boolean';
+    case 'RouteChanged':
+      return isBoundedString(data.route_id, 256) && typeof data.is_active === 'boolean';
+    case 'PeerStatusChanged':
+      return isBoundedString(data.network_id, 256) && typeof data.is_reachable === 'boolean';
+    default:
+      return false;
+  }
+}
+
 export class SignalHub {
   private subscriptions: Map<string, SignalSubscription> = new Map();
   private messageHandlers: Set<SignalHandler<MessageSignal>> = new Set();
@@ -127,37 +335,7 @@ export class SignalHub {
       return null;
     }
 
-    if (type === 'EmailStateChanged') {
-      const state = data.state as unknown;
-      if (!state || typeof state !== 'object' || Array.isArray(state)) return null;
-      const stateFields = ['is_read', 'is_starred', 'is_archived', 'is_trashed', 'folders'];
-      const stateRecord = state as Record<string, unknown>;
-      if (
-        Object.keys(stateRecord).length !== stateFields.length ||
-        !stateFields.every((field) => Object.prototype.hasOwnProperty.call(stateRecord, field)) ||
-        !['is_read', 'is_starred', 'is_archived', 'is_trashed'].every(
-          (field) => stateRecord[field] === null || typeof stateRecord[field] === 'boolean'
-        ) ||
-        !(stateRecord.folders === null || Array.isArray(stateRecord.folders))
-      ) {
-        return null;
-      }
-    }
-
-    const numericFields: Record<string, readonly string[]> = {
-      TrustScoreUpdated: ['new_score', 'confidence'],
-      AttestationReceived: ['trust_level'],
-      IntroductionReceived: ['recommendation'],
-      ByzantineDetected: ['severity'],
-      SyncStateChanged: ['pending_ops'],
-      SyncProgress: ['synced', 'total'],
-      SyncComplete: ['ops_synced'],
-    };
-    for (const field of numericFields[type] ?? []) {
-      if (typeof data[field] !== 'number' || !Number.isFinite(data[field] as number)) {
-        return null;
-      }
-    }
+    if (!validateSignalData(type, data)) return null;
 
     // Normalize the validated Rust type/data v1 envelope to the flat union
     // used by current consumers. The outer discriminator always wins.
