@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "trace_id": "pulse-multiconductor-safe-001",
   "evidence_class": "synthetic",
   "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -10,7 +10,8 @@
       "conductor_build": "holochain-0.7.0",
       "dna_hash": "uhCkk-dna-mail",
       "cell_id": "mail-cell",
-      "role": "grant_owner"
+      "role": "grant_owner",
+      "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
     {
       "conductor_id": "caller-host",
@@ -18,7 +19,8 @@
       "conductor_build": "holochain-0.7.0",
       "dna_hash": "uhCkk-dna-mail",
       "cell_id": "mail-cell",
-      "role": "caller"
+      "role": "caller",
+      "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
     {
       "conductor_id": "validator-host",
@@ -26,7 +28,8 @@
       "conductor_build": "holochain-0.7.0",
       "dna_hash": "uhCkk-dna-mail",
       "cell_id": "mail-cell",
-      "role": "validator"
+      "role": "validator",
+      "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
     {
       "conductor_id": "observer-host",
@@ -34,7 +37,8 @@
       "conductor_build": "holochain-0.7.0",
       "dna_hash": "uhCkk-dna-mail",
       "cell_id": "mail-cell",
-      "role": "observer"
+      "role": "observer",
+      "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     }
   ],
   "events": [
@@ -180,7 +184,8 @@
       "data": {
         "action_hash": "uhCkk-mailbox-forged",
         "author": "agent-caller",
-        "entry_type": "SharedMailbox"
+        "entry_type": "SharedMailbox",
+        "payload_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       }
     },
     {
@@ -195,8 +200,8 @@
         "author_conductor_id": "caller-host",
         "receiving_conductor_id": "validator-host",
         "disposition": "rejected",
-        "validator_build": "integrity-wasm-0.7.0",
-        "reason_code": "owner_only_transition"
+        "reason_code": "owner_only_transition",
+        "validator_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       }
     },
     {
@@ -242,7 +247,9 @@
         "verified_payload_sha256": null,
         "verifier_build": null,
         "trusted_state_mutation": false,
-        "authorizes_operation": false
+        "authorizes_operation": false,
+        "backing_author_conductor_id": null,
+        "backing_validator_event_id": null
       }
     }
   ],
