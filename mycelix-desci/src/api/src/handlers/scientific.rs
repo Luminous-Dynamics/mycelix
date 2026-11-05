@@ -311,6 +311,7 @@ fn valid_committed_receipt_chain(
             || event.envelope.event_id != receipt.event_id
             || event.envelope.stream_id != receipt.stream_id
             || event.event_hash().ok() != Some(receipt.event_hash)
+            || receipt.validate_for_event(event).is_err()
         {
             return false;
         }
