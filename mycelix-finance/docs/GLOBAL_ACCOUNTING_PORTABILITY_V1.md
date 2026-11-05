@@ -89,7 +89,7 @@ Locale and timezone behavior also depends on versioned data. Unicode CLDR 49 (pu
 
 ## 6. Public development corpus v1.0.0
 
-The candidate input and evaluator oracle are separate. Twenty-two synthetic cases cover multi-axis jurisdiction context, missing context, framework/tax separation, IFRS for SMEs edition/eligibility, currency/FX, timezone/DST, locale parsing, UBL/EN 16931 versus CIUS, transport versus authenticity/delivery/settlement, identity namespaces, XBRL extension loss, bitemporal revisions, partial qualification, framework conversion, missing source bytes, Arabic-Indic numbering, Unicode-normalized names without shared identifiers, unpinned non-Gregorian calendar data and time-zone database version drift.
+The candidate input and evaluator oracle are separate. Thirty-four synthetic cases cover multi-axis jurisdiction context, missing context, framework/tax separation, IFRS for SMEs edition/eligibility, currency/FX, timezone/DST, locale parsing, UBL/EN 16931 versus CIUS, transport versus authenticity/delivery/settlement, identity namespaces, XBRL extension loss, bitemporal revisions, partial qualification, framework conversion, missing source bytes, Arabic-Indic numbering, Unicode-normalized names without shared identifiers, unpinned non-Gregorian calendar data and time-zone database version drift.
 
 All synthetic jurisdiction, currency, tax and framework aliases are non-legal. No tax rate, filing rule, national accounting treatment or legal conclusion is encoded. The IFRS for SMEs date is a sourced reference fact, not an executable accounting rule.
 
