@@ -281,12 +281,10 @@
           "type": "array",
           "maxItems": 3,
           "uniqueItems": true,
-          "description": "Explicit, narrowly scoped policy opt-in for non-human principals in these roles; omitted means none.",
+          "description": "Explicit opt-in for non-human performance/preparation only. Reviewer and approver roles remain human-only.",
           "items": {
             "enum": [
-              "performer",
-              "reviewer",
-              "approver"
+              "performer"
             ]
           }
         }
@@ -414,6 +412,10 @@
         "agent_build_digest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "system_build_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       },
       "allOf": [
@@ -431,6 +433,23 @@
           "then": {
             "required": [
               "agent_build_digest"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "actor_kind": {
+                "const": "system"
+              }
+            },
+            "required": [
+              "actor_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "system_build_digest"
             ]
           }
         }
