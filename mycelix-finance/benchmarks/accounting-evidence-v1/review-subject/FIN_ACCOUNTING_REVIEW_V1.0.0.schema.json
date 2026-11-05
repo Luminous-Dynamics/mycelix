@@ -276,6 +276,19 @@
               }
             }
           }
+        },
+        "non_human_eligible_roles": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "description": "Explicit, narrowly scoped policy opt-in for non-human principals in these roles; omitted means none.",
+          "items": {
+            "enum": [
+              "performer",
+              "reviewer",
+              "approver"
+            ]
+          }
         }
       }
     },
@@ -296,7 +309,8 @@
         "authority_frontier_digest",
         "identity_evidence_ref",
         "authority_evidence_ref",
-        "recorded_at_unix_ms"
+        "recorded_at_unix_ms",
+        "actor_kind"
       ],
       "properties": {
         "event_id": {
@@ -389,8 +403,38 @@
           "minLength": 1,
           "maxLength": 512,
           "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        "actor_kind": {
+          "enum": [
+            "human",
+            "agent",
+            "system"
+          ]
+        },
+        "agent_build_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "actor_kind": {
+                "const": "agent"
+              }
+            },
+            "required": [
+              "actor_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "agent_build_digest"
+            ]
+          }
+        }
+      ]
     }
   }
 }
