@@ -126,6 +126,7 @@ fn validate_semantics(input: &Value, input_bytes: &[u8], schema_bytes: &[u8]) ->
     let dag_version = string(input, "dag_version").unwrap_or_default();
     validate_workpaper_commitments(&node_map, &mut errors);
     validate_parent_inputs(&node_map, &parents, dag_version, &mut errors);
+    validate_required_frontier_bindings(&node_map, input, &mut errors);
     validate_node_authority(&node_map, &mut errors);
     validate_recipes(&node_map, &mut errors);
     validate_numeric_values(&node_map, &mut errors);
@@ -708,6 +709,105 @@ fn validate_numeric_values(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSe
     }
 }
 
+fn required_frontier_keys(node_kind: &str) -> &'static [&'static str] {
+    match node_kind {
+        "source_inventory" => &["source_scope_manifest", "knowledge_frontier"],
+        "evidence_population_qualification" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "knowledge_frontier",
+            "validator_build",
+        ],
+        "assertion_workpaper" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "knowledge_frontier",
+        ],
+        "reconciliation_workpaper" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "account_taxonomy",
+            "knowledge_frontier",
+        ],
+        "accounting_projection_candidate" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "policy_snapshot",
+            "account_taxonomy",
+            "knowledge_frontier",
+        ],
+        "journal_projection" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "policy_snapshot",
+            "account_taxonomy",
+            "authority_frontier",
+            "knowledge_frontier",
+            "validator_build",
+        ],
+        "trial_balance_reconstruction" | "financial_statement_projection" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "policy_snapshot",
+            "account_taxonomy",
+            "authority_frontier",
+            "knowledge_frontier",
+            "validator_build",
+        ],
+        "independent_verification" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "policy_snapshot",
+            "account_taxonomy",
+            "authority_frontier",
+            "knowledge_frontier",
+            "validator_build",
+        ],
+        "taxonomy_validation" => &[
+            "source_scope_manifest",
+            "policy_snapshot",
+            "account_taxonomy",
+            "authority_frontier",
+            "knowledge_frontier",
+            "validator_build",
+        ],
+        "human_review" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "authority_frontier",
+            "knowledge_frontier",
+        ],
+        "close_readiness" => &[
+            "source_scope_manifest",
+            "evidence_frontier",
+            "policy_snapshot",
+            "account_taxonomy",
+            "authority_frontier",
+            "knowledge_frontier",
+            "validator_build",
+        ],
+        _ => &[],
+    }
+}
+
+fn validate_required_frontier_bindings(
+    nodes: &BTreeMap<String, Value>,
+    input: &Value,
+    errors: &mut BTreeSet<String>,
+) {
+    for (id, node) in nodes {
+        let kind = string(node, "node_kind").unwrap_or_default();
+        for key in required_frontier_keys(kind) {
+            if node["frontier_bindings"].get(*key).is_none() {
+                errors.insert(format!("required_frontier_binding_missing:{id}:{key}"));
+            }
+            if input["frontiers"].get(*key).is_none() {
+                errors.insert(format!("required_dag_frontier_missing:{id}:{key}"));
+            }
+        }
+    }
+}
+
 fn stale_frontier_closure(
     input: &Value,
     nodes: &BTreeMap<String, Value>,
@@ -717,8 +817,12 @@ fn stale_frontier_closure(
     let dag_frontiers = &input["frontiers"];
     for (id, node) in nodes {
         let bindings = &node["frontier_bindings"];
+        let required = required_frontier_keys(string(node, "node_kind").unwrap_or_default());
         for key in FRONTIER_KEYS {
             let Some(bound) = bindings.get(*key) else {
+                if required.contains(key) {
+                    direct.insert(id.clone());
+                }
                 continue;
             };
             let Some(current) = dag_frontiers.get(*key) else {
@@ -1303,4 +1407,38 @@ mod tests {
         );
         assert!(errors(&report).contains("completed_child_has_nonterminal_parent"));
     }
+    #[test]
+    fn current_policy_frontier_change_stales_parent_and_transitive_child_only() {
+        let mut value = fixture();
+        value["nodes"].as_array_mut().unwrap().retain(|node| {
+            node["node_id"] != "entity-quarantine-guard"
+        });
+        value["nodes"][0]["frontier_bindings"]["policy_snapshot"] =
+            value["frontiers"]["policy_snapshot"].clone();
+        value["frontiers"]["policy_snapshot"]["ref_id"] = json!("SYNTHETIC-ACCRUAL-POLICY-V2");
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json")
+        );
+        assert_eq!(report["directly_stale_nodes"], json!(["source-match-001"]));
+        assert_eq!(
+            report["transitively_stale_nodes"],
+            json!(["bank-observation-001"])
+        );
+    }
+
+    #[test]
+    fn independent_verifier_must_bind_validator_build_frontier() {
+        let mut value = fixture();
+        value["nodes"][2]["frontier_bindings"]
+            .as_object_mut()
+            .unwrap()
+            .remove("validator_build");
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json")
+        );
+        assert!(errors(&report).contains("required_frontier_binding_missing:entity-quarantine-guard:validator_build"));
+    }
+
 }
