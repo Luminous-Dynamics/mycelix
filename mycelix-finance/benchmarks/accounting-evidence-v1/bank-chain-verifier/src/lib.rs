@@ -236,11 +236,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     for artifact in artifacts {
         let message_id = string(artifact, "message_id").ok_or_else(|| "artifact missing message_id".to_owned())?;
         let digest = string(artifact, "fixture_digest_token").ok_or_else(|| "artifact missing fixture_digest_token".to_owned())?;
-        if let Some(prior) = message_digest.insert(message_id.to_owned(), digest.to_owned()) {
-            if prior != digest {
-                findings.insert("revision_conflict".to_owned());
-                reasons.insert("same_message_identity_changed_payload".to_owned());
-            }
+        if let Some(prior) = message_digest.insert(message_id.to_owned(), digest.to_owned())
+            && prior != digest
+        {
+            findings.insert("revision_conflict".to_owned());
+            reasons.insert("same_message_identity_changed_payload".to_owned());
         }
     }
 
@@ -344,11 +344,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
         if let Some(scope) = expected_scope.iter().find(|scope| {
             string(scope, "period_id") == string(statement, "period_id")
-        }) {
-            if string(statement, "cutoff_profile_ref") != string(scope, "cutoff_profile_ref") {
-                findings.insert("profile_unsupported".to_owned());
-                reasons.insert("incompatible_cutoff_semantics".to_owned());
-            }
+        }) && string(statement, "cutoff_profile_ref") != string(scope, "cutoff_profile_ref")
+        {
+            findings.insert("profile_unsupported".to_owned());
+            reasons.insert("incompatible_cutoff_semantics".to_owned());
         }
     }
     for scope in expected_scope.iter().filter(|scope| scope.get("required").and_then(Value::as_bool) == Some(true)) {
