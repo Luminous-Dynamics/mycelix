@@ -5,17 +5,19 @@
 //! lookup, payment dispatch, settlement or finality.
 
 use jsonschema::draft202012;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
-const CORPUS: &str =
-    include_str!("../../../../mycelix-finance/docs/payment-prevalidation-certificate-corpus-v1.json");
-const SCHEMA: &str =
-    include_str!("../../../../mycelix-finance/docs/payment-prevalidation-certificate-v1.schema.json");
+const CORPUS: &str = include_str!(
+    "../../../../mycelix-finance/docs/payment-prevalidation-certificate-corpus-v1.json"
+);
+const SCHEMA: &str = include_str!(
+    "../../../../mycelix-finance/docs/payment-prevalidation-certificate-v1.schema.json"
+);
 
 const PRESENTATION_DOMAIN: &str = "MYCELIX-PAYER-PRESENTATION-V1";
 const EVIDENCE_SET_DOMAIN: &str = "MYCELIX-EVIDENCE-SET-V1";
@@ -105,8 +107,7 @@ fn admission(
             "disposition": disposition,
             "reason": reason
         });
-        let certificate_digest =
-            digest_domain(CERTIFICATE_DOMAIN, &payload).unwrap_or_default();
+        let certificate_digest = digest_domain(CERTIFICATE_DOMAIN, &payload).unwrap_or_default();
         CaseDecision {
             admission: state,
             disposition,
@@ -150,13 +151,7 @@ fn admission(
         );
     }
 
-    evaluate_bound_case(
-        scenario,
-        profile,
-        source_ids,
-        required_fields,
-        decide,
-    )
+    evaluate_bound_case(scenario, profile, source_ids, required_fields, decide)
 }
 
 fn evaluate_bound_case<F>(
@@ -207,7 +202,10 @@ where
 
     if !source_exists(source_ids, &profile["limit_fee_source_ref"])
         || !arr_at(profile, "source_refs").is_some_and(|refs| {
-            !refs.is_empty() && refs.iter().all(|reference| source_exists(source_ids, reference))
+            !refs.is_empty()
+                && refs
+                    .iter()
+                    .all(|reference| source_exists(source_ids, reference))
         })
         || !source_exists(source_ids, &payee["source_ref"])
         || !source_exists(source_ids, &limit["source_ref"])
