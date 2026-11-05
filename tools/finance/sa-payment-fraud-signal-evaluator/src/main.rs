@@ -69,7 +69,7 @@ fn utc_epoch_seconds(value: &str) -> Option<i64> {
 
     // All fixture timestamps are canonical UTC seconds ending in Z. Reject
     // offsets/fractions so lexical source fields cannot create clock ambiguity.
-    let adjusted_year = year - i64::from(month <= 2);
+    let adjusted_year = year - if month <= 2 { 1 } else { 0 };
     let era = adjusted_year.div_euclid(400);
     let year_of_era = adjusted_year - era * 400;
     let adjusted_month = month + if month > 2 { -3 } else { 9 };
@@ -654,10 +654,10 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |v| {
-            v["scenarios"][0]["signal"]["assertion"]["status"] = json!("official_determination");
-            v["scenarios"][0]["signal"]["assertion"]["evidence_class"] =
+            v["scenarios"][22]["signal"]["assertion"]["status"] = json!("official_determination");
+            v["scenarios"][22]["signal"]["assertion"]["evidence_class"] =
                 json!("model_derived_indicator");
-            v["scenarios"][0]["signal"]["assertion"]["determining_authority_ref"] = json!("MODEL");
+            v["scenarios"][22]["signal"]["assertion"]["determining_authority_ref"] = json!("MODEL");
         },
     )?;
     count += 1;
@@ -878,14 +878,63 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 8);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 6);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 36);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 42);
     }
 
     #[test]
     fn deterministic_negative_mutations_reject_unsafe_admission() {
         let corpus: Value = serde_json::from_str(CORPUS_DEFAULT).expect("corpus");
         let schema: Value = serde_json::from_str(SCHEMA_DEFAULT).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 22);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 30);
+    }
+
+    #[test]
+    fn profile_bound_issuer_and_assertion_status_are_distinct() {
+        let corpus: Value = serde_json::from_str(CORPUS_DEFAULT).expect("corpus");
+        let private = &corpus["scenarios"][40];
+        let private_profile = corpus["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|profile| {
+                str_at(profile, "profile_id")
+                    == str_at(&private["signal"], "profile_id")
+            })
+            .expect("private profile");
+        assert_eq!(
+            decision(&private["signal"], &private["query"], private_profile),
+            ("reject", "assertion_status_not_permitted_by_profile")
+        );
+
+        let regulator = &corpus["scenarios"][41];
+        let regulator_profile = corpus["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|profile| {
+                str_at(profile, "profile_id")
+                    == str_at(&regulator["signal"], "profile_id")
+            })
+            .expect("regulator profile");
+        assert_eq!(
+            decision(
+                &regulator["signal"],
+                &regulator["query"],
+                regulator_profile
+            ),
+            ("admit_advisory", "regulator_statutory_scope_fixture")
+        );
+    }
+
+    #[test]
+    fn event_time_parser_rejects_future_and_non_utc_values() {
+        let observed = utc_epoch_seconds("2026-11-04T08:00:00Z").expect("UTC seconds");
+        let recorded = utc_epoch_seconds("2026-11-04T08:01:00Z").expect("UTC seconds");
+        let evaluated = utc_epoch_seconds("2026-11-05T08:00:00Z").expect("UTC seconds");
+        assert!(observed < recorded && recorded < evaluated);
+        assert!(utc_epoch_seconds("2026-11-06T08:00:00Z").unwrap() > evaluated);
+        assert!(utc_epoch_seconds("2026-11-04T08:00:00+02:00").is_none());
+        assert!(utc_epoch_seconds("2026-02-29T08:00:00Z").is_none());
     }
 
     #[test]
