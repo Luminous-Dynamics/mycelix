@@ -50,7 +50,7 @@ cargo clippy --locked --all-targets -- -D warnings
 
 The validator checks Draft 2020-12 schemas, exact actor/asset/purpose/profile/mechanism/flow references, location-scope references, actor-role conflict links, retention/legal-hold invariants and the declared synthetic claim ceiling. It does not decide whether a transfer is legally permitted.
 
-## Synthetic claim ceiling
+## Decision semantics and adversarial controls\n\nReason precedence is stable: actor/authority conflict; active legal hold; used unreviewed/disputed purpose; unknown support-access location; unqualified UK regime profile; incomplete onward-destination mechanism coverage; unqualified onward destination; accounting-only profile; foreign support access; foreign processor location. The priority affects only the primary reason; all detected reason codes remain in the report. Missing support location and accounting-only transfer context are `indeterminate`, not assumed local or treated as legal violations. A local-only negative control is included in the evaluator tests.\n\n## Synthetic claim ceiling
 
 All actors, jurisdiction scopes, data assets, fields, purposes, mechanism references, evidence identifiers and profiles are synthetic. No legal basis, adequacy finding, transfer permission, POPIA/GDPR compliance, anonymity, data residency, production security or deletion authority is established. Passing the package would prove only handling of these declared synthetic context structures.
 
