@@ -460,8 +460,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][2]["signal"]["events"][1]["source_status_effect"] =
-                json!("unchanged");
+            value["scenarios"][2]["signal"]["source_status"] = json!("confirmed");
         },
     )?;
     count += 1;
