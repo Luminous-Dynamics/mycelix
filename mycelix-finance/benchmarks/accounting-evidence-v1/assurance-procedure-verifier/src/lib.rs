@@ -255,7 +255,7 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             let evidence_id = evidence_ref.as_str().ok_or_else(|| "evidence_refs must contain strings".to_owned())?;
             let item = evidence.iter().find(|item| string(item, "evidence_id") == Some(evidence_id));
             let item = match item {
-                Some(item) => *item,
+                Some(item) => item,
                 None => {
                     evidence_valid = false;
                     reasons.insert("evidence_reference_missing".to_owned());
