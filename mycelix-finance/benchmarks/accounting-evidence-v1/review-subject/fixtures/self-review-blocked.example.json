@@ -21,7 +21,7 @@
     "accounting_profile_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     "accounting_policy_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
     "review_policy_ref": "review-policy:material-close-v1",
-    "review_policy_digest": "095f23726406779e0058a5886103268e7aab64383158969ab74673ccac75127f",
+    "review_policy_digest": "b5fa0110374ec0a98c66310e670f4f5f457637da230e4ea9f1ece29b0e8bd23c",
     "knowledge_frontier_digest": "1111111111111111111111111111111111111111111111111111111111111111",
     "authority_frontier_digest": "2222222222222222222222222222222222222222222222222222222222222222",
     "prepared_by": {
@@ -65,38 +65,38 @@
   },
   "review_events": [
     {
-      "subject_digest": "1b16bc6c727223ba54a6c1e91ce60dd109c17718148d9c6fb247b50b80225758",
-      "policy_digest": "095f23726406779e0058a5886103268e7aab64383158969ab74673ccac75127f",
+      "subject_digest": "60828559f3223b3f864c7d221bf41a8b37b54d2faddd08c5822c81ccd7c0c6d4",
+      "policy_digest": "b5fa0110374ec0a98c66310e670f4f5f457637da230e4ea9f1ece29b0e8bd23c",
       "reporting_entity_ref": "entity:synthetic-za-001",
       "reporting_period": "2026-10",
       "assertion_pair_ids": [
-        "risk:ap:assertion:completeness",
-        "risk:ap:assertion:existence"
+        "risk:ap-completeness:assertion:completeness",
+        "risk:ap-existence:assertion:existence"
       ],
-      "procedure_ref": "procedure:ap-reconciliation:v1",
+      "procedure_ref": "procedure:ap-subledger-to-invoice-reconciliation:v2",
       "authority_frontier_digest": "2222222222222222222222222222222222222222222222222222222222222222",
       "identity_evidence_ref": "identity-evidence:synthetic",
       "authority_evidence_ref": "authority-evidence:synthetic",
-      "recorded_at_unix_ms": 2000,
+      "recorded_at_unix_ms": 1793400001000,
       "event_id": "review-event:reviewer-1",
       "role": "reviewer",
-      "principal_ref": "principal:preparer",
+      "principal_ref": "principal:synthetic-preparer-01",
       "decision": "reviewed"
     },
     {
-      "subject_digest": "1b16bc6c727223ba54a6c1e91ce60dd109c17718148d9c6fb247b50b80225758",
-      "policy_digest": "095f23726406779e0058a5886103268e7aab64383158969ab74673ccac75127f",
+      "subject_digest": "60828559f3223b3f864c7d221bf41a8b37b54d2faddd08c5822c81ccd7c0c6d4",
+      "policy_digest": "b5fa0110374ec0a98c66310e670f4f5f457637da230e4ea9f1ece29b0e8bd23c",
       "reporting_entity_ref": "entity:synthetic-za-001",
       "reporting_period": "2026-10",
       "assertion_pair_ids": [
-        "risk:ap:assertion:completeness",
-        "risk:ap:assertion:existence"
+        "risk:ap-completeness:assertion:completeness",
+        "risk:ap-existence:assertion:existence"
       ],
-      "procedure_ref": "procedure:ap-reconciliation:v1",
+      "procedure_ref": "procedure:ap-subledger-to-invoice-reconciliation:v2",
       "authority_frontier_digest": "2222222222222222222222222222222222222222222222222222222222222222",
       "identity_evidence_ref": "identity-evidence:synthetic",
       "authority_evidence_ref": "authority-evidence:synthetic",
-      "recorded_at_unix_ms": 2000,
+      "recorded_at_unix_ms": 1793400001000,
       "event_id": "review-event:approver-1",
       "role": "approver",
       "principal_ref": "principal:approver",
