@@ -445,8 +445,8 @@ fn audit(history:&History,input_sha256:String)->Report {
                     continue;
                 };
                 if author_conductor.agent_key_ref != record_author.unwrap()
-                    || observer.is_none_or(|o| o.dna_hash != author_conductor.dna_hash || o.cell_id != author_conductor.cell_id) {
-                    finding(&mut findings, "VERIFIED_SIGNAL_AUTHOR_LINEAGE_MISMATCH", "violation", Some(&e.event_id), "backing author identity and observer must share exact DNA/cell lineage");
+                    || observer.is_none_or(|o| o.dna_hash != author_conductor.dna_hash) {
+                    finding(&mut findings, "VERIFIED_SIGNAL_AUTHOR_LINEAGE_MISMATCH", "violation", Some(&e.event_id), "backing author and observer must share the same DNA network; their CellIds are agent-specific");
                 }
 
                 let authored_key = (author_conductor_id.unwrap().to_string(), backing_hash.unwrap().to_string());
@@ -471,13 +471,12 @@ fn audit(history:&History,input_sha256:String)->Report {
                     && str_value(&validator_event.data, "disposition") == Some("accepted")
                     && validator_conductor.is_some_and(|v| v.role == "validator"
                         && v.dna_hash == author_conductor.dna_hash
-                        && v.cell_id == author_conductor.cell_id
                         && str_value(&validator_event.data, "validator_wasm_sha256") == Some(v.integrity_wasm_sha256.as_str()));
                 if !exact_validation {
                     if str_value(&validator_event.data, "disposition") == Some("rejected") {
                         finding(&mut findings, "REJECTED_RECORD_MARKED_VERIFIED", "violation", Some(&e.event_id), "a rejected source action cannot be promoted to verified_record");
                     } else {
-                        finding(&mut findings, "VERIFIED_SIGNAL_VALIDATOR_MISMATCH", "violation", Some(&e.event_id), "validator receipt must accept the exact action from the declared author and matching DNA/cell/WASM lineage");
+                        finding(&mut findings, "VERIFIED_SIGNAL_VALIDATOR_MISMATCH", "violation", Some(&e.event_id), "validator receipt must accept the exact action from the declared author and matching DNA/WASM lineage");
                     }
                 }
                 if !direct_relation(&history.causal_edges, &authored_event.event_id, &validator_event.event_id, "validator_receipt") {
@@ -610,8 +609,8 @@ fn audit(history:&History,input_sha256:String)->Report {
         let author_cell=conductors.get(author_conductor);
         let validator_cell=conductors.get(&e.conductor_id);
         if let (Some(author_cell),Some(validator_cell))=(author_cell,validator_cell) {
-            if author_cell.dna_hash!=validator_cell.dna_hash||author_cell.cell_id!=validator_cell.cell_id {
-                finding(&mut findings,"VALIDATION_CELL_LINEAGE_MISMATCH","violation",Some(&e.event_id),"receiving validator must belong to the same DNA/cell lineage as the authored action");
+            if author_cell.dna_hash!=validator_cell.dna_hash {
+                finding(&mut findings,"VALIDATION_CELL_LINEAGE_MISMATCH","violation",Some(&e.event_id),"receiving validator must belong to the same DNA network; its agent-specific CellId is expected to differ");
             }
         }
         if conductors.get(&e.conductor_id).is_none_or(|c|c.role!="validator") { finding(&mut findings,"VALIDATION_NON_VALIDATOR_CONDUCTOR","incomplete",Some(&e.event_id),"validation disposition must come from validator role"); }
@@ -637,7 +636,6 @@ fn audit(history:&History,input_sha256:String)->Report {
         let observer_cell=conductors.get(&e.conductor_id);
         let exact=action_hash==required_hash
             &&str_value(d,"required_dna_hash")==str_value(d,"observed_dna_hash")
-            &&str_value(d,"required_cell_id")==str_value(d,"observed_cell_id")
             &&str_value(d,"required_author")==str_value(d,"observed_author")
             &&str_value(d,"required_action_hash")==str_value(d,"observed_action_hash");
         let fresh=u64_value(d,"observed_epoch").unwrap_or(0)>=u64_value(d,"required_epoch").unwrap_or(u64::MAX);
@@ -655,7 +653,7 @@ fn audit(history:&History,input_sha256:String)->Report {
                 ||author_cell.cell_id!=str_value(d,"required_cell_id").unwrap_or_default()
                 ||author_cell.agent_key_ref!=str_value(d,"required_author").unwrap_or_default()
                 ||str_value(&source_event.data,"author")!=Some(author_cell.agent_key_ref.as_str()) {
-                finding(&mut findings,"PROJECTION_SOURCE_LINEAGE_MISMATCH","violation",Some(&e.event_id),"checkpoint DNA/cell/author does not match the exact authored source action");
+                finding(&mut findings,"PROJECTION_SOURCE_LINEAGE_MISMATCH","violation",Some(&e.event_id),"checkpoint DNA/author does not match the exact authored source action; author CellId is checked independently");
             }
         } else {
             finding(&mut findings,"PROJECTION_AUTHOR_CONDUCTOR_UNKNOWN","incomplete",Some(&e.event_id),"projection references an unknown authoring conductor");
@@ -663,7 +661,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         if let Some(observer_cell)=observer_cell {
             if observer_cell.dna_hash!=str_value(d,"observed_dna_hash").unwrap_or_default()
                 ||observer_cell.cell_id!=str_value(d,"observed_cell_id").unwrap_or_default() {
-                finding(&mut findings,"OBSERVER_CELL_MISMATCH","violation",Some(&e.event_id),"observer must report the DNA/cell identity it actually hosts");
+                finding(&mut findings,"OBSERVER_CELL_MISMATCH","violation",Some(&e.event_id),"observer must report its own agent-specific CellId and the exact DNA network it hosts");
             }
         }
         if decision=="trusted"&&(state!="integrated"||!exact||!fresh||!descends) { finding(&mut findings,"FALSE_FRESH_PROJECTION","violation",Some(&e.event_id),"trusted projection requires integrated state, exact identity, adequate epoch and ancestry"); }
