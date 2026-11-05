@@ -108,6 +108,7 @@ fn compute_state(case: &Value, profile: &Value, as_of: &str) -> (&'static str, b
     let mut provider_confirmed = false;
     let mut resolver_fresh = false;
     let mut resolver_epoch = 0_u64;
+    let mut resolver_valid_until = String::new();
     let mut current_epoch = 0_u64;
     let mut revoked = false;
     let mut change_pending = false;
@@ -135,10 +136,23 @@ fn compute_state(case: &Value, profile: &Value, as_of: &str) -> (&'static str, b
         let valid_authority = authority == "valid";
 
         match event_type {
+            "alias_rebound" => {
+                registered = false;
+                owner_verified = false;
+                account_binding_verified = false;
+                provider_confirmed = false;
+                resolver_fresh = false;
+                resolver_epoch = 0;
+                resolver_valid_until.clear();
+                rebind_required = true;
+            }
             "alias_registered" => {
                 registered = valid_authority
                     && identity_matches
                     && has_evidence(event, "alias_registration_receipt");
+                if registered {
+                    rebind_required = false;
+                }
             }
             "alias_owner_verified" => {
                 owner_verified = valid_authority
@@ -157,7 +171,17 @@ fn compute_state(case: &Value, profile: &Value, as_of: &str) -> (&'static str, b
                     && has_evidence(event, "provider_registration_receipt");
             }
             "resolver_result" => {
-                if event_generation.is_some_and(|value| value != generation)
+                let exact_replay = has_evidence(event, "exact_same_generation_fingerprint_replay")
+                    && resolver_fresh
+                    && event_generation == Some(generation)
+                    && event_beneficiary == beneficiary
+                    && str_at(event, "freshness") == Some("fresh")
+                    && str_at(event, "valid_until") == Some(resolver_valid_until.as_str())
+                    && u64_at(event, "directory_epoch") == Some(resolver_epoch);
+                if exact_replay {
+                    // Exact same-generation/fingerprint replay is idempotent: it does not
+                    // refresh the original validity window or invalidate the prior result.
+                } else if event_generation.is_some_and(|value| value != generation)
                     || (!event_beneficiary.is_empty() && event_beneficiary != beneficiary)
                 {
                     conflict = true;
@@ -168,9 +192,11 @@ fn compute_state(case: &Value, profile: &Value, as_of: &str) -> (&'static str, b
                     || !has_evidence(event, "authenticated_directory_response")
                 {
                     stale = true;
+                    resolver_fresh = false;
                 } else {
                     resolver_fresh = true;
                     resolver_epoch = u64_at(event, "directory_epoch").unwrap_or(0);
+                    resolver_valid_until = str_at(event, "valid_until").unwrap_or("").to_owned();
                 }
             }
             "directory_epoch_advanced" => {
