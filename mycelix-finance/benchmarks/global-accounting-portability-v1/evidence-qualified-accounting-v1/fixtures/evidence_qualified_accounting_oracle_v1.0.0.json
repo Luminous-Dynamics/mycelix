@@ -51,7 +51,21 @@
           ]
         }
       ],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-001-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 125000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-001"
+          ]
+        }
+      ]
     },
     {
       "case_id": "ACCT-002-MISSING-SERVICE-START",
@@ -69,7 +83,8 @@
         }
       ],
       "expected_journal_entries": [],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": []
     },
     {
       "case_id": "ACCT-003-CONFLICTING-ENTITY",
@@ -87,7 +102,8 @@
         }
       ],
       "expected_journal_entries": [],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": []
     },
     {
       "case_id": "ACCT-004-DUPLICATE-INVOICE",
@@ -140,7 +156,21 @@
           ]
         }
       ],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-004-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 87500,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-004"
+          ]
+        }
+      ]
     },
     {
       "case_id": "ACCT-005-MISSING-FX-RATE",
@@ -160,7 +190,8 @@
         }
       ],
       "expected_journal_entries": [],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": []
     },
     {
       "case_id": "ACCT-006-CREDIT-NOTE-PARENT-MISSING",
@@ -172,7 +203,8 @@
       ],
       "expected_questions": [],
       "expected_journal_entries": [],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": []
     },
     {
       "case_id": "ACCT-007-FUTURE-RECORDED-ACCEPTANCE",
@@ -187,7 +219,8 @@
         }
       ],
       "expected_journal_entries": [],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": []
     },
     {
       "case_id": "ACCT-008-PERIOD-CUTOFF-ALLOCATION",
@@ -272,7 +305,33 @@
           ]
         }
       ],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-008-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 170000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-008-OCT"
+          ]
+        },
+        {
+          "statement_line_ref": "ST-008-NOV",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 140000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-11",
+          "source_journal_entry_refs": [
+            "JE-008-NOV"
+          ]
+        }
+      ]
     },
     {
       "case_id": "ACCT-009-SOURCE-INTEGRITY-MISMATCH",
@@ -281,7 +340,8 @@
       "required_source_fact_refs": [],
       "expected_questions": [],
       "expected_journal_entries": [],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": []
     },
     {
       "case_id": "ACCT-010-CONTRADICTORY-AMOUNT",
@@ -293,7 +353,8 @@
       ],
       "expected_questions": [],
       "expected_journal_entries": [],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": []
     },
     {
       "case_id": "ACCT-011-ACCOUNT-MAPPING-MISSING",
@@ -313,7 +374,8 @@
         }
       ],
       "expected_journal_entries": [],
-      "expected_no_posting": true
+      "expected_no_posting": true,
+      "expected_statement_lines": []
     }
   ]
 }
