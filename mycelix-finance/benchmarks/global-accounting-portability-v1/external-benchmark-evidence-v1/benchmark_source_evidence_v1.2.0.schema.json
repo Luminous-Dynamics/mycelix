@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://luminousdynamics.io/schemas/benchmark-source-evidence-v1.2.0.json",
-  "title": "Mycelix External Benchmark Source Evidence v1.1.0",
+  "title": "Mycelix External Benchmark Source Evidence v1.2.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
