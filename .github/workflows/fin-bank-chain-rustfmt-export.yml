@@ -1,0 +1,37 @@
+name: FIN-BANK-CHAIN rustfmt source export
+
+on:
+  push:
+    branches:
+      - research/fin-bank-statement-chain-v1
+    paths:
+      - ".github/workflows/fin-bank-chain-rustfmt-export.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+          components: rustfmt
+      - name: Format verifier sources
+        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
+        run: cargo fmt --all
+      - name: Export canonical formatted sources
+        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/bank-chain-verifier
+        run: zip -j /tmp/fin-bank-chain-rustfmt.zip src/lib.rs src/main.rs
+      - name: Upload formatted source artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fin-bank-chain-rustfmt
+          path: /tmp/fin-bank-chain-rustfmt.zip
+          if-no-files-found: error
