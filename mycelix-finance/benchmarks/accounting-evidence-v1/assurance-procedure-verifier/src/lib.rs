@@ -426,7 +426,7 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         "addressed_with_qualified_evidence"
     };
     for candidate in precedence {
-        if states.iter().any(|found| *found == candidate) {
+        if states.contains(&candidate) {
             state = candidate;
             break;
         }
