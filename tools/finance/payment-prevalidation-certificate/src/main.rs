@@ -359,8 +359,7 @@ where
     }
 
     if let Some(transport) = scenario.get("transport_payload") {
-        if u64_at(transport, "amount_minor_units")
-            != u64_at(intent, "amount_minor_units")
+        if u64_at(transport, "amount_minor_units") != u64_at(intent, "amount_minor_units")
             || str_at(transport, "currency") != str_at(intent, "currency")
             || str_at(transport, "intent_digest") != Some(intent_digest)
         {
@@ -419,10 +418,13 @@ where
         );
     }
 
-    let required_missing = required_fields.iter().filter_map(Value::as_str).any(|field| {
-        !arr_at(presentation, "fields_shown")
-            .is_some_and(|fields| contains_string(fields, field))
-    });
+    let required_missing = required_fields
+        .iter()
+        .filter_map(Value::as_str)
+        .any(|field| {
+            !arr_at(presentation, "fields_shown")
+                .is_some_and(|fields| contains_string(fields, field))
+        });
     if required_missing {
         return decide(
             "rejected_evidence",
@@ -486,10 +488,10 @@ where
     }
 
     let policy = match vop_status {
-        "close_match" | "no_match" => str_at(profile, "payer_override_no_match").unwrap_or("unknown"),
-        "unavailable" => {
-            str_at(profile, "payer_override_unavailable").unwrap_or("unknown")
+        "close_match" | "no_match" => {
+            str_at(profile, "payer_override_no_match").unwrap_or("unknown")
         }
+        "unavailable" => str_at(profile, "payer_override_unavailable").unwrap_or("unknown"),
         "not_supported" => "allowed_with_warning",
         "match" => "allowed",
         _ => "unknown",
@@ -688,7 +690,10 @@ fn semantic_evaluation(corpus: &Value) -> (Vec<String>, Vec<Value>) {
     let mut errors = Vec::new();
     let mut results = Vec::new();
 
-    if corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false)
+    if corpus
+        .get("external_effects_enabled")
+        .and_then(Value::as_bool)
+        != Some(false)
         || corpus.get("dispatch_enabled").and_then(Value::as_bool) != Some(false)
     {
         errors.push("external effects and dispatch must remain disabled".into());
@@ -702,7 +707,9 @@ fn semantic_evaluation(corpus: &Value) -> (Vec<String>, Vec<Value>) {
         errors.push("the frozen corpus as_of date changed without a version update".into());
     }
 
-    let sources = arr_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = arr_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = arr_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = arr_at(corpus, "scenarios").cloned().unwrap_or_default();
     let required_fields = arr_at(corpus, "required_presentation_fields")
@@ -713,7 +720,9 @@ fn semantic_evaluation(corpus: &Value) -> (Vec<String>, Vec<Value>) {
     for (index, source) in sources.iter().enumerate() {
         let id = str_at(source, "id").unwrap_or("");
         if id.is_empty() || !source_ids.insert(id.to_owned()) {
-            errors.push(format!("source_register[{index}]: missing or duplicate source id"));
+            errors.push(format!(
+                "source_register[{index}]: missing or duplicate source id"
+            ));
         }
     }
 
@@ -721,7 +730,9 @@ fn semantic_evaluation(corpus: &Value) -> (Vec<String>, Vec<Value>) {
     for (index, profile) in profiles.iter().enumerate() {
         let id = str_at(profile, "profile_id").unwrap_or("");
         if id.is_empty() || profile_map.insert(id.to_owned(), profile).is_some() {
-            errors.push(format!("profiles[{index}]: missing or duplicate profile id"));
+            errors.push(format!(
+                "profiles[{index}]: missing or duplicate profile id"
+            ));
         }
         for reference in arr_at(profile, "source_refs").cloned().unwrap_or_default() {
             if !source_exists(&source_ids, &reference) {
@@ -737,7 +748,9 @@ fn semantic_evaluation(corpus: &Value) -> (Vec<String>, Vec<Value>) {
     for (index, scenario) in scenarios.iter().enumerate() {
         let id = str_at(scenario, "scenario_id").unwrap_or("");
         if id.is_empty() || !scenario_ids.insert(id.to_owned()) {
-            errors.push(format!("scenarios[{index}]: missing or duplicate scenario id"));
+            errors.push(format!(
+                "scenarios[{index}]: missing or duplicate scenario id"
+            ));
             continue;
         }
 
@@ -813,8 +826,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("payee subject substituted", corpus, schema, |value| {
-        value["scenarios"][0]["payee_resolution"]["subject_commitment"] =
-            json!("subject:attacker");
+        value["scenarios"][0]["payee_resolution"]["subject_commitment"] = json!("subject:attacker");
     })?;
     count += 1;
 
@@ -838,10 +850,15 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("provider untrusted remote key source", corpus, schema, |value| {
-        value["scenarios"][0]["provider_evidence"]["key_source_state"] =
-            json!("untrusted_remote_url");
-    })?;
+    mutate_and_reject(
+        "provider untrusted remote key source",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["provider_evidence"]["key_source_state"] =
+                json!("untrusted_remote_url");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("stale payee resolution", corpus, schema, |value| {
@@ -871,9 +888,14 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("positive VoP invented for proposal-only South Africa", corpus, schema, |value| {
-        value["scenarios"][28]["vop_result"]["status"] = json!("match");
-    })?;
+    mutate_and_reject(
+        "positive VoP invented for proposal-only South Africa",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][28]["vop_result"]["status"] = json!("match");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("unknown profile promoted", corpus, schema, |value| {
@@ -989,11 +1011,16 @@ mod tests {
         assert_eq!(report["status"], "PASS", "{}", report["errors"]);
         assert_eq!(report["scenario_count"], 36);
         assert_eq!(report["dispatch_enabled"], false);
-        assert!(report["certificates"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|item| item["certificate_digest"].as_str().unwrap().starts_with("sha256:")));
+        assert!(
+            report["certificates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|item| item["certificate_digest"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("sha256:"))
+        );
     }
 
     #[test]
