@@ -215,6 +215,45 @@ fn credit_note_parent_missing(case: &Value) -> Result<bool, String> {
     Ok(false)
 }
 
+
+fn source_revision_lineage_missing(case: &Value) -> Result<bool, String> {
+    let mut groups = BTreeMap::<(String, String, String), Vec<&Value>>::new();
+    for document in array(case, "documents")? {
+        if optional_string(document, "duplicate_of_document_ref").is_some() {
+            continue;
+        }
+        let key = (
+            string(document, "namespace")?.to_owned(),
+            string(document, "external_document_id")?.to_owned(),
+            string(document, "document_type")?.to_owned(),
+        );
+        groups.entry(key).or_default().push(document);
+    }
+
+    for (_, mut revisions) in groups {
+        let distinct_revisions = revisions
+            .iter()
+            .filter_map(|document| optional_string(document, "revision"))
+            .collect::<BTreeSet<_>>();
+        if distinct_revisions.len() <= 1 {
+            continue;
+        }
+        revisions.sort_by(|left, right| {
+            optional_string(left, "received_at").cmp(&optional_string(right, "received_at"))
+        });
+        if optional_string(revisions[0], "supersedes_document_ref").is_some() {
+            return Ok(true);
+        }
+        for index in 1..revisions.len() {
+            let previous_ref = string(revisions[index - 1], "document_ref")?;
+            if optional_string(revisions[index], "supersedes_document_ref") != Some(previous_ref) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
 fn contradictory_entity_evidence(case: &Value) -> Result<bool, String> {
     let values = facts_of_type(case, "reporting_entity_ref")?
         .iter()
@@ -311,6 +350,9 @@ fn account_mapping_missing(case: &Value) -> Result<bool, String> {
 fn derive_expectation(case: &Value) -> Result<(&'static str, &'static str), String> {
     if source_integrity_failed(case)? {
         return Ok(("abstain", "source_integrity_failed"));
+    }
+    if source_revision_lineage_missing(case)? {
+        return Ok(("escalate", "source_revision_lineage_missing"));
     }
     if credit_note_parent_missing(case)? {
         return Ok(("escalate", "credit_note_parent_missing"));
@@ -926,6 +968,32 @@ mod tests {
         assert_eq!(amounts.len(), 1);
         assert_eq!(amounts[0]["value"], Value::from(100000));
         assert!(!future_evidence(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("deliver", "no_blocker_detected"));
+    }
+
+
+    #[test]
+    fn unlinked_invoice_revisions_escalate_before_amounts_are_summed() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-020-UNLINKED-INVOICE-REVISIONS").unwrap();
+        assert!(source_revision_lineage_missing(case).unwrap());
+        assert_eq!(derive_expectation(case).unwrap(), ("escalate", "source_revision_lineage_missing"));
+    }
+
+    #[test]
+    fn explicit_revision_chain_uses_the_latest_known_revision() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-019-SUPERSEDING-INVOICE-REVISION").unwrap();
+        assert!(!source_revision_lineage_missing(case).unwrap());
+        assert_eq!(facts_of_type(case, "invoice_total_minor").unwrap().len(), 1);
+        assert_eq!(facts_of_type(case, "invoice_total_minor").unwrap()[0]["value"], Value::from(120000));
+    }
+
+    #[test]
+    fn duplicate_import_of_same_revision_is_not_a_revision_conflict() {
+        let (candidates, _) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-004-DUPLICATE-INVOICE").unwrap();
+        assert!(!source_revision_lineage_missing(case).unwrap());
         assert_eq!(derive_expectation(case).unwrap(), ("deliver", "no_blocker_detected"));
     }
 
