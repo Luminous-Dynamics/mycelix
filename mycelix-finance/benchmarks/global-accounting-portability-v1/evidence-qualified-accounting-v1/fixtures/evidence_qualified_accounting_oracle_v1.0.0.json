@@ -541,6 +541,71 @@
       "expected_journal_entries": [],
       "expected_statement_lines": [],
       "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-019-SUPERSEDING-INVOICE-REVISION",
+      "expected_disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "required_source_fact_refs": [
+        "F-019-AMOUNT-R2",
+        "F-019-ENTITY",
+        "F-019-START",
+        "F-019-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [
+        {
+          "entry_ref": "JE-019",
+          "lines": [
+            {
+              "line_ref": "JE-019-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 120000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-019-AMOUNT-R2",
+                "F-019-ENTITY",
+                "F-019-START",
+                "F-019-END"
+              ]
+            },
+            {
+              "line_ref": "JE-019-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 120000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-019-AMOUNT-R2",
+                "F-019-ENTITY",
+                "F-019-START",
+                "F-019-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-019-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 120000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-019"
+          ],
+          "normal_balance": "debit"
+        }
+      ],
+      "expected_no_posting": true
     }
   ]
 }
