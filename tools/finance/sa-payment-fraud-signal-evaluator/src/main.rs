@@ -74,8 +74,7 @@ fn utc_epoch_seconds(value: &str) -> Option<i64> {
     let year_of_era = adjusted_year - era * 400;
     let adjusted_month = month + if month > 2 { -3 } else { 9 };
     let day_of_year = (153 * adjusted_month + 2) / 5 + day - 1;
-    let day_of_era =
-        year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
     let days_since_epoch = era * 146_097 + day_of_era - 719_468;
     Some(days_since_epoch * 86_400 + hour * 3_600 + minute * 60 + second)
 }
@@ -739,14 +738,24 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("issuer identity outside profile allowlist", corpus, schema, |v| {
-        v["scenarios"][0]["signal"]["issuer"]["participant_id"] = json!("BANK-UNLISTED");
-    })?;
+    mutate_and_reject(
+        "issuer identity outside profile allowlist",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][0]["signal"]["issuer"]["participant_id"] = json!("BANK-UNLISTED");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("assertion status outside profile allowlist", corpus, schema, |v| {
-        v["scenarios"][0]["signal"]["assertion"]["status"] = json!("official_determination");
-    })?;
+    mutate_and_reject(
+        "assertion status outside profile allowlist",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][0]["signal"]["assertion"]["status"] = json!("official_determination");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("future-dated signal event", corpus, schema, |v| {
@@ -757,12 +766,17 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("stale signal exceeds profile freshness window", corpus, schema, |v| {
-        v["scenarios"][0]["signal"]["observed_event"]["observed_at"] =
-            json!("2026-11-02T08:00:00Z");
-        v["scenarios"][0]["signal"]["observed_event"]["recorded_at"] =
-            json!("2026-11-02T08:01:00Z");
-    })?;
+    mutate_and_reject(
+        "stale signal exceeds profile freshness window",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][0]["signal"]["observed_event"]["observed_at"] =
+                json!("2026-11-02T08:00:00Z");
+            v["scenarios"][0]["signal"]["observed_event"]["recorded_at"] =
+                json!("2026-11-02T08:01:00Z");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("recorded event precedes observation", corpus, schema, |v| {
@@ -771,29 +785,44 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("appeal closed without decision record", corpus, schema, |v| {
-        v["scenarios"][0]["signal"]["lifecycle"]["appeal_status"] = json!("closed");
-        v["scenarios"][0]["signal"]["lifecycle"]["appeal_record_ref"] =
-            json!("SYN-APPEAL-NEW");
-        v["scenarios"][0]["signal"]["lifecycle"]["appeal_decision_ref"] = Value::Null;
-    })?;
+    mutate_and_reject(
+        "appeal closed without decision record",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][0]["signal"]["lifecycle"]["appeal_status"] = json!("closed");
+            v["scenarios"][0]["signal"]["lifecycle"]["appeal_record_ref"] =
+                json!("SYN-APPEAL-NEW");
+            v["scenarios"][0]["signal"]["lifecycle"]["appeal_decision_ref"] = Value::Null;
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("correction notified an unlisted prior recipient", corpus, schema, |v| {
-        let lifecycle = &mut v["scenarios"][0]["signal"]["lifecycle"];
-        lifecycle["previous_recipient_count"] = json!(1);
-        lifecycle["notified_recipient_count"] = json!(1);
-        lifecycle["previous_recipient_ids"] = json!(["BANK-C"]);
-        lifecycle["notified_recipient_ids"] = json!(["BANK-B"]);
-    })?;
+    mutate_and_reject(
+        "correction notified an unlisted prior recipient",
+        corpus,
+        schema,
+        |v| {
+            let lifecycle = &mut v["scenarios"][0]["signal"]["lifecycle"];
+            lifecycle["previous_recipient_count"] = json!(1);
+            lifecycle["notified_recipient_count"] = json!(1);
+            lifecycle["previous_recipient_ids"] = json!(["BANK-C"]);
+            lifecycle["notified_recipient_ids"] = json!(["BANK-B"]);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("correction applied without correction record", corpus, schema, |v| {
-        let lifecycle = &mut v["scenarios"][0]["signal"]["lifecycle"];
-        lifecycle["correction_status"] = json!("correction_applied");
-        lifecycle["superseding_signal_id"] = json!("FIS-001-V2");
-        lifecycle["correction_record_refs"] = json!([]);
-    })?;
+    mutate_and_reject(
+        "correction applied without correction record",
+        corpus,
+        schema,
+        |v| {
+            let lifecycle = &mut v["scenarios"][0]["signal"]["lifecycle"];
+            lifecycle["correction_status"] = json!("correction_applied");
+            lifecycle["superseding_signal_id"] = json!("FIS-001-V2");
+            lifecycle["correction_record_refs"] = json!([]);
+        },
+    )?;
     count += 1;
 
     Ok(count)
@@ -897,8 +926,7 @@ mod tests {
             .unwrap()
             .iter()
             .find(|profile| {
-                str_at(profile, "profile_id")
-                    == str_at(&private["signal"], "profile_id")
+                str_at(profile, "profile_id") == str_at(&private["signal"], "profile_id")
             })
             .expect("private profile");
         assert_eq!(
@@ -912,16 +940,11 @@ mod tests {
             .unwrap()
             .iter()
             .find(|profile| {
-                str_at(profile, "profile_id")
-                    == str_at(&regulator["signal"], "profile_id")
+                str_at(profile, "profile_id") == str_at(&regulator["signal"], "profile_id")
             })
             .expect("regulator profile");
         assert_eq!(
-            decision(
-                &regulator["signal"],
-                &regulator["query"],
-                regulator_profile
-            ),
+            decision(&regulator["signal"], &regulator["query"], regulator_profile),
             ("admit_advisory", "regulator_statutory_scope_fixture")
         );
     }
