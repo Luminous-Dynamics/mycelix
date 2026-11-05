@@ -14,6 +14,7 @@ This draft keeps **who**, **which jurisdictional role**, **which namespace/code*
 - `fixtures/jurisdiction_context_candidates_v1.0.0.json`: public synthetic candidate contexts.
 - `jurisdiction_context_oracle_v1.0.0.schema.json`: schema for the public reference oracle.
 - `fixtures/jurisdiction_context_oracle_v1.0.0.json`: expected synthetic behavior, deliberately separate from candidate inputs.
+- `../rust-resolver/src/bin/validate_applicability_context.rs`: standalone Rust CLI and unit tests for Draft 2020-12 validation, cross-reference integrity and eligibility filters.
 
 The oracle is public for reproducible contract tests. It is **not** a hidden benchmark result. Hidden evaluation and the canonical run manifest remain owned by #5799.
 
@@ -43,10 +44,23 @@ known_at = 2026-11-05T09:30:00Z
 
 The v1.1 integration should begin with conjunction-only exact matching. No wildcard, nearest-parent fallback, address-to-place-of-supply inference or general-purpose policy expression language is needed. Legal applicability derivation remains with an approved policy profile under #5792; the resolver only checks whether the exact pre-qualified intersection matches.
 
+## Local Rust validation
+
+From `mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver`:
+
+```sh
+cargo test --locked --bin validate_applicability_context
+cargo run --locked --bin validate_applicability_context
+cargo fmt -- --check
+cargo clippy --locked --all-targets -- -D warnings
+```
+
+The validator uses the pinned `jsonschema` Draft 2020-12 implementation with format assertions enabled. It checks schema validity, candidate/oracle shape, unique identities, party-role and scope/fact references, reciprocal conflict links, valid-time intervals, and evidence/namespace boundaries. Its fact-eligibility helper requires a supported assertion, explicit scope, evidence reference, conflict-free state and visibility at both valid-time and knowledge-time frontiers. It is not a tax resolver and does not select a legally applicable jurisdiction.
+
 ## Synthetic claim ceiling
 
 All party refs, scope namespaces, scope codes, evidence refs, profiles and derived-rule refs in the fixtures are synthetic. They encode no national law, tax rate, legal nexus, VAT rule or jurisdictional conclusion. Passing these fixtures demonstrates only typed-context preservation and deterministic conformance behavior.
 
 ## Validation status
 
-These files are authored draft artifacts. They have not yet been run through an independent full Draft 2020-12 validator, a Rust implementation, `cargo test`, rustfmt, Clippy or CI. No such result is claimed.
+These files and the Rust validator are authored draft artifacts. They have not yet been run through `cargo test`, rustfmt, Clippy or CI. The validator is designed to perform full Draft 2020-12 runtime validation when executed, but that execution has not yet been performed in this authoring environment. No pass is claimed.
