@@ -9,12 +9,12 @@ use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
-const TASKS_DEFAULT: &str = "../tasks_v1.0.0.json";
-const TASK_SCHEMA_DEFAULT: &str = "../task.schema.json";
-const ORACLE_DEFAULT: &str = "../oracle_v1.0.0.json";
-const ORACLE_SCHEMA_DEFAULT: &str = "../oracle.schema.json";
-const RESPONSES_DEFAULT: &str = "../reference_responses_v1.0.0.json";
-const RESPONSE_SCHEMA_DEFAULT: &str = "../response.schema.json";
+const TASKS_DEFAULT: &str = "../tasks_v1.1.0.json";
+const TASK_SCHEMA_DEFAULT: &str = "../task.schema.v1.1.0.json";
+const ORACLE_DEFAULT: &str = "../oracle_v1.1.0.json";
+const ORACLE_SCHEMA_DEFAULT: &str = "../oracle.schema.v1.1.0.json";
+const RESPONSES_DEFAULT: &str = "../reference_responses_v1.1.0.json";
+const RESPONSE_SCHEMA_DEFAULT: &str = "../response.schema.v1.1.0.json";
 
 fn main() {
     if let Err(error) = run_cli() {
@@ -48,7 +48,7 @@ fn run_cli() -> Result<(), Box<dyn Error>> {
             "--out" => output = Some(PathBuf::from(next_arg(&mut args, "--out")?)),
             "--help" | "-h" => {
                 println!(
-                    "FIN-TRUST S0 verifier: --tasks --task-schema --oracle --oracle-schema --responses --response-schema --out"
+                    "FIN-TRUST S1 verifier: --tasks --task-schema --oracle --oracle-schema --responses --response-schema --out"
                 );
                 return Ok(());
             }
@@ -107,9 +107,9 @@ fn verify(
         (Ok(a), Ok(b), Ok(c), Ok(d), Ok(e), Ok(f)) => (a, b, c, d, e, f),
         _ => {
             return json!({
-                "report_schema": "fin-trust-s0-verifier.report.v1",
+                "report_schema": "fin-trust-s1-verifier.report.v1.1.0",
                 "benchmark_id": "FIN-TRUST-BENCH",
-                "dataset_version": "1.0.0",
+                "dataset_version": "1.1.0",
                 "status": "FAIL",
                 "claim_scope": "public_synthetic_clarification_source_binding_journal_and_statement_conformance_only",
                 "network_access_during_verification": false,
@@ -167,7 +167,7 @@ fn verify(
         "FAIL"
     };
     let mut report = json!({
-        "report_schema": "fin-trust-s0-verifier.report.v1",
+        "report_schema": "fin-trust-s1-verifier.report.v1.1.0",
         "benchmark_id": tasks.get("benchmark_id"),
         "dataset_version": tasks.get("dataset_version"),
         "status": status,
