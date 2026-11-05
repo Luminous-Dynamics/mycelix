@@ -659,14 +659,16 @@ mod as_known_at_projection_tests {
         );
         assert!(valid_committed_receipt_chain(&events, &[first_receipt.clone()]));
 
-        let wrong_anchor = signed_authority_receipt(
+        let mut wrong_anchor = signed_authority_receipt(
             &events[1],
             instant(3),
             None,
-            Some(ContentHash::digest(b"wrong cutover anchor")),
+            Some(preceding_event_hash),
             &event_signer,
             &service_signer,
         );
+        wrong_anchor.receipt.legacy_cutover_anchor =
+            Some(ContentHash::digest(b"wrong cutover anchor"));
         assert!(!valid_committed_receipt_chain(&events, &[wrong_anchor]));
     }
 
