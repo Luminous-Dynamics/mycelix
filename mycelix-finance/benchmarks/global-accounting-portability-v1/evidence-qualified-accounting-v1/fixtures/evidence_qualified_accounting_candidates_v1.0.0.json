@@ -1388,6 +1388,71 @@
           "valid_to": null
         }
       ]
+    },
+    {
+      "case_id": "ACCT-018-CREDIT-PARENT-CROSS-NAMESPACE",
+      "task_prompt": "Apply this credit note only if its original invoice is present in the same source namespace. Another tenant has an invoice with the same external ID; do not treat it as the credit note's parent.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-018-CN",
+          "external_document_id": "CN-1818",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "credit_note",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null
+        },
+        {
+          "document_ref": "DOC-018-OTHER-TENANT-INV",
+          "external_document_id": "INV-CROSS-18",
+          "namespace": "tenant-other/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-018-CREDIT",
+          "fact_type": "credit_note_amount_minor",
+          "document_ref": "DOC-018-CN",
+          "source_locator": "page:1/total",
+          "assertion_state": "asserted",
+          "value": 12000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-018-PARENT",
+          "fact_type": "original_invoice_id",
+          "document_ref": "DOC-018-CN",
+          "source_locator": "page:1/original-invoice",
+          "assertion_state": "asserted",
+          "value": "INV-CROSS-18",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
     }
   ]
 }
