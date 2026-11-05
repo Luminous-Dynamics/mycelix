@@ -1,0 +1,1057 @@
+{
+  "benchmark_id": "FIN-ASSURE-PROCEDURE",
+  "dataset_version": "1.0.0",
+  "status": "synthetic_procedure_coverage_fixtures_not_audit_evidence",
+  "cases": [
+    {
+      "case_id": "FAP-001",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-001. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-1",
+            "assertion": "existence",
+            "purpose": "invoice_document",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-bank-confirmed",
+            "assertions_supported": [
+              "existence"
+            ],
+            "purposes_supported": [
+              "invoice_document"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "inspection",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-002",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-002. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-2",
+            "assertion": "completeness",
+            "purpose": "source_population",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-supplier",
+            "assertions_supported": [
+              "occurrence"
+            ],
+            "purposes_supported": [
+              "source_population"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "reconciliation",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-003",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-003. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-3",
+            "assertion": "beneficiary_receipt",
+            "purpose": "bank_statement",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-bank",
+            "assertions_supported": [
+              "bank_debit"
+            ],
+            "purposes_supported": [
+              "bank_statement"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "inspection",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-004",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-004. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-4",
+            "assertion": "goods_received",
+            "purpose": "invoice_document",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-supplier",
+            "assertions_supported": [
+              "billing_claim"
+            ],
+            "purposes_supported": [
+              "invoice_document"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "inspection",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-005",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-005. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-5",
+            "assertion": "completeness",
+            "purpose": "source_population",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [
+          {
+            "population_id": "pop-1",
+            "expected_count": 100,
+            "observed_count": 90,
+            "frame_complete": true
+          }
+        ],
+        "evidence": [],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "reconciliation",
+            "execution_status": "performed",
+            "population_id": "pop-1",
+            "evidence_refs": [],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-006",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-006. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-6",
+            "assertion": "completeness",
+            "purpose": "sample_frame",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [
+          {
+            "population_id": "pop-1",
+            "expected_count": 100,
+            "observed_count": 100,
+            "frame_complete": false
+          }
+        ],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-ledger",
+            "assertions_supported": [
+              "completeness"
+            ],
+            "purposes_supported": [
+              "sample_frame"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "sampling",
+            "execution_status": "performed",
+            "population_id": "pop-1",
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-007",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-007. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-7",
+            "assertion": "accuracy",
+            "purpose": "analytical_procedure",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-ledger",
+            "assertions_supported": [
+              "accuracy"
+            ],
+            "purposes_supported": [
+              "analytical_procedure"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "recalculation",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": "population-A",
+            "expected_denominator": "100",
+            "used_denominator": "80",
+            "threshold_authorized": true,
+            "within_tolerance": true,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-008",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-008. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-8",
+            "assertion": "cutoff",
+            "purpose": "prior_period_evidence",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-prior-period",
+            "assertions_supported": [
+              "cutoff"
+            ],
+            "purposes_supported": [
+              "prior_period_evidence"
+            ],
+            "reporting_period": "2025-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "inspection",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-009",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-009. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-9",
+            "assertion": "existence",
+            "purpose": "external_confirmation",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-bank",
+            "assertions_supported": [
+              "existence"
+            ],
+            "purposes_supported": [
+              "external_confirmation"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          },
+          {
+            "evidence_id": "ev-2",
+            "origin_group": "origin-counterparty",
+            "assertions_supported": [
+              "existence"
+            ],
+            "purposes_supported": [
+              "external_confirmation"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": true
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "confirmation",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1",
+              "ev-2"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-010",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-010. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-10",
+            "assertion": "occurrence",
+            "purpose": "independent_corrob",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 2
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "same-upstream-system",
+            "assertions_supported": [
+              "occurrence"
+            ],
+            "purposes_supported": [
+              "independent_corrob"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          },
+          {
+            "evidence_id": "ev-2",
+            "origin_group": "same-upstream-system",
+            "assertions_supported": [
+              "occurrence"
+            ],
+            "purposes_supported": [
+              "independent_corrob"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "confirmation",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1",
+              "ev-2"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-011",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-011. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-11",
+            "assertion": "accuracy",
+            "purpose": "substantive_recalculation",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-source",
+            "assertions_supported": [
+              "accuracy"
+            ],
+            "purposes_supported": [
+              "substantive_recalculation"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "recalculation",
+            "execution_status": "planned",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-012",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-012. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-12",
+            "assertion": "completeness",
+            "purpose": "required_procedure",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [],
+        "procedures": []
+      }
+    },
+    {
+      "case_id": "FAP-013",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-013. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-13",
+            "assertion": "occurrence",
+            "purpose": "control_response",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "reperformance",
+            "execution_status": "failed",
+            "population_id": null,
+            "evidence_refs": [],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": true,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-014",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-014. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-14",
+            "assertion": "valuation",
+            "purpose": "analytical_procedure",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-model",
+            "assertions_supported": [
+              "valuation"
+            ],
+            "purposes_supported": [
+              "analytical"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "analytical",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": false,
+            "within_tolerance": true,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-015",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-015. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-15",
+            "assertion": "valuation",
+            "purpose": "analytical_procedure",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-ledger",
+            "assertions_supported": [
+              "valuation"
+            ],
+            "purposes_supported": [
+              "analytical"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          },
+          {
+            "evidence_id": "ev-2",
+            "origin_group": "origin-independent-inventory",
+            "assertions_supported": [
+              "valuation"
+            ],
+            "purposes_supported": [
+              "analytical"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": true
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "analytical",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1",
+              "ev-2"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": true,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-016",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-016. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-16",
+            "assertion": "presentation",
+            "purpose": "disclosure_applicability",
+            "materiality": "material",
+            "required": false,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "inspection",
+            "execution_status": "not_applicable",
+            "population_id": null,
+            "evidence_refs": [],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": "Approved entity/period scoped non-applicability memo SYN-NA-016",
+            "reviewer_authorized": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-017",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-017. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-17",
+            "assertion": "completeness",
+            "purpose": "late_source",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-late-confirmation",
+            "assertions_supported": [
+              "completeness"
+            ],
+            "purposes_supported": [
+              "reconciliation"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "reconciliation",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": true,
+            "requires_human_judgment": false,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FAP-018",
+      "task": "Evaluate the required risk/assertion procedure for synthetic case FAP-018. Return a reason-coded terminal state; do not infer authority beyond the evidence contract.",
+      "manifest": {
+        "reporting_entity": "entity-synthetic-001",
+        "reporting_period": "2026-10",
+        "required_pairs": [
+          {
+            "pair_id": "pair-1",
+            "risk_id": "risk-18",
+            "assertion": "valuation",
+            "purpose": "residual_risk",
+            "materiality": "material",
+            "required": true,
+            "min_independent_origins": 1
+          }
+        ],
+        "populations": [],
+        "evidence": [
+          {
+            "evidence_id": "ev-1",
+            "origin_group": "origin-appraisal",
+            "assertions_supported": [
+              "valuation"
+            ],
+            "purposes_supported": [
+              "judgment"
+            ],
+            "reporting_period": "2026-10",
+            "reliability_status": "qualified",
+            "contradicts_required_claim": false
+          }
+        ],
+        "procedures": [
+          {
+            "procedure_id": "proc-1",
+            "pair_id": "pair-1",
+            "procedure_type": "judgment",
+            "execution_status": "performed",
+            "population_id": null,
+            "evidence_refs": [
+              "ev-1"
+            ],
+            "outcome": "supports",
+            "exception_open": false,
+            "denominator_ref": null,
+            "expected_denominator": null,
+            "used_denominator": null,
+            "threshold_authorized": true,
+            "within_tolerance": null,
+            "control_failed": false,
+            "compensating_procedure_present": false,
+            "stale_workpaper": false,
+            "requires_human_judgment": true,
+            "authorized_na_rationale": null,
+            "reviewer_authorized": false
+          }
+        ]
+      }
+    }
+  ]
+}
