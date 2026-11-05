@@ -155,7 +155,7 @@ This is a software gate for review readiness only. It is not an audit conclusion
 
 ## 6. Adversarial public synthetic corpus
 
-The initial v1.0.0 corpus has 18 task families. The expected outcomes are published in a separate **public reference oracle** so implementers can reproduce tests. This is not a blind holdout or an independently adjudicated professional dataset.
+The v1.0.0 corpus has 18 base task families; v1.1.0 extends it to 22 cases with pair-level results and additional entity/purpose/analytical controls. Both public oracle releases are regression references, not blind holdouts. The expected outcomes are published in a separate **public reference oracle** so implementers can reproduce tests. This is not a blind holdout or an independently adjudicated professional dataset.
 
 | ID | Challenge | Required disposition |
 |---|---|---|
@@ -176,7 +176,7 @@ The initial v1.0.0 corpus has 18 task families. The expected outcomes are publis
 | FAP-015 | Ratio is within tolerance but material contradictory evidence exists | exception requires resolution |
 | FAP-016 | Assertion is not applicable with authorized scoped rationale | not applicable with authorized rationale |
 | FAP-017 | Late evidence changes a completed workpaper frontier | exception requires resolution / stale |
-| FAP-018 | Residual risk requires professional judgment | human judgment required |
+| FAP-018 | Residual risk requires professional judgment | human judgment required |\n| FAP-019 | Two required pairs: one supported, one with an incomplete population | Overall insufficient; pair dispositions remain separate |\n| FAP-020 | Procedure purpose differs from required assertion-purpose pair | insufficient evidence |\n| FAP-021 | Evidence belongs to a different reporting entity | insufficient evidence |\n| FAP-022 | Analytical procedure exceeds its authorized investigation threshold | exception requires resolution |
 
 ## 7. Qualification gates and measurements
 
@@ -221,7 +221,7 @@ APEX, FINBALANCE and DualBench measure adjacent accounting workflow/reconstructi
 
 1. Obtain and hash the IAASB exposure-draft documents and build a paragraph-level research matrix.
 2. Freeze the procedure, population and terminal-disposition schemas.
-3. Preserve the 18 public synthetic tasks and reference oracle separately.
+3. Preserve public v1.0.0 and v1.1.0 synthetic tasks and their version-specific schemas/oracles separately.
 4. Implement a pure Rust stand-back verifier or a tightly scoped extension to the existing workpaper verifier.
 5. Add mutation tests for wrong purpose, population, denominator, source origin, period, stale frontier and contradiction.
 6. Produce an exact-head report binding source, policy, procedure schema, corpus and verifier digests.
@@ -230,3 +230,4 @@ APEX, FINBALANCE and DualBench measure adjacent accounting workflow/reconstructi
 ## 10. Claim ceiling
 
 A pass establishes synthetic procedure-coverage and stand-back behavior under the declared profile. It does not establish ISA compliance, audit evidence sufficiency in a real engagement, professional audit judgment, an audit opinion, regulatory compliance, fraud-free status or production assurance readiness.
+\n\n## 11. v1.1.0 semantic hardening\n\nThe v1.1.0 input contract requires every evidence item to bind the reporting entity as well as the reporting period, and every procedure to bind the exact intended purpose. The verifier now emits pair-level dispositions alongside the aggregate stand-back state. A case with multiple required assertions cannot be represented as clear merely because one pair is supported. Additional negative controls cover mismatched procedure purpose, cross-entity evidence and analytical differences exceeding a declared threshold. v1.0.0 fixtures, schema and public reference oracle remain separately versioned and replayable.\n
