@@ -43,6 +43,10 @@ jobs:
           components: rustfmt, clippy
       - name: Assert toolchain
         run: test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
+      - name: Format
+        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/assurance-procedure-verifier
+        run: cargo fmt --all -- --check
+
       - name: Locked tests
         working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/assurance-procedure-verifier
         run: cargo test --locked
@@ -51,7 +55,15 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Emit exact-head qualification report
         working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/assurance-procedure-verifier
-        run: cargo run --locked -- --out /tmp/fin-assure-procedure-report.json
+        shell: bash
+        run: |
+          set +e
+          cargo run --locked -- --out /tmp/fin-assure-procedure-report.json
+          status=$?
+          if [ -f /tmp/fin-assure-procedure-report.json ]; then
+            cat /tmp/fin-assure-procedure-report.json
+          fi
+          exit "$status"
       - name: Upload exact-head report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
