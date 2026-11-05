@@ -386,19 +386,6 @@ fn expected_trace_terminal_state(
     Ok("excluded")
 }
 
-fn expected_terminal_reason(disposition: &str, terminal_state: &str) -> &'static str {
-    match terminal_state {
-        "carried_to_journal" => "Supported fact was carried to one or more journal lines.",
-        "carried_to_question" => "Supporting context was retained for a blocking clarification.",
-        "carried_to_review" => "Material fact was preserved for escalation review.",
-        "abstained" => "Evidence was retained as the basis for abstention.",
-        "question_raised" => "Blocking fact was explicitly carried into a clarification question.",
-        "excluded" if disposition == "deliver" => "Fact was assessed and excluded from the requested deliverable.",
-        "excluded" => "Fact was assessed and excluded from the decision path.",
-        _ => "Evidence terminal disposition recorded.",
-    }
-}
-
 fn expected_question_evidence_state(
     case: &Value,
     expectation: &Value,
@@ -1077,6 +1064,37 @@ mod tests {
         assert_eq!(evaluated["decision_to_question_continuity"], false);
         assert!(array(evaluated, "hard_failures").unwrap().iter()
             .any(|failure| failure.as_str() == Some("decision_to_question_continuity_broken")));
+    }
+
+
+    #[test]
+    fn omission_of_an_unrelated_source_fact_trace_reduces_trace_coverage() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        row["evidence_trace"].as_array_mut().unwrap().retain(|trace| {
+            optional_string(trace, "fact_ref") != Some("F-001-SUPPLIER")
+        });
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
+        assert!(evaluated["evidence_trace_coverage"].as_f64().unwrap() < 1.0);
+        assert!(array(evaluated, "hard_failures").unwrap().iter()
+            .any(|failure| failure.as_str() == Some("evidence_trace_incomplete")));
+    }
+
+    #[test]
+    fn superseded_revision_is_traced_as_excluded_not_silently_dropped() {
+        let (candidates, oracle, submissions) = fixtures();
+        let row = array(&submissions, "submissions").unwrap().iter()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-019-SUPERSEDING-INVOICE-REVISION")).unwrap();
+        let trace = array(row, "evidence_trace").unwrap().iter()
+            .find(|entry| optional_string(entry, "fact_ref") == Some("F-019-AMOUNT-R1")).unwrap();
+        assert_eq!(trace["evidence_state"], "superseded");
+        assert_eq!(trace["terminal_state"], "excluded");
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-019-SUPERSEDING-INVOICE-REVISION");
+        assert_eq!(evaluated["evidence_trace_coverage"], 1.0);
+        assert_eq!(evaluated["evidence_to_journal_continuity"], true);
     }
 
     #[test]
