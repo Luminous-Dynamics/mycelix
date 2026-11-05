@@ -1,7 +1,7 @@
 {
   "registry_id": "MYCELIX-GLOBAL-ACCOUNTING-PROFILE-REFERENCE",
   "registry_version": "1.0.0",
-  "generated_on": "2026-11-04",
+  "generated_on": "2026-11-05",
   "claim_scope": "reference_inventory_and_maturity_matrix_only_not_global_compliance_or_qualified_country_coverage",
   "profile_references": [
     {
@@ -71,9 +71,9 @@
       "version": "3.0.21",
       "status": "reference_only",
       "authority_class": "network_governance",
-      "source_url": "https://docs.peppol.eu/poacc/billing/3.0/bis/",
+      "source_url": "https://docs.peppol.eu/poacc/billing/3.0/release-notes/",
       "valid_from": null,
-      "notes": "CIUS of EN 16931; base validation and country-qualified rules remain distinct."
+      "notes": "Peppol BIS Billing 3.0.21 was published 2026-05-20 and became mandatory 2026-08-17. It is a CIUS of EN 16931; base validation and country-qualified rules remain distinct."
     },
     {
       "profile_id": "EN-16931",
@@ -118,12 +118,12 @@
     {
       "profile_id": "UNICODE-CLDR-49",
       "dimension": "locale_data",
-      "version": "49 (2026-10-21)",
+      "version": "49 (specification date 2026-10-21; release 2026-10-22)",
       "status": "reference_only",
       "authority_class": "standards_body",
-      "source_url": "https://unicode.org/reports/tr35/",
+      "source_url": "https://cldr.unicode.org/downloads/cldr-49",
       "valid_from": null,
-      "notes": "Locale, numbering-system, calendar, timezone and currency formatting data; pin the exact release and implementation data."
+      "notes": "CLDR 49 release published 2026-10-22; UTS #35 v49 specification dated 2026-10-21. Locale, numbering-system, calendar and formatting data must be pinned with the runtime implementation."
     },
     {
       "profile_id": "IANA-TZDB-2026F",
@@ -131,9 +131,9 @@
       "version": "2026f (2026-10-27)",
       "status": "reference_only",
       "authority_class": "data_maintainer",
-      "source_url": "https://www.iana.org/time-zones",
+      "source_url": "https://www.iana.org/time-zones/releases/2026f",
       "valid_from": null,
-      "notes": "Time-zone history and rules change with political decisions; pin release to reproduce event-time conversion."
+      "notes": "Released 2026-10-27. Cuba remained at UTC-04 on 2026-11-01 instead of falling back to UTC-05; pin release and runtime for reproducible conversion."
     },
     {
       "profile_id": "SYN-JUR-A",
