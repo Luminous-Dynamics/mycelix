@@ -575,20 +575,56 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
 
     // A duplicated economic event across statements is one observation only when
     // its exact amount/semantics agree and an explicit bank-lineage relation exists.
-    let mut event_rows = BTreeMap::<String, Vec<(&Value, &Value)>>::new();
+    // An economic-event reference is scoped by the source profile, account,
+    // entity and denomination. Banks may reuse local identifiers across accounts.
+    let mut event_rows =
+        BTreeMap::<(String, String, String, String, String), Vec<(&Value, &Value)>>::new();
+    let mut event_reference_contexts =
+        BTreeMap::<String, BTreeSet<(String, String, String, String)>>::new();
     for statement in &active_statements {
         let artifact_id = string(statement, "artifact_id").unwrap_or_default();
+        let source_profile = artifact_by_id
+            .get(artifact_id)
+            .and_then(|artifact| string(artifact, "profile_ref"))
+            .unwrap_or_default()
+            .to_owned();
+        let account_token = string(statement, "account_token").unwrap_or_default().to_owned();
+        let entity_token = string(statement, "entity_token").unwrap_or_default().to_owned();
+        let denomination_profile =
+            string(statement, "denomination_profile_ref").unwrap_or_default().to_owned();
         for entry in array(statement, "entries") {
             if let Some(event_id) = string(entry, "economic_event_ref") {
-                event_rows
+                let context = (
+                    account_token.clone(),
+                    entity_token.clone(),
+                    denomination_profile.clone(),
+                    source_profile.clone(),
+                );
+                event_reference_contexts
                     .entry(event_id.to_owned())
+                    .or_default()
+                    .insert(context);
+                let event_key = (
+                    account_token.clone(),
+                    entity_token.clone(),
+                    denomination_profile.clone(),
+                    source_profile.clone(),
+                    event_id.to_owned(),
+                );
+                event_rows
+                    .entry(event_key)
                     .or_default()
                     .push((statement, entry));
             }
         }
-        let _ = artifact_id;
     }
-    for (event_id, rows) in &event_rows {
+    if event_reference_contexts
+        .values()
+        .any(|contexts| contexts.len() > 1)
+    {
+        reasons.insert("event_reference_is_account_scoped".to_owned());
+    }
+    for (event_key, rows) in &event_rows {
         if rows.len() > 1 {
             let first = rows[0];
             for duplicate in rows.iter().skip(1) {
@@ -609,7 +645,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 });
                 if !same || !linked {
                     findings.insert("overlap_unresolved".to_owned());
-                    reasons.insert(format!("overlap_entry_semantics_conflict:{event_id}"));
+                    reasons.insert(format!(
+                        "overlap_entry_semantics_conflict:{}",
+                        event_key.4
+                    ));
                 }
             }
         }
@@ -694,10 +733,10 @@ mod tests {
     #[test]
     fn all_public_reference_cases_match_the_oracle() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.2.json"
+            "../../bank_statement_chain_candidates_v1.0.3.json"
         ));
         let oracle = fixture(include_str!(
-            "../../public-reference-oracle/bank_statement_chain_oracle_v1.0.2.json"
+            "../../public-reference-oracle/bank_statement_chain_oracle_v1.0.3.json"
         ));
         let expected = oracle["cases"].as_array().expect("oracle cases");
         for case in candidate["cases"].as_array().expect("candidate cases") {
@@ -714,13 +753,21 @@ mod tests {
                     .expect("expected disposition"),
                 "{id}"
             );
+            let expected_count = row["economic_observation_count"]
+                .as_u64()
+                .expect("expected economic observation count") as usize;
+            assert_eq!(
+                assessment.economic_observation_count,
+                expected_count,
+                "{id} economic observation count"
+            );
         }
     }
 
     #[test]
     fn exact_replay_does_not_increase_economic_observation_count() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.2.json"
+            "../../bank_statement_chain_candidates_v1.0.3.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases
@@ -735,7 +782,7 @@ mod tests {
     #[test]
     fn missing_period_is_never_complete() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.2.json"
+            "../../bank_statement_chain_candidates_v1.0.3.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases
@@ -751,7 +798,7 @@ mod tests {
     #[test]
     fn one_minor_unit_balance_mutation_is_detected() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.2.json"
+            "../../bank_statement_chain_candidates_v1.0.3.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases
@@ -767,7 +814,7 @@ mod tests {
     #[test]
     fn exact_replayed_statement_record_is_suppressed() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.2.json"
+            "../../bank_statement_chain_candidates_v1.0.3.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases
@@ -787,7 +834,7 @@ mod tests {
     #[test]
     fn cross_account_replacement_cannot_supersede_original_statement() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.2.json"
+            "../../bank_statement_chain_candidates_v1.0.3.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases
@@ -796,6 +843,8 @@ mod tests {
             .expect("BSC-030");
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "revision_conflict");
+        assert_eq!(assessment.economic_observation_count, 3);
+        assert!(assessment.reason_codes.contains("event_reference_is_account_scoped"));
         assert!(
             assessment
                 .reason_codes
@@ -809,9 +858,25 @@ mod tests {
     }
 
     #[test]
+    fn event_reference_reuse_across_accounts_is_not_deduplicated() {
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.3.json"
+        ));
+        let cases = candidate["cases"].as_array().expect("candidate cases");
+        let case = cases
+            .iter()
+            .find(|case| case["case_id"] == "BSC-031")
+            .expect("BSC-031");
+        let assessment = assess_case(case).expect("assessment");
+        assert_eq!(assessment.disposition, "account_lineage_unknown");
+        assert_eq!(assessment.economic_observation_count, 3);
+        assert!(assessment.reason_codes.contains("event_reference_is_account_scoped"));
+    }
+
+    #[test]
     fn arrival_order_does_not_change_chain_disposition_or_event_count() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.2.json"
+            "../../bank_statement_chain_candidates_v1.0.3.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let baseline = cases
@@ -834,7 +899,7 @@ mod tests {
     #[test]
     fn period_boundary_and_sequence_gaps_fail_closed() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.2.json"
+            "../../bank_statement_chain_candidates_v1.0.3.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         for id in ["BSC-027", "BSC-028"] {
