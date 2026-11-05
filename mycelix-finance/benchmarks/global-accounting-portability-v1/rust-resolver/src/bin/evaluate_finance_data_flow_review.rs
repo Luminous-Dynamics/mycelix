@@ -12,6 +12,7 @@ const REASONS: [&str; 10] = [
     "legal_hold_blocks_deletion",
     "secondary_purpose_unreviewed",
     "support_access_location_unknown",
+    "required_fact_after_knowledge_frontier",
     "uk_regime_profile_not_qualified",
     "onward_transfer_mechanism_scope_incomplete",
     "onward_transfer_destination_unqualified",
@@ -164,6 +165,16 @@ fn is_active(value: &Value, from_key: &str, to_key: &str, period: &Value) -> boo
     interval_overlaps(from, optional_string(value, to_key), start, end)
 }
 
+fn is_known_at(value: &Value, context: &Value) -> bool {
+    let Some(recorded_at) = optional_string(value, "recorded_at") else {
+        return false;
+    };
+    let Some(knowledge_at) = optional_string(context, "knowledge_at") else {
+        return false;
+    };
+    recorded_at <= knowledge_at
+}
+
 fn actor_has_role(actor: &Value, role: &str) -> bool {
     actor
         .get("actor_roles")
@@ -208,6 +219,7 @@ fn mechanism_qualifies_for_fixture_scope(
             || array(mechanism, "evidence_refs")?.is_empty()
             || array(mechanism, "reviewer_refs")?.is_empty()
             || !is_active(mechanism, "valid_from", "valid_to", period)
+            || !is_known_at(mechanism, context)
         {
             continue;
         }
@@ -222,6 +234,7 @@ fn mechanism_qualifies_for_fixture_scope(
         };
         if optional_string(profile, "status") == Some("synthetic_unqualified")
             || !is_active(profile, "effective_from", "effective_to", period)
+            || !is_known_at(profile, context)
         {
             continue;
         }
@@ -239,7 +252,9 @@ fn foreign_locations<'a>(
     let period = context.get("period").ok_or("context missing period")?;
     let mut locations = Vec::new();
     for location in array(flow, "location_observations")? {
-        if !is_active(location, "valid_from", "valid_to", period) {
+        if !is_active(location, "valid_from", "valid_to", period)
+            || !is_known_at(location, context)
+        {
             continue;
         }
         if optional_string(location, "assertion_state") == Some("unknown") {
@@ -268,6 +283,10 @@ fn evaluate_context(context: &Value) -> Result<Value, String> {
 
     // Conflicting or disputed role assertions prevent a clean actor/authority interpretation.
     for claim in array(context, "actor_role_claims")? {
+        if !is_known_at(claim, context) {
+            push_reason(&mut reasons, "required_fact_after_knowledge_frontier");
+            continue;
+        }
         if optional_string(claim, "assertion_state") == Some("synthetic_disputed")
             || !array(claim, "conflicts_with_claim_refs")?.is_empty()
         {
@@ -277,6 +296,10 @@ fn evaluate_context(context: &Value) -> Result<Value, String> {
 
     // A legal hold is a hard stop on deletion requests; this evaluator never performs deletion.
     for retention in array(context, "retention_policies")? {
+        if !is_known_at(retention, context) {
+            push_reason(&mut reasons, "required_fact_after_knowledge_frontier");
+            continue;
+        }
         let deletion_requested = matches!(
             optional_string(retention, "deletion_state"),
             Some("requested" | "executed")
@@ -288,9 +311,15 @@ fn evaluate_context(context: &Value) -> Result<Value, String> {
 
     let purposes = array(context, "purposes")?;
     for flow in array(context, "flows")? {
+        if !is_known_at(flow, context) {
+            push_reason(&mut reasons, "required_fact_after_knowledge_frontier");
+            continue;
+        }
         let purpose_ref = string(flow, "purpose_ref")?;
         if let Some(purpose) = find_by_ref(purposes, "purpose_ref", purpose_ref) {
-            if matches!(
+            if !is_known_at(purpose, context) {
+                push_reason(&mut reasons, "required_fact_after_knowledge_frontier");
+            } else if matches!(
                 optional_string(purpose, "status"),
                 Some("synthetic_unreviewed" | "synthetic_disputed")
             ) && is_active(purpose, "valid_from", "valid_to", context.get("period").ok_or("context missing period")?)
@@ -301,6 +330,10 @@ fn evaluate_context(context: &Value) -> Result<Value, String> {
 
         let flow_locations = array(flow, "location_observations")?;
         for location in flow_locations {
+            if !is_known_at(location, context) {
+                push_reason(&mut reasons, "required_fact_after_knowledge_frontier");
+                continue;
+            }
             if optional_string(location, "facet") == Some("support_access")
                 && optional_string(location, "assertion_state") == Some("unknown")
                 && is_active(location, "valid_from", "valid_to", context.get("period").ok_or("context missing period")?)
@@ -323,6 +356,10 @@ fn evaluate_context(context: &Value) -> Result<Value, String> {
                 return Err("legal_profile_refs must contain strings".to_owned());
             };
             if let Some(profile) = find_by_ref(profiles, "profile_ref", profile_id) {
+                if !is_known_at(profile, context) {
+                    push_reason(&mut reasons, "required_fact_after_knowledge_frontier");
+                    continue;
+                }
                 let regime = optional_string(profile, "regime_id").unwrap_or_default();
                 if regime.contains("UK")
                     && optional_string(profile, "status") != Some("synthetic_approved_fixture_only")
@@ -416,7 +453,8 @@ fn evaluate_context(context: &Value) -> Result<Value, String> {
     let primary_reason = REASONS.iter().find(|reason| reasons.contains(**reason)).copied();
     let disposition = match primary_reason {
         Some("accounting_profile_cannot_authorise_data_transfer")
-        | Some("support_access_location_unknown") => "indeterminate",
+        | Some("support_access_location_unknown")
+        | Some("required_fact_after_knowledge_frontier") => "indeterminate",
         Some(_) => "needs_review",
         None => "no_trigger_detected",
     };
@@ -550,6 +588,23 @@ mod tests {
         let result = evaluate_context(context).unwrap();
         assert_eq!(result["primary_reason_code"], "support_access_location_unknown");
         assert_eq!(result["review_disposition"], "indeterminate");
+    }
+
+    #[test]
+    fn facts_recorded_after_knowledge_frontier_are_excluded_and_indeterminate() {
+        let (mut candidates, _, _) = fixtures();
+        let index = context_index(&candidates, "DG-001-FOREIGN-SUPPORT");
+        let context = &mut candidates["contexts"][index];
+        let support_flow = context["flows"].as_array_mut().unwrap()
+            .iter_mut().find(|flow| optional_string(flow, "operation") == Some("support_access")).unwrap();
+        let support_location = support_flow["location_observations"].as_array_mut().unwrap()
+            .iter_mut().find(|location| optional_string(location, "facet") == Some("support_access")).unwrap();
+        support_location["recorded_at"] = Value::String("2026-11-05T10:45:00Z".to_owned());
+        let result = evaluate_context(context).unwrap();
+        assert_eq!(result["primary_reason_code"], "required_fact_after_knowledge_frontier");
+        assert_eq!(result["review_disposition"], "indeterminate");
+        assert!(!array(&result, "triggered_reason_codes").unwrap().iter()
+            .any(|code| code.as_str() == Some("foreign_support_access_without_transfer_qualification")));
     }
 
     #[test]
