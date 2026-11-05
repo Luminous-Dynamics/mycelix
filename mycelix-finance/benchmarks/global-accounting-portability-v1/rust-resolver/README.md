@@ -6,7 +6,7 @@ Standalone Rust resolver for the catalogue and exact qualification-intersection 
 
 This crate selects an explicitly recorded profile intersection for a declared jurisdiction/entity/period/use. It does not execute tax or accounting rules, convert currencies, validate invoices, map XBRL facts, authenticate sources, create journals or issue a benchmark run receipt.
 
-An individual profile's existence or status never implies that a combination is qualified. Qualification requires an exact intersection record matching:
+An individual profile's existence or status never implies that a combination is qualified. Qualification requires an exact intersection record matching the following fields, with every selected profile bound to its exact version and SHA-256 of canonical profile bytes:
 - jurisdiction-scope set;
 - entity scope;
 - selected profile-ID set;
@@ -45,7 +45,7 @@ The program emits one deterministic JSON resolution report. A refusal/abstention
 
 ## Current evidence status
 
-- The Rust package, CLI, schemas and 28 unit tests are authored. Tests cover positive synthetic qualification, opt-in synthetic mode, exact profile/jurisdiction/entity intersection matching, unsupported references, missing dimensions, partial coverage, profile-set ordering, review/ambiguous intersections, time validity, historical knowledge frontiers and early application.
+- The Rust package, CLI, schemas and 28 unit tests are authored. Tests cover positive synthetic qualification, opt-in synthetic mode, exact profile/jurisdiction/entity intersection matching, unsupported references, missing dimensions, partial coverage, profile-set ordering, review/ambiguous intersections, time validity, historical knowledge frontiers, early application, profile content/version mutation and digest stability under JSON key reordering.
 - The catalogue and request/report schemas are validated at runtime using the pinned JSON Schema Draft 2020-12 implementation.
 - No Cargo.lock has been generated.
 - No Rust compile, unit test, rustfmt, Clippy or CI result is claimed in this authoring environment.
