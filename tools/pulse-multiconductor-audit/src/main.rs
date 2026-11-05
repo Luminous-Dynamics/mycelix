@@ -138,6 +138,12 @@ fn exact_fields(data: &Value, expected: &[&str]) -> bool {
     map.len() == expected.len() && expected.iter().all(|key| map.contains_key(*key))
 }
 
+fn exact_fields_with_optional(data: &Value, required: &[&str], optional: &[&str]) -> bool {
+    let Some(map) = data.as_object() else { return false; };
+    required.iter().all(|key| map.contains_key(*key))
+        && map.keys().all(|key| required.contains(&key.as_str()) || optional.contains(&key.as_str()))
+}
+
 fn valid_event_shape(event: &Event) -> bool {
     let (fields, strings, numbers, booleans, arrays): (&[&str], &[&str], &[&str], &[&str], &[&str]) =
         match event.event_type.as_str() {
@@ -165,8 +171,8 @@ fn valid_event_shape(event: &Event) -> bool {
                 &["action_hash","author_conductor_id","receiving_conductor_id","disposition","validator_build","reason_code"],
                 &["action_hash","author_conductor_id","receiving_conductor_id","disposition","validator_build"], &[], &[], &[]),
             "projection_observed" => (
-                &["action_hash","projection_state","decision","required_dna_hash","observed_dna_hash","required_cell_id","observed_cell_id","required_author","observed_author","required_action_hash","observed_action_hash","required_epoch","observed_epoch","descends_from_required"],
-                &["action_hash","projection_state","decision","required_dna_hash","observed_dna_hash","required_cell_id","observed_cell_id","required_author","observed_author","required_action_hash","observed_action_hash"],
+                &["action_hash","author_conductor_id","projection_state","decision","required_dna_hash","observed_dna_hash","required_cell_id","observed_cell_id","required_author","observed_author","required_action_hash","observed_action_hash","required_epoch","observed_epoch","descends_from_required"],
+                &["action_hash","author_conductor_id","projection_state","decision","required_dna_hash","observed_dna_hash","required_cell_id","observed_cell_id","required_author","observed_author","required_action_hash","observed_action_hash"],
                 &["required_epoch","observed_epoch"], &["descends_from_required"], &[]),
             "remote_signal" => (
                 &["event_type","trust_class","transport_sender","claimed_sender","backing_action_hash","record_author","verified_payload_sha256","verifier_build","trusted_state_mutation","authorizes_operation"],
@@ -175,7 +181,12 @@ fn valid_event_shape(event: &Event) -> bool {
                 &["operation_id","attempt_id","outcome"], &["operation_id","outcome"], &["attempt_id"], &[], &[]),
             _ => return false,
         };
-    if !exact_fields(&event.data, fields)
+    let exact_shape = if event.event_type == "projection_observed" {
+        exact_fields_with_optional(&event.data, fields, &["validator_event_id"])
+    } else {
+        exact_fields(&event.data, fields)
+    };
+    if !exact_shape
         || !strings.iter().all(|key| nonempty_str(&event.data,key))
         || !numbers.iter().all(|key| u64_value(&event.data,key).is_some())
         || !booleans.iter().all(|key| bool_value(&event.data,key).is_some())
@@ -318,7 +329,9 @@ fn audit(history:&History,input_sha256:String)->Report {
     let mut claim_events=Vec::new();
     let mut call_events=Vec::new();
     let mut effect_events=Vec::new();
-    let mut authored:BTreeMap<String,&Event>=BTreeMap::new();
+    // Action hashes are scoped by their authoring conductor/cell lineage. The same
+    // byte-level hash value in two independent cells must not alias histories.
+    let mut authored:BTreeMap<(String,String),&Event>=BTreeMap::new();
     let mut validation_events=Vec::new();
     let mut projection_events=Vec::new();
     let mut outcome_events=Vec::new();
@@ -363,7 +376,8 @@ fn audit(history:&History,input_sha256:String)->Report {
             "action_authored"=>{
                 counts.actions_authored+=1;
                 let hash=str_value(d,"action_hash").unwrap_or_default().to_string();
-                if let Some(old)=authored.insert(hash.clone(),e) { finding(&mut findings,"ACTION_HASH_AUTHORED_TWICE","violation",Some(&e.event_id),format!("action hash also authored in {}",old.event_id)); }
+                let identity=(e.conductor_id.clone(),hash);
+                if let Some(old)=authored.insert(identity,e) { finding(&mut findings,"ACTION_HASH_AUTHORED_TWICE","violation",Some(&e.event_id),format!("action hash also authored in the same conductor/cell as {}",old.event_id)); }
                 if let Some(c)=conductors.get(&e.conductor_id) {
                     if str_value(d,"author")!=Some(c.agent_key_ref.as_str()) { finding(&mut findings,"ACTION_AUTHOR_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"action author differs from author conductor identity"); }
                 }
@@ -485,10 +499,18 @@ fn audit(history:&History,input_sha256:String)->Report {
     for e in &validation_events {
         let d=&e.data;
         let hash=str_value(d,"action_hash").unwrap_or_default();
-        let Some(authored_event)=authored.get(hash) else { finding(&mut findings,"VALIDATION_WITHOUT_AUTHORED_ACTION","incomplete",Some(&e.event_id),"validation has no corresponding authored action"); continue; };
         let author_conductor=str_value(d,"author_conductor_id").unwrap_or_default();
         let receiver=str_value(d,"receiving_conductor_id").unwrap_or_default();
+        let authored_key=(author_conductor.to_string(),hash.to_string());
+        let Some(authored_event)=authored.get(&authored_key) else { finding(&mut findings,"VALIDATION_WITHOUT_AUTHORED_ACTION","incomplete",Some(&e.event_id),"validation has no authored action with this exact author-conductor and ActionHash identity"); continue; };
         if authored_event.conductor_id!=author_conductor||authored_event.conductor_id==e.conductor_id||receiver!=e.conductor_id { finding(&mut findings,"VALIDATION_CONDUCTOR_BINDING_MISMATCH","violation",Some(&e.event_id),"author/receiving conductor IDs do not match event provenance"); }
+        let author_cell=conductors.get(author_conductor);
+        let validator_cell=conductors.get(&e.conductor_id);
+        if let (Some(author_cell),Some(validator_cell))=(author_cell,validator_cell) {
+            if author_cell.dna_hash!=validator_cell.dna_hash||author_cell.cell_id!=validator_cell.cell_id {
+                finding(&mut findings,"VALIDATION_CELL_LINEAGE_MISMATCH","violation",Some(&e.event_id),"receiving validator must belong to the same DNA/cell lineage as the authored action");
+            }
+        }
         if conductors.get(&e.conductor_id).is_none_or(|c|c.role!="validator") { finding(&mut findings,"VALIDATION_NON_VALIDATOR_CONDUCTOR","incomplete",Some(&e.event_id),"validation disposition must come from validator role"); }
         if e.source!="validator" { finding(&mut findings,"VALIDATION_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"validation must be reported by validator plane"); }
         if authored_event.source != "source_chain" { finding(&mut findings,"ACTION_AUTHOR_WRONG_EVIDENCE_SOURCE","incomplete",Some(&authored_event.event_id),"action authoring must come from source-chain evidence"); }
@@ -502,19 +524,90 @@ fn audit(history:&History,input_sha256:String)->Report {
         let state=str_value(d,"projection_state").unwrap_or_default();
         if e.source!="observer"||conductors.get(&e.conductor_id).is_none_or(|c|c.role!="observer") { finding(&mut findings,"PROJECTION_WRONG_OBSERVER","incomplete",Some(&e.event_id),"projection must be reported by observer role"); }
         if conductors.get(&e.conductor_id).is_some_and(|c| c.dna_hash != str_value(d,"observed_dna_hash").unwrap_or_default()) { finding(&mut findings,"OBSERVER_DNA_MISMATCH","violation",Some(&e.event_id),"observer DNA differs from observed projection DNA"); }
-        let exact=str_value(d,"required_dna_hash")==str_value(d,"observed_dna_hash")
+        let required_hash=str_value(d,"required_action_hash").unwrap_or_default();
+        let action_hash=str_value(d,"action_hash").unwrap_or_default();
+        let author_conductor_id=str_value(d,"author_conductor_id").unwrap_or_default();
+        let author_cell=conductors.get(author_conductor_id);
+        let observer_cell=conductors.get(&e.conductor_id);
+        let exact=action_hash==required_hash
+            &&str_value(d,"required_dna_hash")==str_value(d,"observed_dna_hash")
             &&str_value(d,"required_cell_id")==str_value(d,"observed_cell_id")
             &&str_value(d,"required_author")==str_value(d,"observed_author")
             &&str_value(d,"required_action_hash")==str_value(d,"observed_action_hash");
         let fresh=u64_value(d,"observed_epoch").unwrap_or(0)>=u64_value(d,"required_epoch").unwrap_or(u64::MAX);
         let descends=bool_value(d,"descends_from_required")==Some(true);
+
+        if !exact {
+            finding(&mut findings,"PROJECTION_ACTION_IDENTITY_MISMATCH","violation",Some(&e.event_id),"projection action hash, checkpoint hash, DNA, cell, and observed identity must match exactly");
+        }
+        let Some(source_event)=authored.get(&(author_conductor_id.to_string(),required_hash.to_string())) else {
+            finding(&mut findings,"PROJECTION_SOURCE_ACTION_MISSING","incomplete",Some(&e.event_id),"projection checkpoint does not resolve to an authored action in the exact authoring conductor");
+            continue;
+        };
+        if let Some(author_cell)=author_cell {
+            if author_cell.dna_hash!=str_value(d,"required_dna_hash").unwrap_or_default()
+                ||author_cell.cell_id!=str_value(d,"required_cell_id").unwrap_or_default()
+                ||author_cell.agent_key_ref!=str_value(d,"required_author").unwrap_or_default()
+                ||str_value(&source_event.data,"author")!=Some(author_cell.agent_key_ref.as_str()) {
+                finding(&mut findings,"PROJECTION_SOURCE_LINEAGE_MISMATCH","violation",Some(&e.event_id),"checkpoint DNA/cell/author does not match the exact authored source action");
+            }
+        } else {
+            finding(&mut findings,"PROJECTION_AUTHOR_CONDUCTOR_UNKNOWN","incomplete",Some(&e.event_id),"projection references an unknown authoring conductor");
+        }
+        if let Some(observer_cell)=observer_cell {
+            if observer_cell.dna_hash!=str_value(d,"observed_dna_hash").unwrap_or_default()
+                ||observer_cell.cell_id!=str_value(d,"observed_cell_id").unwrap_or_default() {
+                finding(&mut findings,"OBSERVER_CELL_MISMATCH","violation",Some(&e.event_id),"observer must report the DNA/cell identity it actually hosts");
+            }
+        }
         if decision=="trusted"&&(state!="integrated"||!exact||!fresh||!descends) { finding(&mut findings,"FALSE_FRESH_PROJECTION","violation",Some(&e.event_id),"trusted projection requires integrated state, exact identity, adequate epoch and ancestry"); }
         if state=="conflicting"&&!matches!(decision,"conflicting"|"unknown") { finding(&mut findings,"CONFLICTING_PROJECTION_MISCLASSIFIED","violation",Some(&e.event_id),"conflicting projection must remain conflicting or unknown"); }
-        let hash=str_value(d,"action_hash").unwrap_or_default();
-        let matching:Vec<_>=validation_events.iter().filter(|v|str_value(&v.data,"action_hash")==Some(hash)).collect();
-        if matching.iter().any(|v|str_value(&v.data,"disposition")==Some("rejected"))&&decision=="trusted" { finding(&mut findings,"REJECTED_ACTION_PROJECTED_AS_TRUSTED","violation",Some(&e.event_id),"a rejected action cannot be trusted as integrated"); }
-        for v in &matching { if !path_exists(&adjacency,&v.event_id,&e.event_id) { finding(&mut findings,"VALIDATION_NOT_CAUSAL_BEFORE_PROJECTION","incomplete",Some(&e.event_id),"projection must causally follow validation disposition"); } }
-        if decision=="trusted"&&matching.is_empty() { finding(&mut findings,"TRUSTED_PROJECTION_WITHOUT_VALIDATION","incomplete",Some(&e.event_id),"trusted projection lacks a matching receiving-validator disposition"); }
+
+        let validator_ref=str_value(d,"validator_event_id");
+        match validator_ref {
+            Some(validator_id) => {
+                let Some(validator_event)=validation_events.iter().find(|v|v.event_id==validator_id) else {
+                    finding(&mut findings,"PROJECTION_VALIDATOR_RECEIPT_MISSING","incomplete",Some(&e.event_id),"validator_event_id does not reference a validation disposition in this history");
+                    continue;
+                };
+                let validator_author=str_value(&validator_event.data,"author_conductor_id").unwrap_or_default();
+                let validator_hash=str_value(&validator_event.data,"action_hash").unwrap_or_default();
+                if validator_author!=author_conductor_id||validator_hash!=required_hash {
+                    finding(&mut findings,"PROJECTION_VALIDATOR_RECEIPT_IDENTITY_MISMATCH","violation",Some(&e.event_id),"referenced validator receipt must concern the exact author conductor and ActionHash");
+                }
+                if !path_exists(&adjacency,&validator_event.event_id,&e.event_id) {
+                    finding(&mut findings,"VALIDATION_NOT_CAUSAL_BEFORE_PROJECTION","incomplete",Some(&e.event_id),"projection must causally follow its exact referenced validator disposition");
+                }
+                let disposition=str_value(&validator_event.data,"disposition").unwrap_or_default();
+                if disposition=="rejected"&&decision=="trusted" {
+                    finding(&mut findings,"REJECTED_ACTION_PROJECTED_AS_TRUSTED","violation",Some(&e.event_id),"a rejected action cannot be trusted as integrated");
+                }
+                if decision=="trusted"&&(disposition!="accepted"||state!="integrated") {
+                    finding(&mut findings,"TRUSTED_PROJECTION_WITHOUT_ACCEPTED_VALIDATION","violation",Some(&e.event_id),"trusted integrated projection requires an accepted validator disposition");
+                }
+            }
+            None if decision=="trusted" => {
+                finding(&mut findings,"TRUSTED_PROJECTION_WITHOUT_VALIDATOR_REFERENCE","incomplete",Some(&e.event_id),"trusted projection must name the exact validator disposition that supports it");
+            }
+            None => {}
+        }
+
+        // If any validation disposition is supplied for this exact action, it must
+        // have the required author-conductor identity; foreign-cell receipts cannot
+        // be borrowed merely because an ActionHash string matches.
+        let matching:Vec<_>=validation_events.iter().filter(|v|
+            str_value(&v.data,"action_hash")==Some(required_hash)
+                &&str_value(&v.data,"author_conductor_id")==Some(author_conductor_id)
+        ).collect();
+        if matching.is_empty()&&decision=="trusted" {
+            finding(&mut findings,"TRUSTED_PROJECTION_WITHOUT_VALIDATION","incomplete",Some(&e.event_id),"trusted projection lacks a matching exact-lineage validator disposition");
+        }
+        if matching.iter().all(|v|v.event_id!=validator_ref.unwrap_or_default())&&validator_ref.is_some() {
+            finding(&mut findings,"PROJECTION_VALIDATOR_NOT_IN_EXACT_LINEAGE","violation",Some(&e.event_id),"the named validator receipt is not one of the matching exact-lineage validation events");
+        }
+        if source_event.conductor_id!=author_conductor_id {
+            finding(&mut findings,"PROJECTION_AUTHOR_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"source action conductor differs from the checkpoint author conductor");
+        }
     }
 
     for e in &outcome_events {
