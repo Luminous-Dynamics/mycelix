@@ -788,6 +788,7 @@ mod tests {
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "revision_conflict");
         assert!(assessment.reason_codes.contains("invalid_cross_account_or_scope_revision_relation"));
+        assert!(assessment.reason_codes.contains("competing_statement_versions_without_relation"));
     }
 
     #[test]
