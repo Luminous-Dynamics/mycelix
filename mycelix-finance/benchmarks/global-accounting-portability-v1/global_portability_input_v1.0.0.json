@@ -3,7 +3,7 @@
   "dataset_version": "1.0.0",
   "split": "public_development",
   "claim_scope": "synthetic_nonlegal_global_profile_resolution_and_interoperability_behavior_only",
-  "generated_on": "2026-11-04",
+  "generated_on": "2026-11-05",
   "cases": [
     {
       "case_id": "GPA-001",
@@ -720,6 +720,574 @@
         }
       ],
       "candidate_task": "Require a pinned time-zone data release and explicit offset/resolution before claiming a reproducible instant."
+    },
+    {
+      "case_id": "GPA-023",
+      "task_family": "locale_numeric",
+      "challenge": "Afrikaans (af-ZA) is Modern in the pinned CLDR 49 locale coverage table; locale-data scope must remain explicit.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "af-ZA"
+        },
+        {
+          "path": "language",
+          "value": "Afrikaans"
+        },
+        {
+          "path": "script",
+          "value": "Latn"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "cldr_coverage_level",
+          "value": "modern"
+        },
+        {
+          "path": "cldr_coverage_source",
+          "value": "CLDR-49-locale-coverage"
+        },
+        {
+          "path": "requested_feature_scope",
+          "value": "full_ui_internationalization"
+        },
+        {
+          "path": "raw_source_text",
+          "value": "Faktuur betaalbaar teen 30 dae"
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        },
+        {
+          "path": "source_text_status",
+          "value": "synthetic_placeholder_not_native_reviewed"
+        }
+      ],
+      "candidate_task": "Return the pinned locale coverage state and preserve original text; do not infer tax/accounting policy from language."
+    },
+    {
+      "case_id": "GPA-024",
+      "task_family": "locale_numeric",
+      "challenge": "isiZulu (zu-ZA) is Modern in the pinned CLDR 49 coverage table.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "zu-ZA"
+        },
+        {
+          "path": "language",
+          "value": "Zulu"
+        },
+        {
+          "path": "native_language_name",
+          "value": "isiZulu"
+        },
+        {
+          "path": "script",
+          "value": "Latn"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "cldr_coverage_level",
+          "value": "modern"
+        },
+        {
+          "path": "cldr_coverage_source",
+          "value": "CLDR-49-locale-coverage"
+        },
+        {
+          "path": "requested_feature_scope",
+          "value": "full_ui_internationalization"
+        },
+        {
+          "path": "raw_source_text",
+          "value": "Inkokhelo ifuneka zingakapheli izinsuku ezingu-30"
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        },
+        {
+          "path": "source_text_status",
+          "value": "synthetic_placeholder_not_native_reviewed"
+        }
+      ],
+      "candidate_task": "Report the CLDR coverage state and preserve text; separate language recognition from jurisdictional/accounting qualification."
+    },
+    {
+      "case_id": "GPA-025",
+      "task_family": "locale_numeric",
+      "challenge": "isiXhosa (xh-ZA) is Moderate, not Modern, in CLDR 49; the request asks for full UI internationalization.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "xh-ZA"
+        },
+        {
+          "path": "language",
+          "value": "Xhosa"
+        },
+        {
+          "path": "native_language_name",
+          "value": "IsiXhosa"
+        },
+        {
+          "path": "script",
+          "value": "Latn"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "cldr_coverage_level",
+          "value": "moderate"
+        },
+        {
+          "path": "cldr_coverage_source",
+          "value": "CLDR-49-locale-coverage"
+        },
+        {
+          "path": "requested_feature_scope",
+          "value": "full_ui_internationalization"
+        },
+        {
+          "path": "raw_source_text",
+          "value": "Intlawulo ilindeleke zingadlulanga iintsuku ezingama-30"
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        },
+        {
+          "path": "source_text_status",
+          "value": "synthetic_placeholder_not_native_reviewed"
+        }
+      ],
+      "candidate_task": "Return partial/profile-scoped for the full-UI request; do not upgrade Moderate to Modern."
+    },
+    {
+      "case_id": "GPA-026",
+      "task_family": "locale_numeric",
+      "challenge": "Sesotho (st-ZA) is Basic in CLDR 49; the request needs full UI and extensive document authoring.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "st-ZA"
+        },
+        {
+          "path": "language",
+          "value": "Southern Sotho"
+        },
+        {
+          "path": "native_language_name",
+          "value": "Sesotho"
+        },
+        {
+          "path": "script",
+          "value": "Latn"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "cldr_coverage_level",
+          "value": "basic"
+        },
+        {
+          "path": "cldr_coverage_source",
+          "value": "CLDR-49-locale-coverage"
+        },
+        {
+          "path": "requested_feature_scope",
+          "value": "full_ui_and_document_authoring"
+        },
+        {
+          "path": "raw_source_text",
+          "value": "Tefo e lokela ho lefshoa nakong ea matsatsi a 30"
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        },
+        {
+          "path": "source_text_status",
+          "value": "synthetic_placeholder_not_native_reviewed"
+        }
+      ],
+      "candidate_task": "Preserve source text and report limited Basic coverage; do not claim full UI/document coverage from locale recognition."
+    },
+    {
+      "case_id": "GPA-027",
+      "task_family": "locale_numeric",
+      "challenge": "Setswana (tn-ZA) is Basic in CLDR 49; it must not inherit a neighboring language's coverage.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "tn-ZA"
+        },
+        {
+          "path": "language",
+          "value": "Tswana"
+        },
+        {
+          "path": "native_language_name",
+          "value": "Setswana"
+        },
+        {
+          "path": "script",
+          "value": "Latn"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "cldr_coverage_level",
+          "value": "basic"
+        },
+        {
+          "path": "cldr_coverage_source",
+          "value": "CLDR-49-locale-coverage"
+        },
+        {
+          "path": "requested_feature_scope",
+          "value": "full_ui_internationalization"
+        },
+        {
+          "path": "raw_source_text",
+          "value": "Tuelo e tshwanetse go dirwa mo malatsing a le 30"
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        },
+        {
+          "path": "source_text_status",
+          "value": "synthetic_placeholder_not_native_reviewed"
+        }
+      ],
+      "candidate_task": "Return Basic coverage for tn-ZA only; do not infer Modern coverage from isiZulu or Afrikaans."
+    },
+    {
+      "case_id": "GPA-028",
+      "task_family": "locale_numeric",
+      "challenge": "Northern Sotho (nso-ZA) is Basic and distinct from Southern Sotho (st-ZA).",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "nso-ZA"
+        },
+        {
+          "path": "language",
+          "value": "Northern Sotho"
+        },
+        {
+          "path": "native_language_name",
+          "value": "Sesotho sa Leboa"
+        },
+        {
+          "path": "script",
+          "value": "Latn"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "cldr_coverage_level",
+          "value": "basic"
+        },
+        {
+          "path": "cldr_coverage_source",
+          "value": "CLDR-49-locale-coverage"
+        },
+        {
+          "path": "requested_feature_scope",
+          "value": "full_ui_internationalization"
+        },
+        {
+          "path": "southern_sotho_locale",
+          "value": "st-ZA"
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        },
+        {
+          "path": "source_text_status",
+          "value": "synthetic_placeholder_not_native_reviewed"
+        }
+      ],
+      "candidate_task": "Keep nso-ZA distinct from st-ZA and report its own Basic coverage; do not merge locale tags or substitute translations."
+    },
+    {
+      "case_id": "GPA-029",
+      "task_family": "locale_numeric",
+      "challenge": "Bangla (bn-BD) uses Bengali script; explicit locale and numbering system must be honored.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "bn-BD"
+        },
+        {
+          "path": "script",
+          "value": "Beng"
+        },
+        {
+          "path": "numbering_system",
+          "value": "beng"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "cldr_coverage_level",
+          "value": "modern"
+        },
+        {
+          "path": "raw_amount_text",
+          "value": "১২,৩৪,৫৬৭.৮৯"
+        },
+        {
+          "path": "currency_code",
+          "value": "CUR-SYN-A"
+        },
+        {
+          "path": "minor_unit_scale",
+          "value": 2
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        }
+      ],
+      "candidate_task": "Parse only under explicit bn-BD and beng numbering context; preserve raw code points and use exact minor units without floating point."
+    },
+    {
+      "case_id": "GPA-030",
+      "task_family": "locale_numeric",
+      "challenge": "Hindi (hi-IN) uses Devanagari script with the numbering-system extension explicitly selected.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "hi-IN-u-nu-deva"
+        },
+        {
+          "path": "language",
+          "value": "Hindi"
+        },
+        {
+          "path": "script",
+          "value": "Deva"
+        },
+        {
+          "path": "numbering_system",
+          "value": "deva"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "cldr_coverage_level",
+          "value": "modern"
+        },
+        {
+          "path": "raw_amount_text",
+          "value": "१२,३४,५६७.८९"
+        },
+        {
+          "path": "currency_code",
+          "value": "CUR-SYN-A"
+        },
+        {
+          "path": "minor_unit_scale",
+          "value": 2
+        },
+        {
+          "path": "raw_string_preserved",
+          "value": true
+        }
+      ],
+      "candidate_task": "Parse with explicit Devanagari numbering system; preserve source code points and return exact minor units."
+    },
+    {
+      "case_id": "GPA-031",
+      "task_family": "evidence_semantics",
+      "challenge": "An Arabic reference contains right-to-left isolates and Arabic-Indic digits; visual order is not source logical order.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "ar-EG"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "bidi_algorithm",
+          "value": "UAX9"
+        },
+        {
+          "path": "bidi_revision",
+          "value": "52"
+        },
+        {
+          "path": "raw_source_text",
+          "value": "رقم الفاتورة ⁧١٢٣/٤٥⁩"
+        },
+        {
+          "path": "raw_codepoints_preserved",
+          "value": true
+        },
+        {
+          "path": "source_byte_digest_available",
+          "value": true
+        },
+        {
+          "path": "display_direction",
+          "value": "rtl"
+        },
+        {
+          "path": "source_text_status",
+          "value": "synthetic_placeholder_not_native_reviewed"
+        }
+      ],
+      "candidate_task": "Use pinned bidi algorithm for display only; preserve logical source order and numeric/reference sequence."
+    },
+    {
+      "case_id": "GPA-032",
+      "task_family": "evidence_semantics",
+      "challenge": "A Hebrew/Latin mixed invoice reference has punctuation and digits affected by bidi display resolution.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "he-IL"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        },
+        {
+          "path": "bidi_algorithm",
+          "value": "UAX9"
+        },
+        {
+          "path": "bidi_revision",
+          "value": "52"
+        },
+        {
+          "path": "raw_source_text",
+          "value": "חשבונית ABC-123/45"
+        },
+        {
+          "path": "raw_codepoints_preserved",
+          "value": true
+        },
+        {
+          "path": "source_byte_digest_available",
+          "value": true
+        },
+        {
+          "path": "normalized_search_key_available",
+          "value": false
+        },
+        {
+          "path": "source_text_status",
+          "value": "synthetic_placeholder_not_native_reviewed"
+        }
+      ],
+      "candidate_task": "Preserve original logical code-point order; report display/search transformation separately."
+    },
+    {
+      "case_id": "GPA-033",
+      "task_family": "identity_namespace",
+      "challenge": "Two legal-name strings are visually confusable because Latin A and Cyrillic А differ at the code-point level.",
+      "facts": [
+        {
+          "path": "party_a_name_raw",
+          "value": "ACME"
+        },
+        {
+          "path": "party_a_namespace",
+          "value": "JUR-A-COMPANY-REGISTRY"
+        },
+        {
+          "path": "party_b_name_raw",
+          "value": "АCME"
+        },
+        {
+          "path": "party_b_namespace",
+          "value": "JUR-B-COMPANY-REGISTRY"
+        },
+        {
+          "path": "party_b_first_codepoint",
+          "value": "CYRILLIC_CAPITAL_LETTER_A"
+        },
+        {
+          "path": "party_a_first_codepoint",
+          "value": "LATIN_CAPITAL_LETTER_A"
+        },
+        {
+          "path": "authoritative_cross_namespace_link",
+          "value": null
+        },
+        {
+          "path": "raw_strings_preserved",
+          "value": true
+        }
+      ],
+      "candidate_task": "Do not merge identities by visual similarity or normalized search key; preserve issuer namespace and require authoritative linkage."
+    },
+    {
+      "case_id": "GPA-034",
+      "task_family": "currency_roles",
+      "challenge": "A localized invoice shows symbol R but omits ISO currency code and denomination profile.",
+      "facts": [
+        {
+          "path": "source_locale",
+          "value": "af-ZA"
+        },
+        {
+          "path": "display_currency_symbol",
+          "value": "R"
+        },
+        {
+          "path": "raw_amount_text",
+          "value": "R 1 250,00"
+        },
+        {
+          "path": "currency_code",
+          "value": null
+        },
+        {
+          "path": "currency_denomination_profile_id",
+          "value": null
+        },
+        {
+          "path": "instrument_profile_id",
+          "value": null
+        },
+        {
+          "path": "jurisdiction_scope",
+          "value": "ZA"
+        },
+        {
+          "path": "cldr_version",
+          "value": "49"
+        }
+      ],
+      "candidate_task": "Do not infer ZAR, instrument or legal denomination from display symbol alone; preserve amount string and request authoritative unit identity."
     }
   ]
 }

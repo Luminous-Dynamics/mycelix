@@ -337,6 +337,198 @@
         "tzdb_versioning",
         "temporal_replay"
       ]
+    },
+    {
+      "case_id": "GPA-023",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "use_cldr49_af_za_coverage",
+        "preserve_source_language_text"
+      ],
+      "prohibited_claims": [
+        "language_implies_tax_policy",
+        "rewrite_source_text"
+      ],
+      "metric_tags": [
+        "locale_coverage",
+        "afrikaans"
+      ]
+    },
+    {
+      "case_id": "GPA-024",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "use_cldr49_zu_za_coverage",
+        "preserve_source_language_text"
+      ],
+      "prohibited_claims": [
+        "borrow_other_locale_rules",
+        "language_implies_jurisdictional_policy"
+      ],
+      "metric_tags": [
+        "locale_coverage",
+        "isizulu"
+      ]
+    },
+    {
+      "case_id": "GPA-025",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "retain_moderate_coverage",
+        "withhold_full_ui_claim"
+      ],
+      "prohibited_claims": [
+        "upgrade_moderate_to_modern"
+      ],
+      "metric_tags": [
+        "locale_coverage",
+        "isixhosa",
+        "abstention"
+      ]
+    },
+    {
+      "case_id": "GPA-026",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "retain_basic_coverage",
+        "withhold_full_ui_and_document_claim"
+      ],
+      "prohibited_claims": [
+        "infer_full_support_from_locale_recognition"
+      ],
+      "metric_tags": [
+        "locale_coverage",
+        "sesotho",
+        "abstention"
+      ]
+    },
+    {
+      "case_id": "GPA-027",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "retain_tn_basic_coverage",
+        "do_not_inherit_zu_coverage"
+      ],
+      "prohibited_claims": [
+        "cross_locale_coverage_substitution"
+      ],
+      "metric_tags": [
+        "locale_coverage",
+        "setswana"
+      ]
+    },
+    {
+      "case_id": "GPA-028",
+      "expected_disposition": "partial_or_profile_scoped",
+      "required_behaviors": [
+        "distinguish_nso_from_st",
+        "retain_basic_coverage"
+      ],
+      "prohibited_claims": [
+        "merge_sotho_locale_tags"
+      ],
+      "metric_tags": [
+        "locale_coverage",
+        "northern_sotho"
+      ]
+    },
+    {
+      "case_id": "GPA-029",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "honor_explicit_bn_beng_numbering",
+        "preserve_bengali_raw_digits",
+        "exact_minor_unit_parse"
+      ],
+      "prohibited_claims": [
+        "silent_latin_digit_rewrite"
+      ],
+      "metric_tags": [
+        "locale_numeric",
+        "bangla",
+        "bengali_script"
+      ]
+    },
+    {
+      "case_id": "GPA-030",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "honor_explicit_hi_deva_numbering",
+        "preserve_devanagari_raw_digits",
+        "exact_minor_unit_parse"
+      ],
+      "prohibited_claims": [
+        "silent_latin_digit_rewrite"
+      ],
+      "metric_tags": [
+        "locale_numeric",
+        "hindi",
+        "devanagari_script"
+      ]
+    },
+    {
+      "case_id": "GPA-031",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "preserve_bidi_controls_and_logical_order",
+        "use_pinned_uax9_for_display_only"
+      ],
+      "prohibited_claims": [
+        "parse_from_visual_order",
+        "strip_directional_controls"
+      ],
+      "metric_tags": [
+        "bidi",
+        "arabic",
+        "source_integrity"
+      ]
+    },
+    {
+      "case_id": "GPA-032",
+      "expected_disposition": "resolved",
+      "required_behaviors": [
+        "preserve_logical_codepoint_order",
+        "keep_display_projection_separate"
+      ],
+      "prohibited_claims": [
+        "rewrite_reference_from_rendered_layout"
+      ],
+      "metric_tags": [
+        "bidi",
+        "hebrew",
+        "source_integrity"
+      ]
+    },
+    {
+      "case_id": "GPA-033",
+      "expected_disposition": "needs_review",
+      "required_behaviors": [
+        "preserve_distinct_codepoints",
+        "require_authoritative_identity_link"
+      ],
+      "prohibited_claims": [
+        "merge_by_visual_similarity"
+      ],
+      "metric_tags": [
+        "unicode_confusables",
+        "identity_namespace"
+      ]
+    },
+    {
+      "case_id": "GPA-034",
+      "expected_disposition": "indeterminate",
+      "required_behaviors": [
+        "require_currency_code_and_denomination_profile",
+        "preserve_display_symbol_as_presentation"
+      ],
+      "prohibited_claims": [
+        "infer_currency_from_symbol_or_locale"
+      ],
+      "metric_tags": [
+        "currency_identity",
+        "locale_formatting",
+        "abstention"
+      ]
     }
   ]
 }

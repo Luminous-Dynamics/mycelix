@@ -87,9 +87,19 @@ Currency preserves transaction, functional and presentation roles. Use exact dec
 
 Locale and timezone behavior also depends on versioned data. Unicode CLDR 49 (published 21 October 2026) supplies locale, numbering-system, calendar and formatting data; IANA tzdb 2026f (released 27 October 2026) changed Cuba's 1 November 2026 time-zone behavior. A replay must pin those releases and the runtime implementation rather than silently inheriting the host OS/browser defaults. [Unicode UTS #35 / CLDR 49](https://unicode.org/reports/tr35/) · [IANA time zones / 2026f release](https://www.iana.org/time-zones).
 
+
+
+### 5.1 Multilingual and script coverage extension — CLDR 49 / UAX #9 revision 52
+
+The public development corpus covers six Southern African locales using the CLDR 49 locale-coverage table: Afrikaans (af-ZA) and isiZulu (zu-ZA) are Modern; isiXhosa (xh-ZA) is Moderate; Sesotho (st-ZA), Setswana (tn-ZA) and Northern Sotho (nso-ZA) are Basic. CLDR describes Modern as suitable for full UI internationalization, Moderate for document-content internationalization, and Basic as a more limited tier. Coverage is feature-scoped and must not collapse into a language-level yes/no flag. The corpus also covers Bangla/Bengali and Hindi/Devanagari numbering, Arabic and Hebrew bidirectional text using UAX #9 revision 52, Unicode confusables, and display-currency-symbol ambiguity.
+
+The non-English phrases in these public fixtures are synthetic placeholders and have **not** received native-speaker review. They test source-text/code-point preservation, locale context and coverage disposition only; they are not translation-quality examples or production copy. Production language packs require native review and feature-level conformance tests.
+
+References: [CLDR 49 locale coverage](https://www.unicode.org/cldr/charts/49/supplemental/locale_coverage.html) · [CLDR 49 release notes](https://cldr.unicode.org/downloads/cldr-49) · [UAX #9 revision 52](https://www.unicode.org/reports/tr9/tr9-52.html).
+
 ## 6. Public development corpus v1.0.0
 
-The candidate input and evaluator oracle are separate. Twenty-two synthetic cases cover multi-axis jurisdiction context, missing context, framework/tax separation, IFRS for SMEs edition/eligibility, currency/FX, timezone/DST, locale parsing, UBL/EN 16931 versus CIUS, transport versus authenticity/delivery/settlement, identity namespaces, XBRL extension loss, bitemporal revisions, partial qualification, framework conversion, missing source bytes, Arabic-Indic numbering, Unicode-normalized names without shared identifiers, unpinned non-Gregorian calendar data and time-zone database version drift.
+The candidate input and evaluator oracle are separate. Thirty-four synthetic cases cover multi-axis jurisdiction context, missing context, framework/tax separation, IFRS for SMEs edition/eligibility, currency/FX, timezone/DST, locale parsing, UBL/EN 16931 versus CIUS, transport versus authenticity/delivery/settlement, identity namespaces, XBRL extension loss, bitemporal revisions, partial qualification, framework conversion, missing source bytes, Arabic-Indic numbering, Unicode-normalized names without shared identifiers, unpinned non-Gregorian calendar data and time-zone database version drift.
 
 All synthetic jurisdiction, currency, tax and framework aliases are non-legal. No tax rate, filing rule, national accounting treatment or legal conclusion is encoded. The IFRS for SMEs date is a sourced reference fact, not an executable accounting rule.
 
@@ -109,7 +119,7 @@ Hard gates:
 
 Quality metrics: context-axis exact match and missing-axis detection; profile selection and correct abstention; cross-border exception recall; exact rational FX/minor-unit accuracy; adapter field preservation and loss accounting; locale/timezone parsing and referral; taxonomy mapping and unmapped-extension recall; bitemporal replay parity; material error and reviewer agreement; reviewer minutes, fully loaded cost, p50/p95/p99 latency and repeatability.
 
-Initial synthetic target: 100% expected behavior on this 22-case public development set. This is conformance, not field readiness.
+Initial synthetic target: 100% expected behavior on this 34-case public development set. This is conformance, not field readiness.
 
 Research target after expansion to 100+ expert-reviewed cases, at least 5 language/locale families, 3 framework families and 3 currency precision classes:
 - at least 95% profile-context axis recall;
