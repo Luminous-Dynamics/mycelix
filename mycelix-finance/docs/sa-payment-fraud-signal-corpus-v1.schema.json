@@ -417,7 +417,8 @@
         "evidence_group_ids",
         "confidence_level",
         "confidence_method_ref",
-        "determining_authority_ref"
+        "determining_authority_ref",
+        "source_refs"
       ],
       "properties": {
         "status": {
@@ -482,6 +483,14 @@
             "null"
           ],
           "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -587,7 +596,9 @@
         "previous_recipient_count",
         "notified_recipient_count",
         "correction_record_refs",
-        "superseding_signal_id"
+        "superseding_signal_id",
+        "previous_recipient_ids",
+        "notified_recipient_ids"
       ],
       "properties": {
         "correction_status": {
@@ -620,6 +631,22 @@
             "null"
           ],
           "pattern": "^FIS-[0-9]{3}-V[0-9]+$"
+        },
+        "previous_recipient_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "notified_recipient_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
