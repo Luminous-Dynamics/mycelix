@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-finance-accounting"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact evidence-bound accounting journal projection kernel for Mycelix Finance"
+
+[lib]
+crate-type = ["rlib"]
+name = "mycelix_finance_accounting"
+
+[dependencies]
+mycelix-business-core = { path = "../../../crates/mycelix-business-core" }
+mycelix-finance-exact = { path = "../finance-exact" }
+mycelix-finance-settlement = { path = "../finance-settlement" }
+sha2 = "=0.10.9"

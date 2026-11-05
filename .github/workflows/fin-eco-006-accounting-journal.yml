@@ -1,0 +1,56 @@
+name: FIN-ECO-006 Evidence-Bound Accounting Journal Kernel
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/crates/finance-accounting/**"
+      - "mycelix-finance/crates/finance-exact/**"
+      - "mycelix-finance/crates/finance-settlement/**"
+      - "crates/mycelix-business-core/**"
+      - ".github/workflows/fin-eco-006-accounting-journal.yml"
+  push:
+    branches:
+      - "finance/fin-eco-006-evidence-bound-journal-2026-11-04"
+    paths:
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/crates/finance-accounting/**"
+      - "mycelix-finance/crates/finance-exact/**"
+      - "mycelix-finance/crates/finance-settlement/**"
+      - "crates/mycelix-business-core/**"
+      - ".github/workflows/fin-eco-006-accounting-journal.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  accounting-reference-kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact subject before execution
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+      - name: Format accounting crate
+        run: cargo fmt --manifest-path mycelix-finance/crates/finance-accounting/Cargo.toml --check
+      - name: Check locked accounting targets
+        run: cargo check --locked --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-accounting --all-targets
+      - name: Run exact accounting and settlement projection tests
+        run: cargo test --locked --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-accounting --all-targets
+      - name: Strict Clippy
+        run: cargo clippy --locked --manifest-path mycelix-finance/Cargo.toml -p mycelix-finance-accounting --all-targets -- -D warnings
+      - name: Assert exact subject and clean source
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
