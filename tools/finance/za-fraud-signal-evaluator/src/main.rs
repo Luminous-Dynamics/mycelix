@@ -465,7 +465,11 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][4]["signal"]["authority"]["review_state"] = json!("verified");
+            value["scenarios"][7]["signal"]["issuer"]["organisational_role"] =
+                json!("regulated_payment_participant");
+            value["scenarios"][7]["signal"]["authority"]["basis_type"] = json!("statutory");
+            value["scenarios"][7]["signal"]["authority"]["basis_reference"] =
+                json!("FSR_ACT_S251");
         },
     )?;
     count += 1;
