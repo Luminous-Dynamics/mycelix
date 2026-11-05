@@ -55,7 +55,8 @@
           "messages.send"
         ],
         "idempotency_key": "grant-op-1",
-        "host_authority_index": 1
+        "host_authority_index": 1,
+        "request_digest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       }
     },
     {
