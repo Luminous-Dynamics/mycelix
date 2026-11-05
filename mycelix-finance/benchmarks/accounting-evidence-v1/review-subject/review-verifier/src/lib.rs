@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use jsonschema::draft202012;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -165,6 +165,7 @@ pub fn verify_value(input: &Value) -> Value {
     }
 
     let stale = blockers.iter().any(|reason| reason.starts_with("stale_"));
+    let policy_mismatch = blockers.contains("review_policy_reference_mismatch") || blockers.contains("review_policy_digest_mismatch");
     let scope_mismatch = blockers.iter().any(|reason| reason.starts_with("review_scope_mismatch"));
     let separation_violation = blockers.iter().any(|reason| reason.starts_with("role_separation_violation"));
     let adverse = blockers.iter().any(|reason| reason.starts_with("adverse_review_decision"));
@@ -174,7 +175,7 @@ pub fn verify_value(input: &Value) -> Value {
             || reason.starts_with("review_predates_workpaper")
     });
 
-    let disposition = if stale {
+    let disposition = if stale || policy_mismatch {
         "stale_subject_or_policy"
     } else if scope_mismatch {
         "review_scope_mismatch"
@@ -182,7 +183,7 @@ pub fn verify_value(input: &Value) -> Value {
         "blocked_by_role_separation"
     } else if adverse {
         "blocked_by_adverse_review"
-    } else if role_mismatch || event_integrity_failure || blockers.contains("review_policy_reference_mismatch") || blockers.contains("review_policy_digest_mismatch") {
+    } else if role_mismatch || event_integrity_failure {
         "blocked_by_review_contract"
     } else if !missing_roles.is_empty() {
         "awaiting_required_roles"
@@ -302,7 +303,7 @@ mod tests {
     }
 
     fn base_record() -> Value {
-        let mut policy = json!({
+        let policy = json!({
             "policy_ref": "review-policy:synthetic-close-v1",
             "policy_version": "1",
             "policy_owner_principal_ref": "principal:policy-owner",
@@ -402,7 +403,8 @@ mod tests {
     fn one_canonical_principal_counts_once_toward_multi_reviewer_quorum() {
         let mut record = base_record();
         record["review_policy"]["required_role_counts"][0]["minimum_unique_principals"] = json!(2);
-        let duplicate = record["review_events"][0].clone();
+        let mut duplicate = record["review_events"][0].clone();
+        duplicate["event_id"] = json!("review-event:reviewer-duplicate-presentation");
         record["review_events"].as_array_mut().unwrap().push(duplicate);
         assert_eq!(disposition(&record), "awaiting_required_roles");
     }
