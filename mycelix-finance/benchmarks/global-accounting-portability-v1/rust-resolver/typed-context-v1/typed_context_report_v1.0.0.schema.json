@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-typed-context-resolution-report-v1.0.0.json",
+  "title": "Mycelix Global Typed Context Resolution Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema_version",
+    "request_id",
+    "context_bundle_id",
+    "context_id",
+    "context_bundle_sha256",
+    "context_schema_sha256",
+    "valid_at",
+    "knowledge_at",
+    "disposition",
+    "claim_ceiling",
+    "requirement_results",
+    "blocking_reasons",
+    "network_access_during_resolution",
+    "policy_execution_during_resolution"
+  ],
+  "properties": {
+    "report_schema_version": {
+      "const": "1.0.0"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "context_schema_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "valid_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "knowledge_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "disposition": {
+      "enum": [
+        "requirements_satisfied",
+        "partial",
+        "needs_review",
+        "indeterminate",
+        "unsupported"
+      ]
+    },
+    "claim_ceiling": {
+      "const": "typed_context_fact_matching_only_not_legal_tax_or_accounting_applicability"
+    },
+    "requirement_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/requirementResult"
+      }
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "network_access_during_resolution": {
+      "const": false
+    },
+    "policy_execution_during_resolution": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "requirementResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id",
+        "disposition",
+        "matched_fact_ids",
+        "candidate_fact_ids",
+        "reason_codes"
+      ],
+      "properties": {
+        "requirement_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disposition": {
+          "enum": [
+            "satisfied",
+            "indeterminate",
+            "needs_review",
+            "unsupported"
+          ]
+        },
+        "matched_fact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "candidate_fact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
