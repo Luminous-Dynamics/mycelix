@@ -70,6 +70,7 @@ jobs:
           jq -e '.disposition == "awaiting_required_roles" and .can_approve_close == false' /tmp/review-empty.json
           jq -e '.disposition == "structurally_ready_pending_external_authority" and .external_authority_verified == false and .can_approve_close == false' /tmp/review-qualified.json
           jq -e '.disposition == "blocked_by_role_separation" and .can_approve_close == false' /tmp/review-self-review.json
+          cat /tmp/review-agent-review.json
           jq -e '.disposition == "blocked_by_non_human_role" and .can_approve_close == false' /tmp/review-agent-review.json
 
       - name: Assert exact subject and clean source
