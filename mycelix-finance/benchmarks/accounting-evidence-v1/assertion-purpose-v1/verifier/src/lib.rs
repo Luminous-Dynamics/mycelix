@@ -64,7 +64,17 @@ fn assess(case: &Value) -> Assessment {
     }
 
     let evidence = array(contract, "evidence");
-    let evidence_by_id = evidence.iter().filter_map(|e| string(e, "evidence_id").map(|id| (id, e))).collect::<BTreeMap<_, _>>();
+    let mut evidence_by_id = BTreeMap::<&str, &Value>::new();
+    for evidence_item in evidence {
+        let Some(id) = string(evidence_item, "evidence_id") else {
+            reasons.insert("evidence_id_missing".to_owned());
+            return Assessment { disposition: "indeterminate".to_owned(), reasons };
+        };
+        if evidence_by_id.insert(id, evidence_item).is_some() {
+            reasons.insert("duplicate_evidence_identity".to_owned());
+            return Assessment { disposition: "indeterminate".to_owned(), reasons };
+        }
+    }
     for claim in array(contract, "candidate_claims") {
         for ref_id in array(claim, "evidence_refs").iter().filter_map(Value::as_str) {
             if !evidence_by_id.contains_key(ref_id) {
@@ -79,7 +89,7 @@ fn assess(case: &Value) -> Assessment {
         string(e, "polarity") == Some("contradicts")
             && string(e, "source_authentication") == Some("qualified")
             && string(e, "source_authority") == Some("qualified")
-            && string(e, "temporal_fit") != Some("outside_reporting_period")
+
             && !matches!(string(e, "transformation_state"), Some("altered_or_conflicted" | "derived_without_lineage" | "unknown"))
     }) {
         reasons.insert("qualified_contradictory_evidence_present".to_owned());
@@ -295,6 +305,18 @@ mod tests {
             assert_eq!(assess(case).disposition,string(expected,"expected_disposition").expect("expected"),"{id}");
         }
     }
+    #[test]
+    fn duplicate_evidence_identifiers_are_indeterminate() {
+        let input = fixture(include_str!("../../assertion_purpose_cases_v1.0.0.json"));
+        let case = array(&input, "cases")
+            .iter()
+            .find(|case| string(case, "case_id") == Some("AEP-021"))
+            .expect("AEP-021");
+        let assessment = assess(case);
+        assert_eq!(assessment.disposition, "indeterminate");
+        assert!(assessment.reasons.contains("duplicate_evidence_identity"));
+    }
+
     #[test]
     fn mirrors_do_not_count_as_independent_origins(){
         let input=fixture(include_str!("../../assertion_purpose_cases_v1.0.0.json"));
