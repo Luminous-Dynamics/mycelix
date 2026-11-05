@@ -621,6 +621,25 @@ mod tests {
 
 
 
+
+    #[test]
+    fn profile_digest_is_independent_of_json_object_key_order() {
+        let first: Value = serde_json::from_str(
+            r#"{"profile_id":"SYN-PROFILE","version":"v1","dimension":"accounting_framework","status":"synthetic_only","authority_class":"synthetic_test_fixture","source_url":"https://example.invalid/profile","valid_from":null,"notes":"synthetic"}"#
+        ).unwrap();
+        let second: Value = serde_json::from_str(
+            r#"{"notes":"synthetic","valid_from":null,"source_url":"https://example.invalid/profile","authority_class":"synthetic_test_fixture","status":"synthetic_only","dimension":"accounting_framework","version":"v1","profile_id":"SYN-PROFILE"}"#
+        ).unwrap();
+        assert_eq!(profile_sha256(&first).unwrap(), profile_sha256(&second).unwrap());
+    }
+
+    #[test]
+    fn fractional_second_knowledge_frontiers_are_rejected_by_request_schema() {
+        let mut request = request("qualified");
+        request["knowledge_at"] = json!("2026-11-05T02:00:00.000Z");
+        assert!(validate_instance("request", &request_schema(), &request).is_err());
+    }
+
     #[test]
     fn profile_content_mutation_invalidates_approved_intersection() {
         let mut registry = registry();
