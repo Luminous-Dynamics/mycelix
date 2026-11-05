@@ -46,15 +46,17 @@ pub fn verify(input_bytes: &[u8], schema_bytes: &[u8], oracle_bytes: &[u8], orac
             match (oracle_by_id.get(&id), assess_case(case)) {
                 (Some(reference), Ok(assessment)) => {
                     let expected = reference["expected_terminal_state"].as_str().unwrap_or("<missing>");
-                    let passed = assessment.state == expected;
                     let blocks = assessment.state != "addressed_with_qualified_evidence"
                         && assessment.state != "not_applicable_with_authorized_rationale";
+                    let expected_blocks = reference["blocks_unqualified_signoff"].as_bool().unwrap_or(true);
+                    let passed = assessment.state == expected && blocks == expected_blocks;
                     results.push(json!({
                         "case_id": id,
                         "actual_terminal_state": assessment.state,
                         "expected_terminal_state": expected,
                         "passed": passed,
                         "blocks_unqualified_signoff": blocks,
+                        "expected_blocks_unqualified_signoff": expected_blocks,
                         "reason_codes": assessment.reasons.into_iter().collect::<Vec<_>>()
                     }));
                 }
