@@ -437,14 +437,15 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
         missing_requirements.is_empty(),
         format!("missing requirement IDs={missing_requirements:?}"),
     );
+    let source_bindings_valid = !reasons.iter().any(|reason| {
+        reason.starts_with("source_binding_invalid:")
+            || reason == "unqualified_source_promoted_to_decision_grade"
+    });
     check(
         &mut checks,
         &mut reasons,
         "source_bindings_are_valid",
-        !reasons.iter().any(|reason| {
-            reason.starts_with("source_binding_invalid:")
-                || reason == "unqualified_source_promoted_to_decision_grade"
-        }),
+        source_bindings_valid,
         "source digest, revision, locator, entity, currency, authority and temporal frontier must match",
     );
 
