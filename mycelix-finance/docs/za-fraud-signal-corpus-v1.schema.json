@@ -278,8 +278,7 @@
           "pattern": "^SYNTHETIC-EVIDENCE-[0-9]{3}$"
         },
         "evidence_commitment": {
-          "type": "string",
-          "pattern": "^sha256:[a-f0-9]{64}$"
+          "type": "string"
         }
       }
     },
@@ -628,7 +627,7 @@
           }
         },
         "raw_personal_data_present": {
-          "const": false
+          "type": "boolean"
         },
         "recipient_uses": {
           "type": "array",
