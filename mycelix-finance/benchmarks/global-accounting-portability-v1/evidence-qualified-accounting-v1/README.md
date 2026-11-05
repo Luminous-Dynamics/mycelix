@@ -64,7 +64,7 @@ The expanded public S0 contains **17 synthetic tasks and 17 oracle rows**:
 16. Credit-note parent invoice received after the frontier — escalate; later receipt cannot retroactively resolve the earlier assessment.
 17. Service start after service end — escalate instead of guessing which source date is wrong.
 
-Expected dispositions: three deliver, seven clarify, one abstain and six escalate. The 17 cases contain 25 source documents, 58 facts, five expected journal entries and five expected statement lines. The values are synthetic; no real client or book is represented. Document integrity flags are fixture controls, not cryptographic measurements of live source bytes.
+Expected dispositions: four deliver, eight clarify, one abstain and four escalate. The 17 cases contain 29 source documents, 62 facts, five expected journal entries and five expected statement lines. The values are synthetic; no real client or book is represented. Document integrity flags are fixture controls, not cryptographic measurements of live source bytes.
 
 ## Deterministic validator
 
