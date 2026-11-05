@@ -350,22 +350,31 @@ fn evaluate_case(
 
     let expected_source_refs = expected_source_fact_refs(expectation)?;
     let actual_source_refs = actual_source_fact_refs(submission)?;
-    let valid_actual_refs = actual_source_refs
-        .iter()
-        .filter(|reference| available_refs.contains(*reference))
-        .count();
-    let covered_expected_refs = expected_source_refs
-        .intersection(
-            &actual_source_refs
+    let mut expected_line_count = 0usize;
+    let mut completely_bound_line_count = 0usize;
+    for expected_entry in array(expectation, "expected_journal_entries")? {
+        for expected_line in array(expected_entry, "lines")? {
+            expected_line_count += 1;
+            let expected_line_ref = string(expected_line, "line_ref")?;
+            let expected_refs = set_from_string_array(expected_line, "source_fact_refs")?;
+            let actual_line = array(submission, "journal_entries")?
                 .iter()
-                .cloned()
-                .collect::<BTreeSet<_>>(),
-        )
-        .count();
-    let source_binding_completeness = if expected_source_refs.is_empty() {
-        if actual_source_refs.is_empty() { 1.0 } else { 0.0 }
+                .flat_map(|entry| array(entry, "lines").unwrap_or(&[]).iter())
+                .find(|line| optional_string(line, "line_ref") == Some(expected_line_ref));
+            if let Some(actual_line) = actual_line {
+                let actual_refs = set_from_string_array(actual_line, "source_fact_refs")?;
+                if actual_refs == expected_refs
+                    && actual_refs.iter().all(|reference| available_refs.contains(reference))
+                {
+                    completely_bound_line_count += 1;
+                }
+            }
+        }
+    }
+    let source_binding_completeness = if expected_line_count == 0 {
+        if journal_line_count(submission)? == 0 { 1.0 } else { 0.0 }
     } else {
-        ratio(covered_expected_refs, expected_source_refs.len())
+        ratio(completely_bound_line_count, expected_line_count)
     };
 
     let mut decision_critical_assumption_count = 0usize;
