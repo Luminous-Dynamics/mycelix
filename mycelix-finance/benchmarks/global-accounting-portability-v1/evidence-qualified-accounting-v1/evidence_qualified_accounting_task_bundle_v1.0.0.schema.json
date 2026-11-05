@@ -126,7 +126,8 @@
         "source_system",
         "received_at",
         "integrity_state",
-        "duplicate_of_document_ref"
+        "duplicate_of_document_ref",
+        "supersedes_document_ref"
       ],
       "properties": {
         "document_ref": {
@@ -175,6 +176,12 @@
           ]
         },
         "duplicate_of_document_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "supersedes_document_ref": {
           "type": [
             "string",
             "null"
