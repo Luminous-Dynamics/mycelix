@@ -97,3 +97,16 @@ No competing trust engine, global identity graph, legal source registry or unive
 The v1 corpus contains 36 synthetic cases, including wrong-recipient pairwise-token substitution, unknown or mismatched recipient subject bindings, and a proposed-but-not-operational NPU profile that must remain quarantined.
 
 Passing the corpus proves only the exact synthetic schema/evaluator behavior. It does not establish a lawful basis, POPIA/FSR compliance, actual fraud-detection accuracy, a national fraud service, SARB endorsement, provider liability or real-world consumer benefit. Live exchange requires participating controllers, current rules, data-sharing agreements, privacy impact assessment and specialist legal review.
+
+
+## 2026-11-05 issuer, freshness and appeal hardening
+
+The current profile schema now makes three previously implicit constraints executable:
+
+1. **Issuer allowlist:** each profile names the exact permitted issuer IDs, independently of the issuer's role and synthetic key-verification receipt. A valid signature from an issuer not in the profile is rejected.
+2. **Assertion-status allowlist:** each profile names the epistemic states its issuer class may emit. The private-participant fixture cannot assert an official determination. The separate regulator-scope fixture can represent an official status only with court/official evidence and an identified determining authority; even then the disposition is advisory and effects-disabled.
+3. **Profile-bounded freshness:** event observation and record timestamps must be canonical UTC seconds, ordered `observed_at <= recorded_at <= evaluated_at`, and within the profile's declared maximum signal age. Future-dated or stale signals are quarantined. Retention expiry remains a separate rule: audit retention does not imply that a signal remains suitable for current decision use.
+
+The lifecycle also has explicit appeal state, appeal record and appeal decision references. Open appeals require a case reference and no final decision; accepted/rejected/closed appeals require a reasoned decision reference. Correction/withdrawal records require their own evidence reference, and every notified recipient must be drawn from the prior-recipient ledger. A closed appeal without a decision or an invented notification is quarantined.
+
+The synthetic corpus is now 42 scenarios. New cases cover stale and future-dated signals, unresolved appeal disposition, an unlisted issuer, an impermissible private-participant official-status claim, and a properly scoped regulator fixture. Profile age limits and issuer/status allowlists are synthetic conformance values, not South African law, product rules or universal operational thresholds.
