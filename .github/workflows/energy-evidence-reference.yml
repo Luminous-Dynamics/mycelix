@@ -1,0 +1,92 @@
+name: Energy evidence-reference schema and fixture contract
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-energy/**"
+      - ".github/workflows/energy-evidence-reference.yml"
+  push:
+    paths:
+      - "mycelix-energy/**"
+      - ".github/workflows/energy-evidence-reference.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: energy-evidence-reference-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schema-fixture-contract:
+    name: schema-fixture-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact event commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Capture and verify checked-out commit
+        env:
+          EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_COMMIT="$(git rev-parse HEAD)"
+          echo "ENERGY_EVIDENCE_SOURCE_COMMIT=$ACTUAL_COMMIT" >> "$GITHUB_ENV"
+          echo "Expected commit: $EXPECTED_COMMIT"
+          echo "Actual commit:   $ACTUAL_COMMIT"
+          test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96.0"
+          components: rustfmt
+
+      - name: Check Rust formatting
+        run: |
+          cargo fmt --manifest-path mycelix-energy/Cargo.toml \
+            --package energy-evidence-conformance -- --check
+
+      - name: Run Rust semantic conformance tests
+        run: |
+          cargo test --manifest-path mycelix-energy/Cargo.toml \
+            --package energy-evidence-conformance --locked
+
+      - name: Generate Rust semantic conformance receipt
+        run: |
+          cargo run --manifest-path mycelix-energy/Cargo.toml \
+            --package energy-evidence-conformance --locked -- \
+            --output artifacts/project-evidence-reference-semantic.json
+
+      - name: Set up isolated Python schema validator runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: mycelix-energy/tools/requirements-energy-evidence-ci.txt
+
+      - name: Install pinned JSON Schema validator
+        run: |
+          python -m pip install --disable-pip-version-check --requirement mycelix-energy/tools/requirements-energy-evidence-ci.txt
+          python -c "from importlib.metadata import version; assert version('jsonschema') == '4.26.0'"
+
+      - name: Validate schema and bind Rust semantic receipt
+        env:
+          PYTHONHASHSEED: "0"
+        run: |
+          python mycelix-energy/tools/validate_project_evidence_reference.py \
+            --semantic-receipt artifacts/project-evidence-reference-semantic.json \
+            --output artifacts/project-evidence-reference-conformance.json
+
+      - name: Preserve conformance receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-evidence-reference-conformance
+          path: artifacts/project-evidence-reference-*.json
+          if-no-files-found: error
+          retention-days: 90

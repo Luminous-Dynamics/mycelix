@@ -320,6 +320,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
+name = "energy-evidence-conformance"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "energy_bridge"
 version = "0.1.0"
 dependencies = [
@@ -1197,6 +1205,8 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 [[package]]
 name = "sovereign-profile"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "049f13004bc45a09549c4df44beeaca97def2fce17099de065c0051851ba2249"
 dependencies = [
  "serde",
 ]
