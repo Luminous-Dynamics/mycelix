@@ -294,7 +294,7 @@
             "source_participant": "synthetic-psp-a",
             "origin_case_commitment": "origin-commit-2",
             "independent_claim": true,
-            "evidence_commitment": "evidence-E-2-1"
+            "evidence_commitment": "confirmed-case-evidence-02"
           }
         ],
         "correction_propagation_state": "not_applicable",
