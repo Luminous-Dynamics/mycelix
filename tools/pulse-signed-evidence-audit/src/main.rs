@@ -676,7 +676,12 @@ mod tests {
                 "trace_sha256": trace_digest,
                 "details": {
                     "decision": "grant_issued",
-                    "grant_action_hash": "uhCkk-test-grant"
+                    "grant_action_hash": "uhCkk-test-grant",
+                    "conductor_id": "owner-host",
+                    "agent_key_ref": "agent-owner-pseudonym",
+                    "dna_hash": "uhCkk-dna-mail",
+                    "cell_id": "mail-cell-owner",
+                    "integrity_wasm_sha256": "d".repeat(64)
                 }
             }
         });
@@ -734,7 +739,14 @@ mod tests {
                 "public_key_hex": hex(verifying_key.as_bytes()),
                 "roles": [role],
                 "predicate_types": [predicate_type],
-                "status": "active"
+                "status": "active",
+                "subject_binding": {
+                    "conductor_id": "owner-host",
+                    "agent_key_ref": "agent-owner-pseudonym",
+                    "dna_hash": "uhCkk-dna-mail",
+                    "cell_id": "mail-cell-owner",
+                    "integrity_wasm_sha256": "d".repeat(64)
+                }
             }]
         });
         let policy_bytes = serde_json::to_vec(&policy).unwrap();
@@ -750,6 +762,43 @@ mod tests {
         let report = audit(&bundle, &trace, &policy).unwrap();
         assert_eq!(report.status, "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY", "{:?}", report.findings);
         assert_eq!(report.dsse_verified, 1);
+    }
+
+    #[test]
+    fn trusted_host_key_cannot_sign_for_a_different_conductor() {
+        let (bundle, trace, policy) = fixture();
+        let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
+        let payload_type = bundle_value["attestations"][0]["envelope"]["payload_type"].as_str().unwrap().to_string();
+        let payload_b64 = bundle_value["attestations"][0]["envelope"]["payload_base64"].as_str().unwrap();
+        let payload = STANDARD.decode(payload_b64).unwrap();
+        let mut statement: Value = serde_json::from_slice(&payload).unwrap();
+        statement["predicate"]["details"]["conductor_id"] = Value::String("validator-host".into());
+        statement["predicate"]["details"]["agent_key_ref"] = Value::String("agent-validator".into());
+        statement["predicate"]["details"]["cell_id"] = Value::String("mail-cell-validator".into());
+        let changed_payload = serde_json::to_vec(&statement).unwrap();
+        let signing_key = SigningKey::from_bytes(&[7u8; 32]);
+        let signature = signing_key.sign(&pae(&payload_type, &changed_payload));
+        bundle_value["attestations"][0]["envelope"]["payload_base64"] =
+            Value::String(STANDARD.encode(&changed_payload));
+        bundle_value["attestations"][0]["envelope"]["signatures"][0]["sig_base64"] =
+            Value::String(STANDARD.encode(signature.to_bytes()));
+        let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy).unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(report.findings.iter().any(|f| f.code == "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH"));
+    }
+
+    #[test]
+    fn host_authority_key_without_subject_binding_is_not_authorized() {
+        let (bundle, trace, policy) = fixture();
+        let mut value: Value = serde_json::from_slice(&policy).unwrap();
+        value["keys"][0].as_object_mut().unwrap().remove("subject_binding");
+        let policy_bytes = serde_json::to_vec(&value).unwrap();
+        let policy_digest = sha256_hex(&policy_bytes);
+        let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
+        bundle_value["trust_policy"]["policy_sha256"] = Value::String(policy_digest);
+        let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy_bytes).unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(report.findings.iter().any(|f| f.code == "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH"));
     }
 
     #[test]
