@@ -140,11 +140,11 @@
         "case_reference": null,
         "evidence": {
           "evidence_class": "aggregated_incident_statistics",
-          "source_ref": "SARB_PEM_WORKING_GROUPS_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "multiple_independent_sources",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-001",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "other",
@@ -227,11 +227,11 @@
         "case_reference": null,
         "evidence": {
           "evidence_class": "aggregated_incident_statistics",
-          "source_ref": "SARB_PEM_WORKING_GROUPS_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "multiple_independent_sources",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-002",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "other",
@@ -314,11 +314,11 @@
         "case_reference": null,
         "evidence": {
           "evidence_class": "aggregated_incident_statistics",
-          "source_ref": "SARB_PEM_WORKING_GROUPS_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "multiple_independent_sources",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-003",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "other",
@@ -407,11 +407,11 @@
         "case_reference": "CASE-SIG-004",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-004",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "unknown",
@@ -501,11 +501,11 @@
         "case_reference": "CASE-SIG-005",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-005",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "statutory",
@@ -595,11 +595,11 @@
         "case_reference": "CASE-SIG-006",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-006",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -689,11 +689,11 @@
         "case_reference": "CASE-SIG-007",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-007",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -783,11 +783,11 @@
         "case_reference": "CASE-SIG-008",
         "evidence": {
           "evidence_class": "customer_report",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-008",
+          "evidence_commitment": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         },
         "authority": {
           "basis_type": "contract",
@@ -877,11 +877,11 @@
         "case_reference": "CASE-SIG-009",
         "evidence": {
           "evidence_class": "customer_report",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-009",
+          "evidence_commitment": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         },
         "authority": {
           "basis_type": "contract",
@@ -971,11 +971,11 @@
         "case_reference": "CASE-SIG-010",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-010",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1065,11 +1065,11 @@
         "case_reference": "CASE-SIG-011",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-011",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1159,11 +1159,11 @@
         "case_reference": "CASE-SIG-012",
         "evidence": {
           "evidence_class": "provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-012",
+          "evidence_commitment": ""
         },
         "authority": {
           "basis_type": "contract",
@@ -1253,11 +1253,11 @@
         "case_reference": "CASE-SIG-013",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-013",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1347,11 +1347,11 @@
         "case_reference": "CASE-SIG-014",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-014",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1432,11 +1432,11 @@
         "case_reference": "CASE-SIG-015",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-015",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1517,11 +1517,11 @@
         "case_reference": "CASE-SIG-016",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-016",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1602,11 +1602,11 @@
         "case_reference": "CASE-SIG-017",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-017",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1696,11 +1696,11 @@
         "case_reference": "CASE-SIG-018",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-018",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1790,11 +1790,11 @@
         "case_reference": "CASE-SIG-019",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-019",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1884,11 +1884,11 @@
         "case_reference": "CASE-SIG-020",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-020",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -1978,11 +1978,11 @@
         "case_reference": "CASE-SIG-021",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-021",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2072,11 +2072,11 @@
         "case_reference": "CASE-SIG-022",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-022",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2166,11 +2166,11 @@
         "case_reference": "CASE-SIG-023",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-023",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2260,11 +2260,11 @@
         "case_reference": "CASE-SIG-024",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-024",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2354,11 +2354,11 @@
         "case_reference": "CASE-SIG-025",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-025",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2448,11 +2448,11 @@
         "case_reference": "CASE-SIG-026",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-026",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2533,11 +2533,11 @@
         "case_reference": "CASE-SIG-027",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-027",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2618,11 +2618,11 @@
         "case_reference": "CASE-SIG-028",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-028",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2703,11 +2703,11 @@
         "case_reference": "CASE-SIG-029",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-029",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2788,11 +2788,11 @@
         "case_reference": "CASE-SIG-030",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-030",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "consent",
@@ -2882,11 +2882,11 @@
         "case_reference": "CASE-SIG-031",
         "evidence": {
           "evidence_class": "customer_report_plus_provider_event",
-          "source_ref": "SARB_PEM_PAGE_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "single_source",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-031",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "contract",
@@ -2976,11 +2976,11 @@
         "case_reference": null,
         "evidence": {
           "evidence_class": "aggregated_incident_statistics",
-          "source_ref": "SARB_PEM_WORKING_GROUPS_2026",
-          "source_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "origin_verification_state": "verified",
           "corroboration_state": "multiple_independent_sources",
-          "adjudication_reference": null
+          "adjudication_reference": null,
+          "evidence_reference": "SYNTHETIC-EVIDENCE-032",
+          "evidence_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "authority": {
           "basis_type": "other",
@@ -3040,5 +3040,14 @@
         "expected_disposition": "reject"
       }
     }
+  ],
+  "policy_source_refs": [
+    "SARB_PEM_PAGE_2026",
+    "SARB_PEM_WORKING_GROUPS_2026",
+    "SARB_PEM_POSITION_2025",
+    "SARB_PEM_DIALOGUE_APRIL_2026",
+    "FATF_PPP_DATA_SHARING_2026",
+    "FSR_ACT_2017_S251",
+    "POPIA_ACT_2013"
   ]
 }
