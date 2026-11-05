@@ -490,7 +490,15 @@ pub async fn get_scientific_event_authority_receipt(
 #[cfg(test)]
 mod as_known_at_projection_tests {
     use super::*;
-    use chrono::{TimeZone, Utc};
+    use chrono::{Duration, TimeZone, Utc};
+    use ed25519_dalek::SigningKey;
+    use mycelix_desci_core::{
+        ActorId, AtomicClaim, AuthorizedActorKey, ClaimId, ContentHash, OrganizationId,
+        ResearchObject, ResearchObjectId, ResearchObjectType, ScientificAction,
+        ScientificAuthorityReceipt, ScientificEventEnvelope, ScientificEventPayload,
+        ScientificRole, SignedScientificAuthorityReceipt, SignedScientificEvent,
+    };
+    use std::collections::BTreeSet;
 
     fn instant(minute: u32) -> chrono::DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 11, 5, 17, minute, 0)
@@ -517,6 +525,186 @@ mod as_known_at_projection_tests {
         assert!(!receipt_times_are_monotonic(&times));
     }
 
+
+    fn sample_event_stream(
+        event_signer: &SigningKey,
+    ) -> (ActorId, Vec<SignedScientificEvent>) {
+        let actor = ActorId::new("did:example:as-of-test").expect("valid test actor");
+        let research_object_id = ResearchObjectId::new();
+        let claim_id = ClaimId::new();
+        let research_object = ResearchObject {
+            id: research_object_id,
+            title: "As-of projection test object".to_string(),
+            object_type: ResearchObjectType::Manuscript,
+            persistent_identifier: None,
+        };
+        let claim = AtomicClaim {
+            id: claim_id,
+            research_object_id,
+            statement: "The test proposition is recorded".to_string(),
+            scope: Some("synthetic integration fixture".to_string()),
+        };
+        let genesis = ScientificEventEnvelope::genesis(
+            actor.clone(),
+            instant(0),
+            ScientificEventPayload::ClaimProposed {
+                research_object,
+                claim,
+            },
+        )
+        .expect("valid genesis envelope");
+        let first = SignedScientificEvent::sign(genesis, event_signer)
+            .expect("genesis event signs");
+        let next = ScientificEventEnvelope::next(
+            &first,
+            actor.clone(),
+            instant(1),
+            ScientificEventPayload::ClaimRetracted {
+                claim_id,
+                reason: "synthetic later correction".to_string(),
+            },
+        )
+        .expect("valid second envelope");
+        let second =
+            SignedScientificEvent::sign(next, event_signer).expect("second event signs");
+        (actor, vec![first, second])
+    }
+
+    fn signed_authority_receipt(
+        event: &SignedScientificEvent,
+        received_at: chrono::DateTime<Utc>,
+        previous_receipt_hash: Option<ContentHash>,
+        legacy_cutover_anchor: Option<ContentHash>,
+        event_signer: &SigningKey,
+        service_signer: &SigningKey,
+    ) -> SignedScientificAuthorityReceipt {
+        let authorized_key = AuthorizedActorKey {
+            public_key: event_signer.verifying_key().to_bytes(),
+            valid_from: instant(0) - Duration::days(1),
+            valid_until: None,
+            revoked_at: None,
+        };
+        let receipt = ScientificAuthorityReceipt::new(
+            event,
+            received_at,
+            authorized_key,
+            BTreeSet::<OrganizationId>::new(),
+            BTreeSet::from([ScientificRole::Contributor]),
+            Some(ContentHash::digest(b"synthetic-credential-registry-revision")),
+            ScientificAction::from_payload(&event.envelope.payload),
+            "as-of-test-policy",
+            "1",
+            "authorized synthetic test event",
+            previous_receipt_hash,
+            legacy_cutover_anchor,
+        )
+        .expect("authority receipt validates against event");
+        SignedScientificAuthorityReceipt::sign(receipt, service_signer)
+            .expect("authority receipt signs")
+    }
+
+    #[test]
+    fn committed_receipt_chain_accepts_a_contiguous_genesis_sequence() {
+        let event_signer = SigningKey::from_bytes(&[7; 32]);
+        let service_signer = SigningKey::from_bytes(&[9; 32]);
+        let (_, events) = sample_event_stream(&event_signer);
+        let first = signed_authority_receipt(
+            &events[0],
+            instant(2),
+            None,
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        let second = signed_authority_receipt(
+            &events[1],
+            instant(3),
+            Some(first.receipt_hash().expect("receipt hash")),
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        assert!(valid_committed_receipt_chain(&events, &[first, second]));
+    }
+
+    #[test]
+    fn first_receipt_after_legacy_prefix_requires_the_exact_event_cutover_anchor() {
+        let event_signer = SigningKey::from_bytes(&[11; 32]);
+        let service_signer = SigningKey::from_bytes(&[13; 32]);
+        let (_, events) = sample_event_stream(&event_signer);
+        let preceding_event_hash = events[0].event_hash().expect("preceding event hash");
+        let first_receipt = signed_authority_receipt(
+            &events[1],
+            instant(3),
+            None,
+            Some(preceding_event_hash),
+            &event_signer,
+            &service_signer,
+        );
+        assert!(valid_committed_receipt_chain(&events, &[first_receipt.clone()]));
+
+        let wrong_anchor = signed_authority_receipt(
+            &events[1],
+            instant(3),
+            None,
+            Some(ContentHash::digest(b"wrong cutover anchor")),
+            &event_signer,
+            &service_signer,
+        );
+        assert!(!valid_committed_receipt_chain(&events, &[wrong_anchor]));
+    }
+
+    #[test]
+    fn receipt_chain_rejects_a_receipt_time_regression() {
+        let event_signer = SigningKey::from_bytes(&[17; 32]);
+        let service_signer = SigningKey::from_bytes(&[19; 32]);
+        let (_, events) = sample_event_stream(&event_signer);
+        let first = signed_authority_receipt(
+            &events[0],
+            instant(3),
+            None,
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        let second = signed_authority_receipt(
+            &events[1],
+            instant(2),
+            Some(first.receipt_hash().expect("receipt hash")),
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        assert!(!valid_committed_receipt_chain(&events, &[first, second]));
+    }
+
+    #[test]
+    fn receipt_chain_rejects_duplicate_or_skipped_sequences() {
+        let event_signer = SigningKey::from_bytes(&[23; 32]);
+        let service_signer = SigningKey::from_bytes(&[29; 32]);
+        let (_, events) = sample_event_stream(&event_signer);
+        let first = signed_authority_receipt(
+            &events[0],
+            instant(2),
+            None,
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        let second = signed_authority_receipt(
+            &events[1],
+            instant(3),
+            Some(first.receipt_hash().expect("receipt hash")),
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        assert!(!valid_committed_receipt_chain(
+            &events,
+            &[first.clone(), first.clone()]
+        ));
+        assert!(valid_committed_receipt_chain(&events, &[first, second]));
+    }
 
     #[test]
     fn authority_status_labels_are_stable_api_values() {
