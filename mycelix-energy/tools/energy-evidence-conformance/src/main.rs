@@ -252,6 +252,38 @@ fn evaluate_reference(reference: &Value, context: &Value) -> (&'static str, &'st
         );
     }
 
+    let valid_from = match string_at(reference, "temporal_scope.valid_from") {
+        Some(value) => value,
+        None => return ("indeterminate", "evidence valid_from is missing"),
+    };
+    let valid_until = match string_at(reference, "temporal_scope.valid_until") {
+        Some(value) => value,
+        None => return ("indeterminate", "evidence valid_until is missing"),
+    };
+    if compare_utc(valid_from, valid_until) == Some(std::cmp::Ordering::Greater) {
+        return ("blocked", "evidence validity interval is inverted");
+    }
+    match compare_utc(valid_from, frontier) {
+        Some(std::cmp::Ordering::Greater) => {
+            return (
+                "blocked_not_valid_at_decision",
+                "evidence valid_from is after the decision timestamp",
+            );
+        }
+        Some(_) => {}
+        None => return ("indeterminate", "evidence valid_from cannot be compared"),
+    }
+    match compare_utc(frontier, valid_until) {
+        Some(std::cmp::Ordering::Greater) => {
+            return (
+                "blocked_not_valid_at_decision",
+                "evidence valid_until is before the decision timestamp",
+            );
+        }
+        Some(_) => {}
+        None => return ("indeterminate", "evidence valid_until cannot be compared"),
+    }
+
     if string_at(
         reference,
         "canonical_desci_reference.evidence_attached_event_id",
@@ -306,14 +338,22 @@ fn evaluate_reference(reference: &Value, context: &Value) -> (&'static str, &'st
     if string_at(reference, "access_policy.access_decision") != Some("permitted") {
         return ("blocked", "access policy does not permit this evidence use");
     }
-    match string_at(reference, "access_policy.availability") {
-        Some("public") | Some("controlled") | Some("embargoed") => {}
-        _ => {
-            return (
-                "indeterminate",
-                "artifact availability is unknown or unavailable",
-            );
+    let artifact_availability = string_at(
+        reference,
+        "canonical_desci_reference.artifact_availability",
+    );
+    let policy_availability = string_at(reference, "access_policy.availability");
+    match (artifact_availability, policy_availability) {
+        (Some("unavailable"), _) | (_, Some("unavailable")) => {
+            return ("indeterminate", "artifact or authorized resolver is unavailable");
         }
+        (Some("public"), Some("public"))
+        | (Some("controlled"), Some("controlled"))
+        | (Some("embargoed"), Some("embargoed")) => {}
+        (Some(_), Some(_)) => {
+            return ("blocked", "artifact availability and access-policy availability disagree");
+        }
+        _ => return ("indeterminate", "artifact availability is unknown or unavailable"),
     }
 
     (
