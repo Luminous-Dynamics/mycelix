@@ -127,7 +127,7 @@ CommitRevokeA ==
     /\ requiredASeq' = canonicalASeq + 1
     /\ requiredAHead' = a1
     /\ readDecision' =
-        IF readDecision = "TRUSTED_ACTIVE" THEN "STALE" ELSE readDecision
+        IF readDecision \in {"TRUSTED_ACTIVE", "TRUSTED_REVOKED"} THEN "STALE" ELSE readDecision
     /\ UNCHANGED
         << hostBActive, canonicalBSeq, canonicalBHead, canonicalBRevoked,
            requiredBSeq, requiredBHead,
@@ -149,7 +149,7 @@ CommitRevokeB ==
     /\ requiredBSeq' = canonicalBSeq + 1
     /\ requiredBHead' = b1
     /\ readDecision' =
-        IF readDecision = "TRUSTED_ACTIVE" THEN "STALE" ELSE readDecision
+        IF readDecision \in {"TRUSTED_ACTIVE", "TRUSTED_REVOKED"} THEN "STALE" ELSE readDecision
     /\ UNCHANGED
         << hostAActive, canonicalASeq, canonicalAHead, canonicalARevoked,
            requiredASeq, requiredAHead,
@@ -188,9 +188,9 @@ ObserveScalarHeightForeignProjection ==
            lastHostAActive, lastHostBActive >>
 
 ConvergeA ==
-    /\ projectionASeq < canonicalASeq
-       \/ projectionAHead # canonicalAHead
-       \/ ~projectionADescends
+    /\ (projectionASeq < canonicalASeq
+        \/ projectionAHead # canonicalAHead
+        \/ ~projectionADescends)
     /\ projectionASeq' = canonicalASeq
     /\ projectionAHead' = canonicalAHead
     /\ projectionARevoked' = canonicalARevoked
@@ -209,9 +209,9 @@ ConvergeA ==
            lastHostAActive, lastHostBActive >>
 
 ConvergeB ==
-    /\ projectionBSeq < canonicalBSeq
-       \/ projectionBHead # canonicalBHead
-       \/ ~projectionBDescends
+    /\ (projectionBSeq < canonicalBSeq
+        \/ projectionBHead # canonicalBHead
+        \/ ~projectionBDescends)
     /\ projectionBSeq' = canonicalBSeq
     /\ projectionBHead' = canonicalBHead
     /\ projectionBRevoked' = canonicalBRevoked
