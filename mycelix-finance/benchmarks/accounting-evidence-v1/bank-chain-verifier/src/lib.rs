@@ -290,8 +290,7 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                     && string(source, "fixture_digest_token")
                         == string(replay, "fixture_digest_token")
                     && string(source, "account_token") == string(replay, "account_token")
-                    && string(source, "message_definition")
-                        == string(replay, "message_definition")
+                    && string(source, "message_definition") == string(replay, "message_definition")
                     && string(source, "profile_ref") == string(replay, "profile_ref")
             }
             _ => false,
@@ -771,11 +770,18 @@ mod tests {
             "../../bank_statement_chain_candidates_v1.0.2.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
-        let case = cases.iter().find(|case| case["case_id"] == "BSC-029").expect("BSC-029");
+        let case = cases
+            .iter()
+            .find(|case| case["case_id"] == "BSC-029")
+            .expect("BSC-029");
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "complete_contiguous");
         assert_eq!(assessment.economic_observation_count, 2);
-        assert!(assessment.reason_codes.contains("exact_replay_statement_suppressed"));
+        assert!(
+            assessment
+                .reason_codes
+                .contains("exact_replay_statement_suppressed")
+        );
     }
 
     #[test]
@@ -784,11 +790,22 @@ mod tests {
             "../../bank_statement_chain_candidates_v1.0.2.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
-        let case = cases.iter().find(|case| case["case_id"] == "BSC-030").expect("BSC-030");
+        let case = cases
+            .iter()
+            .find(|case| case["case_id"] == "BSC-030")
+            .expect("BSC-030");
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "revision_conflict");
-        assert!(assessment.reason_codes.contains("invalid_cross_account_or_scope_revision_relation"));
-        assert!(assessment.reason_codes.contains("competing_statement_versions_without_relation"));
+        assert!(
+            assessment
+                .reason_codes
+                .contains("invalid_cross_account_or_scope_revision_relation")
+        );
+        assert!(
+            assessment
+                .reason_codes
+                .contains("competing_statement_versions_without_relation")
+        );
     }
 
     #[test]
