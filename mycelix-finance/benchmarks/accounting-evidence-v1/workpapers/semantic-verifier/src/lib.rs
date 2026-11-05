@@ -883,7 +883,10 @@ mod tests {
         let mut value = fixture();
         let duplicate = value["nodes"][0].clone();
         value["nodes"].as_array_mut().unwrap().push(duplicate);
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("duplicate_node_id"));
     }
 
@@ -892,7 +895,10 @@ mod tests {
         let mut value = fixture();
         value["nodes"][1]["depends_on"] = json!(["missing-parent"]);
         value["nodes"][1]["inputs"][1]["input_ref"]["ref_id"] = json!("missing-parent");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("dangling_dependency"));
     }
 
@@ -904,7 +910,10 @@ mod tests {
             "input_ref":{"ref_id":"source-match-001","version":"0.1.0","source_kind":"prior_workpaper"},
             "purpose":"prior_workpaper"
         }));
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("self_dependency"));
     }
 
@@ -916,7 +925,10 @@ mod tests {
             "input_ref":{"ref_id":"bank-observation-001","version":"0.1.0","source_kind":"prior_workpaper"},
             "purpose":"prior_workpaper"
         }));
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("dependency_cycle"));
     }
 
@@ -924,7 +936,10 @@ mod tests {
     fn dependency_without_prior_workpaper_input_fails() {
         let mut value = fixture();
         value["nodes"][1]["inputs"].as_array_mut().unwrap().retain(|item| item["purpose"] != "prior_workpaper");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("dependency_without_prior_workpaper_input"));
     }
 
@@ -935,7 +950,10 @@ mod tests {
             "input_ref":{"ref_id":"entity-quarantine-guard","version":"0.1.0","source_kind":"prior_workpaper"},
             "purpose":"prior_workpaper"
         }));
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("prior_workpaper_input_without_edge"));
     }
 
@@ -943,7 +961,10 @@ mod tests {
     fn frontier_change_stales_only_consumers_and_descendants() {
         let mut value = fixture();
         set_frontier(&mut value["nodes"][0], "evidence_frontier", "MUTATED-EVIDENCE");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert_eq!(report["directly_stale_nodes"], json!(["source-match-001"]));
         assert_eq!(report["transitively_stale_nodes"], json!(["bank-observation-001","entity-quarantine-guard"]));
     }
@@ -952,7 +973,10 @@ mod tests {
     fn changed_child_frontier_is_directly_stale_without_affecting_sibling() {
         let mut value = fixture();
         set_frontier(&mut value["nodes"][1], "evidence_frontier", "MUTATED-EVIDENCE");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert_eq!(report["directly_stale_nodes"], json!(["bank-observation-001"]));
         assert_eq!(report["transitively_stale_nodes"], json!([]));
         assert!(!report["directly_stale_nodes"].to_string().contains("entity-quarantine-guard"));
@@ -962,7 +986,10 @@ mod tests {
     fn stale_completed_or_in_progress_node_must_be_invalidated() {
         let mut value = fixture();
         set_frontier(&mut value["nodes"][0], "evidence_frontier", "MUTATED-EVIDENCE");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("stale_node_not_invalidated"));
     }
 
@@ -970,7 +997,10 @@ mod tests {
     fn candidate_analysis_cannot_claim_journal_projection() {
         let mut value = fixture();
         value["nodes"][0]["node_kind"] = json!("journal_projection");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("non_authoritative_node_escalates_scope"));
     }
 
@@ -978,7 +1008,10 @@ mod tests {
     fn symthaea_cannot_claim_deterministic_financial_projection() {
         let mut value = fixture();
         value["nodes"][0]["authority_class"] = json!("deterministic_financial_projection");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("advisory_system_claims_authority"));
     }
 
@@ -987,7 +1020,10 @@ mod tests {
         let mut value = fixture();
         value["close_disposition"] = json!("ready_for_authorized_signoff");
         value["frontiers"]["source_scope_manifest"]["qualification_status"] = json!("qualified");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("ready_close_frontier_not_qualified"));
         assert!(errors(&report).contains("ready_close_missing_required_node_kinds"));
     }
@@ -996,8 +1032,14 @@ mod tests {
     fn ratio_without_denominator_fails() {
         let mut value = fixture();
         value["nodes"][0]["calculation_recipe"]["operation"] = json!("ratio");
-        value["nodes"][0]["calculation_recipe"].as_object_mut().unwrap().remove("denominator");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        value["nodes"][0]["calculation_recipe"]
+            .as_object_mut()
+            .unwrap()
+            .remove("denominator");
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert_eq!(report["status"], "FAIL");
     }
 
@@ -1007,7 +1049,10 @@ mod tests {
         let recipe = &mut value["nodes"][0]["calculation_recipe"];
         recipe["join_semantics"] = json!("many_to_many_with_explicit_aggregation");
         recipe["expected_cardinality"] = json!("unknown");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("nontrivial_join_without_explicit_aggregation"));
     }
 
@@ -1020,7 +1065,10 @@ mod tests {
             "scale":2,
             "unit_profile":{"ref_id":"SYNTH-ZAR","source_kind":"synthetic_currency"}
         });
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("fixed_decimal_scale_or_format_mismatch"));
     }
 
@@ -1032,7 +1080,10 @@ mod tests {
             "value":"0.1",
             "unit_profile":{"ref_id":"SYNTH-ZAR","source_kind":"synthetic_currency"}
         });
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert_eq!(report["status"], "FAIL");
     }
 
@@ -1045,9 +1096,21 @@ mod tests {
             "scale":2,
             "unit_profile":{"ref_id":"SYNTH-ZAR","source_kind":"synthetic_currency"}
         });
-        assert!(errors(&verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"))).is_empty());
+        assert!(
+            errors(&verify(
+                &serde_json::to_vec(&value).unwrap(),
+                include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json")
+            ))
+            .is_empty()
+        );
         value["nodes"][0]["result"]["numeric_value"]["value"] = json!("-0.00");
-        assert!(errors(&verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"))).contains("fixed_decimal_scale_or_format_mismatch"));
+        assert!(
+            errors(&verify(
+                &serde_json::to_vec(&value).unwrap(),
+                include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json")
+            ))
+            .contains("fixed_decimal_scale_or_format_mismatch")
+        );
     }
 
     #[test]
@@ -1067,7 +1130,10 @@ mod tests {
     fn prior_workpaper_input_version_must_match_dag_version() {
         let mut value = fixture();
         value["nodes"][1]["inputs"][1]["input_ref"]["version"] = json!("0.2.0");
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("prior_workpaper_version_mismatch"));
     }
 
@@ -1085,7 +1151,10 @@ mod tests {
         parent["result"]["workpaper_commitment_sha256"] = json!(commitment);
         value["nodes"][1]["inputs"][1]["input_ref"]["sha256"] = json!(commitment);
         value["nodes"][2]["inputs"][1]["input_ref"]["sha256"] = json!(commitment);
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert_eq!(report["status"], "PASS");
     }
 
@@ -1098,7 +1167,10 @@ mod tests {
         value["nodes"][1]["result"]["result_type"] = json!("SyntheticChild");
         value["nodes"][1]["result"]["produced_at"] = json!("2026-11-05T19:00:00Z");
         value["nodes"][1]["result"]["workpaper_commitment_sha256"] = json!("b".repeat(64));
-        let report = verify(&serde_json::to_vec(&value).unwrap(), include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"));
+        let report = verify(
+            &serde_json::to_vec(&value).unwrap(),
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
+        );
         assert!(errors(&report).contains("completed_child_has_nonterminal_parent"));
     }
 }
