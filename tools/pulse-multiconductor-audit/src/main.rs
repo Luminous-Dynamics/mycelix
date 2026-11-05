@@ -756,6 +756,7 @@ fn benchmark_history(event_count: usize) -> Result<History, Box<dyn Error>> {
             conductor_build: "synthetic-benchmark".into(),
             dna_hash: "uhCkk-benchmark-dna".into(),
             cell_id: "benchmark-cell-a".into(),
+            integrity_wasm_sha256: "0".repeat(64),
             role: "peer".into(),
         },
         Conductor {
@@ -764,6 +765,7 @@ fn benchmark_history(event_count: usize) -> Result<History, Box<dyn Error>> {
             conductor_build: "synthetic-benchmark".into(),
             dna_hash: "uhCkk-benchmark-dna".into(),
             cell_id: "benchmark-cell-b".into(),
+            integrity_wasm_sha256: "0".repeat(64),
             role: "peer".into(),
         },
     ];
@@ -790,6 +792,8 @@ fn benchmark_history(event_count: usize) -> Result<History, Box<dyn Error>> {
                     "record_author": null,
                     "verified_payload_sha256": null,
                     "verifier_build": null,
+                    "backing_author_conductor_id": null,
+                    "backing_validator_event_id": null,
                     "trusted_state_mutation": false,
                     "authorizes_operation": false
                 }),
@@ -798,7 +802,7 @@ fn benchmark_history(event_count: usize) -> Result<History, Box<dyn Error>> {
         .collect();
 
     Ok(History {
-        schema_version: 1,
+        schema_version: 2,
         trace_id: format!("synthetic-benchmark-{event_count}"),
         evidence_class: "synthetic".into(),
         source_commit: "0".repeat(40),
@@ -964,6 +968,7 @@ mod tests{
             conductor_build: "holochain-test".into(),
             dna_hash: "uhCkk-foreign-dna".into(),
             cell_id: "foreign-cell".into(),
+            integrity_wasm_sha256: "f".repeat(64),
             role: "caller".into(),
         });
         let mut foreign_action = h.events.iter().find(|e| e.event_type == "action_authored").unwrap().clone();
@@ -1008,6 +1013,7 @@ mod tests{
             conductor_build: "holochain-test".into(),
             dna_hash: "uhCkk-foreign-dna".into(),
             cell_id: "foreign-cell".into(),
+            integrity_wasm_sha256: "e".repeat(64),
             role: "validator".into(),
         });
         h.events.push(Event {
@@ -1022,7 +1028,7 @@ mod tests{
                 "author_conductor_id": "caller-host",
                 "receiving_conductor_id": "foreign-validator",
                 "disposition": "accepted",
-                "validator_build": "foreign-integrity-wasm",
+                "validator_wasm_sha256": "e".repeat(64),
                 "reason_code": null
             }),
         });
