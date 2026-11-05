@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/fin-accounting-workpaper-dag-v1
+      - research/fin-accounting-workpaper-dag-v1-clean
     paths:
       - "mycelix-finance/benchmarks/accounting-evidence-v1/workpapers/**"
       - ".github/workflows/fin-workpaper-dag-qualification.yml"
