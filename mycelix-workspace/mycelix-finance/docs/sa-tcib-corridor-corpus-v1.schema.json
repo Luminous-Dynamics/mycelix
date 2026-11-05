@@ -1,0 +1,658 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-tcib-corridor-corpus-v1.schema.json",
+  "title": "Mycelix South African TCIB Corridor Qualification Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "created_on",
+    "as_of",
+    "external_effects_enabled",
+    "purpose",
+    "source_register",
+    "corridor_profiles",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-tcib-corridor/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-SADC-TCIB-CORRIDOR-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "corridor_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 24,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "published_on",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "origin_rail",
+        "destination_rail",
+        "corridor_state",
+        "profile_scope",
+        "origin_participant",
+        "destination_participant",
+        "participant_pair_state",
+        "origin_currency",
+        "destination_currency",
+        "currency_pair_state",
+        "message_profile_version",
+        "operating_calendar_state",
+        "fx_state",
+        "funding_state",
+        "settlement_asset_state",
+        "settlement_model",
+        "screening_state",
+        "legal_finality_state",
+        "recourse_profile_ref",
+        "programme_target_amount_minor_units",
+        "effective_from",
+        "source_refs",
+        "notes"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+-V1$"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "origin_rail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_rail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "corridor_state": {
+          "enum": [
+            "current_domestic_scope_only",
+            "planned_programme_target",
+            "synthetic_test_only",
+            "unqualified_unknown"
+          ]
+        },
+        "profile_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participant_pair_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_currency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_currency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "currency_pair_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_profile_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operating_calendar_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fx_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "funding_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "settlement_asset_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "settlement_model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "screening_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legal_finality_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recourse_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "programme_target_amount_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "programme_target_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "hub_spoke_target_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin_jurisdiction",
+        "destination_jurisdiction",
+        "origin_rail",
+        "destination_rail",
+        "origin_participant",
+        "destination_participant",
+        "origin_currency",
+        "destination_currency",
+        "amount_minor_units",
+        "message_version_origin",
+        "message_version_destination"
+      ],
+      "properties": {
+        "origin_jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "destination_jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "origin_rail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_rail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_currency": {
+          "type": "string",
+          "minLength": 3
+        },
+        "destination_currency": {
+          "type": "string",
+          "minLength": 3
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "message_version_origin": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_version_destination": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "fx": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quote_state",
+        "rate_numerator",
+        "rate_denominator",
+        "rate_direction",
+        "observed_at",
+        "expires_at",
+        "source",
+        "spread_bps",
+        "fee_minor_units",
+        "rounding_rule",
+        "evidence_ref"
+      ],
+      "properties": {
+        "quote_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rate_numerator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rate_denominator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rate_direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spread_bps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rounding_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_pair_state",
+        "message_profile_state",
+        "operating_calendar_state",
+        "currency_pair_state",
+        "fx_quote_state",
+        "fx_direction",
+        "fx_quote_current",
+        "fx_fee_disclosed",
+        "funding_state",
+        "settlement_asset_state",
+        "settlement_model",
+        "pvp_claimed",
+        "pvp_arrangement_evidence",
+        "origin_leg_state",
+        "destination_leg_state",
+        "origin_leg_receipt",
+        "destination_leg_receipt",
+        "finality_claim",
+        "legal_finality_evidence",
+        "jurisdictional_compliance_state",
+        "screening_state",
+        "fraud_status_state",
+        "data_audience_state",
+        "recourse_state",
+        "returns_claimed_minor_units",
+        "independent_return_receipt",
+        "independent_return_reconciliation"
+      ],
+      "properties": {
+        "participant_pair_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_profile_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operating_calendar_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "currency_pair_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fx_quote_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fx_direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fx_quote_current": {
+          "type": "boolean"
+        },
+        "fx_fee_disclosed": {
+          "type": "boolean"
+        },
+        "funding_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "settlement_asset_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "settlement_model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pvp_claimed": {
+          "type": "boolean"
+        },
+        "pvp_arrangement_evidence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin_leg_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_leg_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_leg_receipt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "destination_leg_receipt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "finality_claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legal_finality_evidence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "screening_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fraud_status_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_audience_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recourse_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "returns_claimed_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "independent_return_receipt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "independent_return_reconciliation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "jurisdictional_compliance_state": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "profile_id",
+        "status",
+        "external_effects_enabled",
+        "route",
+        "fx",
+        "constraints",
+        "expected_disposition",
+        "required_evidence",
+        "negative_controls"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^SA-TCIB-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "const": "synthetic_reference_only"
+        },
+        "external_effects_enabled": {
+          "const": false
+        },
+        "route": {
+          "$ref": "#/$defs/route"
+        },
+        "fx": {
+          "$ref": "#/$defs/fx"
+        },
+        "constraints": {
+          "$ref": "#/$defs/constraints"
+        },
+        "expected_disposition": {
+          "enum": [
+            "planned_not_executable",
+            "block_domestic_rail_cross_border",
+            "block_unknown_counterparty",
+            "block_participant_pair_incomplete",
+            "block_message_profile_mismatch",
+            "block_operating_calendar_unknown",
+            "block_operating_window_closed",
+            "block_corridor_unavailable",
+            "block_currency_pair_unqualified",
+            "block_non_executable_fx",
+            "block_expired_fx_quote",
+            "block_fx_direction_mismatch",
+            "block_undisclosed_fx_cost",
+            "block_currency_arithmetic_profile_mismatch",
+            "block_funding_unqualified",
+            "block_funding_unavailable",
+            "block_settlement_asset_unknown",
+            "block_unsupported_pvp_claim",
+            "block_partial_or_unknown_settlement",
+            "block_unsupported_finality_claim",
+            "block_screening_unqualified",
+            "block_fraud_status_laundering",
+            "block_data_disclosure_out_of_scope",
+            "block_false_recovery_claim",
+            "block_jurisdictional_compliance_unknown",
+            "qualify_synthetic_test_only"
+          ]
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "negative_controls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
