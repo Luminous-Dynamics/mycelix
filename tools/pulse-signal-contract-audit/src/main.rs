@@ -387,10 +387,10 @@ fn signal_hub_validates_field_types(source: &str) -> bool {
     source.contains("function validateSignalData(type: string, data: SignalRecord): boolean")
         && source.contains("value instanceof Uint8Array && value.byteLength === 39")
         && source.contains("Number.isSafeInteger(value)")
-        && source.contains("function isVectorClock")
-        && source.contains("function isConflictResolution")
-        && source.contains("function isNetworkType")
-        && source.contains("function isSyncOperationType")
+        && source.contains("const isVectorClock =")
+        && source.contains("const isConflictResolution =")
+        && source.contains("const isNetworkType =")
+        && source.contains("const isSyncOperationType =")
         && source.contains("if (!validateSignalData(type, data)) return null;")
 }
 
