@@ -136,6 +136,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         .iter()
         .filter_map(|item| str_at(item, "id").map(str::to_owned))
         .collect();
+    let policy_refs = array_at(corpus, "policy_source_refs")
+        .cloned()
+        .unwrap_or_default();
+    if policy_refs.is_empty()
+        || policy_refs.iter().any(|item| {
+            item.as_str()
+                .is_none_or(|reference| !source_ids.contains(reference))
+        })
+    {
+        errors.push("policy_source_refs: empty or unresolved policy source".into());
+    }
 
     let mut signal_ids = BTreeSet::new();
     let mut token_scopes: BTreeMap<String, (String, String, String)> = BTreeMap::new();
@@ -161,11 +172,11 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let retention = &signal["retention"];
         let expected = str_at(signal, "expected_disposition").unwrap_or("");
 
-        if !source_ids.contains(str_at(evidence, "source_ref").unwrap_or("")) {
-            errors.push(format!("{label}/{id}: unresolved source reference"));
+        if str_at(evidence, "evidence_reference").is_none_or(str::is_empty) {
+            errors.push(format!("{label}/{id}: synthetic case evidence reference missing"));
         }
-        if str_at(evidence, "source_commitment").is_none_or(str::is_empty) {
-            errors.push(format!("{label}/{id}: source commitment missing"));
+        if str_at(evidence, "evidence_commitment").is_none_or(str::is_empty) {
+            errors.push(format!("{label}/{id}: evidence commitment missing"));
         }
         if str_at(evidence, "origin_verification_state") != Some("verified") {
             errors.push(format!("{label}/{id}: origin evidence is not verified"));
