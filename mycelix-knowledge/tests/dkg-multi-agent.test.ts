@@ -168,50 +168,58 @@ describe('DKG Multi-Agent Collaboration Tests', () => {
     }, true, scenarioOptions);
   });
 
-  test('author reputation history influences legacy ranking in this fixture', async () => {
+  test('actual attester reputation influences the legacy ranking with claim authorship held constant', async () => {
     await runScenario(async (scenario: Scenario) => {
-      const [experienced, fresh, endorser1, endorser2, endorser3, observer] =
-        await scenario.addPlayersWithApps([
-          { appBundleSource: { type: 'path', value: knowledgeHappPath } },
-          { appBundleSource: { type: 'path', value: knowledgeHappPath } },
-          { appBundleSource: { type: 'path', value: knowledgeHappPath } },
-          { appBundleSource: { type: 'path', value: knowledgeHappPath } },
-          { appBundleSource: { type: 'path', value: knowledgeHappPath } },
-          { appBundleSource: { type: 'path', value: knowledgeHappPath } },
-        ]);
-
-      await scenario.shareAllAgents();
-      const allAgents = [
-        experienced,
-        fresh,
+      const [
+        experiencedAttester,
+        freshAttester,
         endorser1,
         endorser2,
         endorser3,
+        claimAuthor,
+        observer,
+      ] = await scenario.addPlayersWithApps([
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+        { appBundleSource: { type: 'path', value: knowledgeHappPath } },
+      ]);
+
+      await scenario.shareAllAgents();
+      const allAgents = [
+        experiencedAttester,
+        freshAttester,
+        endorser1,
+        endorser2,
+        endorser3,
+        claimAuthor,
         observer,
       ];
-      const dnaHash = experienced.cells[0].cell_id[0];
+      const dnaHash = experiencedAttester.cells[0].cell_id[0];
 
-      // Build reputation for "experienced" agent: submit 10 claims and get them endorsed
-      const experiencedClaims: ActionHash[] = [];
+      // Build a higher author-history reputation for the experienced attester.
+      const reputationSeedClaims: ActionHash[] = [];
       for (let i = 0; i < 10; i++) {
-        const hash: ActionHash = await experienced.cells[0].callZome({
+        const hash: ActionHash = await experiencedAttester.cells[0].callZome({
           zome_name: 'dkg',
           fn_name: 'submit_claim',
           payload: {
-            subject: `Topic_${i}`,
+            subject: `AttesterHistory_${i}`,
             predicate: 'value',
             object: `fact_${i}`,
             object_type: 'text',
             epistemic_type: 'empirical',
           } as SubmitClaimInput,
         });
-        experiencedClaims.push(hash);
+        reputationSeedClaims.push(hash);
       }
 
       await dhtSync(allAgents, dnaHash);
 
-      // Endorsers endorse all 10 claims
-      for (const claim of experiencedClaims) {
+      for (const claim of reputationSeedClaims) {
         for (const endorser of [endorser1, endorser2, endorser3]) {
           await endorser.cells[0].callZome({
             zome_name: 'dkg',
@@ -226,58 +234,73 @@ describe('DKG Multi-Agent Collaboration Tests', () => {
 
       await dhtSync(allAgents, dnaHash);
 
-      // Check reputations before the conflict
-      const expReputation: AgentReputation =
+      const experiencedReputation: AgentReputation =
         await observer.cells[0].callZome({
           zome_name: 'dkg',
           fn_name: 'get_agent_reputation',
-          payload: experienced.agentPubKey,
+          payload: experiencedAttester.agentPubKey,
         });
-
       const freshReputation: AgentReputation =
         await observer.cells[0].callZome({
           zome_name: 'dkg',
           fn_name: 'get_agent_reputation',
-          payload: fresh.agentPubKey,
+          payload: freshAttester.agentPubKey,
         });
 
-      console.log(
-        `Reputation before conflict: experienced=${expReputation.reputation_score.toFixed(4)}, fresh=${freshReputation.reputation_score.toFixed(4)}`,
-      );
-
-      // Experienced agent has higher reputation
-      expect(expReputation.reputation_score).toBeGreaterThan(
+      expect(experiencedReputation.reputation_score).toBeGreaterThan(
         freshReputation.reputation_score,
       );
 
-      // Now both submit conflicting claims on the same subject
-      const expClaim: ActionHash = await experienced.cells[0].callZome({
-        zome_name: 'dkg',
-        fn_name: 'submit_claim',
-        payload: {
-          subject: 'Gravity',
-          predicate: 'acceleration',
-          object: '9.81',
-          object_type: 'number',
-          epistemic_type: 'empirical',
-        } as SubmitClaimInput,
-      });
+      // The same agent authors both comparison claims. Only the actual attester differs.
+      const experiencedAttesterClaim: ActionHash =
+        await claimAuthor.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'submit_claim',
+          payload: {
+            subject: 'Gravity',
+            predicate: 'comparison_fixture',
+            object: 'claim-endorsed-by-experienced-agent',
+            object_type: 'text',
+            epistemic_type: 'empirical',
+          } as SubmitClaimInput,
+        });
 
-      const freshClaim: ActionHash = await fresh.cells[0].callZome({
+      const freshAttesterClaim: ActionHash =
+        await claimAuthor.cells[0].callZome({
+          zome_name: 'dkg',
+          fn_name: 'submit_claim',
+          payload: {
+            subject: 'Gravity',
+            predicate: 'comparison_fixture',
+            object: 'claim-endorsed-by-fresh-agent',
+            object_type: 'text',
+            epistemic_type: 'empirical',
+          } as SubmitClaimInput,
+        });
+
+      await dhtSync(allAgents, dnaHash);
+
+      await experiencedAttester.cells[0].callZome({
         zome_name: 'dkg',
-        fn_name: 'submit_claim',
+        fn_name: 'attest_claim',
         payload: {
-          subject: 'Gravity',
-          predicate: 'acceleration',
-          object: '10.5',
-          object_type: 'number',
-          epistemic_type: 'empirical',
-        } as SubmitClaimInput,
+          claim_hash: experiencedAttesterClaim,
+          attestation_type: 'endorse',
+          evidence: 'Synthetic test endorsement; not independent evidence.',
+        } as AttestClaimInput,
+      });
+      await freshAttester.cells[0].callZome({
+        zome_name: 'dkg',
+        fn_name: 'attest_claim',
+        payload: {
+          claim_hash: freshAttesterClaim,
+          attestation_type: 'endorse',
+          evidence: 'Synthetic test endorsement; not independent evidence.',
+        } as AttestClaimInput,
       });
 
       await dhtSync(allAgents, dnaHash);
 
-      // Query claims about Gravity
       const gravityClaims: WeightedClaim[] =
         await observer.cells[0].callZome({
           zome_name: 'dkg',
@@ -285,19 +308,27 @@ describe('DKG Multi-Agent Collaboration Tests', () => {
           payload: 'Gravity',
         });
 
-      const claim981 = gravityClaims.find((c) => c.object === '9.81');
-      const claim105 = gravityClaims.find((c) => c.object === '10.5');
-
-      expect(claim981).toBeDefined();
-      expect(claim105).toBeDefined();
-
-      console.log(
-        `Reputation propagation: experienced claim confidence=${claim981!.confidence.toFixed(4)}, ` +
-          `fresh claim confidence=${claim105!.confidence.toFixed(4)}`,
+      const experiencedClaim = gravityClaims.find(
+        (claim) => claim.object === 'claim-endorsed-by-experienced-agent',
+      );
+      const freshClaim = gravityClaims.find(
+        (claim) => claim.object === 'claim-endorsed-by-fresh-agent',
       );
 
-      // This isolates a reputation-score effect; it does not establish that the claim is better supported or true.
-      expect(claim981!.confidence).toBeGreaterThan(claim105!.confidence);
+      expect(experiencedClaim).toBeDefined();
+      expect(freshClaim).toBeDefined();
+      expect(experiencedClaim!.endorsements).toBe(1);
+      expect(freshClaim!.endorsements).toBe(1);
+
+      console.log(
+        `Actual attester reputation: experienced=${experiencedClaim!.confidence.toFixed(4)}, fresh=${freshClaim!.confidence.toFixed(4)}`,
+      );
+
+      // Same claim author, same claim type, same subject and one endorsement each.
+      // The legacy heuristic should reflect the actual endorsers' reputation.
+      expect(experiencedClaim!.confidence).toBeGreaterThan(
+        freshClaim!.confidence,
+      );
     }, true, scenarioOptions);
   });
 
