@@ -116,7 +116,9 @@ The following are candidate-visible scenario families; expected verdicts and mut
 | BSC-023 | Schema-valid message on unauthenticated channel | Authority remains unqualified |
 | BSC-024 | Received files parse but contradict expected scope | Completeness is external |
 | BSC-025 | Same artifacts arrive in a different order | Arrival-order invariance |
-| BSC-026 | Exact replay is added to an otherwise complete chain | Economic count unchanged\n| BSC-027 | One-second gap at a required statement-period boundary | Never complete\n| BSC-028 | Statement sequence skips the expected source sequence | Population gap |
+| BSC-026 | Exact replay is added to an otherwise complete chain | Economic count unchanged\n| BSC-027 | One-second gap at a required statement-period boundary | Never complete\n| BSC-028 | Statement sequence skips the expected source sequence | Population gap
+| BSC-029 | Exact replay includes a duplicate statement record | One statement retained
+| BSC-030 | Replacement relation crosses account identity | Revision conflict |
 
 The corpus must be synthetic, rights-cleared, immutable and split physically between candidate-visible inputs and evaluator-only oracle data. Each case needs positive/negative controls and explicit source/profile/scope preconditions.
 
