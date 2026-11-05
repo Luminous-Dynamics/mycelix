@@ -121,11 +121,13 @@
       "properties": {
         "start": {
           "type": "string",
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "end": {
           "type": "string",
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         }
       }
     },
@@ -209,7 +211,8 @@
             "uniqueItems": true,
             "items": {
               "type": "string"
-            }
+            },
+            "minItems": 1
           },
           "assumption_refs": {
             "type": "array",
