@@ -9,7 +9,7 @@
       "agent_key_ref": "agent-owner",
       "conductor_build": "holochain-0.7.0",
       "dna_hash": "uhCkk-dna-mail",
-      "cell_id": "mail-cell",
+      "cell_id": "mail-cell-owner",
       "role": "grant_owner",
       "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
@@ -18,7 +18,7 @@
       "agent_key_ref": "agent-caller",
       "conductor_build": "holochain-0.7.0",
       "dna_hash": "uhCkk-dna-mail",
-      "cell_id": "mail-cell",
+      "cell_id": "mail-cell-caller",
       "role": "caller",
       "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
@@ -27,7 +27,7 @@
       "agent_key_ref": "agent-validator",
       "conductor_build": "holochain-0.7.0",
       "dna_hash": "uhCkk-dna-mail",
-      "cell_id": "mail-cell",
+      "cell_id": "mail-cell-validator",
       "role": "validator",
       "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
@@ -36,7 +36,7 @@
       "agent_key_ref": "agent-observer",
       "conductor_build": "holochain-0.7.0",
       "dna_hash": "uhCkk-dna-mail",
-      "cell_id": "mail-cell",
+      "cell_id": "mail-cell-observer",
       "role": "observer",
       "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     }
@@ -217,8 +217,8 @@
         "decision": "unknown",
         "required_dna_hash": "uhCkk-dna-mail",
         "observed_dna_hash": "uhCkk-dna-mail",
-        "required_cell_id": "mail-cell",
-        "observed_cell_id": "mail-cell",
+        "required_cell_id": "mail-cell-caller",
+        "observed_cell_id": "mail-cell-observer",
         "required_author": "agent-caller",
         "observed_author": "agent-caller",
         "required_action_hash": "uhCkk-mailbox-forged",
