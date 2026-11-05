@@ -765,10 +765,7 @@ fn has_directed_cycle(edges: &[(String, String)]) -> bool {
     let mut adjacency = BTreeMap::<String, Vec<String>>::new();
     let mut indegree = BTreeMap::<String, usize>::new();
     for (from, to) in edges {
-        adjacency
-            .entry(from.clone())
-            .or_default()
-            .push(to.clone());
+        adjacency.entry(from.clone()).or_default().push(to.clone());
         indegree.entry(from.clone()).or_insert(0);
         *indegree.entry(to.clone()).or_insert(0) += 1;
     }
