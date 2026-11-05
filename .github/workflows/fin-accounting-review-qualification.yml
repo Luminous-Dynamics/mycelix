@@ -66,9 +66,11 @@ jobs:
           cargo run --locked -- --input ../fixtures/empty-review-events.example.json --out /tmp/review-empty.json
           cargo run --locked -- --input ../fixtures/qualified-structural-review.example.json --out /tmp/review-qualified.json
           cargo run --locked -- --input ../fixtures/self-review-blocked.example.json --out /tmp/review-self-review.json
+          cargo run --locked -- --input ../fixtures/agent-review-blocked.example.json --out /tmp/review-agent-review.json
           jq -e '.disposition == "awaiting_required_roles" and .can_approve_close == false' /tmp/review-empty.json
           jq -e '.disposition == "structurally_ready_pending_external_authority" and .external_authority_verified == false and .can_approve_close == false' /tmp/review-qualified.json
           jq -e '.disposition == "blocked_by_role_separation" and .can_approve_close == false' /tmp/review-self-review.json
+          jq -e '.disposition == "blocked_by_non_human_role" and .can_approve_close == false' /tmp/review-agent-review.json
 
       - name: Assert exact subject and clean source
         run: |
@@ -83,4 +85,5 @@ jobs:
             /tmp/review-empty.json
             /tmp/review-qualified.json
             /tmp/review-self-review.json
+            /tmp/review-agent-review.json
           if-no-files-found: error
