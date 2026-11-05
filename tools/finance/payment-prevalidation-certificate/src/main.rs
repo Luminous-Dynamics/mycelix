@@ -737,9 +737,7 @@ where
                     "payer_consent_digest_binding_is_stale",
                 );
             }
-            let accepted_at = consent["observed_at"]
-                .as_str()
-                .and_then(parse_utc_seconds);
+            let accepted_at = consent["observed_at"].as_str().and_then(parse_utc_seconds);
             let presented_at = presentation["presented_at"]
                 .as_str()
                 .and_then(parse_utc_seconds);
@@ -1051,38 +1049,68 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("expired provider evidence despite fresh label", corpus, schema, |value| {
-        value["scenarios"][0]["provider_evidence"]["expires_at"] =
-            json!("2026-11-05T09:02:59Z");
-    })?;
+    mutate_and_reject(
+        "expired provider evidence despite fresh label",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["provider_evidence"]["expires_at"] =
+                json!("2026-11-05T09:02:59Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("expired VoP result despite fresh label", corpus, schema, |value| {
-        value["scenarios"][0]["vop_result"]["expires_at"] = json!("2026-11-05T09:02:59Z");
-    })?;
+    mutate_and_reject(
+        "expired VoP result despite fresh label",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["vop_result"]["expires_at"] = json!("2026-11-05T09:02:59Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("expired payee resolution despite fresh label", corpus, schema, |value| {
-        value["scenarios"][0]["payee_resolution"]["expires_at"] =
-            json!("2026-11-05T09:02:59Z");
-    })?;
+    mutate_and_reject(
+        "expired payee resolution despite fresh label",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["payee_resolution"]["expires_at"] =
+                json!("2026-11-05T09:02:59Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("future-dated provider evidence despite fresh label", corpus, schema, |value| {
-        value["scenarios"][0]["provider_evidence"]["issued_at"] =
-            json!("2026-11-05T09:03:01Z");
-    })?;
+    mutate_and_reject(
+        "future-dated provider evidence despite fresh label",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["provider_evidence"]["issued_at"] =
+                json!("2026-11-05T09:03:01Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("stale fee evidence despite allowed status", corpus, schema, |value| {
-        value["scenarios"][0]["limit_fee"]["observed_at"] =
-            json!("2026-11-05T08:52:59Z");
-    })?;
+    mutate_and_reject(
+        "stale fee evidence despite allowed status",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["limit_fee"]["observed_at"] =
+                json!("2026-11-05T08:52:59Z");
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("payer decision after evaluation time", corpus, schema, |value| {
-        value["scenarios"][3]["consent"]["observed_at"] = json!("2026-11-05T09:03:01Z");
-    })?;
+    mutate_and_reject(
+        "payer decision after evaluation time",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][3]["consent"]["observed_at"] = json!("2026-11-05T09:03:01Z");
+        },
+    )?;
     count += 1;
 
     Ok(count)
