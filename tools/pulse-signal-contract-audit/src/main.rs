@@ -648,10 +648,10 @@ mod tests {
             function validateSignalData(type: string, data: SignalRecord): boolean {}
             value instanceof Uint8Array && value.byteLength === 39
             Number.isSafeInteger(value)
-            function isVectorClock() {}
-            function isConflictResolution() {}
-            function isNetworkType() {}
-            function isSyncOperationType() {}
+            const isVectorClock = () => true;
+            const isConflictResolution = () => true;
+            const isNetworkType = () => true;
+            const isSyncOperationType = () => true;
             if (!validateSignalData(type, data)) return null;
         "#;
         assert!(signal_hub_validates_field_types(safe));
