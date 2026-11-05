@@ -327,10 +327,20 @@ export type SyncOpType =
   | 'FolderCreated'
   | 'FolderRenamed'
   | 'FolderDeleted'
+  | 'FolderMoved'
   | 'DraftCreated'
   | 'DraftUpdated'
+  | 'DraftDeleted'
   | 'DraftSent'
   | 'SettingChanged'
+  | 'FilterCreated'
+  | 'FilterUpdated'
+  | 'FilterDeleted'
+  | 'TrustAttestationCreated'
+  | 'TrustAttestationRevoked'
+  | 'ContactCreated'
+  | 'ContactUpdated'
+  | 'ContactDeleted'
   | { Custom: string };
 
 export type ConflictType =
