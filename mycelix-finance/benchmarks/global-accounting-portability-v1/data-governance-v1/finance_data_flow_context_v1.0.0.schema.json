@@ -1,0 +1,946 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/finance-data-flow-context-bundle-v1.0.0.json",
+  "title": "Mycelix Finance Data-Flow Context Bundle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "contexts"
+  ],
+  "properties": {
+    "bundle_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{3,100}$"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_data_flow_context_only_not_privacy_or_transfer_compliance"
+    },
+    "contexts": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "$ref": "#/$defs/context"
+      }
+    }
+  },
+  "$defs": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "utcSecond": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "actorRole": {
+      "enum": [
+        "responsible_party",
+        "controller",
+        "operator",
+        "processor",
+        "subprocessor",
+        "recipient",
+        "onward_recipient",
+        "support_provider",
+        "cloud_provider",
+        "public_authority",
+        "data_subject",
+        "other"
+      ]
+    },
+    "scopeLevel": {
+      "enum": [
+        "country",
+        "subnational_region",
+        "municipality",
+        "special_economic_zone",
+        "other"
+      ]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context_id",
+        "reporting_entity_ref",
+        "knowledge_at",
+        "period",
+        "scope_registry",
+        "actors",
+        "data_assets",
+        "purposes",
+        "legal_profiles",
+        "transfer_mechanisms",
+        "flows",
+        "retention_policies",
+        "actor_role_claims"
+      ],
+      "properties": {
+        "context_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "reporting_entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "knowledge_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "$ref": "#/$defs/date"
+            },
+            "end": {
+              "$ref": "#/$defs/date"
+            }
+          }
+        },
+        "scope_registry": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/scope"
+          }
+        },
+        "actors": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/actor"
+          }
+        },
+        "data_assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/dataAsset"
+          }
+        },
+        "purposes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/purpose"
+          }
+        },
+        "legal_profiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/legalProfile"
+          }
+        },
+        "transfer_mechanisms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transferMechanism"
+          }
+        },
+        "flows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/flow"
+          }
+        },
+        "retention_policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/retentionPolicy"
+          }
+        },
+        "actor_role_claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actorRoleClaim"
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_id",
+        "namespace_uri",
+        "code",
+        "scope_level",
+        "parent_scope_ref"
+      ],
+      "properties": {
+        "scope_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "namespace_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope_level": {
+          "$ref": "#/$defs/scopeLevel"
+        },
+        "parent_scope_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_ref",
+        "actor_roles",
+        "home_scope_ref",
+        "identity_namespace",
+        "identity_ref",
+        "valid_from",
+        "valid_to",
+        "recorded_at"
+      ],
+      "properties": {
+        "actor_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "actor_roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/actorRole"
+          }
+        },
+        "home_scope_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "identity_namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        }
+      }
+    },
+    "dataAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_ref",
+        "subject_class",
+        "data_categories",
+        "field_class_refs",
+        "synthetic_only"
+      ],
+      "properties": {
+        "asset_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "subject_class": {
+          "enum": [
+            "natural_person",
+            "employee",
+            "customer",
+            "supplier",
+            "beneficiary",
+            "juristic_person",
+            "none",
+            "other"
+          ]
+        },
+        "data_categories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "ordinary_personal_information",
+              "special_personal_information",
+              "employee_payroll",
+              "bank_payment",
+              "tax",
+              "customer_supplier_identity",
+              "commercial_confidential",
+              "trade_secret",
+              "public",
+              "synthetic"
+            ]
+          }
+        },
+        "field_class_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "synthetic_only": {
+          "const": true
+        }
+      }
+    },
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose_ref",
+        "purpose_class",
+        "description",
+        "status",
+        "valid_from",
+        "valid_to",
+        "recorded_at",
+        "evidence_refs"
+      ],
+      "properties": {
+        "purpose_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "purpose_class": {
+          "enum": [
+            "bookkeeping",
+            "tax_reporting",
+            "payroll",
+            "audit_assurance",
+            "customer_service",
+            "analytics",
+            "marketing",
+            "credit_risk_scoring",
+            "fraud_prevention",
+            "legal_disclosure",
+            "backup_recovery",
+            "support_maintenance",
+            "other"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 5
+        },
+        "status": {
+          "enum": [
+            "synthetic_approved",
+            "synthetic_candidate",
+            "synthetic_unreviewed",
+            "synthetic_disputed"
+          ]
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "legalProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_ref",
+        "jurisdiction_scope_ref",
+        "regime_id",
+        "instrument_version",
+        "status",
+        "source_refs",
+        "effective_from",
+        "effective_to",
+        "recorded_at"
+      ],
+      "properties": {
+        "profile_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "jurisdiction_scope_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "regime_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "synthetic_reference_only",
+            "synthetic_candidate",
+            "synthetic_review_required",
+            "synthetic_unqualified"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "effective_from": {
+          "$ref": "#/$defs/date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        }
+      }
+    },
+    "transferMechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mechanism_ref",
+        "profile_ref",
+        "mechanism_label",
+        "destination_scope_ref",
+        "status",
+        "source_refs",
+        "evidence_refs",
+        "reviewer_refs",
+        "valid_from",
+        "valid_to",
+        "recorded_at"
+      ],
+      "properties": {
+        "mechanism_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mechanism_label": {
+          "type": "string",
+          "minLength": 3
+        },
+        "destination_scope_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "synthetic_candidate",
+            "synthetic_review_required",
+            "synthetic_unqualified",
+            "synthetic_not_assessed",
+            "synthetic_approved_fixture_only"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reviewer_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        }
+      }
+    },
+    "locationObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "facet",
+        "scope_ref",
+        "assertion_state",
+        "recorded_at",
+        "valid_from",
+        "valid_to",
+        "evidence_refs"
+      ],
+      "properties": {
+        "facet": {
+          "enum": [
+            "collection_source",
+            "primary_storage",
+            "active_processing",
+            "backup_dr",
+            "support_access",
+            "recipient_establishment",
+            "onward_recipient",
+            "transit"
+          ]
+        },
+        "scope_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "assertion_state": {
+          "enum": [
+            "synthetic_observed",
+            "synthetic_asserted_unverified",
+            "synthetic_disputed",
+            "unknown"
+          ]
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assertion_state": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "assertion_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope_ref": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assertion_state": {
+                "enum": [
+                  "synthetic_observed",
+                  "synthetic_asserted_unverified",
+                  "synthetic_disputed"
+                ]
+              }
+            },
+            "required": [
+              "assertion_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flow_ref",
+        "asset_ref",
+        "source_actor_ref",
+        "recipient_actor_ref",
+        "operation",
+        "purpose_ref",
+        "location_observations",
+        "transfer_mechanism_refs",
+        "legal_profile_refs",
+        "valid_from",
+        "valid_to",
+        "recorded_at"
+      ],
+      "properties": {
+        "flow_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "asset_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_actor_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_actor_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "enum": [
+            "collection",
+            "storage",
+            "processing",
+            "backup",
+            "support_access",
+            "disclosure",
+            "onward_transfer",
+            "deletion",
+            "other"
+          ]
+        },
+        "purpose_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location_observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/locationObservation"
+          }
+        },
+        "transfer_mechanism_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "legal_profile_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        }
+      }
+    },
+    "retentionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retention_ref",
+        "asset_ref",
+        "purpose_ref",
+        "retention_trigger",
+        "scheduled_delete_at",
+        "legal_hold_state",
+        "legal_hold_refs",
+        "deletion_state",
+        "valid_from",
+        "valid_to",
+        "recorded_at"
+      ],
+      "properties": {
+        "retention_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "asset_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retention_trigger": {
+          "enum": [
+            "transaction_close",
+            "tax_period_end",
+            "employment_end",
+            "contract_end",
+            "consent_withdrawal",
+            "other",
+            "unknown"
+          ]
+        },
+        "scheduled_delete_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "legal_hold_state": {
+          "enum": [
+            "none_declared",
+            "active",
+            "disputed",
+            "unknown"
+          ]
+        },
+        "legal_hold_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "deletion_state": {
+          "enum": [
+            "not_due",
+            "scheduled",
+            "requested",
+            "executed",
+            "blocked",
+            "unknown"
+          ]
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "legal_hold_state": {
+                "const": "active"
+              }
+            },
+            "required": [
+              "legal_hold_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "legal_hold_refs": {
+                "minItems": 1
+              },
+              "deletion_state": {
+                "enum": [
+                  "not_due",
+                  "scheduled",
+                  "requested",
+                  "blocked"
+                ]
+              }
+            },
+            "required": [
+              "legal_hold_refs"
+            ]
+          }
+        }
+      ]
+    },
+    "actorRoleClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_ref",
+        "flow_ref",
+        "actor_ref",
+        "claimed_role",
+        "assertion_state",
+        "source_refs",
+        "conflicts_with_claim_refs",
+        "recorded_at"
+      ],
+      "properties": {
+        "claim_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "flow_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claimed_role": {
+          "$ref": "#/$defs/actorRole"
+        },
+        "assertion_state": {
+          "enum": [
+            "synthetic_asserted",
+            "synthetic_disputed"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "conflicts_with_claim_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assertion_state": {
+                "const": "synthetic_disputed"
+              }
+            },
+            "required": [
+              "assertion_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "conflicts_with_claim_refs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "conflicts_with_claim_refs"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

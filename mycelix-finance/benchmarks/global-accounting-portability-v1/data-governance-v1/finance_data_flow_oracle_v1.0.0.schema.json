@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/finance-data-flow-context-oracle-v1.0.0.json",
+  "title": "Mycelix Finance Data-Flow Context Public Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_id",
+    "visibility",
+    "expectations"
+  ],
+  "properties": {
+    "oracle_id": {
+      "const": "MYCELIX-FINANCE-DATA-FLOW-ORACLE-V1"
+    },
+    "visibility": {
+      "const": "public_reference_oracle_not_hidden_evaluation"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "context_id",
+          "expected_review_disposition",
+          "reason_code"
+        ],
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_review_disposition": {
+            "enum": [
+              "needs_review",
+              "indeterminate",
+              "unsupported"
+            ]
+          },
+          "reason_code": {
+            "enum": [
+              "foreign_support_access_without_transfer_qualification",
+              "foreign_processor_transfer_unqualified",
+              "onward_transfer_destination_unqualified",
+              "onward_transfer_mechanism_scope_incomplete",
+              "uk_regime_profile_not_qualified",
+              "accounting_profile_cannot_authorise_data_transfer",
+              "legal_hold_blocks_deletion",
+              "secondary_purpose_unreviewed",
+              "support_access_location_unknown",
+              "actor_role_or_authority_conflict"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
