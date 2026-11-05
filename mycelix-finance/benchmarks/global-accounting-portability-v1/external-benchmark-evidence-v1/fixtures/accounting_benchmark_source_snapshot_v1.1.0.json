@@ -50,9 +50,18 @@
           "display_locator": "APEX-Accounting entry / Released",
           "evidence_status": "methodology_page_display",
           "interpretation": "Release month shown on the methodology listing."
+        },
+        {
+          "observation_id": "APEX-METH-HARNESS-SINGLE-TURN",
+          "metric_or_fact": "methodology_harness_description",
+          "observed_value": "single-turn / single-shot",
+          "unit": "harness mode",
+          "display_locator": "APEX-Accounting methodology card / Description",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "This listing describes a single-turn / single-shot agent, in contrast with the paper and live leaderboard's Loop Harness descriptions. Keep this as an unresolved harness-version distinction."
         }
       ],
-      "notes": "The methodology listing currently describes the APEX-Accounting entry as 100 tasks with k=4. This aligns with the live leaderboard's current 100-task denominator but not with the published paper's 160-task private evaluation. The reason for the cohort difference is not explained in the source."
+      "notes": "The methodology listing currently describes the APEX-Accounting entry as 100 tasks with k=4. This aligns with the live leaderboard's current 100-task denominator but not with the published paper's 160-task private evaluation. The reason for the cohort difference is not explained in the source. The methodology card also describes single-turn/single-shot execution, while the published paper and live leaderboard describe Loop Harness execution; this harness relationship is unresolved."
     },
     {
       "source_id": "APEX-PAPER-2026-07-29",
@@ -143,9 +152,18 @@
           "display_locator": "Paper limitations section",
           "evidence_status": "paper_limit_or_exclusion",
           "interpretation": "The paper states that multi-entity and multi-currency work is outside the benchmark scope."
+        },
+        {
+          "observation_id": "APEX-PAPER-HARNESS-LOOP",
+          "metric_or_fact": "paper_harness_description",
+          "observed_value": "Loop Harness (while-loop-with-tools)",
+          "unit": "harness mode",
+          "display_locator": "Paper benchmark/harness description",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Paper evaluation uses a tool loop; do not assume equivalence with the methodology card's single-turn / single-shot description."
         }
       ],
-      "notes": "The paper is a separate published evaluation snapshot: 160 private held-out tasks across ten worlds. Its results and metrics must not be joined to the live leaderboard's current 100-task page as if they shared a denominator, harness revision or model roster. The paper excludes tasks requiring human-in-the-loop clarification and omits tax, audit, consolidation, multi-entity, multi-currency and external reporting."
+      "notes": "The paper is a separate published evaluation snapshot: 160 private held-out tasks across ten worlds. Its results and metrics must not be joined to the live leaderboard's current 100-task page as if they shared a denominator, harness revision or model roster. The paper excludes tasks requiring human-in-the-loop clarification and omits tax, audit, consolidation, multi-entity, multi-currency and external reporting. The paper describes a Loop Harness execution model; do not assume it shares the methodology card's single-turn/single-shot mode."
     },
     {
       "source_id": "APEX-LIVE-LEADERBOARD-2026-11-05-1939",
@@ -272,9 +290,18 @@
           "display_locator": "Leaderboard Results section",
           "evidence_status": "live_page_display_only",
           "interpretation": "The live page displays 46 of 46 model results."
+        },
+        {
+          "observation_id": "APEX-LIVE-HARNESS-LOOP",
+          "metric_or_fact": "live_harness_description",
+          "observed_value": "Loop Harness (while-loop-with-tools)",
+          "unit": "harness mode",
+          "display_locator": "Leaderboard methodology / Harness",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Live page describes a Loop Harness; the methodology card describes single-turn / single-shot. The source set does not explain the version relationship."
         }
       ],
-      "notes": "At capture time the live page described 100 tasks, 1,475 criteria and ten worlds. Its displayed leading score was 71.5% ±4.8 (Gemini 4 Argon High). This is not the paper's 160-task, nine-model evaluation. No source statement located explains whether the 100-task page is a refreshed cohort, subset, different rubric cut or changed benchmark release. Do not treat 71.5% as a direct improvement over 56.4%."
+      "notes": "At capture time the live page described 100 tasks, 1,475 criteria and ten worlds. Its displayed leading score was 71.5% ±4.8 (Gemini 4 Argon High). This is not the paper's 160-task, nine-model evaluation. No source statement located explains whether the 100-task page is a refreshed cohort, subset, different rubric cut or changed benchmark release. Do not treat 71.5% as a direct improvement over 56.4%. The live page describes Loop Harness execution, which is not reconciled with the methodology card's single-turn/single-shot description."
     },
     {
       "source_id": "FINBALANCE-PAPER-2026-10",
