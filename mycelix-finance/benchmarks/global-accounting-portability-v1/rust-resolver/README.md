@@ -53,3 +53,5 @@ The program emits one deterministic JSON resolution report. A refusal/abstention
 ## Architecture boundaries
 
 Composes #5811/#5813. Does not duplicate #5814 currency/instrument identity, #5792 bitemporal policy evaluation, #5802 XBRL compilation, #5793 invoice validation, #5812 CAMT evidence or #5799 benchmark run manifests.
+
+Formatting gate: run `cargo fmt --all -- --check` before the locked test and Clippy lanes.
