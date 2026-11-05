@@ -163,7 +163,9 @@
             "evidence_after_knowledge_frontier",
             "source_integrity_failed",
             "contradictory_amount_evidence",
-            "account_mapping_missing"
+            "account_mapping_missing",
+            "supplier_identity_disputed",
+            "contradictory_service_period_evidence"
           ]
         },
         "required_source_fact_refs": {
