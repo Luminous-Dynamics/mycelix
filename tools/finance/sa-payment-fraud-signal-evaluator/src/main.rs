@@ -29,9 +29,8 @@ fn array_at<'a>(value: &'a Value, key: &str) -> Option<&'a Vec<Value>> {
 }
 
 fn contains_string(value: &Value, key: &str, expected: &str) -> bool {
-    array_at(value, key).is_some_and(|items| {
-        items.iter().any(|item| item.as_str() == Some(expected))
-    })
+    array_at(value, key)
+        .is_some_and(|items| items.iter().any(|item| item.as_str() == Some(expected)))
 }
 
 fn unique_string_count(value: &Value, key: &str) -> usize {
@@ -72,8 +71,7 @@ fn schema_errors(schema: &Value, corpus: &Value) -> Vec<String> {
 }
 
 fn contains_global_subject_ref(query: &Value) -> bool {
-    str_at(query, "recipient_subject_ref")
-        .is_some_and(|value| value.starts_with("global:"))
+    str_at(query, "recipient_subject_ref").is_some_and(|value| value.starts_with("global:"))
 }
 
 fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'static str) {
@@ -103,8 +101,7 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     // Comparator and programme contexts are deliberately narrower than
     // transaction-level fraud assertions.
     if profile_state == "knowledge_exchange_only"
-        && (data_class != "aggregate_non_personal"
-            || category != "programme_status_observation")
+        && (data_class != "aggregate_non_personal" || category != "programme_status_observation")
     {
         return ("reject", "knowledge_forum_not_customer_level_exchange");
     }
@@ -145,16 +142,16 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     if basis == "FSR_ACT_251_REGULATOR_SCOPE"
         && profile_state != "synthetic_statutory_scope_fixture_only"
     {
-        return (
-            "reject",
-            "section_251_not_private_platform_basis",
-        );
+        return ("reject", "section_251_not_private_platform_basis");
     }
 
     if profile_state == "synthetic_statutory_scope_fixture_only" {
         if basis != "FSR_ACT_251_REGULATOR_SCOPE"
             || !matches!(issuer_role, "financial_sector_regulator" | "reserve_bank")
-            || !matches!(controller_role, "financial_sector_regulator" | "reserve_bank")
+            || !matches!(
+                controller_role,
+                "financial_sector_regulator" | "reserve_bank"
+            )
         {
             return ("reject", "section_251_issuer_scope_mismatch");
         }
@@ -163,10 +160,7 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
             || !purpose.starts_with("statutory_fraud_")
             || !contains_string(sharing, "permitted_recipient_ids", recipient)
         {
-            return (
-                "reject",
-                "section_251_recipient_scope_mismatch",
-            );
+            return ("reject", "section_251_recipient_scope_mismatch");
         }
     } else if !contains_string(profile, "controller_roles", controller_role) {
         return ("reject", "issuer_controller_role_not_in_profile");
@@ -243,8 +237,7 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
         }
     }
 
-    if str_at(sharing, "retention_expires_at").is_none()
-        || str_at(query, "evaluated_at").is_none()
+    if str_at(sharing, "retention_expires_at").is_none() || str_at(query, "evaluated_at").is_none()
     {
         return ("quarantine", "retention_or_evaluation_time_unknown");
     }
@@ -252,9 +245,7 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
         return ("quarantine", "retention_expired");
     }
 
-    if str_at(query, "recipient_id").is_none()
-        || str_at(query, "recipient_class").is_none()
-    {
+    if str_at(query, "recipient_id").is_none() || str_at(query, "recipient_class").is_none() {
         return ("reject", "recipient_identity_missing");
     }
     if !contains_string(sharing, "permitted_recipient_ids", recipient) {
@@ -291,11 +282,13 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     if correction_status == "contested" || status == "disputed" {
         return ("quarantine", "accuracy_contested");
     }
-    if matches!(correction_status, "correction_applied" | "withdrawn" | "superseded")
-        && previous_ids.is_some_and(|ids| ids.iter().any(|id| {
-            !notified_ids.is_some_and(|delivered| delivered.contains(id))
-        }))
-    {
+    if matches!(
+        correction_status,
+        "correction_applied" | "withdrawn" | "superseded"
+    ) && previous_ids.is_some_and(|ids| {
+        ids.iter()
+            .any(|id| !notified_ids.is_some_and(|delivered| delivered.contains(id)))
+    }) {
         return ("quarantine", "correction_not_propagated");
     }
     if status == "corrected" || correction_status == "superseded" {
@@ -311,9 +304,7 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     if status == "corroborated" && unique_string_count(assertion, "evidence_group_ids") < 2 {
         return ("reject", "correlated_copies_not_independent");
     }
-    if status == "official_determination"
-        && evidence_class == "model_derived_indicator"
-    {
+    if status == "official_determination" && evidence_class == "model_derived_indicator" {
         return ("reject", "model_output_not_official_determination");
     }
     if status == "official_determination"
@@ -342,12 +333,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     if str_at(corpus, "schema") != Some("mycelix.sa-payment-fraud-signal/v1")
         || str_at(corpus, "corpus_id") != Some("ZA-SA-PAYMENT-FRAUD-SIGNAL-SYNTHETIC-V1")
         || str_at(corpus, "status") != Some("synthetic_contract_fixture_only")
-        || corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false)
+        || corpus
+            .get("external_effects_enabled")
+            .and_then(Value::as_bool)
+            != Some(false)
     {
         errors.push("corpus identity/status/effects boundary invalid".into());
     }
 
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
 
@@ -355,7 +351,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     for (i, source) in sources.iter().enumerate() {
         let id = str_at(source, "id").unwrap_or("");
         if id.is_empty() || !source_ids.insert(id.to_owned()) {
-            errors.push(format!("source_register[{i}]: missing or duplicate source id"));
+            errors.push(format!(
+                "source_register[{i}]: missing or duplicate source id"
+            ));
         }
     }
 
@@ -365,9 +363,14 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         if id.is_empty() || profile_map.insert(id.to_owned(), profile).is_some() {
             errors.push(format!("profiles[{i}]: missing or duplicate profile id"));
         }
-        let refs = array_at(profile, "source_refs").cloned().unwrap_or_default();
+        let refs = array_at(profile, "source_refs")
+            .cloned()
+            .unwrap_or_default();
         for reference in refs {
-            if !reference.as_str().is_some_and(|value| source_ids.contains(value)) {
+            if !reference
+                .as_str()
+                .is_some_and(|value| source_ids.contains(value))
+            {
                 errors.push(format!("profiles[{i}]: unresolved source reference"));
             }
         }
@@ -396,7 +399,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             .unwrap_or_default();
         if assertion_refs.is_empty()
             || assertion_refs.iter().any(|reference| {
-                !reference.as_str().is_some_and(|value| source_ids.contains(value))
+                !reference
+                    .as_str()
+                    .is_some_and(|value| source_ids.contains(value))
             })
         {
             errors.push(format!(
