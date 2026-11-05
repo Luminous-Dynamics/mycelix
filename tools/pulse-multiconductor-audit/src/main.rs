@@ -186,7 +186,10 @@ fn valid_event_shape(event: &Event) -> bool {
     } else {
         exact_fields(&event.data, fields)
     };
+    let optional_projection_ref_valid = event.event_type != "projection_observed"
+        || event.data.get("validator_event_id").is_none_or(|v| v.as_str().is_some_and(|s| !s.trim().is_empty()));
     if !exact_shape
+        || !optional_projection_ref_valid
         || !strings.iter().all(|key| nonempty_str(&event.data,key))
         || !numbers.iter().all(|key| u64_value(&event.data,key).is_some())
         || !booleans.iter().all(|key| bool_value(&event.data,key).is_some())
