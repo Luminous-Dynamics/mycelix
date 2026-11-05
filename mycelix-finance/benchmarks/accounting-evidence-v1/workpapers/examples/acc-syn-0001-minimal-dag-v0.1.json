@@ -283,7 +283,7 @@
       "node_id": "entity-quarantine-guard",
       "node_kind": "independent_verification",
       "owner_system": "mycelix",
-      "authority_class": "deterministic_verification",
+      "authority_class": "independent_verification",
       "required_in_close": true,
       "depends_on": [
         "source-match-001"
