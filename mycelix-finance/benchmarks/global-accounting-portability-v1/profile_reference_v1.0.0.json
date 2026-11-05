@@ -133,6 +133,16 @@
       "source_url": "https://www.iana.org/time-zones",
       "valid_from": null,
       "notes": "Time-zone history and rules change with political decisions; pin release to reproduce event-time conversion."
+    },
+    {
+      "profile_id": "UNICODE-UAX9-BIDI-52",
+      "dimension": "unicode_bidi_data",
+      "version": "UAX #9 revision 52 (2026-09-01)",
+      "status": "reference_only",
+      "authority_class": "standards_body",
+      "source_url": "https://www.unicode.org/reports/tr9/tr9-52.html",
+      "valid_from": null,
+      "notes": "Unicode Bidirectional Algorithm revision 52. Defines display ordering for mixed left-to-right/right-to-left text; it does not authorize rewriting logical source code-point order or financial values."
     }
   ],
   "coverage_matrix": [
@@ -266,6 +276,26 @@
         "no_timezone_evaluator_qualified",
         "release_and_runtime_data_must_be_pinned",
         "data_updates_do_not_authorize_source_rewriting"
+      ]
+    },
+    {
+      "coverage_id": "UNICODE-BIDIRECTIONAL-TEXT-REFERENCE",
+      "jurisdiction_scope": "global_script_and_bidi_reference_only",
+      "framework_scope": "Unicode-UAX9-revision-52",
+      "dimensions": [
+        "unicode_bidi_data",
+        "locale_data"
+      ],
+      "status": "research_only",
+      "evidence_refs": [
+        "UNICODE-UAX9-BIDI-52",
+        "UNICODE-CLDR-49"
+      ],
+      "limitations": [
+        "no_bidi_parser_or_renderer_qualified",
+        "reference_only",
+        "source_logical_order_must_be_preserved",
+        "no_identity_or_amount_inference_from_visual_order"
       ]
     }
   ]
