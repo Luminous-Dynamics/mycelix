@@ -553,7 +553,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
-    let (schema, corpus) = schema_errors(&schema_text, &corpus_text).map_err(|errors| {
+    let (_schema, corpus) = schema_errors(&schema_text, &corpus_text).map_err(|errors| {
         std::io::Error::new(std::io::ErrorKind::InvalidData, errors.join("; "))
     })?;
     let errors = semantic_errors(&corpus);
@@ -587,7 +587,8 @@ mod tests {
     #[test]
     fn corpus_and_schema_validate() {
         let (_, corpus) = schema_errors(DEFAULT_SCHEMA, DEFAULT_CORPUS).expect("schema");
-        assert!(semantic_errors(&corpus).is_empty());
+        let errors = semantic_errors(&corpus);
+        assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 5);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 5);
         assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 30);
