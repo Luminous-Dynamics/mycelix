@@ -23,7 +23,7 @@
       "const": "FIN-BANK-CHAIN"
     },
     "dataset_version": {
-      "const": "1.0.0"
+      "const": "1.0.1"
     },
     "status": {
       "enum": [
