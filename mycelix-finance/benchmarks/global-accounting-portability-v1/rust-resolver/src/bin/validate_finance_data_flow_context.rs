@@ -63,9 +63,17 @@ fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn validate_instance(label: &str, schema: &Value, instance: &Value) -> Result<(), String> {
+fn validate_schema(label: &str, schema: &Value) -> Result<(), String> {
     draft202012::meta::validate(schema)
         .map_err(|error| format!("{label}: invalid Draft 2020-12 schema: {error}"))?;
+    draft202012::options()
+        .build(schema)
+        .map(|_| ())
+        .map_err(|error| format!("{label}: could not compile Draft 2020-12 schema: {error}"))
+}
+
+fn validate_instance(label: &str, schema: &Value, instance: &Value) -> Result<(), String> {
+    validate_schema(label, schema)?;
     let validator = draft202012::options()
         .should_validate_formats(true)
         .build(schema)
@@ -262,8 +270,10 @@ fn validate_bundle_integrity(bundle: &Value) -> Result<(), String> {
             }
         }
 
+        let mut unique_claims = BTreeSet::new();
         for claim in array(context, "actor_role_claims")? {
             let claim_ref = string(claim, "claim_ref")?;
+            insert_unique(&mut unique_claims, claim_ref, "actor role claim id")?;
             let actor_ref = string(claim, "actor_ref")?;
             let flow_ref = string(claim, "flow_ref")?;
             if !actors.contains_key(actor_ref) {
@@ -366,9 +376,9 @@ mod tests {
     #[test]
     fn ten_candidate_contexts_and_public_oracle_validate() {
         let (schema, candidates, oracle_schema, oracle) = fixtures();
-        validate_instance("context schema", &schema, &schema).unwrap();
+        validate_schema("context schema", &schema).unwrap();
         validate_instance("candidate bundle", &schema, &candidates).unwrap();
-        validate_instance("oracle schema", &oracle_schema, &oracle_schema).unwrap();
+        validate_schema("oracle schema", &oracle_schema).unwrap();
         validate_instance("public oracle", &oracle_schema, &oracle).unwrap();
         validate_bundle_integrity(&candidates).unwrap();
         validate_oracle(&candidates, &oracle).unwrap();
