@@ -734,7 +734,13 @@ mod tests {
     fn reviewer_role_cannot_be_allowlisted_for_non_human_actors() {
         let mut record = base_record();
         record["review_policy"]["non_human_eligible_roles"] = json!(["reviewer"]);
-        assert!(verify_schema(&record).is_err());
+        assert_eq!(
+            verify(
+                &serde_json::to_vec(&record).unwrap(),
+                include_bytes!("../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
+            )["disposition"],
+            "invalid_input"
+        );
     }
 
     #[test]
@@ -743,7 +749,13 @@ mod tests {
         record["review_events"][0]["actor_kind"] = json!("system");
         assert!(verify_schema(&record).is_err());
         record["review_events"][0]["system_build_digest"] = json!("c".repeat(64));
-        assert!(verify_schema(&record).is_ok());
+        assert_ne!(
+            verify(
+                &serde_json::to_vec(&record).unwrap(),
+                include_bytes!("../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json")
+            )["disposition"],
+            "invalid_input"
+        );
         assert_eq!(disposition(&record), "blocked_by_non_human_role");
     }
 }
