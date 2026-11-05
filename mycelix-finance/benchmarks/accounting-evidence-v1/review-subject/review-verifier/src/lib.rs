@@ -189,14 +189,22 @@ pub fn verify_value(input: &Value) -> Value {
     }
 
     let stale = blockers.iter().any(|reason| reason.starts_with("stale_"));
-    let policy_mismatch = blockers.contains("review_policy_reference_mismatch") || blockers.contains("review_policy_digest_mismatch");
-    let scope_mismatch = blockers.iter().any(|reason| reason.starts_with("review_scope_mismatch"));
-    let separation_violation = blockers.iter().any(|reason| reason.starts_with("role_separation_violation"));
-    let adverse = blockers.iter().any(|reason| reason.starts_with("adverse_review_decision"));
-    let role_mismatch = blockers.iter().any(|reason| reason.starts_with("role_decision_mismatch"));
+    let policy_mismatch = blockers.contains("review_policy_reference_mismatch")
+        || blockers.contains("review_policy_digest_mismatch");
+    let scope_mismatch = blockers
+        .iter()
+        .any(|reason| reason.starts_with("review_scope_mismatch"));
+    let separation_violation = blockers
+        .iter()
+        .any(|reason| reason.starts_with("role_separation_violation"));
+    let adverse = blockers
+        .iter()
+        .any(|reason| reason.starts_with("adverse_review_decision"));
+    let role_mismatch = blockers
+        .iter()
+        .any(|reason| reason.starts_with("role_decision_mismatch"));
     let event_integrity_failure = blockers.iter().any(|reason| {
-        reason.starts_with("duplicate_event_id")
-            || reason.starts_with("review_predates_workpaper")
+        reason.starts_with("duplicate_event_id") || reason.starts_with("review_predates_workpaper")
     });
 
     let disposition = if stale || policy_mismatch {
@@ -263,10 +271,12 @@ fn write_canonical_json(value: &Value, out: &mut Vec<u8>) {
             } else {
                 out.extend_from_slice(b"false");
             }
-        },
+        }
         Value::Number(value) => out.extend_from_slice(value.to_string().as_bytes()),
         Value::String(value) => out.extend_from_slice(
-            serde_json::to_string(value).expect("JSON string serialization").as_bytes(),
+            serde_json::to_string(value)
+                .expect("JSON string serialization")
+                .as_bytes(),
         ),
         Value::Array(values) => {
             out.push(b'[');
@@ -286,7 +296,9 @@ fn write_canonical_json(value: &Value, out: &mut Vec<u8>) {
                     out.push(b',');
                 }
                 out.extend_from_slice(
-                    serde_json::to_string(key).expect("JSON key serialization").as_bytes(),
+                    serde_json::to_string(key)
+                        .expect("JSON key serialization")
+                        .as_bytes(),
                 );
                 out.push(b':');
                 write_canonical_json(value, out);
@@ -403,13 +415,19 @@ mod tests {
     }
 
     fn disposition(record: &Value) -> String {
-        verify_value(record)["disposition"].as_str().unwrap().to_owned()
+        verify_value(record)["disposition"]
+            .as_str()
+            .unwrap()
+            .to_owned()
     }
 
     #[test]
     fn exact_subject_and_disjoint_roles_are_structurally_ready_but_never_approved() {
         let report = verify_value(&base_record());
-        assert_eq!(report["disposition"], "structurally_ready_pending_external_authority");
+        assert_eq!(
+            report["disposition"],
+            "structurally_ready_pending_external_authority"
+        );
         assert_eq!(report["external_authority_verified"], false);
         assert_eq!(report["human_review_sufficiency_verified"], false);
         assert_eq!(report["can_approve_close"], false);
@@ -435,7 +453,10 @@ mod tests {
         record["review_policy"]["required_role_counts"][0]["minimum_unique_principals"] = json!(2);
         let mut duplicate = record["review_events"][0].clone();
         duplicate["event_id"] = json!("review-event:reviewer-duplicate-presentation");
-        record["review_events"].as_array_mut().unwrap().push(duplicate);
+        record["review_events"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         assert_eq!(disposition(&record), "awaiting_required_roles");
     }
 
@@ -449,7 +470,8 @@ mod tests {
     #[test]
     fn approval_for_a_different_assertion_scope_is_not_reused() {
         let mut record = base_record();
-        record["review_events"][1]["assertion_pair_ids"] = json!(["risk:ap:assertion:completeness"]);
+        record["review_events"][1]["assertion_pair_ids"] =
+            json!(["risk:ap:assertion:completeness"]);
         assert_eq!(disposition(&record), "review_scope_mismatch");
     }
 
@@ -487,14 +509,20 @@ mod tests {
     fn canonical_subject_digest_is_stable_under_object_key_order() {
         let first: Value = serde_json::from_str(r#"{"a":1,"b":{"x":2,"y":3}}"#).unwrap();
         let second: Value = serde_json::from_str(r#"{"b":{"y":3,"x":2},"a":1}"#).unwrap();
-        assert_eq!(digest_value(SUBJECT_DOMAIN, &first), digest_value(SUBJECT_DOMAIN, &second));
+        assert_eq!(
+            digest_value(SUBJECT_DOMAIN, &first),
+            digest_value(SUBJECT_DOMAIN, &second)
+        );
     }
 
     #[test]
     fn array_order_remains_semantic_in_subject_commitment() {
         let first = json!({"assertions":["a","b"]});
         let second = json!({"assertions":["b","a"]});
-        assert_ne!(digest_value(SUBJECT_DOMAIN, &first), digest_value(SUBJECT_DOMAIN, &second));
+        assert_ne!(
+            digest_value(SUBJECT_DOMAIN, &first),
+            digest_value(SUBJECT_DOMAIN, &second)
+        );
     }
     #[test]
     fn generated_report_satisfies_closed_report_schema() {
@@ -510,7 +538,10 @@ mod tests {
         let input = serde_json::to_vec(&record).unwrap();
         let schema = include_bytes!("../../FIN_ACCOUNTING_REVIEW_V1.0.0.schema.json");
         let report = verify(&input, schema);
-        assert_eq!(report["disposition"], "structurally_ready_pending_external_authority");
+        assert_eq!(
+            report["disposition"],
+            "structurally_ready_pending_external_authority"
+        );
     }
 
 }
