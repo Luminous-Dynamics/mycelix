@@ -55,3 +55,6 @@ Passing synthetic tests proves only the exact input/schema/verifier behaviors. I
 
 
 The v1.0.0 synthetic negative control `agent-review-blocked.example.json` proves that an agent cannot satisfy the reviewer role by default. A separate unit test demonstrates that a policy can explicitly allow a non-human principal for a narrowly scoped role; that remains only structural policy interpretation, not authority verification.
+
+
+Non-human safety invariant: policy may allow an agent/system to produce or perform work, but cannot promote it into the human reviewer or approver role. Agent and system events must bind their exact actor build digest. External authority remains unverified for every disposition.
