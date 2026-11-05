@@ -1,0 +1,254 @@
+{
+  "benchmark_id": "FIN-BANK-CHAIN",
+  "dataset_version": "1.0.2",
+  "visibility": "public_reference_oracle_not_blind_holdout",
+  "cases": [
+    {
+      "case_id": "BSC-001",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "account_identity_consistent",
+        "denomination_consistent",
+        "booked_balance_carry_forward_exact"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-002",
+      "expected_disposition": "balance_conflict",
+      "reason_codes": [
+        "opening_closing_booked_balance_mismatch"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-003",
+      "expected_disposition": "profile_unsupported",
+      "reason_codes": [
+        "incompatible_cutoff_semantics"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-004",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "exact_replay_idempotent"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-005",
+      "expected_disposition": "revision_conflict",
+      "reason_codes": [
+        "same_message_identity_changed_payload"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-006",
+      "expected_disposition": "complete_with_explicit_adjustment",
+      "reason_codes": [
+        "explicit_statement_replacement_relation"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-007",
+      "expected_disposition": "revision_conflict",
+      "reason_codes": [
+        "competing_statement_versions_without_relation"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-008",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "overlap_linked_not_double_counted"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-009",
+      "expected_disposition": "overlap_unresolved",
+      "reason_codes": [
+        "overlap_entry_semantics_conflict"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-010",
+      "expected_disposition": "gap_unknown",
+      "reason_codes": [
+        "required_statement_period_missing"
+      ],
+      "economic_observation_count": 1
+    },
+    {
+      "case_id": "BSC-011",
+      "expected_disposition": "gap_unknown",
+      "reason_codes": [
+        "statement_pagination_incomplete"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-012",
+      "expected_disposition": "gap_unknown",
+      "reason_codes": [
+        "intraday_report_cannot_fill_booked_statement_gap"
+      ],
+      "economic_observation_count": 1
+    },
+    {
+      "case_id": "BSC-013",
+      "expected_disposition": "gap_unknown",
+      "reason_codes": [
+        "notification_cannot_fill_booked_statement_gap"
+      ],
+      "economic_observation_count": 1
+    },
+    {
+      "case_id": "BSC-014",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "notification_correlated_to_booked_entry",
+        "one_economic_observation"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-015",
+      "expected_disposition": "complete_with_explicit_adjustment",
+      "reason_codes": [
+        "append_only_correction_relation",
+        "prior_artifact_preserved"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-016",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "booking_time_and_value_date_preserved_separately"
+      ],
+      "economic_observation_count": 3
+    },
+    {
+      "case_id": "BSC-017",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "reversal_successor_preserved",
+        "original_observation_immutable"
+      ],
+      "economic_observation_count": 3
+    },
+    {
+      "case_id": "BSC-018",
+      "expected_disposition": "account_lineage_unknown",
+      "reason_codes": [
+        "account_reference_changed_without_lineage"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-019",
+      "expected_disposition": "profile_unsupported",
+      "reason_codes": [
+        "denomination_profile_not_pinned"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-020",
+      "expected_disposition": "profile_unsupported",
+      "reason_codes": [
+        "available_balance_not_booked_balance"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-021",
+      "expected_disposition": "complete_with_explicit_adjustment",
+      "reason_codes": [
+        "bank_fee_explicitly_source_bound"
+      ],
+      "economic_observation_count": 3
+    },
+    {
+      "case_id": "BSC-022",
+      "expected_disposition": "account_lineage_unknown",
+      "reason_codes": [
+        "account_entity_binding_conflict"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-023",
+      "expected_disposition": "source_authentication_unqualified",
+      "reason_codes": [
+        "transport_or_sender_authentication_unqualified"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-024",
+      "expected_disposition": "gap_unknown",
+      "reason_codes": [
+        "expected_source_population_not_observed"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-025",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "arrival_order_must_not_change_verdict"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-026",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "late_exact_replay_is_idempotent"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-027",
+      "expected_disposition": "gap_unknown",
+      "reason_codes": [
+        "statement_period_boundary_mismatch",
+        "opening_balance_boundary_timestamp_mismatch"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-028",
+      "expected_disposition": "gap_unknown",
+      "reason_codes": [
+        "statement_sequence_does_not_match_expected_scope"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-029",
+      "expected_disposition": "complete_contiguous",
+      "reason_codes": [
+        "exact_replay_statement_suppressed"
+      ],
+      "economic_observation_count": 2
+    },
+    {
+      "case_id": "BSC-030",
+      "expected_disposition": "revision_conflict",
+      "reason_codes": [
+        "invalid_cross_account_or_scope_revision_relation",
+        "competing_statement_versions_without_relation"
+      ],
+      "economic_observation_count": 2
+    }
+  ]
+}

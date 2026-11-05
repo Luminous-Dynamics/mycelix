@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-bank-chain-verifier-report-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "benchmark_id",
+    "dataset_version",
+    "status",
+    "claim_scope",
+    "digests",
+    "case_count",
+    "passed_case_count",
+    "errors",
+    "cases"
+  ],
+  "properties": {
+    "report_schema": {
+      "const": "fin-bank-chain-verifier.report.v1"
+    },
+    "benchmark_id": {
+      "const": "FIN-BANK-CHAIN"
+    },
+    "dataset_version": {
+      "const": "1.0.4"
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "claim_scope": {
+      "const": "public_synthetic_semantic_conformance_only_not_blind_evaluation"
+    },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_input_sha256",
+        "candidate_schema_sha256",
+        "public_reference_oracle_sha256",
+        "oracle_schema_sha256",
+        "verifier_library_sha256"
+      ],
+      "properties": {
+        "candidate_input_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "candidate_schema_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "public_reference_oracle_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_schema_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "verifier_library_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passed_case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "actual_disposition",
+          "expected_disposition",
+          "passed",
+          "reason_codes",
+          "economic_observation_count"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^BSC-[0-9]{3}$"
+          },
+          "actual_disposition": {
+            "enum": [
+              "complete_contiguous",
+              "complete_with_explicit_adjustment",
+              "gap_unknown",
+              "overlap_unresolved",
+              "balance_conflict",
+              "revision_conflict",
+              "account_lineage_unknown",
+              "profile_unsupported",
+              "source_authentication_unqualified"
+            ]
+          },
+          "expected_disposition": {
+            "enum": [
+              "complete_contiguous",
+              "complete_with_explicit_adjustment",
+              "gap_unknown",
+              "overlap_unresolved",
+              "balance_conflict",
+              "revision_conflict",
+              "account_lineage_unknown",
+              "profile_unsupported",
+              "source_authentication_unqualified"
+            ]
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "economic_observation_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

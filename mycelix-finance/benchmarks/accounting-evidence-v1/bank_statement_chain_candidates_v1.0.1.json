@@ -1,0 +1,4371 @@
+{
+  "benchmark_id": "FIN-BANK-CHAIN",
+  "dataset_version": "1.0.1",
+  "status": "synthetic_semantic_fixtures_not_live_camt_xml",
+  "cases": [
+    {
+      "case_id": "BSC-001",
+      "task": "Determine whether the two adjacent booked statements form a continuous chain.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-001",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003e9"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d1"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-002",
+      "task": "Determine whether the adjacent statements reconcile their booked balance boundary.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-002",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ea"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d2"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12001",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-003",
+      "task": "Evaluate continuity when the adjacent statements use incompatible cutoff profiles.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-003",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003eb"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d3"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-utc-midnight-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-004",
+      "task": "Evaluate a repeated delivery of the exact same statement message and payload.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-004",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ec"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d4"
+          },
+          {
+            "artifact_id": "art-oct-replay",
+            "receipt_id": "receipt-oct-2",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ec"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_type": "exact_replay",
+            "from_artifact_id": "art-oct",
+            "to_artifact_id": "art-oct-replay",
+            "reason_ref": "same-message-id-and-payload-digest"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "BSC-005",
+      "task": "Evaluate the same source message identity arriving with different payload bytes.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-005",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ed"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d5"
+          },
+          {
+            "artifact_id": "art-oct-conflict",
+            "receipt_id": "receipt-oct-conflict",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000f423f"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-006",
+      "task": "Evaluate a bank-issued replacement statement with an explicit replacement relation.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-006",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ee"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d6"
+          },
+          {
+            "artifact_id": "art-nov-reissued",
+            "receipt_id": "receipt-nov-reissued",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-002",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000d9038"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov-original",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov-reissued",
+            "artifact_id": "art-nov-reissued",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_type": "replaces",
+            "from_artifact_id": "art-nov-reissued",
+            "to_artifact_id": "art-nov",
+            "reason_ref": "bank-reissue-reference-synthetic"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "BSC-007",
+      "task": "Evaluate competing statements for the same period without supersession evidence.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-007",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ef"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d7"
+          },
+          {
+            "artifact_id": "art-nov-competing",
+            "receipt_id": "receipt-nov-competing",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-002",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000bde31"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov-competing",
+            "artifact_id": "art-nov-competing",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10999",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-008",
+      "task": "Evaluate overlapping statements that contain the same economic observation with explicit linkage.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-008",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f0"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d8"
+          },
+          {
+            "artifact_id": "art-overlap",
+            "receipt_id": "receipt-overlap",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-overlap-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "abababababababababababababababababababababababababababababababab"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-overlap",
+            "artifact_id": "art-overlap",
+            "period_id": "2026-10-overlap",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-15T00:00:00+02:00",
+            "end_at": "2026-11-16T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-10-15T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-11-16T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_type": "same_economic_observation",
+            "from_artifact_id": "art-nov",
+            "to_artifact_id": "art-overlap",
+            "reason_ref": "same-entry-reference-and-bank-lineage"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "BSC-009",
+      "task": "Evaluate overlapping statement evidence whose purported common entry has a different amount.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-009",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f1"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d9"
+          },
+          {
+            "artifact_id": "art-overlap",
+            "receipt_id": "receipt-overlap",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-overlap-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "abababababababababababababababababababababababababababababababab"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-overlap-conflict",
+            "artifact_id": "art-overlap",
+            "period_id": "2026-10-overlap",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-15T00:00:00+02:00",
+            "end_at": "2026-11-16T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-10-15T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-11-16T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1001",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_type": "same_economic_observation",
+            "from_artifact_id": "art-nov",
+            "to_artifact_id": "art-overlap",
+            "reason_ref": "conflicting-amount-fixture"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "BSC-010",
+      "task": "Determine whether the declared two-period scope is complete when the second statement is absent.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-010",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f2"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007da"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-011",
+      "task": "Determine whether a statement with a missing page can satisfy the declared source scope.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-011",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f3"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007db"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 2,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-012",
+      "task": "Determine whether an intraday CAMT.052 report can substitute for a missing CAMT.053 statement.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-012",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f4"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.052.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007dc"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-013",
+      "task": "Determine whether a CAMT.054 notification alone closes a missing booked-statement period.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-013",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f5"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.054.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007dd"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-014",
+      "task": "Evaluate a CAMT.054 notification linked to the subsequent CAMT.053 booked entry.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-014",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f6"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007de"
+          },
+          {
+            "artifact_id": "art-nov-notification",
+            "receipt_id": "receipt-nov-notification",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-notice-001",
+            "message_definition": "camt.054.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000a2c2a"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_type": "notification_for",
+            "from_artifact_id": "art-nov-notification",
+            "to_artifact_id": "art-nov",
+            "reason_ref": "matched-account-currency-amount-bank-reference"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "BSC-015",
+      "task": "Evaluate a later corrected statement that explicitly identifies the prior statement it corrects.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-015",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f7"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007df"
+          },
+          {
+            "artifact_id": "art-oct-corrected",
+            "receipt_id": "receipt-oct-corrected",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-002",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "0000000000000000000000000000000000000000000000000000000000087a23"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct-original",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-oct-corrected",
+            "artifact_id": "art-oct-corrected",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_type": "corrects",
+            "from_artifact_id": "art-oct-corrected",
+            "to_artifact_id": "art-oct",
+            "reason_ref": "bank-correction-reference-synthetic"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "BSC-016",
+      "task": "Evaluate a booked entry arriving in the later period with a value date in the prior period.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-016",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f8"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e0"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11500",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "entry_ref": "entry-late-booking",
+                "economic_event_ref": "event-late-booking",
+                "amount_minor": "500",
+                "direction": "CREDIT",
+                "booking_at": "2026-11-10T09:00:00+02:00",
+                "value_date": "2026-10-31",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-017",
+      "task": "Evaluate a later return/reversal as an append-only successor to the original booked entry.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-017",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003f9"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e1"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "9000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "entry_ref": "entry-reversal",
+                "economic_event_ref": "event-reversal",
+                "amount_minor": "2000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-20T09:00:00+02:00",
+                "value_date": "2026-11-20",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_type": "reverses",
+            "from_artifact_id": "art-nov",
+            "to_artifact_id": "art-oct",
+            "reason_ref": "bank-return-reference-synthetic"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "BSC-018",
+      "task": "Evaluate a changed account reference without authoritative account-lineage evidence.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-018",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fa"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-different-token",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e2"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-different-token",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-019",
+      "task": "Evaluate a statement using a currency denomination profile not admitted by this chain.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-019",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fb"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e3"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "UNPINNED-CURRENCY-PROFILE",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "UNPINNED-CURRENCY-PROFILE"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-020",
+      "task": "Evaluate an available balance incorrectly supplied as the statement closing booked balance.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-020",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fc"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e4"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "AVAILABLE",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-021",
+      "task": "Evaluate a bank fee explicitly represented as a booked statement entry.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-021",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fd"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e5"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10900",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "entry_ref": "entry-bank-fee",
+                "economic_event_ref": "event-bank-fee",
+                "amount_minor": "100",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-22T10:00:00+02:00",
+                "value_date": "2026-11-22",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+                "entry_type": "BANK_FEE"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-022",
+      "task": "Evaluate a statement attributed to an entity that conflicts with the chain account entity.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-022",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003fe"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e6"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-foreign",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-023",
+      "task": "Evaluate structurally valid statement evidence received without qualified sender authentication.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-023",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003ff"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": false,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e7"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-024",
+      "task": "Evaluate parsed statements when the expected source population declares an additional unobserved account.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-024",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001",
+          "acct-savings-token-002"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "0000000000000000000000000000000000000000000000000000000000000400"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e8"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-025",
+      "task": "Evaluate whether artifact arrival order changes the semantic chain result.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-025",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007e9"
+          },
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "0000000000000000000000000000000000000000000000000000000000000401"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-026",
+      "task": "Evaluate whether an exact replay added after the initial chain changes economic observation counts.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-026",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "0000000000000000000000000000000000000000000000000000000000000402"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007ea"
+          },
+          {
+            "artifact_id": "art-nov-replay",
+            "receipt_id": "receipt-nov-replay",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007ea"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_type": "exact_replay",
+            "from_artifact_id": "art-nov",
+            "to_artifact_id": "art-nov-replay",
+            "reason_ref": "same-message-id-and-payload-digest"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "BSC-027",
+      "task": "Determine whether a one-second gap at the start of a required statement period can be treated as continuous coverage.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-027",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003e9"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d1"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:01+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "2",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "case_id": "BSC-028",
+      "task": "Determine whether a statement sequence that skips the exact expected source sequence can satisfy the declared chain.",
+      "manifest": {
+        "schema_id": "fin-bank-statement-chain.v1",
+        "chain_id": "chain-028",
+        "chain_version": "1",
+        "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+        "account": {
+          "account_token": "acct-main-token-001",
+          "entity_token": "entity-synth-001",
+          "identity_state": "synthetic_fixture_only"
+        },
+        "expected_scope": [
+          {
+            "period_id": "2026-10",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "1"
+          },
+          {
+            "period_id": "2026-11",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "required": true,
+            "expected_page_count": 1,
+            "expected_sequence": "2"
+          }
+        ],
+        "expected_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "observed_population_tokens": [
+          "acct-main-token-001"
+        ],
+        "artifacts": [
+          {
+            "artifact_id": "art-oct",
+            "receipt_id": "receipt-oct-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-oct-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-11-01T00:03:00+02:00",
+            "captured_at": "2026-11-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000003e9"
+          },
+          {
+            "artifact_id": "art-nov",
+            "receipt_id": "receipt-nov-1",
+            "digest_kind": "synthetic_fixture_commitment_not_raw_xml_hash",
+            "message_id": "msg-nov-001",
+            "message_definition": "camt.053.001.14",
+            "account_token": "acct-main-token-001",
+            "created_at": "2026-12-01T00:03:00+02:00",
+            "captured_at": "2026-12-01T00:04:00+02:00",
+            "profile_ref": "iso20022-b2c-cash-mgmt-v14-synthetic",
+            "sender_authenticated": true,
+            "fixture_digest_token": "00000000000000000000000000000000000000000000000000000000000007d1"
+          }
+        ],
+        "statements": [
+          {
+            "statement_id": "stmt-oct",
+            "artifact_id": "art-oct",
+            "period_id": "2026-10",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-10-01T00:00:00+02:00",
+            "end_at": "2026-11-01T00:00:00+02:00",
+            "sequence": "1",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "10000",
+              "as_of": "2026-10-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-oct-credit",
+                "economic_event_ref": "event-oct-credit",
+                "amount_minor": "2000",
+                "direction": "CREDIT",
+                "booking_at": "2026-10-15T10:00:00+02:00",
+                "value_date": "2026-10-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          },
+          {
+            "statement_id": "stmt-nov",
+            "artifact_id": "art-nov",
+            "period_id": "2026-11",
+            "account_token": "acct-main-token-001",
+            "entity_token": "entity-synth-001",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "cutoff_profile_ref": "cutoff-synth-day-close-v1",
+            "start_at": "2026-11-01T00:00:00+02:00",
+            "end_at": "2026-12-01T00:00:00+02:00",
+            "sequence": "3",
+            "expected_page_count": 1,
+            "received_pages": [
+              1
+            ],
+            "opening_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "12000",
+              "as_of": "2026-11-01T00:00:00+02:00"
+            },
+            "closing_balance": {
+              "balance_type": "BOOKED",
+              "amount_minor": "11000",
+              "as_of": "2026-12-01T00:00:00+02:00"
+            },
+            "entries": [
+              {
+                "entry_ref": "entry-nov-debit",
+                "economic_event_ref": "event-nov-debit",
+                "amount_minor": "1000",
+                "direction": "DEBIT",
+                "booking_at": "2026-11-15T11:00:00+02:00",
+                "value_date": "2026-11-15",
+                "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ]
+          }
+        ],
+        "relations": []
+      }
+    }
+  ]
+}
