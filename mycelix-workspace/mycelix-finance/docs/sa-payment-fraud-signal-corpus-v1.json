@@ -401,7 +401,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -431,7 +435,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -490,7 +496,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -520,7 +530,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -579,7 +591,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -609,7 +625,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -668,7 +686,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -698,7 +720,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -757,7 +781,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -787,7 +815,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -846,7 +876,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -876,7 +910,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -935,7 +971,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -965,7 +1005,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -1024,7 +1066,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1054,7 +1100,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -1113,7 +1161,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1143,7 +1195,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -1202,7 +1256,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1232,7 +1290,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -1291,7 +1351,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1321,7 +1385,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -1380,7 +1446,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1412,7 +1482,9 @@
           "correction_record_refs": [
             "SYN-CONTEST-12"
           ],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -1471,7 +1543,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1503,7 +1579,15 @@
           "correction_record_refs": [
             "SYN-CORRECTION-13"
           ],
-          "superseding_signal_id": "FIS-013-V2"
+          "superseding_signal_id": "FIS-013-V2",
+          "previous_recipient_ids": [
+            "BANK-B",
+            "BANK-C",
+            "BANK-D"
+          ],
+          "notified_recipient_ids": [
+            "BANK-B"
+          ]
         }
       },
       "query": {
@@ -1562,7 +1646,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1594,7 +1682,15 @@
           "correction_record_refs": [
             "SYN-CORRECTION-14"
           ],
-          "superseding_signal_id": "FIS-014-V2"
+          "superseding_signal_id": "FIS-014-V2",
+          "previous_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "notified_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ]
         }
       },
       "query": {
@@ -1653,7 +1749,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1685,7 +1785,15 @@
           "correction_record_refs": [
             "SYN-WITHDRAWAL-15"
           ],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "notified_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ]
         }
       },
       "query": {
@@ -1745,7 +1853,11 @@
           ],
           "confidence_level": "high",
           "confidence_method_ref": "SYN-CALIBRATION-16",
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1775,7 +1887,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -1834,7 +1948,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": "MODEL-17"
+          "determining_authority_ref": "MODEL-17",
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1864,7 +1982,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -1923,7 +2043,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -1953,7 +2077,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2012,7 +2138,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2042,7 +2172,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2101,7 +2233,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2131,7 +2267,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2190,7 +2328,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2220,7 +2362,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2279,7 +2423,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2309,13 +2457,15 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
-        "recipient_id": "RESEARCH-X",
+        "recipient_id": "BANK-B",
         "recipient_class": "research_or_regulator",
-        "recipient_subject_ref": "pairwise:RESEARCH-X:SUBJECT-022",
+        "recipient_subject_ref": "pairwise:BANK-B:SUBJECT-022",
         "requested_purpose": "fraud_prevention",
         "requested_action": "manual_review",
         "evaluated_at": "2026-11-05T08:00:00Z"
@@ -2368,7 +2518,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "FSR_ACT_9_2017_SECTION_251",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2395,7 +2549,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2454,7 +2610,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "FSR_ACT_9_2017_SECTION_251",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2481,7 +2641,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2540,7 +2702,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2570,7 +2736,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2629,7 +2797,11 @@
           ],
           "confidence_level": "high",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2659,7 +2831,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2718,7 +2892,10 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "EU_INSTANT_PAYMENTS_VOP_2025"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2745,7 +2922,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2804,7 +2983,10 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "UK_PSR_APP_DASHBOARD_2026_07"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2831,7 +3013,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2890,7 +3074,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -2920,7 +3108,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -2979,7 +3169,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -3009,7 +3203,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -3068,7 +3264,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -3098,7 +3298,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -3157,7 +3359,11 @@
           ],
           "confidence_level": "low",
           "confidence_method_ref": null,
-          "determining_authority_ref": null
+          "determining_authority_ref": null,
+          "source_refs": [
+            "SARB_PEM_WORKING_GROUPS_2026",
+            "SARB_PEM_DIALOGUE_2026_04"
+          ]
         },
         "sharing": {
           "permitted_recipient_ids": [
@@ -3187,7 +3393,9 @@
           "previous_recipient_count": 0,
           "notified_recipient_count": 0,
           "correction_record_refs": [],
-          "superseding_signal_id": null
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
         }
       },
       "query": {
@@ -3200,6 +3408,194 @@
       },
       "expected_admission": "reject",
       "expected_reason_code": "knowledge_forum_not_customer_level_exchange",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-033",
+      "signal": {
+        "signal_id": "FIS-033",
+        "profile_id": "ZA-PEM-NPU-FRAUD-PROPOSAL-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-33",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000033",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000033",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "participant_reported_fraud",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:001",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-33-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "SARB_PEM_POSITION_2025",
+            "SARB_PEM_DIALOGUE_2026_04"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "FUTURE-NPU"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-33",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
+        }
+      },
+      "query": {
+        "recipient_id": "FUTURE-NPU",
+        "recipient_class": "future_npu_participant",
+        "recipient_subject_ref": "pairwise:FUTURE-NPU:SUBJECT-033",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z"
+      },
+      "expected_admission": "quarantine",
+      "expected_reason_code": "proposed_programme_not_operational",
+      "expected_action_class": "none"
+    },
+    {
+      "scenario_id": "SA-FIS-034",
+      "signal": {
+        "signal_id": "FIS-034",
+        "profile_id": "ZA-PRIVATE-PARTICIPANT-SYNTHETIC-EXCHANGE-V1",
+        "version": 1,
+        "issuer": {
+          "participant_id": "BANK-A",
+          "issuer_role": "private_payment_participant",
+          "controller_role": "private_payment_participant",
+          "authority_scope_state": "authorized",
+          "signing_key_id": "KEY-BANK-A-01",
+          "verification": {
+            "signature_state": "verified",
+            "key_state": "valid",
+            "verification_receipt_ref": "SYN-VERIFY-34",
+            "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000034",
+            "verified_payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000034",
+            "trusted_key_registry_revision": "SYN-KEYSET-2026-11-05"
+          }
+        },
+        "subject": {
+          "subject_type": "transaction",
+          "issuer_local_subject_ref": "issuer-local:SUBJECT-001",
+          "data_classification": "transaction_only"
+        },
+        "observed_event": {
+          "category": "transaction_pattern_observed",
+          "observed_at": "2026-11-04T08:00:00Z",
+          "recorded_at": "2026-11-04T08:01:00Z",
+          "event_reference": "issuer-event:034",
+          "description_code": "SYNTHETIC_OBSERVATION"
+        },
+        "assertion": {
+          "status": "suspected",
+          "evidence_class": "direct_participant_observation",
+          "evidence_refs": [
+            "SYN-EVID-34-A"
+          ],
+          "evidence_group_ids": [
+            "SOURCE-GROUP-BANK-A"
+          ],
+          "confidence_level": "low",
+          "confidence_method_ref": null,
+          "determining_authority_ref": null,
+          "source_refs": [
+            "ASAPP_STRATEGIC_POSITIONS_2026",
+            "POPIA_ACT_4_2013"
+          ]
+        },
+        "sharing": {
+          "permitted_recipient_ids": [
+            "BANK-B",
+            "BANK-C"
+          ],
+          "permitted_purposes": [
+            "fraud_prevention",
+            "fraud_investigation",
+            "recourse_case"
+          ],
+          "prohibited_purposes": [
+            "credit_scoring",
+            "marketing",
+            "unrelated_account_eligibility"
+          ],
+          "lawful_basis_code": "legitimate_interest",
+          "lawful_basis_status": "reviewed_for_fixture",
+          "lawful_basis_ref": "SYN-BASIS-1",
+          "special_info_review_status": "not_applicable",
+          "special_info_review_ref": null,
+          "retention_expires_at": "2027-01-01T00:00:00Z",
+          "storage_scope": "controlled_exchange"
+        },
+        "lifecycle": {
+          "correction_status": "none",
+          "previous_recipient_count": 0,
+          "notified_recipient_count": 0,
+          "correction_record_refs": [],
+          "superseding_signal_id": null,
+          "previous_recipient_ids": [],
+          "notified_recipient_ids": []
+        }
+      },
+      "query": {
+        "recipient_id": "BANK-B",
+        "recipient_class": "regulated_payment_participant",
+        "recipient_subject_ref": "pairwise:BANK-C:SUBJECT-034",
+        "requested_purpose": "fraud_prevention",
+        "requested_action": "manual_review",
+        "evaluated_at": "2026-11-05T08:00:00Z"
+      },
+      "expected_admission": "reject",
+      "expected_reason_code": "pairwise_subject_scope_mismatch",
       "expected_action_class": "none"
     }
   ]
