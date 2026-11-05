@@ -9,6 +9,7 @@ on:
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
       - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   pull_request:
@@ -16,6 +17,9 @@ on:
       - ".github/workflows/pulse-authority-model.yml"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
       - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   workflow_dispatch:
 
@@ -241,6 +245,38 @@ jobs:
           grep -q "AtMostOneEffectPerLogicalEvent" \
             "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-replay-mutant/tlc.log"
 
+      - name: Check safe lineage-bound AuthorityCheckpoint model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-safe/states" \
+            -config PulseAuthorityCheckpointLineage.cfg \
+            PulseAuthorityCheckpointLineage.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-safe/tlc.log"
+
+      - name: Require foreign-lineage checkpoint bypass counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-mutant/states" \
+            -config PulseAuthorityCheckpointLineage-bypass-mutant.cfg \
+            PulseAuthorityCheckpointLineage.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoForeignLineageCanBeTrusted" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-mutant/tlc.log"
+
       - name: Record exact model receipt
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
@@ -272,6 +308,9 @@ jobs:
             echo "checkpoint_spec_sha256=$(sha256sum PulseAuthorityCheckpoint.tla | cut -d' ' -f1)"
             echo "checkpoint_safe_config_sha256=$(sha256sum PulseAuthorityCheckpoint.cfg | cut -d' ' -f1)"
             echo "checkpoint_bypass_mutant_sha256=$(sha256sum PulseAuthorityCheckpoint-bypass-mutant.cfg | cut -d' ' -f1)"
+            echo "checkpoint_lineage_spec_sha256=$(sha256sum PulseAuthorityCheckpointLineage.tla | cut -d' ' -f1)"
+            echo "checkpoint_lineage_safe_config_sha256=$(sha256sum PulseAuthorityCheckpointLineage.cfg | cut -d' ' -f1)"
+            echo "checkpoint_lineage_bypass_mutant_sha256=$(sha256sum PulseAuthorityCheckpointLineage-bypass-mutant.cfg | cut -d' ' -f1)"
             echo "signal_trust_spec_sha256=$(sha256sum PulseSignalTrust.tla | cut -d' ' -f1)"
             echo "signal_trust_safe_config_sha256=$(sha256sum PulseSignalTrust.cfg | cut -d' ' -f1)"
             echo "signal_trust_forged_mutant_sha256=$(sha256sum PulseSignalTrust-forged-payload-mutant.cfg | cut -d' ' -f1)"
