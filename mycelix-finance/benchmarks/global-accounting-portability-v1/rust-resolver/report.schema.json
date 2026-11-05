@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-profile-resolution-report-v1.0.0.json",
+  "title": "Global Profile Resolution Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "request_id",
+    "disposition",
+    "intended_use",
+    "jurisdiction_scopes",
+    "entity_scope",
+    "reporting_period_start",
+    "reporting_period_end",
+    "knowledge_at",
+    "required_dimensions",
+    "resolved_dimensions",
+    "missing_dimensions",
+    "selected_profiles",
+    "unsupported_profile_ids",
+    "matched_intersection_id",
+    "scope_kind",
+    "claim_ceiling",
+    "blocking_reasons",
+    "digests",
+    "network_access_during_resolution"
+  ],
+  "properties": {
+    "report_schema": {
+      "const": "global-profile-resolution-report.v1.0.0"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 3
+    },
+    "disposition": {
+      "enum": [
+        "qualified_for_declared_scope",
+        "partial_or_profile_scoped",
+        "needs_review",
+        "indeterminate",
+        "unsupported_profile"
+      ]
+    },
+    "intended_use": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jurisdiction_scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "entity_scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reporting_period_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "reporting_period_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "knowledge_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "required_dimensions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "resolved_dimensions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_dimensions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "selected_profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/selectedProfile"
+      }
+    },
+    "unsupported_profile_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "matched_intersection_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scope_kind": {
+      "enum": [
+        "none",
+        "synthetic_fixture_only",
+        "real_world"
+      ]
+    },
+    "claim_ceiling": {
+      "enum": [
+        "no_qualification_claim",
+        "synthetic_fixture_only",
+        "declared_scope_only"
+      ]
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "digests": {
+      "$ref": "#/$defs/digests"
+    },
+    "network_access_during_resolution": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "selectedProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "dimension",
+        "status"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "dimension": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_sha256",
+        "registry_schema_sha256",
+        "request_sha256",
+        "request_schema_sha256",
+        "resolver_source_sha256"
+      ],
+      "properties": {
+        "registry_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "registry_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "request_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "resolver_source_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
