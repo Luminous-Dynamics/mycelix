@@ -44,7 +44,7 @@ A correct amount with no source binding is not a correct journal. A balanced jou
 
 ## S0 case coverage
 
-The expanded public S0 contains **19 synthetic tasks and 19 oracle rows**:
+The expanded public S0 contains **20 synthetic tasks and 20 oracle rows**:
 
 1. Complete USD invoice and supported service period — deliver.
 2. Unknown service start date — clarify.
@@ -65,8 +65,9 @@ The expanded public S0 contains **19 synthetic tasks and 19 oracle rows**:
 17. Service start after service end — escalate instead of guessing which source date is wrong.
 18. Credit-note parent invoice ID exists only in another tenant namespace — escalate rather than cross-linking another tenant's invoice.
 19. An invoice has two known revisions — use the superseding revision only after it is received, and preserve the older revision for earlier historical replay.
+20. Two revisions share a source identity but have no supersession link — escalate instead of summing or choosing a revision.
 
-Expected dispositions: five deliver, eight clarify, one abstain and five escalate. The 19 cases contain 34 source documents, 69 facts, six expected journal entries and six expected statement lines. The values are synthetic; no real client or book is represented. Document integrity flags are fixture controls, not cryptographic measurements of live source bytes.
+Expected dispositions: five deliver, eight clarify, one abstain and six escalate. The 20 cases contain 37 source documents, 74 facts, six expected journal entries and six expected statement lines. The values are synthetic; no real client or book is represented. Document integrity flags are fixture controls, not cryptographic measurements of live source bytes.
 
 ## Deterministic validator
 
@@ -84,6 +85,7 @@ The validator:
 - checks unique document, fact, journal-entry, line and statement identities;
 - checks tenant/source document identity and duplicate-link rules while preserving same IDs in different namespaces;
 - models document revision supersession explicitly: a revision supersedes an earlier revision only after the newer document is received, so historical replay before receipt retains the earlier revision;
+- rejects multiple revisions of one source identity when their supersession chain is missing or ambiguous;
 - resolves every fact to a source document;
 - enforces valid-time overlap with the accounting period and excludes facts/documents recorded or received after `knowledge_at`;
 - excludes facts from earlier document revisions once a superseding revision is known at the requested frontier, while preserving earlier facts for historical replay before that frontier;
@@ -96,7 +98,7 @@ The validator:
 - fingerprints the exact candidate and oracle bytes with SHA-256;
 - guarantees that the benchmark never posts to a live ledger or performs another external side effect.
 
-Twenty-three unit tests are authored, including future-received invoices, future FX facts, future parent invoices, same-ID cross-namespace parent rejection, disputed supplier identity, invalidated service dates, namespace collisions, impossible service-period intervals, superseding-revision selection, historical replay before revision receipt, per-entry balance mutation and period allocation. They are **not yet executed**.
+Twenty-six unit tests are authored, including future-received invoices, future FX facts, future parent invoices, same-ID cross-namespace parent rejection, disputed supplier identity, invalidated service dates, namespace collisions, impossible service-period intervals, superseding-revision selection, historical replay before revision receipt, unlinked-revision escalation, duplicate-copy versus revision distinction, per-entry balance mutation and period allocation. They are **not yet executed**.
 
 ## Benchmark plan and target gates
 
